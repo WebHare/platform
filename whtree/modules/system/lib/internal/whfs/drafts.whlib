@@ -67,37 +67,6 @@ MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid) {
   }
 }
 
-RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid, INTEGER versionparent, RECORD updates)
-{
-  RECORD orginfo := SELECT * FROM system.fs_objects WHERE id = srcid;
-  RECORD currentinfo := MakeReplacedRecord(orginfo, updates);
-
-  INSERT INTO system.fs_objects(id, parent, name
-                , creationdate, modificationdate, type, filelink
-                , isfolder, indexdoc, data, title, description
-                , modifiedby, externallink, keywords, ispinned)
-       VALUES(destid, versionparent, ToString(destid)
-               , currentinfo.creationdate, currentinfo.modificationdate, currentinfo.type, currentinfo.filelink
-               , currentinfo.isfolder, currentinfo.indexdoc, currentinfo.data, currentinfo.title, currentinfo.description
-               , currentinfo.modifiedby, currentinfo.externallink, currentinfo.keywords, currentinfo.ispinned);
-
-  BOOLEAN isindex := RecordExists(
-        SELECT
-          FROM system.fs_objects
-         WHERE id = orginfo.parent
-           AND indexdoc = srcid);
-
-  CopyWorkflowInstances(instancesource, destid);
-
-  OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-  typeobj->SetInstancedata(destid,
-      [ name :=       orginfo.name
-      , parent :=     orginfo.isactive ? orginfo.parent : 0
-      ], [ ifreadonly := "update" ]);
-
-  RETURN currentinfo;
-}
-
 MACRO RefreshDraftStatus(INTEGER fsobjectid)
 {
   INTEGER publicdraft := SELECT AS INTEGER id FROM system.fs_objects WHERE filelink = fsobjectid AND parent = whconstant_whfsid_drafts;
@@ -138,7 +107,7 @@ RECORD ARRAY FUNCTION GetSomeDrafts(INTEGER requestinguser, INTEGER forsource)
 
 PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid)
 {
-  RECORD versioninfo := SELECT id, parent, filelink FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];
+  RECORD versioninfo := SELECT id, parent, filelink FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];//17 no longer exists
   IF(NOT RecordExists(versioninfo))
     RETURN DEFAULT OBJECT;
 
@@ -183,6 +152,42 @@ STATIC OBJECTTYPE WHFSDraft <
     this->pvt_source := 0;
   }
 
+  PUBLIC RECORD FUNCTION GetMetadata() {
+    RECORD draftmeta := this->pvt_fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+    RECORD basefields := SELECT title, keywords, description FROM system.fs_objects WHERE id = this->id;
+    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description ];
+  }
+
+  PUBLIC MACRO UpdateMetadata(RECORD updates) {
+    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "" ], updates, [ optional := ["*"], title := "updates" ] );
+
+    IF(NOT ObjectExists(this->pvt_fsobject))
+      THROW NEW Exception("This draft no longer exists");
+    IF(this->ispublic)
+      THROW NEW Exception("This draft is already commited to history and is read-only");
+
+    IF(CellExists(updates,'name'))
+      this->pvt_fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
+
+    RECORD directupdates :=  PickCells(updates, ["title","description","keywords"]);
+    UPDATE system.fs_objects SET RECORD CELL[ ...directupdates
+                                            , modificationdate := GetCurrentDatetime()
+                                            ]
+                           WHERE id = this->id;
+  }
+
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING typens) {
+    RECORD typeinfo := LookupContentTypeByName(typens);
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW Exception(`Type '${typens}' is not a known content type`);
+    IF(NOT typeinfo.workflow)
+      THROW NEW Exception(`Type '${typens}' does not support workflow and should not be retrieved from drafts`);
+    IF(NOT ObjectExists(this->pvt_fsobject))
+      THROW NEW Exception("This draft no longer exists");
+
+    RETURN this->pvt_fsobject->GetInstanceData(typens);
+  }
+
   PUBLIC MACRO SetInstanceData(STRING typens, RECORD data) {
     RECORD typeinfo := LookupContentTypeByName(typens);
     IF(NOT RecordExists(typeinfo))
@@ -191,6 +196,8 @@ STATIC OBJECTTYPE WHFSDraft <
       THROW NEW Exception(`Type '${typens}' does not support workflow and should not be set on drafts`);
     IF(NOT ObjectExists(this->pvt_fsobject))
       THROW NEW Exception("This draft no longer exists");
+    IF(this->ispublic)
+      THROW NEW Exception("This draft is already commited to history and is read-only");
 
     this->pvt_fsobject->SetInstanceData(typens, data, [ ifreadonly := "update" ]);
   }
@@ -361,7 +368,7 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
 
   // Determine the base object for the draft we're going to update
   INTEGER baseobjectid;
-  RECORD objinfo := SELECT filelink, parent, isfolder, whfspath FROM system.fs_objects WHERE id = VAR objid;
+  RECORD objinfo := SELECT name, filelink, parent, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR objid;
   IF(objinfo.parent = whconstant_whfsid_drafts)
     baseobjectid := objinfo.filelink;
   ELSE IF(IsRecycleOrHistoryWHFSPath(objinfo.whfspath))
@@ -372,12 +379,25 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
     baseobjectid := objid;
 
   // Set up the new object (the 'autosave', or at least it will be an autosave as soon as we start writing data from editdocument here)
+  DATETIME now := GetCurrentDateTime();
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  QuickCopy(baseobjectid, objid, destid, whconstant_whfsid_autosaves,
-    [ modifiedby := options.user->authobjectid
-    , filelink := baseobjectid
-    , creationdate := GetCurrentDatetime()
-  ]);
+  INSERT CELL [ id := destid
+              , parent := whconstant_whfsid_autosaves
+              , name := ToString(destid)
+              , creationdate := now
+              , modificationdate := now
+              , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
+              , filelink := baseobjectid
+              , modifiedby := options.user->authobjectid
+             ] INTO system.fs_objects;
+
+  CopyWorkflowInstances(objid, destid);
+
+  OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  typeobj->SetInstancedata(destid,
+      [ name :=       baseobjectid = objid ? objinfo.name : typeobj->GetInstanceData(objid).name
+      , parent :=     objinfo.parent
+      ], [ ifreadonly := "update" ]);
 
   OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobjectid);
   RETURN draft;

@@ -323,6 +323,15 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->LoadBaseData(this->GetBaseFSObject()); //TODO should be instance object once versioning works
     this->LoadMetadata(this->GetInstanceObject());
+
+    IF(ObjectExists(this->currentautosave ?? this->currentdraft)) {
+      RECORD meta := (this->currentautosave ?? this->currentdraft)->GetMetadata();
+      ^name->value := meta.name ?? ^name->value;
+      ^title->value := meta.title ?? ^title->value;
+      ^keywords->value := meta.keywords ?? ^keywords->value;
+      ^description->value := meta.description ?? ^description->value;
+    }
+
     this->RefreshState();
   }
 

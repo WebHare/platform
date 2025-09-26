@@ -76,11 +76,15 @@ MACRO DraftingTest()
   TestEq([ no_clone_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "created_0_1" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq([ clone_only_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestEq([ name := "test.html", title := "A new title", keywords := "my new keywords", description := "d" ], draft->GetMetadata());
 
   draft->fsobject->UpdateData(StringToBlob("This just went into a temporary draft"));
   TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
   draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_1" ]);
   TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
+
+  draft->UpdateMetadata(CELL[ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ]);
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ], draft->GetMetadata());
 
   //TODO should drafts have a GetInstanceData? If so, would that then look at the main object for non-workflow data?
   TestEq([ no_clone_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_no_clone"));
@@ -111,8 +115,13 @@ MACRO DraftingTest()
   TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "draft_0_1"]));
 
   //Now create a public draft from the first autosave. A public draft will destroy all autosaves FIXME why should it ? temp history may still have some value see VSCode file history
+  //Note that this converts the autosave to a public draft and logs it into the history - no new file is actually created here!
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("marge"));
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  //This draft is part of history now and shouldn't be easily modified
+  TestThrowsLike("*read-only*", PTR draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "try_update"]));
+  TestThrowsLike("*read-only*", PTR draft->UpdateMetadata(CELL[ title := "Try update" ]));
 
   // FIXME verify that empty instances properly get copied too
 
@@ -126,8 +135,13 @@ MACRO DraftingTest()
   TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq([ clone_only_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
   TestEq("I'm a jolly good file", BlobToString(OpenWHFSObject(testfile->id)->data), "Testfile is still untouched");
+  TestEq("test.html", testfile->name);
+  TestEq("A new title", testfile->title);
+  TestEq("my new keywords", testfile->keywords);
+  TestEq("d", testfile->description);
 
   // But we see new metadata on the public draft
+  // TODO shouldn't snapshots have an Object API too? aren't they just Drafts too, just frozen ?
   OBJECT rawsnapshot := OpenWHFSObject(history[1].snapshot);
   TestEq([ no_clone_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "draft_0_1" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -165,13 +179,13 @@ MACRO DraftingTest()
   drafts := GetDrafts(testfile->id);
   TestEq(TRUE, drafts[0].creationdate < drafts[1].creationdate, "Verify sort");
   TestEqMembers([
-    [ ispublic := TRUE,  mine := FALSE,  user := testfw->GetUserAuthobjectId("marge") ],
-    [ ispublic := FALSE, mine := FALSE , user := testfw->GetUserAuthobjectId("marge") ],
-    [ ispublic := FALSe, mine := TRUE, user := testfw->GetUserAuthobjectId("homer")  ]
+    [ ispublic := TRUE,  mine := FALSE, user := testfw->GetUserAuthobjectId("marge") ],
+    [ ispublic := FALSE, mine := FALSE, user := testfw->GetUserAuthobjectId("marge") ],
+    [ ispublic := FALSE, mine := TRUE,  user := testfw->GetUserAuthobjectId("homer")  ]
   ], drafts, "*", "1 public draft and 2 autosaves, one of which is Homer's");
 
 
-  //Cleanup discardable work from other users
+  //Cleanup discardable work from other users. Note that we switched to Homer earlier so we're clearing Marge's drafts
   CleanupOtherPrivateDrafts(testfile->id);
   drafts := GetDrafts(testfile->id);
   TestEq(2, Length(drafts));
@@ -182,6 +196,8 @@ MACRO DraftingTest()
 
   //Let's save another draft
   draft := OpenWHFSDraft(drafts[1].id); //This is taking the autosave I created
+  TestEq([ with_workflow_string := "draft_0_1" ], draft->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ], draft->GetMetadata());
   draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
 
@@ -222,6 +238,12 @@ MACRO DraftingTest()
   testfile := OpenWHFSObject(testfile->id);
   TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq("I'm a jolly good file with some data added by Homer!", BlobToString(OpenWHFSObject(testfile->id)->data));
+  //FIXME CONSIDER should SaveAsFinal also rename the file? TestEq("test2.html", testfile->name);
+  //               also consider the file might be pinned since the draft started
+  //TODO Consider that title/keywords may have been updated OUTSIDE our workflow, handle that too
+  TestEq("An even newer title", testfile->title);
+  TestEq("my new keywords, plus more", testfile->keywords);
+  TestEq("dd", testfile->description);
 
   TestEq(0, Length(GetDrafts(testfile->id)));
   TestEq(TRUE, testfile->modificationdate > oldmoddate);

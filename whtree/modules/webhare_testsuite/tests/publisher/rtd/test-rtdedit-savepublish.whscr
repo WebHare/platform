@@ -30,8 +30,6 @@ ASYNC FUNCTION TestMetaFields(BOOLEAN readonly, BOOLEAN isprops) //shared MetaTa
 {
   //naming is inconsistent here
   STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
-  TestEq("testmetatab.rtd", TT(":Name")->value);
-  TestEq("My document", TT(":Title")->value);
   TestEq(TRUE,  TTIsVisible(metatitletitle));
 
   // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
@@ -116,6 +114,10 @@ ASYNC MACRO TestMetaTab()
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);
   TestEq(TRUE, TT(":Name")->enabled);
+  TestEq("testmetatab.rtd", TT(":Name")->value);
+  TestEq("My document", TT(":Title")->value);
+  TT(":Name")->value := "testmetatab2.rtd";
+  TT(":Title")->value := "My updated document";
 
   AWAIT TestMetaFields(FALSE, FALSE);
 
@@ -130,6 +132,8 @@ ASYNC MACRO TestMetaTab()
   INTEGER currentdraft := autosaves[0].id;
   TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
   TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+
+  TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "" ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
 
   //Make a change, not saving or publishing but checking through My changes
   AWAIT TestMetaFields(FALSE, FALSE);
@@ -153,12 +157,22 @@ ASYNC MACRO TestMetaTab()
     TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
+  TTClick(":Save"); //save again
+
+  //Restart RTD
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  TestEq("testmetatab2.rtd", TT(":Name")->value);
+  TestEq("My updated document", TT(":Title")->value);
+  AWAIT TestMetaFields(FALSE, FALSE); //verifies the fields but also increases number_Field again
+
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
   TestEq(RECORD[], autosaves);
 
-  TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   //Make yet ANOTHER change
   AWAIT TestMetaFields(FALSE, FALSE);
@@ -167,8 +181,8 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+    TestEqMembers([ number_field := 47 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
@@ -180,7 +194,7 @@ ASYNC MACRO TestMetaTab()
   AWAIT TestMetaFields(FALSE, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEqMembers([ number_field := 47], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()

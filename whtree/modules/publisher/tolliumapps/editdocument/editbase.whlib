@@ -6,6 +6,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -203,28 +204,25 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   MACRO LoadMetadata(OBJECT sourceobject)
   {
     FOREVERY(RECORD controller FROM this->metacontrollers)
-    {
       controller.fsinstance->value := controller.type->GetInstanceData(sourceobject->id);
-    }
   }
 
-  MACRO SaveMetadata(INTEGER targetobject)
-  {
+  MACRO SaveMetadata(INTEGER targetobject) { //editdocument will always be invoking us with a draft as parameter
+    OBJECT target := this->requireworkflow ? OpenWHFSDraft(targetobject) : OpenWHFSObject(targetobject);
+
     //FIXME ensure any specific validation rule *and* all valueConstraints are honored
     FOREVERY(RECORD controller FROM this->metacontrollers)
     {
       //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
-      controller.type->SetInstanceData(targetobject, controller.fsinstance->GetUpdateValue());
+      target->SetInstanceData(controller.type->namespace, controller.fsinstance->GetUpdateValue());
     }
 
-    RECORD updates;
-    IF(^title->enabled AND ^title->visible)
-      updates := CELL[...updates, title := ^title->value ];
-    IF(^description->enabled AND ^description->visible)
-      updates := CELL[...updates, description := ^description->value ];
-
-    IF(RecordExists(updates))
-      OpenWHFSObject(targetobject)->UpdateMetadata(updates);
+    target->UpdateMetadata(CELL [ title := ^title->value
+                                , description := ^description->value
+                                , keywords := ^keywords->value
+                                //FIXME unsafe when renaming from RTD, needs the same checks as objectprops?
+                                , ...(this->requireworkflow ? [ name := ^name->value ] : DEFAULT RECORD)
+                                ]);
   }
 
   BOOLEAN FUNCTION AddTypesTabs()
