@@ -74,21 +74,41 @@ function testToRules() {
   ]);
 
   testToRoundtrip({
-    testSetting: {
-      member: 'anyLanguage',
-      value: 'en',
-      type: 'http://webhare_demo.example_site/xmlns/site',
-      target: 'root'
-    }
-  }, [
-    {
-      type: 'testdata',
-      target: 'root',
-      typedef: 'http://webhare_demo.example_site/xmlns/site',
-      membername: 'any_language',
-      value: 'en'
-    }
-  ]);
+    or: [
+      {
+        testSetting: {
+          member: 'anyLanguage',
+          value: 'en',
+          type: 'http://webhare_demo.example_site/xmlns/site',
+          target: 'root'
+        },
+      }, {
+        testSetting: {
+          member: 'anyLanguage',
+          value: 'en',
+          type: 'http://webhare_demo.example_site/xmlns/site',
+          target: 'self'
+        }
+      }
+    ]
+  },
+    [
+      {
+        type: 'testdata',
+        target: 'root',
+        typedef: 'http://webhare_demo.example_site/xmlns/site',
+        membername: 'any_language',
+        value: 'en'
+      },
+      {
+        type: 'testdata',
+        target: 'self',
+        typedef: 'http://webhare_demo.example_site/xmlns/site',
+        membername: 'any_language',
+        value: 'en'
+      }
+
+    ]);
 
 }
 

@@ -41,6 +41,10 @@ properties:
           type: string
         icon:
           type: string
+  siteSettings:
+    type: array
+    items:
+      $ref: "#/$defs/SiteSetting"
   applySiteProfiles: # A list of siteprofiles to apply (by path) when this siteprofile is applied
     type: array
     items: #TODO alternative syntax with ifWebHare
@@ -198,29 +202,35 @@ $defs:
           - blockWidget
           - inlineWidget
       editor:
-        oneOf:
-          - type: object
-            additionalProperties: false
-            required:
-              - tabsExtension
-            properties:
-              tabsExtension:
-                type: string
-          - type: object
-            additionalProperties: false
-            required:
-              - function
-            properties:
-              function:
-                type: string
+        $ref: "#/$defs/WidgetEditor"
       renderer:
         type: string
       requireMergeFieldsContext:
         type: boolean
+      previewComponent:
+        type: string
       wittyComponent:
         type: string
       apply: # Note that widgets can have apply rules but these only affect widgets in the WHFS (Publisher), not RTD embedded widgets
         $ref: "#/$defs/ApplyRule"
+
+  WidgetEditor:
+    type: object
+    oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+          - tabsExtension
+        properties:
+          tabsExtension:
+            type: string
+      - type: object
+        additionalProperties: false
+        required:
+          - function
+        properties:
+          function:
+            type: string
 
   FolderType:
     type: object
@@ -486,6 +496,10 @@ $defs:
         $ref: "#/$defs/ApplyDebugSettings"
       pollSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#pollsettings
         $ref: "#/$defs/ApplyPollSettings"
+      mailTemplates:
+        $ref: "#/$defs/ApplyMailTemplates"
+      setWidget:
+        $ref: "#/$defs/ApplySetWidget"
     patternProperties:
       "[a-z][a-zA-Z0-9_]+:[a-zA-Z0-9_]+$": # Custom properties prefixed with a site name are simply parsed and passed through
         tsType: unknown # prevent broken schema, see also https://github.com/bcherny/json-schema-to-typescript/issues/671
@@ -567,8 +581,7 @@ $defs:
           testSetting:
             $ref: "#/$defs/ApplyToTestSetting"
           hasWebDesign:
-            type: boolean
-            const: true #no support for 'false' (requiring no design) as fileneedstemplate doesn't
+            type: boolean #NOTE no support for 'false' (requiring no design) as fileneedstemplate doesn't
             description: "If set, validate whether the object's type is published inside a webdesign"
           webFeature:
             type: string
@@ -588,8 +601,8 @@ $defs:
     properties:
       target:
         oneOf:
-        - const: "self"
-        - const: "root"
+          - const: "self"
+          - const: "root"
       type:
         type: string
       member:
@@ -1014,6 +1027,108 @@ $defs:
       revoteAfter:
         description: "ISO8601 period (eg P1D) after which voting is allowed again. (this check is cookie based so it can be circumvented by any user which clears his cookies)"
         type: string
+
+  ApplyMailTemplates:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        title:
+          type: string
+        tid:
+          type: string
+        ordering:
+          type: integer
+        sources:
+          $ref: "#/$defs/Sources"
+
+  ApplySetWidget:
+    type: object
+    description: Override widget configuration
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      properties:
+        editor:
+          $ref: "#/$defs/WidgetEditor"
+        renderer:
+          type: string
+        previewComponent:
+          type: string
+        wittyComponent:
+          type: string
+
+  Sources:
+    type: array
+    items:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description:
+            The path can either be an absolute path like "site::path/to/folder" or "whfs::/path/to/folder" or a path relative to
+            either the current site profile or the target object, based on the 'relativeto' setting. If the relative path starts
+            with a slash ('/'), it is resolved to the the root of the site or module that contains the site profile or the site
+            containing the target object.
+        relativeTo:
+          oneOf:
+            - const: siteProfile
+            - const: targetObject
+
+  SiteSetting:
+    type: object
+    additionalProperties: false
+    properties:
+      # Site filters
+      site:
+        description: Match site name
+        $ref: "#/$defs/MatchOrRegExp"
+      webRoot:
+        description: Match published site's root URL'
+        $ref: "#/$defs/MatchOrRegExp"
+      webRules:
+        type: array
+        items:
+          $ref: "#/$defs/WebRule"
+      addToCatalogs:
+        type: array
+        items:
+          $ref: "#/$defs/AddToCatalog"
+
+  AddToCatalog:
+    type: object
+    additionalProperties: false
+    required: [catalog]
+    properties:
+      catalog:
+        type: string
+        description: Target catalog name
+      folder:
+        type: string
+        description: Optional subfolder of the site to add
+
+  WebRule:
+    type: object
+    additionalProperties: false
+    required: [path]
+    properties:
+      path:
+        type: string
+        description: The path to match, starting with a slash. May include wildcards '*' and '?'
+      cacheControl:
+        type: string
+        description: The Cache-Control header to use for succesful requests
+      contentSecurityPolicy:
+        type: string
+        description: The Content-Security-Policy header to use. Should include `frame-ancestors 'self' [webhare]` to prevent clickjacking but still allow the Publisher Preview
+      headers:
+        type: object
+        additionalProperties:
+          type: string
 
   Component:
     type: object

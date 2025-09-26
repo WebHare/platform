@@ -64,6 +64,18 @@ export interface CSPDynamicExecution {
   cachewebvariables: string[];
 }
 
+export type CSPWidgetEditor = {
+  type: "extension";
+  extension: string;
+} | {
+  type: "function";
+  functionname: string;
+};
+export type CSPWidgetRenderer = {
+  objectname: string;
+};
+
+
 export interface CSPContentType {
   cloneoncopy: boolean;
   cloneonarchive: boolean;
@@ -105,8 +117,8 @@ export interface CSPContentType {
   yaml?: true;
 
   //These props (editor, renderer, embedtype, requiremergefieldscontext) are only set for widgets
-  editor?: { type: "extension"; extension: string } | { type: "function"; functionname: string } | null;
-  renderer?: { objectname: string } | null;
+  editor?: CSPWidgetEditor | null;
+  renderer?: CSPWidgetRenderer | null;
   embedtype?: "inline" | "block";
   requiremergefieldscontext?: boolean;
 
@@ -339,6 +351,28 @@ export type CSPHookIntercept = {
   line: number;
 };
 
+export type CSPSource = {
+  path: string;
+  relativeto: "siteprofile" | "targetobject";
+};
+
+export type CSPMailTemplate = {
+  path: string;
+  title: string;
+  ordering: number;
+  sources: CSPSource[];
+};
+
+export type CSPSetWidget = {
+  contenttype: string;
+  editor: CSPWidgetEditor | null;
+  renderer: CSPWidgetRenderer | null;
+  wittycomponent: string;
+  previewcomponent: string;
+  has_wittycomponent: boolean;
+  has_previewcomponent: boolean;
+};
+
 export type CSPApplyRule = {
   /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
@@ -380,7 +414,7 @@ export type CSPApplyRule = {
   formdefinitions: any[];
   hookintercepts: CSPHookIntercept[];
   line: number;
-  mailtemplates: any[];
+  mailtemplates: CSPMailTemplate[];
   modifyfiletypes: CSPModifyType[];
   modifyfoldertypes: CSPModifyType[];
   plugins: CSPPlugin[];
@@ -410,7 +444,7 @@ export type CSPApplyRule = {
     screen: string;
     separateapp: boolean;
   } | null;
-  setwidget: any[];
+  setwidget: CSPSetWidget[];
   sitelanguage: {
     has_lang: boolean;
     lang: string;
@@ -458,13 +492,10 @@ export interface CSPAddToCatalog {
   siteprofile: string;
   line: number;
   folder: string;
-  siteprofileids: number[];
-  sitefilter: CSPSiteFilter | null;
 }
 
-export type CSPWebRule = Rule & {
-  siteprofileids: number[];
-  sitefilter: CSPSiteFilter | null;
+export type CSPWebRule = {
+  rule: Rule;
   module: string;
   siteprofile: string;
   line: number;
@@ -474,8 +505,8 @@ export type CSPWebRule = Rule & {
 export interface CachedSiteProfiles {
   contenttypes: CSPContentType[];
   applies: CSPApplyRule[];
-  webrules: CSPWebRule[];
-  addtocatalogs: CSPAddToCatalog[];
+  webrules: Array<CSPWebRule & { siteprofileids: number[]; sitefilter: CSPSiteFilter | null }>;
+  addtocatalogs: Array<CSPAddToCatalog & { siteprofileids: number[]; sitefilter: CSPSiteFilter | null }>;
 }
 
 export interface SiteProfileRef {

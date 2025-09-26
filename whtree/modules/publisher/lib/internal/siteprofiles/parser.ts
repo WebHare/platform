@@ -1,11 +1,11 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
 import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteSetting, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWebtoolsFormRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { existsSync, readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
-import { appendToArray, nameToSnakeCase, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
+import { appendToArray, nameToSnakeCase, regExpFromWildcards, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
 import { type ContentValidationFunction, TrackedYAML, type ValidationMessageWithType, type ValidationState } from "@mod-platform/js/devsupport/validation";
 import { loadlib } from "@webhare/harescript";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
@@ -349,6 +349,8 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     throw new Error(`To: filter 'withinType' may not be a regex yet`); //can't export to HareScript yet
   if (apply.type && typeof apply.type === "object" && "regex" in apply.type)
     throw new Error(`To: filter 'type' may not be a regex yet`); //can't export to HareScript yet
+  if (apply.hasWebDesign === false)
+    throw new Error(`To: filter 'hasWebDesign: false' is not supported`); //can't export to HareScript yet
 
   const to: CSPApplyToTo = {
     type: "to",
@@ -604,6 +606,13 @@ function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserCo
   return rule;
 }
 
+function parseSources(context: SiteProfileParserContext, sources: Sp.Sources): CSPSource[] {
+  return sources.map(_ => ({
+    path: _.relativeTo === "targetObject" ? _.path : context.resolve(_.path),
+    relativeto: _.relativeTo === "targetObject" ? "targetobject" : "siteprofile",
+  }));
+}
+
 function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): CSPApplyRule {
   const rule: CSPApplyRule = {
     tos: [],
@@ -735,6 +744,18 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     };
   }
 
+  for (const [type, setWidget] of Object.entries(apply.setWidget || {})) {
+    rule.setwidget.push({
+      contenttype: type,
+      editor: setWidget.editor ? parseEditor(context, setWidget.editor) : null,
+      renderer: setWidget.renderer ? { objectname: context.resolve(setWidget.renderer) } : null,
+      has_previewcomponent: setWidget.previewComponent !== undefined,
+      previewcomponent: setWidget.previewComponent || '',
+      has_wittycomponent: setWidget.wittyComponent !== undefined,
+      wittycomponent: setWidget.wittyComponent || '',
+    });
+  }
+
   if (apply.forms) {
     rule.webtoolsformrules = apply.forms.map(fr =>
       "allowComponent" in fr ? { allow: true, type: fr.allowComponent as string || '', comp: "component" }
@@ -751,6 +772,15 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     rule.modifyfiletypes = parseModifyTypes(apply.fileTypes);
   if (apply.folderTypes)
     rule.modifyfoldertypes = parseModifyTypes(apply.folderTypes);
+
+  if (apply.mailTemplates?.length) {
+    rule.mailtemplates = apply.mailTemplates.map(t => ({
+      path: context.resolve(t.path || ''),
+      title: gid.resolveTid({ title: t.title, tid: t.tid }),
+      ordering: t.ordering || 0,
+      sources: t.sources?.length ? parseSources(context, t.sources) : []
+    }));
+  }
 
   if (apply.rtdDoc) {
     rule.rtddoc = {
@@ -888,6 +918,107 @@ function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceP
   };
 }
 
+function parseEditor(context: SiteProfileParserContext, editor: Sp.WidgetEditor): CSPWidgetEditor {
+  return "tabsExtension" in editor ?
+    { type: "extension", extension: context.resolve(editor.tabsExtension) }
+    : { type: "function", functionname: context.resolve(editor.function || '') };
+}
+
+function parseSiteFilter(context: SiteProfileParserContext, filter: Pick<Sp.SiteSetting, "site" | "webRoot">): CSPSiteFilter | null {
+  const sitename = filter.site && typeof filter.site === "string" && ![...filter.site].some(c => c === '*' || c === '?') ? filter.site : "";
+  const sitemask = filter.site && typeof filter.site === "string" && [...filter.site].some(c => c === '*' || c === '?') ? filter.site : "";
+  const siteregex = filter.site && typeof filter.site === "object" && "regex" in filter.site ? filter.site.regex : "";
+  const webrootregex = filter.webRoot ?
+    typeof filter.webRoot === "object" && "regex" in filter.webRoot ? filter.webRoot.regex : regExpFromWildcards(filter.webRoot).source : "";
+
+  if (!sitename && !sitemask && !siteregex && !webrootregex)
+    return null;
+
+  return {
+    ...sitename ? { sitename } : {},
+    ...sitemask ? { sitemask } : {},
+    ...siteregex ? { siteregex } : {},
+
+    ...webrootregex ? { webrootregex } : {}
+  };
+}
+
+function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPWebRule {
+  let path = rule.path || '';
+  let matchtype = 2; //wildcards
+  if (path.indexOf('?') === -1) {
+    if (path.indexOf('*') === path.length - 1) { //ends in '*' but no other wildcards
+      path = path.substring(0, path.length - 1);
+      matchtype = 1; //initial
+    } else if (rule.path.indexOf('*') === -1) {
+      matchtype = 0; //exact
+    }
+  }
+
+  const pos = context.tracked.getPosition(rule);
+  return {
+    col: 0,
+    line: 0,
+    ...pos,
+    rule: {
+      id: -9999999,
+      path,
+      matchtype,
+      realm: '',
+      authrequired: true,
+      errorpath: '',
+      finalerrorpath: false,
+      extauthscript: '',
+      allowallmethods: false,
+      redirecttarget: '',
+      redirecttarget_is_folder: false,
+      datastorage: [],
+      redirect: false,
+      iplist: [],
+      limitservers: [],
+      addheaders: Object.entries(rule.headers || {}).map(([name, value]) => ({ name, value })),
+      csps: rule?.contentSecurityPolicy ? [{ policy: rule.contentSecurityPolicy }] : [],
+      cachecontrol: rule?.cacheControl || '',
+      redirectcode: 301,
+      matchassubdir: true,
+      fixcase: false,
+      forcecontenttype: '',
+      applyruleset: '',
+      wrdschema: '',
+      matchmethods: [],
+      checkandvm: null,
+      source: `${context.resourceName}:${pos?.line || 0}`,
+      data: null,
+      vars: {
+        modulename: parseResourcePath(context.resourceName)?.module || '',
+      },
+      apispec: '',
+      priority: 0,
+      ruledata: null
+    },
+    module: parseResourcePath(context.resourceName)?.module || '',
+    siteprofile: context.resourceName
+  };
+}
+
+function parseSiteSettings(context: SiteProfileParserContext, setting: Sp.SiteSetting): CSPSiteSetting {
+  const sitesetting: CSPSiteSetting = {
+    sitefilter: parseSiteFilter(context, setting),
+    webrules: setting.webRules?.map(rule => parseWebRule(context, rule)) ?? [],
+    addtocatalogs: setting.addToCatalogs?.map(cat => ({
+      catalog: cat.catalog,
+      folder: cat.folder || '',
+      module: parseResourcePath(context.resourceName)?.module || '',
+      col: 0,
+      line: context.tracked.getPosition(cat)?.line || 0,
+      siteprofile: context.resourceName,
+    })) ?? [],
+    line: context.tracked.getPosition(setting)?.line || 0,
+  };
+
+  return sitesetting;
+}
+
 function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?: TidCallback }) {
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
@@ -952,11 +1083,9 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.isembeddedobjecttype = true;
         ctype.embedtype = settings.metaType === "blockWidget" ? "block" : "inline";
         ctype.requiremergefieldscontext = widgetSettings.requireMergeFieldsContext || false;
-        ctype.editor = widgetSettings.editor ?
-          "tabsExtension" in widgetSettings.editor ?
-            { type: "extension", extension: context.resolve(widgetSettings.editor.tabsExtension) }
-            : { type: "function", functionname: context.resolve(widgetSettings.editor.function || '') } : null;
+        ctype.editor = widgetSettings.editor ? parseEditor(context, widgetSettings.editor) : null;
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
+        ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
       } else {
         ctype.type = "filetype";
@@ -1023,6 +1152,9 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
 
   for (const siteprofile of sp.applySiteProfiles || [])
     result.applysiteprofiles.push(context.resolve(siteprofile));
+
+  for (const sitesetting of sp.siteSettings || [])
+    result.sitesettings.push(parseSiteSettings(context, sitesetting));
 
   result.messages = context.messages;
   return result;
