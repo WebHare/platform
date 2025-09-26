@@ -120,6 +120,9 @@ class JSONParser
         /// If true, decode "$stdType" records
         bool typed;
 
+        /// If true, translate keys to snake_case
+        bool tosnakecase;
+
         bool HandleToken(std::string const &token, TokenType tokentype);
         bool ParseSimpleValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool ParseHSONTypedValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
@@ -128,7 +131,7 @@ class JSONParser
         bool DecodeSTDType(HSVM_VariableId var);
 
     public:
-        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId _translations);
+        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, bool _tosnakecase, HSVM_VariableId _translations);
 
         bool HandleByte(uint8_t byte);
         bool Finish(HSVM_VariableId target);
@@ -171,7 +174,7 @@ std::ostream & operator <<(std::ostream &out, JSONParser::ParseState parsestate)
 }
 
 
-JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId _translations)
+JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, bool _tosnakecase, HSVM_VariableId _translations)
 : vm(_vm)
 , state(TS_Default)
 , comment_after_numberprefix(false)
@@ -187,6 +190,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltost
 , alltostring(_alltostring)
 , wrapobjects(_wrapobjects)
 , typed(_typed)
+, tosnakecase(_tosnakecase)
 {
         root = HSVM_AllocateVariable(vm);
         if (_translations)
@@ -764,7 +768,16 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                                                     colid = itr->second;
                                         }
                                         if (colid == 0)
-                                            colid = HSVM_GetColumnIdRange(vm, &*lastname.begin(), &*lastname.end());
+                                        {
+                                                if (tosnakecase)
+                                                {
+                                                        std::string snakename = Blex::NameToSnakeCase(lastname);
+                                                        colid = HSVM_GetColumnIdRange(vm, &*snakename.begin(), &*snakename.end());
+                                                }
+                                                else
+                                                    colid = HSVM_GetColumnIdRange(vm, &*lastname.begin(), &*lastname.end());
+
+                                        }
                                         target = HSVM_RecordCreate(vm, levels.back().var, colid);
                                 }
                                 restorestate = PS_ObjectWantComma;
@@ -1431,20 +1444,26 @@ class JSONEncoder
         HSVM_VariableId translations;
         bool formatted;
         bool typed;
+        bool tocamelcase;
         unsigned indent;
 
+        std::unordered_map<HSVM_ColumnId, std::pair<std::string_view, std::string>> colMapping;
+
     public:
+        std::string_view GetColMapping(HSVM_ColumnId colid);
+
         void Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson);
         void Close();
 
-        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool formatted, bool typed);
+        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool formatted, bool typed, bool tocamelcase);
 };
 
-JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool _formatted, bool _typed)
+JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool _formatted, bool _typed, bool _tocamelcase)
 : vm(vm)
 , translations(0)
 , formatted(_formatted)
 , typed(_typed)
+, tocamelcase(_tocamelcase)
 , indent(0)
 {
         if (id_translations && HSVM_RecordExists(vm, id_translations))
@@ -1483,27 +1502,9 @@ void JSONEncoder::PushNr(int64_t nr, int decimals, Blex::PodVector< char > *dest
 namespace
 {
 
-bool TranslatedColumnLess(HSVM *vm, HSVM_VariableId translations, HSVM_ColumnId left, HSVM_ColumnId right)
+bool TranslatedColumnLess(JSONEncoder *encoder, HSVM_ColumnId left, HSVM_ColumnId right)
 {
-        Blex::StringPair str_left = Blex::StringPair::ConstructEmpty();
-        Blex::StringPair str_right = Blex::StringPair::ConstructEmpty();
-
-        if (translations)
-        {
-                HSVM_VariableId mapped_left = HSVM_RecordGetRef(vm, translations, left);
-                if (mapped_left && HSVM_GetType(vm, mapped_left) == HSVM_VAR_String)
-                    HSVM_StringGet(vm, mapped_left, &str_left.begin, &str_left.end);
-
-                HSVM_VariableId mapped_right = HSVM_RecordGetRef(vm, translations, right);
-                if (mapped_right && HSVM_GetType(vm, mapped_right) == HSVM_VAR_String)
-                    HSVM_StringGet(vm, mapped_right, &str_right.begin, &str_right.end);
-        }
-        if (!str_left.begin)
-                str_left = GetVirtualMachine(vm)->columnnamemapper.GetReverseMapping(left);
-        if (!str_right.begin)
-                str_right = GetVirtualMachine(vm)->columnnamemapper.GetReverseMapping(right);
-
-        return Blex::StrCompare(str_left.begin, str_left.end, str_right.begin, str_right.end) < 0;
+        return encoder->GetColMapping(left) < encoder->GetColMapping(right);
 }
 
 std::string GetErrorLocationFromLevels(HSVM *vm, std::vector< JSONEncoder::Level > const &levels)
@@ -1589,6 +1590,39 @@ void JSONEncoder::FinishStdType(Blex::PodVector< char > &dest)
         dest.push_back('}');
 }
 
+std::string_view JSONEncoder::GetColMapping(HSVM_ColumnId colid)
+{
+        auto itr = colMapping.find(colid);
+        if (itr != colMapping.end())
+            return itr->second.first;
+
+        // not found, compute it
+        if (translations)
+        {
+                HSVM_VariableId mapped_colid = HSVM_RecordGetRef(vm, translations, colid);
+                if (mapped_colid && HSVM_GetType(vm, mapped_colid) == HSVM_VAR_String)
+                {
+                        Blex::StringPair colname = Blex::StringPair::ConstructEmpty();
+                        HSVM_StringGet(vm, mapped_colid, &colname.begin, &colname.end);
+                        std::string_view view = colname.stl_stringview();
+                        colMapping.insert(std::make_pair(colid, std::make_pair(view, std::string())));
+                        return view;
+                }
+        }
+
+        auto &item = colMapping.insert(std::make_pair(colid, std::make_pair(std::string_view{nullptr, 0}, std::string()))).first->second;
+
+        char colname_buffer[HSVM_MaxColumnName];
+        unsigned colname_len = HSVM_GetColumnName(vm, colid, colname_buffer);
+        Blex::ToLowercase(colname_buffer, colname_buffer + colname_len);
+        if (tocamelcase)
+                item.second = Blex::NameToCamelCase(std::string_view(colname_buffer, colname_len));
+        else
+                item.second = std::string(colname_buffer, colname_len);
+        item.first = item.second;
+        return item.first;
+}
+
 void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson)
 {
         std::vector< Level > levels;
@@ -1670,26 +1704,8 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                             HSVM_ColumnId colid = current.columns[current.pos];
                             dest.push_back('"');
 
-                            bool didtranslation=false;
-                            if (translations)
-                            {
-                                    HSVM_VariableId mapped_colid = HSVM_RecordGetRef(vm, translations, colid);
-                                    if (mapped_colid && HSVM_GetType(vm, mapped_colid) == HSVM_VAR_String)
-                                    {
-                                            Blex::StringPair colname = Blex::StringPair::ConstructEmpty();
-                                            HSVM_StringGet(vm, mapped_colid, &colname.begin, &colname.end);
-                                            Blex::EncodeJSON(colname.begin, colname.end, std::back_inserter(dest));
-                                            didtranslation = true;
-                                    }
-                            }
-                            if(!didtranslation)
-                            {
-                                    char colname_buffer[HSVM_MaxColumnName];
-
-                                    unsigned colname_len = HSVM_GetColumnName(vm, colid, colname_buffer);
-                                    Blex::ToLowercase(colname_buffer, colname_buffer + colname_len);
-                                    Blex::EncodeJSON(colname_buffer, colname_buffer + colname_len, std::back_inserter(dest));
-                            }
+                            auto mapping = GetColMapping(colid);
+                            Blex::EncodeJSON(mapping.begin(), mapping.end(), std::back_inserter(dest));
 
                             dest.push_back('"');
                             dest.push_back(':');
@@ -1791,7 +1807,7 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     for (unsigned idx = 0; idx < level.len; ++idx)
                                         level.columns[idx] = HSVM_RecordColumnIdAtPos(vm, to_encode, idx);
 
-                                    std::sort(level.columns.begin(), level.columns.end(), std::bind(TranslatedColumnLess, vm, translations, std::placeholders::_1, std::placeholders::_2));
+                                    std::sort(level.columns.begin(), level.columns.end(), std::bind(TranslatedColumnLess, this, std::placeholders::_1, std::placeholders::_2));
                                     dest.push_back('{');
                                     indent += 2;
                                     continue;
@@ -2163,7 +2179,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _alltostring, _wrapobjects, _typed, translations) {}
+                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, bool _tocamelcase, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _alltostring, _wrapobjects, _typed, _tocamelcase, translations) {}
 
                 JSONParser jsonparser;
 
@@ -2198,6 +2214,7 @@ struct DecoderOptions
         bool alltostring;
         bool wrapobjects;
         bool typed;
+        bool tosnakecase;
 };
 
 bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOptions *options)
@@ -2239,6 +2256,14 @@ bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOption
                                 continue;
                         }
                 }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_camelcase)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->tosnakecase = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
                 else
                 {
                         char colname[HSVM_MaxColumnName];
@@ -2260,6 +2285,7 @@ struct EncoderOptions
 {
         bool formatted;
         bool typed;
+        bool tocamelcase;
 };
 
 bool ParseEncoderOptions(VirtualMachine *vm, HSVM_VariableId opts, EncoderOptions *options)
@@ -2282,6 +2308,14 @@ bool ParseEncoderOptions(VirtualMachine *vm, HSVM_VariableId opts, EncoderOption
                         if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
                         {
                                 options->typed = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_camelcase)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->tocamelcase = HSVM_BooleanGet(*vm, var);
                                 continue;
                         }
                 }
@@ -2313,7 +2347,7 @@ void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(1), &decoderopts))
             return;
 
-        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed, HSVM_Arg(2)));
+        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed,  !is_hson && decoderopts.tosnakecase, HSVM_Arg(2)));
         context->parsers[parser->GetId()] = parser;
 
         HSVM_IntegerSet(*vm, id_set, parser->GetId());
@@ -2368,7 +2402,7 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(2), &decoderopts))
             return;
 
-        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed, HSVM_Arg(3));
+        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed, !is_hson && decoderopts.tosnakecase, HSVM_Arg(3));
         for (std::string::iterator it = data.begin(); it != data.end(); ++it)
             if (!jsonparser.HandleByte(static_cast< uint8_t >(*it)))
                 break;
@@ -2376,9 +2410,9 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         jsonparser.Finish(id_set);
 }
 
-HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool is_hson, bool is_typed)
+HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool is_hson, bool is_typed, bool to_snakecase)
 {
-        JSONEncoder encoder(vm, 0, false, is_typed);
+        JSONEncoder encoder(vm, 0, false, is_typed, to_snakecase);
         encoder.Encode(output, input, false, is_hson);
         encoder.Close();
 }
@@ -2389,7 +2423,7 @@ void JSONEncodeToString(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
             return;
 
-        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed);
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed, encoderopts.tocamelcase);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), false, is_hson);
@@ -2402,7 +2436,7 @@ void JSONEncodeToBlob(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
             return;
 
-        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed);
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed, encoderopts.tocamelcase);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), true, is_hson);

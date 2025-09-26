@@ -250,7 +250,7 @@ class Instance {
 
   as<Type extends WHFSType>(type: Type): Instance & TypedInstance<Type> {
     if (this.is<Type>(type))
-      return this as Instance & TypedInstance<Type>;
+      return this as never; // using 'as never' to avoid a very costly type check in TS;
     throw new Error(`Instance is not of type ${type}`);
   }
 
@@ -613,19 +613,22 @@ export async function buildRTD(source: RTDSource): Promise<RichTextDocument> {
  * be type-checked at compile-time if the whfsType has type 'string'.
  */
 export async function buildInstance<
-  const Type extends { whfsType: string; data?: object }
->(data: ([Type] extends [symbol] ?
-  Type :
-  (string extends Type["whfsType"] ?
+  const Type extends string,
+  Data extends object,
+>(data: ([NoInfer<Type>] extends [symbol] ?
+  { whfsType: Type; data?: Data } :
+  (string extends NoInfer<Type> ?
     InstanceSource : {
       whfsType: WHFSType;
-      data?: NoInfer<Type["whfsType"] extends WHFSType ? DisallowExtraPropsRecursive<Type["data"] & {}, WHFSTypes[Type["whfsType"]]["SetFormat"]> : InstanceSource["data"]>;
-    }))): Promise<[Type] extends [{ whfsType: WHFSType }] ? TypedInstance<Type["whfsType"]> : Instance> {
+      data?: ([NoInfer<Type>] extends [WHFSType] ?
+        DisallowExtraPropsRecursive<Data, WHFSTypes[NoInfer<Type>]["SetFormat"]> :
+        InstanceSource["data"]);
+    }))): Promise<[NoInfer<Type>] extends [WHFSType] ? TypedInstance<NoInfer<Type>> : Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
   for (const key of (Object.keys(data)))
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [{ whfsType: WHFSType }] ? TypedInstance<Type["whfsType"]> : Instance;
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [WHFSType] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */

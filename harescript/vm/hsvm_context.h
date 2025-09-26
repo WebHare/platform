@@ -444,6 +444,7 @@ class ColumnNameCache
         ColumnNameId col_asyncjscode;
         ColumnNameId col_authenticationrecord;
         ColumnNameId col_baseptr;
+        ColumnNameId col_camelcase;
         ColumnNameId col_casesensitive;
         ColumnNameId col_code;
         ColumnNameId col_codeptr;

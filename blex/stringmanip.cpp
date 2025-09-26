@@ -119,4 +119,41 @@ int LevenshteinDistance(std::string const &source, std::string const &target)
         return matrix[n][m];
 }
 
+/**
+ * Convert a camelCaseName to corresponding snake_case_name
+ * @param name - Name to convert
+ * @returns Converted name
+ */
+std::string NameToSnakeCase(std::string_view name) {
+        std::string result;
+        result.reserve(name.size() * 2); // worst case
+        for (char c : name) {
+                if (isupper(c)) {
+                        result.push_back('_');
+                        result.push_back(static_cast<char>(tolower(c)));
+                } else {
+                        result.push_back(c);
+                }
+        }
+        return result;
+}
+
+/** Convert a snake_case_name to corresponding camelCaseName
+ * @param name - Name to convert
+ * @returns Converted name
+ */
+std::string NameToCamelCase(std::string_view name) {
+        std::string result;
+        result.reserve(name.size());
+        for (size_t i = 0; i < name.size(); i++) {
+                if (name[i] == '_' && i + 1 < name.size() && islower(name[i + 1])) {
+                        result.push_back(static_cast<char>(toupper(name[i + 1])));
+                        i++; // skip next char since we converted it
+                } else {
+                        result.push_back(name[i]);
+                }
+        }
+        return result;
+}
+
 } //end of namespace Blex

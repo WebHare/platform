@@ -71,14 +71,14 @@ export async function autoCompleteCLIRunScript(cwd: string, path: string, args: 
   path = normalize(path);
   if (options?.debug)
     console.error(`Autocompleting ${path} with args ${JSON.stringify(args)}, cwd: ${cwd}`);
-  const fileData = await fs.readFile(path, "utf8");
-  if (!fileData.match(/^\/\/ @webhare\/cli: /m)) { //We require a line starting exactly with "// @webhare/cli: "
-    if (options?.debug)
-      console.error(`No "// @webhare/cli: " comment found`);
-    return [];
-  }
-
   try {
+    const fileData = await fs.readFile(path, "utf8");
+    if (!fileData.match(/^\/\/ @webhare\/cli: /m)) { //We require a line starting exactly with "// @webhare/cli: "
+      if (options?.debug)
+        console.error(`No "// @webhare/cli: " comment found`);
+      return [];
+    }
+
     loading = path;
 
     /* Require the module. If not loaded yet, it will be loaded and the run()
@@ -107,7 +107,7 @@ export async function autoCompleteCLIRunScript(cwd: string, path: string, args: 
 
     return completions;
   } catch (e) {
-    console.error(`Error running autocompletion for ${path}:`, e);
+    console.error(`Error running autocompletion for ${path}:`, (e && typeof e === "object" && "message" in e) ? e.message : e);
     return [];
   } finally {
     loading = undefined;

@@ -3944,6 +3944,7 @@ PUBLIC STRING FUNCTION EncodeHSON(VARIANT arg)
     @cell(boolean) options.allowcomments Allow comments in the JSON
     @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
+    @cell(boolean) options.camelcase Convert JSON keys from camelCase to snake_case (excluding keys with translations)
     @return Decoded JSON value
 */
 PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -3975,6 +3976,8 @@ PUBLIC VARIANT FUNCTION DecodeJSONBlob(BLOB indata, RECORD translations DEFAULTS
     @cell(boolean) options.allowcomments Allow comments in the JSON
     @cell(boolean) options.alltostring Return all flat values (numbers and bools) as strings
     @cell(boolean) options.wrapobjects Wrap objects in a JSONObject and arrays in a JSONArray (translations are ignored)
+    @cell(boolean) options.typed If true, decode "$stdType" records
+    @cell(boolean) options.camelcase Convert JSON keys from camelCase to snake_case (excluding keys with translations)
     @return Decoded JSON value
 */
 PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -3986,7 +3989,9 @@ PUBLIC VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO
     @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
     @param arg Data to encode
     @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
-    @cell options.formatted Format the JSON nicely (with newlines and indents)
+    @cell(boolean) options.formatted Format the JSON nicely (with newlines and indents)
+    @cell(boolean) options.typed If true, encode Money and Date with "$stdType" records
+    @cell(boolean) options.camelcase Convert cellnames from snake_case to camelCase
     @return The encoded string. Throws if any type could not be converted */
 PUBLIC STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -3997,7 +4002,9 @@ PUBLIC STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DE
     @long Arrays, Integers, strings and booleans are directly converted to their Javascript counterparts. Records are converted to objects, with all cellnames converted to lowercase.
     @param arg Data to encode
     @param translations Translations to specify literal cellnames, eg [ somecamelcaps : = "someCamelCaps" ] if you want to literally spell the cells that way
-    @cell options.formatted Format the JSON nicely (with newlines and indents)
+    @cell(boolean) options.formatted Format the JSON nicely (with newlines and indents)
+    @cell(boolean) options.typed If true, encode Money and Date with "$stdType" records
+    @cell(boolean) options.camelcase Convert cellnames from snake_case to camelCase
     @return The encoded blob. Throws if any type could not be converted */
 PUBLIC BLOB FUNCTION EncodeJSONBlob(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
 {

@@ -6,6 +6,7 @@ import { debugFlags } from "@webhare/env";
 import * as http from "node:http";
 import { run } from "@webhare/cli";
 import * as path from "node:path";
+import { isError } from "@webhare/std";
 
 
 function parseFSPath(fsPath: string) {
@@ -46,8 +47,12 @@ async function runRawAutoComplete(cwd: string, words: string[]): Promise<string[
         // Return dirs and .whscr, .ts files
         const baseResourceDir = scriptPath.slice(0, scriptPath.lastIndexOf("/") + 1);
         const baseFsDir = parseFSPath(baseResourceDir || path.join(cwd, "./"));
-        const files = (await fs.readdir(baseFsDir, { withFileTypes: true })).filter(v => v.isDirectory() || v.name.endsWith(".ts") || v.name.endsWith(".whscr"));
-        possibilities.push(...files.map((f) => `${baseResourceDir}${f.name}${f.isDirectory() ? "/" : "\n"}`));
+        try {
+          const files = (await fs.readdir(baseFsDir, { withFileTypes: true })).filter(v => v.isDirectory() || v.name.endsWith(".ts") || v.name.endsWith(".whscr"));
+          possibilities.push(...files.map((f) => `${baseResourceDir}${f.name}${f.isDirectory() ? "/" : "\n"}`));
+        } catch (e) {
+          console.error(`Error reading directory ${baseFsDir} for autocomplete:`, isError(e) ? e.message : e);
+        }
       }
       return possibilities.sort((a, b) => a.localeCompare(b));
     } else {

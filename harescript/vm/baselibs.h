@@ -624,7 +624,7 @@ void InitRegex(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifr
 void InitJobManager(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg);
 void InitIPC(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg);
 
-HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool hson, bool typed);
+HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool hson, bool typed, bool tocamelcase);
 
 /** Register base libraries, functions and context*/
 void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::ContextRegistrator &creg);
