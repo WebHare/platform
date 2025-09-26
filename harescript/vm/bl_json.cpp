@@ -1447,7 +1447,7 @@ class JSONEncoder
         bool tocamelcase;
         unsigned indent;
 
-        std::unordered_map<HSVM_ColumnId, std::pair<std::string_view, std::string>> colMapping;
+        std::unordered_map<HSVM_ColumnId, std::string> colMapping;
 
     public:
         std::string_view GetColMapping(HSVM_ColumnId colid);
@@ -1594,33 +1594,24 @@ std::string_view JSONEncoder::GetColMapping(HSVM_ColumnId colid)
 {
         auto itr = colMapping.find(colid);
         if (itr != colMapping.end())
-            return itr->second.first;
+            return itr->second;
 
         // not found, compute it
         if (translations)
         {
                 HSVM_VariableId mapped_colid = HSVM_RecordGetRef(vm, translations, colid);
                 if (mapped_colid && HSVM_GetType(vm, mapped_colid) == HSVM_VAR_String)
-                {
-                        Blex::StringPair colname = Blex::StringPair::ConstructEmpty();
-                        HSVM_StringGet(vm, mapped_colid, &colname.begin, &colname.end);
-                        std::string_view view = colname.stl_stringview();
-                        colMapping.insert(std::make_pair(colid, std::make_pair(view, std::string())));
-                        return view;
-                }
+                   return colMapping.insert(std::make_pair(colid, HSVM_StringGetSTD(vm, mapped_colid))).first->second;
         }
-
-        auto &item = colMapping.insert(std::make_pair(colid, std::make_pair(std::string_view{nullptr, 0}, std::string()))).first->second;
 
         char colname_buffer[HSVM_MaxColumnName];
         unsigned colname_len = HSVM_GetColumnName(vm, colid, colname_buffer);
         Blex::ToLowercase(colname_buffer, colname_buffer + colname_len);
-        if (tocamelcase)
-                item.second = Blex::NameToCamelCase(std::string_view(colname_buffer, colname_len));
-        else
-                item.second = std::string(colname_buffer, colname_len);
-        item.first = item.second;
-        return item.first;
+        std::string result = tocamelcase ?
+            Blex::NameToCamelCase(std::string_view(colname_buffer, colname_len)) :
+            std::string(colname_buffer, colname_len);
+
+        return colMapping.insert(std::make_pair(colid, std::move(result))).first->second;
 }
 
 void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson)
