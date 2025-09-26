@@ -437,6 +437,13 @@ export type CSPApplyRule = {
   [k in `yml_${string}`]?: Array<Record<string, unknown>>;
 };
 
+export type CSPSiteSetting = {
+  addtocatalogs: CSPAddToCatalog[];
+  line: number;
+  sitefilter: CSPSiteFilter | null;
+  webrules: CSPWebRule[];
+};
+
 export interface CSPSiteFilter {
   sitename?: string;
   sitemask?: string;

@@ -1,7 +1,7 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
 import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteSetting, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { existsSync, readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
@@ -12,9 +12,6 @@ import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugi
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
-export type ParsedApplyRule = CSPApplyRule & { ruletype: "apply" };
-export type ParsedSiteSetting = unknown & { ruletype: "sitesetting" }; //TODO document the ParsedSiteSetting
-
 export type ParsedSiteProfile = {
   applysiteprofiles: string[];
   contenttypes: CSPContentType[];
@@ -27,7 +24,8 @@ export type ParsedSiteProfile = {
     members: unknown[];
   }>;
   icons: unknown[];
-  rules: Array<ParsedApplyRule | ParsedSiteSetting>;
+  applyrules: CSPApplyRule[];
+  sitesettings: CSPSiteSetting[];
   gid: string;
 };
 
@@ -598,7 +596,7 @@ function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
     : { isallow: true, typedef: t.allowTemplate as string ?? t.allowType as string, newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
 }
 
-function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
+function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): CSPApplyRule {
   const rule = parseApply(context, gid, module, baseScope, applyindex, apply);
   rule.tos = parseApplyTo(apply.to);
   rule.priority = apply.priority || 0;
@@ -606,9 +604,8 @@ function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserCo
   return rule;
 }
 
-function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): ParsedApplyRule {
-  const rule: ParsedApplyRule = {
-    ruletype: "apply",
+function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): CSPApplyRule {
+  const rule: CSPApplyRule = {
     tos: [],
     yaml: true,
     applyindex,
@@ -899,7 +896,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
     messages: [],
     grouptypes: [],
     icons: [],
-    rules: [],
+    applyrules: [],
+    sitesettings: [],
     gid: ""
   };
 
@@ -996,7 +994,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
     }
 
     if (settings.apply) {
-      result.rules.push({
+      result.applyrules.push({
         ...parseApply(context, typeParser, module, baseScope, 0, (settings as Sp.FolderType).apply!),
         whfstype: ns
       });
@@ -1015,7 +1013,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
   }
 
   for (const [applyindex, apply] of (sp.apply || []).entries()) {
-    result.rules.push(parseApplyRule(context, rootParser, module, baseScope, applyindex, apply));
+    result.applyrules.push(parseApplyRule(context, rootParser, module, baseScope, applyindex, apply));
   }
 
   for (const [rtdType, data] of Object.entries(sp.rtdTypes || {})) {
