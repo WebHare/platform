@@ -353,7 +353,7 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     throw new Error(`To: filter 'type' may not be a regex yet`); //can't export to HareScript yet
 
   const to: CSPApplyToTo = {
-    ...baseApplyToRule,
+    type: "to",
     match_index: apply.is === "index",
     match_file: apply.is === "file" || apply.is === "index",
     match_folder: apply.is === "folder",
@@ -378,6 +378,9 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     sitename: apply.site && typeof apply.site === "string" && ![...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
     sitemask: apply.site && typeof apply.site === "string" && [...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
     siteregex: apply.site && typeof apply.site === "object" && "regex" in apply.site ? apply.site.regex : "",
+
+    typeneedstemplate: apply.hasWebDesign === true,
+    webfeatures: apply.webFeature ? [apply.webFeature] : []
   };
 
   if (!to.sitename)
@@ -451,7 +454,10 @@ function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>):
 }
 
 function parseAllowedObjects(_inAllowedObjects: NonNullable<Sp.RTDType["allowedObjects"]>): CSPRTDAllowedObject[] {
-  return [];
+  return _inAllowedObjects.map(entry => ({
+    inherit: entry.inherit === true,
+    type: entry.type
+  }));
 }
 
 function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserContext, ns: string, type: Sp.RTDType): CSPContentType {

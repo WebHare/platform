@@ -566,6 +566,14 @@ $defs:
             $ref: "#/$defs/MatchOrRegExp"
           testSetting:
             $ref: "#/$defs/ApplyToTestSetting"
+          hasWebDesign:
+            type: boolean
+            const: true #no support for 'false' (requiring no design) as fileneedstemplate doesn't
+            description: "If set, validate whether the object's type is published inside a webdesign"
+          webFeature:
+            type: string
+            description: "Matches if the containing site has enabled the specific webfeature"
+            pattern: "^[a-z][a-z0-9_.]:[a-z0-9]$"
       - type: string # TODO considering removing all but 'all'
         enum:
           - "all"
@@ -579,7 +587,9 @@ $defs:
     required: [target, type, member, value]
     properties:
       target:
-        const: "self"
+        oneOf:
+        - const: "self"
+        - const: "root"
       type:
         type: string
       member:
