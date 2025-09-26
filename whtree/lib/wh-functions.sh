@@ -4,7 +4,7 @@
 
 source "${BASH_SOURCE%/*}/make-functions.sh"
 
-logWithTime()
+function logWithTime()
 {
   local now
   if [[ "$OSTYPE" == "darwin"* ]]; then  #mac doesn't support .%3N
@@ -13,7 +13,7 @@ logWithTime()
     now=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')
   fi
 
-  echo "[$now]" "$1"
+  echo "[$now]" "$@" 1>&2
 }
 
 testEq()
