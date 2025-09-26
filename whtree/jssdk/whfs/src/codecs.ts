@@ -8,7 +8,7 @@ import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webh
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, WebHareBlob, type RichTextDocument, type Instance } from "@webhare/services";
-import type { InstanceExport, InstanceSource, WHFSTypeMember } from "./contenttypes";
+import type { InstanceData, InstanceExport, InstanceSource, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
@@ -118,8 +118,7 @@ async function encodeWHFSInstance(value: Instance | InstanceSource): Promise<Enc
 
 async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
   const typeinfo = await describeWHFSType(row.instancetype!);
-  const widgetdata = await getData(typeinfo.members, row.id, { ...context, export: false }) as NonExportGetDataResult;
-
+  const widgetdata = await getData(typeinfo.members, row.id, { ...context, export: false });
   return await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata });
 }
 
@@ -181,7 +180,7 @@ async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedD
 
   for (const settingInstance of settings.filter(s => s.ordering === 3)) {
     const typeinfo = await describeWHFSType(settingInstance.instancetype!);
-    const widgetdata = await getData(typeinfo.members, settingInstance.id, { ...context, export: false }) as NonExportGetDataResult;
+    const widgetdata = await getData(typeinfo.members, settingInstance.id, { ...context, export: false });
     outdoc.instances.set(settingInstance.setting, await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata }));
   }
 
@@ -523,9 +522,9 @@ export const codecs = {
       // If afterDecode is true, the getData call will already have done the export conversion
       return value && !afterDecode ? exportData(member.children || [], value, options) : value;
     },
-    importValue(value: object | null, member: WHFSTypeMember, beforeEncode, options): MaybePromise<{ [key: string]: unknown } | null> {
+    importValue(value: object | null, member: WHFSTypeMember, beforeEncode, options): MaybePromise<InstanceData | null> {
       // encode will call getData which will call importValue on children, so no need to do that here
-      return value && !beforeEncode ? importData(member.children || [], value, options) : value as { [key: string]: unknown } | null;
+      return value && !beforeEncode ? importData(member.children || [], value, options) : value as InstanceData | null;
     }
   },
   "array": {  //NOTE: getType/setType are only queried for records/arrays without children
@@ -747,10 +746,8 @@ export async function setData(members: WHFSTypeMember[], data: object): Promise<
   return toInsert;
 }
 
-type NonExportGetDataResult = { [key in string]: CodecGetMemberType };
-
-export async function getData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext & ExportOptions) {
-  const retval: { [key: string]: unknown } = {};
+export async function getData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext & ExportOptions): Promise<InstanceData> {
+  const retval: Record<string, unknown> = {};
 
   for (const member of members) {
     const settings = context.allsettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
@@ -781,7 +778,7 @@ export async function getData(members: WHFSTypeMember[], elementSettingId: numbe
     retval[member.name] = setval;
   }
 
-  return retval;
+  return retval as InstanceData;
 }
 
 export async function exportData(members: WHFSTypeMember[], data: object, options?: ExportOptions): Promise<{ [K in string]?: CodecExportMemberType }> {
