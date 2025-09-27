@@ -1089,6 +1089,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                   , has_wittycomponent := node->HasAttribute("wittycomponent")
                   , has_previewcomponent := node->HasAttribute("previewcomponent")
                  ]];
+              CONTINUE;
             }
             CASE "disablelegacysitesettings"
             {
