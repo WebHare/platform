@@ -178,7 +178,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   IF (rule.matchtype < 0)
     RETURN AddMessage(retval, "error", baseresource, rulenode, `Illegal matchtype '${rulenode->GetAttribute("match")}'`);
 
-  rule.ignorepaths := rulenode->HasAttribute("ignorepaths") ? ParseXSList(rulenode->GetAttribute("ignorepaths")) : DEFAULT STRING ARRAY;
   rule.errorpath := rulenode->GetAttribute("errorpath");
   IF(rule.errorpath != "" AND rule.errorpath NOT LIKE "*:*") //seems to be a relative path
     rule.errorpath := MakeAbsoluteResourcePath(baseresource, rule.errorpath);
@@ -304,8 +303,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
     IF(NOT RecordExists(RetrieveWebHareResource(rule.extauthscript, [ allowmissing := TRUE ])))
       RETURN AddMessage(retval, "error", baseresource, rulenode, `Cannot find authscript '${rule.extauthscript}'`);
   }
-
-  rule.realm := rulenode->GetAttribute("realm");
 
   FOREVERY(OBJECT node FROM rulenode->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addheader")->GetCurrentElements())
   {

@@ -618,7 +618,7 @@ void LoadConfigRules(HSVM *hsvm, HSVM_VariableId rules, WebServer::ServerConfig 
                 newrule.redirectcode = HSVM_LoadCell<int32_t>(hsvm, thisrule, "REDIRECTCODE");
 
                 newrule.matchtype =  static_cast<WebServer::AccessRule::MatchType>(HSVM_LoadCell<int32_t>(hsvm, thisrule, "MATCHTYPE"));
-                newrule.accepttype = static_cast<WebServer::AcceptType>(HSVM_LoadCell<int32_t>(hsvm, thisrule, "ACCEPTTYPE"));
+                newrule.accepttype = WebServer::AcceptType::Unrecognized;
 
                 std::string force_content_type;
                 HSVM_LoadCellIn(force_content_type, hsvm, thisrule, "FORCECONTENTTYPE");

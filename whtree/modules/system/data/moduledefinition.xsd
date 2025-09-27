@@ -1147,11 +1147,6 @@
     </xs:sequence>
 
     <xs:attribute name="path" type="xs:string" use="required" />
-    <xs:attribute name="ignorepaths" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>A space separated list of path masks which will not be processed by this access rule, eg `*.whsock`</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="match" use="required">
       <xs:simpleType>
         <xs:restriction base="xs:string">

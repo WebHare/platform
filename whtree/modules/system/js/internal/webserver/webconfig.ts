@@ -132,7 +132,6 @@ export interface Vars {
 }
 
 export interface Rule {
-  accepttype: number;
   accounts: Account[];
   addheaders: Addheader[];
   allowallmethods: boolean;
@@ -150,7 +149,6 @@ export interface Rule {
   fixcase: boolean;
   forcecontenttype: string;
   id: number;
-  // ignorepaths: any[]; //TODO whats the type?
   iplist: Iplist[];
   limitservers: number[];
   matchassubdir: boolean;
