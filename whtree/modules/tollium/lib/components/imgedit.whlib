@@ -505,6 +505,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     this->uploadbutton->visible       := this->enabled AND this->act_upload->enabled AND NOT RecordExists(this->value);
     this->publisherbutton->visible    := this->enabled AND this->act_publisher->enabled AND NOT RecordExists(this->value);
     this->medialibrarybutton->visible := this->enabled AND this->act_medialibrary->enabled AND NOT RecordExists(this->value);
+    ^buttons->visible := ^uploadbutton->visible OR ^publisherbutton->visible OR ^medialibrarybutton->visible OR ^editbutton->visible OR ^clearbutton->visible OR ^otherbutton->visible;
   }
 
   MACRO SelectFromPublisherRoots(INTEGER ARRAY roots)

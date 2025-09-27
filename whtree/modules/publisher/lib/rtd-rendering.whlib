@@ -24,7 +24,7 @@ PUBLIC OBJECTTYPE RTDRenderer <
     ELSE IF(block.tagname = "table")
       this->RenderRTDBlockTable(context, block);
     ELSE IF(NOT RecordExists(block.__richobject->blockstyle))
-      ABORT(block); //NOCOMMIT
+      RETURN; // Could be an unregistered widget
     ELSE
       this->RenderRTDParagraph(context, block);
   }
