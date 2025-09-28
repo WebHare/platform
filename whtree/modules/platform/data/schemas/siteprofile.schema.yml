@@ -1119,6 +1119,12 @@ $defs:
       path:
         type: string
         description: The path to match, starting with a slash. May include wildcards '*' and '?'
+      priority:
+        oneOf:
+          - const: before
+          - const: after
+      methods:
+        const: "*"
       cacheControl:
         type: string
         description: The Cache-Control header to use for succesful requests

@@ -969,7 +969,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       errorpath: '',
       finalerrorpath: false,
       extauthscript: '',
-      allowallmethods: false,
+      allowallmethods: rule.methods === "*",
       redirecttarget: '',
       redirecttarget_is_folder: false,
       datastorage: [],
@@ -993,7 +993,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
         modulename: parseResourcePath(context.resourceName)?.module || '',
       },
       apispec: '',
-      priority: 0,
+      priority: rule.priority ? rule.priority === "after" ? 1000 : -1000 : 0,
       ruledata: null
     },
     module: parseResourcePath(context.resourceName)?.module || '',
