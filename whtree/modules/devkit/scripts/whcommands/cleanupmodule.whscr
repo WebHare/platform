@@ -1,0 +1,123 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/harescript/libscan.whlib";
+
+LOADLIB "mod::devkit/lib/lsp/loadlibs.whlib";
+LOADLIB "mod::devkit/lib/rewrite/rewrite.whlib";
+
+
+CONSTANT STRING ARRAY xmlextensions := ["*.xml", "*.siteprl", "*.xsd"]; //siteprl isn't what we recommend nowadays, but still worth rewriting
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "v", type := "switch" ]
+                              , [ name := "verbose", type := "switch" ]
+                              , [ name := "xml", type := "switch" ]
+                              , [ name := "loadlibs", type := "switch" ]
+                              , [ name := "dirs", type := "paramlist" ]
+                              ]);
+IF(NOT RecordExists(args) OR Length(args.dirs) = 0 OR NOT (args.xml OR args.loadlibs))
+{
+  Print("Syntax: wh devkit:cleanupmodule [--xml] [--loadlibs] <dir> [dir...] \n");
+  Print("specify either or both of --xml and --loadlibs\n"); //TODO should become an optout?
+  TerminateScriptWithError("Invalid syntax");
+}
+
+BOOLEAN verbose := args.v OR args.verbose;
+RECORD ARRAY toscan;
+
+FOREVERY(STRING specifiedpath FROM args.dirs)
+{
+  STRING path := ResolveToAbsolutePath(specifiedpath);
+  RECORD props := GetDiskFileProperties(path);
+
+  IF(NOT RecordExists(props) AND IsModuleInstalled(specifiedpath))
+  {
+    path := GetModuleInstallationRoot(specifiedpath);
+    props := GetDiskFileProperties(path);
+  }
+  IF(NOT RecordExists(props))
+   TerminateScriptWithError(`No such directory '${specifiedpath}'`);
+
+
+  IF(props.type = 1 AND path NOT LIKE "*/")
+    path := path || "/";
+
+  STRING resourcepath :=  GetResourceNameFromDiskPath(path);
+  IF(resourcepath NOT LIKE "mod::*")
+    TerminateScriptWithError(`Invalid path '${specifiedpath}' - does not resolve to a module`);
+
+  IF(RecordExists(props) AND props.type = 0)
+  {
+    toscan := toscan CONCAT [[ name := resourcepath, diskpath := path ]];
+  }
+  ELSE
+  {
+    STRING ARRAY extensions;
+    IF(args.xml)
+      extensions := extensions CONCAT xmlextensions;
+    IF(args.loadlibs)
+      extensions := extensions CONCAT harescriptextensions;
+    toscan := toscan CONCAT GatherFiles(path, resourcepath, extensions);
+  }
+}
+
+FOREVERY(RECORD scan FROM toscan)
+{
+  IF(__MatchesAnyMask(scan.name, harescriptextensions))
+    ProcessLibrary(scan);
+  IF(__MatchesAnyMask(scan.name, xmlextensions))
+    ProcessXMLFile(scan);
+}
+
+MACRO ProcessXMLFile(RECORD scan)
+{
+  IF(verbose)
+    Print(`Processing ${scan.diskpath}\n`);
+
+  OBJECT doc := MakeXMLDocument(GetDiskResource(scan.diskpath));
+  IF(NOT IsRewriteableXMLFile(doc)) //A suitable rewrite candidate?
+    RETURN;
+
+  TRY
+  {
+    STRING resname := GetResourceNameFromDiskPath(scan.diskpath);
+    BLOB result := RewriteFile(scan.name, GetDiskResource(scan.diskpath), CELL[debug := verbose]).result;
+    StoreDiskFile(scan.diskpath, result, [overwrite := TRUE]);
+  }
+  CATCH(OBJECT e)
+  {
+    PrintTo(2,`Rewrite of '${scan.name}' failed: ${e->what}\n`);
+  }
+}
+
+MACRO ProcessLibrary(RECORD scan)
+{
+  IF(scan.name LIKE "mod::webhare_testsuite/tests/wh/hscore/xml/generated/*")
+    RETURN;
+
+  IF(verbose)
+    Print(`Processing ${scan.diskpath}\n`);
+
+  STRING source := BlobToString(GetDiskResource(scan.diskpath));
+  RECORD result := OrganizeLoadlibs(source, scan.name, CELL[ verbose, reorder := FALSE ]); //reorder is currently too broken to apply module-scale, eg utwente_base
+
+  IF(NOT result.success)
+  {
+    PrintTo(2,`Rewrite of '${scan.name}' failed: ${result.message}\n`);
+    RETURN;
+  }
+
+  IF(result.replacepos >= 0)
+  {
+    StoreDiskFile(scan.diskpath, StringToBlob(result.data), [ overwrite := TRUE ]);
+    Print(`Updated ${scan.diskpath}\n`);
+  }
+}

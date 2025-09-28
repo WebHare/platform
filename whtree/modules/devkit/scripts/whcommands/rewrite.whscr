@@ -1,0 +1,83 @@
+<?wh
+// syntax: <source> [dest]
+// short: Rewrite/reformat contents of specified file
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::devkit/lib/rewrite/rewrite.whlib";
+
+BLOB FUNCTION ReadBlobFromFile(INTEGER filehandle, INTEGER64 maxbytes DEFAULTSTO 1i64 BITLSHIFT 40) // 1 TB should suffice as default
+{
+  INTEGER stream:= CreateStream();
+  WHILE(maxbytes > 0)
+  {
+    INTEGER blocksize:= maxbytes > 65536 ? 65536 : INTEGER(maxbytes);
+    STRING block:= ReadFrom(filehandle, blocksize);
+    IF(block = "")
+    BREAK;
+    PrintTo(stream, block);
+    maxbytes:= maxbytes - LENGTH(block);
+  }
+  RETURN MakeBlobFromStream(stream);
+}
+
+MACRO Main()
+{
+  RECORD ARRAY options:= [[name := "debug", type := "switch"]
+    , [name := "d", type := "switch"]
+    , [name := "name", type := "stringopt"]
+    , [name := "source", type := "param", required := TRUE]
+    , [name := "dest", type := "param"]
+  ];
+
+  RECORD cmdargs:= ParseArguments(GetConsoleArguments(), options);
+  IF(NOT RecordExists(cmdargs))
+  {
+    Print("Syntax: wh dev:rewrite [--debug] <source> [dest]\n");
+    TerminateScriptWithError("");
+  }
+
+  BOOLEAN debug:= cmdargs.d OR cmdargs.debug;
+
+  STRING source:= cmdargs.source;
+  BLOB sourcedata;
+  STRING path;
+  IF(source = "-")
+  {
+    sourcedata:= ReadBlobFromFile(0);
+    source:= cmdargs.name;
+    IF(source = "")
+    {
+      RECORD scanres:= ScanBlob(sourcedata);
+      IF(RecordExists(scanres))
+      source:= `file.${scanres.extension}`;
+    }
+  }
+  ELSE
+  {
+    IF(IsAbsoluteResourcePath(source))
+    source:= GetWebHareResourceDiskPath(source);
+
+    path:= ResolveToAbsolutePath(source);
+    sourcedata:= GetDiskResource(path);
+  }
+
+  RECORD result:= RewriteFile(cmdargs.name ?? path, sourcedata, CELL[debug]);
+  IF(result.success)
+  {
+    IF((cmdargs.dest ?? cmdargs.source) = "-")
+    SendBlobTo(0, result.result);
+    ELSE
+    StoreDiskFile(cmdargs.dest ?? source, result.result, [overwrite := TRUE]);
+  }
+  ELSE
+  {
+    Print(FormatHarescriptErrors(result.errors));
+    TerminateScriptWithError("");
+  }
+}
+
+Main();
