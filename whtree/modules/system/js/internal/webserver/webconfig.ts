@@ -110,7 +110,7 @@ export interface Datastorage2 {
   isfolder: boolean;
   method: string;
   resource: string;
-  tag: string;
+  tag?: string;
 }
 
 export interface Iplist {
@@ -153,8 +153,9 @@ export interface Rule {
   redirecttarget: string;
   redirecttarget_is_folder: boolean;
   ruledata: {
-    id: number;
-    type: string;
+    id?: number;
+    type?: string;
+    router?: string;
   } | null;
   source: string;
   vars: Vars;

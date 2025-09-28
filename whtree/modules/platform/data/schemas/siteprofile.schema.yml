@@ -1129,6 +1129,8 @@ $defs:
         type: object
         additionalProperties:
           type: string
+      router:
+        type: string
 
   Component:
     type: object

@@ -956,7 +956,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
   }
 
   const pos = context.tracked.getPosition(rule);
-  return {
+  const result: CSPWebRule = {
     col: 0,
     line: 0,
     ...pos,
@@ -999,6 +999,18 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
     module: parseResourcePath(context.resourceName)?.module || '',
     siteprofile: context.resourceName
   };
+
+  if (rule.router) {
+    result.rule.datastorage = [
+      {
+        method: 'direct',
+        isfolder: false,
+        resource: 'mod::system/scripts/internal/jsrouter.shtml'
+      }
+    ];
+  }
+
+  return result;
 }
 
 function parseSiteSettings(context: SiteProfileParserContext, setting: Sp.SiteSetting): CSPSiteSetting {
