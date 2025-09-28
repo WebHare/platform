@@ -1494,7 +1494,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   // Stabilize per-siteprofile result
   siteprofdata.contenttypes := SELECT * FROM siteprofdata.contenttypes ORDER BY namespace;
-  siteprofdata.applyrules := SELECT * FROM siteprofdata.applyrules ORDER BY whfstype != "" DESC, priority;
+  siteprofdata.applyrules := SELECT * FROM siteprofdata.applyrules ORDER BY whfstype != "" DESC, whfstype, priority;
 
   RETURN [ value := siteprofdata
          , ttl := 60*60*1000
