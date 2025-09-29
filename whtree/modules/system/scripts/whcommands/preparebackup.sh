@@ -4,5 +4,4 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-rm -rf -- "${WEBHARE_DATAROOT}/preparedbackup"
 exec "${WEBHARE_DIR}/modules/system/scripts/internal/runbackup.sh" "${WEBHARE_DATAROOT}preparedbackup"
