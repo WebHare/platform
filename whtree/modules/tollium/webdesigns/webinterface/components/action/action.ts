@@ -64,7 +64,7 @@ interface ImageSize {
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-export default class ObjAction extends ActionForwardBase {
+export default class ObjAction extends ActionForwardBase<ActionAttributes> {
   imageaction: boolean;
   actiontype;
   mimetypes: string[];

@@ -1,15 +1,14 @@
 import type { TolliumKeyboardShortcut } from '@mod-platform/js/tollium/types';
-import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import { type ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 
 export interface ActionForwardAttributes extends ComponentStandardAttributes {
   shortcut?: TolliumKeyboardShortcut;
 }
 
-export default abstract class ActionForwardBase extends ComponentBase {
+export default abstract class ActionForwardBase<Attributes extends ActionForwardAttributes> extends ToddCompBase<Attributes> {
   shortcut?: TolliumKeyboardShortcut;
 
-  constructor(parentcomp: ToddCompBase | null, data: ActionForwardAttributes) {
+  constructor(parentcomp: ToddCompBase | null, data: Attributes) {
     super(parentcomp, data);
     this.shortcut = data.shortcut;
     this.setEnabled(data.enabled);

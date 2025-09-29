@@ -14,7 +14,7 @@ import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, toCamelCase } from '@webhare/std';
 import type { ObjTabs } from '../tabs/tabs';
-import ActionForwardBase from '../action/actionforwardbase';
+import ActionForwardBase, { type ActionForwardAttributes } from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
 import type ObjAction from '../action/action';
@@ -500,7 +500,7 @@ export class ObjFrame extends ToddCompBase {
     // No need to relayout - we can only be called from within processMessages and that function will relayout for us.
   }
 
-  broadcastActionUpdated(action: ActionForwardBase) {
+  broadcastActionUpdated(action: ActionForwardBase<ActionForwardAttributes>) {
     if (!this.actionlisteners[action.name])
       return;
     this.actionlisteners[action.name].forEach(elname => {

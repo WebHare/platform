@@ -1,11 +1,13 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import { ToddCompBase, type ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 
-export default class ObjHr extends ComponentBase {
-  constructor(parentcomp, data) {
+interface HrAttributes extends ComponentStandardAttributes {
+}
+
+export default class ObjHr extends ToddCompBase<HrAttributes> {
+  constructor(parentcomp: ToddCompBase | null, data: HrAttributes) {
+
     super(parentcomp, data);
     this.componenttype = "hr";
     this.node = <t-hr data-name={this.name} propTodd={this} />;
@@ -23,6 +25,6 @@ export default class ObjHr extends ComponentBase {
   }
 
   relayout() {
-    this.node.height = this.height.set + 'px';
+    this.node.style.height = this.height.set + 'px';
   }
 }

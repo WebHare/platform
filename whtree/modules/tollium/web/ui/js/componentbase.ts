@@ -900,8 +900,8 @@ export interface ActionableAttributes extends ComponentStandardAttributes {
   action: string;
 }
 
-export class ActionableComponent extends ToddCompBase {
-  constructor(parentcomp: ToddCompBase, data: ActionableAttributes) {
+export class ActionableComponent<Attributes extends ActionableAttributes> extends ToddCompBase<Attributes> {
+  constructor(parentcomp: ToddCompBase | null, data: Attributes) {
     super(parentcomp, data);
   }
   afterConstructor(data: ActionableAttributes) {
@@ -921,11 +921,11 @@ export class ActionableComponent extends ToddCompBase {
     this.node.classList.toggle("todd--disabled", !this.getEnabled());
   }
 
-  getEnabled() {
+  getEnabled(): boolean {
     // Check if the action is already available
     const action = this.action ? this.owner.getComponent<ObjAction | ObjForward>(this.action) : null;
     // The button is enabled if it hasn't been disabled directly and it either has an enabled action or no action at all
-    return this.enabled && (action ? action.isEnabled() : !this.action);
+    return Boolean(this.enabled && (action ? action.isEnabled() : !this.action));
   }
 
   setEnabled(value: boolean) {

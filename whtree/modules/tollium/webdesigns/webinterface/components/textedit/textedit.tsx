@@ -1,12 +1,11 @@
 import * as dompack from '@webhare/dompack';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import AutoSuggest from "dompack/components/autosuggest";
 import './textedit.scss';
 
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import { type ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type ObjButton from '../button/button';
 
 const intra_button_padding = 5; //pixels between textedit buttons
@@ -20,10 +19,10 @@ interface AutoSuggestableAttributes extends ComponentStandardAttributes {
   };
 }
 
-export class ObjAutoSuggestableBase extends ComponentBase {
+export class ObjAutoSuggestableBase<Attributes extends AutoSuggestableAttributes> extends ToddCompBase<Attributes> {
   _autosuggest: AutoSuggestableAttributes['autosuggest'];
 
-  constructor(parentcomp: ToddCompBase | null, data: AutoSuggestableAttributes) {
+  constructor(parentcomp: ToddCompBase | null, data: Attributes) {
     super(parentcomp, data);
     this._autosuggest = data.autosuggest;
   }
@@ -76,7 +75,7 @@ interface TextEditAttributes extends AutoSuggestableAttributes {
   buttons: string[];
 }
 
-export class ObjTextEdit extends ObjAutoSuggestableBase {
+export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
   // ---------------------------------------------------------------------------
   //
   // Initialization
