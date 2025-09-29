@@ -70,8 +70,6 @@ RECORD FUNCTION QuickCopy(INTEGER srcid, INTEGER instancesource, INTEGER destid,
   typeobj->SetInstancedata(destid,
       [ name :=       orginfo.name
       , parent :=     orginfo.isactive ? orginfo.parent : 0
-      , flags :=      (IsPublish(orginfo.published) ? (DraftFlag_Publish + DraftFlag_WasPublished) : 0) +
-                      (isindex ? DraftFlag_WasIndex : 0)
       ], [ ifreadonly := "update" ]);
 
   RETURN currentinfo;
