@@ -4,7 +4,6 @@
 PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
          [ id :=                        0
          , path :=                      ""
-         , ignorepaths :=               DEFAULT STRING ARRAY
          , realm :=                     ""
          , authrequired :=              TRUE //authrequired is tricky, acts on ip access check. it indicates whether ip access check is sufficient, so it needs to be true by default to let access scripts run. ugly solution though, needs rewrite :(
          , errorpath :=                 ""
@@ -12,7 +11,6 @@ PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
          , extauthscript :=             ""
          , allowallmethods :=           FALSE
          , matchtype :=                 0 //MatchExact = 0, MatchInitial = 1, MatchGlob = 2
-         , accepttype :=                0 //AcceptUnrecognzied = 0, AcceptHTML = 1, AcceptImage = 2
          , redirecttarget :=            ""
          , redirecttarget_is_folder :=  FALSE
          , datastorage :=               DEFAULT RECORD ARRAY

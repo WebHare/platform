@@ -90,29 +90,27 @@ export interface Datastorage {
   tag: string;
 }
 
-export interface Ruledata {
-  id: number;
-  type: string;
-}
-
-export interface Data {
-  accounts: Account2[];
-  apispec: string;
-  authlist: boolean;
-  authtype: number;
-  checkandvm: Checkandvm2;
-  datastorage: Datastorage[];
-  path: string;
-  ruledata: Ruledata;
-  ruleset: string;
-  wrdschema: string;
+export interface RuleData {
+  accounts?: Account2[];
+  apispec?: string;
+  authlist?: boolean;
+  authtype?: number;
+  checkandvm?: Checkandvm2;
+  datastorage?: Datastorage[];
+  path?: string;
+  ruledata?: {
+    id: number;
+    type: string;
+  };
+  ruleset?: string;
+  wrdschema?: string;
 }
 
 export interface Datastorage2 {
   isfolder: boolean;
   method: string;
   resource: string;
-  tag: string;
+  tag?: string;
 }
 
 export interface Iplist {
@@ -120,29 +118,21 @@ export interface Iplist {
   mask: string;
 }
 
-export interface Ruledata2 {
-  id: number;
-  type: string;
-}
-
 export interface Vars {
   modulename: string;
-  sitename: string;
-  siteslug: string;
 }
 
 export interface Rule {
-  accepttype: number;
-  accounts: Account[];
+  accounts?: Account[];
   addheaders: Addheader[];
   allowallmethods: boolean;
   apispec: string;
   applyruleset: string;
   authrequired: boolean;
   cachecontrol: string;
-  checkandvm: Checkandvm;
+  checkandvm: Checkandvm | null;
   csps: Csp[];
-  data: Data;
+  data: RuleData | null;
   datastorage: Datastorage2[];
   errorpath: string;
   extauthscript: string;
@@ -150,7 +140,6 @@ export interface Rule {
   fixcase: boolean;
   forcecontenttype: string;
   id: number;
-  // ignorepaths: any[]; //TODO whats the type?
   iplist: Iplist[];
   limitservers: number[];
   matchassubdir: boolean;
@@ -163,7 +152,11 @@ export interface Rule {
   redirectcode: number;
   redirecttarget: string;
   redirecttarget_is_folder: boolean;
-  ruledata: Ruledata2;
+  ruledata: {
+    id?: number;
+    type?: string;
+    router?: string;
+  } | null;
   source: string;
   vars: Vars;
   wrdschema: string;

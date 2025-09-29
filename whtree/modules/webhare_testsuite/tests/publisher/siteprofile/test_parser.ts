@@ -159,7 +159,7 @@ types:
         scopedtype: 'webhare_testsuite:my_types.test_type',
       }
     ],
-    rules: [
+    applyrules: [
       {
         tos: [
           {
@@ -233,7 +233,7 @@ apply:
           ]
       }
     ],
-    rules: [
+    applyrules: [
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
@@ -297,7 +297,7 @@ apply:
           ]
       }
     ],
-    rules: [
+    applyrules: [
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
@@ -415,7 +415,7 @@ types:
 async function testComplexTo() {
   // Test explicit components
   test.eqPartial({
-    rules: [
+    applyrules: [
       {
         yaml: true,
         tos: [

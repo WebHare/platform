@@ -52,7 +52,7 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
       }
     }
 
-    FOREVERY(RECORD apply FROM parseres.value.rules)
+    FOREVERY(RECORD apply FROM parseres.value.applyrules)
     {
       IF(CellExists(apply,"setobjecteditor") AND RecordExists(apply.setobjecteditor))
       {

@@ -51,10 +51,9 @@ MACRO TestParsing()
   STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";
   res := GetParsedSiteProfile(test3resname);
 
-  RECORD ARRAY sitesettings := SELECT * FROM res.rules WHERE ruletype = "sitesetting";
-  TestEq(2, Length(sitesettings));
-  TestEq(DEFAULT RECORD, sitesettings[0].sitefilter);
-  TestEq([ sitename := "SomeOtherSite" ], sitesettings[1].sitefilter);
+  TestEq(2, Length(res.sitesettings));
+  TestEq(DEFAULT RECORD, res.sitesettings[0].sitefilter);
+  TestEq([ sitename := "SomeOtherSite" ], res.sitesettings[1].sitefilter);
 
   TestEq(1,Length(SELECT FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3")); //even though test3 is dupe, should see only one
   RECORD test3type := SELECT * FROM res.contenttypes WHERE namespace="http://www.webhare.net/xmlns/webhare_testsuite/test3";
@@ -66,7 +65,7 @@ MACRO TestParsing()
   //NOTE actual parsing is tested in test_parser.ts, this is just superficial integration testing
   res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml");
   TestEqMembers([ yaml := TRUE ], RECORD(SELECT * FROM res.contenttypes WHERE namespace="x-webhare-scopedtype:webhare_testsuite.test.my_yaml_type"), '*');
-  TestEqMembers([ yaml := TRUE ], res.rules[0], '*');
+  TestEqMembers([ yaml := TRUE ], res.applyrules[0], '*');
 
   //verifies the major siteprofile doesn't crash:
   res := GetParsedSiteProfile("mod::publisher/data/publisher.siteprl.xml");

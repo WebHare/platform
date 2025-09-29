@@ -183,25 +183,24 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
     this->ProcessGroupMemberships();
 
      // Copy siteprofileids from siteprofiles to the individual rules
-    FOREVERY(RECORD siteprof FROM this->siteprofiles)  {
-      FOREVERY(RECORD rule FROM siteprof.siteprofile.rules) {
-        IF(rule.ruletype = "apply")  {
-          RECORD addrule;
-          IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
-            addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
-          ELSE //<filetype> and <foldertype> are not scoped
-            addrule := CELL[...rule, DELETE ruletype, siteprofileids := INTEGER[] ];
+    FOREVERY(RECORD siteprof FROM this->siteprofiles) {
+      FOREVERY(RECORD rule FROM siteprof.siteprofile.applyrules) {
+        RECORD addrule;
+        IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
+          addrule := CELL[...rule, siteprofileids := siteprof.siteprofileids ];
+        ELSE //<filetype> and <foldertype> are not scoped
+          addrule := CELL[...rule, siteprofileids := INTEGER[] ];
 
-          INSERT addrule INTO this->result.applies AT END;
-        } ELSE IF(rule.ruletype = "sitesetting") {
-          IF(Length(siteprof.siteprofileids) = 0) {
-            this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
-            CONTINUE;
-          }
-
-          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
-          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
+        INSERT addrule INTO this->result.applies AT END;
+      }
+      FOREVERY(RECORD rule FROM siteprof.siteprofile.sitesettings) {
+        IF(Length(siteprof.siteprofileids) = 0) {
+          this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
+          CONTINUE;
         }
+
+        this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
+        this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
       }
     }
     //Sort apply rules. Note that sorts on record arrays are stable. We place any directly type applied rules to the top, above any priority

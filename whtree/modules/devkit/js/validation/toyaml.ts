@@ -1,5 +1,6 @@
 import type { CSPApplyTo } from "@webhare/whfs/src/siteprofiles";
 import type { ApplyTo } from "@mod-platform/generated/schema/siteprofile";
+import { nameToCamelCase } from "@webhare/std";
 
 export const fallbacknameTypeName = "whfstype";
 
@@ -29,6 +30,12 @@ export function importApplyTo(tos: CSPApplyTo[]): ApplyTo {
   for (const to of tos) {
     if (to.type === "to") {
       const rule: ApplyTo = {};
+      if (to.match_index)
+        rule.is = "index";
+      else if (to.match_file || to.filetype)
+        rule.is = "file";
+      else if (to.match_folder || to.foldertype)
+        rule.is = "folder";
 
       if (to.pathmask)
         rule.sitePath = to.pathmask;
@@ -62,19 +69,34 @@ export function importApplyTo(tos: CSPApplyTo[]): ApplyTo {
       if (to.withintype)
         rule.withinType = to.withintype;
 
-      if (to.match_index)
-        rule.is = "index";
-      else if (to.match_file || to.filetype)
-        rule.is = "file";
-      else if (to.match_folder || to.foldertype)
-        rule.is = "folder";
+      if (to.typeneedstemplate)
+        rule.hasWebDesign = true;
 
       if (to.match_all && Object.keys(rule).length === 0) {
         toList.push("all"); //if we're match_all and no other constraints are here yet, we just become 'to: all'
         continue;
       }
 
+      if (to.webfeatures?.length === 1)
+        rule.webFeature = to.webfeatures[0];
+
       toList.push(rule);
+    } else if (to.type === "and" || to.type === "or") {
+      const subrules = to.criteria.map(r => importApplyTo([r]));
+      toList.push({ [to.type]: subrules });
+    } else if (to.type === "not") {
+      if (to.criteria.length !== 1)
+        throw new Error("Not rules should have exactly one criteria");
+      toList.push({ not: importApplyTo([to.criteria[0]]) });
+    } else if (to.type === "testdata") {
+      toList.push({
+        testSetting: {
+          member: nameToCamelCase(to.membername),
+          target: to.target as "self" | "root",
+          type: to.typedef,
+          value: to.value
+        }
+      });
     } else {
       throw new Error("Unsupported apply to type " + to.type);
     }

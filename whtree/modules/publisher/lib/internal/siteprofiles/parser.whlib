@@ -1089,6 +1089,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                   , has_wittycomponent := node->HasAttribute("wittycomponent")
                   , has_previewcomponent := node->HasAttribute("previewcomponent")
                  ]];
+              CONTINUE;
             }
             CASE "disablelegacysitesettings"
             {
@@ -1412,7 +1413,8 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , contenttypes := DEFAULT RECORD ARRAY
                          , rtdtypes := RECORD[]
                          , grouptypes := DEFAULT RECORD ARRAY
-                         , rules := RECORD[]
+                         , applyrules := RECORD[]
+                         , sitesettings := RECORD[]
                          , gid := ""
                          ];
 
@@ -1443,9 +1445,8 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     siteprofcontext->ParseFileTypes();
     siteprofdata.gid := siteprofcontext->toplevelgid;
 
-    siteprofdata.rules := (SELECT *, ruletype := "apply" FROM siteprofcontext->ImportApplies())
-                          CONCAT
-                          (SELECT *, ruletype := "sitesetting" FROM siteprofcontext->ImportSiteSettings());
+    siteprofdata.applyrules := siteprofcontext->ImportApplies();
+    siteprofdata.sitesettings := siteprofcontext->ImportSiteSettings();
 
     siteprofdata.applysiteprofiles := siteprofcontext->ParseApplySiteProfiles();
     siteprofdata.grouptypes := siteprofcontext->ImportGroupTypes();
@@ -1475,17 +1476,16 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
               newfilename := ""
             ];
 
-        INTEGER matchrule := SELECT AS INTEGER #rules + 1 FROM siteprofdata.rules WHERE ruletype="apply" AND whfstype = ftype.namespace;
+        INTEGER matchrule := SELECT AS INTEGER #applyrules + 1 FROM siteprofdata.applyrules WHERE whfstype = ftype.namespace;
         IF(matchrule > 0) { //matching rule
-          IF(NOT RecordExists(siteprofdata.rules[matchrule-1].folderindex))
-            siteprofdata.rules[matchrule-1].folderindex := set_indexfile;
+          IF(NOT RecordExists(siteprofdata.applyrules[matchrule-1].folderindex))
+            siteprofdata.applyrules[matchrule-1].folderindex := set_indexfile;
         } ELSE { //create a rule
           INSERT CELL[
             ...csp_base_applyrule,
             whfstype := ftype.namespace,
-            ruletype := "apply",
             folderindex := set_indexfile
-          ] INTO siteprofdata.rules AT END;
+          ] INTO siteprofdata.applyrules AT END;
         }
       }
       DELETE CELL indexfile, protectindexfile FROM ftype.foldertype;
@@ -1494,10 +1494,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   // Stabilize per-siteprofile result
   siteprofdata.contenttypes := SELECT * FROM siteprofdata.contenttypes ORDER BY namespace;
-  siteprofdata.rules := SELECT * FROM siteprofdata.rules
-                             ORDER BY CellExists(rules,'whfstype') AND whfstype != "" DESC,
-                                      CellExists(rules,'whfstype') ? whfstype : "",
-                                      CellExists(rules,'priority') ? priority : 0;
+  siteprofdata.applyrules := SELECT * FROM siteprofdata.applyrules ORDER BY whfstype != "" DESC, whfstype, priority;
 
   RETURN [ value := siteprofdata
          , ttl := 60*60*1000

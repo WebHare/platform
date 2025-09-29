@@ -51,8 +51,65 @@ function testToRules() {
     is: "file",
     withinType: 'http://www.webhare.net/xmlns/publisher/contentlibraries/slots',
     siteType: 'http://www.webhare.net/xmlns/webhare_testsuite/testsite',
-    whfsPath: '/webhare-tests/*'
-  }, [{ ...baseApplyToRule, match_file: true, withintype: 'http://www.webhare.net/xmlns/publisher/contentlibraries/slots', sitetype: 'http://www.webhare.net/xmlns/webhare_testsuite/testsite', whfspathmask: "/webhare-tests/*" }]);
+    whfsPath: '/webhare-tests/*',
+    hasWebDesign: true,
+    webFeature: "platform:webinterface",
+  }, [{ ...baseApplyToRule, match_file: true, withintype: 'http://www.webhare.net/xmlns/publisher/contentlibraries/slots', sitetype: 'http://www.webhare.net/xmlns/webhare_testsuite/testsite', whfspathmask: "/webhare-tests/*", typeneedstemplate: true, webfeatures: ["platform:webinterface"] }]);
+
+  testToRoundtrip({
+    and: [
+      { is: "folder", },
+      {
+        not: { is: "folder", sitePath: "/resources/*" }
+      }
+    ]
+  }, [
+    {
+      type: "and",
+      criteria: [
+        { ...baseApplyToRule, match_folder: true },
+        { type: "not", criteria: [{ ...baseApplyToRule, match_folder: true, pathmask: "/resources/*" }] }
+      ]
+    }
+  ]);
+
+  testToRoundtrip({
+    or: [
+      {
+        testSetting: {
+          member: 'anyLanguage',
+          value: 'en',
+          type: 'http://webhare_demo.example_site/xmlns/site',
+          target: 'root'
+        },
+      }, {
+        testSetting: {
+          member: 'anyLanguage',
+          value: 'en',
+          type: 'http://webhare_demo.example_site/xmlns/site',
+          target: 'self'
+        }
+      }
+    ]
+  },
+    [
+      {
+        type: 'testdata',
+        target: 'root',
+        typedef: 'http://webhare_demo.example_site/xmlns/site',
+        membername: 'any_language',
+        value: 'en'
+      },
+      {
+        type: 'testdata',
+        target: 'self',
+        typedef: 'http://webhare_demo.example_site/xmlns/site',
+        membername: 'any_language',
+        value: 'en'
+      }
+
+    ]);
+
 }
 
 test.run([
