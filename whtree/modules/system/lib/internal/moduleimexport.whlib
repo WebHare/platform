@@ -390,7 +390,7 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
       user_locale := options.user_locale,
       tempmodulepath,
       finalmodulename
-    ]);
+    ], [ priority := "updateinteractive" ]);
     GetPrimary()->CommitWork();
 
     RECORD result := RetrieveManagedTaskResult(installtask, MAX_DATETIME);
