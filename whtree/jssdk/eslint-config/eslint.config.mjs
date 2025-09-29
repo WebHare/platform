@@ -166,12 +166,13 @@ export function buildBaseConfig(options) {
       "react/no-unknown-property": 0,
       "react/prop-types": 0,
       "react/jsx-key": 0,
-      "@typescript-eslint/array-type": [
-        "error",
-        {
-          "default": "array-simple"
-        }
-      ],
+      /* const celllists: Array<Array<WrappedDataColumn>> = this.lv_cols.map(() => []);  bad
+         const celllists: Array<WrappedDataColumn>[] = this.lv_cols.map(() => []);       bad
+         const celllists: Array<WrappedDataColumn[]> = this.lv_cols.map(() => []);       bad (this is the one I'd find simplest to describe)
+         const celllists: WrappedDataColumn[][] = this.lv_cols.map(() => []);            "Simple?"
+         simple is not absolute, just drop this rule (since WH5.9)
+      */
+      "@typescript-eslint/array-type": 0,
       "@typescript-eslint/ban-ts-comment": [
         "error",
         {
