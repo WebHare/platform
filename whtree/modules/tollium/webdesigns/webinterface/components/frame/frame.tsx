@@ -556,7 +556,7 @@ export class ObjFrame extends ToddCompBase {
     return $todd.checkEnabledFlags(this.flags, checkflags, min, max, selectionmatch);
   }
 
-  checkDropTarget(event: DragEvent, droptypes: AcceptType[], activeflags: Record<string, boolean> | null, noloopscheck: (sourcecomp: ToddCompBase, rowkeys: string[]) => boolean | null, droplocation: DropLocation) {
+  checkDropTarget(event: DragEvent, droptypes: AcceptType[], activeflags: Record<string, boolean> | null, noloopscheck: ((sourcecomp: ToddCompBase, rowkeys: string[]) => boolean) | null, droplocation: DropLocation) {
     //droptypes
     //  .sourceflags
     //  .targetflags

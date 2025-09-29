@@ -5,6 +5,7 @@ import type ObjList from './list';
 import type { DataColumn, VisibleRow } from './list';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { createImage, updateImage } from '@mod-tollium/js/icons';
+import { colminwidth } from './listsupport';
 
 type SizeStyles = {
   width: number;
@@ -15,7 +16,6 @@ type SizeStyles = {
   padright: number;
 };
 
-export const minwidth = 10;
 export const cellpadding_x = 4;
 
 function setIcon(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, width: number, height: number, icon: string | null) {
@@ -69,7 +69,7 @@ export class ListColumnBase<DataType> {
       */
       resizable: true,
       minwidth: columndef.minwidth === null || columndef.minwidth ===
-        undefined ? minwidth : Math.max(columndef.minwidth, minwidth)
+        undefined ? colminwidth : Math.max($todd.CalcAbsWidth(columndef.minwidth), colminwidth)
     };
   }
 

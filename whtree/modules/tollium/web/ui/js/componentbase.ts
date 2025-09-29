@@ -356,7 +356,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   //Queue an outgoing message and return a promise
   asyncMessage(type: string, data: unknown, { modal = true } = {}) {
     if (!this.owner) //already disassociated
-      return;
+      return Promise.resolve();
 
     return new Promise<void>((resolve, reject) => {
       const callback = () => resolve();
@@ -690,6 +690,10 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   onBeforeReparent() { }
 
   onActionUpdated() {
+  }
+
+  onExecute({ ignorebusy = false } = {}) {
+    console.warn("onExecute not implemented for " + this.getDebugName());
   }
 
   /****************************************************************************************************************************
