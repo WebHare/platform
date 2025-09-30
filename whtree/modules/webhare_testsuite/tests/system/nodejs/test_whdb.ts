@@ -13,6 +13,7 @@ import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { isDatabaseError } from "@webhare/whdb/src/impl";
+import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 
 async function cleanup() {
   await beginWork();
@@ -45,6 +46,8 @@ async function testWork() {
 
 
 async function testQueries() {
+  test.assert((await getCurrentPGVersion())?.major >= 17);
+
   await beginWork();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
 

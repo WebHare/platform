@@ -260,3 +260,8 @@ export async function cancelBackend(pid: number, options?: { kill?: boolean }) {
     await query(`SELECT pg_cancel_backend($1)`, [pid]);
   }
 }
+
+export async function getCurrentPGVersion() {
+  const res = await query<{ server_version_num: number }>("SHOW server_version_num");
+  return { major: res.rows[0].server_version_num / 10000 | 0, minor: (res.rows[0].server_version_num % 10000) };
+}
