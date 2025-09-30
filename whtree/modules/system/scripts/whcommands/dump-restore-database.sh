@@ -67,7 +67,7 @@ cd /
 rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
 
 if [ -z "$NOMODE" ]; then
-  wh db setserver readonly
+  wh debug enable db-readonly
 fi
 
 function cleanup()
