@@ -1,9 +1,5 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import * as $todd from "@mod-tollium/web/ui/js/support";
-import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
+import { ToddCompBase, type ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -11,11 +7,18 @@ import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-export default class ObjCustomHTML extends ComponentBase {
-  constructor(parentcomp, data) {
+interface CustomHTMLAttributes extends ComponentStandardAttributes {
+
+}
+
+export default class ObjCustomHTML extends ToddCompBase<CustomHTMLAttributes> {
+  contentdiv;
+  prevwidth?: number;
+  prevheight?: number;
+
+  constructor(parentcomp: ToddCompBase | null, data: CustomHTMLAttributes) {
     super(parentcomp, data);
     this.componenttype = "custom";
-    this.selectionflags = [];
 
     this.node = dompack.create("t-custom", {
       dataset: { name: this.name },
@@ -42,17 +45,6 @@ export default class ObjCustomHTML extends ComponentBase {
     return this.contentdiv;
   }
 
-  setSelectionFlag(flag) {
-    if (!this.selectionflags.includes(flag))
-      this.selectionflags.push(flag);
-    this.owner.actionEnabler();
-  }
-
-  clearSelectionFlag(flag) {
-    this.selectionflags = this.selectionflags.filter(item => item !== flag); //erase
-    this.owner.actionEnabler();
-  }
-
   /****************************************************************************************************************************
    * Dimensions
    */
@@ -74,9 +66,5 @@ export default class ObjCustomHTML extends ComponentBase {
 
       dompack.dispatchCustomEvent(this.contentdiv, 'tollium:resized', { bubbles: true, cancelable: false, detail: { x: this.width.set, y: this.height.set } }); //new style
     }
-  }
-
-  isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
-    return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
   }
 }

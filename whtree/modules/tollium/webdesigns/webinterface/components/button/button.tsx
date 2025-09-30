@@ -1,10 +1,9 @@
 import * as dompack from 'dompack';
-import ActionableBase from '@mod-tollium/webdesigns/webinterface/components/base/actionable';
 import * as icons from '@mod-tollium/js/icons';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import './button.scss';
-import type { ActionableAttributes, ComponentBaseUpdate, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import { ActionableComponent, type ActionableAttributes, type ComponentBaseUpdate, type ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { CustomMenuEvent } from '@mod-tollium/web/ui/components/basecontrols/menu';
 
@@ -32,7 +31,7 @@ type ButtonUpdate = {
   pressed: boolean;
 } | ComponentBaseUpdate;
 
-export default class ObjButton extends ActionableBase {
+export default class ObjButton extends ActionableComponent<ButtonAttributes> {
   node: HTMLElement;
   componenttype = "button";
   iconsize = 0;

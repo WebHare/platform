@@ -1,11 +1,13 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+import ActionForwardBase, { type ActionForwardAttributes } from './actionforwardbase';
+import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
+import type ObjAction from './action';
 
-import * as dompack from 'dompack';
-import ActionForwardBase from './actionforwardbase';
+interface ForwardAttributes extends ActionForwardAttributes {
+  action: string;
+}
 
-export default class ObjForward extends ActionForwardBase {
-  constructor(parentcomp, data) {
+export default class ObjForward extends ActionForwardBase<ForwardAttributes> {
+  constructor(parentcomp: ToddCompBase | null, data: ForwardAttributes) {
     super(parentcomp, data);
     this.componenttype = "forward";
     this.action = data.action;
@@ -16,13 +18,13 @@ export default class ObjForward extends ActionForwardBase {
   }
   isEnabled() {
     const forwardto = this._getForwardTo();
-    return forwardto && forwardto.isEnabled();
+    return forwardto && (forwardto as unknown as ObjAction).isEnabled();
   }
   onActionUpdated() {
     this.owner.broadcastActionUpdated(this);
   }
-  onExecute(options) {
+  onExecute({ ignorebusy = false } = {}) {
     const forwardto = this._getForwardTo();
-    return forwardto ? forwardto.onExecute(options) : false;
+    return forwardto ? forwardto.onExecute({ ignorebusy }) : false;
   }
 }

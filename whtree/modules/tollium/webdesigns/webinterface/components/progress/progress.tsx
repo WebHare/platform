@@ -1,20 +1,11 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
-import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import { ToddCompBase, type ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 
-// ---------------------------------------------------------------------------
-//
-//   PROGRESS BAR
-//
+interface ProgressAttributes extends ComponentStandardAttributes {
+}
 
-export default class ObjProgress extends ComponentBase {
-  // ---------------------------------------------------------------------------
-  //
-  // Initialization
-  //
-
-  constructor(parentcomp, data) {
+export default class ObjProgress extends ToddCompBase<ProgressAttributes> {
+  constructor(parentcomp: ToddCompBase | null, data: ProgressAttributes) {
     super(parentcomp, data);
     this.componenttype = "progress";
     this.buildNode();
@@ -53,12 +44,12 @@ export default class ObjProgress extends ComponentBase {
   // Communication
   //
 
-  onMsgSetValMax(data) {
+  onMsgSetValMax(data: { value: number; max: number }) {
     if (data.max <= 0) {
       this.node.removeAttribute("value");
     } else {
-      this.node.setAttribute("value", data.value);
-      this.node.setAttribute("max", data.max);
+      this.node.setAttribute("value", data.value.toString());
+      this.node.setAttribute("max", data.max.toString());
     }
   }
 }

@@ -5,6 +5,7 @@ import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRe
 import type { CurrentDragData } from './dragdrop';
 import { isTruthy } from '@webhare/std';
 import { flagUIBusy } from '@webhare/dompack';
+import type { FlatRowKey } from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("../common.lang.json");
@@ -134,19 +135,28 @@ export async function handleImageUpload(component: ToddCompBase, file: File | { 
   }
 }
 
+export type DropMessage = {
+  source: 'local' | 'files' | 'external';
+  sourcecomp: string; //name of component where the drag originated (if local)
+  items: unknown[];
+  dropeffect: 'copy' | 'move' | 'link' | 'none' | '';
+  droplocation?: string;
+  target?: FlatRowKey;
+};
+
 /** Given an accepted drop, upload files to a component (with progress dialog), call callback when done (successfully)
     Marks tollium as busy until callback is called.
     @param component - Component
     @param dragdata - Dragdata (return value of $todd.checkDropTarget)
     @param callback - Callback to call when done uploading. Signature: function (draginfo, dialogclosecallback)
 */
-export async function uploadFilesForDrop(component: ToddCompBase, dragdata: CurrentDragData, callback: (msg: unknown, resolve: () => void) => void) {
+export async function uploadFilesForDrop(component: ToddCompBase, dragdata: CurrentDragData, callback: (msg: DropMessage, resolve: () => void) => void) {
   const draginfo = dragdata.getData();
 
   const islocal: boolean = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner === component.owner;
   const firstFile: File | null = dragdata.getFiles()[0] ?? null;
 
-  const msg = {
+  const msg: DropMessage = {
     source: islocal ? 'local' : firstFile ? 'files' : 'external',
     sourcecomp: islocal ? draginfo.source.name : '',
     items: draginfo ? draginfo.items : [],
