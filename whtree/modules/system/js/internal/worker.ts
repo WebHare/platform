@@ -8,6 +8,7 @@ import { type ConvertLocalServiceInterfaceToClientInterface, buildLocalServicePr
 import EventSource from "./eventsource";
 
 let counter = 0;
+const terminationGracePeriodMs = 1000; // ms
 
 type FunctionRef = string | {
   ref: string;
@@ -24,14 +25,37 @@ type AsyncWorkerEvents = {
   error: Error;
 };
 
+class AsyncWorkerState {
+  requests: Record<string, PromiseWithResolvers<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
+  closed = false;
+  exitCode: number | undefined;
+  error: Error | undefined;
+  parent: WeakRef<AsyncWorker>;
+
+  constructor(parent: AsyncWorker) {
+    this.parent = new WeakRef(parent);
+  }
+
+  setError(error: Error) {
+    if (!this.error) {
+      this.error = error;
+      for (const [key, value] of Object.entries(this.requests)) {
+        value.reject(error);
+        delete this.requests[key];
+      }
+      // "emit" is protected, so use ["emit"] syntax
+      if (!this.closed)
+        this.parent.deref()?.["emit"]("error", error);
+    }
+  }
+}
+
 /** Wraps a node worker */
 export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   private worker: Worker;
   private port: TypedMessagePort<WorkerControlLinkRequest, WorkerControlLinkResponse>;
-  private requests: Record<string, PromiseWithResolvers<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
+  private state = new AsyncWorkerState(this);
   private refs: RefTracker;
-  private closed = false;
-  private error: Error | undefined;
 
   constructor() {
     super();
@@ -49,31 +73,19 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     });
     // We're sending a close over the port when this object is garbage collected
     // Make sure the port doesn't hold strong references to this object
-    const requests = this.requests;
-    const handlerWeakRef = new WeakRef(this);
+    const state = this.state;
 
-    function rejectRequests(error: Error) {
-      const handler = handlerWeakRef.deref();
-      error = handler ? handler.error ??= error : error;
-      for (const [key, value] of Object.entries(requests)) {
-        value.reject(error);
-        delete requests[key];
-      }
-    }
-
-    const asyncThis = new WeakRef(this);
     this.worker.on("error", (error) => {
-      rejectRequests(error);
-      asyncThis.deref()?.emit("error", error);
+      state.setError(error);
     });
     this.worker.on("exit", (code) => {
+      state.exitCode = code;
       const error = new Error(`Worker exited with code ${code}`);
-      rejectRequests(error);
-      asyncThis.deref()?.emit("error", error);
+      state.setError(error);
     });
     this.port.on("message", (message) => {
-      requests[message.id]?.resolve(message);
-      delete requests[message.id];
+      state.requests[message.id]?.resolve(message);
+      delete state.requests[message.id];
     });
     this.refs = new RefTracker(this.worker, { initialref: false });
     this.port.unref();
@@ -82,10 +94,10 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   }
 
   private checkClosed() {
-    if (this.closed)
+    if (this.state.closed)
       throw new Error(`This worker has already been closed`);
-    if (this.error)
-      throw this.error;
+    if (this.state.error)
+      throw this.state.error;
   }
 
   private async newReturningObject<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertLocalServiceInterfaceToClientInterface<T>> {
@@ -93,7 +105,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
     const deferred = Promise.withResolvers<WorkerControlLinkResponse>();
-    this.requests[id] = deferred;
+    this.state.requests[id] = deferred;
     const lock = this.refs.getLock(`instantiate ${func}`);
     try {
       this.port.postMessage({
@@ -129,7 +141,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
     const deferred = Promise.withResolvers<WorkerControlLinkResponse>();
-    this.requests[id] = deferred;
+    this.state.requests[id] = deferred;
     const lock = this.refs.getLock(`instantiate ${options.ref}`);
     try {
       this.port.postMessage({
@@ -151,11 +163,13 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   }
 
   close() {
-    void this.worker.terminate(); // async terminate
-    this.closed = true;
-    this.error ??= new Error(`Worker has been closed`);
-    for (const req of Object.values(this.requests))
-      req.reject(this.error);
-    this.requests = {};
+    this.state.closed = true;
+    this.state.setError(new Error(`Worker has been closed`));
+    this.port.postMessage({ type: "close", gracePeriodMs: terminationGracePeriodMs });
+    setTimeout(() => {
+      // terminate the worker if it hasn't exited yet after closing its own port
+      if (this.state.exitCode === undefined)
+        void this.worker.terminate(); // async terminate
+    }, terminationGracePeriodMs);
   }
 }

@@ -30,10 +30,14 @@ async function cleanupOldUploads() {
   if (currentuploads.length === 0)
     return; //nothing to do
 
+  // just remove files, sessions are all directories
+  for (const file of currentuploads.filter(_ => _.type !== "directory"))
+    await unlink(file.fullPath);
+
   const uploadsessionids = await db<PlatformDB>().selectFrom("system.sessions").select(["sessionid"]).where("scope", "=", "platform:uploadsession").execute();
   const uploadsessions = new Set(uploadsessionids.map(_ => _.sessionid));
   for (const session of currentuploads)
-    if (!uploadsessions.has(session.name))
+    if (session.type === "directory" && !uploadsessions.has(session.name))
       await deleteRecursive(session.fullPath, { deleteSelf: true });
 }
 
