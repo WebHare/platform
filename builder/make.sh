@@ -81,6 +81,7 @@ class WebhareDeps < Formula
   depends_on "pkg-config"
   depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6. Default for new Homebrew WebHare source installs until 5.7
   depends_on "postgresql@16" # Newly added in 5.6. Default since 5.7
+  depends_on "postgresql@17" # Prepared for WH5.8/5.9 masters, might be in use
   depends_on "postgresql@$POSTGRES_MAJOR" # See etc/platform.conf (eg 17)
   depends_on "rapidjson"
   depends_on "opensearch"
