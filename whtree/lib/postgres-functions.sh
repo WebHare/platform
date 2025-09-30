@@ -31,7 +31,7 @@ get_postgres_binaries()   # params: targetvar version
   echo "" >&2
   echo "Install PostgreSQL $2 into one of these locations or set the WEBHARE_PGIN variable to point to the correct binary directory." >&2
   if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-    echo "You may be able to install it with 'brew install postgresql@$$2' or you may need to download binaries directly" >&2
+    echo "You may be able to install it with 'brew install postgresql@$2' or you may need to download binaries directly" >&2
   fi
   exit 1
 }

@@ -16,13 +16,14 @@ estimate_buildj
 
 NOMODE=""
 NEWBINDIR=""
+DRYRUN=""
 
 while [[ -n "$1" ]]; do
   if [ "$1" == "--nosetserver" ]; then
     echo "Not changing server types or restarting databases"
     shift
     NOMODE=1
-  elif [ "$1" == "--new-version" ]; then
+  elif [ "$1" == "--set-version" ]; then
     shift
     SETVERSION="$1"
     shift
@@ -31,8 +32,12 @@ while [[ -n "$1" ]]; do
     shift
     NEWBINDIR="$1"
     shift
+  elif [ "$1" == "--dryrun" ]; then
+    shift
+    DRYRUN=1
+    NOMODE=1
   else
-    echo "Syntax: wh dump-postgresql-database [--nosetserver] [--new-version <version>] [--new-bindir <path>]"
+    echo "Syntax: wh dump-postgresql-database [--nosetserver] [--new-version <version>] [--new-bindir <path>] [--dryrun]"
     exit 1
   fi
 done
@@ -76,11 +81,10 @@ function cleanup()
     POSTMASTER_PID=""
     $RUNAS "$NEWBINDIR/pg_ctl" -D "${RECREATE_DIR}" -m fast stop
   fi
-  exit 1
 }
 trap cleanup EXIT SIGINT
 
-echo "Will dump/restore using $WHBUILD_NUMPROC threads"
+logWithTime "Dumping database (using $WHBUILD_NUMPROC threads)"
 
 $RUNAS "$WEBHARE_PGBIN/pg_dump" -j "$WHBUILD_NUMPROC" -f "${DUMP_DIR}" --format=d -v webhare
 ERRORCODE="$?"
@@ -97,6 +101,7 @@ if [ "$ERRORCODE" != "0" ]; then
   exit $ERRORCODE
 fi
 
+logWithTime "Creating new database cluster in ${RECREATE_DIR} using binaries from $NEWBINDIR"
 init_webhare_pg_db "$RECREATE_DIR" "$NEWBINDIR"
 
 pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
@@ -118,8 +123,16 @@ fi
 
 ERRORCODE=0
 
+logWithTime "Restoring database into new cluster"
 # Replay global settings
 $RUNAS "$NEWBINDIR/psql" "${NEWDBOPTIONS[@]}" -X -f "${DUMP_DIR}/pg-globals.sql" || ERRORCODE="$?"
+if [ "$ERRORCODE" != "0" ]; then
+  echo "psql globals failed with errorcode $ERRORCODE"
+  exit $ERRORCODE
+fi
+
+# This interferes with the dump. bootstrap.ts#ensureSettings will fix it when Webhare actually starts
+$RUNAS "$NEWBINDIR/psql" "${NEWDBOPTIONS[@]}" -X -c "START TRANSACTION READ WRITE;; alter user current_user set default_transaction_read_only = off; commit;" || ERRORCODE="$?"
 if [ "$ERRORCODE" != "0" ]; then
   echo "psql globals failed with errorcode $ERRORCODE"
   exit $ERRORCODE
@@ -132,7 +145,15 @@ if [ "$ERRORCODE" != "0" ]; then
 fi
 
 POSTMASTER_PID=""
-$RUNAS $WEBHARE_PGBIN/pg_ctl -D "${RECREATE_DIR}" -m fast stop
+$RUNAS "$WEBHARE_PGBIN/pg_ctl" -D "${RECREATE_DIR}" -m fast stop
+
+logWithTime "Restore complete"
+
+if [ -n "$DRYRUN" ]; then
+  echo "dry run mode - not switching databases. Cleaning up the dry-run dump"
+  rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
+  exit 0
+fi
 
 # prepare for in place-move
 mv "${RECREATE_DIR}" "$SWITCHTO_DIR"
@@ -143,11 +164,11 @@ mv "${DUMP_DIR}" "$TEMPNAME"
 rm -rf -- "$TEMPNAME" &
 disown # killing us won't kill the rm
 
-if [ -z "$NOMODE" ]; then
-  # restart the database server:
-  # $RUNAS $WEBHARE_PGBIN/pg_ctl -D "${WEBHARE_DATAROOT}/postgresql/db" -m fast stop
-  # wh db setserver readwrite
 
+if [ -z "$NOMODE" ]; then
+  logWithTime "Restarting WebHare"
   # To be honest - it's safer to restart all of WebHare. See also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/200
    wh service relaunch
 fi
+
+exit 0

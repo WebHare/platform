@@ -1,7 +1,10 @@
+import { readPlatformConf } from "@mod-platform/js/configure/axioms";
 import { intOption, run } from "@webhare/cli";
+import { toFSPath } from "@webhare/services";
 import { pick } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
-import { cancelBackend, getDatabaseMonitorInfo, getDatabaseSequences, restartAllSequences } from "@webhare/whdb/src/management";
+import { cancelBackend, getCurrentPGVersion, getDatabaseMonitorInfo, getDatabaseSequences, restartAllSequences } from "@webhare/whdb/src/management";
+import { spawnSync } from "child_process";
 
 run({
   description: "Database management commands",
@@ -85,6 +88,36 @@ run({
       main: async function main({ opts, args }) {
         await cancelBackend(args.pid, { kill: opts.kill });
       }
+    },
+    upgrade: {
+      description: "Upgrade the database to the latest version (if needed)",
+      flags: {
+        "dryrun": "Do not actually perform the upgrade, just run and time it"
+      },
+      options: {
+        "set-version": {
+          description: "The new major version to upgrade to, if not the recommended one",
+          type: intOption({ start: 11 }),
+        }
+      },
+      main: async function main({ opts, args }) {
+        const curVersion = (await getCurrentPGVersion()).major;
+        const expectVersion = opts.setVersion || parseInt((await readPlatformConf())["postgres_recommended_major"]);
+        if (!opts.setVersion && curVersion >= expectVersion) { //ignore same-version if you explicitly select a version
+          console.log(`Your database is already at PostgreSQL ${curVersion}, no upgrade needed`);
+          return;
+        }
+
+        const start = Date.now();
+        const result = spawnSync(toFSPath("mod::platform/cli-commands/lib/dump-restore-database.sh"),
+          [...opts.dryrun ? "--dryrun" : [], "--set-version", expectVersion.toString()], { stdio: "inherit" });
+        console.log(result.status);
+        if (result.status === 0) {
+          console.log("Total time: " + ((Date.now() - start) / 1000).toFixed(3) + " seconds");
+        } else {
+          console.error(opts.dryrun ? "Upgrade failed" : "Upgrade failed - you may need to restart WebHare to exit read-only mode! (wh service relaunch");
+          process.exit(result.status || 1);
+        }
       }
     }
   }
