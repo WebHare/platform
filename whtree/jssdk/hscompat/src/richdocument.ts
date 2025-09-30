@@ -12,27 +12,29 @@ import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
+export type HareScriptResourceDescriptor = {
+  contentid: string;
+  mimetype: string;
+  data: WebHareBlob;
+  width: number;
+  height: number;
+  hash: string;
+  filename: string;
+  extension: string;
+  rotation: Rotation;
+  mirrored: boolean;
+  refpoint: { x: number; y: number } | null;
+  source_fsobject: number;
+  dominantcolor: string;
+}
+
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
   instances: Array<{
     data: { whfstype: string;[key: string]: unknown };
     instanceid: string;
   }>;
-  embedded: Array<{
-    contentid: string;
-    mimetype: string;
-    data: WebHareBlob;
-    width: number;
-    height: number;
-    hash: string;
-    filename: string;
-    extension: string;
-    rotation: Rotation;
-    mirrored: boolean;
-    refpoint: { x: number; y: number } | null;
-    source_fsobject: number;
-    dominantcolor: string;
-  }>;
+  embedded: HareScriptResourceDescriptor[];
   links: Array<{
     tag: string;
     linkref: number;
@@ -86,7 +88,7 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
   return outdata;
 }
 
-function importHSEmbeddedResource(resource: HareScriptRTD["embedded"][number]): ResourceDescriptor {
+export function importHSResourceDescriptor(resource: HareScriptResourceDescriptor): ResourceDescriptor {
   return new ResourceDescriptor(resource.data, {
     dominantColor: resource.dominantcolor,
     fileName: resource.filename,
@@ -327,7 +329,7 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
     cdoc.links.set(link.tag, link.linkref);
 
   for (const embed of rtd.embedded)
-    cdoc.embedded.set(embed.contentid, importHSEmbeddedResource(embed));
+    cdoc.embedded.set(embed.contentid, importHSResourceDescriptor(embed));
 
   return buildRTDFromComposedDocument(cdoc);
 }

@@ -10,7 +10,7 @@ export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID, isValidWRDGuid } from 
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound, lowerBound, upperBound, recordRange } from "./algorithms";
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime, utcToLocal, localToUTC } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
-export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "./richdocument";
+export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, importHSResourceDescriptor, type HareScriptRTD, type HareScriptResourceDescriptor } from "./richdocument";
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
 export function decodeHSONorJSONRecord(input: string | null, { typed = false } = {}): object | null {
