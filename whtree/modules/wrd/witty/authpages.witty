@@ -291,3 +291,19 @@
     </form>
   </div>
 [/component]
+
+[component extloginfailure]
+  <div class="wh-wrdauth-form wh-wrdauth-extloginfailure">
+    <form class="wh-form wh-styledinput">
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <h2 class="heading2">
+          [gettid site.forms.authpages.extloginfailure-title]
+        </h2>
+        <p>[reason]</p>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <a href="[backlink]" type="submit" class="wh-form__button wh-wrdauth-extloginfailure__retrybutton">[gettid site.forms.authpages.extloginfailure-retry]</a>
+      </div>
+    </form>
+  </div>
+[/component]

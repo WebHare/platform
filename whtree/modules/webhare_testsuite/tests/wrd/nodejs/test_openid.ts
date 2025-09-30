@@ -316,7 +316,7 @@ async function verifyAsOpenIDSP() {
 
     await logoutRelyingParty(context);  //log out of portal1-oidc, just delete cookies
 
-    //Test GnerateLoginRequest to go straight towards TESTFW_OIDC_SP. we're stil loggedin at the IDP so we shouldn't see a login
+    //Test GenerateLoginRequest to go straight towards TESTFW_OIDC_SP. we're stil loggedin at the IDP so we shouldn't see a login
     const portal1LoginRequest = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
     console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
     await page.goto(portal1LoginRequest);
@@ -324,7 +324,7 @@ async function verifyAsOpenIDSP() {
 
     await logoutRelyingParty(context);
 
-    //Test GnerateLoginRequest again, but now we require a prompt
+    //Test GenerateLoginRequest again, but now we require a prompt
     const portal1LoginRequestWithPrompt = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=login";
     console.log(`portal1LoginRequestWithPrompt: ${portal1LoginRequestWithPrompt}`);
     await page.goto(portal1LoginRequestWithPrompt);
@@ -339,6 +339,16 @@ async function verifyAsOpenIDSP() {
     console.log(`portal1LoginRequestSilent: ${portal1LoginRequestSilent}`);
     await page.goto(portal1LoginRequestSilent);
     test.eq('0', await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+    await logoutRelyingParty(context);
+
+    await runInWork(() => schemaSP.update("wrdPerson", wrdId, { wrdauthAccountStatus: { status: "blocked" } }));
+
+    const portal1LoginRequestBlocked = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
+    console.log(`portal1LoginRequestBlocked: ${portal1LoginRequestBlocked}`);
+    await page.goto(portal1LoginRequestBlocked);
+    await runWebHareLoginFlow(page, { password: changePasswordTo });
+    test.eq(/The account has been disabled/, await (await (await page.waitForSelector("div.wh-wrdauth-extloginfailure"))?.getProperty("textContent"))?.jsonValue());
   } finally {
     await context.close();
   }
