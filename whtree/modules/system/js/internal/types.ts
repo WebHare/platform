@@ -101,6 +101,9 @@ export interface WebResponseInfo {
 }
 
 export type WorkerControlLinkRequest = {
+  type: "close";
+  gracePeriodMs: number;
+} | {
   type: "instantiateServiceRequest";
   func: string;
   params: unknown[];
