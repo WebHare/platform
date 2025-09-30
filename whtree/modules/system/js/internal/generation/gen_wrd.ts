@@ -33,8 +33,10 @@ export function generatePropertyName(str: string) {
     str = "wh" + generateTypeName(str.substring(2));
   else if (str.startsWith("webhare"))
     str = "webhare" + generateTypeName(str.substring(7));
-  str = str.split("_").filter(e => e).map((e, idx) => idx ? e[0].toUpperCase() + e.substring(1) : e).join("");
-  return str.split("-").filter(e => e).map((e, idx) => idx ? e[0].toUpperCase() + e.substring(1) : e).join("");
+
+  str = str.split(/-|_/).filter(e => e).map((e, idx) => idx ? e[0].toUpperCase() + e.substring(1) : e).join("");
+  str = str.replaceAll("*", "Wildcard");
+  return str;
 }
 
 /** Format of schema definition data return by HareScript */

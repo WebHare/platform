@@ -26,7 +26,7 @@ export type HareScriptResourceDescriptor = {
   refpoint: { x: number; y: number } | null;
   source_fsobject: number;
   dominantcolor: string;
-}
+};
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
