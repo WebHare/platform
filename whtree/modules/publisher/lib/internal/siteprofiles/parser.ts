@@ -509,10 +509,8 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     htmlclass: type.htmlClass || "",
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
-    linkhandlers: [], //FIXME
+    linkhandlers: type.linkHandlers?.map(lh => ({ namespaceuri: lh.split('#')[0], localname: lh.split('#')[1] || '' })) || [],
     margins: "none",
-    tag_b: type.b || "b",
-    tag_i: type.i || "i",
     allowedobjects: parseAllowedObjects(type.allowedObjects || []),
 
   };

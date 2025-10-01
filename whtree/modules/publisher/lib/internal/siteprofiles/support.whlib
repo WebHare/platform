@@ -133,7 +133,5 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , applytester := DEFAULT OBJECT
          , linkhandlers := RECORD[]
          , margins := "none"
-         , tag_b := "b"
-         , tag_i := "i"
          ]);
 }

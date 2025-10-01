@@ -133,10 +133,8 @@ export interface CSPContentType {
   allownewwindowlinks?: boolean;
   ignoresiteprofilewidgets?: boolean;
   applytester?: null;
-  linkhandlers?: string[];
+  linkhandlers?: Array<{ namespaceuri: string; localname: string }>;
   margins?: "none" | "compact" | "wide";
-  tag_b?: string;
-  tag_i?: string;
 }
 
 export type CSPRTDBlockStyle = {
