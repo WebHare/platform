@@ -177,6 +177,11 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
 
 type TidCallback = (resource: string, tid: string) => void;
 
+/** return true for simple names but false for http: and urn: like tids */
+function isValidForGid(type: string) {
+  return !type.includes(':');
+}
+
 class SiteProfileParserContext {
   readonly plugins: ModulePlugins;
   messages: ValidationMessageWithType[] = [];
@@ -880,10 +885,14 @@ class ResourceParserContext {
     return new ResourceParserContext(resourcename, gid, onTid);
   }
 
-  /** Add a potential new gid scope */
-  addGid(potentialGidObject?: { gid?: string }): ResourceParserContext {
-    if (potentialGidObject?.gid)
-      return new ResourceParserContext(this.resourceName, resolveGid(this.gid, potentialGidObject.gid), this.onTid);
+  /** Add a potential new gid scope
+   * @params potentialGidObject.gid - If set, this get is merged into the current gid
+   * @params options.fallback - If gid is not set, and fallback is set, this fallback is added to the gid instead if we were already buildig one
+   */
+  addGid(potentialGidObject?: { gid?: string }, options?: { fallback?: string }): ResourceParserContext {
+    const toadd = potentialGidObject?.gid ?? (this.gid ? options?.fallback : "");
+    if (toadd)
+      return new ResourceParserContext(this.resourceName, resolveGid(this.gid, toadd), this.onTid);
     else
       return this;
   }
@@ -893,6 +902,7 @@ class ResourceParserContext {
     const resolved = resolveTid(this.gid, potentialTidObject);
     if (resolved && !resolved.startsWith(':') && this.onTid)
       this.onTid(this.resourceName, resolved);
+
     return resolved;
   }
 }
@@ -1055,7 +1065,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
-    const typeParser = rootParser.addGid(settings);
+    const typeParser = rootParser.addGid(settings, { fallback: isValidForGid(type) ? '.' + type : undefined });
     const scopedtype = `${baseScope}${type}`;
     const ns = settings.namespace ?? scopedtype;
     const ctype: CSPContentType = {
@@ -1076,7 +1086,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
       previewcomponent: "",
       scopedtype,
       siteprofile: context.resourceName,
-      title: typeParser.resolveTid({ name: type, title: settings.title, tid: settings.tid }),
+      title: typeParser.resolveTid({ name: type.split('.').at(-1), title: settings.title, tid: settings.tid }),
       tolliumicon: settings.icon || '',
       type: "contenttype",
       wittycomponent: "",

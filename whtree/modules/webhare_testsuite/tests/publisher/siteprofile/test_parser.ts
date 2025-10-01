@@ -30,7 +30,7 @@ async function testSPYaml() {
         namespace: 'webhare_testsuite:my_types.test_type',
         scopedtype: 'webhare_testsuite:my_types.test_type',
         type: 'contenttype',
-        title: "webhare_testsuite:base.gid.test_type",
+        title: "webhare_testsuite:base.gid.test_type.test_type",
         yaml: true,
         members:
           [
@@ -38,7 +38,7 @@ async function testSPYaml() {
               name: 'number_field',
               jsname: "numberField",
               type: CSPMemberType.Integer,
-              title: "webhare_testsuite:base.gid.number_field",
+              title: "webhare_testsuite:base.gid.test_type.number_field",
               comment: "Got a comment",
               constraints: {
                 valueType: "integer",
@@ -60,14 +60,14 @@ async function testSPYaml() {
                     name: 'sub_field',
                     jsname: "subField",
                     type: CSPMemberType.String,
-                    title: "webhare_testsuite:base.gid.sub_field"
+                    title: "webhare_testsuite:base.gid.test_type.sub_field"
                   }, {
                     name: 'record_field',
                     jsname: "recordField",
                     type: CSPMemberType.Record,
-                    title: "webhare_testsuite:base.gid.record_field",
+                    title: "webhare_testsuite:base.gid.test_type.record_field",
                     children: [
-                      { jsname: "subImageField", type: CSPMemberType.File, title: "webhare_testsuite:base.gid.sub_image_field" },
+                      { jsname: "subImageField", type: CSPMemberType.File, title: "webhare_testsuite:base.gid.test_type.sub_image_field" },
                       {
                         jsname: "subArrayField", type: CSPMemberType.Array, children: [
                           {
@@ -151,6 +151,60 @@ types:
     members:
       numberField:
         type: integer
+`));
+
+  // Test longer names, partial tids
+  test.eqPartial({
+    contenttypes: [
+      {
+        title: "webhare_testsuite:root.sub.test_type.test_type",
+        members: [
+          { title: "webhare_testsuite:root.sub.test_type.field1" },
+          { title: "webhare_testsuite:root.sub.test_type.fld2" }
+        ]
+      },
+      {
+        title: "webhare_testsuite:root.sub.test_type2.type2",
+        members: [
+          { title: "webhare_testsuite:root.sub.test_type2.field1" },
+          { title: "webhare_testsuite:root.sub.test_type2.fld2" },
+        ]
+      },
+      {
+        title: "webhare_testsuite:root.tt3.type3",
+        members: [
+          { title: "webhare_testsuite:root.tt3.field1" },
+          { title: "webhare_testsuite:root.tt3.fld2" },
+        ]
+      }
+    ]
+  }, await parseSP(`---
+gid: root
+types:
+  sub.test_type:
+    members:
+      field1:
+        type: string
+      field2:
+        tid: .fld2
+        type: string
+  sub.test_type2:
+    tid: .type2
+    members:
+      field1:
+        type: string
+      field2:
+        tid: .fld2
+        type: string
+  sub.test_gid3:
+    gid: .tt3
+    tid: .type3
+    members:
+      field1:
+        type: string
+      field2:
+        tid: .fld2
+        type: string
 `));
 
   // Test basic extendproperties
