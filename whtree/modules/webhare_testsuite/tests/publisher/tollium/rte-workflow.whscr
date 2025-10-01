@@ -6,6 +6,9 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/history.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -18,29 +21,40 @@ MACRO PrepIt()
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   testfw->BeginWork();
   testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
-  //publish=true as all new RTD files currently are immediately published
-  OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile( [ name := "draft-test.rtd", type := richdoctype->id, publish := TRUE ]);
+
+  //publish FALSE as new RTD files are normally not immediately published
+  OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile( [ name := "draft-test.rtd", type := richdoctype->id, publish := FALSE ]);
   testrtdfileid := testrtd->id;
   testfw->CommitWork();
 }
 
 ASYNC MACRO EditRTD()
 {
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
 
   OBJECT rte := TT("doceditor")->contents->rte;
   rte->TolliumWeb_FormUpdate('<p class="normal">This is a previewable text</p>');
+  Print("[rte-workflow] explicitly marking doc as dirty\n");
   rte->__debug_simulatedirty();
 
+  Print("[rte-workflow] trigger the autosave step of sendpreviewlink\n");
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("sendpreviewlink"), [ messagemask := "*save*preview*"]);
-  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
 
+  RECORD ARRAY history := ListObjectHistory(testrtdfileid);
+  TestEqMembers([ [ type := "saved", version := "0.1", userdata := [ login := "lisa@beta.webhare.net" ] ]
+                ], history, "*");
+  TestEq(DEFAULT RECORD, richdoctype->GetInstanceData(testrtdfileid).data);
+  TestEqLike("*previewable text*", BlobToString(richdoctype->GetInstanceData(history[0].snapshot).data.htmltext));
+
+  Print("[rte-workflow] actually request the preview link\n");
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
   TT("passwordprotect")->value := TRUE;
   TT("password")->value := "secret";
   TT("wizard")->nextbutton->TolliumClick();
   previewlink := TT("link")->value;
 
-  Print(previewlink||"\n");
+  Print(`[rte-workflow] got: ${previewlink}\n`);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));

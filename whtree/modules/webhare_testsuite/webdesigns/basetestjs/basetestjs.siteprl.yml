@@ -16,6 +16,7 @@ types:
     gid: .basetest
     namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
     title: WTS base test
+    workflow: true
     members:
       anyField:
         type: string

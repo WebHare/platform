@@ -44,12 +44,14 @@ ASYNC MACRO TestCreateNew()
 
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Save"), [ messagemask := "*title or name*"]);
 
-  TT(":Title")->value := "Allrighty then";
+  TTFillByTitle(":Title", "Allrighty then");
   TestEq("allrighty-then", TT("name")->placeholder);
   TestEq("", TT("name")->value);
   TestEq(FALSE, TT("name")->required);
 
-  TTClick(":Save");;
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+  TTClick(":Save");
+
   TestEq("allrighty-then", TT("name")->value);
   TestEq("", TT("name")->placeholder); //TODO or should it still follow the title?
   TestEq(TRUE, TT("name")->required);

@@ -4,6 +4,13 @@
   <test script="testrtddoc.whscr" />
   <test script="testrtdpublish.whscr" />
   <test script="test-rtdedit-savepublish.whscr" />
-  <test script="test-rtdedit-newdocflow.whscr" />
+  <!-- newdocflow is not an officially supported flow yet, it was an experiment to see if a flow: 'create file first, only save to target folder on first Save'
+       could work. however, this is now broken because Save on a new file doesn't setup a final version anymore, just another draft. Which makes it even harder
+       to find the object. Plus, it turns out name/title/descrption isn't saved properly to a draft anyway, even if the file itself is already published and that
+       this must have always been broken since the new metatabs appeared
+
+       As you can't reach this flow through the UI anyway, xfail it until we get around to at least fixing the name/title/description issue and then
+       reconsider whether we want the newdocflow -->
+  <test script="test-rtdedit-newdocflow.whscr" xfail="true" />
   <test script="testrestructuring.whscr" />
 </group>

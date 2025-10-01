@@ -191,9 +191,9 @@ PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path)
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*";
 }
 
-PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path)
-{
-  RETURN ToUppercase(path) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-*";
+PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path) {
+  path := ToUppercase(path);
+  RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-*" OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/*"; //snapshots has a slightly different path
 }
 
 PUBLIC BOOLEAN FUNCTION IsRecycleBinWHFSPath(STRING path)

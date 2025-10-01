@@ -425,7 +425,7 @@ types:
         comment: When to delete this file. PERMANENT!
   publisher.seosettings:
     namespace: http://www.webhare.net/xmlns/publisher/seosettings
-    workflow: false
+    workflow: true # We need this to be able to set seoTitle
     members:
       noindex:
         type: boolean

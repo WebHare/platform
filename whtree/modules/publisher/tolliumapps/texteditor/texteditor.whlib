@@ -7,7 +7,6 @@ PUBLIC STATIC OBJECTTYPE TextEditor EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    //INSERT "http://www.webhare.net/xmlns/publisher/richdocumentfile" INTO this->contexts->editdocumentapi->editcontenttypes AT END;
     this->contexts->editdocumentapi->onsetenabled := PTR this->SetEnabled;
     this->contexts->editdocumentapi->onloaddata := PTR this->LoadData;
     this->contexts->editdocumentapi->onstoredata := PTR this->StoreData;

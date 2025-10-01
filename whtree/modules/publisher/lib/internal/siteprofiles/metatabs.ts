@@ -96,7 +96,8 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
   };
 }
 
-export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs> {
+/** @param options.requireWorkflow - only return tabs that support workflow (ie: we are the document editor */
+export async function describeMetaTabs(applytester: WHFSApplyTester, options?: { requireWorkflow?: boolean }): Promise<MetaTabs> {
   const cf = await applytester.__getCustomFields();
   const pertype: Record<string, ExtendProperties[]> = {};
 
@@ -114,8 +115,10 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
   };
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
-    const matchtype = await getType(contenttype);
+    const matchtype = getType(contenttype);
     if (!matchtype?.yaml)
+      continue;
+    if (options?.requireWorkflow && !matchtype.workflow)
       continue;
 
     let lastlayout: CustomFieldsLayout | undefined;
@@ -235,7 +238,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
   return translated;
 }
 
-export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number }): Promise<MetaTabsForHS | null> {
+export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; requireworkflow: boolean }): Promise<MetaTabsForHS | null> {
   try {
     let applytester;
     if (obj.objectid) {
@@ -245,7 +248,7 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
       applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
     }
 
-    const metatabs = await describeMetaTabs(applytester);
+    const metatabs = await describeMetaTabs(applytester, { requireWorkflow: obj.requireworkflow });
     return remapForHs(metatabs);
   } catch (e) {
     if ((e as Error)?.message.startsWith('No recycle info found for'))

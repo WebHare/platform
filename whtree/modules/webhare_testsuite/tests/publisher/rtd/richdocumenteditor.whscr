@@ -88,7 +88,10 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   testfile := OpenWHFSObject(testfile->id);
   TestEq(DEFAULT DATETIME, testfile->firstpublishdate);
-  TestAssert(testfile->contentmodificationdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update contentModificationDate");
+
+  // TODO - test this with a dataFile: TestAssert(testfile->contentmodificationdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update contentModificationDate");
+  // Saving an unpublished RTD just creates a new draft now since WH5.9, just like saving against a published RTD would. so no change to testfile
+  TestEq(DEFAULT DATETIME, testfile->contentmodificationdate);
 
   //////////////////////////////////////////////////////////////////////////////
   /// reader
@@ -99,7 +102,9 @@ OBJECT ASYNC FUNCTION TestReadOnly()
 
   // It should be read-only
   TestEq(TRUE, topscreen->contexts->editdocumentapi->readonly);
-  TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+  //TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
+  // A readonly user cannot see drafts
+  TestEQ(FALSE, RecordExists(RTE()->value));
 
   // Save and publish should not be available
   clicked := AWAIT ExpectNoScreenChange(PTR TTClick("save", [ allowfailure := TRUE ]));
@@ -143,7 +148,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   testfw->SetTestUser("reader");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ], target := DEFAULT RECORD ]));
 
-  // We should still see the published document
+  // We should now see the published document
   TestEQLike("*This is the document*", BlobToString(RTE()->value.htmltext));
 
   // Close rich document editor
