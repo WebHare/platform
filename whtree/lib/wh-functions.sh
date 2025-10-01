@@ -93,12 +93,6 @@ getwhparameters()
     export WEBHARE_ISRESTORED
   fi
 
-  if [ -f "$WEBHARE_DATAROOT/webhare.readonlymode" ]; then
-    WEBHARE_DBASE_READONLY="$(cat "$WEBHARE_DATAROOT/webhare.readonlymode")"
-    [ -n "$WEBHARE_DBASE_READONLY" ] || WEBHARE_DBASE_READONLY="1" #'1' marks us as restored without further info
-    export WEBHARE_DBASE_READONLY
-  fi
-
   GOTWHPARAMETERS=1
 }
 

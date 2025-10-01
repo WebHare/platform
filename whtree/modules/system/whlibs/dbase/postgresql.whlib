@@ -92,7 +92,6 @@ PUBLIC SCHEMA
   , INTEGER "attlen" ///< A copy of pg_type.typlen of this column's type
   , INTEGER "attnum" ///< The number of the column. Ordinary columns are numbered from 1 up. System columns, such as oid, have (arbitrary) negative numbers.
   , INTEGER "attndims" ///< Number of dimensions, if the column is an array type; otherwise 0. (Presently, the number of dimensions of an array is not enforced, so any nonzero value effectively means “it's an array”.)
-  , INTEGER "attcacheoff" ///< Always -1 in storage, but when loaded into a row descriptor in memory this might be updated to cache the offset of the attribute within the row
   , INTEGER "atttypmod" ///< atttypmod records type-specific data supplied at table creation time (for example, the maximum length of a varchar column). It is passed to type-specific input functions and length coercion functions. The value will generally be -1 for types that do not need atttypmod.
   , BOOLEAN "attbyval" ///< A copy of pg_type.typbyval of this column's type
   , STRING "attstorage" ///< Normally a copy of pg_type.typstorage of this column's type. For TOAST-able data types, this can be altered after column creation to control storage policy.

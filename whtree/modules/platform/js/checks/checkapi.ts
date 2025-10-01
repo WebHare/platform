@@ -18,6 +18,7 @@ export interface CheckResult {
   };
   jumpTo?: object | null;
   scopes?: CheckScopes[];
+  moreInfoLink?: string;
 }
 
 export type CheckFunction = () => CheckResult[] | Promise<CheckResult[]>;

@@ -970,7 +970,6 @@ export interface PgCatalogPgAttribute {
   attlen: number;
   attnum: number;
   attndims: number;
-  attcacheoff: number;
   atttypmod: number;
   attbyval: boolean;
   attstorage: string;

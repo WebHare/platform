@@ -253,6 +253,7 @@ PUBLIC STATIC OBJECTTYPE Details EXTEND TolliumScreenBase
                            , when := wrd_creationdate
                         FROM history;
     ^entity->^wrd_limitdate->visible := ^entity->^wrd_limitdate->value != MAX_DATETIME;
+    ^entity->^more_info_link->visible := ^entity->^more_info_link->value != "";
 
     IF(this->contexts->user->ShowDeveloperOptions())
     {

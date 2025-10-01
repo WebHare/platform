@@ -1,22 +1,10 @@
-import { dtapStage } from "@webhare/env";
 import { backendConfig, type CheckResult } from "@webhare/services";
 import { listDirectory } from "@webhare/system-tools";
 import { query } from "@webhare/whdb";
-import { readFile } from "node:fs/promises";
+import { getCurrentPGVersion } from "@webhare/whdb/src/management";
+import { readPlatformConf } from "../configure/axioms";
 
-async function readPlatformConf(): Promise<Record<string, string>> {
-  const source = await readFile(backendConfig.installationRoot + "etc/platform.conf", "utf8");
-  const result: Record<string, string> = {};
-  for (const line of source.split("\n")) {
-    const [key, value] = line.split("=");
-    if (key.trim().startsWith("#") || !value || !value.trim())
-      continue;
-
-    result[key.trim()] = value.trim();
-  }
-
-  return result;
-}
+const upgradingPostgresLink = "https://www.webhare.dev/manuals/database-management/upgrading-postgres/";
 
 async function checkPostgres(): Promise<CheckResult[]> {
   const issues: CheckResult[] = [];
@@ -47,12 +35,13 @@ async function checkPostgres(): Promise<CheckResult[]> {
     });
   }
 
-  const curVersion = parseInt(await readFile(backendConfig.dataRoot + "postgresql/db/PG_VERSION", "utf8"));
-  const expectVersion = (await readPlatformConf());
-  if (curVersion < parseInt(expectVersion["postgres_major"]) && dtapStage === "development") { //TODO stop limiting to development
+  const curVersion = (await getCurrentPGVersion()).major;
+  const expectVersion = parseInt((await readPlatformConf())["postgres_recommended_major"]);
+  if (curVersion < expectVersion) {
     issues.push({
       type: "system:checker.pg.oldversion",
-      messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion["postgres_major"]} is recommended, you should upgrade soon`,
+      messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion} is recommended, you should upgrade soon`,
+      moreInfoLink: upgradingPostgresLink
     });
   }
 
@@ -61,11 +50,13 @@ async function checkPostgres(): Promise<CheckResult[]> {
       issues.push({
         type: "system:checker.pg.switchto",
         messageText: `Your database server needs to be restarted to activate a restored/migrated database in ${unusedDb.fullPath}`,
+        moreInfoLink: upgradingPostgresLink
       });
     } else {
       issues.push({
         type: "system:checker.pg.unused",
         messageText: `It looks like a previous migration backup can be removed in ${unusedDb.fullPath} - use \`wh remove-old-databases\` to clean up`,
+        moreInfoLink: upgradingPostgresLink
       });
     }
   }
