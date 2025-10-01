@@ -1,6 +1,5 @@
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
-import { WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
 import {
   type CodeAction,
@@ -13,6 +12,7 @@ import type { TextEdit } from "vscode-languageserver-textdocument";
 import { URI } from "vscode-uri";
 import type { DocumentsLike, TextDocumentLike } from "./types";
 import type { StackTraceResponse } from "@webhare/lsp-types";
+import { rewriteResource } from "../validation/rewrite";
 
 export const hs_warningcode_unusedloadlib = 29;
 
@@ -187,15 +187,15 @@ export async function doReformat(doc: TextDocumentLike, options: FormattingOptio
   if (!respath)
     return null;
 
-  const rewriteresult = await loadlib("mod::devkit/lib/rewrite/rewrite.whlib").rewriteFile(respath, await WebHareMemoryBlob.from(doc.getText()));
-  if (!rewriteresult.success)
+  const rewriteresult = await rewriteResource(respath, doc.getText());
+  if (!rewriteresult)
     return null;
 
   //but ideally we'd ship a limited set of edits, not a full rewrite
   return [
     {
       range: { start: { line: 0, character: 0 }, end: { line: 999999999, character: 999999999 } },
-      newText: await rewriteresult.result!.text()
+      newText: rewriteresult
     }
   ];
 }
