@@ -1641,6 +1641,7 @@
         <text tid="inspectautosave">Inspecteer autosave</text>
         <text tid="inspectdraft">Inspecteer concept</text>
         <text tid="inspectfinal">Inspecteer definitieve versie</text>
+        <text tid="inspectmetatabs">Metadata configuratie</text>
         <text tid="metadata">Metadata</text>
         <text tid="missingtitleorname">Je moet een titel of naam opgeven</text>
         <text tid="preview">Bekijken</text>

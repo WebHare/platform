@@ -168,6 +168,10 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     this->isnew := objectid = 0 OR (RecordExists(this->metatabsconfig) AND this->metatabsconfig.is_new);
   }
 
+  MACRO DoInspectMetaTabs() {
+    Reflect(this->metatabsconfig);
+  }
+
   MACRO RefreshMetaTabsReadonly()
   {
     FOREVERY(RECORD controller FROM this->metacontrollers)

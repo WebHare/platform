@@ -1643,6 +1643,7 @@
         <text tid="inspectautosave">Inspect autosave</text>
         <text tid="inspectdraft">Inspect draft</text>
         <text tid="inspectfinal">Inspect final</text>
+        <text tid="inspectmetatabs">Metadata configuration</text>
         <text tid="metadata">Metadata</text>
         <text tid="missingtitleorname">You need to set a title or name</text>
         <text tid="preview">View</text>
