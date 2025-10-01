@@ -102,9 +102,6 @@ export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthP
   /* Unparsed so far:
   - passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
   - servicemailtemplate := siteprofile->ParseFSPath(node, "servicemailtemplate")
-  - spautocreate := node->GetAttribute("spautocreate") IN [ "1", "true" ]
-  - securecookie := ParseXSBoolean(node->GetAttribute("securecookie"))
-  - nohttponlycookies := ParseXSBoolean(node->GetAttribute("nohttponlycookies"))
   - routerfeatures := ParseXSList(node->GetAttribute("routerfeatures"))
   - authpageswitty := siteprofile->ParseFSPath(node, "authpageswitty")
 */

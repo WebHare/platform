@@ -142,7 +142,7 @@ MACRO InplaceUpdateTest()
   RECORD defaultdata :=
       [ stringtest :=     ""
       , arraytest :=      DEFAULT RECORD ARRAY
-      , _whfsarray :=     DEFAULT INTEGER ARRAY
+      , wh_fs_array :=     DEFAULT INTEGER ARRAY
       , stringarray :=    DEFAULT STRING ARRAY
       , richtest  :=      DEFAULT RECORD
       , instancetest  :=  DEFAULT RECORD
@@ -163,7 +163,7 @@ MACRO InplaceUpdateTest()
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
       [ arraytest :=
           [ [ textcell :=         "cell1"
-            , _whfscell :=        0
+            , wh_fs_cell :=        0
             , stringarray :=      [ "a", "b" ]
             , blobcell :=         [ data := testbloba
                                   , mimetype :=     "text/html"
@@ -171,7 +171,7 @@ MACRO InplaceUpdateTest()
                                   ]
             ]
           , [ textcell :=         "cell2"
-            , _whfscell :=        0
+            , wh_fs_cell :=        0
             , stringarray :=      [ "c" ]
             , blobcell :=         [ data := testblobb
                                   , mimetype :=   "text/html"
@@ -184,7 +184,7 @@ MACRO InplaceUpdateTest()
                                   ]
             ]
           , [ textcell :=         ""
-            , _whfscell :=        0
+            , wh_fs_cell :=        0
             , stringarray :=      DEFAULT STRING ARRAY
             , blobcell :=         DEFAULT RECORD
             , intextcell :=       DEFAULT RECORD
@@ -207,13 +207,13 @@ MACRO InplaceUpdateTest()
 
   RECORD expect :=
       [ stringtest :=   "x"
-      , _whfsarray :=   [ INTEGER(testfile->id), testfile2->id ]
+      , wh_fs_array :=   [ INTEGER(testfile->id), testfile2->id ]
       , stringarray :=  [ "b", "a" ]
       , richtest  :=    richdocrec
       , recordtest :=   [ va := VARIANT[42, "BEAGLE" ]]
       , arraytest :=
             [ [ textcell :=         "cell1"
-              , _whfscell :=        0
+              , wh_fs_cell :=        0
               , stringarray :=      [ "a", "b" ]
               , blobcell :=         [ data := testbloba
                                     , mimetype :=       "text/html"
@@ -233,7 +233,7 @@ MACRO InplaceUpdateTest()
               , intextcell :=       DEFAULT RECORD
               ]
             , [ textcell :=         "cell2"
-              , _whfscell :=        0
+              , wh_fs_cell :=        0
               , stringarray :=      [ "c" ]
               , blobcell :=         [ data := testblobb
                                     , mimetype :=   "text/html"
@@ -256,7 +256,7 @@ MACRO InplaceUpdateTest()
                                     ]
               ]
             , [ textcell :=         ""
-              , _whfscell :=        0
+              , wh_fs_cell :=        0
               , stringarray :=      DEFAULT STRING ARRAY
               , blobcell :=         DEFAULT RECORD
               , intextcell :=       DEFAULT RECORD
@@ -306,7 +306,7 @@ MACRO InplaceUpdateTest()
   // Set remaining stuff
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test",
         [ stringtest :=   "x"
-        , _whfsarray :=   [ INTEGER(testfile->id), testfile2->id ]
+        , wh_fs_array :=   [ INTEGER(testfile->id), testfile2->id ]
         , stringarray :=  [ "b", "a" ]
         , recordtest :=   [ va := VARIANT[42, "BEAGLE" ]]
         ]);

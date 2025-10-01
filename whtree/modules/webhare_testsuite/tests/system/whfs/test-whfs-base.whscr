@@ -503,10 +503,10 @@ MACRO LinkTest()
 
   OBJECT linkfile := linktestbase->CreateFile([name:="refs"]);
   OBJECT neighbourfile := linktestbase->CreateFile([name:="neighbour"]);
-  betatype->SetInstanceData(linkfile->id, [ _whfsarray := [ INTEGER(linkfile->id), linktestbase->id, linktestdest->id, 0, neighbourfile->id ] ]);
+  betatype->SetInstanceData(linkfile->id, [ wh_fs_array := [ INTEGER(linkfile->id), linktestbase->id, linktestdest->id, 0, neighbourfile->id ] ]);
 
   OBJECT refscopy := linkfile->CopyTo(linktestdest, "refscopy");
-  INTEGER ARRAY refs := betatype->GetInstanceData(refscopy->id)._whfsarray;
+  INTEGER ARRAY refs := betatype->GetInstanceData(refscopy->id).wh_fs_array;
   TestEq(refscopy->id, refs[0]);
   TestEq(linktestbase->id, refs[1]);
   TestEq(linktestdest->id, refs[2]);
@@ -514,7 +514,7 @@ MACRO LinkTest()
   refscopy->RecycleSelf(); //don't need you anymore for further tests
 
   refscopy := linktestbase->CopyTo(linktestdest, "copyall")->OpenByName("refs");
-  refs := betatype->GetInstanceData(refscopy->id)._whfsarray;
+  refs := betatype->GetInstanceData(refscopy->id).wh_fs_array;
   TestEq(refscopy->id, refs[0]);
   TestEq(refscopy->parent, refs[1]);
   TestEq(linktestdest->id, refs[2]);
@@ -522,7 +522,7 @@ MACRO LinkTest()
   refscopy->RecycleSelf(); //don't need you anymore for further tests
 
   linkfile->MoveTo(linktestdest, "refscopy");
-  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  refs := betatype->GetInstanceData(linkfile->id).wh_fs_array;
   TestEq(linkfile->parent, linktestdest->id);
   TestEq(linkfile->id, refs[0]);
   TestEq(linktestbase->id, refs[1]);
@@ -530,7 +530,7 @@ MACRO LinkTest()
   TestEq(neighbourfile->id, refs[3]);
 
   linkfile->MoveTo(linktestbase, "refs");
-  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  refs := betatype->GetInstanceData(linkfile->id).wh_fs_array;
   TestEq(linkfile->parent, linktestbase->id);
   TestEq(linkfile->id, refs[0]);
   TestEq(linktestbase->id, refs[1]);
@@ -538,7 +538,7 @@ MACRO LinkTest()
   TestEq(neighbourfile->id, refs[3]);
 
   linktestbase->MoveTo(linktestdest, "refsmove");
-  refs := betatype->GetInstanceData(linkfile->id)._whfsarray;
+  refs := betatype->GetInstanceData(linkfile->id).wh_fs_array;
   TestEq(linkfile->parent, linktestbase->id);
   TestEq(linkfile->id, refs[0]);
   TestEq(linktestbase->id, refs[1]);

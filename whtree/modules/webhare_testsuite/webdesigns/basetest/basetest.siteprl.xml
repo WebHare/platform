@@ -723,8 +723,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:saml-sp"
              cookiename="webharelogin-testsuite-portal1-sp"
-             loginpage="currentsite::/test-saml/portal-sp/"
-             spautocreate="true" />
+             loginpage="currentsite::/test-saml/portal-sp/" />
   </apply>
 
   <apply>
@@ -900,12 +899,12 @@
     <string name="stringtest" />
     <array name="arraytest">
       <string name="textcell" />
-      <whfsref name="_whfscell" />
+      <whfsref name="wh_fs_cell" />
       <intextlink name="intextcell" />
       <stringarray name="stringarray" />
       <file name="blobcell" />
     </array>
-    <whfsrefarray name="_whfsarray" />
+    <whfsrefarray name="wh_fs_array" />
     <stringarray name="stringarray" />
     <richdocument name="richtest" />
     <instance name="instancetest" />
@@ -931,7 +930,7 @@
     </insert>
     <newtab gid="editors" tid=".betatest">
       <textedit composition="contentdata" cellname="stringtest" />
-      <select composition="contentdata" cellname="_whfsarray" type="checkboxlist" height="8x" title="_whfsarray">
+      <select composition="contentdata" cellname="wh_fs_array" type="checkboxlist" height="8x" title="wh_fs_array">
         <p:fsobjects composition="contentdata" titlecell="whfspath" />
         <p:fsobjects composition="contentdata" fullpath="/" titlecell="whfspath" />
       </select>
@@ -944,7 +943,7 @@
                    orderable="false"
                    roweditscreen=".editrow">
           <column name="textcell" type="text" width="11x" tid=".textcell" />
-          <p:whfsrefcolumn name="_whfscell" display="path" tid=".whfscell" />
+          <p:whfsrefcolumn name="wh_fs_cell" display="path" tid=".whfscell" />
         </arrayedit>
       </box>
     </newtab>
@@ -967,7 +966,7 @@
 
     <body>
       <textedit composition="row" cellname="textcell" name="textcell" />
-      <select composition="row" cellname="_whfscell" name="_whfscell" type="pulldown" height="8x" title="_whfscell">
+      <select composition="row" cellname="wh_fs_cell" name="wh_fs_cell" type="pulldown" height="8x" title="wh_fs_cell">
         <p:fsobjects composition="row" titlecell="whfspath" />
         <p:fsobjects composition="row" fullpath="/" titlecell="whfspath" />
       </select>

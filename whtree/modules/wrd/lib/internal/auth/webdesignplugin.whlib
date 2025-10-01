@@ -117,9 +117,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   /// Disable integration. internal api, debug.shtml needs this
   PUBLIC BOOLEAN __disableintegration;
 
-  /// Whether to autocreate unknown users authenticated through SAML
-  BOOLEAN spautocreate;
-
   OBJECT __wrdschema;
 
   /// @type(object #WRDAuth)
@@ -245,7 +242,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     this->passwordresetlifetime := config.passwordresetlifetime;
     this->cachefields := config.cachefields;
     this->servicemailtemplate := config.servicemailtemplate;
-    this->spautocreate := config.spautocreate;
     this->__loginpage := config.loginpage;
     this->pvt_config := config;
   }
@@ -465,16 +461,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     IF(NOT Objectexists(this->__wrdauth))
     {
       this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig, this->__WRDAuthPluginSettings_HS());
-      this->__wrdauth->securecookie := this->pvt_config.securecookie;// OR ;
       /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
          If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
          and we shouldn't set the secure cookie. If it's not an alias, WebHare would have redirected back to https */
-      IF("SECURECOOKIE" NOT IN this->pvt_config.setattributes AND ObjectExists(this->pvt_webcontext->targetsite) AND IsRequest())
-        this->__wrdauth->securecookie := this->pvt_webcontext->targetsite->webroot LIKE "https:*" AND GetClientRequestURL() LIKE "https:*";
+      this->__wrdauth->securecookie := ObjectExists(this->pvt_webcontext->targetsite) AND IsRequest() AND this->pvt_webcontext->targetsite->webroot LIKE "https:*" AND GetClientRequestURL() LIKE "https:*";
 
       this->__wrdauth->cookiename := this->cookiename;
       this->__wrdauth->authenticatewebsession := FALSE;
-      this->__wrdauth->nohttponlycookies := this->pvt_config.nohttponlycookies;
       this->__wrdauth->samesitecookie := this->pvt_config.samesitecookie;
       this->__wrdauth->cookiedomain := this->pvt_config.cookiedomain;
     }
@@ -1269,7 +1262,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   PUBLIC OBJECT FUNCTION GetSAMLSPConfig(STRING sptag)
   {
     RECORD configdata :=
-        [ autocreate :=     this->spautocreate
+        [ autocreate :=     sptag = "TEST-SP" //we have dropped configurability, this just keeps the test alive until we remove SAML in WH6
         ];
 
     RETURN this->GetSupportObject()->GetSAMLSPConfig(this, sptag, configdata);
