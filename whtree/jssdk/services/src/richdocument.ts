@@ -1,6 +1,6 @@
 import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { InstanceExport, InstanceSource, TypedInstanceData, TypedInstanceExport, InstanceData, WHFSType, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import type { InstanceExport, InstanceSource, TypedInstanceData, TypedInstanceExport, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
@@ -244,30 +244,30 @@ class Instance {
     };
   }
 
-  is<Type extends WHFSType>(type: Type | string): this is TypedInstance<Type> {
+  is<Type extends WHFSTypeName>(type: Type | string): this is TypedInstance<Type> {
     return this.#typeInfo.scopedType === type || this.#typeInfo.namespace === type;
   }
 
-  as<Type extends WHFSType>(type: Type): Instance & TypedInstance<Type> {
+  as<Type extends WHFSTypeName>(type: Type): Instance & TypedInstance<Type> {
     if (this.is<Type>(type))
       return this as never; // using 'as never' to avoid a very costly type check in TS;
     throw new Error(`Instance is not of type ${type}`);
   }
 
-  assertType<Type extends WHFSType>(type: Type): asserts this is TypedInstance<Type> {
+  assertType<Type extends WHFSTypeName>(type: Type): asserts this is TypedInstance<Type> {
     if (!this.is<Type>(type))
       throw new Error(`Instance is not of type ${type}`);
   }
 }
 
-interface TypedInstanceImpl<Type extends WHFSType> extends Instance {
+interface TypedInstanceImpl<Type extends WHFSTypeName> extends Instance {
   get whfsType(): Type;
   get data(): TypedInstanceData<Type>;
   export(options?: ExportOptions): Promise<TypedInstanceExport<Type>>;
 }
 
-// Distribute over WHFSType
-export type TypedInstance<Type extends WHFSType> = Type extends WHFSType ? TypedInstanceImpl<Type> : never;
+// Distribute over WHFSTypeName
+export type TypedInstance<Type extends WHFSTypeName> = Type extends WHFSTypeName ? TypedInstanceImpl<Type> : never;
 
 function isTagEntry<E extends [string, unknown], T extends string>(entry: E, tags: readonly T[]): entry is E & [(T | `${T}.${string}`), unknown] {
   return tags.includes(entry[0].split('.')[0] as T);
@@ -619,16 +619,16 @@ export async function buildInstance<
   { whfsType: Type; data?: Data } :
   (string extends NoInfer<Type> ?
     InstanceSource : {
-      whfsType: WHFSType;
-      data?: ([NoInfer<Type>] extends [WHFSType] ?
+      whfsType: WHFSTypeName;
+      data?: ([NoInfer<Type>] extends [WHFSTypeName] ?
         DisallowExtraPropsRecursive<Data, WHFSTypes[NoInfer<Type>]["SetFormat"]> :
         InstanceSource["data"]);
-    }))): Promise<[NoInfer<Type>] extends [WHFSType] ? TypedInstance<NoInfer<Type>> : Instance> {
+    }))): Promise<[NoInfer<Type>] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
   for (const key of (Object.keys(data)))
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [WHFSType] ? TypedInstance<NoInfer<Type>> : Instance;
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */
