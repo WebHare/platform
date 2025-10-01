@@ -441,18 +441,3 @@ IF(ObjectExists(alttestsite))
 
 IF(IsDebugTagEnabled("startup"))
   Print("Publication of the test sites completed\n");
-
-/* We'll stop doing this so we can run reset asynchronously with the rest of bootup. Let's see who misses it
-
-//clear state left by old check.ts
-UpdateCheckStatus("webhare_testsuite:checks", RECORD[]);
-IF(IsDebugTagEnabled("startup"))
-  Print("Updated check states\n");
-
-IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
-{
-  Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
-  IF(IsDebugTagEnabled("startup"))
-    Print("Cleaned testframework state\n");
-}
-*/

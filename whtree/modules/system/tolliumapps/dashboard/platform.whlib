@@ -59,7 +59,8 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
       systemdescr := systemdescr || "; " || GetSystemNumProcessors() || " CPUs";
 
     // get the server uptime
-    DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
+    RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
+    DATETIME boottime := startupdata.start;
     DATETIME webserverboottime := GetHostingProcessStartTime();
     DATETIME now := GetCurrentDatetime();
 
