@@ -248,7 +248,8 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
 function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
-  for (const [name, member] of Object.entries(members)) {
+  for (const [name, member] of Object.entries(members || {})) {
+    const memberGid = gid.addGid(member);
     const type = YamlTypeMapping[member.type];
     if (!type)
       throw new Error(`Unknown type '${member.type}' for member '${name}'`);
@@ -257,8 +258,8 @@ function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.T
       name: toHSSnakeCase(name),
       jsname: name,
       type: type.dbtype,
-      children: ["array", "record"].includes(member.type) ? parseMembers(gid, member.members || {}) : [],
-      title: gid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
+      children: ["array", "record"].includes(member.type) ? parseMembers(memberGid, member.members || {}) : [],
+      title: memberGid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
     if (member.comment)

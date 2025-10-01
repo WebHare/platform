@@ -168,6 +168,18 @@ types:
         members: [
           { title: "webhare_testsuite:root.sub.test_type2.field1" },
           { title: "webhare_testsuite:root.sub.test_type2.fld2" },
+          {
+            title: "webhare_testsuite:root.sub.test_type2.record_field",
+            children: [
+              {
+                title: "webhare_testsuite:root.sub.test_type2.m1",
+                children: [
+                  { title: "webhare_testsuite:root.sub.test_type2.m1a" },
+                  { title: "webhare_testsuite:root.sub.test_type2.member1bee" }
+                ]
+              }
+            ]
+          },
         ]
       },
       {
@@ -175,6 +187,18 @@ types:
         members: [
           { title: "webhare_testsuite:root.tt3.field1" },
           { title: "webhare_testsuite:root.tt3.fld2" },
+          {
+            title: "webhare_testsuite:root.tt3.record_field",
+            children: [
+              {
+                title: "webhare_testsuite:root.tt3.submembers.m1",
+                children: [
+                  { title: "webhare_testsuite:root.tt3.submembers.m1a" },
+                  { title: "webhare_testsuite:root.tt3.submembers.deepersubs.member1bee" }
+                ]
+              }
+            ]
+          },
         ]
       }
     ]
@@ -196,6 +220,18 @@ types:
       field2:
         tid: .fld2
         type: string
+      recordField:
+        type: record
+        members:
+          m1:
+            type: array
+            members:
+              m1a:
+                type: string
+              m1b:
+                type: string
+                tid: .member1bee
+
   sub.test_gid3:
     gid: .tt3
     tid: .type3
@@ -205,6 +241,19 @@ types:
       field2:
         tid: .fld2
         type: string
+      recordField:
+        type: record
+        members:
+          m1:
+            type: array
+            gid: .submembers
+            members:
+              m1a:
+                type: string
+              m1b:
+                type: string
+                gid: .deepersubs
+                tid: .member1bee
 `));
 
   // Test basic extendproperties
