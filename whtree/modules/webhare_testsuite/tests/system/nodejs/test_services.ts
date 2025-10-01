@@ -24,7 +24,7 @@ async function testServices() {
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "anything">>();
 
   test.eq("_whfscell", toHSSnakeCase("Whfscell"));
-  test.throws(/cannot be unambigously converted/, () => toHSSnakeCase("_Faketopelvel"));
+  test.throws(/cannot be unambigously converted/, () => toHSSnakeCase("_Faketoplevel"));
 
   test.assert(checkModuleScopedName("aa:aa"));
   test.assert(checkModuleScopedName("aa:11"));
