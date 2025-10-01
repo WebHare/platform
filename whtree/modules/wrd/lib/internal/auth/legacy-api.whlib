@@ -678,8 +678,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   /// Cookie in which to store the session id. If changed, change it to the form webharelogin-123-456-789 (appending -s and numbers will allow optimization, multiple sets of numbers are unlikely to collide with webhare generated 'webharelogin's)
   PUBLIC STRING cookiename;
 
-  /// Disable httponly flag on sensitive cookies
-  PUBLIC BOOLEAN nohttponlycookies;
   /// Cookie domain. Leave empty to make the cookie apply only to the current domain
   PUBLIC STRING cookiedomain;
   /// Set the time in minutes the loginstate cookie should last (keeping a user logged in). Defaults to 0 (no limit, and 365 days for a permanent cookie)
@@ -840,7 +838,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   RECORD FUNCTION GetCookieOpts()
   {
     RETURN [ domain := this->cookiedomain
-           , httponly := NOT this->nohttponlycookies
+           , httponly := TRUE
            , secure := this->securecookie
            , lifetime := -1
            , samesite := this->samesitecookie

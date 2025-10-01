@@ -723,8 +723,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:saml-sp"
              cookiename="webharelogin-testsuite-portal1-sp"
-             loginpage="currentsite::/test-saml/portal-sp/"
-             spautocreate="true" />
+             loginpage="currentsite::/test-saml/portal-sp/" />
   </apply>
 
   <apply>
