@@ -47,9 +47,10 @@ STATIC OBJECTTYPE Validating
   MACRO ValidateWittyComponent(RECORD context, STRING wittycomp)
   {
     INTEGER namespacestart := SearchSubstring(wittycomp,'::');
-    INTEGER startcomponentname := SearchSubstring(wittycomp, ':', namespacestart=-1 ? 0 : namespacestart + 2);
+    INTEGER startcomponentname := SearchSubstring(wittycomp, '#', namespacestart=-1 ? 0 : namespacestart + 2);
     IF(startcomponentname=-1)
-    {
+      startcomponentname := SearchSubstring(wittycomp, ':', namespacestart=-1 ? 0 : namespacestart + 2);
+    IF(startcomponentname=-1) {
       this->AddError(context, "Missing component name in wittycomponent path '" || wittycomp || "'");
       RETURN;
     }
@@ -196,4 +197,3 @@ PUBLIC RECORD FUNCTION ValidateSiteProfiles(RECORD options DEFAULTSTO DEFAULT RE
   validator->reportmissing := options.reportmissing;
   RETURN validator->Validate();
 }
-

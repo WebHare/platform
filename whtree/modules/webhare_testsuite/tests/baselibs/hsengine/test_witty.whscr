@@ -572,6 +572,7 @@ MACRO WittyLibrarys()
   script := LoadWittyLibrary("wh::tests/test.witty","HTML");
   TestEq("Test: yes!", TrimWhitespace(CaptureRun(script, [ bla := "yes!" ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("test2.witty:comp") ])));
+  TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("test2.witty#comp") ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR EmbedWittyComponent("wh::tests/test2.witty:comp") ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));
   TestEq("Test: compJE", TrimWhitespace(CaptureRun(script, [ bla := PTR script2->RunComponent("test2.witty:comp", DEFAULT RECORD) ])));

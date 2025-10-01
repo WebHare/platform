@@ -18,13 +18,14 @@ RECORD FUNCTION GetCacheableComponentsList(STRING resourceref)
 
 PUBLIC STRING FUNCTION VerifyWittyComponentExistence(STRING basepath, STRING componentref)
 {
-  INTEGER comprefstart := SearchLastSubstring(componentref, ':');
-  IF(comprefstart = -1) //no ':' in a witty component ref? :/
+  INTEGER lastcolon := SearchLastSubstring(componentref, '#');
+  IF(lastcolon = -1)
+    lastcolon := SearchLastSubstring(componentref, ':');
+  IF(lastcolon = -1) //no ':' or '#' in a witty component ref? :/
     RETURN `Invalid Witty component reference '${componentref}'`;
 
-  STRING resource := Left(componentref, comprefstart);
-  STRING component := Substring(componentref, comprefstart+1);
-
+  STRING resource := Left(componentref, lastcolon);
+  STRING component := Substring(componentref, lastcolon+1);
   resource := MakeAbsoluteResourcePath(basepath, resource);
   TRY
   {
@@ -125,7 +126,7 @@ PUBLIC RECORD FUNCTION RunWittyValidator(BLOB doc_blob, STRING resourcename, REC
 
   FOREVERY(RECORD embed FROM referredcomponents)
   {
-    IF(embed.data NOT LIKE "*:*")
+    IF(embed.data NOT LIKE "*#*" AND embed.data NOT LIKE "*:*")
     {
       IF(ToUppercase(embed.data) NOT IN internalcomponents)
         INSERT CELL [ resourcename, embed.line, embed.col, message := `No such component '${embed.data}'` ] INTO errors AT END;

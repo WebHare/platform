@@ -458,6 +458,8 @@ MACRO TestValidateWitty()
 [embed mod::system/whlibs/tests/testsuite.witty:nosuchcomponent]
 [embed ../whlibs/tests/testsuite.witty:simpleembed]
 [embed ../whlibs/tests/testsuite.witty:nosuchcomponent]
+[embed ../whlibs/tests/testsuite.witty#simpleembed]
+[embed ../whlibs/tests/testsuite.witty#nosuchcomponent]
 [embed nosuch.witty:nosuchcomponent]
 `);
 
@@ -465,7 +467,8 @@ MACRO TestValidateWitty()
   TestEq([ [ line := 2, col := 20, message := "No such component 'nosuchcomponent'" ]
          , [ line := 4, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          , [ line := 6, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
-         , [ line := 7, col := 2, message := "Witty parse error on library mod::system/lib/nosuch.witty: Cannot load library mod::system/lib/nosuch.witty" ]
+         , [ line := 8, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         , [ line := 9, col := 2, message := "Witty parse error on library mod::system/lib/nosuch.witty: Cannot load library mod::system/lib/nosuch.witty" ]
          ], SELECT col, line, message FROM res.messages ORDER BY line,col,message)  ;
 
   res := ValidateSingleFile("mod::system/data/x.siteprl.xml", [ overridedata := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
@@ -476,12 +479,15 @@ MACRO TestValidateWitty()
       <widgettype namespace="urn::testwidget4" wittycomponent="/whlibs/tests/testsuite.witty:nosuchcomponent" />
       <widgettype namespace="urn::testwidget5" wittycomponent="../whlibs/tests/testsuite.witty:simpleembed" />
       <widgettype namespace="urn::testwidget6" wittycomponent="../whlibs/tests/testsuite.witty:nosuchcomponent" />
+      <widgettype namespace="urn::testwidget7" wittycomponent="../whlibs/tests/testsuite.witty#simpleembed" />
+      <widgettype namespace="urn::testwidget8" wittycomponent="../whlibs/tests/testsuite.witty#nosuchcomponent" />
     </siteprofile>`)]);
 
   TestEq([ [ line := 3, col := 0, message := "Witty parse error on library mod::system/data/nosuch.witty: Cannot load library mod::system/data/nosuch.witty" ]
          , [ line := 4, col := 0, message := "Invalid Witty component reference 'component'" ]
          , [ line := 6, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          , [ line := 8, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
+         , [ line := 10, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          ], SELECT col, line, message FROM res.messages ORDER BY line,col,message)  ;
 }
 
