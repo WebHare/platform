@@ -27,7 +27,7 @@ async function testSPYaml() {
   test.eqPartial({
     contenttypes: [
       {
-        namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type',
+        namespace: 'webhare_testsuite:my_types.test_type',
         scopedtype: 'webhare_testsuite:my_types.test_type',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.test_type",
@@ -82,7 +82,7 @@ async function testSPYaml() {
           ]
       },
       {
-        namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type2',
+        namespace: 'https://www.webhare.net/xmlns/webhare_testsuite/my_types/test_type2',
         scopedtype: 'webhare_testsuite:my_types.test_type2',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.tt2.test_type2",
@@ -123,6 +123,7 @@ types:
                         type: string
   test_type2:
     gid: .tt2
+    namespace: https://www.webhare.net/xmlns/webhare_testsuite/my_types/test_type2
     members:
       stringField:
         type: string
@@ -132,7 +133,7 @@ types:
   test.eqPartial({
     contenttypes: [
       {
-        namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type',
+        namespace: 'webhare_testsuite:my_types.test_type',
         title: "",
         members:
           [

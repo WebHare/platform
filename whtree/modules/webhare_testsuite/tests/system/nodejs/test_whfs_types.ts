@@ -85,7 +85,7 @@ async function testMockedTypes() {
 
   //verify scopedtypenames
   const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.generic_test_type");
-  test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
+  test.eq("webhare_testsuite:global.generic_test_type", scopedtype.namespace);
   test.eq("webhare_testsuite:global.generic_test_type", scopedtype.scopedType);
 
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
@@ -99,12 +99,11 @@ async function testInstanceData() {
   const fileids = [tmpfolder.id, testfile.id];
 
   //We should be able to use whfsType() on the 'long' namespace URLs but we don't prefer these (or list them in the type map)
-  // @ts-expect-error -- long namespace types are not allowed as constants
-  const testtypeScopedName = whfsType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  const testtypeScopedName = whfsType("webhare_testsuite:global.generic_test_type");
   test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtypeScopedName.get(testfile.id));
 
   // But compile-type with type 'string' (for use from unknown sources), will run-time check
-  whfsType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" as string);
+  whfsType("webhare_testsuite:global.generic_test_type" as string);
 
   // @ts-expect-error -- Non-existing type constants should error at compile-time
   const testNonExistingType = whfsType("does-not-exist");
@@ -113,7 +112,7 @@ async function testInstanceData() {
   //Using the short TS name should give us type intellisense
   const testtype = whfsType("webhare_testsuite:global.generic_test_type");
   test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 0);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", 0);
 
   //Test basic get/set
   await testtype.set(testfile.id, {
@@ -121,14 +120,14 @@ async function testInstanceData() {
     yesNo: true
   });
   test.eqPartial({ int: 15, yesNo: true }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 2);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", 2);
 
   await testtype.set(testfile.id, {
     int: 20,
     yesNo: false
   });
   test.eqPartial({ int: 20, yesNo: false }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 1);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", 1);
 
   //Test record validation
   //@ts-expect-error 'bad' does not exist
@@ -156,13 +155,13 @@ async function testInstanceData() {
   });
 
   let expectNumSettings = 16;
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
   expectNumSettings += 3; //adding 3 array members
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   test.eqPartial({
     int: 20,
@@ -190,7 +189,7 @@ async function testInstanceData() {
 
   //Verify we can import them again
   await testtype.set(testfile.id, expWhfsRefs);
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   test.eqPartial({
     myWhfsRef: testfile.id,
@@ -212,7 +211,7 @@ async function testInstanceData() {
     blubImg: goldfish2
   });
   expectNumSettings += 2; //adding blub and blubImg
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish?.hash);
@@ -245,7 +244,7 @@ async function testInstanceData() {
   });
 
   ++expectNumSettings; //adding a simple RTD with no instances/embeds/links
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich;
   test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
@@ -314,8 +313,7 @@ async function testInstanceData() {
     myWhfsRef: null,
     myWhfsRefArray: [],
     myLink: null,
-    // @ts-expect-error -- long namespace types are not allowed as constants, but allowed at run-time
-  }, (await buildInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).data);
+  }, (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data);
 
   // Export of default values should result in only the whfsType property (default values should be omitted)
   test.eq({
@@ -342,7 +340,7 @@ async function testInstanceData() {
     anInstance: await buildInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", data: { str1: "str1b" } })
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
   test.eqPartial({
     anInstance: (instance: Instance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance?.data.str1 === "str1b" && getWHType(instance) === "Instance"
   }, await testtype.get(testfile.id));
@@ -360,17 +358,17 @@ async function testInstanceData() {
 
   expectNumSettings -= 2; // the original instance took op 2 settings - the parent member (anInstance itself) and 'str1'
   expectNumSettings += 2; // anInstance: 1, rtdLeft: 1
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   {
     const { anInstance } = await testtype.get(testfile.id);
     test.eq([{ items: [{ text: "Left column" }], tag: "p" }], (anInstance?.data.rtdleft as RichTextDocument).blocks);
   }
 
-  // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  // await dumpSettings(testfile.id, "webhare_testsuite:global.generic_test_type");
 
   //Does HareScript agree with us ?
-  const hs_generictype = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  const hs_generictype = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("webhare_testsuite:global.generic_test_type");
   const val = await hs_generictype.getInstanceData(testfile.id);
   test.eq(Money.fromNumber(2.5), val.price);
   test.eq({ price: Money.fromNumber(2.5) }, { price: val.price });
@@ -405,7 +403,7 @@ async function testInstanceData() {
   //test long hson fields
   const overlongText = generateRandomId("hex", 4096); //8KB text
   await testtype.set(testfile.id, { aRecord: { overlongText } });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
   test.eqPartial({ aRecord: { overlongtext: overlongText } }, await testtype.get(testfile.id)); //we've lost the camelcase due to HSON
 
   //Test validation

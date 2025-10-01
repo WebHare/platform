@@ -1055,12 +1055,9 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
-    //TODO siteprl.xml is not perfectly in sync with this, it keeps some parts in snakecase. that needs to be fixed there or just removed from XML
-    // - A global name of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
-    // - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
     const typeParser = rootParser.addGid(settings);
     const scopedtype = `${baseScope}${type}`;
-    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${sp.typeGroup ? sp.typeGroup + '.' : ''}${type}`;
+    const ns = settings.namespace ?? scopedtype;
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated

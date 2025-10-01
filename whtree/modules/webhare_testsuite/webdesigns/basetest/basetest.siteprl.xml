@@ -115,7 +115,7 @@
   <apply>
     <testdata member="mode"
               target="root"
-              typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+              typedef="webhare_testsuite:base_test.site_settings"
               value="blue" />
     <userdata key="webhare_testsuite:setting" value='{"dogName":"bluey"}' />
   </apply>
@@ -123,7 +123,7 @@
   <apply>
     <testdata member="setting"
               target="root"
-              typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+              typedef="webhare_testsuite:base_test.site_settings"
               value="red" />
     <userdata key="webhare_testsuite:setting" value='{"sisterName":"bingo"}' />
   </apply>
@@ -132,9 +132,9 @@
     <and>
       <testdata member="mode"
                 target="root"
-                typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+                typedef="webhare_testsuite:base_test.site_settings"
                 value="blue" />
-      <testdata member="when" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
+      <testdata member="when" target="root" typedef="webhare_testsuite:base_test.site_settings" />
     </and>
     <userdata key="webhare_testsuite:setting" value='{"isDateSet":false}' />
   </apply>
