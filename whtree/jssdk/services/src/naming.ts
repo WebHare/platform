@@ -70,7 +70,7 @@ export function addModule(module: string, name: string) {
 
 /** Convert a name to HS compatible snake casing.. Reject any names that are ambigous to encode (eg contain underscores, start with a letter) */
 export function toHSSnakeCase(tag: string): string {
-  if (!tag.match(/^[a-z][a-zA-Z0-9]*$/))
+  if (!tag.match(/^[a-zA-Z0-9]+$/))
     throw new Error(`Name '${tag}' cannot be unambigously converted to a HareScript snake case name`);
 
   const result = nameToSnakeCase(tag);

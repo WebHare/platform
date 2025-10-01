@@ -119,7 +119,7 @@ PUBLIC RECORD FUNCTION RPC_StartLogin2(STRING pathname, STRING methodtag, RECORD
   OBJECT wrdauthplugin := webcontext->GetWRDAuthPlugin();
   RECORD appportalsettings := GetAdhocCached(CELL[ applicationportalconfig := cacheurl ], PTR GetCacheableApplicationPortalConfigForApplyTester(webcontext->targetapplytester));
 
-  RECORD method := SELECT * FROM appportalsettings.loginmethods WHERE type != "password" AND tag = VAR methodtag;
+  RECORD method := SELECT * FROM appportalsettings.loginmethods WHERE type != "password" AND ToUppercase(tag) = ToUppercase(VAR methodtag) ORDER BY type = "oidc" DESC; //prefer OIDC if registered
   IF(NOT RecordExists(method))
     THROW NEW Exception(`No such method '${methodtag}' defined`);
 
