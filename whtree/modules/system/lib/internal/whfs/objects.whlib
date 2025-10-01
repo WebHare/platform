@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
@@ -288,12 +289,11 @@ RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
       THROW NEW WHFSException("OTHER","Cannot specify both 'type' and 'typens'");
 
     INTEGER settype;
-    IF(metadata.typens != "http://www.webhare.net/xmlns/publisher/normalfolder"
-       AND metadata.typens != "http://www.webhare.net/xmlns/publisher/unknownfile")
-    {
-      settype := SELECT AS INTEGER id FROM system.fs_types WHERE namespace = metadata.typens;
-      IF(settype=0)
+    IF(NOT IsTypeZero(metadata.typens)) {
+      RECORD type := SelectFSType(metadata.typens);
+      IF(NOT RecordExists(type))
         THROW NEW Exception("Unknown type '" || metadata.typens || "'");
+      settype := type.id;
     }
 
     DELETE CELL typens FROM metadata;

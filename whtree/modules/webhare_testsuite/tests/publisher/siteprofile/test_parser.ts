@@ -289,6 +289,9 @@ types:
           }, {
             contenttype: 'webhare_testsuite:thismod.type',
             layout: undefined
+          }, {
+            contenttype: 'webhare_testsuite:atype',
+            layout: undefined
           }
         ]
       }
@@ -314,6 +317,7 @@ apply:
       layout: all
     - type: mymod:global.type
     - type: thismod.type
+    - type: atype
 `));
 
   // Test input constraint merging
@@ -574,6 +578,17 @@ async function testComplexTo() {
                     value: "true"
                   }
                 ]
+              }, {
+                type: "not",
+                criteria: [
+                  {
+                    type: "testdata",
+                    typedef: "webhare_testsuite:localtype",
+                    target: "self",
+                    membername: "localmember",
+                    value: "true"
+                  }
+                ]
               }
             ]
           }
@@ -599,6 +614,12 @@ apply:
           target: self
           type: https://example.nl/page
           member: headerContentPerSlide
+          value: "true"
+    - not:
+        testSetting:
+          target: self
+          type: localtype
+          member: localmember
           value: "true"
   userData:
     matchFirst: "Yes"

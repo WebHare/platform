@@ -340,13 +340,12 @@ PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRI
   }
 }
 
-RECORD ARRAY FUNCTION ApplyModifyTypes(RECORD ARRAY intypes, RECORD ARRAY modifyrules)
-{
-  FOREVERY(RECORD mod FROM modifyrules)
-  {
-    UPDATE intypes SET __visible := mod.isallow
-                     , newonlytemplate := mod.isallow AND mod.setnewonlytemplate ? mod.newonlytemplate : newonlytemplate
-                 WHERE namespace LIKE mod.typedef;
+RECORD ARRAY FUNCTION ApplyModifyTypes(RECORD ARRAY intypes, RECORD ARRAY modifyrules) {
+  FOREVERY(RECORD mod FROM modifyrules) {
+    UPDATE intypes
+       SET __visible := mod.isallow
+         , newonlytemplate := mod.isallow AND mod.setnewonlytemplate ? mod.newonlytemplate : newonlytemplate
+     WHERE namespace LIKE mod.typedef OR scopedtype LIKE mod.typedef;
   }
   RETURN intypes;
 }
@@ -364,6 +363,7 @@ PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagec
                                    , isdevelopertype := namespace IN VAR whconstant_developertypes
                                    , __visible := FALSE
                                    , newonlytemplate := FALSE
+                                   , scopedtype
                                 FROM csp.contenttypes
                                WHERE RecordExists(foldertype);
 
@@ -398,6 +398,7 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
                                  , requirescontent := filetype.requirescontent
                                  , __visible := FALSE
                                  , newonlytemplate := FALSE
+                                 , scopedtype
                               FROM csp.contenttypes
                              WHERE RecordExists(filetype);
 
