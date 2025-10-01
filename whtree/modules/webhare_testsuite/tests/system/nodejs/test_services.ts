@@ -7,7 +7,7 @@ import { importJSFunction, runBackendService } from "@webhare/services";
 import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { addDuration, isTemporalInstant, sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { checkModuleScopedName, toHSSnakeCase } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
 import type { TestClass } from "./data/calls2";
@@ -22,6 +22,9 @@ async function testServices() {
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "wrd">>();
   //@ts-expect-error -- Verify ConfigurableSubsystem is not just a string
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "anything">>();
+
+  test.eq("_whfscell", toHSSnakeCase("Whfscell"));
+  test.throws(/cannot be unambigously converted/, () => toHSSnakeCase("_Faketopelvel"));
 
   test.assert(checkModuleScopedName("aa:aa"));
   test.assert(checkModuleScopedName("aa:11"));
