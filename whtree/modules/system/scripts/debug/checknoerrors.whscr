@@ -12,7 +12,8 @@ IF(NOT IsWasm()) //checknoerrors is used during CI, so here's our "test" for now
 /* wh run mod::system/scripts/debug/checknoerrors.whscr
 */
 
-DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
+RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
+DATETIME boottime := startupdata.start;
 RECORD ARRAY errors := ReadJSONLogLines("system:notice", boottime);
 IF(Length(errors) > 0)
 {

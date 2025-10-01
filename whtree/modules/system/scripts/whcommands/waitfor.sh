@@ -20,7 +20,7 @@ if [ "$1" != "poststart" -a "$1" != "poststartdone" -a "$1" != "__timeouttest" ]
   die "Only poststart and poststartdone are supported"
 fi
 
-WAITFOR="$WEBHARE_DATAROOT/ephemeral/system.servicestate/$1"
+WAITFOR="$WEBHARE_DATAROOT/caches/run/servicestate.$1.json"
 while true; do
   if [ -f "$WAITFOR" ]; then
     exit 0

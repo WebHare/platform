@@ -12,11 +12,11 @@
 */
 
 import { run } from "@webhare/cli";
-import * as fs from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
-import { storeDiskFile } from "@webhare/system-tools/src/fs";
+import { listDirectory, storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { generateRandomId, regExpFromWildcards, sleep, stringify } from "@webhare/std";
 import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
@@ -276,12 +276,12 @@ class ProcessManager {
   }
 }
 
-function unlinkServicestateFiles() {
+async function unlinkServicestateFiles() {
   try {
-    const servicestatepath = backendConfig.dataRoot + "ephemeral/system.servicestate";
-    fs.mkdirSync(servicestatepath, { recursive: true });
-    for (const file of fs.readdirSync(servicestatepath))
-      fs.unlinkSync(servicestatepath + "/" + file);
+    const servicestatepath = backendConfig.dataRoot + "caches/run/";
+    await fs.mkdir(servicestatepath, { recursive: true });
+    for (const file of await listDirectory(servicestatepath, { mask: "servicestate.*" }))
+      await fs.rm(file.fullPath);
   } catch (e) {
     console.error("Failed to remove service state files", e);
   }
@@ -457,7 +457,7 @@ class ServiceManager {
 
           if (!this.isSecondaryManager) {
             try {
-              fs.unlinkSync(backendConfig.dataRoot + ".webhare.pid");
+              await fs.rm(backendConfig.dataRoot + ".webhare.pid");
             } catch (e) {
               console.error("Failed to remove webhare.pid file", e);
             }
@@ -535,7 +535,7 @@ class ServiceManager {
 async function verifyUpgrade() {
   let config: WebHareVersionFile;
   try {
-    config = JSON.parse(fs.readFileSync(getVersionFile(), 'utf8')) as WebHareVersionFile;
+    config = JSON.parse(await fs.readFile(getVersionFile(), 'utf8')) as WebHareVersionFile;
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === 'ENOENT')
       return; //first and clean startup, normal..
@@ -610,7 +610,7 @@ class ServiceManagerManager {
       await setConfigAndVersion();
 
       //remove old servicestate files
-      unlinkServicestateFiles();
+      await unlinkServicestateFiles();
       await storeDiskFile(backendConfig.dataRoot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
     }
 
@@ -681,7 +681,7 @@ run({
     verbose = opts.verbose || debugFlags.startup || false;
 
     //Setting up logs must be one of the first things we do so log() works and even verifyUpgrade can write there
-    fs.mkdirSync(backendConfig.dataRoot + "log", { recursive: true });
+    await fs.mkdir(backendConfig.dataRoot + "log", { recursive: true });
     logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataRoot + "log/servicemanager", { stdout: true });
 
     if (!opts.secondary) { //verify we're allowed to run
