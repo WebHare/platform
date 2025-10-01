@@ -1203,6 +1203,10 @@ $defs:
         type: boolean
       contentAreaWidth:
         type: string
+      linkHandlers:
+        type: array
+        items:
+          type: string
       blockStyles:
         type: object
         patternProperties:

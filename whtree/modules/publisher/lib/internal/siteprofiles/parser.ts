@@ -200,7 +200,7 @@ class SiteProfileParserContext {
     });
   }
 
-  resolve(resource: string, node?: unknown) {
+  resolve(resource: string, node?: unknown, options?: { allowWHFS?: boolean }) {
     if (!resource)
       return '';
 
@@ -208,7 +208,12 @@ class SiteProfileParserContext {
     //TODO also validate inside the file, or only when validating?
     if (this.options?.validate) {
       const targetpath = dest.match(/^([^#]+).*$/);
-      if (!targetpath?.[1] || !existsSync(toFSPath(targetpath[1]))) {
+      if (!targetpath?.[1])
+        this.addMessage({ type: "error", message: `Resource '${resource}' (resolved to '${dest}') does not exist` }, node);
+      else if (dest.match(/^(whfs|site)/)) {
+        if (!options?.allowWHFS)
+          this.addMessage({ type: "error", message: `WHFS resource '${resource} not allowed here` }, node);
+      } else if (!existsSync(toFSPath(targetpath[1]))) {
         this.addMessage({ type: "error", message: `Resource '${resource}' (resolved to '${dest}') does not exist` }, node);
       }
     }
@@ -509,10 +514,8 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     htmlclass: type.htmlClass || "",
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
-    linkhandlers: [], //FIXME
+    linkhandlers: type.linkHandlers?.map(lh => ({ namespaceuri: lh.split('#')[0], localname: lh.split('#')[1] || '' })) || [],
     margins: "none",
-    tag_b: type.b || "b",
-    tag_i: type.i || "i",
     allowedobjects: parseAllowedObjects(type.allowedObjects || []),
 
   };
@@ -614,7 +617,7 @@ function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserCo
 
 function parseSources(context: SiteProfileParserContext, sources: Sp.Sources): CSPSource[] {
   return sources.map(_ => ({
-    path: _.relativeTo === "targetObject" ? _.path : context.resolve(_.path),
+    path: _.relativeTo === "targetObject" ? _.path : context.resolve(_.path, _, { allowWHFS: true }),
     relativeto: _.relativeTo === "targetObject" ? "targetobject" : "siteprofile",
   }));
 }
