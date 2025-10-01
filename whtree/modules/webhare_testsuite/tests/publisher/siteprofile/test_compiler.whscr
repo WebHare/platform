@@ -20,13 +20,6 @@ MACRO TestParsing()
   TestEq("this_is_a_snake", ToSnakeCase("thisIsASnake"));
   TestEq("thisIsASnake", ToCamelCase("this_is_a_snake"));
 
-  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.generic_test_type", FALSE));
-  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", TRUE));
-
-  //x-namespace enforces converting names that look like scoped types to full namespaces in case we find problems in the field with the heuristic approach
-  TestEq("x-webhare-scopedtype:urn.my.type", ScopedTypeToNamespace("urn:my.type", TRUE));
-  TestEq("urn:my.type", ScopedTypeToNamespace("x-namespace:urn:my.type", TRUE));
-
   RECORD res;
 
   res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/nosuchfile.siteprl.xml");
@@ -64,7 +57,7 @@ MACRO TestParsing()
 
   //NOTE actual parsing is tested in test_parser.ts, this is just superficial integration testing
   res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml");
-  TestEqMembers([ yaml := TRUE ], RECORD(SELECT * FROM res.contenttypes WHERE namespace="x-webhare-scopedtype:webhare_testsuite.test.my_yaml_type"), '*');
+  TestEqMembers([ yaml := TRUE ], RECORD(SELECT * FROM res.contenttypes WHERE namespace="webhare_testsuite:test.my_yaml_type"), '*');
   TestEqMembers([ yaml := TRUE ], res.applyrules[0], '*');
 
   //verifies the major siteprofile doesn't crash:

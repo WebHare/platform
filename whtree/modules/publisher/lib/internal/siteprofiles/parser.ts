@@ -177,6 +177,11 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
 
 type TidCallback = (resource: string, tid: string) => void;
 
+/** return true for simple names but false for http: and urn: like tids */
+function isValidForGid(type: string) {
+  return !type.includes(':');
+}
+
 class SiteProfileParserContext {
   readonly plugins: ModulePlugins;
   messages: ValidationMessageWithType[] = [];
@@ -243,7 +248,8 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
 function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
-  for (const [name, member] of Object.entries(members)) {
+  for (const [name, member] of Object.entries(members || {})) {
+    const memberGid = gid.addGid(member);
     const type = YamlTypeMapping[member.type];
     if (!type)
       throw new Error(`Unknown type '${member.type}' for member '${name}'`);
@@ -252,8 +258,8 @@ function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.T
       name: toHSSnakeCase(name),
       jsname: name,
       type: type.dbtype,
-      children: ["array", "record"].includes(member.type) ? parseMembers(gid, member.members || {}) : [],
-      title: gid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
+      children: ["array", "record"].includes(member.type) ? parseMembers(memberGid, member.members || {}) : [],
+      title: memberGid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
     if (member.comment)
@@ -880,10 +886,14 @@ class ResourceParserContext {
     return new ResourceParserContext(resourcename, gid, onTid);
   }
 
-  /** Add a potential new gid scope */
-  addGid(potentialGidObject?: { gid?: string }): ResourceParserContext {
-    if (potentialGidObject?.gid)
-      return new ResourceParserContext(this.resourceName, resolveGid(this.gid, potentialGidObject.gid), this.onTid);
+  /** Add a potential new gid scope
+   * @params potentialGidObject.gid - If set, this get is merged into the current gid
+   * @params options.fallback - If gid is not set, and fallback is set, this fallback is added to the gid instead if we were already buildig one
+   */
+  addGid(potentialGidObject?: { gid?: string }, options?: { fallback?: string }): ResourceParserContext {
+    const toadd = potentialGidObject?.gid ?? (this.gid ? options?.fallback : "");
+    if (toadd)
+      return new ResourceParserContext(this.resourceName, resolveGid(this.gid, toadd), this.onTid);
     else
       return this;
   }
@@ -893,6 +903,7 @@ class ResourceParserContext {
     const resolved = resolveTid(this.gid, potentialTidObject);
     if (resolved && !resolved.startsWith(':') && this.onTid)
       this.onTid(this.resourceName, resolved);
+
     return resolved;
   }
 }
@@ -1055,12 +1066,9 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
-    //TODO siteprl.xml is not perfectly in sync with this, it keeps some parts in snakecase. that needs to be fixed there or just removed from XML
-    // - A global name of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
-    // - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
-    const typeParser = rootParser.addGid(settings);
+    const typeParser = rootParser.addGid(settings, { fallback: isValidForGid(type) ? '.' + type : undefined });
     const scopedtype = `${baseScope}${type}`;
-    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${sp.typeGroup ? sp.typeGroup + '.' : ''}${type}`;
+    const ns = settings.namespace ?? scopedtype;
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
@@ -1079,7 +1087,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
       previewcomponent: "",
       scopedtype,
       siteprofile: context.resourceName,
-      title: typeParser.resolveTid({ name: type, title: settings.title, tid: settings.tid }),
+      title: typeParser.resolveTid({ name: type.split('.').at(-1), title: settings.title, tid: settings.tid }),
       tolliumicon: settings.icon || '',
       type: "contenttype",
       wittycomponent: "",

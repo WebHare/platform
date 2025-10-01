@@ -32,12 +32,12 @@ while [[ -n "$1" ]]; do
     shift
     NEWBINDIR="$1"
     shift
-  elif [ "$1" == "--dryrun" ]; then
+  elif [ "$1" == "--dry-run" ]; then
     shift
     DRYRUN=1
     NOMODE=1
   else
-    echo "Syntax: wh dump-postgresql-database [--nosetserver] [--new-version <version>] [--new-bindir <path>] [--dryrun]"
+    echo "Syntax: wh dump-postgresql-database [--nosetserver] [--new-version <version>] [--new-bindir <path>] [--dry-run]"
     exit 1
   fi
 done

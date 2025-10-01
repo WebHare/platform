@@ -89,27 +89,26 @@ MACRO FindTest()
   OBJECT findtest2 := firstfolder->CreateFile([name:="findtest2"]);
   OBJECT findtest3 := firstfolder->CreateFile([name:="findtest3"]);
 
-  OBJECT ctype := OpenWHFSType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
-  TestEq(ctype, OpenWHFSType("webhare_testsuite:global.generic_test_type"));
+  OBJECT ctype := OpenWHFSType("webhare_testsuite:global.generic_test_type");
   INTEGER ARRAY result;
 
-  findtest1->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest1->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ int := 15
       , yes_no := TRUE
       ]);
-  findtest2->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest2->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ int := 30
       ]);
-  findtest3->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest3->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ yes_no := TRUE
       ]);
-  findtest1->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest1->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ str_array := [ "a" ]
       ]);
-  findtest2->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest2->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ str_array := [ "a", "a" ]
       ]);
-  findtest3->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  findtest3->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ str_array := [ "" ]
       ]);
 
@@ -504,7 +503,7 @@ MACRO TestDirectInstanceData()
 
   testfw->BeginWork();
   // Update instance
-  testfile->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  testfile->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ an_instance :=
           [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
           , str2 := "str2"
@@ -514,7 +513,7 @@ MACRO TestDirectInstanceData()
   OBJECT whfstype_instance1 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1");
   OBJECT whfstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2");
 
-  RECORD rec := testfile->GetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  RECORD rec := testfile->GetInstanceData("webhare_testsuite:global.generic_test_type");
   TestEQ(rec.an_instance, GetWHFSInstanceDirect(rec.an_instance.whfssettingid));
 
   RECORD irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = rec.an_instance.whfssettingid;
@@ -531,7 +530,7 @@ MACRO TestDirectInstanceData()
       , whfstype :=       "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
       ], GetWHFSInstanceDirect(rec.an_instance.whfssettingid));
 
-  testfile->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  testfile->SetInstanceData("webhare_testsuite:global.generic_test_type",
       [ rich :=
           [ htmltext :=   StringToBlob("htmltext")
           , embedded :=   DEFAULT RECORD ARRAY
@@ -551,7 +550,7 @@ MACRO TestDirectInstanceData()
           ]
       ]);
 
-  rec := testfile->GetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  rec := testfile->GetInstanceData("webhare_testsuite:global.generic_test_type");
   TestEQ(rec.rich.instances[0].data, GetWHFSInstanceDirect(rec.rich.instances[0].data.whfssettingid));
 
   irec := SELECT * FROM whfstype_instance1->ListAllInstances() WHERE settingid = rec.rich.instances[0].data.whfssettingid;
@@ -563,7 +562,7 @@ MACRO TestDirectInstanceData()
 
   whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2", str2 := "str2" ]);
 
-  rec := testfile->GetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  rec := testfile->GetInstanceData("webhare_testsuite:global.generic_test_type");
   TestEQ("TAG1", rec.rich.instances[0].instanceid, "Instanceid isn't preserved for type changes");
   TestEQ("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2", rec.rich.instances[0].data.whfstype);
 

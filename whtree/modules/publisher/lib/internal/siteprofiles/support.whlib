@@ -1,19 +1,6 @@
 <?wh
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-///Convert scopedtype to classic namespace. Throws if invalid format (unless allowclassicnamespace is set).
-PUBLIC STRING FUNCTION ScopedTypeToNamespace(STRING scopedtype, BOOLEAN isreference)
-{
-  IF(isreference) //we're a referring
-  {
-    IF(scopedtype LIKE "x-webhare-scopedtype:*" OR scopedtype LIKE "http://*" OR scopedtype LIKE "https://*")
-      RETURN scopedtype; //saves us the trouble of remapping;
-    IF(scopedtype LIKE "x-namespace:*")
-      RETURN Substring(scopedtype, 12);
-  }
-  RETURN `x-webhare-scopedtype:${Substitute(scopedtype,':','.')}`;
-}
-
 
 PUBLIC RECORD FUNCTION CombinePartialNodes(RECORD ARRAY nodes)
 {

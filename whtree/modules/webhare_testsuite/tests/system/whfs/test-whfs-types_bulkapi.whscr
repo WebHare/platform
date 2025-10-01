@@ -24,7 +24,7 @@ MACRO TestBulkApi()
   OBJECT testdatafolder := testsite->rootobject->CreateFolder([ name:="testbulk", type := 0]);
   OBJECT testfile2 := testdatafolder->CreateFile([ name:="testbulk.2", type := 0]);
   OBJECT testfile1 := testdatafolder->CreateFile([ name:="testbulk.1", type := 0]);
-  OBJECT mytype := OpenWHFSType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  OBJECT mytype := OpenWHFSType("webhare_testsuite:global.generic_test_type");
   OBJECT arrayedtype := OpenWHFSType("http://www.webhare.net/xmlns/beta/conversionstest");
 
   mytype->SetInstanceData(testfile2->id,

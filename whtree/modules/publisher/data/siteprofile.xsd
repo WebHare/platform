@@ -1470,7 +1470,7 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-    <xs:attribute name="typedef" type="xs:anyURI" />
+    <xs:attribute name="typedef" type="xs:string" />
     <xs:attribute name="member" type="xs:string" />
     <xs:attribute name="value" type="xs:string" />
   </xs:complexType>
