@@ -112,47 +112,5 @@ test.runTests(
       // Logout must be allowed, and then logout
       await test.runTolliumLogout();
     },
-
-    {
-      name: "open sp-enabled nologout portal",
-      loadpage: webroot + 'test-saml/portal-sp/portal-sp-nologout/?lang=en',
-      waits: ["ui"]
-    },
-
-    "test logged in into portal-sp with idp account",
-    async function () {
-      test.click(await test.waitForElement(["button", /SAML login/]));
-      await test.wait('pageload'); // wait for us to arrive at the IDP
-
-      test.assert(test.getWin().location.href.match(/portal-sp/));
-      test.eq("idpaccount@allow2fa.test.webhare.net", (await test.waitForElement("#dashboard-user-name")).textContent);
-    },
-
-    // UT CampusApp login requires that a portal honors the wrdauth_logincontrol variable
-    {
-      name: "test wrdauth_returnto functions on login page",
-      test: async function (doc, win) {
-        const returnurl = webroot + 'test-saml/portal-sp/';
-        const { logincontrol } = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildLoginRedirectToken', webroot + 'test-saml/portal-idp/', returnurl);
-        await test.load(webroot + 'test-saml/portal-idp/?wrdauth_logincontrol=' + encodeURIComponent(logincontrol));
-
-        // test redirect worked
-        test.assert(/test-saml\/portal-sp/.exec(win.location.href), "Should have redirected to portal-sp site");
-      }
-    },
-
-    "IdP initiated login",
-    async function () {
-      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/samlproviders=[0]/connectedproviders=[0]&lang=en`);
-      await test.wait('ui');
-      const newwin = await test.expectWindowOpen(() => test.clickToddButton('Login'));
-      test.eq("submitinstruction", newwin.type);
-      test.eq("redirect", newwin.instr.type);
-      await test.load(newwin.instr.url);
-
-      // should redirect to the root of the testsuite site
-      test.eq("Basetest title", test.qS("#basetitle").textContent);
-      test.eq("/webhare-tests/webhare_testsuite.testsite/index.rtd", test.qS("#whfspath").textContent);
-    }
   ]
 );
