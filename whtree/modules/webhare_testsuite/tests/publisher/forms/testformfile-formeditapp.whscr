@@ -202,8 +202,13 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TT("type")->selectedtab := TT("custom");
   // Test if allowing questions by matchattribute works
   TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type1"));
+  /* TODO if we need this again in the future we'll come up with a cleaner syntax.
+     but noone is currently using complex matching in allow/deny for components
+      and it would be better to come up with some sort of
+     'virtual' component to match/unmatch 'email' etc if that's ever needed than URL variables
   TestEq(TRUE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 true"));
   TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 false"));
+  */
   TT("customcomponents")->selection := RECORD(SELECT * FROM TT("customcomponents")->rows WHERE name = "Custom Form Field");
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
   TT("title")->value := "Reverse";

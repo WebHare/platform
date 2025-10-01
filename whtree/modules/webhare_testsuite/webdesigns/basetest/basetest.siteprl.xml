@@ -825,7 +825,7 @@
   </apply>
 
   <apply>
-    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibrarie?/slots" />
+    <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/slot*" />
     <xyz:test data="in-slots-folder" />
     <xyz:testyaml data="in-slots-folder" />
   </apply>
