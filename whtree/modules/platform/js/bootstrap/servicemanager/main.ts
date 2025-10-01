@@ -18,7 +18,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { generateRandomId, regExpFromWildcards, sleep, stringify } from "@webhare/std";
+import { generateRandomId, regExpFromWildcards, sleep, stringify, throwError } from "@webhare/std";
 import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
@@ -54,8 +54,7 @@ const stagetitles: Record<Stage, string> = {
   [Stage.ShuttingDown]: "Shutting down bridge and database"
 };
 
-const expectedServices = new Map<string, ServiceDefinition>();
-const processes = new class ProcessList {
+class ProcessList {
   private procs = new Map<string, ProcessManager>();
   private lingeringProcesses = new Set<ProcessManager>();
 
@@ -77,9 +76,7 @@ const processes = new class ProcessList {
   getAllRunning(): ProcessManager[] {
     return [...this.procs.values(), ...this.lingeringProcesses.values()];
   }
-};
-
-const finishedWaitForCompletionServices = new Set<string>;
+}
 
 function smLog(text: string, data?: LoggableRecord) {
   if (!logfile) {
@@ -104,17 +101,6 @@ function updateVisibleState() {
   updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.serverName}`);
 }
 
-function shouldRun(name: string, service: ServiceDefinition): boolean | null {
-  if (service.run === "once") //script should be running when we're in the startIn stage and the script hasn't finished yet.
-    return currentstage === service.startIn && !finishedWaitForCompletionServices.has(name);
-  if (currentstage >= (service.stopIn ?? defaultShutDownStage))
-    return false; //shut it down once we're past the services' state
-  if (service.run === "always") //should run once we reached or passed its state
-    return service.startIn <= currentstage;
-
-  return null; //keep the service in whatever its current state it
-}
-
 class ProcessManager {
   readonly name;
   readonly displayName;
@@ -136,7 +122,7 @@ class ProcessManager {
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
     this.startDelay = startDelay;
-    processes.addProc(name, this);
+    this.servicemgr.processes.addProc(name, this);
 
     this.startDelayTimer = setTimeout(() => this.start(), startDelay);
   }
@@ -231,10 +217,10 @@ class ProcessManager {
     this.stopDefer.resolve(exitreason);
 
     if (this.service.run === "once")
-      finishedWaitForCompletionServices.add(this.name);
-    processes.unregister(this);
+      this.servicemgr.finishedWaitForCompletionServices.add(this.name);
+    this.servicemgr.processes.unregister(this);
 
-    const servicesettings = expectedServices.get(this.name);
+    const servicesettings = this.servicemgr.expectedServices.get(this.name);
     if (!this.servicemgr.shuttingDown && servicesettings?.run === "always" && !this.toldToStop) {
       if (!this.started || Date.now() < this.started + (servicesettings?.minRunTime ?? MinimumRunTime)) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, servicesettings?.maxThrottleMsecs ?? MaxStartupDelay);
@@ -298,12 +284,16 @@ class ServiceManagerClient extends BackendServiceConnection {
     super();
   }
 
+  #mgr() {
+    return metaMgr.mgr ?? throwError("Service manager is not available, WebHare may be relaunching");
+  }
+
   getWebHareState() {
     return {
       stage: stagetitles[currentstage],
       serviceManagerId,
-      availableServices: [...expectedServices.entries()].map(([name, service]) => {
-        const process = processes.get(name);
+      availableServices: [...this.#mgr().expectedServices.entries()].map(([name, service]) => {
+        const process = this.#mgr().processes.get(name);
         return {
           name,
           isRunning: process?.running ?? false,
@@ -316,10 +306,10 @@ class ServiceManagerClient extends BackendServiceConnection {
     };
   }
   startService(service: string) {
-    const serviceinfo = expectedServices.get(service);
+    const serviceinfo = this.#mgr().expectedServices.get(service);
     if (!serviceinfo)
       return { errorMessage: `No such service '${service}'` };
-    if (processes.get(service))
+    if (this.#mgr().processes.get(service))
       return { errorMessage: `Service '${service}' is already running` };
     if (!metaMgr.mgr)
       return { errorMessage: `Service manager is not currently running` };
@@ -328,7 +318,7 @@ class ServiceManagerClient extends BackendServiceConnection {
     return { ok: true };
   }
   async stopService(service: string) {
-    const process = processes.get(service);
+    const process = this.#mgr().processes.get(service);
     if (!process)
       return { errorMessage: `Service '${service}' is not running` };
 
@@ -339,8 +329,8 @@ class ServiceManagerClient extends BackendServiceConnection {
   async restartService(service: string) {
     //TODO we should probably tell process.stop to restart and be a bit more robust against parallel start/stop calls
     //TODO I think we could better combine start/stoprestart APIs (especially when enable/disable comes around too)
-    const serviceinfo = expectedServices.get(service);
-    const process = processes.get(service);
+    const serviceinfo = this.#mgr().expectedServices.get(service);
+    const process = this.#mgr().processes.get(service);
     if (!serviceinfo)
       return { errorMessage: `No such service '${service}'` };
     if (process?.running)
@@ -383,6 +373,9 @@ class ServiceManager {
   shuttingDown: { finished: Promise<void> } | null = null;
   readonly includeServices;
   readonly excludeServices;
+  processes = new ProcessList;
+  expectedServices = new Map<string, ServiceDefinition>();
+  finishedWaitForCompletionServices = new Set<string>;
 
   constructor(public readonly name: string, public readonly isSecondaryManager: boolean, include: string, exclude: string) {
     this.includeServices = include ? regExpFromWildcards(include) : null;
@@ -402,22 +395,22 @@ class ServiceManager {
 
   async loadServiceList(source: string) {
     const allservices = Object.entries(await getAllServices());
-    const removeServices = new Set(expectedServices.keys());
+    const removeServices = new Set(this.expectedServices.keys());
     const addedServices = new Set<string>();
 
     for (const [name, servicedef] of allservices) {
       if ((this.includeServices && !this.includeServices.test(name)) || (this.excludeServices?.test(name)) || (this.isSecondaryManager && !this.includeServices))
         continue;
 
-      if (!expectedServices.has(name))
+      if (!this.expectedServices.has(name))
         addedServices.add(name);
 
-      expectedServices.set(name, servicedef);
+      this.expectedServices.set(name, servicedef);
       removeServices.delete(name);
     }
 
     for (const service of removeServices)
-      expectedServices.delete(service);
+      this.expectedServices.delete(service);
 
     if (source)
       smLog(`Updated servicelist for ${source}: added ${[...addedServices].join(", ") || "(none)"}, removed ${[...removeServices].join(", ") || "(none)"}`);
@@ -432,7 +425,7 @@ class ServiceManager {
     smLog(`Received signal '${signal}'`, { signal });
 
     //forward STOP and CONT to subprocesses
-    for (const proc of processes.getAllRunning())
+    for (const proc of this.processes.getAllRunning())
       if (proc.process?.pid) //we need to send the STOP/CONT to the whole process group (hence negative pid). doesn't work for postgres though, its subproceses are in a different group
         process.kill(-proc.process?.pid, signal === "SIGTSTP" ? "SIGSTOP" : signal);
 
@@ -473,7 +466,7 @@ class ServiceManager {
   }
 
   checkShutdownProgress() {
-    smLog(`Shutting down, still running: ${processes.getAllRunning().map(_ => `${_.name} (${_.process?.pid || ""})`).join(", ")}`);
+    smLog(`Shutting down, still running: ${this.processes.getAllRunning().map(_ => `${_.name} (${_.process?.pid || ""})`).join(", ")}`);
   }
 
   /// Move to a new stage
@@ -484,22 +477,32 @@ class ServiceManager {
     return await this.updateForCurrentStage();
   }
 
+  shouldRun(name: string, service: ServiceDefinition): boolean | null {
+    if (service.run === "once") //script should be running when we're in the startIn stage and the script hasn't finished yet.
+      return currentstage === service.startIn && !this.finishedWaitForCompletionServices.has(name);
+    if (currentstage >= (service.stopIn ?? defaultShutDownStage))
+      return false; //shut it down once we're past the services' state
+    if (service.run === "always") //should run once we reached or passed its state
+      return service.startIn <= currentstage;
+
+    return null; //keep the service in whatever its current state it
+  }
+
   /// Actually apply the current stage. Also used when configurationchanges
   async updateForCurrentStage(): Promise<void> {
     updateVisibleState();
 
     const subpromises = [];
-    for (const process of processes.getAllRunning()) {
-      if (!expectedServices.has(process.name))
+    for (const process of this.processes.getAllRunning()) {
+      if (!this.expectedServices.has(process.name))
         subpromises.push(process.stop());
     }
-
-    for (const [name, service] of expectedServices.entries()) {
-      const shouldRunNow = shouldRun(name, service);
+    for (const [name, service] of this.expectedServices.entries()) {
+      const shouldRunNow = this.shouldRun(name, service);
       if (shouldRunNow === null)
         continue;
 
-      let process = processes.get(name);
+      let process = this.processes.get(name);
       if (process && !shouldRunNow) {
         subpromises.push(process.stop());
       } else if (shouldRunNow) {
@@ -620,7 +623,7 @@ class ServiceManagerManager {
 
     if (!startedBackendService) {
       startedBackendService = true;
-      void startBackendService(this.name); // async start the backend service
+      void startBackendService(this.name); // async start the backend service. this service stays up even if we relaunch but that is mostly as we can't effectively teardown services yet
     }
 
     if (!mgr.shuttingDown)
