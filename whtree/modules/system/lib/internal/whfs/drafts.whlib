@@ -164,7 +164,7 @@ STATIC OBJECTTYPE WHFSDraft <
     IF(NOT ObjectExists(this->pvt_fsobject))
       THROW NEW Exception("This draft no longer exists");
     IF(this->ispublic)
-      THROW NEW Exception("This draft is already commited to history and is read-only");
+      THROW NEW Exception("This draft has already been committed to history and is read-only");
 
     IF(CellExists(updates,'name'))
       this->pvt_fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
@@ -197,14 +197,12 @@ STATIC OBJECTTYPE WHFSDraft <
     IF(NOT ObjectExists(this->pvt_fsobject))
       THROW NEW Exception("This draft no longer exists");
     IF(this->ispublic)
-      THROW NEW Exception("This draft is already commited to history and is read-only");
+      THROW NEW Exception("This draft has already been committed to history and is read-only");
 
     this->pvt_fsobject->SetInstanceData(typens, data, [ ifreadonly := "update" ]);
   }
 
   /** @short Save this draft to a new public draft
-      @cell(string array) options.basefields If present, list of cells to save from fs_object
-      @cell(string array) options.contenttypes If present, list of contenttypes to save
       @return The public draft into which this draft was merged */
   PUBLIC MACRO SaveAsNewPublicDraft(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[], options);
@@ -250,8 +248,7 @@ STATIC OBJECTTYPE WHFSDraft <
 
   /** @short Save this draft as the final version
       @param options
-      @cell(stringarray) options.basefields If present, list of cells to save from fs_object
-      @cell(stringarray) options.contenttypes If present, list of contenttypes to save */
+       */
   PUBLIC MACRO SaveAsFinal(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
