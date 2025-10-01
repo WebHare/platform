@@ -59,19 +59,19 @@ ASYNC MACRO ObjectProps()
 
     AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
     TT("textcell")->value := "New row";
-    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
+    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("wh_fs_cell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
     TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
 
-    TT("_whfscell")->value := staticfile;
+    TT("wh_fs_cell")->value := staticfile;
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
     TestEq(2, Length(arrayedit->value));
     TestEq(1, Length(arrayedit->selection));
-    TestEq(staticfile, arrayedit->selection[0]._whfscell);
+    TestEq(staticfile, arrayedit->selection[0].wh_fs_cell);
 
     //Now edit it
     AWAIT ExpectScreenChange(+1, PTR arrayedit->editbutton->TolliumClick());
-    TestEq(staticfile, TT("_whfscell")->value, "Selection not properly retained");
+    TestEq(staticfile, TT("wh_fs_cell")->value, "Selection not properly retained");
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
@@ -92,9 +92,9 @@ ASYNC MACRO ObjectProps()
     AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
     TT("textcell")->value := "New row";
 
-    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("_whfscell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
+    INTEGER staticfile := SELECT AS INTEGER rowkey FROM TT("wh_fs_cell")->options WHERE title = "/webhare-tests/webhare_testsuite.testsite/index.rtd";
     TestEq(TRUE, staticfile != 0, "Where is my index.rtd?");
-    TT("_whfscell")->value := staticfile;
+    TT("wh_fs_cell")->value := staticfile;
 
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new row
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new file

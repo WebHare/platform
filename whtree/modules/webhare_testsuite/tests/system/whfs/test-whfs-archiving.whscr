@@ -43,7 +43,7 @@ RECORD filemeta   := [ title := "File title"
                      ];
 RECORD emptyversion := [ stringtest := ""
                        , arraytest := DEFAULT RECORD ARRAY
-                       , _whfsarray := DEFAULT INTEGER ARRAY
+                       , wh_fs_array := DEFAULT INTEGER ARRAY
                        , stringarray := DEFAULT STRING ARRAY
                        , richtest := DEFAULT RECORD
                        , instancetest := DEFAULT RECORD
@@ -68,7 +68,7 @@ MACRO ContentTypes()
 
   setversion := emptyversion;
   setversion.stringtest := "Simpele string";
-  setversion._whfsarray := [ INTEGER(typetestfolder->id), testfile->id ];
+  setversion.wh_fs_array := [ INTEGER(typetestfolder->id), testfile->id ];
   setversion.stringarray := ["1","2","3"];
   setversion.richtest := DEFAULT RECORD;
   testfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", setversion);
@@ -82,13 +82,13 @@ MACRO ContentTypes()
 
   /* Create simple instance data */
 
-  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+  INSERT INTO setversion.arraytest(textcell, wh_fs_cell, intextcell, stringarray, blobcell)
          VALUES("Text 1", testfile->id, MakeIntExtInternalLink(testfile->id, "?test#"), ["ABC"], DEFAULT RECORD) AT END;
-  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray,blobcell)
+  INSERT INTO setversion.arraytest(textcell, wh_fs_cell, intextcell, stringarray,blobcell)
          VALUES("", 0, MakeIntExtExternalLink("http://nu.nl/"), default string array, DEFAULT RECORD) AT END;
-  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+  INSERT INTO setversion.arraytest(textcell, wh_fs_cell, intextcell, stringarray, blobcell)
          VALUES("Text 3", typetestfolder->id, DEFAULT RECORD, default string array, DEFAULT RECORD) AT END;
-  INSERT INTO setversion.arraytest(textcell, _whfscell, intextcell, stringarray, blobcell)
+  INSERT INTO setversion.arraytest(textcell, wh_fs_cell, intextcell, stringarray, blobcell)
          VALUES("", firstfolder->id, [ externallink := "http://nu.nl/", internallink := typetestfolder->id, append := "xyz" ], ["abc","def"], DEFAULT RECORD) AT END;
   setversion.richtest := myrichdoc->ExportAsRecord();
   setversion.recordtest := [ va := VARIANT[42, "BEAGLE" ]];
@@ -602,13 +602,13 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
   DateTimesMatch(testfile2_org->modificationdate, testfile2->modificationdate, timematchmode, mintime);
 
   //Update setversion to match the supposedly remapped folders
-  setversion.arraytest[0]._whfscell := testfile2->id;
+  setversion.arraytest[0].wh_fs_cell := testfile2->id;
   setversion.arraytest[0].intextcell.internallink := testfile2->id;
-  setversion._whfsarray := [INTEGER(destfolder->id), INTEGER(testfile2->id)];
+  setversion.wh_fs_array := [INTEGER(destfolder->id), INTEGER(testfile2->id)];
 
   IF(IsDebugTagEnabled("whfsplan"))
     Print("testfile2->id = " || testfile2->id || "\n");
-  setversion.arraytest[2]._whfscell := destfolder->id;
+  setversion.arraytest[2].wh_fs_cell := destfolder->id;
   IF(IsDebugTagEnabled("whfsplan"))
     Print("destfolder->id = " || destfolder->id || "\n");
 
