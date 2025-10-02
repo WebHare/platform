@@ -70,7 +70,7 @@ run({
         if (typeinfo.metaType !== "fileType")
           throw new CLIRuntimeError("Not a file");
         if (!typeinfo.hasData)
-          throw new CLIRuntimeError("Not a downlodable file");
+          throw new CLIRuntimeError("Not a downloadable file");
         if (opts.json)
           process.stdout.write(JSON.stringify({ data: Buffer.from(await (target as WHFSFile).data.resource.arrayBuffer()).toString("base64") }));
         else
