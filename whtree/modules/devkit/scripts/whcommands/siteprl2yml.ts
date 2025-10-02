@@ -641,7 +641,7 @@ run({
       const parsedYaml = await readAndParseSiteProfile(sp.resourcename, { overridetext: yamlText });
       let spSuccess = true;
 
-      //Compare rules[] array manually so we can better explain failures. Plus we expect there to be some contuing friction here so its more useful to log everything and let the user decide
+      //Compare rules[] array manually so we can better explain failures. Plus we expect there to be some continuing friction here so its more useful to log everything and let the user decide
       for (const [idx, rule] of parsedYaml.applyrules.entries()) {
         const finalRule = rule;
         let sourceRule = sp.siteprofile.applyrules[idx];
@@ -650,7 +650,7 @@ run({
           ...sourceRule,
           customnodes: sourceRule.customnodes.filter(_ =>
             _.namespaceuri !== "urn:xyz" //remove these when comparing, they're test nodes to verify the old SP compiler
-            && _.localname !== "mswordconversion") //there's no translation for these nodes so ginore
+            && _.localname !== "mswordconversion") //there's no translation for these nodes so ignore
         };
 
         try {
