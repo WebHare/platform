@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 
 /** Set to true in WHFSCommitHandler when changes have been made to fstypes/members
     Disables the adhoccache for type data
@@ -165,4 +166,18 @@ PUBLIC DATETIME FUNCTION DecodeSPDate(RECORD ARRAY curset)
 
   DATETIME newval := MakeDateFromText(curset[0].setting); //just store it as YYYY-MM-DD
   RETURN newval;
+}
+
+/** Select fs type, support both scopedtype and normal namespace */
+PUBLIC RECORD FUNCTION SelectFSType(STRING getnamespace) {
+  RECORD entry;
+  IF(getnamespace NOT LIKE "*://*") //might be a scoped type. prefer the non-orphaned version, multiple instances may exist if an older type with different namespace but same scoped type was orphaned
+    entry := SELECT * FROM system_internal.fs_types WHERE scopedtype = getnamespace ORDER BY orphansince = DEFAULT DATETIME DESC;
+  IF(NOT RecordExists(entry))
+    entry := SELECT * FROM system_internal.fs_types WHERE namespace = getnamespace;
+  RETURN entry;
+}
+
+PUBLIC BOOLEAN FUNCTION IsTypeZero(STRING ns) {
+  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/normalfolder","http://www.webhare.net/xmlns/publisher/unknownfile","platform:filetypes.normalfolder","platform:filetypes.unknownfile"];
 }

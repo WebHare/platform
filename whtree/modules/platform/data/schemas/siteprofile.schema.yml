@@ -249,7 +249,6 @@ $defs:
     additionalProperties: false
     patternProperties:
       "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase
-        # TODO we could consider mapping underscores to double-underscores when snake-casing and then even allow them in camelcaps names?
         $ref: "#/$defs/TypeMember"
         type: object
 
@@ -511,10 +510,16 @@ $defs:
             items:
               type: object
 
+  MatchType: #used for more limited wildcards in cases where we don't want moduleprefixing to introduce ambiguity
+    type: string
+    description: Match a type. The typename may end in a wildcard. Non URLs are prefixed with the module name if not specified
+    pattern: "^[^?*]*\\*?$" # A wildcard, if any, may only appear at the end
+    examples: [ "module:type.name.*", "group.type" ]
+
   MatchOrRegExp:
     oneOf:
       - type: string
-        description: Match using wildcards (* and ?), case-insensitive
+        description: Match the value directly or using wildcards '?' and/or '*'.
       - type: object
         description: Match using a regular expression
         additionalProperties: false
@@ -559,13 +564,13 @@ $defs:
               - "index"
           type: # should map to scopedType and be resolved
             description: Match type
-            $ref: "#/$defs/MatchOrRegExp"
+            "$ref": "#/$defs/MatchType"
           site: # TODO share with sitefilter concept somehow
             description: Match site name
             $ref: "#/$defs/MatchOrRegExp"
           siteType:
             description: Match the site root folder's type of this object
-            $ref: "#/$defs/MatchOrRegExp"
+            "$ref": "#/$defs/MatchType"
           sitePath:
             description: Match sitePath (path from the start of the site)
             $ref: "#/$defs/MatchOrRegExp"
@@ -574,7 +579,7 @@ $defs:
             $ref: "#/$defs/MatchOrRegExp"
           withinType:
             description: Match any of the parent folders (up to the site root) against the requested type
-            $ref: "#/$defs/MatchOrRegExp"
+            "$ref": "#/$defs/MatchType"
           parentPath:
             $ref: "#/$defs/MatchOrRegExp"
             description: RegExp to match parent object's sitepath against (case-insensitive)
@@ -809,17 +814,17 @@ $defs:
           required: [allowType]
           properties:
             allowType:
-              type: string
+              "$ref": "#/$defs/MatchType"
         - type: object
           required: [allowTemplate]
           properties:
             allowTemplate:
-              type: string
+              "$ref": "#/$defs/MatchType"
         - type: object
           required: [denyType]
           properties:
             denyType:
-              type: string
+              "$ref": "#/$defs/MatchType"
 
   ApplyForms: # an array of - allowQuestion, - denyHandler... not sure if we could do this more elegantly as wildcards make ordering important
     type: array
@@ -831,32 +836,32 @@ $defs:
           required: [allowComponent]
           properties:
             allowComponent:
-              type: string
+              $ref: "#/$defs/MatchType"
         - type: object
           required: [denyComponent]
           properties:
             denyComponent:
-              type: string
+              $ref: "#/$defs/MatchType"
         - type: object
           required: [allowHandler]
           properties:
             allowHandler:
-              type: string
+              $ref: "#/$defs/MatchType"
         - type: object
           required: [denyHandler]
           properties:
             denyHandler:
-              type: string
+              $ref: "#/$defs/MatchType"
         - type: object
           required: [allowRTDType]
           properties:
             allowRTDType:
-              type: string
+              $ref: "#/$defs/MatchType"
         - type: object
           required: [denyRTDType]
           properties:
             denyRTDType:
-              type: string
+              $ref: "#/$defs/MatchType"
 
   ApplyToRepublish:
     type: array
@@ -1194,7 +1199,7 @@ $defs:
             - type
           properties:
             type:
-              type: string
+              $ref: "#/$defs/MatchType"
             inherit:
               type: boolean
       allowNewWindowLinks:

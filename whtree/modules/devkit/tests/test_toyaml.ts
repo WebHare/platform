@@ -1,8 +1,11 @@
 import { importApplyTo, suggestTypeName } from "@mod-devkit/js/validation/toyaml";
 import type { ApplyTo } from "@mod-platform/generated/schema/siteprofile";
-import { baseApplyToRule, parseApplyTo } from "@mod-publisher/lib/internal/siteprofiles/parser";
+import { TrackedYAML } from "@mod-platform/js/devsupport/validation";
+import { baseApplyToRule, parseApplyTo, SiteProfileParserContext } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import * as test from "@webhare/test";
 import type { CSPApplyTo } from "@webhare/whfs/src/siteprofiles";
+
+const mockContext = new SiteProfileParserContext("mod::webhare_testsuite/dummy.siteprl.yml", new TrackedYAML('{}'));
 
 function testNaming() {
   test.eq("platform:publisher.shtmlfile", suggestTypeName("platform", "http://www.webhare.net/xmlns/publisher/shtmlfile"));
@@ -12,7 +15,7 @@ function testNaming() {
 
 function testToRoundtrip(finalTo: ApplyTo, sourceTo: CSPApplyTo[]) {
   const actualFinalTo = importApplyTo(sourceTo);
-  const reverseSourceTo = parseApplyTo(actualFinalTo);
+  const reverseSourceTo = parseApplyTo(mockContext, actualFinalTo);
 
   test.eq(finalTo, actualFinalTo);
   test.eq(sourceTo, reverseSourceTo);

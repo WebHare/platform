@@ -309,10 +309,10 @@ types:
         type: boolean
     apply:
       folderIndex:
-        newFileType: http://www.webhare.net/xmlns/publisher/contentlisting
+        newFileType: filetypes.contentlisting
         pin: true
       editProps:
-        - type: http://www.webhare.net/xmlns/publisher/photoalbum
+        - type: foldertypes.photoalbum
           tabsExtension: mod::publisher/data/publisher.siteprl.xml#photoalbum_settings
   foldertypes.systemfolder:
     namespace: http://www.webhare.net/xmlns/publisher/systemfolder

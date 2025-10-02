@@ -94,7 +94,7 @@ MACRO TestWHFSType()
 
   RECORD photoalbum_index := GetFolderIndexFile(GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, FALSE, whconstant_whfstype_photoalbum));
   TestEq("newfile", photoalbum_index.indexfile);
-  TestEq("http://www.webhare.net/xmlns/publisher/contentlisting", photoalbum_index.newfiletype);
+  TestEq("platform:filetypes.contentlisting", photoalbum_index.newfiletype);
   TestEq(TRUE, photoalbum_index.protectindexfile);
 
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", OpenWHFSType("webhare_testsuite:base_test.base_test_props")->namespace);

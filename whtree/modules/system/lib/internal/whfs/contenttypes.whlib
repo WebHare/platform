@@ -1911,10 +1911,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
     entry := DEFAULT RECORD;
   }
 
-  IF(getnamespace LIKE "?*:?*.?*" AND getnamespace NOT LIKE "*://*") //might be a scoped type
-    entry := SELECT * FROM system_internal.fs_types WHERE scopedtype = getnamespace;
-  IF(NOT RecordExists(entry))
-    entry := SELECT * FROM system_internal.fs_types WHERE namespace = getnamespace;
+  entry := SelectFSType(getnamespace);
 
   OBJECT obj := FinalizeWHFSType(entry);
   IF(NOT ObjectExists(obj))

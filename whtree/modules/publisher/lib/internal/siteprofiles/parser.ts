@@ -178,18 +178,22 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
 type TidCallback = (resource: string, tid: string) => void;
 
 /** return true for simple names but false for http: and urn: like tids */
-function isValidForGid(type: string) {
-  return !type.includes(':');
+function isValidScopedType(type: string) {
+  return !type.includes(':') && !type.includes('/');
 }
 
-class SiteProfileParserContext {
+export class SiteProfileParserContext {
   readonly plugins: ModulePlugins;
   messages: ValidationMessageWithType[] = [];
   doc: Sp.SiteProfile;
+  basescope: string | null;
+  module: string;
 
   constructor(public readonly resourceName: string, public tracked: TrackedYAML<Sp.SiteProfile>, public readonly options?: { validate?: boolean }) {
     this.plugins = getExtractedConfig("plugins");
     this.doc = this.tracked.doc;
+    this.basescope = this.tracked.doc.typeGroup || null;
+    this.module = parseResourcePath(resourceName)?.module ?? throwError(`Resource name '${resourceName}' is not module scoped`);
   }
 
   addMessage(msg: Omit<ValidationMessageWithType, "resourcename" | "line" | "col" | "source">, node?: unknown) {
@@ -219,6 +223,22 @@ class SiteProfileParserContext {
     }
 
     return dest;
+  }
+
+  resolveType(type: string): string {
+    if (!type)
+      return '';
+    if (!isValidScopedType(type)) //looks like a XML namespace kind of type or a module:ref
+      return type;
+
+    if (this.basescope) {
+      if (type.includes('.'))  //guessing it's module scoped (FIXME strongly considering to drop basescope support as it makes things way too ambiguous)
+        return this.module + ':' + type;
+
+      return this.module + ':' + this.basescope + '.' + type;
+    }
+
+    return this.module + ':' + type;
   }
 }
 
@@ -314,7 +334,7 @@ const builtinRules: Record<string, CSPApplyTo> = {
   "all": { ...baseApplyToRule, match_all: true },
 };
 
-function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
+function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.ApplyTo): CSPApplyTo[] {
   if (typeof apply === "string") {
     const rule = builtinRules[apply];
     if (!rule)
@@ -325,7 +345,7 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
 
   if ("and" in apply) {
     const andRules: CSPApplyTo[] = [];
-    for (const rule of apply.and.map(parseApplyToRecursive).flat()) {
+    for (const rule of apply.and.map(r => parseApplyToRecursive(context, r)).flat()) {
       //see if we can collapse isFolder/isFile rules back to type=folder/file
       if (rule === builtinRules["isFolder"] && andRules.at(-1)?.type === "to") {
         (andRules.at(-1) as CSPApplyToTo).match_folder = true; //collapse it into the previous rule
@@ -337,16 +357,16 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     return andRules.length === 1 ? andRules : [{ type: "and", criteria: andRules }];
   }
   if ("or" in apply)
-    return [{ type: "or", criteria: apply.or.map(parseApplyToRecursive).flat() }];
+    return [{ type: "or", criteria: apply.or.map(r => parseApplyToRecursive(context, r)).flat() }];
   if ("not" in apply)
-    return [{ type: "not", criteria: parseApplyToRecursive(apply.not) }];
+    return [{ type: "not", criteria: parseApplyToRecursive(context, apply.not) }];
 
   if (apply.testSetting) {
     const tester: CSPApplyToTestData = {
       type: "testdata",
       membername: nameToSnakeCase(apply.testSetting.member),
       target: apply.testSetting.target,
-      typedef: apply.testSetting.type,
+      typedef: context.resolveType(apply.testSetting.type),
       value: apply.testSetting.value
     };
     return [tester];
@@ -404,22 +424,11 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
   return [to];
 }
 
-export function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
-  let tos = parseApplyToRecursive(apply);
+export function parseApplyTo(context: SiteProfileParserContext, apply: Sp.ApplyTo): CSPApplyTo[] {
+  let tos = parseApplyToRecursive(context, apply);
   if (tos.length === 1 && tos[0].type === "or") //toplevel 'or' is implicit
     tos = tos[0].criteria;
   return tos;
-}
-
-function resolveType(baseScope: string, type: string) {
-  if (!type)
-    return '';
-
-  if (type.includes(':'))  //looks like a XML namespace kind of type or a module:ref
-    return type;
-  if (type.includes('.'))  //guessing it's module scoped
-    return baseScope.split(':')[0] + ':' + type;
-  return `${baseScope}${type}`;
 }
 
 function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>): CSPRTDBlockStyle[] {
@@ -521,11 +530,11 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
   };
 }
 
-function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserContext, baseScope: string, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
+function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserContext, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
   const rules = new Array<CSPApplyRule["extendproperties"][0]>;
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
-      contenttype: resolveType(baseScope, prop.type),
+      contenttype: context.resolveType(prop.type),
       extension: context.resolve(prop.tabsExtension || ''),
       requireright: prop.requireRight || '',
     };
@@ -609,7 +618,7 @@ function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
 
 function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): CSPApplyRule {
   const rule = parseApply(context, gid, module, baseScope, applyindex, apply);
-  rule.tos = parseApplyTo(apply.to);
+  rule.tos = parseApplyTo(context, apply.to);
   rule.priority = apply.priority || 0;
   rule.comment = apply.comment || '';
   return rule;
@@ -639,7 +648,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     mailtemplates: [],
     modifyfiletypes: [],
     modifyfoldertypes: [],
-    extendproperties: apply.editProps ? parseEditProps(context, gid, baseScope, apply.editProps) : [],
+    extendproperties: apply.editProps ? parseEditProps(context, gid, apply.editProps) : [],
     formdefinitions: [],
     hookintercepts: [],
     plugins: [],
@@ -721,7 +730,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     if (apply.folderIndex !== "none") {
       if (apply.folderIndex.newFileType) {
         rule.folderindex.indexfile = "newfile";
-        rule.folderindex.newfiletype = apply.folderIndex.newFileType as string;
+        rule.folderindex.newfiletype = context.resolveType(apply.folderIndex.newFileType as string);
         if (apply.folderIndex.newFileName)
           rule.folderindex.newfilename = apply.folderIndex.newFileName as string;
       } else {
@@ -1069,7 +1078,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
-    const typeParser = rootParser.addGid(settings, { fallback: isValidForGid(type) ? '.' + type : undefined });
+    const typeParser = rootParser.addGid(settings, { fallback: isValidScopedType(type) ? '.' + type : undefined });
     const scopedtype = `${baseScope}${type}`;
     const ns = settings.namespace ?? scopedtype;
     const ctype: CSPContentType = {
