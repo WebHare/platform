@@ -28,6 +28,8 @@ interface MetaTabs {
   }>;
   /** Is this a new object (ie lives in autosave space, not original that's added to a public WHFS folder yet) */
   isNew: boolean;
+  /** Issues - for now simply strings */
+  issues: string[];
 }
 
 interface MetaTabsWithHSInfo extends MetaTabs {
@@ -111,15 +113,24 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
     isNew: applytester.isNew(),
-    [hsinfo]: applytester.__getHSInfo()
+    [hsinfo]: applytester.__getHSInfo(),
+    issues: []
   };
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
     const matchtype = getType(contenttype);
-    if (!matchtype?.yaml)
+    if (!matchtype) {
+      metasettings.issues.push(`No such type ${contenttype}`);
       continue;
-    if (options?.requireWorkflow && !matchtype.workflow)
+    }
+    if (!matchtype?.yaml) {
+      metasettings.issues.push(`Type ${contenttype} must be defined by a YAML siteprofile`);
       continue;
+    }
+    if (options?.requireWorkflow && !matchtype.workflow) {
+      metasettings.issues.push(`Type ${contenttype} is not defined for workflow, but this context requires workflow`);
+      continue;
+    }
 
     let lastlayout: CustomFieldsLayout | undefined;
     const overrides: Record<string, CSPMemberOverride> = {};
@@ -146,8 +157,10 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
         }
     }
 
-    if (!lastlayout)
+    if (!lastlayout) {
+      metasettings.issues.push(`Type ${contenttype} has no layout applied`);
       continue; //no layout received, nothing to show
+    }
 
     //gather the members to display
     const sections: MetadataSection[] = [];
@@ -216,6 +229,7 @@ interface MetaTabsForHS {
   }>;
   is_new: boolean;
   __hsinfo: unknown;
+  issues: string[];
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -233,7 +247,8 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
       }))
     })),
     is_new: metatabs.isNew,
-    __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo]
+    __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo],
+    issues: metatabs.issues
   };
   return translated;
 }

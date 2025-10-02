@@ -38,6 +38,7 @@
       <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
+      <action name="inspectmetatabs" frameflags="isdeveloper" onexecute="doinspectmetatabs" />
     </actions>
 
     <menus>
@@ -67,6 +68,7 @@
           <item action="inspectautosave" disablemode="hidden" />
           <item action="inspectdraft" disablemode="hidden" />
           <item action="inspectfinal" disablemode="hidden" />
+          <item action="inspectmetatabs" disablemode="hidden" />
           <divider />
           <item action="openinpublisher" />
         </item>
