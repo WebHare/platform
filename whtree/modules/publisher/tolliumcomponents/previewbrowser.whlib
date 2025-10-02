@@ -52,21 +52,31 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   BOOLEAN refresh_unpublished;
   RECORD ARRAY previewmessages;
 
+  BOOLEAN pvt_urlbarvisible;
+
   // ---------------------------------------------------------------------------
   //
   // Public variables and properties
   //
 
   PUBLIC MACRO PTR onpreviewedobjectchange;
+
+  PUBLIC PROPERTY urlbarvisible(pvt_urlbarvisible, Seturlbarvisible);
+
   // ---------------------------------------------------------------------------
   //
   // Init
   //
 
+  MACRO NEW() {
+    this->pvt_urlbarvisible := TRUE;
+  }
+
   UPDATE PUBLIC MACRO StaticInit(RECORD data)
   {
     TolliumFragmentBase::StaticInit(data);
     this->onpreviewedobjectchange := data.onpreviewedobjectchange;
+    this->urlbarvisible := data.urlbarvisible;
   }
 
   UPDATE MACRO PostInitComponent()
@@ -131,7 +141,16 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
           , action := ^showexternallink
           ]
         ];
+  }
 
+  // ---------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  MACRO Seturlbarvisible(BOOLEAN newurlbarvisible) {
+    this->pvt_urlbarvisible := newurlbarvisible;
+    ^urlpanel->visible := newurlbarvisible;
   }
 
   // ---------------------------------------------------------------------------
