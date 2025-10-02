@@ -377,7 +377,9 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
     IF (currentwitty != this)
       ABORT("currentwitty administration has gone wrong!");
 
-    INTEGER lastcolon := SearchLastSubstring(component, ':');
+    INTEGER lastcolon := SearchLastSubstring(component, '#');
+    IF(lastcolon = -1)
+      lastcolon := SearchLastSubstring(component, ':');
     IF(lastcolon = -1)
     {
       IF (this->currentscriptid != this->basescriptid)
@@ -409,7 +411,7 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
           currentwitty->currentscriptid := save_currentscriptid;
           currentwitty := save_currentwitty;
 
-          e->trace[END-1].func := e->trace[END-1].func || " [" || curscriptname || (component != "" ? ":" || component : "") || "]";
+          e->trace[END-1].func := e->trace[END-1].func || " [" || curscriptname || (component != "" ? "#" || component : "") || "]";
           THROW e;
         }
 
@@ -422,7 +424,7 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
       STRING curscriptname := this->__GetScriptNameById(this->currentscriptid);
 
       //Make sure we don't confuse a '::' for a component indicator
-      IF(Substring(component, lastcolon-1, 1) = ':')
+      IF(Substring(component, lastcolon-1, 2) = '::')
         THROW NEW WittyRuntimeException(this, curscriptname, [ line := 0, col := 0, code := 0/*FIXME*/, text := `Missing component name in embedcomponent request for '${component}'`]);
 
       STRING requestedpath := Left(component, lastcolon);

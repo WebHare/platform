@@ -39,6 +39,7 @@ MACRO TestResolve()
   TestEq("mod::webhare_testsuite/tests/system/testresources.witty", Resolve("testresources.witty"));
   TestEq("mod::webhare_testsuite/tests/system/testresources.witty:", Resolve("testresources.witty:"));
   TestEq("mod::webhare_testsuite/tests/system/testresources.witty:mycomp", Resolve("testresources.witty:mycomp"));
+  TestEq("mod::webhare_testsuite/tests/system/testresources.witty#mycomp", Resolve("testresources.witty#mycomp"));
   TestEq("mod::webhare_testsuite/tests/system/", Resolve("./"));
   TestEq("mod::webhare_testsuite/tests/system/#x", Resolve("./#x"));
   TestEq("mod::webhare_testsuite/tests/system/", Resolve("../system/"));
