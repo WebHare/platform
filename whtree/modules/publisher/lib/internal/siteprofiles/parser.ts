@@ -232,7 +232,7 @@ export class SiteProfileParserContext {
       return type;
 
     if (this.basescope) {
-      if (type.includes('.'))  //guessing it's module scoped (FIXME storngly considering to drop basescope support as it makes things way too ambiguous)
+      if (type.includes('.'))  //guessing it's module scoped (FIXME strongly considering to drop basescope support as it makes things way too ambiguous)
         return this.module + ':' + type;
 
       return this.module + ':' + this.basescope + '.' + type;
