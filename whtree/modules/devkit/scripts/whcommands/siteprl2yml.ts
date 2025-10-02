@@ -471,7 +471,7 @@ function myCSPRuleCompare(expect: unknown, actual: unknown, path: string) {
     return true;
   if (path.endsWith(".yaml") && !expect)
     return true;
-  if (path.endsWith(".uploadtypmeapping")) //we'll drop this in 6.0 anyway
+  if (path.endsWith(".uploadtypemapping")) //we'll drop this in 6.0 anyway
     return true;
   if (path.endsWith(".siteprofile"))
     return true;
