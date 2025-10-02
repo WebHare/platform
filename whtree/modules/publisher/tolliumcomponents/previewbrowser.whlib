@@ -1,10 +1,10 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -12,10 +12,10 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -29,8 +29,9 @@ BOOLEAN FUNCTION IsPreviewableWidget(INTEGER widgetid)
   RETURN settings.namespace != "";
 }
 
-PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+
+PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -38,18 +39,15 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   STRING lastsethtmlvalue;
   ///'official' target we preview, eg where we take apply rules from (targetobject)
   INTEGER previewfileid;
-  ///actual content to preview
-  INTEGER contentfileid;
   ///Actual URL we want to show
   STRING currenturl;
   BOOLEAN currentsandbox;
   ///Suppress page rendering?
-  BOOLEAN suppressrendering;
+  STRING suppressrendering;
 
   INTEGER devicewidth;
   INTEGER deviceheight;
 
-  BOOLEAN refresh_unpublished;
   RECORD ARRAY previewmessages;
 
   // ---------------------------------------------------------------------------
@@ -139,262 +137,125 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Helper functions
   //
 
-  MACRO CheckHTTP()
-  {
-    IF (this->owner->tolliumcontroller->secure AND this->currenturl LIKE "http://*")
-    {
-      INSERT [ level := 0
-             , message := GetTid("publisher:tolliumcomponents.previewbrowser.nonsecuresite") || ' <a href="preview:showsite">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickviewsite") || '</a>'
-             ] INTO this->previewmessages AT END;
-      this->suppressrendering := TRUE; // Cannot show unsecure content within secure WebHare, show default page
-    }
-  }
+  RECORD FUNCTION GetPreviewData(RECORD selectedfile) {
+    //Currently the best way to test/verify this function may be to run mod::webhare_testsuite/tests/publisher/tollium/filemanager.whscr
+    //and head over to https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/TestPages/
 
-  STRING FUNCTION GetPreviewToken(RECORD selectedfile, RECORD contentfile)
-  {
-    RETURN EncryptForThisServer("publisher:previewbrowser",
-                [ source := selectedfile.id
-                , when := GetCurrentDatetime()
-                , content := contentfile.id
-                , lang := GetTidLanguage()
-                ]);
-  }
+    //Determine the type we're dealing with
+    BOOLEAN isfilelink := selectedfile.type IN [ whconstant_whfstype_internallink, whconstant_whfstype_contentlink ];
+    RECORD targetfile := isfilelink ? RECORD(SELECT id, name, type, published, filelink, parentsite FROM system.fs_objects WHERE id = selectedfile.filelink AND isactive) ?? selectedfile : selectedfile;
+    RECORD typeinfo := DescribeContentTypeById(targetfile.type, [ isfolder := FALSE, mockifmissing := TRUE ]);
+    BOOLEAN ishtml := typeinfo.needstemplate OR (targetfile.type = whconstant_whfstype_imagefile AND ToUppercase(GetExtensionFromPath(selectedfile.name)) IN [".HTM", ".HTML", ".SHTML"]);
 
-  RECORD FUNCTION GetPreviewData(INTEGER fileid, INTEGER usecontentfile)
-  {
-    /* Determine the viewer to use. In order we'll try:
-       - any explicit previewsetting: <preview browserurl=...> - this will handle eg. images
-       - widget rendering
-       - see if we can expect HTML (the resulting link is a 'needstemplate') - then we'll directly link
-       - fall back to the unknown.shtml handler
-       */
+    //Figure out how to show the file
+    STRING url;
+    BOOLEAN sandbox;
+    STRING suppresswhy;
+    RECORD ARRAY messages;
 
-    RECORD selectedfile := SELECT id, name, link, type, published, filelink, externallink, parentsite, isfolder FROM system.fs_objects WHERE id = VAR fileid;
-    IF(NOT RecordExists(selectedfile))
-      RETURN DEFAULT RECORD;
-
-    this->currenturl := "";
-    BOOLEAN ispreview := fileid != usecontentfile AND usecontentfile != 0; //is this a draft preview request?
-    RECORD data := [ fileid := fileid
-                   ];
-
-    RECORD contentfile := selectedfile;
-    INTEGER targetfiletype := selectedfile.type;
-
-    IF(usecontentfile != 0)
-    {
-      RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERE id = usecontentfile;
-      IF(RecordExists(target))
-      {
-        targetfiletype := target.type;
-        contentfile := target;
+    IF(selectedfile.link != "") { //We have potentially something to show
+      IF(ishtml) { // and it's a webpage
+        url := selectedfile.link;  //we show it!
       }
     }
-    IF(selectedfile.type IN [ whconstant_whfstype_internallink, whconstant_whfstype_contentlink ])
-    {
-      // Find internal or content link target
-      RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
-      IF(RecordExists(target))
-      {
-        targetfiletype := target.type;
-        IF(selectedfile.type = 20 ) //contentlink
-          contentfile := target;
 
-        // Show link target
+    IF(url = "" AND suppresswhy = "") { //no renderable URL found yet
+      IF(typeinfo.browserpreview != "" OR typeinfo.iswidgettype OR typeinfo.needstemplate) {
+        url := GetPreviewLink(selectedfile.id);
+      }
+    }
+
+    RECORD checkerrorsfor := selectedfile; //for which file to report any errors? internallinks change this
+
+    //Calculate any warnings/messages to give
+    IF(isfilelink) {
+      RECORD target := SELECT id, name, type, published, parentsite, indexurl, fullpath, isfolder FROM system.fs_objects WHERe id = selectedfile.filelink AND isactive;
+      IF(RecordExists(target)) {
+        checkerrorsfor := target;
         RECORD site := SELECT name FROM system.sites WHERE id = target.parentsite;
         STRING message := selectedfile.type = whconstant_whfstype_internallink
-                             ? (target.indexurl = "" ? GetTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
-                                                     : GetTid("publisher:tolliumcomponents.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
-                             : GetTid("publisher:tolliumcomponents.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
-        INSERT [ level := 0
-               , message := message
-               ] INTO this->previewmessages AT END;
-
-        IF (selectedfile.type = whconstant_whfstype_internallink)
-        {
-          IF (GetErrorFromPublished(target.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(target.published)) // Ignore 'locked site' errors
-          {
-            // Publication errors
-            INSERT [ level := 2
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickerrors") || '</a>'
-                   ] INTO this->previewmessages AT END;
-
-            IF (GetOncePublishedFromPublished(target.published))
-            {
-              INSERT [ level := 0
-                     , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-cachedversion")
-                     ] INTO this->previewmessages AT END;
-            }
-            ELSE
-            {
-              this->suppressrendering := TRUE; // Never published, nothing to show
-            }
-          }
-          ELSE IF(TestFlagFromPublished(target.published, 400000))
-          {
-            // Publication warnings
-            INSERT [ level := 1
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
-                   ] INTO this->previewmessages AT END;
-
-          }
-        }
+                             ? (target.indexurl = "" ? GetHTMLTid("publisher:tolliumcomponents.previewbrowser.internallink-unpublished", (RecordExists(site) ? site.name || ":" : "") || target.fullpath)
+                                                     : GetHTMLTid("publisher:tolliumcomponents.previewbrowser.internallink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath))
+                             : GetHTMLTid("publisher:tolliumcomponents.previewbrowser.contentlink", (RecordExists(site) ? site.name || ":" : "") || target.fullpath);
+        INSERT CELL[ message ] INTO messages AT END;
+      } ELSE {
+        INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.internallink-broken")
+               ] INTO messages AT END;
+        suppresswhy := "broken-internallink";
       }
-      ELSE
-      {
-        // Internal link not found
-        INSERT [ level := 1
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-broken")
-               ] INTO this->previewmessages AT END;
-      }
-    }
-    ELSE IF(selectedfile.type = whconstant_whfstype_externallink)
-    {
+    } ELSE IF(selectedfile.type = whconstant_whfstype_externallink) {
       // Show external link target
-      INSERT [ level := 0
-             , message := GetTid("publisher:tolliumcomponents.previewbrowser.externallink", EncodeHTML(selectedfile.externallink)) || ' <a href="preview:showexternallink">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickexternallink") || '</a>'
-             ] INTO this->previewmessages AT END;
-      this->suppressrendering := TRUE; // Don't show the external link within the preview browser
+      INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.externallink", EncodeHTML(selectedfile.externallink)) || ' <a href="preview:showexternallink">' || GetHTMLTid("publisher:tolliumcomponents.previewbrowser.clickexternallink") || '</a>'
+             ] INTO messages AT END;
+      suppresswhy := "is-externallink"; // Probably safest to not show externallinks within WebHare
     }
 
-    this->refresh_unpublished := FALSE;
-
-    OBJECT applytester := GetApplyTesterForObject(selectedfile.id);
-    RECORD typeinfo;
-    IF(selectedfile.type != 0)
-      typeinfo := LookupContentTypeById(selectedfile.type); //TODO can't we figure out whether or not this is a widget with a preview from the applytester?
-
-    STRING browserpreview := RecordExists(typeinfo) AND RecordExists(typeinfo.filetype) ? typeinfo.filetype.browserpreview : "";
-    BOOLEAN generatewidgetpreview;
-    IF(browserpreview != "")
-    {
-      this->currenturl := ResolveToAbsoluteURL(this->contexts->controller->baseurl, browserpreview);
-
-      IF(this->currenturl != "")
-        this->currenturl := UpdateURLVariables(this->currenturl, [ preview := this->GetPreviewToken(selectedfile, contentfile) ]);
-    }
-    ELSE
-    {
-      IF(selectedfile.type != 0 AND NOT selectedfile.isfolder)
-      {
-        generatewidgetpreview := RecordExists(typeinfo) AND RecordExists(typeinfo.filetype) AND typeinfo.filetype.generatepreview;
-      }
-      IF(generatewidgetpreview)
-      {
-        // The selected file is a widget preview
-        INSERT [ level := 0
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.widgetpreview")
-               ] INTO this->previewmessages AT END;
-
-        this->currenturl := GetPreviewLink(fileid, [ validuntil := AddTimeToDate(publisher_settings.widget_preview_expiry, GetCurrentDateTime()) ]);
-        this->refresh_unpublished := TRUE;
+    // Informing about publication status
+    IF(typeinfo.iswidgettype) { //Inform users this is a widget preview. Not surse about the added value?
+      INSERT CELL[ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.widgetpreview")
+                 ] INTO messages AT END;
+    } ELSE IF (GetErrorFromPublished(selectedfile.published) = 0 AND NOT GetOncePublishedFromPublished(selectedfile.published)) {
+      IF(typeinfo.ispublishable) {
+        INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.notpublished")
+               ] INTO messages AT END;
+        url := GetPreviewLink(selectedfile.id);
       }
     }
 
-    IF (NOT generatewidgetpreview AND NOT ispreview AND GetErrorFromPublished(selectedfile.published) = 0 AND NOT GetOncePublishedFromPublished(selectedfile.published))
-    {
-      RECORD fileinfo := DescribeContentTypeById(selectedfile.type, [ isfolder := FALSE, mockifmissing := TRUE ]);
-      INSERT [ level := 0
-             , message := fileinfo.ispublishable ? GetTid("publisher:tolliumcomponents.previewbrowser.notpublished") : GetTid("publisher:tolliumcomponents.previewbrowser.hasnopreview")
-             ] INTO this->previewmessages AT END;
-      this->suppressrendering := TRUE; // Nothing to show
-    }
-
-    IF (GetErrorFromPublished(selectedfile.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(selectedfile.published)) // Ignore 'locked site' errors
-    {
+    //Check for errors or warnings
+    IF (GetErrorFromPublished(checkerrorsfor.published) NOT IN [ 0, 112 ] AND NOT IsQueuedForPublication(checkerrorsfor.published)) { // Ignore 'locked site' errors
       // Publication errors
-      INSERT [ level := 2
-             , message := GetTid("publisher:tolliumcomponents.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickerrors") || '</a>'
-             ] INTO this->previewmessages AT END;
+      INSERT CELL[ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.errors") || ' <a href="preview:showerrors">' || GetHTMLTid("publisher:tolliumcomponents.previewbrowser.clickerrors") || '</a>'
+                 ] INTO messages AT END;
 
-      IF (GetOncePublishedFromPublished(selectedfile.published))
-      {
-        INSERT [ level := 0
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.internallink-cachedversion")
-               ] INTO this->previewmessages AT END;
+      IF (GetOncePublishedFromPublished(checkerrorsfor.published)) { // We have a cached version
+        INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.internallink-cachedversion") //Note the actual text doesn't refer to internallinks
+               ] INTO messages AT END;
       }
-      ELSE
-      {
-        this->suppressrendering := TRUE; // Never published, nothing to show
-      }
-    }
-    ELSE IF(TestFlagFromPublished(selectedfile.published, PublishedFlag_Warning))
-    {
+    } ELSE IF(TestFlagFromPublished(checkerrorsfor.published, PublishedFlag_Warning)) {
       // Publication warnings
-      INSERT [ level := 1
-             , message := GetTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
-             ] INTO this->previewmessages AT END;
-
+      INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.warnings") || ' <a href="preview:showwarnings">' || GetHTMLTid("publisher:tolliumcomponents.previewbrowser.clickwarnings") || '</a>'
+             ] INTO messages AT END;
     }
 
-    IF(this->currenturl = "" AND NOT this->suppressrendering) //still no preview
-    {
-      //We need to know if we can expect HTML if we show the file's URL. So we look at the target's type (and for internal & contentlink, we'll look at the final file)
-      RECORD fileinfo := DescribeContentTypeById(targetfiletype, [ isfolder := selectedfile.isfolder, mockifmissing := TRUE ]);
-      IF(fileinfo.needstemplate OR fileinfo.id = whconstant_whfstype_dynamicfoldercontents) //dynamic folder contents
-      {
-        IF(usecontentfile = 0) //we can show the live version
-          this->currenturl := selectedfile.link;
-        ELSE //generate a preview (used by versioning app)
-          this->currenturl := CreatePreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", selectedfile.id, usecontentfile);
-      }
-      ELSE
-      {
-        INSERT [ level := 0
-              , message := GetTid("publisher:tolliumcomponents.previewbrowser.hasnopreview")
-              ] INTO this->previewmessages AT END;
-        this->suppressrendering := TRUE; // Nothing to show
-      }
-    }
-
-    IF (GetScheduledFromPublished(selectedfile.published))
-    {
+    IF (GetScheduledFromPublished(selectedfile.published)) {
       // There are tasks defined for the selected file, display the first one
-      RECORD task := SELECT * FROM publisher.schedule WHERE file = fileid ORDER BY when;
-      IF (RecordExists(task))
-      {
-        SWITCH (task.event)
-        {
-          CASE 1
-          {
-            INSERT [ level := 0
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
-                   ] INTO this->previewmessages AT END;
+      RECORD task := SELECT * FROM publisher.schedule WHERE file = selectedfile.id ORDER BY when;
+      IF (RecordExists(task)) {
+        SWITCH (task.event) {
+          CASE whconstant_publisherschedule_publish {
+            INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduledpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO messages AT END;
           }
-          CASE 2
-          {
-            INSERT [ level := 0
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
-                   ] INTO this->previewmessages AT END;
+          CASE whconstant_publisherschedule_unpublish {
+            INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduledunpublish", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO messages AT END;
           }
-          CASE 3
-          {
-            INSERT [ level := 0
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduledmove", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
-                   ] INTO this->previewmessages AT END;
+          CASE whconstant_publisherschedule_move {
+            INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduledmove", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO messages AT END;
           }
-          CASE 4
-          {
-            INSERT [ level := 0
-                   , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduleddelete", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
-                   ] INTO this->previewmessages AT END;
+          CASE whconstant_publisherschedule_delete{
+            INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduleddelete", this->owner->tolliumuser->FormatDateTime(task.when, "minutes", TRUE, TRUE))
+                   ] INTO messages AT END;
           }
         }
-      }
-      ELSE
-      {
-        INSERT [ level := 0
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.scheduled")
-               ] INTO this->previewmessages AT END;
+      } ELSE {
+        INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.scheduled")
+               ] INTO messages AT END;
       }
     }
 
-    this->CheckHTTP();
+    IF(url = "" AND suppresswhy = "") {
+      INSERT [ message := GetTid("publisher:tolliumcomponents.previewbrowser.hasnopreview")
+              ] INTO messages AT END;
+      suppresswhy := "has-no-preview"; // Nothing to show
+    }
 
     //PDF sandboxing is broken in chrome, https://bugs.chromium.org/p/chromium/issues/detail?id=413851 - so drop sandbox for PDFs
-    RETURN CELL[ ...data
-               , sandbox := NOT(contentfile.type = 11 AND ToUppercase(contentfile.name) LIKE "*.PDF")
-               ];
+    BOOLEAN disable_sandbox := targetfile.type = whconstant_whfstype_pdffile AND ToUppercase(GetExtensionFromPath(selectedfile.name)) = ".PDF";
+
+    RETURN CELL[ url, suppresswhy, messages, sandbox := NOT disable_sandbox ];
   }
 
   MACRO ShowErrors()
@@ -414,7 +275,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   MACRO LoadBrowserFrame()
   {
     STRING src;
-    IF(this->suppressrendering)
+    IF(this->suppressrendering != "")
       src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
     ELSE IF(IsAbsoluteURL(this->currenturl))
       src := this->currenturl;
@@ -436,7 +297,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     ^previewmessage->htmlvalue := this->lastsethtmlvalue;
     ^info->visible := Length(this->previewmessages) > 0;
 
-    STRING src := this->suppressrendering ? this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html"
+    STRING src := this->suppressrendering != ""? this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html"
                 : UpdateURLVariables(this->currenturl,
                       [ "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
@@ -452,72 +313,65 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
     ELSE
     {
-      this->SetFileId(this->previewfileid, reloadmessages, reloadsource, this->contentfileid);
+      this->SetFileId(this->previewfileid, reloadmessages OR reloadsource);
     }
   }
 
   // Set the currently previewed file
-  MACRO SetFileId(INTEGER fileid, BOOLEAN reloadmessages, BOOLEAN reloadsource, INTEGER contentfile)
-  {
-    BOOLEAN was_iframe_interaction;
-    IF (fileid = this->previewfileid AND contentfile = this->contentfileid AND NOT reloadmessages AND NOT reloadsource)
-      RETURN;
+  MACRO SetFileId(INTEGER fileid, BOOLEAN force) {
+    IF (fileid = this->previewfileid AND NOT force)
+      RETURN; //did not detect a relevant change
 
-    this->currenturl := ""; //reset for building new url
-    this->suppressrendering := FALSE;
-    this->currentsandbox := TRUE;
+    RECORD baseinfo; //previewfile is the file we'll be viewing (baseinfo unless baseinfo is an index document)
+    RECORD previewfile; //baseinfo is the selected file
+    IF(fileid > 0)
+      baseinfo := SELECT id, parent, name, link, type, published, filelink, externallink, parentsite, isfolder, objecturl, indexdoc FROM system.fs_objects WHERE id = fileid AND isactive;
 
-    RECORD baseinfo;
-    IF(fileid>0)
-      baseinfo := SELECT id, name, type, parent, indexdoc, isfolder, parentsite, objecturl FROM system.fs_objects WHERE id = fileid AND isactive;
+    //previewurl is the url shown to the user in the previewbrowsers's navigation bar and is available for sharing/copying
+    IF(RecordExists(baseinfo)) {
+      ^previewurl->value := baseinfo.objecturl;
 
-    // Test if site isn't locked (but allow history entries)
-    IF (RecordExists(baseinfo))
-    {
-      RECORD site := SELECT locked FROM system.sites WHERE id = baseinfo.parentsite;
-      IF (NOT RecordExists(site) OR site.locked)
-        baseinfo := DEFAULT RECORD;
-    }
-
-    STRING url := RecordExists(baseinfo) ? baseinfo.objecturl : "";
-    ^previewurl->value := url;
-    this->ClearForNewURL(url);
-
-    RECORD previewfile; // The file we're actually viewing (e.g. index document of selected folder)
-    IF(RecordExists(baseinfo))
-      IF(baseinfo.isfolder)
-        previewfile := SELECT id, type, parent, COLUMN url FROM system.fs_objects WHERE id = baseinfo.indexdoc AND isactive;
-      ELSE
+      IF(baseinfo.isfolder) {
+        IF(baseinfo.indexdoc != 0) {
+          previewfile := (SELECT id, parent, name, link, type, published, filelink, externallink, parentsite, isfolder, objecturl FROM system.fs_objects WHERE id = baseinfo.indexdoc AND isactive);
+        }
+      } ELSE { //file
         previewfile := baseinfo;
-
-
-    IF(RecordExists(previewfile) AND previewfile.id != 0)
-    {
-
-      RECORD previewdata := this->GetPreviewData(previewfile.id, contentfile);
-      this->previewfileid := previewdata.fileid;
-      this->contentfileid := contentfile;
-      this->currentsandbox := previewdata.sandbox;
-
-      INTEGER warninglevel := SELECT AS INTEGER MAX(level) FROM this->previewmessages;
-      //STRING previewicon := [ "messageboxes/information", "status/warning", "status/serious_error"][warninglevel];
-      //this->previewicon->SetImageSrc("tollium:" || previewicon, "");
-
-      ^previewlistener->masks := [ "system:whfs.folder." || previewfile.parent, "publisher:publish.folder." || previewfile.parent ];
-    }
-    ELSE
-    {
-      IF(url != "" AND RecordExists(baseinfo))
-      {
-        INSERT [ level := 0
-               , message := GetTid("publisher:tolliumcomponents.previewbrowser.folderwithoutindex", baseinfo.name)
-               ] INTO this->previewmessages AT END;
       }
-      this->previewfileid := 0;
-      this->contentfileid := 0;
-      ^previewlistener->masks := DEFAULT STRING ARRAY;
-      this->suppressrendering := TRUE;
     }
+
+    ^previewurl->value := RecordExists(baseinfo) ? baseinfo.objecturl : "";
+
+    RECORD previewdata;
+    IF(RecordExists(previewfile)) {
+      previewdata := this->GetPreviewData(previewfile); //also sets suppressrendering
+      this->previewfileid := previewfile.id;
+      ^previewlistener->masks := [ "system:whfs.folder." || previewfile.parent, "publisher:publish.folder." || previewfile.parent ];
+    } ELSE IF (RecordExists(baseinfo)) { //no indexdocument but a live folder
+      STRING message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.folderwithoutindex", baseinfo.name);
+      previewdata := [ sandbox := TRUE, url := "", suppresswhy := "folder-without-index", messages := [[ message := message ]]
+                     ];
+      ^previewlistener->masks := STRING[];
+    } ELSE { //we had nothing to show you
+      previewdata := [ sandbox := TRUE, url := "", suppresswhy := "nothing-selected", messages := RECORD[]
+                     ];
+    }
+
+    this->UpdateBrowser(previewdata);
+  }
+
+  MACRO UpdateBrowser(RECORD previewdata) {
+
+    IF(previewdata.url != "" AND previewdata.url NOT LIKE "https://*" AND this->owner->tolliumcontroller->secure) {
+      INSERT [ message := GetHTMLTid("publisher:tolliumcomponents.previewbrowser.nonsecuresite") || ' <a href="preview:showsite">' || GetHTMLTid("publisher:tolliumcomponents.previewbrowser.clickviewsite") || '</a>'
+             ] INTO previewdata.messages AT 0;
+      previewdata.suppresswhy := "is-http"; // Cannot show unsecure content within secure WebHare, show default page
+    }
+
+    this->previewmessages := previewdata.messages;
+    this->currenturl := previewdata.url;
+    this->currentsandbox := previewdata.sandbox;
+    this->suppressrendering := previewdata.suppresswhy;
 
     this->RefreshBrowserFrame();
   }
@@ -642,17 +496,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       href := Substring(href, 8);
       SWITCH (href)
       {
-        /*ADDME: To open a new browser window, the windowopenaction must be triggered by the user directly. Maybe we can
-                 somehow link the preview message link to the action client-side?
-        CASE "showexternallink"
-        {
-          IF (RecordExists(this->filelist->selection) AND this->filelist->selection.externallink != "")
-            this->frame->OpenBrowserWindow(this->filelist->selection.externallink, this->previewbrowsername); //FIXME use windowopenaction
-        }
-        CASE "viewsite"
-        {
-        }
-        */
         CASE "showwarnings", "showerrors"
         {
           this->ShowErrors();
@@ -661,23 +504,13 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
   }
 
-  MACRO OnPreviewUpdateEvents(RECORD ARRAY events)
-  {
-    BOOLEAN file_updated;
+  MACRO OnPreviewUpdateEvents(RECORD ARRAY events) { //Any update or publish - refresh the preview and any messages
     FOREVERY (RECORD event FROM events)
       FOREVERY (RECORD file FROM event.data.files)
-      {
-        IF (file.file = this->previewfileid) //TODO or watch contentfileid ?
-        {
-          file_updated := file_updated OR "update" IN file.events;
-          IF ((this->refresh_unpublished AND "update" IN file.events)
-              OR (NOT this->refresh_unpublished AND "pub" IN file.events))
-          {
+        IF (file.file = this->previewfileid AND ("update" IN file.events OR "pub" IN file.events)) {
             this->ReloadCurrent(TRUE, TRUE); //force reresh of both frame and the error messages
             RETURN;
           }
-        }
-      }
   }
 
   // ---------------------------------------------------------------------------
@@ -701,14 +534,11 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
   MACRO DoPreviewRefresh()
   {
-    this->SetFileId(this->previewfileid, TRUE, TRUE, this->contentfileid); //force reresh of both frame and the error messages
+    this->SetFileId(this->previewfileid, TRUE); //force reresh of both frame and the error messages
   }
 
   MACRO ClearForNewURL(STRING url)
   {
-    this->previewmessages := DEFAULT RECORD ARRAY;
-    this->currenturl := url;
-    this->suppressrendering := url = "";
   }
 
 
@@ -717,20 +547,20 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
   // Public API
   //
 
-  PUBLIC MACRO SetPreview(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC MACRO SetPreview(INTEGER objid)
   {
-    options := ValidateOptions([ contentfile := 0], options);
     Print(`Owner asked previewbrowser to go to #${objid} ${SELECT AS STRING "(" || whfspath || ")" FROM system.fs_objects WHERE id=objid}\n`);
-    this->SetFileId(objid, FALSE, FALSE, options.contentfile);
+    this->SetFileId(objid, FALSE);
   }
 
-  PUBLIC MACRO SetPreviewURL(STRING newurl)
-  {
+  PUBLIC MACRO SetPreviewURL(STRING newurl) {
     this->previewfileid := 0;
+    ^previewlistener->masks := STRING[];
     ^previewurl->value := newurl;
-    this->ClearForNewURL(newurl);
-    this->CheckHTTP();
-    this->RefreshBrowserFrame();
+
+    RECORD previewdata := [ sandbox := TRUE, url := newurl, suppresswhy := newurl != "" ? "" : "no-url", messages := RECORD[]
+                          ];
+    this->UpdateBrowser(previewdata);
   }
 
   PUBLIC RECORD FUNCTION GetPreviewState() //introspection needed for testing

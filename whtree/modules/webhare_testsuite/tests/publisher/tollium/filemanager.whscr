@@ -96,7 +96,7 @@ ASYNC MACRO WalkTheTree()
   UPDATE system.fs_objects SET type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings")->id WHERE id = invalidfile->id;
 
   testfw->CommitWork();
-  WaitForPublishCompletion(GetTestsuiteTempFolder()->id, [ expecterrorsfor := INTEGER[ crashfile->id, disconnectedlink->id, invalidfile->id ]]); //the testsite better be published as tests will be using it!
+  WaitForPublishCompletion(OpenTestsuiteSite()->id, [ expecterrorsfor := INTEGER[ crashfile->id, disconnectedlink->id, invalidfile->id ]]); //the testsite better be published as tests will be using it!
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
 
@@ -156,11 +156,10 @@ ASYNC MACRO WalkTheTree()
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="rangetestfile.jpeg";
   pvs := TT("previewbrowser")->GetPreviewState();
 
-  TestEq(FALSE, pvs.showingmessages);
+  TestEq(FALSE, pvs.showingmessages, `got unexpected messages: ${pvs.messages}`);
   TestEqLike("*/rangetestfile.jpeg", pvs.displayurl);
 
   //verify the image.shtml is showing our image (quick test that all the preview APIs are functional)
-  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/image.shtml*", pvs.browserurl);
   TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
   TestEqLike("*/rangetestfile.jpeg?hash=*", testfw->browser->QS("img.wh-imagepreview__mainimage")->GetAttribute("src"));
 
@@ -219,7 +218,8 @@ ASYNC MACRO WalkTheTree()
 
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  // TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl); //we now simply attempt to show what the output would show
+  TestEqLike(OpenTestsuiteSite()->webroot || "tmp/crash/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*<a *errors*', pvs.messages);
 
@@ -242,7 +242,7 @@ ASYNC MACRO WalkTheTree()
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.link";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEqLike(OpenTestsuiteSite()->webroot || "tmp/crash/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*internal link*crash.rtd*', pvs.messages);
   TestEqLike('*<a *errors*', pvs.messages);
@@ -311,9 +311,9 @@ ASYNC MACRO WalkTheTree()
   TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/unpublished/", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
-  TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`*This internal link links to unpublished file 'webhare_testsuite.testsite:/TestPages/unpublished'*`, pvs.messages);
+  TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/preview/*", pvs.browserurl, 'it should be previewed as an unpublished file');
+  TestEq(TRUE, pvs.showingmessages);
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
   TestEqMembers([[ title := "webhare_testsuite.testsite" ]], TT("obj")->options, "*");

@@ -44,8 +44,8 @@ STRING FUNCTION GetPathForAppURL(INTEGER objid)
   RETURN path;
 }
 
-PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -69,6 +69,10 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   //
   // Init
   //
+
+  MACRO NEW() {
+    this->lastpreviewed := -99999999; //ensure that we trigger UpdateSelectedPreview at least once (was missed when selecting index-less folder)
+  }
 
   MACRO Init(RECORD data)
   {
@@ -935,8 +939,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   // Preview control
   //
 
-  MACRO UpdateSelectedPreview()
-  {
+  MACRO UpdateSelectedPreview() {
     //We ignore focus but look at selection. multiselection in filelist = no preview, 1 = show file, 0 = show containing folder
     RECORD ARRAY selection := ^filelist->selection;
     INTEGER topreview;

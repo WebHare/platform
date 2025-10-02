@@ -13,8 +13,9 @@ declare module "@webhare/services" {
   interface ServerEncryptionScopes {
     "publisher:preview": {
       id: number;
-      parentsite: number;
-      isfolder: boolean;
+      c: Date;
+      v: Date;
+      p: string;
     };
   }
 }

@@ -7,7 +7,7 @@ import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
 import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
-import { readRegistryKey, type WebHareBlob } from "@webhare/services";
+import { backendConfig, encryptForThisServer, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
@@ -319,6 +319,20 @@ export class WHFSFile extends WHFSBaseObject {
   }
   async update(metadata: UpdateFileMetadata) {
     await this._doUpdate(metadata);
+  }
+  /** Get a preview link for a document
+   * @param options.validUntil - Validity of the link. Defaults to 1 day
+   * @param options.password - Password to protect the preview with */
+  async getPreviewLink(options?: {
+    validUntil: std.WaitPeriod;
+    password?: string;
+  }): Promise<string> {
+
+    const until: Date = std.convertWaitPeriodToDate(options?.validUntil || "P1D");
+    const base = this.link || backendConfig.backendURL;
+    const viewdata = encryptForThisServer("publisher:preview", { id: this.id, c: new Date(this.creationDate.epochMilliseconds), v: until, p: options?.password || "" });
+    //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
+    return new URL(`/.publisher/preview/${viewdata}/`, base).toString();
   }
 }
 

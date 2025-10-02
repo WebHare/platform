@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
@@ -710,7 +711,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave) {
     this->UpdateAutosave();
-    RETURN CreatePreviewLink(validuntil, password, this->itemid, this->GetPreviewObject(autosave)->id);
+    RETURN GetPreviewLink(this->GetPreviewObject(autosave)->id, CELL[validuntil, password]);
   }
 
   MACRO DoPreviewCurrentContent(OBJECT openhandler)

@@ -130,7 +130,9 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , blobiscontent := RecordExists(type.filetype) AND type.filetype.blobiscontent
          , capturesubpaths := RecordExists(type.filetype) AND type.filetype.capturesubpaths
          , siteprofile := ismissing ? "" : type.siteprofile
+         , browserpreview := RecordExists(type.filetype) ? type.filetype.browserpreview : ""
          , line := ismissing ? 0 : type.line
+         , iswidgettype := RecordExists(type.filetype) AND type.filetype.generatepreview
          ];
 }
 PUBLIC RECORD FUNCTION LookupContentTypeById(INTEGER id)

@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
 
@@ -21,7 +22,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 OpenPrimary();
 
@@ -89,15 +89,14 @@ MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
   }
 }
 
-MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN ispublicobject) {
   /* previews should never be crawled/stored. We'll use headers to prevent that so you can still view-source in preview mode
      and inspect the result of noindex/nofollow settings on the document */
   AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
 
-  OBJECT applytester := GetApplyTesterForObject(source);
+  OBJECT applytester := GetApplyTesterForObject(targetobject.id);
   IF(NOT ObjectExists(applytester))
-    THROW NEW Exception("Unable to locate the webdesign for #" || source);
+    THROW NEW Exception("Unable to locate the webdesign for #" || targetobject.id);
 
   __ValidateWebdesign(applytester);
 
@@ -108,25 +107,22 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, RECORD options DEFAULT
     RETURN;
   }
 
-  OBJECT contentobject := openobj;
-  IF(openobj->type = whconstant_whfstype_contentlink) //content link
-  {
-    contentobject := OpenWHFSObject(openobj->filelink);
-    IF(NOT ObjectExists(contentobject))
-    {
-      Print(EncodeHTML("The contentlink target does not exist"));
-      RETURN;
-    }
+  RECORD contenttypeinfo := DescribeContentTypeById(contentobject.type, [ isfolder := FALSE, mockifmissing := TRUE ]);
+  IF(contenttypeinfo.browserpreview != "") {
+    //TODO The problem is, this is just an URL to a script. So we can't easily capture its output and password protect it. We need a HTML-generating callback instead
+    //     pdf.shtml can't just be embeddewd
+    //     we could probably deal with image directly if we need it.
+    IF(ispublicobject)
+      Redirect(ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), contenttypeinfo.browserpreview) || "?preview=" || GetPreviewToken(targetobject, contentobject));
+
+    Print(EncodeHTML("No live preview available for this object"));
+    RETURN;
   }
 
-  OBJECT contentfiletype := OpenWHFSTypeById(contentobject->type);
-  BOOLEAN renderwidgetpreview := contentfiletype->iswidgettype;
+  BOOLEAN renderwidgetpreview := contenttypeinfo.iswidgettype;
 
-  // Check if the file type needs a template (if not, send it directly)
-  IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
-  {
-    RECORD usetempl := applytester->GetUsePublishTemplate();
-    SendFileDirect(openobj, source, NOT usetempl.isdefault );
+  IF(NOT renderwidgetpreview AND NOT contenttypeinfo.needstemplate) { //Some might be viewable such as HTML but others will require a download wrapper
+    Print(EncodeHTML("This object type is not directly viewable"));
     RETURN;
   }
 
@@ -134,33 +130,34 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, RECORD options DEFAULT
   baseurl := Detokenize(ArraySlice(Tokenize(baseurl, '/'),3,3),'/') || "/";
   __pageinfo := __SplitBaseAndSubUrl(GetRequestURL(), baseurl);
 
-  RECORD sourceinfo := GetSystemRedirectInfo(source);
+  RECORD sourceinfo := GetSystemRedirectInfo(targetobject.id); //TODO this one redoes applytester?
   IF(sourceinfo.success)
   {
-    RunThePage(source, sourceinfo, contentobject->id);
+    RunThePage(targetobject.id, sourceinfo, contentobject.id);
     RETURN;
   }
 
   INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) INTO __pageinfo;
   IF(webdesigninfo.renderinfo.renderer != "")
   {
-    RECORD capturedpage := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", source, openobj->id);
+    RECORD capturedpage := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", contentobject.id, targetobject.id);
     SendWebFile(capturedpage.body);
   }
   ELSE IF(webdesigninfo.renderinfo.objectname = "")
     THROW NEW Exception("Don't know how to render a type without a rendering object");
 
-  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, contentobject);
-  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, contentobject, pageobject, renderwidgetpreview);
+  OBJECT contentfsobj := OpenWHFSObject(contentobject.id);
+  OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, contentfsobj);
+  OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, contentfsobj, pageobject, renderwidgetpreview);
 
   //Update robot tags and remove analytics/gtm from previews, they generally confuse users
   webdesign->__renderpreview := NOT IsWHDebugOptionSet("npm"); //TODO move this into instantiate so NEW() can rely on it too
 
   IF (renderwidgetpreview) {
-    OBJECT type := OpenWHFSTypeById(openobj->type);
-    RECORD instancedata := type->GetInstanceData(openobj->id);
-    INSERT CELL whfstype := type->namespace INTO instancedata;
-    INSERT CELL whfsfileid := openobj->id INTO instancedata;
+    OBJECT contentfiletype := OpenWHFSTypeById(contentobject.type);
+    RECORD instancedata := contentfiletype->GetInstanceData(contentobject.id);
+    INSERT CELL whfstype := contentfiletype->namespace INTO instancedata;
+    INSERT CELL whfsfileid := targetobject.id INTO instancedata;
 
     // Lookup RTD type
     RECORD rtdtypesettings := applytester->GetRTDTypeSettings();
@@ -177,40 +174,58 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, RECORD options DEFAULT
 }
 
 RECORD topreview := ParsePreviewURL(GetRequestURL());
-OBJECT draftobj := OpenWHFSDraft(topreview.id);
-OBJECT openobj := ObjectExists(draftobj) ? draftobj->fsobject : OpenWHFSObject(topreview.id);
+RECORD targetobject;
 
-INTEGER designid;
-IF(Objectexists(draftobj))
-  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id=draftobj->source;
-ELSE IF(Objectexists(openobj))
-  designid := SELECT AS INTEGER parentsite FROM system.fs_objects WHERE id = VAR topreview.id;
-ELSE
-  designid := 16; //builtin clean design - should we use this or just revert to a standard 404 if we're not sure about the object you're accessing ?
+IF(topreview.validuntil > GetCurrentDatetime()) { //still valid
+  STRING pwd := TrimWhitespace(GetWebVariable("password"));
+  IF(topreview.password != "" AND topreview.password != pwd) {
+    OBJECT page := NEW PreviewPage();
+    page->data.component := "previewpassword";
+    page->data.incorrectpassword := pwd != "";
+    //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
+    page->RunPageForWHFSId(whconstant_whfsid_webharebackend);
+    RETURN;
+  }
 
-INTEGER source := ObjectExists(draftobj) ? draftobj->source : topreview.id;
+  targetobject := SELECT id, whfspath, filelink, parent, creationdate, type FROM system.fs_objects WHERE id = topreview.id AND creationdate = topreview.creationdate;
+}
 
-IF(NOT ObjectExists(openobj) OR topreview.validuntil < GetCurrentDatetime() OR topreview.creationdate != openobj->creationdate)
-{
+IF(NOT RecordExists(targetobject)) {
   OBJECT page := NEW PreviewPage();
   page->data.component := "previewexpired";
   //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-  page->RunPageForWHFSId(designid);
+  page->RunPageForWHFSId(whconstant_whfsid_webharebackend);
   RETURN;
 }
 
-STRING pwd := TrimWhitespace(GetWebVariable("password"));
-IF(topreview.password != "" AND topreview.password != pwd)
-{
-  OBJECT page := NEW PreviewPage();
-  page->data.component := "previewpassword";
-  page->data.incorrectpassword := pwd != "";
-  //FIXME should probably signal using something like SetupErrorPage that we'll be previewing/drafting..
-  page->RunPageForWHFSId(designid);
-  RETURN;
+RECORD contentobject := targetobject;
+BOOLEAN ispublicobject;
+
+IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*"
+   OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*"
+   OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*") {
+  //Resolve the base object for the snapshot/draft
+  targetobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = contentobject.filelink;
+  IF(NOT RecordExists(targetobject))
+    THROW NEW Exception(`The target object for this preview (${contentobject.filelink}) does not exist`);
+} ELSE IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*/*") {
+  //This is the recycle bin!
+  INTEGER deletionid := ToInteger(Tokenize(targetobject.whfspath,'/')[4],0);
+  INTEGER originalsite := SELECT AS INTEGER filelink FROM system.fs_objects WHERE id = deletionid;
+  targetobject := SELECT id, parentsite := id, type FROM system.fs_objects WHERE id = originalsite;
+} ELSE IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/*") {
+  //Recyclebin or other custom stuff we didn't consider?
+  THROW NEW Exception(`Unsupported path: ${targetobject.whfspath}`);
+} ELSE {
+  //It seems not to be in offline space
+  ispublicobject := topreview.password = "";
+
+  IF(targetobject.type = whconstant_whfstype_contentlink) {
+    //Resolve the contentobject for the contentlink
+    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = targetobject.filelink;
+    IF(NOT RecordExists(contentobject))
+      THROW NEW Exception(`The content object for this preview (${targetobject.filelink}) does not exist`);
+  }
 }
 
-IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
-  THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
-
-RunPublisherPreview(openobj, source);
+RunPublisherPreview(targetobject, contentobject, ispublicobject);

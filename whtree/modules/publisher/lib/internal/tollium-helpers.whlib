@@ -188,7 +188,7 @@ PUBLIC STRING FUNCTION GetPublicationErrorMsg(INTEGER published, STRING errordat
     @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
 PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview)
 {
-  RETURN GetPreviewLink(baseobj, CELL[ validuntil, password, version := toview ]);
+  RETURN GetPreviewLink(toview ?? baseobj, CELL[ validuntil, password ]);
 }
 
 PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit, BOOLEAN isfilewidget, STRING currenttitle, RECORD widgetsettings)
