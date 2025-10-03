@@ -13,4 +13,5 @@
   <test script="test-whfs-consilio.whscr" />
   <test script="test-whfs-findwhfsobjects.whscr" />
   <test script="test-whfs-consilio_docs.whscr" />
+  <test script="test-whfs-events.whscr" />
 </group>

@@ -167,6 +167,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
           , files :=    rec.files
           ];
 
+      INSERT CELL trace := (SELECT AS STRING ARRAY `${filename}(${line}:${col})` FROM GetStackTrace()) INTO data ;
+
       IF (rec.ispub)
       {
         BroadcastEvent("publisher:publish.folder." || rec.folder, data);
@@ -349,6 +351,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
     this->AddEvent(parentsite, folderid, objectid, "", "update");
+  }
+
+  PUBLIC MACRO ObjectHistoryChange(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    this->AddEvent(parentsite, folderid, objectid, "", "history");
   }
 
   PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid)

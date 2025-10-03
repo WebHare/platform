@@ -3,6 +3,8 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
+
 
 //TODO - To avoid races, create WHFS folders for a site immediately when creating the site. But having multiple shouldn't really matter..
 INTEGER FUNCTION EnsureWHFSSiteFolder(INTEGER forparent, INTEGER site)
@@ -21,6 +23,8 @@ INTEGER FUNCTION EnsureWHFSSiteFolder(INTEGER forparent, INTEGER site)
 
     INSERT INTO system.fs_objects(id, parent, name, filelink, creationdate, modificationdate, isfolder)
            VALUES(versionroot, forparent, ToString(versionroot), site, now, now, TRUE);
+
+    GetWHFSCommitHandler()->ObjectCreate(0, forparent, versionroot);
   }
 
   RETURN versionroot;

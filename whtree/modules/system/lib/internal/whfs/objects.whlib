@@ -819,7 +819,7 @@ OBJECTTYPE WHFSObject
 
     IF (IsPublish(oldversion.published) AND NOT IsPublish(newpublished))
       commithandler->Unpublished(oldversion.parentsite, oldversion.parent, this->pvt_id);
-    ELSE IF (IsQueuedForPublication(newpublished))
+    ELSE IF (IsQueuedForPublication(newpublished) OR (NOT this->isfolder AND IsPublish(oldversion.published) AND isrename))
       commithandler->FileRepublish(oldversion.parentsite, oldversion.parent, this->pvt_id);
 
     newpublished := SetFlagsInPublished(newpublished, PublishedFlag_StripExtension, this->isfolder = FALSE AND IsStripExtension(newcontenttype, newname));
