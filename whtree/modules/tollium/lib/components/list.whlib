@@ -1104,58 +1104,15 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   }
 
 
-  MACRO SetSortColumn(STRING newsortcolumn)
-  {
-    STRING orgsortcol := newsortcolumn;
-    RECORD layout := this->GetCurrentRowLayout();
-
-    IF (newsortcolumn != "<ordered>")
-    {
-      BOOLEAN found := FALSE;
-      FOREVERY(RECORD col FROM layout.columns)
-      {
-        IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
-          CONTINUE;
-
-        IF (col.coldef = newsortcolumn)
-        {
-          found := SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef;
-          BREAK;
-        }
-      }
-      IF (NOT found AND this->sortable)
-      {
-        // Find first sortable column
-        FOREVERY(RECORD col FROM layout.columns)
-        {
-          IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
-            CONTINUE;
-
-          IF (SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef)
-          {
-            newsortcolumn := col.coldef;
-            found := TRUE;
-            BREAK;
-          }
-        }
-      }
-      //else there are no sortable columns, use ordering
-      IF (NOT found)
-        newsortcolumn := "<ordered>";
-    }
-
-    IF (newsortcolumn != this->pvt_sortcolumn)
-    {
+  MACRO SetSortColumn(STRING newsortcolumn) {
+    IF (newsortcolumn != this->pvt_sortcolumn) {
       this->pvt_sortcolumn := newsortcolumn;
       this->ExtSortOrderUpdate();
     }
   }
 
-
-  MACRO SetSortAscending(BOOLEAN newascending)
-  {
-    IF (this->pvt_sortascending != newascending)
-    {
+  MACRO SetSortAscending(BOOLEAN newascending) {
+    IF (this->pvt_sortascending != newascending) {
       this->pvt_sortascending := newascending;
       this->ExtSortOrderUpdate();
     }
@@ -1672,9 +1629,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                  , allowdupe := TRUE
                  ] INTO this->storage->required_cells AT END;
       }
-
-      IF(col.sortable AND col.name = this->pvt_sortcolumn)
-        foundsortcolumn := TRUE;
     }
     FOREVERY(STRING flag FROM this->pvt_flags)
     {
@@ -1683,9 +1637,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
              , allowdupe := FALSE
              ] INTO this->storage->required_cells AT END;
     }
-
-    IF(this->sortable AND NOT foundsortcolumn AND Length(this->pvt_columns)>0 AND this->pvt_sortcolumn != "<ordered>")
-      this->pvt_sortcolumn := this->pvt_columns[0].name;
 
     STRING dupename := SELECT AS STRING Any(name)
                          FROM this->storage->required_cells
@@ -1697,14 +1648,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
     this->storage->SetupHelper(istree, this->storage->getpath, this->storage->getitems, this->storage->getallitems);
   }
-
-
-  ///Is this list really sortable, considering 'sortable' and the column definitions
-  BOOLEAN FUNCTION IsActuallySortable()
-  {
-    RETURN this->sortable AND this->columnheaders AND NOT this->storage->istree;
-  }
-
 
   /** Checks if a selection matches an enableon
       @param min Minimum number of selected rows
@@ -2421,7 +2364,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , openaction        := GetComponentName(this->openaction)
                          , empty             := this->empty
                          , columnheaders     := this->columnheaders
-                         , sortable          := this->IsActuallySortable()
+                         , sortable          := this->sortable
                          , isatree           := this->storage->istree
                          , selectableflags   := Detokenize(this->selectableflags," ")
                          , unmasked_events   := unmask
@@ -2439,6 +2382,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , highlightidx      := this->highlightname != "" ? 4 : -1
                          , syncselect        := this->selectevent = "synchronous"
                          , sortcolumn        := this->pvt_sortcolumn
+                         , sortascending     := this->pvt_sortascending
                          , debugactions      := this->GetDebugActions()
                          , class             := this->class
                          , icons             := this->icons
@@ -2703,7 +2647,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     RECORD ARRAY cols := SELECT name
                               , width
                               , minwidth
-                              , sort := this->sortable AND name = this->pvt_sortcolumn ? this->pvt_sortascending ? 'asc' : 'desc' : ''
                               , type
                               , title
                               , iconlink := iconlink

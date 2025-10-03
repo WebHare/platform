@@ -164,10 +164,22 @@
               <column name="sender" title="Sender" type="email" width="1pr" style="sender" />
               <column name="senddate" title="Date" type="datetime" storeutc="true" width="17x" style="senddate" />
 
+              <rowlayout maxwidth="300px">
+                <col coldef="status" />
+                <col coldef="subject" />
+                <col coldef="sender" />
+                <row>
+                  <cell coldef="status" />
+                  <cell coldef="subject" />
+                  <cell coldef="sender" />
+                </row>
+              </rowlayout>
+
               <style name="unread" bold="true" backgroundcolor="#f8fcff" />
               <style name="subject" textcolor="#555555" />
               <style name="sender" textcolor="#002266" />
               <style name="senddate" />
+
             </list>
           </panel>
         </part>
@@ -177,7 +189,7 @@
             <select name="layoutname" type="pulldown" onchange="onlayoutchange">
               <option rowkey="" title="Normal" />
               <option rowkey="tworows" title="Two rows" selected="true" />
-              <option rowkey="threerows" title="Three rows" />
+              <option rowkey="responsive" title="Responive layout" selected="true" />
             </select>
             <button action="newicon" title="Regen icons"/>
           </line>
@@ -208,6 +220,33 @@
                 </row>
                 <row>
                   <cell colspan="2" coldef="subject" />
+                </row>
+              </rowlayout>
+
+              <rowlayout name="responsive" maxwidth="400px">
+                <col coldef="status" />
+                <col coldef="sender" />
+                <col coldef="senddate" />
+                <row>
+                  <cell rowspan="2" coldef="status" />
+                  <cell coldef="sender" />
+                  <cell coldef="senddate" />
+                </row>
+                <row>
+                  <cell colspan="2" coldef="subject" />
+                </row>
+              </rowlayout>
+
+              <rowlayout name="responsive">
+                <col coldef="status" />
+                <col coldef="subject" />
+                <col coldef="sender" />
+                <col coldef="senddate" />
+                <row>
+                  <cell coldef="status" />
+                  <cell coldef="subject" />
+                  <cell coldef="sender" />
+                  <cell coldef="senddate" />
                 </row>
               </rowlayout>
 
