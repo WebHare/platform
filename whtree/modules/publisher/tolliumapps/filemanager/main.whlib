@@ -2131,6 +2131,14 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
   {
     this->RunScreen("#boostwordsoverview", [ ids := ^filelist->value ]);
   }
+
+  MACRO DoShowFolderTreeHistory() {
+    this->RunScreen("history.xml#history", [ id := ^foldertree->value ]);
+  }
+
+  MACRO DoShowFileListHistory() {
+    this->RunScreen("history.xml#history", [ id := ^filelist->value[0] ]);
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE ConvertToSiteDialog EXTEND TolliumScreenBase

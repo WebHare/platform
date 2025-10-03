@@ -18,22 +18,33 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
 
 /** Get the change history for this object
     @return Change history items
-    @cell(string) return.type One of 'recycled', 'created', 'modified'
+    @cell(string) return.id History item id
+    @cell(string) return.type One of 'recycled', 'saved', 'reverted', 'created', 'approved'
     @cell(integer) return.user User authobject id
+    @cell(integer) return.snapshot WHFS id of the file with the contents for this history
     @cell(datetime) return.when Modification time
+    @cell(datetime) return.isactive Whether this is the current active version
 */
 PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
 {
-  RETURN SELECT id
-              , type := type >= 0 AND type <= 5 ? eventnames[type] : "#" || type
-              , user
-              , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
-              , when
-              , snapshot
-              , version
-           FROM system_internal.fs_history
-          WHERE fs_object = objid
-       ORDER BY when;
+  RECORD ARRAY historyitems :=
+     SELECT id
+          , type := type >= 0 AND type <= 5 ? eventnames[type] : "#" || type
+          , user
+          , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
+          , when
+          , snapshot
+          , version
+          , isactive :=     snapshot = objid
+       FROM system_internal.fs_history
+      WHERE fs_object = objid
+   ORDER BY when;
+
+  INTEGER lastapproved := SELECT AS INTEGER id FROM historyitems WHERE type IN [ "approved", "created" ] ORDER BY when DESC LIMIT 1;
+  RETURN
+      SELECT *
+           , isactive :=    id = lastapproved
+        FROM historyitems;
 }
 
 PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
