@@ -263,10 +263,8 @@ type ListSortSetting = {
 } | null;
 
 interface ListAttributes extends ComponentStandardAttributes {
-  rowlayout: ListRowLayout["rowlayout"];
-  dragrowlayout: ListRowLayout["dragrowlayout"];
-  colheaders: ListRowLayout["colheaders"];
   borders: Borders;
+  layouts: ListRowLayout[];
   selectcontextmenu: string;
   newcontextmenu: string;
 
@@ -342,8 +340,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   droptypes: AcceptType[] = [];
   selectionoriginal: null | FlatRowKey[];
   columnwidths: $todd.SizeObj[];
-  rowlayout: ListRowLayout["rowlayout"] | null = null;
-  dragrowlayout: ListRowLayout["dragrowlayout"] | null;
   rows: FlatRow[] = [];
   footerrows: FlatRow[];
   columnselectmode: "none" | "single";
@@ -370,7 +366,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   checkboxcolumns: DataColumn[] = [];
   datacolumnstotalminwidth: number = 0;
   datacolumnstotalcalcwidth: number = 0;
-  colheaders: ListRowLayout["colheaders"] = [];
   listdomcreated: boolean;
   numrows: number;
   firstvisiblerow: number;
@@ -408,6 +403,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   findasyoutyperegex: RegExp | null = null;
   finishselectlock: UIBusyLock | null = null;
 
+  //Current and available rowlayouts.
+  currentRowLayout!: ListRowLayout; //immediately set during construction, so ! for now TODO removeable?
+  availableRowLayouts: ListRowLayout[] = [];
 
   //TODO Get rid of the !s. These are set/recreated up by resetList
   listheader!: HTMLDivElement;
@@ -431,8 +429,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.selectionoriginal = null;
     this.cols = [];
     this.columnwidths = [];
-    this.rowlayout = null;
-    this.dragrowlayout = null;
     this.footerrows = [];
 
 
@@ -454,8 +450,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.selectmode = data.selectmode;
     this.selectableflags = data.selectableflags;
     this.iconnames = data.icons;
-    this.rowlayout = data.rowlayout;
-    this.dragrowlayout = data.dragrowlayout;
     this.borders = data.borders;
     this.highlightidx = data.highlightidx;
     this.emptytext = data.empty;
@@ -472,19 +466,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       }
     });
 
-    if (data.colheaders.length) {
-      for (let i = 0; i < data.colheaders.length; ++i)
-        this.cols.push(
-          {
-            width: 0,
-            header: data.colheaders[i].col,
-            indraglayout: data.colheaders[i].indraglayout,
-            combinewithnext: data.colheaders[i].combinewithnext
-          });
-    } else {
-      for (let i = 0; i < data.columns.length; ++i)
-        this.cols.push({ width: 0, header: i, indraglayout: true, combinewithnext: false });
-    }
+    this.availableRowLayouts = data.layouts;
+    this.setRowLayout(this.availableRowLayouts[0]);
 
     this.initColumns(data.columns);
     this.sortable = data.sortable;
@@ -510,9 +493,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     let small_left_padding = false;
 
     // Use small left padding when first column is a checkbox column and no highlight is present
-    if (this.rowlayout.length === 1
-      && this.rowlayout[0].cells.length
-      && this.datacolumns[this.rowlayout[0].cells[0].cellnum].checkbox
+    if (this.currentRowLayout?.rowlayout.length === 1
+      && this.currentRowLayout?.rowlayout[0].cells.length
+      && this.datacolumns[this.currentRowLayout?.rowlayout[0].cells[0].cellnum].checkbox
       && this.highlightidx === -1) {
       small_left_padding = true;
       this.node.classList.add("wh-ui-listview__small-left-padding");
@@ -835,6 +818,21 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     //console.log("<list> relayout to size " + width + " x " + height);
   }
 
+  setRowLayout(layout: ListRowLayout) {
+    if (layout === this.currentRowLayout)
+      return;
+
+    this.currentRowLayout = layout;
+    for (const col of layout.colheaders)
+      this.cols.push(
+        {
+          width: 0,
+          header: col.col,
+          indraglayout: col.indraglayout,
+          combinewithnext: col.combinewithnext
+        });
+  }
+
   // internal
   initColumns(cols: DataColumn[]) {
     this.datacolumns = cols;
@@ -874,7 +872,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
 
     const rowspans: number[] = [];
-    this.rowlayout!.forEach((row, idx) => {
+    this.currentRowLayout.rowlayout!.forEach((row, idx) => {
       let colnr = 0;
       row.cells.forEach((cell, cidx) => {
         // Skip columns that rowspan over this column
@@ -1129,9 +1127,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       searchidx: searchidx,
       datacolumns: this.datacolumns,
       cols: this.cols,
-      rowlayout: this.rowlayout,
-      dragrowlayout: this.dragrowlayout,
-      colheaders: this.colheaders
     };
     return retval;
   }
@@ -2915,7 +2910,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
 
     this._setupColumns(structure.cols);
-    this._setupRowLayouts(structure.rowlayout!, structure.dragrowlayout!);
+    this._setupRowLayouts(this.currentRowLayout.rowlayout, this.currentRowLayout.dragrowlayout);
 
     for (let i = 0; i < this.lv_cols.length; ++i) {
       if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)

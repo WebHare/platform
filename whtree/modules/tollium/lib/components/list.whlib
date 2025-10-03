@@ -1029,13 +1029,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   }
 
 
-  MACRO SetRowLayouts(RECORD ARRAY newlayouts)
-  {
+  MACRO SetRowLayouts(RECORD ARRAY newlayouts) {
     FOREVERY (RECORD rec FROM newlayouts)
       newlayouts[#rec] := this->CheckRowLayout(rec, TRUE);
-
-    IF (RecordExists(SELECT FROM newlayouts GROUP BY name HAVING Count(*) >= 2))
-      THROW NEW TolliumException(this, "Row layout must all have a unique name");
 
     this->pvt_rowlayouts := newlayouts;
     this->pvt_rowlayout := ""; // Reset to default
@@ -1353,27 +1349,39 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   // Helper functions
   //
 
-  /** Returns the current row layout
-      @cell name Name of layout
-      @cell isdefault Whether this is the default layout
+  /** Returns available row layouts.
   */
-  RECORD FUNCTION GetCurrentRowLayout()
-  {
-    RECORD layout;
-    IF (this->rowlayout = "")
-      RETURN this->defaultrowlayout;
-
-    layout :=
-        SELECT *
-          FROM this->pvt_rowlayouts
-         WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
-
-    IF(NOT RecordExists(layout))
+  RECORD ARRAY FUNCTION GetCurrentRowLayouts() {
+    RECORD ARRAY selectedlayouts := SELECT * FROM RECORD [ this->defaultrowlayout, ...this->pvt_rowlayouts ] WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
+    IF(NOT RecordExists(selectedlayouts))
       THROW NEW Exception("Invalid rowlayout '" || this->pvt_rowlayout || "'");
 
-    RETURN layout;
-  }
+    RECORD ARRAY layouts;
+    FOREVERY(RECORD layout FROM selectedlayouts) {
+      RECORD ARRAY rowlayout := this->CleanupRowLayout(layout.rows);
+      RECORD ARRAY dragrowlayout := this->CleanupRowLayout(layout.dragrows);
+      RECORD ARRAY colheaders := this->GetColHeaders(layout.columns);
 
+      IF(this->pvt_rowiconname != "") {
+        //If a rowicon is set, columns is hacked by Web_listColumns() to add an extra column for the rowicon. update rowlayout and colheaders too
+        FOREVERY(RECORD row FROM rowlayout)
+          UPDATE rowlayout[#row].cells SET cellnum := cellnum + 1;
+        INSERT [ cellnum := 0, rowspan := Length(rowlayout), colspan := 1 ] INTO rowlayout[0].cells AT 0;
+
+        // Also adjust celllnr in draglayout, but don't add the column
+        FOREVERY(RECORD row FROM dragrowlayout)
+          UPDATE dragrowlayout[#row].cells SET cellnum := cellnum + 1;
+
+        FOREVERY(RECORD colheader FROM colheaders)
+          colheaders[#colheader].col := colheaders[#colheader].col + 1;
+
+        INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
+      }
+
+      INSERT CELL[ rowlayout, dragrowlayout, colheaders ] INTO layouts AT END;
+    }
+    RETURN layouts;
+  }
 
   RECORD ARRAY FUNCTION CheckRowLayoutRows(RECORD ARRAY rows, INTEGER ARRAY rowspans)
   {
@@ -1450,8 +1458,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   {
     IF (NOT CellExists(newlayout, "NAME"))
       THROW NEW TolliumException(this, "Row layout must have a name");
-    IF (requirenonemptyname AND newlayout.name = "")
-      THROW NEW TolliumException(this, "Row layout must have a non-empty name");
 
     // Constraint checking
     INTEGER ARRAY rowspans, dragrowspans;
@@ -2328,36 +2334,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       IF (this->storage->isdynamic)
         INSERT "expand" INTO unmask AT END;
 
-      RECORD layout := this->GetCurrentRowLayout();
-      RECORD ARRAY rowlayout, dragrowlayout;
-      RECORD ARRAY colheaders;
-
-      rowlayout := this->CleanupRowLayout(layout.rows);
-      dragrowlayout := this->CleanupRowLayout(layout.dragrows);
-      colheaders := this->GetColHeaders(layout.columns);
-
-      IF(this->pvt_rowiconname != "")
-      {
-        //If a rowicon is set, columns is hacked by Web_listColumns() to add an extra column for the rowicon. update rowlayout and colheaders too
-        FOREVERY(RECORD row FROM rowlayout)
-          UPDATE rowlayout[#row].cells SET cellnum := cellnum + 1;
-        INSERT [ cellnum := 0, rowspan := Length(rowlayout), colspan := 1 ] INTO rowlayout[0].cells AT 0;
-
-        // Also adjust celllnr in draglayout, but don't add the column
-        FOREVERY(RECORD row FROM dragrowlayout)
-          UPDATE dragrowlayout[#row].cells SET cellnum := cellnum + 1;
-
-        FOREVERY(RECORD colheader FROM colheaders)
-          colheaders[#colheader].col := colheaders[#colheader].col + 1;
-
-        INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
-      }
+      RECORD ARRAY layouts := this->GetCurrentRowLayouts();
 
       //Web_RenderRows first, it may change list state (eg GetIcon calls invoked by OnMapValue)
       VARIANT ARRAY rows := this->Web_RenderRows(this->rows, TRUE);
       VARIANT ARRAY footerrows := this->Web_RenderRows(this->footerrows, FALSE);
 
-      RECORD listinfo := [ selectmode        := this->storage->selectmode
+      RECORD listinfo :=
+                     CELL[ selectmode        := this->storage->selectmode
                          , columnselectmode  := this->columnselectmode
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
                          , selectcontextmenu := GetComponentName(this->selectcontextmenu)
@@ -2372,9 +2356,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , dragsingleicon    := this->dragsingleicon
                          , dragmultipleicon  := this->dragmultipleicon
                          , columns           := this->Web_ListColumns()
-                         , rowlayout         := rowlayout
-                         , dragrowlayout     := dragrowlayout
-                         , colheaders        := colheaders
+                         , layouts
                          , rows              := rows
                          , footerrows        := footerrows
                          , acceptdrops       := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
