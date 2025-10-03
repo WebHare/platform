@@ -1,3 +1,4 @@
+import { describeEntity } from "@webhare/wrd";
 import type { WRDSchema } from "./schema";
 
 export class ValueQueryChecker {
@@ -83,8 +84,12 @@ export class ValueQueryChecker {
         const missing = [...toCheck].filter((v) => !exists.includes(v));
         for (const value of refCheck[1].values) {
           const hereMissing = value.value.filter(v => missing.includes(v));
-          if (hereMissing.length)
+          if (hereMissing.length) {
+            const entity = await describeEntity(hereMissing[0]);
+            if (entity)
+              throw new Error(`Referential integrity violated - the value passed in ${this.typeTag}.${value.source} refers to entity #${hereMissing[0]} of type ${entity.type}, expected ${typeTag}`);
             throw new Error(`Referential integrity violated - the value passed in ${this.typeTag}.${value.source} refers to non-existing entity #${hereMissing[0]}`);
+          }
         }
       }
     }
