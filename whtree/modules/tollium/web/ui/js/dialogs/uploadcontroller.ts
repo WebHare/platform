@@ -91,7 +91,8 @@ export default class UploadDialogController {
             { title: getTid('tollium:shell.upload.progress.speed'), items: [{ item: "speedtxt" }] }
           ],
           spacers: { top: true, bottom: true, left: true, right: true },
-          width: '75x'
+          width: '75x',
+          minwidth: '35x', //setting an absolute width on a panel will enforce it as a minwidth unless explicitly set differently
         },
         footer: {
           type: 'panel',
