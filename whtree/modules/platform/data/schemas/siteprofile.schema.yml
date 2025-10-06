@@ -675,6 +675,9 @@ $defs:
         tabsExtension:
           type: string
           description: The tabs extension to use for this field instead of the layout here
+        workflow:
+          type: boolean
+          description: Allow this type to be managed
         layout:
           oneOf:
             - description: All defined fields on a single tab

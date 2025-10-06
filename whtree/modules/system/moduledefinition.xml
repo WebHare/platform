@@ -1105,7 +1105,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         <d:documentation>The name at the moment the action was created</d:documentation>
       </d:varchar>
       <d:varchar name="version" maxlength="16">
-        <d:documentation>Version number associated with this item</d:documentation>
+        <d:documentation>Version number associated with this item. first version is 0.1, first published version is 1.0</d:documentation>
       </d:varchar>
       <d:varchar name="userdata" maxlength="2048">
         <d:documentation>Data describing user making these changes (GetUserDataForLogging)</d:documentation>

@@ -309,17 +309,9 @@ STATIC OBJECTTYPE WHFSDraft <
     RefreshDraftStatus(this->source);
 
     //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
-    OBJECT versioninfotype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/version");
     RECORD curversion := GetLastSnapshotVersion(this->source);
     STRING nextversion := `${curversion.major + 1}.0`;
     RECORD userinfo := user->GetUserDataForLogging();
-
-    OpenWHFSType("http://www.webhare.net/xmlns/publisher/version")->SetInstancedata(this->source,
-      [ version := nextversion
-      , editor := curversion.userdata
-      , publisher := userinfo
-      , published := now
-      ], [ isvisibleedit := FALSE ]);
 
     //Add history record
     INSERT CELL [ fs_object := this->source
