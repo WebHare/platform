@@ -143,7 +143,7 @@ PUBLIC STATIC OBJECTTYPE WebContext
 
   OBJECT FUNCTION __CreatePlugin(RECORD pluginrecord)
   {
-    OBJECT pluginobj := MakeObject(pluginrecord.objectname);
+    OBJECT pluginobj := MakeObject(pluginrecord.object_name);
     RECORD mergedconfiguration := CombinePartialNodes(pluginrecord.datas);
     pluginobj->ConfigurePlugin(this, mergedconfiguration);
     RETURN pluginobj;
@@ -154,7 +154,7 @@ PUBLIC STATIC OBJECTTYPE WebContext
     OBJECT ARRAY plugins;
 
     FOREVERY(RECORD plugin FROM this->pvt_plugins)
-      IF(featurename IN plugin.hooksfeatures)
+      IF(featurename IN plugin.hooks_features)
       {
         IF(NOT ObjectExists(plugin.pluginobj))
         {

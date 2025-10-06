@@ -802,6 +802,55 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     RETURN applyrules;
   }
 
+  RECORD FUNCTION ParseYamlPlugin(RECORD apply, RECORD config, OBJECT node) {
+    //A YAML parser has been supplied, invoke it and pretend it was the snakecased version of YAML data. Read using GetYamlPluginSettings
+    RECORD result := MakeFunctionPtr(config.to_yaml)(node);
+    STRING storename := "yml_" || ToSnakeCase(config.yaml_property);
+    IF(Length(storename) >= 64)
+      THROW NEW Exception(`Property name '${config.yaml_property}' returned a cell name which is too long for YAML mapping`);
+
+    //Wrap through typed JSON to get rid of HS types, forcing processors to be more robust
+    RECORD cleared_for_json := DecodeJSON(EncodeJSON(result, [typed := true]), [typed := true]);
+
+    IF(CellExists(apply, storename)) {
+      IF(NOT config.is_array) {
+        this->AddError(node, `Duplicate declaration of customnode ${node->localname} in same apply block`);
+        RETURN apply;
+      }
+
+      //append to the existing array
+      apply := CellUpdate(apply, storename, [...GetCell(apply, storename), cleared_for_json]);
+    } ELSE //insert as an array (even if it's not an array property, storing it as one for convenience)
+      apply := CellInsert(apply, storename, RECORD[cleared_for_json]);
+    RETURN apply;
+  }
+
+  RECORD FUNCTION ParseLegacyPlugin(RECORD config, OBJECT node) {
+    RECORD plugin := InstantiatePlugin(config);
+
+    IF(plugin.parser != "") { //A seperate parser entrypoint. Should be used to cut back on LOADLIBs/compilations triggered by SP parsing
+      FUNCTION PTR parser := MakeFunctionPtr(plugin.parser);
+
+      plugin.data := parser(this, node);
+      IF(RecordExists(plugin.data)) {
+        IF(NOT CellExists(plugin.data, "__attributes"))
+          INSERT CELL __attributes := DefaultListConfigurationNodeAttributes(node) INTO plugin.data;
+        plugin.data := CELL [...plugin.data, __location := this->filename || ":" || node->linenum ];
+      }
+    } ELSE { //Pre 5.8 approach: instantiate the plugin to get to its parser APIs
+      //Instantiate the plugin to let it parse its own settings
+      OBJECT pluginobj := MakeObject(plugin.object_name);
+
+      plugin.data := pluginobj->ParseConfigurationNode(this, node);
+      IF(RecordExists(plugin.data)) {
+        INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
+                  , __location := this->filename || ":" || node->linenum
+              INTO plugin.data;
+      }
+    }
+    RETURN plugin;
+  }
+
   RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)   {
     BOOLEAN errorsarenowfatal;
     BOOLEAN anynode;
@@ -1189,75 +1238,25 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 
         //Verify it against the list of plugins
         BOOLEAN matched;
-        FOREVERY(RECORD plugin FROM this->parameters->webdesignplugins)
-          IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname) {
-            plugin := InstantiatePlugin(plugin);
-
-            IF(plugin.parser != "") { //A seperate parser entrypoint. Should be used to cut back on LOADLIBs/compilations triggered by SP parsing
-              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
-              FUNCTION PTR parser := MakeFunctionPtr(plugin.parser);
-              errorsarenowfatal := FALSE;
-
-              plugin.data := parser(this, node);
-              IF(RecordExists(plugin.data)) {
-                IF(NOT CellExists(plugin.data, "__attributes"))
-                  INSERT CELL __attributes := DefaultListConfigurationNodeAttributes(node) INTO plugin.data;
-                plugin.data := CELL [...plugin.data, __location := this->filename || ":" || node->linenum ];
-              }
-            } ELSE { //Pre 5.8 approach: instantiate the plugin to get to its parser APIs
-              //Instantiate the plugin to let it parse its own settings
-              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
-              OBJECT pluginobj := MakeObject(plugin.objectname);
-              errorsarenowfatal := FALSE;
-
-              plugin.data := pluginobj->ParseConfigurationNode(this, node);
-              IF(RecordExists(plugin.data))
-              {
-                INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
-                          , __location := this->filename || ":" || node->linenum
-                      INTO plugin.data;
-              }
-            }
-
-            INSERT plugin INTO apply.plugins AT END;
+        FOREVERY(RECORD pluginconfig FROM this->parameters->plugins.sp_plugins) {
+          IF(pluginconfig.namespace = node->namespaceuri AND pluginconfig.name = node->localname) {
             matched := TRUE;
-            BREAK;
-          }
-
-        IF(NOT matched)
-          FOREVERY(RECORD siteprofnode FROM this->parameters->customnodes)
-            IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname) {
-              matched := TRUE;
-
-              IF(siteprofnode.toyaml = "") { //legacy version, to read using GetCustomSettings / GetCustomSiteProfileSettings
-                INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
-              } ELSE {
-                //A YAML parser has been supplied, invoke it and pretend it was the snakecased version of YAML data. Read using GetYamlPluginSettings
-                RECORD result := MakeFunctionPtr(siteprofnode.toyaml)(node);
-                STRING storename := "yml_" || ToSnakeCase(siteprofnode.yamlproperty);
-                IF(Length(storename) >= 64)
-                  THROW NEW Exception(`Preoperty name '${siteprofnode.yamlproperty}' returned a cell name which is too long for YAML mapping`);
-
-                //Wrap through typed JSON to get rid of HS types, forcing processors to be more robust
-                RECORD cleared_for_json := DecodeJSON(EncodeJSON(result, [typed := true]), [typed := true]);
-
-                IF(CellExists(apply, storename)) {
-                  IF(NOT siteprofnode.isarray) {
-                    this->AddError(node, `Duplicate declaration of customnode ${node->localname} in same apply block`);
-                    CONTINUE;
-                  }
-
-                  //append to the existing array
-                  apply := CellUpdate(apply, storename, [...GetCell(apply, storename), cleared_for_json]);
-                } ELSE //insert as an array (even if it's not an array property, storing it as one for convenience)
-                  apply := CellInsert(apply, storename, RECORD[cleared_for_json]);
-              }
+            IF(pluginconfig.to_yaml != "") {
+              apply := this->ParseYamlPlugin(apply, pluginconfig, node);
+            } ELSE IF(pluginconfig.object_name != "" OR pluginconfig.composer_hook != "") { //classic plugin
+              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
+              RECORD plugin := this->ParseLegacyPlugin(pluginconfig, node);
+              INSERT plugin INTO apply.plugins AT END;
+              errorsarenowfatal := FALSE;
               BREAK;
+            } ELSE { //legacy version, to read using GetCustomSettings / GetCustomSiteProfileSettings
+              INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
             }
+          }
+        } //FOREVERY(pluginconfig)
 
         //Anything not processed, is a custom node requestable by GetCustomSiteProfileSettings
-        IF(NOT matched)
-        {
+        IF(NOT matched) {
           this->AddError(node, "Unrecognized or unsupported node " || node->namespaceuri || "#" || node->localname);
         }
       }
@@ -1509,8 +1508,7 @@ PUBLIC RECORD FUNCTION GetParsedSiteProfile(STRING resourcename)
 
 OBJECTTYPE RecompileParameters
 <
-  PUBLIC RECORD ARRAY webdesignplugins;
-  PUBLIC RECORD ARRAY customnodes;
+  PUBLIC RECORD plugins;
   PUBLIC STRING ARRAY basesiteprofiles;
   PUBLIC RECORD ARRAY assetpacks;
   PUBLIC RECORD webdesigns;
@@ -1519,13 +1517,7 @@ OBJECTTYPE RecompileParameters
   {
     this->assetpacks := __GetExtractedConfig("assetpacks");
     this->webdesigns := __GetExtractedConfig("webdesigns");
-
-    FOREVERY(RECORD mod FROM GetWebHareModules())
-    {
-      this->webdesignplugins := this->webdesignplugins CONCAT mod.webdesignplugins;
-      this->customnodes := this->customnodes CONCAT mod.customnodes;
-    }
-
+    this->plugins := __GetExtractedConfig("plugins");
     this->basesiteprofiles := GetSortedSet(this->basesiteprofiles CONCAT STRING ARRAY(this->webdesigns.siteprofiles));
   }
 >;

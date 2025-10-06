@@ -854,7 +854,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     }
 
   const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
-  for (const node of context.plugins.customSPNodes)
+  for (const node of context.plugins.spPlugins)
     if (apply[node.yamlProperty]) {
       externalNodes.delete(node.yamlProperty); //we handled it here
 

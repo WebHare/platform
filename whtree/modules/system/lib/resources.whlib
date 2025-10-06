@@ -224,7 +224,7 @@ PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
   RETURN "";
 }
 
-PUBLIC VARIANT FUNCTION __GetExtractedConfig(STRING name)
-{
-  RETURN DecodeJSONBlob(GetDiskResource(MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), `config/extracts/${name}.json`)));
+PUBLIC VARIANT FUNCTION __GetExtractedConfig(STRING name) {
+  BLOB source := GetDiskResource(MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), `config/extracts/${name}.json`));
+  RETURN DecodeJSONBlob(source, DEFAULT RECORD, [ camelcase := name IN ["plugins"]]);
 }

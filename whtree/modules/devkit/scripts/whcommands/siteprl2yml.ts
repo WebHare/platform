@@ -454,7 +454,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
 
   for (let [customKey, data] of Object.entries(ar).filter(([k, v]) => k.startsWith("yml_"))) {
     customKey = nameToCamelCase(customKey.substring(4));
-    const plugininfo = getExtractedConfig("plugins").customSPNodes.find(p => p.yamlProperty === customKey);
+    const plugininfo = getExtractedConfig("plugins").spPlugins.find(p => p.yamlProperty === customKey);
     if (!plugininfo)
       throw new Error(`No plugin registered for custom siteprofile property ${customKey}, cannot convert`);
 

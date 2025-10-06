@@ -74,11 +74,11 @@ PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord() {
 
 PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
 {
-  RETURN [ objectname := objectname
+  RETURN [ object_name := objectname
          , parser := ""
          , name := ""
          , namespace := ""
-         , hooksfeatures := DEFAULT STRING ARRAY
+         , hooks_features := DEFAULT STRING ARRAY
          ];
 }
 

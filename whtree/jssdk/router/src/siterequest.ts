@@ -184,12 +184,12 @@ class CSiteRequest {
 
     const publicationsettings = await this.#applyTester.getWebDesignInfo();
     this._frontendConfig.locale = this.#siteLanguage as never; //FIXME why doesn't JS just get the html lang= ?
-
+    console.error(publicationsettings.plugins.find(_ => _.name === 'wrdauth'));
     for (const plugin of publicationsettings.plugins) { //apply plugins
-      if (plugin.composerhook) {
+      if (plugin.composer_hook) {
         const plugindata = buildPluginData(plugin.datas);
         //TODO consider providing a callback at this for buildPluginData or applytester so plugins can freely access other plugin's data
-        await (await importJSFunction<ResponseHookFunction>(plugin.composerhook))(this, plugindata);
+        await (await importJSFunction<ResponseHookFunction>(plugin.composer_hook))(this, plugindata);
       }
     }
   }

@@ -555,7 +555,8 @@
 
     <webdesignplugin name="formintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-                     objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin" />
+                     objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"
+                     />
     <webdesignplugin name="captchaintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin" />
