@@ -485,26 +485,7 @@ types:
     members:
       tags:
         type: whfsRefArray
-  publisher.version:
-    namespace: http://www.webhare.net/xmlns/publisher/version
-    comment: Version metata
-    workflow: false
-    clone: never
-    members:
-      version:
-        type: string
-        comment: "'publish.draft' version number. first version is 0.1, first published
-          version is 1.0"
-      editor:
-        type: hson
-        comment: webhare user who saved this draft or the last draft leading up to this
-          final version
-      publisher:
-        type: hson
-        comment: webhare user who first published this version (ie approved the draft)
-      published:
-        type: instant
-        comment: when this version was first published
+  # FIXME obsolete type:  http://www.webhare.net/xmlns/publisher/version - redundant with fs_history table
 
   publisher.savedurlhistory:
     namespace: http://www.webhare.net/xmlns/publisher/savedurlhistory

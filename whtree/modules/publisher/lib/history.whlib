@@ -76,11 +76,5 @@ PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECOR
              , version := "0.1"
              ] INTO system_internal.fs_history;
 
-  OpenWHFSType("http://www.webhare.net/xmlns/publisher/version")->SetInstancedata(final->id,
-    [ version := "0.1"
-    , editor := userinfo
-    ], [ isvisibleedit := FALSE ]);
-
-
   RETURN final;
 }

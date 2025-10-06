@@ -44,12 +44,6 @@ MACRO Prep()
                 ], ListObjectHistory(newfile->id), "*");
   TestEq(['a','b','d'], newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
 
-  TestEqMembers([ version := "0.1"
-                , editor := [ login := "marge@beta.webhare.net" ]
-                , publisher := DEFAULT RECORD
-                , published := DEFAULT DATETIME
-                ], newfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
-
   testfw->CommitWork();
 }
 
@@ -212,17 +206,6 @@ MACRO DraftingTest()
   TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
-  TestEqMembers([ version := "0.1"
-                , editor := [ login := "marge@beta.webhare.net" ]
-                , publisher := DEFAULT RECORD
-                , published := DEFAULT DATETIME
-                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*", "Up until now, the version info should still be unchanged");
-  TestEqMembers([ version := ""
-                , editor := DEFAULT RECORD
-                , publisher := DEFAULT RECORD
-                , published := DEFAULT DATETIME
-                ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*", "snapshots have no version info");
-
   drafts := GetDrafts(testfile->id);
   TestEq(1, Length(drafts));
   TestEq(TRUE, drafts[0].mine);
@@ -256,12 +239,6 @@ MACRO DraftingTest()
                 , [ type := "approved", version := "1.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
 
-  TestEqMembers([ version := "1.0"
-                , editor := [ login := "homer@beta.webhare.net" ]
-                , publisher := [ login := "marge@beta.webhare.net" ]
-                , published := testfile->modificationdate
-                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
-
   //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
   //FIXME where did created_0_1 go ?
   TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -286,11 +263,6 @@ MACRO DraftingTest()
   draft->SaveAsFinal(testfw->GetUserObject("marge"));
 
   testfile := OpenWHFSObject(testfile->id);
-  TestEqMembers([ version := "2.0"
-                , editor := [ login := "marge@beta.webhare.net" ]
-                , publisher := [ login := "marge@beta.webhare.net" ]
-                , published := testfile->modificationdate
-                ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
   TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
 
   history := ListObjectHistory(testfile->id);
