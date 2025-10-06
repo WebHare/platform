@@ -1,8 +1,14 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 /** Formats a X-WH-Proxy header
     @param source
@@ -50,4 +56,13 @@ PUBLIC STRING FUNCTION CalculateXWHProxyHeaderForRequestForwarding(STRING source
                                   , localip :=    GetClientLocalIp()
                                   , localport :=  GetClientLocalPort()
                                   ]);
+}
+
+PUBLIC STRING FUNCTION GetPreviewToken(RECORD targetobject, RECORD contentobject) {
+  RETURN EncryptForThisServer("publisher:previewbrowser",
+              [ source := targetobject.id
+              , when := GetCurrentDatetime()
+              , content := contentobject.id
+              , lang := GetTidLanguage()
+              ]);
 }

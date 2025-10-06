@@ -14,33 +14,28 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/configure.whlib";
-
+LOADLIB "mod::system/lib/configure.whlib";
 
 /** @short Get a preview link for a page
     @param fsobject FS object to show (live version)
     @cell options.validuntil Validity of the link. Defaults to 1 day
     @cell options.password Password to protect the preview with
-    @cell options.version Exact version to view (eg a draft).
     @return Preview url. An empty URL if this object cannot be previewed (the site has no output URL) */
 PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ validuntil := DEFAULT DATETIME
                               , password := ""
-                              , version := 0
                               ], options);
 
   IF(options.validuntil = DEFAULT DATETIME)
     options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
 
-  INTEGER showversion := options.version ?? fsobject;
-
   STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
-  IF(baseurl = "")
-    RETURN "";
 
-  RECORD viewdata := [ id := showversion, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = showversion), v := options.validuntil, p := options.password ];
+  RECORD viewdata := [ id := fsobject, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = fsobject), v := options.validuntil, p := options.password ];
   STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
-  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata || "/");
+  //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
+  RETURN ResolveToAbsoluteURL(baseurl ?? GetPrimaryWebhareInterfaceURL(), "/.publisher/preview/" || urldata || "/");
 }
 
 /** @short Get a link that will show a specific A/B test variant
@@ -103,12 +98,9 @@ PUBLIC RECORD FUNCTION ParsePreviewURL(STRING url)
 {
   STRING baseurl := Tokenize(Tokenize(url, '/')[5],'?')[0];
   RECORD data := DecryptForthisServer("publisher:preview",baseurl);
-  BOOLEAN renderwidgetpreview := CellExists(data,'t') AND data.t = "w";
   RETURN [ id := data.id
          , creationdate := data.c
          , validuntil := data.v
          , password := data.p
-         , renderwidgetpreview := renderwidgetpreview
-         , instanceid := renderwidgetpreview AND CellExists(data,'i') ? data.i : 0
          ];
 }

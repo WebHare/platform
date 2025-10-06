@@ -2,7 +2,7 @@
     wh whfs export --pretty --force 'site::My Site' '/tmp/mysite.zip'
 */
 
-import { describeWHFSType, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
+import { describeWHFSType, openFile, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -93,6 +93,17 @@ run({
         });
 
         await storeDiskFile(args.target, archive, { overwrite: true });
+      }
+    },
+    getpreviewlink: {
+      arguments: [{ name: "<path>", description: "File path" }],
+      main: async ({ args, opts }) => {
+        const target = await openFile(args.path.match(/^\d+$/) ? parseInt(args.path) : args.path, { allowHistoric: true });
+        const link = await target.getPreviewLink();
+        if (opts.json)
+          console.log(JSON.stringify({ link }));
+        else
+          console.log(link);
       }
     }
   }
