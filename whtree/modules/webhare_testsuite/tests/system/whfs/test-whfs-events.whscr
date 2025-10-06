@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -26,23 +27,28 @@ RECORD ARRAY FUNCTION ExpectWHFSEvents(INTEGER msgcount, RECORD options DEFAULTS
       , timeout :=       10000
       ], options);
 
+  DATETIME deadline := AddTimeToDate(options.timeout, GetCurrentDatetime());
   RECORD ARRAY events;
-  FOR (INTEGER i := 0; i < msgcount + 1; i := i + 1) {
-    RECORD event := eventmgr->ReceiveEvent(AddTimeToDate(i >= options.minmsgcount ? 100 : options.timeout, GetCurrentDatetime()));
-    IF (event.status != "timeout") {
-      IF (event.event != `system:whfs.folder.${event.msg.folder}`) {
-        DumpValue(events, "tree");
-        THROW NEW Exception(`Unexpected event ${event.event}, expected system:whfs.folder.${event.msg.folder}`);
-      }
-      IF (event.msg.folder NOT IN listenids)
-        CONTINUE;
-      INSERT event.msg INTO events AT END;
-    } ELSE IF (i < options.minmsgcount) {
+  WHILE (TRUE) {
+    RECORD event := eventmgr->ReceiveEvent(deadline);
+    IF (event.status = "timeout")
+      BREAK;
+
+    IF (event.event != `system:whfs.folder.${event.msg.folder}`) {
       DumpValue(events, "tree");
-      THROW NEW Exception(`Expected ${options.minmsgcount != msgcount?`${options.minmsgcount}-`: ""}${msgcount} events, got ${LENGTH(events)}`);
+      THROW NEW Exception(`Unexpected event ${event.event}, expected system:whfs.folder.${event.msg.folder}`);
     }
+    IF (event.msg.folder NOT IN listenids)
+      CONTINUE;
+    INSERT event.msg INTO events AT END;
+    IF (LENGTH(events) > msgcount) {
+      DumpValue(events, "tree");
+      THROW NEW Exception(`Received too many events, expected ${options.minmsgcount != msgcount?`${options.minmsgcount}-`: ""}${msgcount} got ${LENGTH(events)}`);
+    }
+    IF (LENGTH(events) = options.minmsgcount)
+      deadline := AddTimeToDate(100, GetCurrentDatetime());
   }
-  IF (LENGTH(events) > msgcount) {
+  IF (LENGTH(events) < options.minmsgcount) {
     DumpValue(events, "tree");
     THROW NEW Exception(`Expected ${options.minmsgcount != msgcount?`${options.minmsgcount}-`: ""}${msgcount} events, got ${LENGTH(events)}`);
   }
@@ -64,7 +70,6 @@ MACRO Prepare()
 {
   testfw->BeginWork();
 
-  OBJECT firstfolder := testfw->GetWHFSTestRoot();
   testsite := EnsureTestSite("webhare_testsuite.test_whfs_events", [ recyclesite := TRUE ]);
   //testsite := CreateSiteFromFolder(firstfolder->id);
   movetarget := testsite->rootobject->CreateFolder([ name := "movetarget" ]);
@@ -202,7 +207,12 @@ MACRO TestEvents() {
     ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
-  OBJECT subfile := testfolder->CreateFile([ name := "published.txt", typens := "http://www.webhare.net/xmlns/publisher/plaintextfile", publish := TRUE ]);
+  OBJECT subfile := testfolder->CreateFile([
+    name := "published.txt",
+    typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile",
+    publish := TRUE,
+    data := StringToBlob("test file")
+  ]);
   testfw->CommitWork();
 
   WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
@@ -210,13 +220,13 @@ MACRO TestEvents() {
 
   // The output analyzer might also have scheduled a republish
   {
-    RECORD ARRAY events := ExpectWHFSEvents(1, [ minmsgcount := 1 ]);
+    RECORD ARRAY events := ExpectWHFSEvents(2, [ minmsgcount := 1 ]);
 
     TestEQ([
       [
         folder := testfolder->id,
         events := STRING[],
-        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "create" ] ] ]
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "create", "rep" ] ] ]
       ],
       ...(LENGTH(events) = 2 ? [
         [
@@ -270,13 +280,102 @@ MACRO TestEvents() {
   ScheduleFolderRepublish(testfolder->id, TRUE, TRUE);
   testfw->CommitWork();
 
-  TestEQ([
-    [
-      folder := testfolder->id,
-      events := [ "fullrep" ],
-      files := RECORD[]
-    ]
-  ], ExpectWHFSEvents(1));
+  {
+    RECORD ARRAY events := ExpectWHFSEvents(2, [ minmsgcount := 1 ]);
+    TestEQ([
+      [
+        folder := testfolder->id,
+        events := [ "fullrep" ],
+        files := RECORD[]
+      ],
+        ...(LENGTH(events) >= 2 ? [
+          [
+            folder := testfolder->id,
+            events := STRING[],
+            files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+          ]
+        ] : RECORD[])
+    ], events);
+  }
+
+  WaitForPublishCompletion(subfile->parent);
+
+  // STORY: change indexdoc of testfolder
+  testfw->BeginWork();
+  testfolder->UpdateMetadata([ indexdoc := subfile->id ]);
+  testfw->CommitWork();
+
+  WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
+  WaitForPublishCompletion(subfile->parent);
+
+  {
+    RECORD ARRAY events := ExpectWHFSEvents(4, [ minmsgcount := 2 ]);
+    TestEQ([
+      [
+        folder := testfolder->parent,
+        events := STRING[],
+        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "update" ] ] ]
+      ],
+      [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "update" ] ] ]
+      ],
+      ...(LENGTH(events) >= 3 ? [ // output analyzer might have run and produce 1-2 reps
+        [
+          folder := testfolder->id,
+          events := STRING[],
+          files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+        ]
+      ] : RECORD[]),
+      ...(LENGTH(events) >= 4 ? [
+        [
+          folder := testfolder->id,
+          events := STRING[],
+          files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+        ]
+      ] : RECORD[])
+    ], events);
+  }
+
+  // STORY: reset indexdoc of testfolder
+  PRINT("\nreset indexdoc\n");
+  testfw->BeginWork();
+  testfolder->UpdateMetadata([ indexdoc := 0 ]);
+  testfw->CommitWork();
+
+  WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
+  WaitForPublishCompletion(subfile->parent);
+
+  {
+    RECORD ARRAY events := ExpectWHFSEvents(4, [ minmsgcount := 2 ]);
+    TestEQ([
+      [
+        folder := testfolder->parent,
+        events := STRING[],
+        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "update" ] ] ]
+      ],
+      [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "update" ] ] ]
+      ],
+      ...(LENGTH(events) >= 3 ? [ // output analyzer might have run again and produce 1-2 reps
+        [
+          folder := testfolder->id,
+          events := STRING[],
+          files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+        ]
+      ]: RECORD[]),
+      ...(LENGTH(events) >= 4 ? [ // output analyzer might have run again and produce 1-2 reps
+        [
+          folder := testfolder->id,
+          events := STRING[],
+          files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+        ]
+      ] : RECORD[])
+    ], events);
+  }
 
   testfw->BeginWork();
   OBJECT draft := StartWorkflowUpdate(subfile->id, [ user := GetEffectiveUser() ]);
@@ -341,7 +440,7 @@ MACRO TestEvents() {
       ], [
         folder := testfolder->id,
         events := STRING[],
-        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update", "history" ] ] ]
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history", "update" ] ] ]
       ]
     ], events);
   }
@@ -365,39 +464,54 @@ MACRO TestEvents() {
     ]
   ], ExpectWHFSEvents(1));
 
+  PRINT("\nsave as final\n");
+  DumpValue(CELL[ snapshotfolder ]);
   testfw->BeginWork();
   INTEGER draft3_id := draft3->id; // save because draft3 will be invalid after SaveAsFinal
   draft3->SaveAsFinal(GetEffectiveUser());
   testfw->CommitWork();
 
-  TestEQ([
-    [
-      folder := whconstant_whfsid_autosaves,
-      events := STRING[],
-      files := [
-        [ file := draft3_id, isfolder := FALSE, events := [ "moved" ] ],
-        [ file := draft4->id, isfolder := FALSE, events := [ "moved" ] ]
+  WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
+  WaitForPublishCompletion(subfile->parent);
+
+  {
+    RECORD ARRAY events := ExpectWHFSEvents(5, [ minmsgcount := 4 ]);
+    TestEQ([
+      [
+        folder := whconstant_whfsid_autosaves,
+        events := STRING[],
+        files := [
+          [ file := draft3_id, isfolder := FALSE, events := [ "moved" ] ],
+          [ file := draft4->id, isfolder := FALSE, events := [ "moved" ] ]
+        ]
+      ], [
+        folder := whconstant_whfsid_drafts,
+        events := STRING[],
+        files := [
+          [ file := draft->id, isfolder := FALSE, events := [ "moved" ] ]
+        ]
+      ], [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history", "rep", "update" ] ] ]
+      ],
+      ...(LENGTH(events) = 5 ? [ // if output analyzer runs after publish no 'rep' is issued
+          [
+            folder := testfolder->id,
+            events := STRING[],
+            files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
+          ]
+        ] : RECORD[]), [
+        folder := snapshotfolder,
+        events := STRING[],
+        files := [
+          [ file := draft->id, isfolder := FALSE, events := [ "move" ] ],
+          [ file := draft3_id, isfolder := FALSE, events := [ "move" ] ],
+          [ file := draft4->id, isfolder := FALSE, events := [ "move" ] ]
+        ]
       ]
-    ], [
-      folder := whconstant_whfsid_drafts,
-      events := STRING[],
-      files := [
-        [ file := draft->id, isfolder := FALSE, events := [ "moved" ] ]
-      ]
-    ], [
-      folder := testfolder->id,
-      events := STRING[],
-      files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "update", "history" ] ] ]
-    ], [
-      folder := snapshotfolder,
-      events := STRING[],
-      files := [
-        [ file := draft->id, isfolder := FALSE, events := [ "move" ] ],
-        [ file := draft3_id, isfolder := FALSE, events := [ "move" ] ],
-        [ file := draft4->id, isfolder := FALSE, events := [ "move" ] ]
-      ]
-    ]
-  ], ExpectWHFSEvents(4));
+    ], events);
+  }
 
   testfw->BeginWork();
   testfolder->RecycleSelf();

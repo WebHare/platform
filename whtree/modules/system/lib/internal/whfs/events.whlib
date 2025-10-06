@@ -75,8 +75,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF (folderid = fileid)
     {
-      IF (event NOT IN rec.events)
-        INSERT event INTO this->items[itempos].events AT END;
+      RECORD epos := LowerBound(rec.events, event);
+      IF (NOT epos.found)
+        INSERT event INTO this->items[itempos].events AT epos.position;
     }
     ELSE
     {
@@ -92,8 +93,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
         INSERT CELL[ file := fileid, isfolder, events := [ event ] ] INTO this->items[itempos].files AT fpos.position;
       }
       ELSE
-        IF (event NOT IN rec.files[fpos.position].events)
-          INSERT event INTO this->items[itempos].files[fpos.position].events AT END;
+      {
+        RECORD epos := LowerBound(rec.files[fpos.position].events, event);
+        IF (NOT epos.found)
+          INSERT event INTO this->items[itempos].files[fpos.position].events AT epos.position;
+      }
     }
   }
 
@@ -166,8 +170,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
           , events :=   rec.events
           , files :=    rec.files
           ];
-
-      INSERT CELL trace := (SELECT AS STRING ARRAY `${filename}(${line}:${col})` FROM GetStackTrace()) INTO data ;
 
       IF (rec.ispub)
       {
