@@ -284,6 +284,8 @@ $defs:
         type:
           description: The type of the metadata field
           type: string
+        workflow:
+          type: boolean
         layout:
           oneOf:
             - description: All defined fields on a single tab
