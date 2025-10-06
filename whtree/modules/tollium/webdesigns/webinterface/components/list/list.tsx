@@ -184,8 +184,6 @@ export interface DataColumn {
   minwidth: string;
   name: string;
   overlayidx: number;
-  sort: string;
-  sortable: boolean;
   sortidx: number;
   title: string;
   tree: boolean;
@@ -256,11 +254,17 @@ type LVColumn = {
   minwidth?: number;
 };
 
+/** List sort setting or null to explicitly use server order */
+type ListSortSetting = {
+  /** Column to sort by. If empty we'll just pick the first */
+  colName: string;
+  /** Whether to sort ascending */
+  ascending: boolean;
+} | null;
+
 interface ListAttributes extends ComponentStandardAttributes {
-  rowlayout: ListRowLayout["rowlayout"];
-  dragrowlayout: ListRowLayout["dragrowlayout"];
-  colheaders: ListRowLayout["colheaders"];
   borders: Borders;
+  layouts: ListRowLayout[];
   selectcontextmenu: string;
   newcontextmenu: string;
 
@@ -280,7 +284,8 @@ interface ListAttributes extends ComponentStandardAttributes {
   acceptdrops: { accepttypes: AcceptType[] } | null;
   highlightidx: number;
   syncselect: boolean;
-  sortcolumn: string;
+  sortcolumn: string | "<ordered>";
+  sortascending: boolean;
   debugactions: DebugAction[];
   class: string;
   icons: string[];
@@ -312,7 +317,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   syncselect = false;
   isfirstlayout = true;
 
-  sortcolumnname = '';
+  /** sortcolumn is leading over sortcolumn & lv_sortcolumn */
+  sort: ListSortSetting | null = null;
+  sortable = true;
+
   borders: Borders;
   selectcontextmenu;
   newcontextmenu;
@@ -332,12 +340,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   droptypes: AcceptType[] = [];
   selectionoriginal: null | FlatRowKey[];
   columnwidths: $todd.SizeObj[];
-  rowlayout: ListRowLayout["rowlayout"] | null = null;
-  dragrowlayout: ListRowLayout["dragrowlayout"] | null;
   rows: FlatRow[] = [];
   footerrows: FlatRow[];
   columnselectmode: "none" | "single";
-  sortcolumn: null | number = null;
   options: {
     width: number;
     height: number;
@@ -359,10 +364,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     lastcolumn_rightpadding: number;
   };
   checkboxcolumns: DataColumn[] = [];
-  sortascending: boolean = true;
   datacolumnstotalminwidth: number = 0;
   datacolumnstotalcalcwidth: number = 0;
-  colheaders: ListRowLayout["colheaders"] = [];
   listdomcreated: boolean;
   numrows: number;
   firstvisiblerow: number;
@@ -376,8 +379,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   linepadding: number;
   rowheight: number;
   linesperrow: number;
-  lv_sortcolumn: number | null = null;
-  lv_sortascending: boolean;
   dragrowheight: number;
   draglinesperrow: number;
   cursorrow: number;
@@ -402,6 +403,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   findasyoutyperegex: RegExp | null = null;
   finishselectlock: UIBusyLock | null = null;
 
+  //Current and available rowlayouts.
+  currentRowLayout!: ListRowLayout; //immediately set during construction, so ! for now TODO removeable?
+  availableRowLayouts: ListRowLayout[] = [];
 
   //TODO Get rid of the !s. These are set/recreated up by resetList
   listheader!: HTMLDivElement;
@@ -425,8 +429,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.selectionoriginal = null;
     this.cols = [];
     this.columnwidths = [];
-    this.rowlayout = null;
-    this.dragrowlayout = null;
     this.footerrows = [];
 
 
@@ -448,14 +450,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.selectmode = data.selectmode;
     this.selectableflags = data.selectableflags;
     this.iconnames = data.icons;
-    this.rowlayout = data.rowlayout;
-    this.dragrowlayout = data.dragrowlayout;
     this.borders = data.borders;
     this.highlightidx = data.highlightidx;
     this.emptytext = data.empty;
     this.syncselect = data.syncselect;
-    this.sortcolumnname = data.sortcolumn;
-    this.sortcolumn = null;
     this.debugactions = data.debugactions;
 
     (["Top", "Right", "Bottom", "Left"] as const).forEach(bordername => {
@@ -468,21 +466,13 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       }
     });
 
-    if (data.colheaders.length) {
-      for (let i = 0; i < data.colheaders.length; ++i)
-        this.cols.push(
-          {
-            width: 0,
-            header: data.colheaders[i].col,
-            indraglayout: data.colheaders[i].indraglayout,
-            combinewithnext: data.colheaders[i].combinewithnext
-          });
-    } else {
-      for (let i = 0; i < data.columns.length; ++i)
-        this.cols.push({ width: 0, header: i, indraglayout: true, combinewithnext: false });
-    }
+    this.availableRowLayouts = data.layouts;
+    this.setRowLayout(this.availableRowLayouts[0]);
 
     this.initColumns(data.columns);
+    this.sortable = data.sortable;
+    this.setSortSetting(data.sortcolumn === "<ordered>" ? null : { colName: data.sortcolumn, ascending: data.sortascending });
+    console.error(this.sortable, this.sort);
 
 
     //console.log(data.rows.length > 0 ? data.rows[0][0].rowkey : "EMPTY");
@@ -503,9 +493,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     let small_left_padding = false;
 
     // Use small left padding when first column is a checkbox column and no highlight is present
-    if (this.rowlayout.length === 1
-      && this.rowlayout[0].cells.length
-      && this.datacolumns[this.rowlayout[0].cells[0].cellnum].checkbox
+    if (this.currentRowLayout?.rowlayout.length === 1
+      && this.currentRowLayout?.rowlayout[0].cells.length
+      && this.datacolumns[this.currentRowLayout?.rowlayout[0].cells[0].cellnum].checkbox
       && this.highlightidx === -1) {
       small_left_padding = true;
       this.node.classList.add("wh-ui-listview__small-left-padding");
@@ -514,7 +504,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.node.addEventListener('wh:listview-contextmenu', evt => this.onContextmenu(evt as CustomEvent<{ originalevent: MouseEvent }>));
     this.node.addEventListener('wh:listview-columnresize', evt => this.onColumnResize(evt as CustomEvent<{ widths: number[] }>));
     this.node.addEventListener('wh:listview-check', evt => this.onCheck(evt as CustomEvent<{ checkboxidx: number; row: FlatRow }>));
-    this.node.addEventListener('wh:listview-sortchange', evt => this.onSortchange(evt as CustomEvent<{ colidx: number; ascending: boolean }>));
     this.node.addEventListener("wh:listview-selectcolumns", evt => this.onSelectColumnsChange());
 
     this.options = {
@@ -571,8 +560,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.linepadding = 0;
     this.rowheight = 0; // READ-ONLY (calculated with this.options.lineheight * this.linesperrow + this.linepadding * 2)
     this.linesperrow = 1;
-    this.lv_sortcolumn = null;
-    this.lv_sortascending = true;
 
     this.dragrowheight = 0;
     this.draglinesperrow = 1;
@@ -707,23 +694,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   applyUpdate(data: ListUpdate) {
     switch (data.type) {
       case "sortorder":
-        {
-          this.sortcolumn = null;
-          this.sortascending = true;
-
-          if (data.col !== "<ordered>") {
-            for (let i = 0; i < this.datacolumns.length; ++i) {
-              if (this.datacolumns[i].name === data.col) {
-                this.sortcolumn = i;
-                this.sortascending = data.ascending;
-              }
-            }
-          }
-
-          this.flattenRows();
-          this.invalidateAllRows();
-          this.setSort(this.sortcolumn, this.sortcolumn ? this.sortascending : true);
-        } break;
+        this.updateSortSetting(data.col === "<ordered>" ? null : { colName: data.col, ascending: data.ascending }, { userAction: false });
+        break;
 
       case "rows":
         {
@@ -837,9 +809,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
     if (this.isfirstlayout) {
       this.activateLayout();
-
-      this.setSort(this.sortcolumn, this.sortascending);
-
       this.jumpToSelection();
       this.isfirstlayout = false;
     }
@@ -849,6 +818,21 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     //console.log("<list> relayout to size " + width + " x " + height);
   }
 
+  setRowLayout(layout: ListRowLayout) {
+    if (layout === this.currentRowLayout)
+      return;
+
+    this.currentRowLayout = layout;
+    for (const col of layout.colheaders)
+      this.cols.push(
+        {
+          width: 0,
+          header: col.col,
+          indraglayout: col.indraglayout,
+          combinewithnext: col.combinewithnext
+        });
+  }
+
   // internal
   initColumns(cols: DataColumn[]) {
     this.datacolumns = cols;
@@ -856,10 +840,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.datacolumnstotalminwidth = 0;
     this.datacolumnstotalcalcwidth = 0;
     this.checkboxcolumns = [];
-
-    // Default to sent ordering, in ascending order
-    this.sortcolumn = null;
-    this.sortascending = true;
 
     //ADDME Server should pass data in a directly usable format
     for (let i = 0; i < this.datacolumns.length; ++i) {
@@ -889,18 +869,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
         wrapper.expanderholderwidth = $todd.settings.listview_expanderholder_width;
         this.datacolumns[i].render = wrapper;
       }
-
-      if (this.datacolumns[i].sort && this.sortcolumnname === this.datacolumns[i].name) {
-        this.sortcolumn = i;
-        this.sortascending = this.datacolumns[i].sort === "asc";
-      }
     }
 
-    //    if (this.sortcolumnname !== "<ordered>" && !this.sortcolumn)
-    //      console.warn("List " + this.name + ": could not locate column '" + this.sortcolumnname + "'", this.datacolumns);
-
     const rowspans: number[] = [];
-    this.rowlayout!.forEach((row, idx) => {
+    this.currentRowLayout.rowlayout!.forEach((row, idx) => {
       let colnr = 0;
       row.cells.forEach((cell, cidx) => {
         // Skip columns that rowspan over this column
@@ -1067,16 +1039,17 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
     this.setDirty();
   }
-  compareRows(lhs: FlatRow, rhs: FlatRow) {
+
+  compareRows(sortCol: number | null, sortAscending: boolean, lhs: FlatRow, rhs: FlatRow) {
     let lhsdata, rhsdata, diff;
-    if (this.sortcolumn !== null) {
-      const col = this.datacolumns[this.sortcolumn];
+    if (sortCol !== null) {
+      const col = this.datacolumns[sortCol];
       lhsdata = lhs[col.sortidx];
       rhsdata = rhs[col.sortidx];
 
       if (lhsdata !== rhsdata) {
         diff = lhsdata < rhsdata ? - 1 : 1;
-        return this.sortascending ? diff : -diff;
+        return sortAscending ? diff : -diff;
       }
     }
 
@@ -1085,21 +1058,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     rhsdata = rhs[0].ordering;
 
     diff = lhsdata < rhsdata ? - 1 : lhsdata === rhsdata ? 0 : 1;
-    return this.sortascending ? diff : -diff;
-  }
-  onSortchange(event: CustomEvent<{ colidx: number; ascending: boolean }>) {
-    this.sortcolumn = event.detail.colidx;
-    this.sortascending = event.detail.ascending;
-
-    this.flattenRows();
-    this.invalidateAllRows();
-    this.setSort(event.detail.colidx, event.detail.ascending);
-
-    let sortcolumnname = "<ordered>";
-    if (this.sortcolumn !== null)
-      sortcolumnname = this.datacolumns[this.sortcolumn].name;
-
-    this.queueMessage("sortorder", { columnname: sortcolumnname, ascending: this.sortascending });
+    return sortAscending ? diff : -diff;
   }
   onSelectColumnsChange() {
     if (this.isEventUnmasked("select"))
@@ -1121,7 +1080,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
   recurseFlattenRows(rows: FlatRow[], depth: number, parentrowkey: FlatRowKey | undefined, resultrows: FlatRow[]): boolean { //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
     let changed_selection = false;
-    rows = rows.sort(this.compareRows.bind(this));
+    const sortCol = this.sort ? this.datacolumns.findIndex(c => c.name === this.sort!.colName) : null;
+    rows = rows.sort(this.compareRows.bind(this, sortCol, this.sort?.ascending ?? true));
     for (let i = 0; i < rows.length; ++i) {
       const row = rows[i];
       row[3] = depth; //depth
@@ -1167,9 +1127,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       searchidx: searchidx,
       datacolumns: this.datacolumns,
       cols: this.cols,
-      rowlayout: this.rowlayout,
-      dragrowlayout: this.dragrowlayout,
-      colheaders: this.colheaders
     };
     return retval;
   }
@@ -1837,22 +1794,12 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     const scrolltop = this.listbodyholder.scrollTop;
     return Math.floor(scrolltop / this.rowheight);
   }
-  setSort(colidx: number | null, ascending: boolean) {
-    if (this.lv_sortcolumn !== null) {
-      const hdrnode = this.lv_datacolumns[this.lv_sortcolumn].headernode || throwError("ListView.setSort: headernode missing");
-      hdrnode.classList.remove('sortascending');
-      hdrnode.classList.remove('sortdescending');
-    }
-    this.lv_sortcolumn = colidx;
-    this.lv_sortascending = Boolean(ascending);
 
-    if (this.lv_sortcolumn !== null) {
-      const hdrnode = this.lv_datacolumns[this.lv_sortcolumn].headernode;
-      if (hdrnode) {
-        dompack.toggleClasses(hdrnode, {
-          sortascending: this.lv_sortascending,
-          sortdescending: !this.lv_sortascending
-        });
+  refreshSortHeaders() {
+    for (const col of this.lv_datacolumns) {
+      if (col.headernode) {
+        col.headernode.classList.toggle('sortascending', col.src.name === this.sort?.colName && this.sort?.ascending);
+        col.headernode.classList.toggle('sortdescending', col.src.name === this.sort?.colName && !this.sort?.ascending);
       }
     }
   }
@@ -2963,7 +2910,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
 
     this._setupColumns(structure.cols);
-    this._setupRowLayouts(structure.rowlayout!, structure.dragrowlayout!);
+    this._setupRowLayouts(this.currentRowLayout.rowlayout, this.currentRowLayout.dragrowlayout);
 
     for (let i = 0; i < this.lv_cols.length; ++i) {
       if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
@@ -2978,8 +2925,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
         headernode.textContent = col.title;
         headernode.addEventListener("click", this.onHeaderClick.bind(this, i));
       }
-      if (this.lv_sortcolumn === this.lv_cols[i].header)
-        headernode.append(this.lv_sortascending ? " (asc)" : " (desc)");
 
       this.listheader.appendChild(headernode);
     }
@@ -3011,6 +2956,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
     this.applyHeaderColumnWidths();
     this.applyDimensions();
+    this.refreshSortHeaders();
   }
 
   _refreshColCalculation() {
@@ -3272,12 +3218,35 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   onHeaderClick(colidx: number) {
     const hdr = this.lv_cols[colidx].header;
     const col = this.lv_datacolumns[hdr];
-    if (!col || !col.src.sortable)
+    if (!col || !this.sortable)
       return;
 
-    this.setSort(hdr, !(this.lv_sortascending && this.lv_sortcolumn === hdr));
-    dompack.dispatchCustomEvent(this.node, "wh:listview-sortchange", { bubbles: true, cancelable: false, detail: { target: this, column: this.lv_sortcolumn, colidx: hdr, ascending: this.lv_sortascending } });
+    //ascending unless we're clicking the same column that is already sorted ascending
+    this.updateSortSetting({ colName: col.src.name, ascending: !(col.src.name === this.sort?.colName && this.sort.ascending) }, { userAction: true });
   }
+
+  setSortSetting(setting: ListSortSetting) {
+    if (!this.sortable || !setting) {
+      this.sort = null;
+      return;
+    }
+
+    this.sort = setting;
+    if (!this.datacolumns.find(col => col.name === this.sort!.colName))
+      this.sort.colName = this.datacolumns[0]?.name;
+  }
+
+  updateSortSetting(setting: ListSortSetting, options: { userAction: boolean }) {
+    this.setSortSetting(setting);
+
+    this.flattenRows();
+    this.invalidateAllRows();
+    this.refreshSortHeaders();
+
+    if (options.userAction)
+      this.queueMessage("sortorder", { columnname: this.sort?.colName ?? "<ordered>", ascending: this.sort?.ascending ?? true });
+  }
+
   applyColumnWidths() {
     this.applyHeaderColumnWidths();
     Object.keys(this.visiblerows).forEach(key => this._applyRowColumnWidths(this.lv_datacolumns, false, this.visiblerows[key]));
@@ -3380,7 +3349,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
   invalidateAllRows() {
     //ADDME can probably do better, but for now, simply destroy it all
-    dompack.empty(this.listbody);
+    this.listbody?.replaceChildren();
     this.visiblerows = {};
 
     this.sendNumRows();

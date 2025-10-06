@@ -30,7 +30,7 @@ ASYNC MACRO TestMoveToSelectParse()
   TestEq(INTEGER[], TT("comp")->value);
 
   TestEq(4, Length(TT("comp->sourcelist")->rows));
-  TestEq("rowkey", TT("comp->sourcelist")->sortcolumn);
+  TestEq("", TT("comp->sourcelist")->sortcolumn); //if unset, client will select first column itself
   TestEq(0, Length(TT("comp->selectionlist")->rows));
 
   TT("comp")->value := [2];

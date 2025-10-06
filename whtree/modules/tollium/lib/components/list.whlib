@@ -41,8 +41,7 @@ INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
     RETURN TYPEID(STRING);
 }
 
-PUBLIC OBJECTTYPE StoredListComponentBase
-<
+PUBLIC OBJECTTYPE StoredListComponentBase <
   /** The list/tree storage object for this list (type: ListTreeHelper)
   */
   OBJECT storage;
@@ -151,8 +150,8 @@ PUBLIC OBJECTTYPE StoredListComponentBase
 /** @short List
     @long This is a list
 */
-PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1029,13 +1028,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   }
 
 
-  MACRO SetRowLayouts(RECORD ARRAY newlayouts)
-  {
+  MACRO SetRowLayouts(RECORD ARRAY newlayouts) {
     FOREVERY (RECORD rec FROM newlayouts)
       newlayouts[#rec] := this->CheckRowLayout(rec, TRUE);
-
-    IF (RecordExists(SELECT FROM newlayouts GROUP BY name HAVING Count(*) >= 2))
-      THROW NEW TolliumException(this, "Row layout must all have a unique name");
 
     this->pvt_rowlayouts := newlayouts;
     this->pvt_rowlayout := ""; // Reset to default
@@ -1104,58 +1099,15 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   }
 
 
-  MACRO SetSortColumn(STRING newsortcolumn)
-  {
-    STRING orgsortcol := newsortcolumn;
-    RECORD layout := this->GetCurrentRowLayout();
-
-    IF (newsortcolumn != "<ordered>")
-    {
-      BOOLEAN found := FALSE;
-      FOREVERY(RECORD col FROM layout.columns)
-      {
-        IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
-          CONTINUE;
-
-        IF (col.coldef = newsortcolumn)
-        {
-          found := SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef;
-          BREAK;
-        }
-      }
-      IF (NOT found AND this->sortable)
-      {
-        // Find first sortable column
-        FOREVERY(RECORD col FROM layout.columns)
-        {
-          IF (col.combinewithnext AND #col != LENGTH(layout.columns) - 1)
-            CONTINUE;
-
-          IF (SELECT AS BOOLEAN sortable FROM this->pvt_columns WHERE name = col.coldef)
-          {
-            newsortcolumn := col.coldef;
-            found := TRUE;
-            BREAK;
-          }
-        }
-      }
-      //else there are no sortable columns, use ordering
-      IF (NOT found)
-        newsortcolumn := "<ordered>";
-    }
-
-    IF (newsortcolumn != this->pvt_sortcolumn)
-    {
+  MACRO SetSortColumn(STRING newsortcolumn) {
+    IF (newsortcolumn != this->pvt_sortcolumn) {
       this->pvt_sortcolumn := newsortcolumn;
       this->ExtSortOrderUpdate();
     }
   }
 
-
-  MACRO SetSortAscending(BOOLEAN newascending)
-  {
-    IF (this->pvt_sortascending != newascending)
-    {
+  MACRO SetSortAscending(BOOLEAN newascending) {
+    IF (this->pvt_sortascending != newascending) {
       this->pvt_sortascending := newascending;
       this->ExtSortOrderUpdate();
     }
@@ -1242,8 +1194,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       INSERT "selection" INTO this->pvt_savestate AT END;
   }
 
-  MACRO SetSelectEvent(STRING newtype)
-  {
+  MACRO SetSelectEvent(STRING newtype) {
     IF (newtype NOT IN [ "synchronous", "asynchronous" ])
       THROW NEW TolliumException(this, "Invalid event firing mode: '" || EncodeJava(newtype) || "'");
 
@@ -1271,10 +1222,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       to avoid complete resend of all rows).
       @param rowkey Rowkey of the updated row
   */
-  MACRO ExtUpdatedRow(VARIANT rowkey)
-  {
-//    PRINT("Extendlist: ExtUpdatedRow '"||rowkey||"'\n");
-//    PRINT(AnyToString(this->storage->rows[this->storage->GetPositionByRowkey(rowkey)], "boxed"));
+  MACRO ExtUpdatedRow(VARIANT rowkey) {
+    //PRINT("Extendlist: ExtUpdatedRow '"||rowkey||"'\n");
+    //PRINT(AnyToString(this->storage->rows[this->storage->GetPositionByRowkey(rowkey)], "boxed"));
 
     this->EnsureFilledDirtyFlags();
 
@@ -1317,56 +1267,39 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
 
 
-  /** Called when the selection has been changed in HareScript
-  */
-  MACRO ExtUpdatedSelection()
-  {
-//    PRINT("Extendlist: ExtUpdatedSelection\n");
+  /** Called when the selection has been changed in HareScript */
+  MACRO ExtUpdatedSelection() {
+    //    PRINT("Extendlist: ExtUpdatedSelection\n");
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.selection := TRUE;
   }
 
-
-
   /** Called when the children rows of a row have changed (dynamic tree only) in HareScript
       @param parent Parent row
-      @param childnodes Children rows
-  */
-  MACRO ExtUpdatedChildnodes(RECORD parent, RECORD ARRAY childrows)
-  {
-//    PRINT("Extendlist: ExtUpdatedChildnodes\n");
-    this->ExtUpdatedRows();/*disabled
-    this->EnsureFilledDirtyFlags();
-    INSERT [ parent := parent, childnodes := childnodes ] INTO this->dirtyflags.childnodes AT END;
-    */
+      @param childnodes Children rows */
+  MACRO ExtUpdatedChildnodes(RECORD parent, RECORD ARRAY childrows) {
+    // PRINT("Extendlist: ExtUpdatedChildnodes\n");
+    this->ExtUpdatedRows();
   }
 
-
-
-  /** Called when the list of columns has changed in HareScript
-  */
+  /** Called when the list of columns has changed in HareScript */
   MACRO ExtColumnsUpdate()
   {
     //FIXME: Invoke parent update function (and perhaps even do away with todd's manual list column updater)
     this->ExtUpdatedComponent();
   }
 
-
-  /** Called when the sort order is changed in HareScript
-  */
-  MACRO ExtSortOrderUpdate()
-  {
-//    PRINT("Extendlist: ExtSortOrderUpdate\n");
+  /** Called when the sort order is changed in HareScript */
+  MACRO ExtSortOrderUpdate() {
+    //    PRINT("Extendlist: ExtSortOrderUpdate\n");
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.sortorder := TRUE;
   }
 
-
   /** Called when the empty text has been updated in HareScript
   */
-  MACRO ExtEmptyTextUpdate()
-  {
-//    PRINT("Extendlist: ExtEmptyTextUpdate\n");
+  MACRO ExtEmptyTextUpdate() {
+    // PRINT("Extendlist: ExtEmptyTextUpdate\n");
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.emptytext := TRUE;
   }
@@ -1396,49 +1329,56 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
   // Helper functions
   //
 
-  /** Returns the current row layout
-      @cell name Name of layout
-      @cell isdefault Whether this is the default layout
+  /** Returns available row layouts.
   */
-  RECORD FUNCTION GetCurrentRowLayout()
-  {
-    RECORD layout;
-    IF (this->rowlayout = "")
-      RETURN this->defaultrowlayout;
-
-    layout :=
-        SELECT *
-          FROM this->pvt_rowlayouts
-         WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
-
-    IF(NOT RecordExists(layout))
+  RECORD ARRAY FUNCTION GetCurrentRowLayouts() {
+    RECORD ARRAY selectedlayouts := SELECT * FROM RECORD [ this->defaultrowlayout, ...this->pvt_rowlayouts ] WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
+    IF(NOT RecordExists(selectedlayouts))
       THROW NEW Exception("Invalid rowlayout '" || this->pvt_rowlayout || "'");
 
-    RETURN layout;
+    RECORD ARRAY layouts;
+    FOREVERY(RECORD layout FROM selectedlayouts) {
+      RECORD ARRAY rowlayout := this->CleanupRowLayout(layout.rows);
+      RECORD ARRAY dragrowlayout := this->CleanupRowLayout(layout.dragrows);
+      RECORD ARRAY colheaders := this->GetColHeaders(layout.columns);
+
+      IF(this->pvt_rowiconname != "") {
+        //If a rowicon is set, columns is hacked by Web_listColumns() to add an extra column for the rowicon. update rowlayout and colheaders too
+        FOREVERY(RECORD row FROM rowlayout)
+          UPDATE rowlayout[#row].cells SET cellnum := cellnum + 1;
+        INSERT [ cellnum := 0, rowspan := Length(rowlayout), colspan := 1 ] INTO rowlayout[0].cells AT 0;
+
+        // Also adjust celllnr in draglayout, but don't add the column
+        FOREVERY(RECORD row FROM dragrowlayout)
+          UPDATE dragrowlayout[#row].cells SET cellnum := cellnum + 1;
+
+        FOREVERY(RECORD colheader FROM colheaders)
+          colheaders[#colheader].col := colheaders[#colheader].col + 1;
+
+        INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
+      }
+
+      INSERT CELL[ rowlayout, dragrowlayout, colheaders ] INTO layouts AT END;
+    }
+    RETURN layouts;
   }
 
-
-  RECORD ARRAY FUNCTION CheckRowLayoutRows(RECORD ARRAY rows, INTEGER ARRAY rowspans)
-  {
+  RECORD ARRAY FUNCTION CheckRowLayoutRows(RECORD ARRAY rows, INTEGER ARRAY rowspans) {
     //ADDME: Check colspans and rowspans
-    FOREVERY (RECORD row FROM rows)
-    {
+    FOREVERY (RECORD row FROM rows) {
       IF (NOT CellExists(row, "cells"))
         THROW NEW TolliumException(this, "Row layout row #" || #row || " without cells");
 
       INTEGER curcol;
 
-      FOREVERY (RECORD rowcell FROM row.cells)
-      {
-        FOR (; curcol < Length(rowspans); curcol := curcol + 1)
-        {
+      FOREVERY (RECORD rowcell FROM row.cells) {
+        FOR (; curcol < Length(rowspans); curcol := curcol + 1) {
           IF (rowspans[curcol] = 0)
             BREAK;
           ELSE
             rowspans[curcol] := rowspans[curcol] - 1;
         }
-        IF (curcol >= Length(rowspans))
-        {
+        IF (curcol >= Length(rowspans)) {
           THROW NEW TolliumException(this, "Row layout row #" || #row || " has no unspanned columns for cell #" || #rowcell || " - more column headers may be needed");
         }
 
@@ -1457,8 +1397,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         INSERT CELL layoutcolumn := curcol INTO rows[#row].cells[#rowcell];
         INSERT CELL cellnum := cellnum INTO rows[#row].cells[#rowcell];
 
-        FOR (INTEGER spannedcol := 0; spannedcol < rows[#row].cells[#rowcell].colspan; spannedcol := spannedcol + 1)
-        {
+        FOR (INTEGER spannedcol := 0; spannedcol < rows[#row].cells[#rowcell].colspan; spannedcol := spannedcol + 1) {
           IF (curcol >= Length(rowspans))
             THROW NEW TolliumException(this, "Row layout row #" || #row || " has too many spanned columns");
 
@@ -1469,10 +1408,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
           curcol := curcol + 1;
         }
-        WHILE (curcol < Length(rowspans) AND rowspans[curcol] > 0)
-        {
-          rowspans[curcol] := rows[#row].cells[#rowcell].rowspan - 1;
 
+        WHILE (curcol < Length(rowspans) AND rowspans[curcol] > 0) {
+          rowspans[curcol] := rows[#row].cells[#rowcell].rowspan - 1;
           curcol := curcol + 1;
         }
       }
@@ -1487,14 +1425,10 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     RETURN rows;
   }
 
-  /* Validates a row layout record. Throws on error.
-  */
-  RECORD FUNCTION CheckRowLayout(RECORD newlayout, BOOLEAN requirenonemptyname)
-  {
+  /* Validates a row layout record. Throws on error. */
+  RECORD FUNCTION CheckRowLayout(RECORD newlayout, BOOLEAN requirenonemptyname) {
     IF (NOT CellExists(newlayout, "NAME"))
       THROW NEW TolliumException(this, "Row layout must have a name");
-    IF (requirenonemptyname AND newlayout.name = "")
-      THROW NEW TolliumException(this, "Row layout must have a non-empty name");
 
     // Constraint checking
     INTEGER ARRAY rowspans, dragrowspans;
@@ -1504,8 +1438,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     BOOLEAN have_dragcolumns := CellExists(newlayout, "DRAGCOLUMNS");
     STRING ARRAY dragcolumns := have_dragcolumns ? newlayout.dragcolumns : DEFAULT STRING ARRAY;
 
-    FOREVERY (RECORD col FROM newlayout.columns)
-    {
+    FOREVERY (RECORD col FROM newlayout.columns) {
       IF (NOT CellExists(col, "coldef"))
         THROW NEW TolliumException(this, "Row layout column #" || #col || " without coldef");
       IF (NOT RecordExists(SELECT FROM this->pvt_columns WHERE ToUppercase(name) = ToUppercase(col.coldef)))
@@ -1526,27 +1459,13 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         INSERT 0 INTO dragrowspans AT END;
     }
 
-    IF (NOT have_dragcolumns)
-    {
+    IF (NOT have_dragcolumns) {
       IF (CellExists(newlayout, "DRAGROWS"))
         THROW NEW TolliumException(this, "Setting dragcolumns is required when dragrows has been set in a rowlayout");
       INSERT CELL dragcolumns := dragcolumns INTO newlayout;
-    }
-    ELSE IF (NOT CellExists(newlayout, "DRAGROWS"))
+    } ELSE IF (NOT CellExists(newlayout, "DRAGROWS"))
       THROW NEW TolliumException(this, "Setting dragrows is required when dragcolumns has been set in a rowlayout");
 
-    /* fails on the multirow layout of the issue tracker
-    IF (this->sortable AND this->pvt_sortcolumn != "" AND NOT RecordExists(SELECT FROM newlayout.columns WHERE ToUppercase(coldef) = ToUppercase(this->pvt_sortcolumn)))
-    {
-      THROW NEW TolliumException(this, "Sort column '" || this->pvt_sortcolumn || "' for list '" || this->name || "' is not used in row layout");
-      PRINT("Sort column '" || this->pvt_sortcolumn || "' for list '" || this->name || "' is not used in row layout\n");
-    }*/
-/*
-    STRING dragcolumnswanted := Detokenize(newlayout.dragcolumns, " ");
-    STRING dragcolumnsinlayout := Detokenize((SELECT AS STRING ARRAY coldef FROM newlayout.columns WHERE indraglayout), " ");
-    IF (dragcolumnswanted != dragcolumnsinlayout)
-      THROW NEW TolliumException(this, "Draglayout columns may only reference columns declared layout, in the same order (wanted=" || dragcolumnswanted || ", inlayout=" || dragcolumnsinlayout || ")");
-*/
     newlayout.rows := this->CheckRowLayoutRows(newlayout.rows, rowspans);
     IF (NOT CellExists(newlayout, "DRAGROWS"))
       INSERT CELL dragrows := newlayout.rows INTO newlayout;
@@ -1556,15 +1475,13 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     RETURN newlayout;
   }
 
-  PUBLIC VARIANT FUNCTION GetDefaultValueForColumnType(STRING coltype)
-  {
+  PUBLIC VARIANT FUNCTION GetDefaultValueForColumnType(STRING coltype) {
     RETURN GetTypeDefaultValue(GetTypeIdForListColumnType(coltype));
   }
 
   /** Walks the column list, updates the list tree helper to check for required columns
   */
-  MACRO FixColumns() //run after column update to fix sorting etc info
-  {
+  MACRO FixColumns() { //run after column update to fix sorting etc info
     BOOLEAN istree;
 
     this->storage->required_cells := DEFAULT RECORD ARRAY;
@@ -1672,9 +1589,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                  , allowdupe := TRUE
                  ] INTO this->storage->required_cells AT END;
       }
-
-      IF(col.sortable AND col.name = this->pvt_sortcolumn)
-        foundsortcolumn := TRUE;
     }
     FOREVERY(STRING flag FROM this->pvt_flags)
     {
@@ -1683,9 +1597,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
              , allowdupe := FALSE
              ] INTO this->storage->required_cells AT END;
     }
-
-    IF(this->sortable AND NOT foundsortcolumn AND Length(this->pvt_columns)>0 AND this->pvt_sortcolumn != "<ordered>")
-      this->pvt_sortcolumn := this->pvt_columns[0].name;
 
     STRING dupename := SELECT AS STRING Any(name)
                          FROM this->storage->required_cells
@@ -1697,14 +1608,6 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
     this->storage->SetupHelper(istree, this->storage->getpath, this->storage->getitems, this->storage->getallitems);
   }
-
-
-  ///Is this list really sortable, considering 'sortable' and the column definitions
-  BOOLEAN FUNCTION IsActuallySortable()
-  {
-    RETURN this->sortable AND this->columnheaders AND NOT this->storage->istree;
-  }
-
 
   /** Checks if a selection matches an enableon
       @param min Minimum number of selected rows
@@ -2373,55 +2276,31 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
           FROM columns;
   }
 
-  UPDATE PUBLIC MACRO TolliumWebRender()
-  {
+  UPDATE PUBLIC MACRO TolliumWebRender() {
     this->stylerec := DEFAULT RECORD;
     FOREVERY (RECORD style FROM this->styles)
       this->stylerec := CellInsert(this->stylerec, style.name, style);
 
-    IF (this->dirtyflags.fully)
-    {
+    IF (this->dirtyflags.fully) {
       STRING ARRAY unmask := GetUnmask(this,["select","check","iconclick","celledit","focusin"]);
       IF (this->storage->isdynamic)
         INSERT "expand" INTO unmask AT END;
 
-      RECORD layout := this->GetCurrentRowLayout();
-      RECORD ARRAY rowlayout, dragrowlayout;
-      RECORD ARRAY colheaders;
-
-      rowlayout := this->CleanupRowLayout(layout.rows);
-      dragrowlayout := this->CleanupRowLayout(layout.dragrows);
-      colheaders := this->GetColHeaders(layout.columns);
-
-      IF(this->pvt_rowiconname != "")
-      {
-        //If a rowicon is set, columns is hacked by Web_listColumns() to add an extra column for the rowicon. update rowlayout and colheaders too
-        FOREVERY(RECORD row FROM rowlayout)
-          UPDATE rowlayout[#row].cells SET cellnum := cellnum + 1;
-        INSERT [ cellnum := 0, rowspan := Length(rowlayout), colspan := 1 ] INTO rowlayout[0].cells AT 0;
-
-        // Also adjust celllnr in draglayout, but don't add the column
-        FOREVERY(RECORD row FROM dragrowlayout)
-          UPDATE dragrowlayout[#row].cells SET cellnum := cellnum + 1;
-
-        FOREVERY(RECORD colheader FROM colheaders)
-          colheaders[#colheader].col := colheaders[#colheader].col + 1;
-
-        INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
-      }
+      RECORD ARRAY layouts := this->GetCurrentRowLayouts();
 
       //Web_RenderRows first, it may change list state (eg GetIcon calls invoked by OnMapValue)
       VARIANT ARRAY rows := this->Web_RenderRows(this->rows, TRUE);
       VARIANT ARRAY footerrows := this->Web_RenderRows(this->footerrows, FALSE);
 
-      RECORD listinfo := [ selectmode        := this->storage->selectmode
+      RECORD listinfo :=
+                     CELL[ selectmode        := this->storage->selectmode
                          , columnselectmode  := this->columnselectmode
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
                          , selectcontextmenu := GetComponentName(this->selectcontextmenu)
                          , openaction        := GetComponentName(this->openaction)
                          , empty             := this->empty
                          , columnheaders     := this->columnheaders
-                         , sortable          := this->IsActuallySortable()
+                         , sortable          := this->sortable
                          , isatree           := this->storage->istree
                          , selectableflags   := Detokenize(this->selectableflags," ")
                          , unmasked_events   := unmask
@@ -2429,9 +2308,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , dragsingleicon    := this->dragsingleicon
                          , dragmultipleicon  := this->dragmultipleicon
                          , columns           := this->Web_ListColumns()
-                         , rowlayout         := rowlayout
-                         , dragrowlayout     := dragrowlayout
-                         , colheaders        := colheaders
+                         , layouts
                          , rows              := rows
                          , footerrows        := footerrows
                          , acceptdrops       := this->Web_PrintAcceptDrops(this->pvt_acceptdrops)
@@ -2439,36 +2316,28 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , highlightidx      := this->highlightname != "" ? 4 : -1
                          , syncselect        := this->selectevent = "synchronous"
                          , sortcolumn        := this->pvt_sortcolumn
+                         , sortascending     := this->pvt_sortascending
                          , debugactions      := this->GetDebugActions()
                          , class             := this->class
                          , icons             := this->icons
                          ];
 
       this->owner->tolliumcontroller->SendComponent(this, listinfo);
-    }
-    ELSE
-    {
-      IF (this->dirtyflags.rows)
-      {
+    } ELSE {
+      IF (this->dirtyflags.rows) {
         this->ToddUpdate([type:="rows", rows := this->Web_RenderRows(this->rows, TRUE)]);
-      }
-      ELSE
-      {
+      } ELSE {
         // We must FIRST send childnodes, because a partial update on 'expanded' can cause them to be retrieved
-        IF (LENGTH(this->dirtyflags.childnodes) > 0)
-        {
-          FOREVERY (RECORD upd FROM this->dirtyflags.childnodes)
-          {
+        IF (LENGTH(this->dirtyflags.childnodes) > 0) {
+          FOREVERY (RECORD upd FROM this->dirtyflags.childnodes) {
             STRING rowkey := EncodeRowkey(upd.parent.rowkey, TypeID(upd.parent.rowkey));
             this->ToddUpdate([type:="children", parent:=rowkey, rows :=  this->Web_RenderRows(upd.childnodes, TRUE) ]);
           }
         }
 
-        IF (LENGTH(this->dirtyflags.rowkeys) > 0)
-        {
+        IF (LENGTH(this->dirtyflags.rowkeys) > 0) {
           VARIANT ARRAY newrows;
-          FOREVERY(VARIANT rowkey FROM this->dirtyflags.rowkeys)
-          {
+          FOREVERY(VARIANT rowkey FROM this->dirtyflags.rowkeys) {
             INTEGER row := this->storage->GetPositionByRowkey(rowkey);
             IF (row != -1)
               INSERT this->Web_RenderRow(this->storage->rows[row], this->storage->rows, row, TRUE) INTO newrows AT END;
@@ -2477,31 +2346,26 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
           this->ToddUpdate([type:="partialrows", rows := newrows]);
         }
       }
-      IF (this->dirtyflags.footerrows)
-      {
+      IF (this->dirtyflags.footerrows) {
         this->ToddUpdate([ type:= "footerrows", footerrows := this->Web_RenderRows(this->footerrows, FALSE) ]);
       }
       // Send icons after webrenderrows, allow onmapvalue to add icons
-      IF (this->dirtyflags.icons)
-      {
+      IF (this->dirtyflags.icons) {
         this->ToddUpdate([ type:="icons", icons := this->icons ]);
       }
-      IF (this->dirtyflags.selection)
-      {
+      IF (this->dirtyflags.selection) {
         STRING ARRAY newselection := SELECT AS STRING ARRAY EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey))
                                        FROM this->storage->rows
                                       WHERE tolliumselected;
         this->ToddUpdate([type:="selection", selection:=newselection]);
       }
-      IF (this->dirtyflags.sortorder)
-      {
+      IF (this->dirtyflags.sortorder) {
         this->ToddUpdate([ type:="sortorder"
                          , col := this->pvt_sortcolumn
                          , ascending := this->pvt_sortascending
                          ]);
       }
-      IF (this->dirtyflags.emptytext)
-      {
+      IF (this->dirtyflags.emptytext) {
         this->ToddUpdate([type:="emptytext", text := this->empty]);
       }
       IF (Length(this->dirtyflags.editcompletions)>0)
@@ -2510,19 +2374,16 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     TolliumComponentBase::TolliumWebRender();
   }
 
-  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD inp)
-  {
+  PUBLIC MACRO TolliumWeb_FormUpdate(RECORD inp) {
     BOOLEAN fireonselect;
 
     inp := EnforceStructure([ selectedcolumns := STRING[], rows := ""], inp);
-    IF(EncodeHSON(this->_selectedcolumns) != EncodeHSON(inp.selectedcolumns))
-    {
+    IF(EncodeHSON(this->_selectedcolumns) != EncodeHSON(inp.selectedcolumns)) {
       this->_selectedcolumns := inp.selectedcolumns;
       fireonselect := TRUE;
     }
 
     STRING ARRAY toks := Tokenize(inp.rows, " ");
-  //  RECORD ARRAY toupdate;
 
     INTEGER current_rowkeytype := RecordExists(this->storage->rows) ? TypeId(this->storage->rows[0].rowkey) : 0;
 
@@ -2534,8 +2395,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
     //FIXME: This code scales terribly! Eg, a 'select all' on 1000 nodes...
     RECORD ARRAY updates;
-    FOREVERY(STRING tok FROM toks)
-    {
+    FOREVERY(STRING tok FROM toks) {
       IF (tok = "")
         CONTINUE;
 
@@ -2548,45 +2408,36 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       s = selected
       */
 
-      SWITCH (LEFT(tok, 1))
-      {
-
-
-      CASE "l"
-        {
+      SWITCH (LEFT(tok, 1)) {
+        CASE "l" {
           current_col_pos := current_col_pos + 1;
 
           UPDATE this->pvt_columns
              SET position := current_col_pos
            WHERE name = SubString(tok, 1);
         }
-      CASE "d", "a"
-        {
+        CASE "d", "a" {
           this->pvt_sortcolumn := SELECT AS STRING name FROM this->pvt_columns WHERE name = SubString(tok, 1);
           this->pvt_sortascending := LEFT(tok, 1) = "a";
         }
-      CASE "s", "e", "c"
-        {
+        CASE "s", "e", "c" {
           STRING type := Left(tok,1);
           STRING ARRAY vals := Tokenize(Right(tok, Length(tok)-1), '\t');
 
-          IF (current_rowkeytype = 0)
-          {
+          IF (current_rowkeytype = 0) {
             Print("EXTENDLIST: Unable to match " || vals[0] || " in an empty list\n");
             CONTINUE;
           }
           VARIANT myrowkey := DecodeRowkey(vals[0], current_rowkeytype);
           INTEGER rowpos := this->storage->GetPositionByRowkey(myrowkey);
 
-          IF (rowpos = -1)
-          {
+          IF (rowpos = -1) {
             Print("EXTENDLIST: Unable to match " || vals[0] || "\n");
             print(anytostring(myrowkey,'tree'));
             CONTINUE;
           }
           INTEGER pos := __HS_SQL_GetGroupPosition(updates, [ "0" := myrowkey ]);
-          IF (pos < 0)
-          {
+          IF (pos < 0) {
             pos := -pos - 1;
             INSERT [ "0" := myrowkey
                    , rowkey := myrowkey
@@ -2596,18 +2447,15 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                    ] INTO updates AT pos;
 
           }
-          SWITCH (type)
-          {
-            CASE 's'
-            {
+
+          SWITCH (type) {
+            CASE 's'  {
               updates[pos].nowselect := TRUE;
             }
-            CASE 'e'
-            {
+            CASE 'e' {
               updates[pos].nowexpand := TRUE;
             }
-            CASE 'c'
-            {
+            CASE 'c' {
               // Checkboxes/radios
               // FIXME: this code won't prevent multiple radios from being enabled.
               VARIANT setvalue;
@@ -2633,7 +2481,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     UPDATE this->pvt_columns
        SET position := SearchElement(colorder, name);
 
-//    this->UpdateSelection2(SELECT * FROM updates WHERE nowselect OR nowexpand OR Length(checkboxes) > 0);
+    // this->UpdateSelection2(SELECT * FROM updates WHERE nowselect OR nowexpand OR Length(checkboxes) > 0);
     IF(this->storage->SetSelectionByRecords((SELECT * FROM updates WHERE nowselect), FALSE))
       fireonselect := FALSE; //just fired
 
@@ -2644,25 +2492,19 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       this->onselect();
   }
 
-  UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)
-  {
-    IF(action = 'expand') //ADDME: Make implicit if an already known item is requested (eg: split into an 'expand' event (sent as array) and a 'download new items' event)
-    {
+  UPDATE PUBLIC MACRO TolliumWeb_ParseEvent(STRING action, STRING param)  {
+    IF(action = 'expand') { //TODO: Make implicit if an already known item is requested (eg: split into an 'expand' event (sent as array) and a 'download new items' event)
       RECORD ARRAY expanding := SELECT *
                                   FROM this->storage->rows
                                  WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = param;
       this->storage->ExpandRowsByRecords(expanding, FALSE, FALSE);
       RETURN;
-    }
-    ELSE IF(action = 'sortchange') //ADDME: Make implicit too!   FIXME No need to inform the server about every sort chnage!
-    {
+    } ELSE IF(action = 'sortchange') { //TODO: Make implicit too!   FIXME No need to inform the server about every sort chnage!
       STRING ARRAY params := Tokenize(param,' ');
       this->pvt_sortcolumn := params[0];
       this->pvt_sortascending := params[1] = '+';
       RETURN;
-    }
-    ELSE IF(action="check")
-    {
+    } ELSE IF(action="check") {
       STRING ARRAY params := Tokenize(param,' ');
       IF (Length(params) >= 2 AND this->oncheck != DEFAULT FUNCTION PTR)
       {
@@ -2671,9 +2513,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                        WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) = params[0];
         this->oncheck(row, params[1]);
       }
-    }
-    ELSE IF(action="iconclick")
-    {
+    } ELSE IF(action="iconclick") {
       STRING ARRAY params := Tokenize(param,' ');
       IF (Length(params) >= 2 AND this->oniconclick != DEFAULT FUNCTION PTR)
       {
@@ -2684,26 +2524,21 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         IF(RecordExists(row))
           this->oniconclick(row, params[1]);
       }
-    }
-    ELSE
-    {
+    } ELSE {
       TolliumComponentBase::TolliumWeb_ParseEvent(action, param);
     }
   }
 
-  PUBLIC RECORD ARRAY FUNCTION TolliumGetRecordsForTags(STRING ARRAY tags)
-  {
+  PUBLIC RECORD ARRAY FUNCTION TolliumGetRecordsForTags(STRING ARRAY tags) {
     RETURN SELECT *
              FROM this->storage->rows
             WHERE EncodeRowkey(COLUMN rowkey, TypeId(COLUMN rowkey)) IN tags;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION Web_ListColumns()
-  {
+  PUBLIC RECORD ARRAY FUNCTION Web_ListColumns() {
     RECORD ARRAY cols := SELECT name
                               , width
                               , minwidth
-                              , sort := this->sortable AND name = this->pvt_sortcolumn ? this->pvt_sortascending ? 'asc' : 'desc' : ''
                               , type
                               , title
                               , iconlink := iconlink
@@ -2728,17 +2563,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     INTEGER datapos := 4;
     IF(this->highlightname != "")
       datapos := datapos + 1;
-    IF(this->rowiconname != "")
-    {
+    IF(this->rowiconname != "") {
       datapos := datapos + 1;
       IF(this->rowiconhintname != "")
         datapos := datapos + 1;
     }
 
-    FOREVERY (RECORD col FROM cols)
-    {
-      IF (CellExists(this->stylerec, col.style))
-      {
+    FOREVERY (RECORD col FROM cols) {
+      IF (CellExists(this->stylerec, col.style)) {
         RECORD style := GetCell(this->stylerec, col.style);
         INSERT CELL stylebold := style.bold INTO col;
         INSERT CELL styleitalic := style.italic INTO col;
@@ -2749,42 +2581,35 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       col.dataidx := datapos;
       datapos := datapos + 1;
 
-      IF (this->columns[#col].hintname != "")
-      {
+      IF (this->columns[#col].hintname != "") {
         col.hintidx := datapos;
         datapos := datapos + 1;
       }
-      IF (this->columns[#col].linkname != "")
-      {
+      IF (this->columns[#col].linkname != "") {
         col.linkidx := datapos;
         datapos := datapos + 1;
       }
-      IF(this->columns[#col].checkboxname != "")
-      {
+      IF(this->columns[#col].checkboxname != "") {
         col.checkboxidx := datapos;
         datapos := datapos + 1;
-        IF(this->columns[#col].checkboxenabled != "")
-        {
+        IF(this->columns[#col].checkboxenabled != "") {
           col.checkboxenabledidx := datapos;
           datapos := datapos + 1;
         }
       }
-      IF(this->columns[#col].iconname != "")
-      {
+      IF(this->columns[#col].iconname != "") {
         col.iconidx := datapos;
         datapos := datapos + 1;
       }
-      IF(this->columns[#col].iconoverlayname != "")
-      {
+      IF(this->columns[#col].iconoverlayname != "") {
         col.overlayidx := datapos;
         datapos := datapos + 1;
       }
-      IF(this->columns[#col].collapsedname != "")
-      {
+      IF(this->columns[#col].collapsedname != "") {
         col.collapsedidx := datapos;
         datapos := datapos + 1;
       }
-      //IF(newcol.sortkeyname != "")  //ADDME don't send a sortable key if we don't really need it and can handle it on JS side with the original value
+      //IF(newcol.sortkeyname != "")  //TODO don't send a sortable key if we don't really need it and can handle it on JS side with the original value
       {
         col.sortidx := datapos;
         datapos := datapos + 1;
@@ -2794,8 +2619,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       cols[#col] := col;
     }
 
-    IF(this->rowiconname != "")
-    {
+    IF(this->rowiconname != "") {
       //FIXME need to be able to mark a column unmovable?
       INTEGER incr := this->highlightname = "" ? 0 : 1;
       INSERT [ dataidx := 4 + incr
@@ -2808,16 +2632,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     RETURN cols;
   }
 
-  PUBLIC VARIANT ARRAY FUNCTION Web_RenderRows(RECORD ARRAY rows, BOOLEAN fullrows) //FIXME: should be private, but the optiongid.whscr test needs access to the 'final' values. We need queuedmessages interception
-  {
+  PUBLIC VARIANT ARRAY FUNCTION Web_RenderRows(RECORD ARRAY rows, BOOLEAN fullrows) { //FIXME: should be private, but the optiongid.whscr test needs access to the 'final' values. We need queuedmessages interception
     VARIANT ARRAY outrows;
     FOREVERY(RECORD row FROM rows)
       INSERT this->Web_renderrow(row, rows, #row, fullrows ) INTO outrows AT END;
     RETURN outrows;
   }
 
-  VARIANT ARRAY FUNCTION Web_RenderRow(RECORD row, RECORD ARRAY allrows, INTEGER rownum, BOOLEAN fullrow)
-  {
+  VARIANT ARRAY FUNCTION Web_RenderRow(RECORD row, RECORD ARRAY allrows, INTEGER rownum, BOOLEAN fullrow)   {
     RECORD outrow := [ cells := DEFAULT VARIANT ARRAY
                      , rowicon := 0
                      ];
@@ -2856,16 +2678,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     IF (this->pvt_highlightname != "")
       INSERT fullrow ? GetCell(row, this->pvt_highlightname) : FALSE INTO outrow.cells AT END;
 
-    IF(this->rowiconname != "")
-    {
+    IF(this->rowiconname != "") {
       INSERT CellExists(row, this->rowiconname) ? GetCell(row, this->rowiconname) : 0 INTO outrow.cells AT END;
       IF(this->rowiconhintname != "")
         INSERT CellExists(row, this->rowiconhintname) ? GetCell(row, this->rowiconhintname) : "" INTO outrow.cells AT END;
     }
 
     RECORD toddprops;
-    IF (CellExists(row, "STYLE") AND CellExists(this->stylerec, row.style))
-    {
+    IF (CellExists(row, "STYLE") AND CellExists(this->stylerec, row.style)) {
       RECORD style := GetCell(this->stylerec, row.style);
       INSERT CELL stylebold := style.bold INTO outrow.cells[0];
       INSERT CELL styleitalic := style.italic INTO outrow.cells[0];
@@ -2873,8 +2693,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       INSERT CELL styletextcolor := style.textcolor INTO outrow.cells[0];
     }
 
-    IF (CellExists(row, "DRAGINFO") AND RecordExists(row.draginfo) AND row.draginfo.type != "")
-    {
+    IF (CellExists(row, "DRAGINFO") AND RecordExists(row.draginfo) AND row.draginfo.type != "") {
       RECORD rec := this->owner->GetDragType(row.draginfo.type);
       RECORD draginfo :=
           [ type := row.draginfo.type
@@ -2884,8 +2703,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       INSERT CELL draginfo := draginfo INTO outrow.cells[0];
     }
 
-    FOREVERY(RECORD col FROM this->columns)
-    {
+    FOREVERY(RECORD col FROM this->columns) {
       VARIANT cellvalue := this->GetFormattedListCell(col,row,col.name);
 
       INSERT cellvalue INTO outrow.cells AT END;
@@ -2895,15 +2713,13 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       IF(col.linkname != "")
         INSERT CellExists(row, col.linkname) ? GetCell(row, col.linkname) : "" INTO outrow.cells AT END;
 
-      IF(col.checkboxname!="")
-      {
+      IF(col.checkboxname!="") {
         IF(fullrow = FALSE OR (col.checkboxvisible!="" AND NOT GetCell(row, col.checkboxvisible)))
           INSERT DEFAULT RECORD INTO outrow.cells AT END;
         ELSE
           INSERT GetCell(row, col.checkboxname) INTO outrow.cells AT END;
 
-        IF (col.checkboxenabled != "")
-        {
+        IF (col.checkboxenabled != "") {
           IF (fullrow = FALSE OR (col.checkboxvisible != "" AND NOT GetCell(row, col.checkboxvisible)))
             INSERT DEFAULT RECORD INTO outrow.cells AT END;
           ELSE
@@ -2917,20 +2733,16 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       IF(col.iconoverlayname!="")
         INSERT CellExists(row, col.iconoverlayname) ? GetCell(row, col.iconoverlayname) : 0 INTO outrow.cells AT END;
 
-      IF(col.collapsedname != "")
-      {
+      IF(col.collapsedname != "") {
         IF(CellExists(row, col.collapsedname))
           INSERT this->GetFormattedListCell(col,row,col.collapsedname) INTO outrow.cells AT END;
         ELSE
           INSERT DEFAULT RECORD INTO outrow.cells AT END;
       }
 
-      IF(fullrow) //IF(col.sortkeyname != "")
-      {
+      IF(fullrow) {
         INSERT this->GetSortableListCell(col, row, cellvalue) INTO outrow.cells AT END;
-      }
-      ELSE
-      {
+      } ELSE {
         INSERT 0 INTO outrow.cells AT END;
       }
     }
