@@ -3,7 +3,7 @@
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlob } from "@webhare/services";
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
-import { nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedFromEntries } from "@webhare/std";
+import { nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
 import { whconstant_builtinmodules, whconstant_defaultwidgetgroup } from "@mod-system/js/internal/webhareconstants";
 import type { ApplyForms, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
 import { membertypenames } from "@webhare/whfs/src/describe";
@@ -496,6 +496,17 @@ function myCSPCompare(expect: unknown, actual: unknown, path: string) {
     return true;
 }
 
+//Blind search and replace through all the nodes. can we indeed do this blindly?
+function fixAllTypeRefs<T>(topnode: T, remap: Map<string, string>, propertyName?: string): T {
+  if (Array.isArray(topnode))
+    return topnode.map(subnode => fixAllTypeRefs(subnode, remap)) as unknown as T;
+  if (typeof topnode === "object" && topnode !== null)
+    return typedFromEntries(typedEntries(topnode).map(([k, v]) => [k, fixAllTypeRefs(v, remap, k)])) as T;
+  if (propertyName !== "namespace" && typeof topnode === "string" && remap.has(topnode))
+    return remap.get(topnode) as T;
+  return topnode;
+}
+
 run({
   flags: {
     "v,verbose": { description: "Show more information" },
@@ -527,6 +538,8 @@ run({
     const modulesInScope = args.module === "platform" ? whconstant_builtinmodules : [args.module];
     const toWrite = new Map<string, string | null>;
     const matchName = opts.mask ? regExpFromWildcards(opts.mask, { caseInsensitive: true }) : /.*/;
+    const remapTypes = new Map(csp.allcontenttypes.filter(_ => _.scopedtype && _.scopedtype !== _.namespace).map(_ => [_.namespace, _.scopedtype]));
+
     const profilesToConvert = csp.siteprofiles.filter(sp => {
       if (sp.resourcename.endsWith(".yml") || sp.resourcename.endsWith(".yaml"))
         return false;
@@ -722,6 +735,11 @@ run({
 
       if (!spSuccess)
         sp.result = null; //clear it, we had errors and won't be remapping this file
+
+      //Add conversion result to the typemap
+      for (const rt of parsedYaml.contenttypes)
+        if (rt.scopedtype !== rt.namespace)
+          remapTypes.set(rt.namespace, rt.scopedtype);
     } //for (const sp of profilesToConvert)
 
     const renameMap = new Map<string, string>;
@@ -752,9 +770,18 @@ run({
     }
 
     //Fix references in all other siteprofiles to us
-    for (const checkSp of profilesToConvert)
+    for (const checkSp of profilesToConvert) {
       if (checkSp.result?.applySiteProfiles?.length) //if its referring to us, rewrite it
         checkSp.result.applySiteProfiles = checkSp.result.applySiteProfiles.map(p => renameMap.get(p) ?? p);
+
+      //remove all local prefix from the remapTypes list
+      for (const [k, v] of remapTypes)
+        if (v.startsWith(`${args.module}:`))
+          remapTypes.set(k, v.substring(args.module.length + 1));
+
+      //Fix type references.
+      checkSp.result = fixAllTypeRefs(checkSp.result, remapTypes);
+    }
 
 
     //Rewrite moduledefinition.xml
