@@ -149,26 +149,6 @@ PUBLIC STATIC OBJECTTYPE WebContext
     RETURN pluginobj;
   }
 
-  MACRO RunPluginHooks(RECORD pluginrecord)
-  {
-    FOREVERY(RECORD otherplugin FROM this->pvt_plugins)
-    {
-      IF(otherplugin.init)
-        CONTINUE;
-
-      BOOLEAN ishooking;
-      FOREVERY(RECORD hook FROM otherplugin.hooksplugins)
-        IF(hook.namespaceuri = pluginrecord.namespace AND hook.localname = pluginrecord.name)
-        {
-          ishooking := TRUE;
-          BREAK;
-        }
-
-      IF(ishooking)
-        this->GetPlugin(otherplugin.namespace, otherplugin.name);
-    }
-  }
-
   PUBLIC OBJECT ARRAY FUNCTION GetPluginsByFeature(STRING featurename)
   {
     OBJECT ARRAY plugins;
@@ -180,7 +160,6 @@ PUBLIC STATIC OBJECTTYPE WebContext
         {
           this->pvt_plugins[#plugin].init := TRUE;
           this->pvt_plugins[#plugin].pluginobj := this->__CreatePlugin(plugin);
-          this->RunPluginHooks(plugin); //also invoke plugins that affect this pugin
         }
 
         INSERT this->pvt_plugins[#plugin].pluginobj INTO plugins AT END;
@@ -197,7 +176,6 @@ PUBLIC STATIC OBJECTTYPE WebContext
         {
           this->pvt_plugins[#plugin].init := TRUE;
           this->pvt_plugins[#plugin].pluginobj := this->__CreatePlugin(plugin);
-          this->RunPluginHooks(plugin); //also invoke plugins that affect this pugin
         }
 
         RETURN this->pvt_plugins[#plugin].pluginobj;
@@ -218,10 +196,6 @@ PUBLIC STATIC OBJECTTYPE WebContext
   MACRO PreparePlugins()
   {
     UPDATE this->pvt_plugins SET pluginobj := this->__CreatePlugin(pvt_plugins) WHERE pluginobj = DEFAULT OBJECT;
-    FOREVERY(RECORD plugin FROM this->pvt_plugins)
-    {
-      this->RunPluginHooks(plugin);
-    }
   }
 
   PUBLIC MACRO __SetObjectId(INTEGER objectid, OBJECT applytester)

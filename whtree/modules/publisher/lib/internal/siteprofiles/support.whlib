@@ -78,7 +78,6 @@ PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
          , parser := ""
          , name := ""
          , namespace := ""
-         , hooksplugins := DEFAULT RECORD ARRAY
          , hooksfeatures := DEFAULT STRING ARRAY
          ];
 }

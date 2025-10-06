@@ -198,7 +198,6 @@ export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
 export interface CSPPluginBase {
   combine: boolean;
   hooksfeatures: string[];
-  hooksplugins: string[];
   name: string;
   namespace: string;
   objectname: string;
