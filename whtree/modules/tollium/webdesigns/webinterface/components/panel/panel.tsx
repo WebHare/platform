@@ -87,6 +87,7 @@ export class ObjPanel extends ComponentBase {
   * Initialization
   */
   visibleons = [];
+  widthOverhead = 0;
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
@@ -295,17 +296,14 @@ export class ObjPanel extends ComponentBase {
   }
 
   calculateDimWidth() {
-    // contentwidth is the width of the widest line
-    const headerwidth = 0;
-
     //Prepare line calculation: we first need their label widths, then lines can do their actual calculations
     this.setSizeToMaxOf('width', this.lines);
-    this.width.overhead = toddtools.getSpacerWidth(this.spacers) + toddtools.getBorderWidth(this.borders);
-    this.width.min += this.width.overhead;
-    this.width.calc += this.width.overhead;
+    this.widthOverhead = toddtools.getSpacerWidth(this.spacers) + toddtools.getBorderWidth(this.borders);
+    this.width.min += this.widthOverhead;
+    this.width.calc += this.widthOverhead;
 
-    this.width.min = Math.max(this.width.min, headerwidth);
-    this.width.calc = Math.max(this.width.calc, headerwidth);
+    this.width.min = Math.max(this.width.min, this.widthOverhead);
+    this.width.calc = Math.max(this.width.calc, this.widthOverhead);
 
     if (this.allowScroll()) {
       this.realminwidth = this.width.min;
@@ -315,12 +313,12 @@ export class ObjPanel extends ComponentBase {
 
   applySetWidth() {
     //the inner width/height is what we present to our contents, and may exceed set width/height if we can scroll ourselves
-    this.innerwidth = this.width.set - this.width.overhead;
+    this.innerwidth = this.width.set - this.widthOverhead;
     if (this.allowScroll() && this.width.set < this.realminwidth)
-      this.innerwidth = this.realminwidth - this.width.overhead;
+      this.innerwidth = this.realminwidth - this.widthOverhead;
 
     const setwidth = this.innerwidth;
-    this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set + ", overhead=" + this.width.overhead + ", effective=" + setwidth);
+    this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set + ", overhead=" + this.widthOverhead + ", effective=" + setwidth);
 
     this.lines.forEach(comp => comp.setWidth(setwidth));
   }
