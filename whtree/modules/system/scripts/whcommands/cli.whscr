@@ -9,6 +9,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver/proxymgmt.whlib";
 
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
@@ -77,6 +78,22 @@ SWITCH(ToUppercase(args[0]))
       ABORT("Expected two parameters: event and data");
     VARIANT data := DecodeHSON(parts[1]);
     BroadcastEvent(parts[0], data);
+  }
+  CASE "__INVALIDATEFILE"
+  {
+    IF(Length(parts)!=1)
+      ABORT("Expected parameter 'resourcepath'");
+    STRING path := parts[0];
+    IF (IsAbsoluteResourcePath(path))
+      path := GetWebHareResourceDiskPath(path);
+    STRING resourcename := GetResourceNameFromDiskPath(path, [ allowdiskpath := TRUE ]);
+    STRING resourcefolder := Left(resourcename, SearchLastSubString(resourcename, "/") + 1);
+    IF (resourcefolder LIKE "direct::*")
+      resourcefolder := SubString(resourcefolder, 8); // trim off 'direct::'
+    STRING eventname := `system:modulefolder.${resourcefolder}`;
+    BroadcastEvent(eventname, CELL[ resourcename ]);
+    IF(path LIKE "*/moduledefinition.xml" OR path LIKE "*/moduledefinition.yml")
+      BroadcastEvent("system:modulesupdate", DEFAULT RECORD);
   }
   CASE "GETOVERRIDE"
   {

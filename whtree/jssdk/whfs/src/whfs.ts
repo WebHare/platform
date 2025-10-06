@@ -6,7 +6,7 @@ export { openType, visitResources, whfsType } from "./contenttypes";
 export type {
   VisitedResourceContext,
   VisitCallback,
-  WHFSType,
+  WHFSTypeName,
   InstanceData,
   InstanceSource,
   InstanceExport,

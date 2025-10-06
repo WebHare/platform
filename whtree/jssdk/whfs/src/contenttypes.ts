@@ -20,7 +20,7 @@ export interface WHFSTypes {
 }
 
 /** All (short) names of the WHFS types in this installation */
-export type WHFSType = keyof WHFSTypes;
+export type WHFSTypeName = keyof WHFSTypes;
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
@@ -29,24 +29,24 @@ export type InstanceData = { [key in string]: CodecGetMemberType };
 
 /** Generic instance source format */
 export type InstanceSource = {
-  whfsType: WHFSType | string;
+  whfsType: WHFSTypeName | string;
   data?: { [key in string]?: CodecImportMemberType };
 };
 
 /** Generic instance export format */
 export type InstanceExport = {
-  whfsType: WHFSType | string;
+  whfsType: WHFSTypeName | string;
   data?: { [key in string]?: CodecExportMemberType };
 };
 
 /** The type of the 'data' property of an instance of a specific type */
-export type TypedInstanceData<Type extends WHFSType> = WHFSTypes[Type]["GetFormat"];
+export type TypedInstanceData<Type extends WHFSTypeName> = WHFSTypes[Type]["GetFormat"];
 
 /** The result of a .export() operation on an instance of a specific type */
-export type TypedInstanceExport<Type extends WHFSType> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
+export type TypedInstanceExport<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
 
 /** The input of buildInstance for an instance of a specific type */
-export type TypedInstanceSource<Type extends WHFSType> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["SetFormat"] } : never;
+export type TypedInstanceSource<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["SetFormat"] } : never;
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -416,9 +416,9 @@ export async function visitResources(callback: VisitCallback, scope: {
   return ''; //done!
 }
 
-export function whfsType<const WHFSTypeName extends keyof WHFSTypes | string & {}>(ns: string extends WHFSTypeName ? WHFSTypeName : WHFSType): [WHFSTypeName] extends [WHFSType] ?
-  WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]> :
-  WHFSTypeAccessor<InstanceData, InstanceSource["data"] & object, InstanceExport["data"] & object> {
+export function whfsType<const Type extends keyof WHFSTypes | string & {}>(ns: string extends Type ? Type : WHFSTypeName): [Type] extends [WHFSTypeName] ?
+  WHFSTypeAccessor<WHFSTypes[Type]["GetFormat"], WHFSTypes[Type]["SetFormat"], WHFSTypes[Type]["ExportFormat"]> :
+  WHFSTypeAccessor<InstanceData, NonNullable<InstanceSource["data"]>, NonNullable<InstanceExport["data"]>> {
 
   //export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
   //export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
@@ -429,7 +429,7 @@ export function whfsType<const WHFSTypeName extends keyof WHFSTypes | string & {
 
 
 /** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
-export function openType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
+export function openType<Type extends keyof WHFSTypes>(ns: Type): WHFSTypeAccessor<WHFSTypes[Type]["GetFormat"], WHFSTypes[Type]["SetFormat"], WHFSTypes[Type]["ExportFormat"]>;
 
 //We need to preserve the 'explicitly indicated type' form as existing apps might rely on it
 /** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */

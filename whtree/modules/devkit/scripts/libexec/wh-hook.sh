@@ -144,10 +144,22 @@ if [ "$INSTR" == "status" ] || [ "$INSTR" == "st" ]; then
   UNPUSHEDCHANGES=""
 
   FETCH=
-  if [ "$1" == "--fetch" ]; then
-    FETCH=1
+  VERBOSE=
+  # parse args starting with '-'
+  while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+    (--fetch) FETCH=1 ;;
+    (--verbose) VERBOSE=1 ;;
+    (-v) VERBOSE=1 ;;
+    (--) break;
+    # shellcheck disable=SC2211
+    (*)
+      echo "Illegal option: $1"
+      echo "Usage: wh dev status [--fetch] [--verbose] [<modulename-regex>]"
+      exit 1 ;;
+    esac
     shift
-  fi
+  done
 
   for P in "$WEBHARE_CHECKEDOUT_TO" $DIRS; do
     if [ -d "$P/.git/refs/remotes" ]; then
@@ -166,17 +178,28 @@ if [ "$INSTR" == "status" ] || [ "$INSTR" == "st" ]; then
         git -C "$P" fetch -q
       fi
 
+      BRANCH=
+      if [ -n "$VERBOSE" ]; then
+        BRANCH=" (branch: $(git -C "$P" rev-parse --abbrev-ref HEAD))"
+      fi
+
       # run git status once just to see if there's output (seems to be the easiest way to check for 'any changes')
+      ANYCHANGE=
       if [ -n "$(git -C "$P" status -uall -s)" ]; then
-        echo "Uncomitted changes in ${MODNAME}:"
+        echo "Uncomitted changes in ${MODNAME}${BRANCH}:"
         git -C "$P" status -uall -s
         UNCOMMITEDCHANGES="$UNCOMMITEDCHANGES $MODNAME"
+        ANYCHANGE=1
       fi
 
       if [ -n "$(git -C "$P" cherry --abbrev=7 -v "@{upstream}")" ]; then
-        echo "Unpushed changes in ${MODNAME}:"
+        echo "Unpushed changes in ${MODNAME}${BRANCH}:"
         git -C "$P" cherry --abbrev=7 -v "@{upstream}"
         UNPUSHEDCHANGES="$UNPUSHEDCHANGES $MODNAME"
+        ANYCHANGE=1
+      fi
+      if [ -z "$ANYCHANGE" ] && [ -n "$VERBOSE" ]; then
+        echo "${MODNAME} is clean${BRANCH}"
       fi
     fi
   done

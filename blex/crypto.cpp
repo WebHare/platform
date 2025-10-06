@@ -621,7 +621,7 @@ bool EVPKey::Verify(unsigned datalen, const void *data, std::vector< uint8_t > c
                     throw std::runtime_error("Verification failure - init failed");
 
                 // Call update with the message to sign
-                if (EVP_DigestSignUpdate(mdctx, data, datalen) <= 0)
+                if (EVP_DigestVerifyUpdate(mdctx, data, datalen) <= 0)
                     throw std::runtime_error("Verification failure - update failed");
 
                 // Finalise the DigestVerify operation

@@ -73,6 +73,13 @@
           </xs:appinfo>
         </xs:annotation>
       </xs:attribute>
+      <xs:attribute name="urlbarvisible" type="xs:boolean" default="true">
+        <xs:annotation>
+          <xs:documentation>
+            Whether the URL bar with the link to the previewed object is visible.
+          </xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
