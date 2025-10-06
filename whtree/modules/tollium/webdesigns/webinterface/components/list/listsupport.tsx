@@ -24,6 +24,7 @@ export interface ListRowLayout {
       rowspan: number;
     }>;
   }>;
+  maxwidth: string;
 }
 
 export interface ListCol {
