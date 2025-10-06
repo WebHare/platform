@@ -59,8 +59,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
   {
-    RETURN [ dontencodewebpackquestions := ParseXSBoolean(node->GetAttribute("dontencodewebpackquestions")) //'hack' to allow us to prevent html-encoding questions. some webpack users need this to embed hyperlinks
-           , usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
+    RETURN [ usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
            , allowsubmittype := ParseXSBoolean(node->GetAttribute("allowsubmittype"))
            , countrylist := node->HasAttribute("countrylist") ? ParseXSList(node->GetAttribute("countrylist")) : ["WORLD"]
            , addressoptions := node->HasAttribute("addressoptions") ? ParseXSList(node->GetAttribute("addressoptions")) : default_addressfield_options
@@ -68,9 +67,6 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
            , enableinfotexts := ParseXSBoolean(node->GetAttribute("enableinfotexts"))
            , infotextrtdtype := node->GetAttribute("infotextrtdtype")
            , mailrtdtype := node->GetAttribute("mailrtdtype")
-           , maxstoredays := node->HasAttribute("maxstoredays") ? ParseXSInt(node->GetAttribute("maxstoredays")) : -1
-           , defaultstoredays := node->HasAttribute("defaultstoredays") ? ParseXSInt(node->GetAttribute("defaultstoredays")) : -1
-           , processdays := node->HasAttribute("processdays") ? ParseXSInt(node->GetAttribute("processdays")) : -1
            , addressvalidationkey := node->GetAttribute("addressvalidationkey")
            , addressvalidationschema := node->GetAttribute("addressvalidationschema")
            , webtoolformhooks := siteprofile->ParseFSPath(node, "webtoolformhooks")

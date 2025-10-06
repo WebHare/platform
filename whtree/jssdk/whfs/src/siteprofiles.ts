@@ -187,14 +187,10 @@ export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
   addressvalidationschema: string;
   allowsubmittype: boolean;
   countrylist: string[];
-  defaultstoredays: number;
-  dontencodewebpackquestions: boolean;
   enableinfotexts: boolean;
   enablepagetitles: boolean;
   infotextrtdtype: string;
   mailrtdtype: string;
-  maxstoredays: number;
-  processdays: number;
   usecaptcha: boolean;
   webtoolformhooks: string;
 }
