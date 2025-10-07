@@ -113,7 +113,7 @@ PUBLIC BOOLEAN FUNCTION IsWHSafePublicEndpoint(STRING url)
 
   // Safe URLs. Too many, so we will slowly transition to moving all behind /.wh/
   STRING relpath := UnpackURL(url).urlpath;
-  RETURN relpath LIKE ".wh/*" //this should be the ONLY url in the future
+  RETURN relpath LIKE ".wh/*" //this should be the ONLY url in the future except for those we can't control (like .well-known)
           OR relpath LIKE "wh_services/*"
           OR relpath LIKE ".ap/*"
           OR relpath LIKE ".se/*" // used for tracking by publisher/js/analytics/gtm.es
@@ -123,6 +123,6 @@ PUBLIC BOOLEAN FUNCTION IsWHSafePublicEndpoint(STRING url)
           //until enough bookmark users have transitioned to new URLs
           OR relpath LIKE ".publisher/common/debug/*"
           OR relpath LIKE ".publisher/common/find/*"
-          //TODO consider whether we should just open all of well-known.
+          // third parties need to be able to access this if it exists
           OR relpath LIKE ".well-known/openid-configuration";
 }
