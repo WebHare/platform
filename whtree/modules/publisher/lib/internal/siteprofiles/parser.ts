@@ -1,7 +1,7 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
 import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWebtoolsFormRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { existsSync, readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
@@ -775,15 +775,12 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   }
 
   if (apply.forms) {
-    rule.webtoolsformrules = apply.forms.map(fr =>
-      "allowComponent" in fr ? { allow: true, type: fr.allowComponent as string || '', comp: "component" }
-        : "denyComponent" in fr ? { allow: false, type: fr.denyComponent as string || '', comp: "component" }
-          : "allowHandler" in fr ? { allow: true, type: fr.allowHandler as string || '', comp: "handler" }
-            : "denyHandler" in fr ? { allow: false, type: fr.denyHandler as string || '', comp: "handler" }
-              : "allowRTDType" in fr ? { allow: true, type: fr.allowRTDType as string || '', comp: "rtdtype" }
-                : "denyRTDType" in fr ? { allow: false, type: fr.denyRTDType as string || '', comp: "rtdtype" }
-                  : throwError(`Unknown form rule type in ${JSON.stringify(fr)}`) as CSPWebtoolsFormRule
-    );
+    for (const tomap of apply.forms?.components || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "component", type: (tomap.allow || tomap.deny) as string });
+    for (const tomap of apply.forms?.handlers || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "handler", type: (tomap.allow || tomap.deny) as string });
+    for (const tomap of apply.forms?.rtdTypes || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "rtdtype", type: (tomap.allow || tomap.deny) as string });
   }
 
   if (apply.fileTypes)

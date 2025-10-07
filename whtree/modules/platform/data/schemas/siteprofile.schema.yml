@@ -433,6 +433,23 @@ $defs:
         items:
           type: string
 
+  AllowDenyTypeList:
+    type: array
+    items:
+      type: object
+      unevaluatedProperties: false
+      oneOf:
+        - type: object
+          required: [allow]
+          properties:
+            allow:
+              $ref: "#/$defs/MatchType"
+        - type: object
+          required: [deny]
+          properties:
+            deny:
+              $ref: "#/$defs/MatchType"
+
   Apply:
     type: object
     unevaluatedProperties: false
@@ -829,42 +846,19 @@ $defs:
             denyType:
               "$ref": "#/$defs/MatchType"
 
-  ApplyForms: # an array of - allowQuestion, - denyHandler... not sure if we could do this more elegantly as wildcards make ordering important
-    type: array
-    items:
-      type: object
-      unevaluatedProperties: false
-      oneOf:
-        - type: object
-          required: [allowComponent]
-          properties:
-            allowComponent:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyComponent]
-          properties:
-            denyComponent:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [allowHandler]
-          properties:
-            allowHandler:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyHandler]
-          properties:
-            denyHandler:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [allowRTDType]
-          properties:
-            allowRTDType:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyRTDType]
-          properties:
-            denyRTDType:
-              $ref: "#/$defs/MatchType"
+  ApplyForms:
+    type: object
+    additionalProperties: false
+    properties:
+      components:
+        description: "Components to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
+      handlers:
+        description: "Handlers to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
+      rtdTypes:
+        description: "RTD Types to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
 
   ApplyToRepublish:
     type: array

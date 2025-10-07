@@ -5,7 +5,7 @@ import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlo
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
 import { nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
 import { whconstant_builtinmodules, whconstant_defaultwidgetgroup } from "@mod-system/js/internal/webhareconstants";
-import type { ApplyForms, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
+import type { AllowDenyTypeList, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import YAML from "yaml";
 import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
@@ -395,12 +395,13 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
   }
 
   if (ar.webtoolsformrules?.length) {
-    //We need to map the { allow, comp, type} triplet to a property named [allow | deny] [Component | Handler | RTDType]: comp //the actual mask
-    rule.forms = ar.webtoolsformrules.map(fr => {
-      const prop = fr.allow ? "allow" : "deny";
-      const comp = fr.comp === "component" ? "Component" : fr.comp === "handler" ? "Handler" : fr.comp === "rtdtype" ? "RTDType" : throwError(`Unsupported form rule type ${fr.comp}`);
-      return { [prop + comp]: fr.type } as ApplyForms[0];
-    });
+    rule.forms ||= {};
+
+    for (const fr of ar.webtoolsformrules) {
+      const comp = fr.comp === "component" ? "components" : fr.comp === "handler" ? "handlers" : fr.comp === "rtdtype" ? "rtdTypes" : throwError(`Unsupported form rule type ${fr.comp}`);
+      rule.forms[comp] ||= [];
+      rule.forms[comp].push({ [fr.allow ? "allow" : "deny"]: fr.type } as AllowDenyTypeList[number]);
+    }
   }
 
   if (ar.rtddoc) {
