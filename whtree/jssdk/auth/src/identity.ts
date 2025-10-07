@@ -1172,7 +1172,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   return {
     type: "form",
     form: {
-      action: `${new URL(targetUrl).origin}/.wh/preauth/settoken`,
+      action: `${new URL(targetUrl).origin}/.wh/auth/settoken`,
       vars: [{ name: "settoken", value: encryptForThisServer("platform:settoken", setToken) }]
     }
   };

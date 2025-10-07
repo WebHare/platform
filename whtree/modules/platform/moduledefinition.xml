@@ -35,7 +35,6 @@
     - `/.wh/ea/uc/`: The new location for the unified cache (Files and Images)
     - `/.wh/ea/ap/`: The new location for asset packs (see also getAssetPackBase)
     -->
-    <webrule path="allroots:/.wh/preauth/" match="initial" router="/js/auth/authpages.ts#preAuthRouter" priority="before" />
     <webrule path="allroots:/.wh/auth/" match="initial" router="/js/auth/authpages.ts#authRouter" />
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
 
