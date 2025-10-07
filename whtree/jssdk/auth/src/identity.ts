@@ -1187,7 +1187,7 @@ export function wrapAuthCookiesIntoForm(targetUrl: string, setAuthCookies: SetAu
   return {
     type: "form",
     form: {
-      action: `${new URL(targetUrl).origin}/.wh/preauth/settoken`,
+      action: `${new URL(targetUrl).origin}/.wh/auth/settoken`,
       vars: [{ name: "settoken", value: encryptForThisServer("platform:settoken", setToken) }]
     }
   };
