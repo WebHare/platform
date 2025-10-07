@@ -1024,6 +1024,9 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
   };
 
   if (rule.router) {
+    result.rule.ruledata = {
+      router: context.resolve(rule.router)
+    };
     result.rule.datastorage = [
       {
         method: 'direct',
