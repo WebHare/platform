@@ -47,7 +47,7 @@ LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 CONSTANT STRING ARRAY requiredapiproperties :=  [ "onsetenabled", "onloaddata", "onstoredata" ];
 
-PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
+PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   // ---------------------------------------------------------------------------
   //
   // Variables
@@ -84,7 +84,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO Init(RECORD data)  {
     this->frame->flags.isdeveloper := this->contexts->user->ShowDeveloperOptions();
     this->frame->flags.isdirty := FALSE;
-    this->developersmenu->visible := this->frame->flags.isdeveloper;
+    ^developersmenu->visible := this->frame->flags.isdeveloper;
     this->contexts->editdocumentapi := NEW EditDocumentAPI(PRIVATE this);
     this->requireworkflow := TRUE;
 
@@ -126,7 +126,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->SetupForFileEdit(this->itemid, data.objeditor);
     this->RefreshReadonly(fsobject);
 
-    this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
+    ^publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
 
     RECORD ARRAY drafts := this->RefreshCurrentDraft();
 
@@ -243,15 +243,15 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       IF(IsDefaultValue(GetMember(this->contexts->editdocumentapi, requiredprop)))
         THROW NEW Exception(`Document editor ${objecteditor.documenteditor} must implement '${requiredprop}'`);
 
-    this->doceditor->contents := filehandler;
+    ^doceditor->contents := filehandler;
 
     // Merge document editor toolbar
-    IF(Length(this->doceditor->contents->frame->toolbars) > 0)
-      this->toolbar->items := this->toolbar->items CONCAT this->doceditor->contents->frame->toolbars[0]->items;
+    IF(Length(^doceditor->contents->frame->toolbars) > 0)
+      ^toolbar->items := ^toolbar->items CONCAT ^doceditor->contents->frame->toolbars[0]->items;
 
     // Merge document editor main menu
-    IF (ObjectExists(this->doceditor->contents->frame->menubar))
-      this->MergeIntoMainMenu(this->frame->menubar, this->doceditor->contents->frame->menubar->items);
+    IF (ObjectExists(^doceditor->contents->frame->menubar))
+      this->MergeIntoMainMenu(this->frame->menubar, ^doceditor->contents->frame->menubar->items);
 
     // Apply editor hooks. We do this after setting up the main screen (which will already have hooked into the EditDocumentAPI at this point)
     this->contexts->applytester->RunSiteprofileHookTarget("publisher:documenteditor",
@@ -374,7 +374,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         basetext := this->GetTid(".draftmode-by-other", user, when);
       }
 
-      this->draftmode->htmlvalue := EncodeHTML(basetext);
+      ^draftmode->htmlvalue := EncodeHTML(basetext);
       ^draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
       ^draftbar->visible := TRUE;
     } ELSE
@@ -427,14 +427,14 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
     this->frame->title := this->isnew ? GetTid("publisher:tolliumapps.editdocument.newdocument") : this->filedata.name;
 
-    this->filestatusicon->SetImageSrc(state.icon);
-    this->filestatustext->value := state.text;
+    ^filestatusicon->SetImageSrc(state.icon);
+    ^filestatustext->value := state.text;
 
-    this->publishmenu->visible := NOT this->readonly;
-    this->savemenu->visible := NOT this->readonly;
-    this->canceldraftmenu->visible := NOT this->readonly;
-    this->publishbutton->visible := NOT this->readonly;
-    this->saveasdraftbutton->visible := NOT this->readonly;
+    ^publishmenu->visible := NOT this->readonly;
+    ^savemenu->visible := NOT this->readonly;
+    ^canceldraftmenu->visible := NOT this->readonly;
+    ^publishbutton->visible := NOT this->readonly;
+    ^saveasdraftbutton->visible := NOT this->readonly;
   }
 
   OBJECT FUNCTION GetEditingSourceObject()
@@ -654,8 +654,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   MACRO DoSave()
   {
-    IF(this->name->value = "" AND this->title->value = "")
-    {
+    IF(^name->value = "" AND ^title->value = "") {
       this->RunSimpleScreen("error", this->GetTid(".missingtitleorname"));
       RETURN;
     }
