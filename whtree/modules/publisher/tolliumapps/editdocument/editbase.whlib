@@ -165,7 +165,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     this->parentfolder := this->contexts->applytester->objparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->contexts->applytester->objparent);
     this->itemid := objectid;
     this->SetupBaseSettings();
-    this->isnew := objectid = 0 OR (RecordExists(this->metatabsconfig) AND this->metatabsconfig.is_new);
+    this->isnew := objectid = 0;
   }
 
   MACRO DoInspectMetaTabs() {

@@ -382,15 +382,6 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
   RETURN ObjectExists(draft) AND draft->source = objid ? draft : DEFAULT OBJECT;
 }
 
-PUBLIC OBJECT FUNCTION CreateNewTemporary(OBJECT owner, INTEGER newparent, RECORD metadata)
-{
-  INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  OBJECT tempfile := OpenWHFSObject(whconstant_whfsid_autosaves)->CreateFile(
-    CELL[ ...metadata, name := ToString(destid), id := destid, modifiedby := owner->authobjectid, publish := FALSE ]);
-  tempfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", [ parent := newparent ]);
-  RETURN tempfile;
-}
-
 /** Start a workflow update (create an autosave to have an object that can receive a RTD being updated)
     @param objid - The ID of the object we're updating. Draft or final object id */
 PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
@@ -428,7 +419,6 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
   OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
   typeobj->SetInstancedata(destid,
       [ name :=       baseobjectid = objid ? objinfo.name : typeobj->GetInstanceData(objid).name
-      , parent :=     objinfo.parent
       ], [ ifreadonly := "update" ]);
 
   GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid);

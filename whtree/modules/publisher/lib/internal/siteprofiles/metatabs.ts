@@ -26,8 +26,6 @@ interface MetaTabs {
     layout?: string[];
     sections: MetadataSection[];
   }>;
-  /** Is this a new object (ie lives in autosave space, not original that's added to a public WHFS folder yet) */
-  isNew: boolean;
   /** Issues - for now simply strings */
   issues: string[];
 }
@@ -112,7 +110,6 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
 
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
-    isNew: applytester.isNew(),
     [hsinfo]: applytester.__getHSInfo(),
     issues: []
   };
@@ -227,7 +224,6 @@ interface MetaTabsForHS {
       }>;
     }>;
   }>;
-  is_new: boolean;
   __hsinfo: unknown;
   issues: string[];
 }
@@ -246,7 +242,6 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
         }))
       }))
     })),
-    is_new: metatabs.isNew,
     __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo],
     issues: metatabs.issues
   };

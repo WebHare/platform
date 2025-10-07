@@ -357,10 +357,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     }
     this->frame->flags.canrevertdraft := ObjectExists(this->currentautosave ?? this->currentdraft) AND this->frame->flags.canedit AND NOT this->readonly;
 
-    ^title->onchange := this->isnew ? PTR this->SyncNameWithTitle : DEFAULT MACRO PTR;
-    IF(NOT this->isnew)
-      ^name->placeholder := "";
-    ^name->required := NOT this->isnew;
+    // TODO: perhaps we still want to do something like ^title->onchange := PTR this->SyncNameWithTitle if the doc was never saved?
 
     //ADDME: Show draft if no published version available
     IF(ObjectExists(this->currentdraft) AND this->showdraftbar AND NOT this->readonly) {
@@ -425,7 +422,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     BOOLEAN havesomethingtopublish := ObjectExists(this->currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
     //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
     this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
-    this->frame->title := this->isnew ? GetTid("publisher:tolliumapps.editdocument.newdocument") : this->filedata.name;
+    this->frame->title := this->filedata.name;
 
     ^filestatusicon->SetImageSrc(state.icon);
     ^filestatustext->value := state.text;
@@ -463,7 +460,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       }
     }
 
-    IF(NOT this->isnew AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid)) {
+    IF(NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid)) {
       Print("save aborted - not privileged\n");
       RETURN FALSE; //FIXME report
     }
@@ -485,27 +482,16 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenHWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
 
     IF (NOT work->HasFailed()) {
-      IF(this->isnew) { //TODO what we do here should be similar to objectprops name generation, can we share ? including the unique name check?
-        //New items, even *unpublished*, when created through objectprops, always live in their final folder. We basically simulate that: move the autosave to the final location
-        RECORD draftmeta := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->itemid);
-        IF(draftmeta.parent = 0)
-          THROW NEW Exception(`Missing parent for new document #${this->itemid}`);
-
-        OBJECT parentfolder := OpenWHFSObject(draftmeta.parent);
-        finalitem->MoveTo(parentfolder, ^name->value ?? ^name->placeholder);
-        this->currentdraft := DEFAULT OBJECT;
-      } ELSE { //We're updating an existing document
-        IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
-          this->currentautosave->SaveAsNewPublicDraft(this->contexts->user);
-        } ELSE { // commit or publish
-          OBJECT source := this->currentautosave ?? this->currentdraft;
-          IF (ObjectExists(source)) {
-            // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
-            source->SaveAsFinal(this->contexts->user);
-          }
+      IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
+        this->currentautosave->SaveAsNewPublicDraft(this->contexts->user);
+      } ELSE { // commit or publish
+        OBJECT source := this->currentautosave ?? this->currentdraft;
+        IF (ObjectExists(source)) {
+          // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
+          source->SaveAsFinal(this->contexts->user);
         }
-        this->RefreshCurrentDraft();
       }
+      this->RefreshCurrentDraft();
 
       this->currentautosave := DEFAULT OBJECT;
 
@@ -529,13 +515,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RETURN FALSE;
     }
 
-    IF(this->isnew) { //it no longer is!
-      this->isnew := FALSE; //TODO merge into refreshstate, just look at applytester or path
-      ^name->value := finalitem->name;
-      //Updates display info (eg frame title)
-      this->filedata := [ name := finalitem->name, modificationdate := finalitem->modificationdate ];
-    }
-
     ^dirtylistener->ClearDirty();
     //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
     this->RefreshState();
@@ -552,17 +531,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF (this->frame->flags.isdirty)
     {
       OBJECT toupdate;
-      IF(this->isnew) //no intermediate autosave needed for isnew .. as isnew *is* the autosave
-      {
-        toupdate := OpenWHFSObject(this->itemid);
-      }
-      ELSE
-      {
-        IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
-          this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, [ user := GetEffectiveUser() ]);
+      IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
+        this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, [ user := GetEffectiveUser() ]);
 
-        toupdate := this->currentautosave->fsobject;
-      }
+      toupdate := this->currentautosave->fsobject;
 
       this->contexts->editdocumentapi->__FlushInstanceData(toupdate);
       this->SaveMetadata(toupdate->id);
