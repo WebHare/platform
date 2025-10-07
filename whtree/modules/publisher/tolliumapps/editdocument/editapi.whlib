@@ -63,6 +63,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   PUBLIC INTEGER ARRAY internallinkroots;
 
   PUBLIC PROPERTY baseobject(GetBaseObject, -);
+  //FIXME dangeorus endpoints to give such full access
   PUBLIC PROPERTY editobject(GetEditObject, -);
 
   PUBLIC PROPERTY readonly(this->editscreen->readonly, -);
@@ -89,7 +90,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   PUBLIC MACRO UpdateMetadata(RECORD fields)
   {
     fields := ValidateOptions(CELL[ data := DEFAULT BLOB], fields, [ optional := ["data"]]);
-    this->editscreen->GetInstanceObject()->UpdateMetadata(fields);
+    this->editscreen->workflowmgr->UpdateMetadata(fields);
   }
 
   MACRO AssertWorkflowSupport(STRING type) {
@@ -104,7 +105,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   PUBLIC RECORD FUNCTION GetInstanceData(STRING type) {
     this->AssertWorkflowSupport(type);
 
-    RECORD originaldata := this->editscreen->GetInstanceObject()->GetInstanceData(type);
+    RECORD originaldata := this->editscreen->workflowmgr->GetInstanceData(type);
     RECORD cached := SELECT * FROM this->instancedatacache WHERE namespace = type;
     IF (RecordExists(cached))
       RETURN CELL[...originaldata, ...cached.data];
@@ -169,12 +170,12 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 
   INTEGER FUNCTION GetBaseObject()
   {
-    RETURN this->editscreen->GetBaseFSObject()->id;
+    RETURN this->editscreen->itemid;
   }
 
   INTEGER FUNCTION GetEditObject()
   {
-    RETURN this->editscreen->GetInstanceObject()->id;
+    RETURN this->editscreen->workflowmgr->__GetAutosavedObject()->id;
   }
 
   MACRO SetOnCanView(MACRO PTR callback)

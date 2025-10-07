@@ -2,6 +2,7 @@
 
 LOADLIB "wh::javascript.whlib";
 
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
@@ -59,19 +60,14 @@ PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
 >;
 
 // Base class for ObjectProperties and the Document Editor. Preparing to share common code with objectprops
-PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   /// Id of edited object, 0 for new or duplicate objects
   INTEGER itemid;
-  /// Enable to only show workflow-enabled tabs
-  BOOLEAN requireworkflow;
 
   // Metatabs config as received from describeMetaTabsForHS
   RECORD metatabsconfig;
   // Controllers for the metadata. For now we'll rely on compositions
   PUBLIC RECORD ARRAY metacontrollers;
-  /// Force opening as readonly
-  BOOLEAN forcereadonly;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
   /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
@@ -87,16 +83,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 
   RECORD basesettings;
 
-  BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj) {
-    RETURN this->forcereadonly
-           OR (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
-           OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
+  OBJECT workflowmgr;
 
-  }
-
-  MACRO RefreshReadonly(OBJECT fsobj)
+  MACRO RefreshReadonly()
   {
-    BOOLEAN setreadonly := this->IsReadOnly(fsobj);
+    BOOLEAN setreadonly := this->workflowmgr->IsReadOnly();
     this->readonly := setreadonly;
     this->OnReadonlyChange();
   }
@@ -146,8 +137,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     RETURN CELL [pinned, parentfullaccess];
   }
 
-  MACRO SetupEditBaseForExistingObject(INTEGER objectid, BOOLEAN isreadonly) {
-    this->forcereadonly := isreadonly;
+  MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
+    this->workflowmgr := NEW WorkflowManager(objectid, CELL[ user := this->contexts->user, ...options]);
     this->__SetupEditBase(objectid, 01, FALSE, -1);
   }
   MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type)
@@ -155,9 +146,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     this->__SetupEditBase(0, parent, isfolder, type);
   }
 
-  MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
-  {
-    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type, this->requireworkflow ] );
+  MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type) {
+    BOOLEAN useworkflow := ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow;
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[ objectid, parent, isfolder, type, useworkflow ] );
     this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
     IF(NOT ObjectExists(this->contexts->applytester))
       THROW NEW TolliumException(this, "No applytester found for this object");
@@ -208,11 +199,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   MACRO LoadMetadata(OBJECT sourceobject)
   {
     FOREVERY(RECORD controller FROM this->metacontrollers)
-      controller.fsinstance->value := controller.type->GetInstanceData(sourceobject->id);
+      controller.fsinstance->value := sourceobject->GetInstanceData(controller.type->namespace);
   }
 
   MACRO SaveMetadata(INTEGER targetobject) { //editdocument will always be invoking us with a draft as parameter
-    OBJECT target := this->requireworkflow ? OpenWHFSDraft(targetobject) : OpenWHFSObject(targetobject);
+    OBJECT target := ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow ? this->workflowmgr : OpenWHFSObject(targetobject);
 
     //FIXME ensure any specific validation rule *and* all valueConstraints are honored
     FOREVERY(RECORD controller FROM this->metacontrollers)
@@ -225,7 +216,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
                                 , description := ^description->value
                                 , keywords := ^keywords->value
                                 //FIXME unsafe when renaming from RTD, needs the same checks as objectprops?
-                                , ...(this->requireworkflow ? [ name := ^name->value ] : DEFAULT RECORD)
+                                , ...(ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow ? [ name := ^name->value ] : DEFAULT RECORD)
                                 ]);
   }
 

@@ -1,12 +1,14 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" EXPORT StartWorkflowUpdate;
-
 
 CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_recycled
                                     , "saved"      //1 whconstant_historytype_saved
@@ -89,3 +91,243 @@ PUBLIC OBJECT FUNCTION CreateObjectWithHistory(OBJECT user, OBJECT parent, RECOR
 
   RETURN final;
 }
+
+/** Manage the draft/autosave/publish workflow for an editor */
+PUBLIC STATIC OBJECTTYPE WorkflowManager <
+  /// The original object, outside draft/autosave namespace
+  OBJECT baseobject;
+
+  /// Current autosave object
+  OBJECT currentautosave;
+
+  /// Current draft object
+  OBJECT currentdraft;
+
+  RECORD options;
+
+  PUBLIC PROPERTY useworkflow(this->options.useworkflow,-);
+
+  /** @param options.useworkflow - Enable to only show workflow-enabled tabs
+   */
+  MACRO NEW(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    this->options := ValidateOptions(CELL[ readonly := FALSE
+                                         , useworkflow := FALSE
+                                         , assumewriteaccess := FALSE
+                                         , user := DEFAULT OBJECT
+                                         ], options);
+    this->baseobject := OpenWHFSObject(objid);
+
+    //TODO Or handle this as part of state requests
+    IF(NOT ObjectExists(this->baseobject))
+      THROW NEW Exception(`No such object: ${objid}`);
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsReadOnly() { //TODO cache, shouldn't poll rights every time
+    RETURN this->options.readonly
+           OR IsReadonlyWHFSSpace(this->baseobject->whfspath)
+           OR (NOT this->options.assumewriteaccess
+               AND (NOT ObjectExists(this->options.user) OR NOT this->options.user->HasRightOn("system:fs_fullaccess", this->baseobject->id)));
+  }
+
+  PUBLIC INTEGER FUNCTION GetObjectIdForInspect(STRING version) {
+    SWITCH(version) {
+      CASE "live" {
+        RETURN this->baseobject->id;
+      }
+      CASE "draft" {
+        RETURN ObjectExists(this->currentdraft) ? this->currentdraft->id : 0;
+      }
+      CASE "autosave" {
+        RETURN ObjectExists(this->currentautosave) ? this->currentautosave->id : 0;
+      }
+      DEFAULT {
+        THROW NEW Exception("Invalid version, must be one of 'live', 'draft' or 'autosave'");
+      }
+    }
+  }
+
+  PUBLIC STRING FUNCTION GetPreviewLink(STRING version, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    IF(version NOT IN ["live","draft","autosave"])
+      THROW NEW Exception("Invalid version, must be one of 'live', 'draft' or 'autosave'");
+
+    OBJECT toshow := version = "autosave" ? this->__GetAutosavedObject() : version = "draft" ? this->__GetDraftObject() : this->baseobject;
+    RETURN GetPreviewLink(toshow->id, options);
+  }
+
+  //exported for some legacy preveiw code, but GetPreview should be used
+  PUBLIC OBJECT FUNCTION __GetAutosavedObject() {
+    RETURN ObjectExists(this->currentautosave) ? this->currentautosave->fsobject : this->__GetDraftObject();
+  }
+
+  PUBLIC OBJECT FUNCTION __GetDraftObject() {
+    RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : this->baseobject;
+  }
+  OBJECT FUNCTION GetInstanceObject() {
+    RETURN ObjectExists(this->currentautosave)
+        ? this->currentautosave->fsobject
+        : this->__GetAutosavedObject();
+  }
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
+    RETURN this->GetInstanceObject()->GetInstanceData(whfstype);
+  }
+  MACRO EnsureAutosave() {
+    IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
+      this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id, [ user := this->options.user ]);
+  }
+  PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
+    this->EnsureAutosave();
+    //TODO workflow validation?
+    this->currentautosave->SetInstanceData(whfstype, data);
+  }
+  PUBLIC RECORD FUNCTION GetMetadata() {
+    OBJECT historicobj := this->currentautosave ?? this->currentdraft;
+    IF(ObjectExists(historicobj)) {
+      RETURN historicobj->GetMetadata();
+      // RECORD draftmeta := historicobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
+      // RECORD basefields := SELECT title, keywords, description FROM system.fs_objects WHERE id = historicobj->id;
+      // RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description ];
+    } ELSE {
+      RETURN SELECT name, title, keywords, description FROM system.fs_objects WHERE id = this->baseobject->id;
+    }
+  }
+  PUBLIC MACRO UpdateMetadata(RECORD updates) {
+    this->EnsureAutosave();
+    this->currentautosave->UpdateMetadata(updates);
+    /* TODO is the drafts.whlib API really adding something useful... will there be other API users or is WorkflowManager more useful.for everyone?
+    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "" ], updates, [ optional := ["*"], title := "updates" ] );
+
+    IF(CellExists(updates,'name'))
+      this->currentautosave->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
+
+    RECORD directupdates :=  PickCells(updates, ["title","description","keywords"]);
+    IF(Length(UnpackRecord(directupdates))>0)
+      this->currentautosave->UpdateMetadata(directupdates);
+    */
+  }
+
+  RECORD ARRAY FUNCTION RefreshCurrentDraft() {
+    RECORD ARRAY drafts := GetDrafts(this->baseobject->id);
+    IF(Length(SELECT FROM drafts WHERE ispublic)>1)
+      THROW NEW Exception("Multiple public drafts");
+
+    /* Public draft present?
+          Submitted for approval?
+              Say so, exit
+          Someone else created it?
+              Say so, exit if user wants to exit
+
+        Private draft present for current user?
+            Open it, ask if user wants to resume
+                No->revert to default version
+                Yes->keep private draft as current version
+    */
+
+    this->currentdraft := DEFAULT OBJECT; //reset the current draft in case we can't find any active one,
+
+    //ADDME: Add a way for read-only users to switch between draft en live?
+    IF (NOT this->IsReadOnly()) {
+      RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
+      IF(RecordExists(currentdraft)) {
+        this->currentdraft := OpenDraft(this->baseobject->id, currentdraft.id);
+        IF(NOT ObjectExists(this->currentdraft))
+          THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
+      }
+    }
+
+    RETURN drafts;
+  }
+
+  PUBLIC RECORD FUNCTION GetCurrentDraft() {
+    IF(NOT this->options.useworkflow)
+      THROW NEW Exception("Draft management requires setting 'useworkflow'");
+
+    //FIXME this currently sets this->currentdraft but the APIs shouldn't rely on a user invoking GetCompetingDraft
+    RECORD ARRAY drafts := this->RefreshCurrentDraft();
+
+    RECORD activedraft := SELECT * FROM drafts WHERE ispublic  ORDER BY creationdate DESC LIMIT 1;
+    IF(NOT this->IsReadOnly() AND RecordExists(activedraft)) {
+      RETURN CELL[ user_auth_object := activedraft.user
+                 , draft_saved := activedraft.creationdate //FIXME is this right? isn't this when autosaving would have started instead of draft's last save?
+                 , mine := activedraft.mine
+                 ];
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION GetResumableAutosave() {
+    IF(NOT this->options.useworkflow)
+      THROW NEW Exception("Draft management requires setting 'useworkflow'");
+
+    RECORD ARRAY drafts := GetDrafts(this->baseobject->id);
+    IF(this->IsReadOnly())
+      RETURN DEFAULT RECORD;
+
+    //FIXME this currently sets this->currentautosave but the APIs shouldn't rely on a user invoking GetResumableAutosave
+    BOOLEAN mustloadrte := TRUE;
+    RECORD myautosave := SELECT * FROM drafts WHERE mine AND NOT ispublic ORDER BY creationdate DESC LIMIT 1;
+    IF(RecordExists(myautosave)) {
+      this->currentautosave := OpenDraft(this->baseobject->id, myautosave.id);
+      RETURN CELL[];
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC MACRO DiscardAutosavedChanges() {
+    CleanupMyPrivateDrafts(this->baseobject->id);
+    this->currentautosave := DEFAULT OBJECT;
+  }
+
+  PUBLIC MACRO DiscardDraftAndAutosavedChanges() {
+    IF (ObjectExists(this->currentautosave))     {
+      this->currentautosave->DeleteSelf();
+      this->currentautosave := DEFAULT OBJECT;
+    }
+    IF (ObjectExists(this->currentdraft)) {
+      this->currentdraft->DeleteSelf();
+      this->currentdraft := DEFAULT OBJECT;
+    }
+  }
+
+  PUBLIC RECORD FUNCTION GetObjectMetadata() {
+    IF(ObjectExists(this->currentautosave ?? this->currentdraft)) {
+      RECORD meta := (this->currentautosave ?? this->currentdraft)->GetMetadata();
+      RETURN CELL [ name := meta.name
+                  , title := meta.title
+                  , keywords := meta.keywords
+                  , description := meta.description
+                  ];
+    } ELSE {
+      RETURN CELL [ name := this->baseobject->name
+                  , title := this->baseobject->title
+                  , keywords := this->baseobject->keywords
+                  , description := this->baseobject->description
+                  ];
+    }
+  }
+
+  PUBLIC BOOLEAN FUNCTION HaveAutosavedChanges() {
+    RETURN ObjectExists(this->currentautosave);
+  }
+
+  PUBLIC BOOLEAN FUNCTION HaveDraftOrAutosavedChanged() { //ie 'there may be something to revert
+    RETURN ObjectExists(this->currentautosave ?? this->currentdraft);
+  }
+
+  PUBLIC MACRO Save(BOOLEAN withpublish) {
+    IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
+      this->currentautosave->SaveAsNewPublicDraft(this->options.user);
+    } ELSE { // commit or publish
+      OBJECT source := this->currentautosave ?? this->currentdraft;
+      IF (ObjectExists(source)) {
+        // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
+        source->SaveAsFinal(this->options.user);
+      }
+    }
+    this->RefreshCurrentDraft();
+
+    this->currentautosave := DEFAULT OBJECT;
+  }
+
+
+>;
