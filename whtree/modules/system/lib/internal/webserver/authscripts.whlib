@@ -5,8 +5,14 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+
 PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
 {
+  IF(IsWHSafePublicEndpoint(GetRequestURL()))
+    RETURN; //No auth needed
+
   BOOLEAN enable_logging := IsDebugTagEnabled("wrdauth");
   OBJECT trans;
 
