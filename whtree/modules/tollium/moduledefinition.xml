@@ -69,7 +69,6 @@
     <internalservice library="scripts/internal/applicationstarter.whscr"
                      mode="ondemand"
                      portname="tollium:appstarter"
-                     releaseonsoftreset="true"
                      screen=""
                      tag="tolliumapplicationstarter"
                      tid="todd.misc.applicationstarter"
