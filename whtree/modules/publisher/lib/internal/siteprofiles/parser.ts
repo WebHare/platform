@@ -524,7 +524,7 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
     linkhandlers: type.linkHandlers?.map(lh => ({ namespaceuri: lh.split('#')[0], localname: lh.split('#')[1] || '' })) || [],
-    margins: "none",
+    margins: "",
     allowedobjects: parseAllowedObjects(type.allowedObjects || []),
 
   };

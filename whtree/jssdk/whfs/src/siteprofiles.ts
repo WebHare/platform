@@ -134,7 +134,7 @@ export interface CSPContentType {
   ignoresiteprofilewidgets?: boolean;
   applytester?: null;
   linkhandlers?: Array<{ namespaceuri: string; localname: string }>;
-  margins?: "none" | "compact" | "wide";
+  margins?: "" | "none" | "compact" | "wide";
 }
 
 export type CSPRTDBlockStyle = {
