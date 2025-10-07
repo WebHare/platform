@@ -676,28 +676,21 @@ STATIC OBJECTTYPE ApplyRuleTesterCache
   // Public interface
   //
 
-  PUBLIC STRING FUNCTION GetWHFSTypeNamespace(INTEGER id, BOOLEAN isfolder)
+  PUBLIC RECORD FUNCTION GetWHFSTypeNamespace(INTEGER id, BOOLEAN isfolder)
   {
     IF (id = 0)
-    {
-      RETURN isfolder
-          ? "http://www.webhare.net/xmlns/publisher/normalfolder"
-          : "http://www.webhare.net/xmlns/publisher/unknownfile";
-    }
+      RETURN GetNamespacesForType(0, isfolder);
 
     RECORD pos := RecordLowerBound(this->revtypecache, [ id := id ], [ "ID" ]);
-    IF (NOT pos.found )
-    {
-      RECORD rec :=
-          [ id :=         id
-          , namespace :=  GetNamespaceForType(id, TRUE) // always pass folder, only matters when id = 0, we handled that.
-          , obj :=        DEFAULT OBJECT
-          ];
-
+    RECORD rec;
+    IF (NOT pos.found) {
+      rec := CELL[ id, ...GetNamespacesForType(id, isfolder) , obj := DEFAULT OBJECT ];
       INSERT rec INTO this->revtypecache AT pos.position;
       INSERT rec INTO this->typecache AT RecordUpperBound(this->typecache, rec, [ "NAMESPACE" ]);
+    } ELSE {
+      rec := this->revtypecache[pos.position];
     }
-    RETURN this->revtypecache[pos.position].namespace;
+    RETURN CELL[ rec.namespace, rec.scopedtype ];
   }
 
   PUBLIC OBJECT FUNCTION GetWHFSTypeObject(STRING namespace)
@@ -927,8 +920,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
     IF(foldertype<1000 AND matchwith=ToString(foldertype)) //only match by ID for well-knowns
       RETURN TRUE;
 
-    STRING namespace := this->cache->GetWHFSTypeNamespace(foldertype, isfolder);
-    IF (namespace LIKE matchwith)
+    RECORD ns := this->cache->GetWHFSTypeNamespace(foldertype, isfolder);
+    IF (ns.namespace LIKE matchwith OR ns.scopedtype LIKE matchwith)
       RETURN TRUE;
     RETURN FALSE;
   }
@@ -943,8 +936,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
       IF(NOT RecordExists(rec))
         RETURN FALSE;
 
-      STRING namespace := this->cache->GetWHFSTypeNamespace(rec.type, TRUE);
-      IF (namespace LIKE matchwith)
+      RECORD ns := this->cache->GetWHFSTypeNamespace(rec.type, TRUE);
+      IF (ns.namespace LIKE matchwith OR ns.scopedtype LIKE matchwith)
         RETURN TRUE;
 
       IF(RecordExists(this->objinfo.site) AND rec.parent = this->objinfo.site.id)
@@ -1103,8 +1096,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
       RETURN FALSE;
 
     IF(CellExists(apply,'whfstype') AND apply.whfstype != "") { //directly applied to the type
-      STRING namespace := this->cache->GetWHFSTypeNamespace(this->objinfo.obj.type, this->objinfo.obj.isfolder);
-      RETURN namespace = apply.whfstype;
+      RECORD ns := this->cache->GetWHFSTypeNamespace(this->objinfo.obj.type, this->objinfo.obj.isfolder);
+      RETURN ns.namespace = apply.whfstype OR ns.scopedtype = apply.whfstype;
     }
 
     FOREVERY (RECORD appl FROM apply.tos)

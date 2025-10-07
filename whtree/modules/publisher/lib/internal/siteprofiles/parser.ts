@@ -231,6 +231,9 @@ export class SiteProfileParserContext {
     if (!isValidScopedType(type)) //looks like a XML namespace kind of type or a module:ref
       return type;
 
+    if (type === '*') //do not prefix wildcard with module:*
+      return type;
+
     if (this.basescope) {
       if (type.includes('.'))  //guessing it's module scoped (FIXME strongly considering to drop basescope support as it makes things way too ambiguous)
         return this.module + ':' + type;
@@ -389,9 +392,9 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     match_file: apply.is === "file" || apply.is === "index",
     match_folder: apply.is === "folder",
     match_all: !apply.is,
-    filetype: apply.is === "file" && typeof apply.type === "string" ? apply.type : "",
-    foldertype: apply.is === "folder" && typeof apply.type === "string" ? apply.type : "",
-    ...apply.type && apply.is !== "file" && apply.is !== "folder" ? { whfstype: apply.type } : {},
+    filetype: apply.is === "file" && typeof apply.type === "string" ? context.resolveType(apply.type) : "",
+    foldertype: apply.is === "folder" && typeof apply.type === "string" ? context.resolveType(apply.type) : "",
+    ...apply.type && apply.is !== "file" && apply.is !== "folder" ? { whfstype: context.resolveType(apply.type) } : {},
 
     pathmask: apply.sitePath && typeof apply.sitePath === "string" ? apply.sitePath : "",
     pathregex: apply.sitePath && typeof apply.sitePath === "object" && "regex" in apply.sitePath ? apply.sitePath.regex : "",
@@ -402,9 +405,9 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     parentmask: apply.parentPath && typeof apply.parentPath === "string" ? apply.parentPath : "",
     parentregex: apply.parentPath && typeof apply.parentPath === "object" && "regex" in apply.parentPath ? apply.parentPath.regex : "",
 
-    parenttype: apply.parentType || "",
-    withintype: apply.withinType || "",
-    sitetype: apply.siteType || "",
+    parenttype: context.resolveType(apply.parentType || ""),
+    withintype: context.resolveType(apply.withinType || ""),
+    sitetype: context.resolveType(apply.siteType || ""),
 
     sitename: apply.site && typeof apply.site === "string" && ![...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
     sitemask: apply.site && typeof apply.site === "string" && [...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
@@ -611,9 +614,9 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   }
 }
 
-function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
-  return types.map(t => "denyType" in t ? { isallow: false, typedef: t.denyType as string }
-    : { isallow: true, typedef: t.allowTemplate as string ?? t.allowType as string, newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
+function parseModifyTypes(context: SiteProfileParserContext, types: Sp.ApplyTypes): CSPModifyType[] {
+  return types.map(t => "denyType" in t ? { isallow: false, typedef: context.resolveType(t.denyType as string) }
+    : { isallow: true, typedef: context.resolveType(t.allowTemplate as string ?? t.allowType as string), newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
 }
 
 function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): CSPApplyRule {
@@ -784,9 +787,9 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   }
 
   if (apply.fileTypes)
-    rule.modifyfiletypes = parseModifyTypes(apply.fileTypes);
+    rule.modifyfiletypes = parseModifyTypes(context, apply.fileTypes);
   if (apply.folderTypes)
-    rule.modifyfoldertypes = parseModifyTypes(apply.folderTypes);
+    rule.modifyfoldertypes = parseModifyTypes(context, apply.folderTypes);
 
   if (apply.mailTemplates?.length) {
     rule.mailtemplates = apply.mailTemplates.map(t => ({

@@ -118,7 +118,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
   PrintTo(xmldatastream,'<archive xmlns="http://www.webhare.net/xmlns/publisher/archive" version="1" source="' || EncodeValue(GetWebhareVersion()) || '">');
 
   //Build the XML data. Remove obsoleted fields
-  STRING typenamespace := GetNamespaceForType(folderdata.type, TRUE);
+  STRING typenamespace := GetNamespacesForType(folderdata.type, TRUE).namespace;
 
   store_files := SELECT *
                       , contentinstances := GetExportableInstances(id)
@@ -202,7 +202,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                       , profilepath := "" //WH4.31- compatibility
                       , linkpath := MyGetFileStoreName(file.filelink, file.fullpath)
                       , contentinstances := (SELECT namespace, instance FROM file.contentinstances)
-                      , type := GetNamespaceForType(file.type, FALSE)
+                      , type := GetNamespacesForType(file.type, FALSE).namespace
                       , wrapped := DecodeScanData(file.scandata)
                       ];
     DELETE CELL __blobsource, source_fsobject FROM xmldata.wrapped; //__blobsource is internal and I doubt we actually use/store source_fsobject in wrapped filedata?
