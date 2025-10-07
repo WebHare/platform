@@ -203,8 +203,16 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
         this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
       }
     }
-    //Sort apply rules. Note that sorts on record arrays are stable. We place any directly type applied rules to the top, above any priority
-    this->result.applies := SELECT * FROM this->result.applies ORDER BY whfstype != "" DESC, priority;
+
+    /* Sort apply rules. Note that sorts on record arrays are stable, so rules inside a siteprofile are also kept in order.
+       Platform siteprofile priorities are evaluated separately from user siteprofiles, ie an -1 apply rule cannot be preceeded by a module apply rule, even with priority -MAXINT
+       This helps prevents instability in user modules when we tune our priorities and allows us to implement 'true' defaults for things file types try to set (eg rtddoc)
+     */
+    this->result.applies := SELECT *
+                              FROM this->result.applies
+                          ORDER BY siteprofile LIKE "mod::platform/*" ? priority : 0,
+                                   whfstype != "" DESC,
+                                   priority;
 
     RETURN [ result := this->result  //FIXME state leak
            , allcontenttypes := this->contenttypes

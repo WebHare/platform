@@ -4,7 +4,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
@@ -33,6 +33,14 @@ OBJECT siteroot2;
 
 MACRO TestBeforeSite()
 {
+  //Verify <fileype rtddoc ordering, we'll use a fakeapplytester outside our basetest sites for this
+  OBJECT rtddoc_applytester := GetApplyTesterForFakeObject(whconstant_whfsid_repository, TRUE, OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id);
+  TestEq("http://www.webhare.net/xmlns/publisher/defaultrtdtype", rtddoc_applytester->GetRTDTypeSettings().rtdtype);
+
+  OBJECT priotest_applytester := GetApplyTesterForFakeObject(whconstant_whfsid_repository, TRUE, OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/test_rtddoc_priority")->id);
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1", priotest_applytester->GetRTDTypeSettings().rtdtype);
+
+
   testfw->BeginWork();
   siteroot2 := testfw->GetWHFSTestRoot()->EnsureFolder([name := "webhare_testsuite.site2"]);
 
