@@ -56,7 +56,11 @@ const subsystems = {
     title: "Consilio",
     description: "Define catalogs in the database and schedule updating the index managers",
   },
-  siteprofiles: { title: "Siteprofiles", description: "Recompile site profiles" },
+  siteprofiles: {
+    title: "Siteprofiles",
+    description: "Recompile site profiles",
+    generate: ["extracts"] //we need the plugins extract to be up to date
+  },
   siteprofilerefs: { title: "Siteprofile references", description: "Regenerate site webfeature/webdesign associations" },
 } as const satisfies Record<string, SubsystemData>;
 
