@@ -11,7 +11,8 @@ import { backendConfig, encryptForThisServer, readRegistryKey, type WebHareBlob 
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
-import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { whfsFinishHandler } from "./finishhandler";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -225,14 +226,40 @@ class WHFSBaseObject {
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
     const moddate = Temporal.Now.instant();
+    const finishHandler = whfsFinishHandler();
 
     if ("isPinned" in metadata)
       storedata.ispinned = metadata.isPinned;
-    if ("indexDoc" in metadata)
+    if ("indexDoc" in metadata && metadata.indexDoc !== undefined) {
       if (this.isFile)
         throw new Error(`indexDoc is not a valid property for files`);
-      else
+      else if (this.dbrecord.indexdoc !== metadata.indexDoc) {
+        // Republish the old and the new indexdoc
+        const toUpdate = [this.dbrecord.indexdoc, metadata.indexDoc].filter(_ => _ !== null && _ !== undefined);
+        const filesData = await db<PlatformDB>()
+          .selectFrom("system.fs_objects")
+          .select(["id", "parent", "published", "isfolder", selectFSIsActive().as("isactive")])
+          .where("id", "=", sql<number>`any(${toUpdate})`)
+          .execute();
+        if (metadata.indexDoc) {
+          const newIndexDocData = filesData.find(_ => _.id === metadata.indexDoc);
+          if (!newIndexDocData || newIndexDocData.parent !== this.id)
+            throw new Error(`Folder is not the parent of new index document #${metadata.indexDoc}`);
+        }
+        for (const rec of filesData) {
+          if (!rec.isfolder && rec.isactive) {
+            await db<PlatformDB>()
+              .updateTable("system.fs_objects")
+              .set({ published: convertToWillPublish(rec.published, false, false, PubPrio_DirectEdit) })
+              .where("id", "=", rec.id)
+              .execute();
+            finishHandler.fileRepublish(this.parentSite, this.id, rec.id);
+            finishHandler.objectUpdate(this.parentSite, this.id, rec.id, rec.isfolder);
+          }
+        }
         storedata.indexdoc = metadata.indexDoc;
+      }
+    }
 
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
@@ -244,55 +271,89 @@ class WHFSBaseObject {
 
     if (this.isFile) {
       storedata.published = this.dbrecord.published;
+      const fileMetadata = metadata as UpdateFileMetadata;
 
-      if ((metadata as UpdateFileMetadata).firstPublishDate)
-        storedata.firstpublishdate = new Date((metadata as UpdateFileMetadata).firstPublishDate!.epochMilliseconds);
-      if ((metadata as UpdateFileMetadata).contentModificationDate)
-        storedata.contentmodificationdate = new Date((metadata as UpdateFileMetadata).contentModificationDate!.epochMilliseconds);
+      if (fileMetadata.firstPublishDate)
+        storedata.firstpublishdate = new Date(fileMetadata.firstPublishDate.epochMilliseconds);
+      if (fileMetadata.contentModificationDate)
+        storedata.contentmodificationdate = new Date(fileMetadata.contentModificationDate.epochMilliseconds);
 
       storedata.published = setFlagInPublished(storedata.published, PublishedFlag_StripExtension, await isStripExtension(storedata.type ?? this.dbrecord.type ?? 0, storedata.name ?? this.dbrecord.name));
 
-      if ((metadata as UpdateFileMetadata).publish) {
-        //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
-
+      if (fileMetadata.publish !== undefined) {
         const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
-        if (curfields && !isPublish(curfields.published)) {
-          storedata.published = convertToWillPublish(storedata.published, true, true, PubPrio_DirectEdit);
-          if (!storedata.contentmodificationdate)
-            storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
-          if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
-            storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+        if (curfields) {
+          //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+          if (fileMetadata.publish) {
+            storedata.published = convertToWillPublish(storedata.published, true, true, PubPrio_DirectEdit);
+            if (!storedata.contentmodificationdate)
+              storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
+            if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
+              storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+          } else {
+            storedata.published = storedata.published - (storedata.published % 200000);
+          }
         }
       }
-    }
 
-    if ((metadata as UpdateFileMetadata).data && this.isFile) {
-      const resdescr = (metadata as UpdateFileMetadata)?.data;
-      if (resdescr) {
-        storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
+      if (fileMetadata?.data) {
+        const resdescr = fileMetadata?.data;
+        if (resdescr) {
+          storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
+          storedata.data = resdescr?.resource || null;
+          if (!storedata.contentmodificationdate)
+            storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
+        } else {
+          storedata.scandata = '';
+        }
+
         storedata.data = resdescr?.resource || null;
-        if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
-      } else {
-        storedata.scandata = '';
+        if (storedata.data)
+          await uploadBlob(storedata.data);
       }
-
-      storedata.data = resdescr?.resource || null;
-      if (storedata.data)
-        await uploadBlob(storedata.data);
     }
 
     if (!Object.keys(storedata).length)
       return; //nothing to update
 
+    // ADDME: only call the procedures that might have changed output value
     storedata.modificationdate = new Date(moddate.epochMilliseconds);
-    await db<PlatformDB>()
+    const updatedRec = await db<PlatformDB>()
       .updateTable("system.fs_objects")
       .where("id", "=", this.id)
       .set(storedata)
+      .returning([
+        selectFSLink().as("link"),
+        selectFSFullPath().as("fullpath"),
+        selectFSWHFSPath().as("whfspath"),
+        selectFSHighestParent().as("parentsite"),
+        selectFSPublish().as("publish")
+      ])
       .executeTakeFirstOrThrow();
 
+    const isMove = storedata.parent !== undefined && storedata.parent !== this.dbrecord.parent;
+    const isRename = storedata.name !== undefined && storedata.name !== this.dbrecord.name;
+    const isReordering = storedata.ordering !== undefined && storedata.ordering !== this.dbrecord.ordering;
+    const isUnpublish = !this.isFolder && storedata.published !== undefined && !isPublish(storedata.published) && isPublish(this.dbrecord.published);
+    const isRepublish = !this.isFolder && storedata.published !== undefined && isPublish(storedata.published) && !isPublish(this.dbrecord.published);
+
+    const oldData = std.pick(this.dbrecord, ["parentsite", "parent"]);
     Object.assign(this.dbrecord, storedata);
+    Object.assign(this.dbrecord, updatedRec);
+
+    if (isMove) {
+      finishHandler.objectMove(oldData.parentsite, oldData.parent, this.id, this.isFolder);
+      finishHandler.objectMoved(this.parentSite, this.parent, this.id, this.isFolder);
+    }
+    if (isRename)
+      finishHandler.objectRename(this.parentSite, this.parent, this.id, this.isFolder);
+    if (isUnpublish)
+      finishHandler.fileUnpublish(this.parentSite, this.parent, this.id);
+    if (isRepublish)
+      finishHandler.fileRepublish(this.parentSite, this.parent, this.id);
+    if (isReordering)
+      finishHandler.objectReordered(this.parentSite, this.parent, this.id, this.isFolder);
+    finishHandler.objectUpdate(this.parentSite, this.parent, this.id, this.isFolder);
   }
 }
 
@@ -479,6 +540,7 @@ export class WHFSFolder extends WHFSBaseObject {
       await this.update({ indexDoc: retval.id });
     }
 
+    whfsFinishHandler().objectCreate(this.parentSite, this.id, retval.id, isfolder);
     return retval.id;
   }
 

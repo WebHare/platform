@@ -12,6 +12,9 @@ export function selectFSWHFSPath() {
 export function selectFSHighestParent() {
   return sql<number | null>`webhare_proc_fs_objects_highestparent(id, NULL)`;
 }
+export function selectFSIsActive() {
+  return sql<boolean>`webhare_proc_fs_objects_isactive(id)`;
+}
 export function selectFSPublish() {
   return sql<boolean>`webhare_proc_fs_objects_publish(isfolder, published)`;
 }
