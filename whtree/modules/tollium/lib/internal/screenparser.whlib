@@ -1415,23 +1415,19 @@ RECORD FUNCTION ParseListRowLayoutRow(OBJECT childnode)
   RETURN layoutrow;
 }
 
-RECORD ARRAY FUNCTION ParseListRowLayouts(OBJECT layoutnodeset)
-{
+RECORD ARRAY FUNCTION ParseListRowLayouts(OBJECT layoutnodeset) {
   RECORD ARRAY rowlayouts;
-  FOREVERY(OBJECT layout FROM layoutnodeset->GetCurrentElements())
-  {
+  FOREVERY(OBJECT layout FROM layoutnodeset->GetCurrentElements())  {
     RECORD rowlayout := [ name := layout->GetAttribute("name")
                         , columns := DEFAULT RECORD ARRAY
                         , rows := DEFAULT RECORD ARRAY
                         , dragcolumns := DEFAULT STRING ARRAY
                         , dragrows := DEFAULT RECORD ARRAY
+                        , maxwidth := layout->GetAttribute("maxwidth")
                         ];
-    FOR (OBJECT childnode := layout->firstchild; ObjectExists(childnode); childnode := childnode->nextsibling)
-    {
-      SWITCH (childnode->localname)
-      {
-        CASE "col"
-        {
+    FOR (OBJECT childnode := layout->firstchild; ObjectExists(childnode); childnode := childnode->nextsibling) {
+      SWITCH (childnode->localname) {
+        CASE "col" {
           RECORD layoutcol := [ coldef := childnode->GetAttribute("coldef")
                               , combinewithnext := ReadBoolAttr(childnode, "combinewithnext", FALSE)
                               ];
@@ -1442,23 +1438,18 @@ RECORD ARRAY FUNCTION ParseListRowLayouts(OBJECT layoutnodeset)
           INSERT layoutcol INTO rowlayout.columns AT END;
           INSERT layoutcol.coldef INTO rowlayout.dragcolumns AT END;
         }
-        CASE "row"
-        {
+        CASE "row" {
           RECORD row := ParseListRowLayoutRow(childnode);
           INSERT row INTO rowlayout.rows AT END;
           INSERT row INTO rowlayout.dragrows AT END;
         }
-        CASE "draglayout"
-        {
+        CASE "draglayout" {
           rowlayout.dragcolumns := ParseXSList(childnode->GetAttribute('cols'));
           rowlayout.dragrows := DEFAULT RECORD ARRAY;
 
-          FOREVERY (OBJECT subchildnode FROM childnode->childnodes->GetCurrentElements())
-          {
-            SWITCH (subchildnode->localname)
-            {
-              CASE "row"
-              {
+          FOREVERY (OBJECT subchildnode FROM childnode->childnodes->GetCurrentElements()) {
+            SWITCH (subchildnode->localname) {
+              CASE "row" {
                 INSERT ParseListRowLayoutRow(subchildnode) INTO rowlayout.dragrows AT END;
               }
             }

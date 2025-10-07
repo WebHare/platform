@@ -1332,7 +1332,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
   /** Returns available row layouts.
   */
   RECORD ARRAY FUNCTION GetCurrentRowLayouts() {
-    RECORD ARRAY selectedlayouts := SELECT * FROM RECORD [ this->defaultrowlayout, ...this->pvt_rowlayouts ] WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
+    // We put the default rowlayout last as you can't set any maxwidth= for it
+    RECORD ARRAY selectedlayouts := SELECT * FROM RECORD [ ...this->pvt_rowlayouts, this->defaultrowlayout ] WHERE ToUppercase(name) = ToUppercase(this->pvt_rowlayout);
     IF(NOT RecordExists(selectedlayouts))
       THROW NEW Exception("Invalid rowlayout '" || this->pvt_rowlayout || "'");
 
@@ -1358,7 +1359,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
         INSERT [ col := 0, indraglayout := FALSE, combinewithnext := FALSE ] INTO colheaders AT 0;
       }
 
-      INSERT CELL[ rowlayout, dragrowlayout, colheaders ] INTO layouts AT END;
+      INSERT CELL[ rowlayout, dragrowlayout, colheaders, layout.maxwidth ] INTO layouts AT END;
     }
     RETURN layouts;
   }
@@ -1427,13 +1428,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
 
   /* Validates a row layout record. Throws on error. */
   RECORD FUNCTION CheckRowLayout(RECORD newlayout, BOOLEAN requirenonemptyname) {
-    IF (NOT CellExists(newlayout, "NAME"))
-      THROW NEW TolliumException(this, "Row layout must have a name");
+    newlayout := EnforceStructure(CELL[
+      name := "",
+      maxwidth := "",
+      columns := RECORD[]
+    ], newlayout);
 
     // Constraint checking
     INTEGER ARRAY rowspans, dragrowspans;
-    IF (NOT CellExists(newlayout, "columns"))
-      THROW NEW TolliumException(this, "Row layout without columns");
 
     BOOLEAN have_dragcolumns := CellExists(newlayout, "DRAGCOLUMNS");
     STRING ARRAY dragcolumns := have_dragcolumns ? newlayout.dragcolumns : DEFAULT STRING ARRAY;

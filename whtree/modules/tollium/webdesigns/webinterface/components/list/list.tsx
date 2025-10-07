@@ -22,6 +22,7 @@ import { leftsidepadding, colminwidth, rightsidepadding, smallleftsidepadding, t
 import type { AcceptType, SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import { throwError } from '@webhare/std';
 import type ObjMenuItem from '../menuitem/menuitem';
+import { calcAbsWidth } from '@mod-tollium/web/ui/js/support';
 
 
 /*
@@ -467,12 +468,12 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     });
 
     this.availableRowLayouts = data.layouts;
-    this.setRowLayout(this.availableRowLayouts[0]);
 
     this.initColumns(data.columns);
+    // this.setRowLayout(this.availableRowLayouts[0]);
+
     this.sortable = data.sortable;
     this.setSortSetting(data.sortcolumn === "<ordered>" ? null : { colName: data.sortcolumn, ascending: data.sortascending });
-    console.error(this.sortable, this.sort);
 
 
     //console.log(data.rows.length > 0 ? data.rows[0][0].rowkey : "EMPTY");
@@ -790,6 +791,15 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
     this.node.style.width = this.width.set + "px";
 
+    const qualifyingLayout = this.availableRowLayouts.find(layout => !layout.maxwidth || this.width.set <= calcAbsWidth(layout.maxwidth)) || this.availableRowLayouts[0];
+    if (!qualifyingLayout)
+      throw new Error("No available row layouts found");
+
+    if (this.setRowLayout(qualifyingLayout)) {
+      this.setupColumnsFromDatasource();
+      this.invalidateAllRows();
+    }
+
     const contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
     this.distributeSizes(contentwidth, this.columnwidths, true, this.cols.length - 1);
 
@@ -814,62 +824,23 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
 
     this.setColumnsWidths(this.cols);
-
-    //console.log("<list> relayout to size " + width + " x " + height);
   }
 
-  setRowLayout(layout: ListRowLayout) {
-    if (layout === this.currentRowLayout)
-      return;
+  setRowLayout(layout: ListRowLayout) { //should only  invoked on actual change
+    if (this.currentRowLayout === layout)
+      return false;
 
     this.currentRowLayout = layout;
-    for (const col of layout.colheaders)
-      this.cols.push(
-        {
-          width: 0,
-          header: col.col,
-          indraglayout: col.indraglayout,
-          combinewithnext: col.combinewithnext
-        });
-  }
-
-  // internal
-  initColumns(cols: DataColumn[]) {
-    this.datacolumns = cols;
+    this.cols = [];
     this.columnwidths = [];
-    this.datacolumnstotalminwidth = 0;
-    this.datacolumnstotalcalcwidth = 0;
-    this.checkboxcolumns = [];
 
-    //ADDME Server should pass data in a directly usable format
-    for (let i = 0; i < this.datacolumns.length; ++i) {
-      this.datacolumns[i].render = this.getRendererByType(this.datacolumns[i].type);
-
-      // Minwidth can be undefined here, will resolve to 0
-      // REMOVE: this seems to only corrupt the minwidth?
-      // this.datacolumns[i].minwidth = $todd.CalcAbsSize(this.datacolumns[i].minwidth, true);
-
-      if (this.datacolumns[i].linkidx >= 0) {
-        this.datacolumns[i].render = new LinkWrapper(this, this.datacolumns[i].render);
-      }
-
-      if (this.datacolumns[i].iconidx >= 0) {
-        this.datacolumns[i].render = new IconWrapper(this, this.datacolumns[i].render);
-      }
-
-      if (this.datacolumns[i].checkboxidx >= 0) {
-        const wrapper = new CheckboxWrapper(this, this.datacolumns[i].render);
-        wrapper.checkboxholderwidth = $todd.settings.listview_checkboxholder_width;
-        this.datacolumns[i].render = wrapper;
-        this.checkboxcolumns.push(this.datacolumns[i]);
-      }
-
-      if (this.datacolumns[i].tree) {
-        const wrapper = new TreeWrapper(this, this.datacolumns[i].render);
-        wrapper.expanderholderwidth = $todd.settings.listview_expanderholder_width;
-        this.datacolumns[i].render = wrapper;
-      }
-    }
+    for (const col of layout.colheaders)
+      this.cols.push({
+        width: 0,
+        header: col.col,
+        indraglayout: col.indraglayout,
+        combinewithnext: col.combinewithnext
+      });
 
     const rowspans: number[] = [];
     this.currentRowLayout.rowlayout!.forEach((row, idx) => {
@@ -906,6 +877,45 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       this.datacolumnstotalcalcwidth += sizeobj.calc;
 
       this.columnwidths.push(sizeobj);
+    }
+    return true;
+  }
+
+  // internal
+  initColumns(cols: DataColumn[]) {
+    this.datacolumns = cols;
+    this.datacolumnstotalminwidth = 0;
+    this.datacolumnstotalcalcwidth = 0;
+    this.checkboxcolumns = [];
+
+    //ADDME Server should pass data in a directly usable format
+    for (let i = 0; i < this.datacolumns.length; ++i) {
+      this.datacolumns[i].render = this.getRendererByType(this.datacolumns[i].type);
+
+      // Minwidth can be undefined here, will resolve to 0
+      // REMOVE: this seems to only corrupt the minwidth?
+      // this.datacolumns[i].minwidth = $todd.CalcAbsSize(this.datacolumns[i].minwidth, true);
+
+      if (this.datacolumns[i].linkidx >= 0) {
+        this.datacolumns[i].render = new LinkWrapper(this, this.datacolumns[i].render);
+      }
+
+      if (this.datacolumns[i].iconidx >= 0) {
+        this.datacolumns[i].render = new IconWrapper(this, this.datacolumns[i].render);
+      }
+
+      if (this.datacolumns[i].checkboxidx >= 0) {
+        const wrapper = new CheckboxWrapper(this, this.datacolumns[i].render);
+        wrapper.checkboxholderwidth = $todd.settings.listview_checkboxholder_width;
+        this.datacolumns[i].render = wrapper;
+        this.checkboxcolumns.push(this.datacolumns[i]);
+      }
+
+      if (this.datacolumns[i].tree) {
+        const wrapper = new TreeWrapper(this, this.datacolumns[i].render);
+        wrapper.expanderholderwidth = $todd.settings.listview_expanderholder_width;
+        this.datacolumns[i].render = wrapper;
+      }
     }
   }
   getRendererByType(type: string): ListColumnBase<unknown> {
@@ -1705,9 +1715,6 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.listbodyholder.addEventListener("scroll", evt => this._onBodyScroll());
     //manually handling the wheel reduces flicker on chrome (seems that scroll events are throtteld less)
     this.listbodyholder.style.overflowY = "scroll";
-
-    this.setupFromDatasource();
-    this.invalidateAllRows();
   }
 
   scrollRowIntoCenterOfView(rownum: number) {
@@ -1766,7 +1773,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   //update column widths. although we accept the original columns structure, we'll only use the 'width' parameter
   setColumnsWidths(columns: ListCol[]) {
     if (columns.length !== this.lv_cols.length)
-      throw new Error("updateColumnsWidths did not receive the number of columns expected");
+      throw new Error(`updateColumnsWidths did not receive the number of columns expected, got ${columns.length} but expected ${this.lv_cols.length}`);
 
     for (let i = 0; i < columns.length; ++i)
       this.lv_cols[i].width = columns[i].width;
@@ -2861,10 +2868,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
     dompack.dispatchCustomEvent(this.node, "wh:listview-contextmenu", { bubbles: true, cancelable: false, detail: { originalevent: event } });
   }
-  setupFromDatasource() {
+
+  private setupColumnsFromDatasource() {
     this.lv_datacolumns = [];
-    this.numrows = 0;
-    this.cursorrow = -1;
+    this.dragdatacolumns = [];
 
     const structure = this.getDataStructure();
     this.selectedidx = structure.selectedidx;
@@ -2912,6 +2919,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this._setupColumns(structure.cols);
     this._setupRowLayouts(this.currentRowLayout.rowlayout, this.currentRowLayout.dragrowlayout);
 
+    const headernodes = new Array<HTMLElement>;
     for (let i = 0; i < this.lv_cols.length; ++i) {
       if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
         continue;
@@ -2925,12 +2933,11 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
         headernode.textContent = col.title;
         headernode.addEventListener("click", this.onHeaderClick.bind(this, i));
       }
-
-      this.listheader.appendChild(headernode);
+      headernodes.push(headernode);
     }
 
     // fill the space above the space for the vertical scrollbar
-    this.listheader.appendChild(this.headerfiller);
+    headernodes.push(this.headerfiller);
 
     for (let i = 1; i < this.lv_cols.length; ++i) {
       if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
@@ -2947,12 +2954,15 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
       movable.enable(splitnode);
       splitnode.propWhUiListviewSplit = { rightcolumn: i };
-      this.listheader.appendChild(splitnode);
+      headernodes.push(splitnode);
     }
+
     dompack.toggleClasses(this.node, {
       flatview: !this.istreeview,
       treeview: this.istreeview
     });
+
+    this.listheader.replaceChildren(...headernodes);
 
     this.applyHeaderColumnWidths();
     this.applyDimensions();
@@ -3441,6 +3451,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     const footerheight = this.lv_footerrows.length ? this.lv_footerrows.length * this.rowheight + 1 : 0;
     //With footer rows, we also need to subtract an extra pixel for the line separating the footer from the rest
     this.bodyholderheight = this.options.height - headerheight - footerheight;
+    if (!this.rowheight)
+      throw new Error("rowheight is 0");
+
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
 
     this.listheader.style.height = (headerheight - (parseInt(getComputedStyle(this.listheader).paddingTop) || 0) - (parseInt(getComputedStyle(this.listheader).paddingBottom) || 0)) + "px";
