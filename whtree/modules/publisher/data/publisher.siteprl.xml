@@ -6,28 +6,6 @@
       is parsed before any global or site local profile
 
   -->
-  <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultrtdtype">
-    <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="HEADING1" textstyles="i u" />
-      <textstyle tag="HEADING2" textstyles="i u" />
-      <textstyle tag="HEADING3" textstyles="i u" />
-      <textstyle tag="NORMAL" textstyles="b i u a-href img sup sub strike" />
-      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href img sup sub strike" />
-      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href img sup sub strike" />
-      <tablestyle tag="TABLE" />
-    </blockstyles>
-  </rtdtype>
-
-  <rtdtype namespace="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype">
-    <css path="siteprofiles/defaultmailrtdtype.css" />
-    <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="NORMAL" textstyles="b i u a-href img sup sub strike" />
-      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href img sup sub strike" />
-      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href img sup sub strike" />
-    </blockstyles>
-    <widgets ignoresiteprofilewidgets="true" />  <!-- we never want siteprofile widgets available in emails.. they are generally not suited -->
-  </rtdtype>
-
   <!-- Editor for photoalbum settings -->
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="photoalbum_settings">
     <newtab gid="publisher:foldertypes.photoalbum-settings" tid=".tabtitle">
@@ -83,105 +61,6 @@
     </newtab>
   </tabsextension>
 
-  <apply>
-    <to type="all" />
-
-    <!-- Republish the index of a folder when a file changes -->
-    <republish indexonly="true" />
-
-    <!-- Allow all WebHare file and folder types by default -->
-    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
-    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/systemfolder" />
-    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/*" />
-
-    <!-- These are seldom used -->
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/tagfile" />
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/tagrepository" />
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/profilefile" />
-
-    <!-- Disable for now, until we make this feature public -->
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/formwebtool" />
-    <denyfiletype typemask="http://www.webhare.net/xmlns/publisher/formwidget" />
-    <extendproperties extension="mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle"
-                      contenttype="http://www.webhare.net/xmlns/publisher/lifecycle"
-                      requireright="system:supervisor" />
-  </apply>
-
-  <apply>
-    <to type="all" sitemask="?*" />  <!-- limited to  sites -->
-    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/foreignfolder" />
-  </apply>
-
-  <apply>
-    <to type="folder" />
-
-    <!-- Republish the index of the parent folder when a folder changes -->
-    <republish folder=".." indexonly="true" />
-
-    <!-- To ensure backwards compatibility, we don't specify default folderindex here. If it would be specified here, there
-         would be no way to determine if a site uses the old site settings or the new site profile settings. New sites
-         MUST use a site profile to get a default index placed in new folders. -->
-  </apply>
-
-  <apply>
-    <to type="folder" sitename="Repository" />
-
-    <!-- Don't add an index file to new folders in the Repository -->
-    <folderindex indexfile="none" />
-  </apply>
-
-  <apply comment="enable texteditors">
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/javascriptfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/semidynamicfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/cssfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/libraryfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/plaintextfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/standalonetemplatefile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/xmlfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/wittyfile" />
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/templatefile" />
-    <setobjecteditor name="publisher:texteditor" />
-  </apply>
-
-  <apply>
-    <to type="file"
-        filetype="http://www.webhare.net/xmlns/publisher/contentlisting"
-        parenttype="http://www.webhare.net/xmlns/publisher/photoalbum" />
-    <bodyrenderer objectname="mod::publisher/lib/widgets/gallerywidget.whlib#RenderGalleryWidgetPage" />
-  </apply>
-
-  <apply priority="-1000">
-    <!-- set up global defaults -->
-    <to type="all" />
-    <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
-    <formintegration mailrtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" />
-
-    <!-- By default, allow all questions and handlers that don't require extra configuration or JS help
-         NOTE: this list *should* have contained imgedit and fileedit too as they require JS support
-         -->
-    <allowformquestion type="http://www.webhare.net/xmlns/publisher/forms#*" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#address" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#password" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#rtd" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#captcha" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#array" />
-    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#hidden" />
-    <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#*" />
-    <denyformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
-    <allowformrtdtype type="http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype" />
-  </apply>
-
-  <apply>
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/tagfolder" />
-    <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/foreignfolder" />
-    <foldersettings ordering="none" />
-  </apply>
-
   <!-- ======================================================================
 
        Make sure we can ALWAYS change site root folders back to "normalfolder"
@@ -196,13 +75,4 @@
        which seems like a good idea, but because a site root folder tests parenttype= on *itself*
        changing a root folder's type becomes irreversible. The following rule fixes it
   ==== -->
-  <apply priority="99999">
-    <to type="folder" pathmask="/" />
-    <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
-  </apply>
-
-  <applysiteprofile path="siteprofiles/abtest.siteprl.xml" />
-  <applysiteprofile path="siteprofiles/pwa.siteprl.xml" />
-  <applysiteprofile path="siteprofiles/shorturl.siteprl.xml" />
-
 </siteprofile>
