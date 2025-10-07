@@ -4,14 +4,10 @@ import { createRedirectResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCo
 import { decryptForThisServer } from "@webhare/services";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
-/** Preauth rules run before generic WebHare access rules. It's needed to make sure that eg .wh/preauth/settoken
- *  is not blocked by an access rule, as preauth/settoken might be involved in the actual login, or we just need to
- *  avoid its POST from being intercepted.
- */
-export async function preAuthRouter(req: WebRequest): Promise<WebResponse> {
+export async function authRouter(req: WebRequest): Promise<WebResponse> {
   const url = new URL(req.url);
 
-  if (url.pathname === "/.wh/preauth/settoken") {
+  if (url.pathname === "/.wh/auth/settoken") {
     const intext = await req.text(); //TODO check length before decoding, rpc() has the same issue
     if (intext.length > 4000)
       return createWebResponse("Request too long", { status: HTTPErrorCode.PayloadTooLarge });
@@ -31,12 +27,6 @@ export async function preAuthRouter(req: WebRequest): Promise<WebResponse> {
     doLoginHeaders(settoken, responseHeaders);
     return createRedirectResponse(settoken.target, HTTPSuccessCode.Found, { headers: responseHeaders });
   }
-
-  return createWebResponse("unknown route", { status: 404 });
-}
-
-export async function authRouter(req: WebRequest): Promise<WebResponse> {
-  const url = new URL(req.url);
 
   if (url.pathname === "/.wh/auth/logout") {
     const origurl = url.origin + "/" + (url.searchParams.get("pathname") || '');
