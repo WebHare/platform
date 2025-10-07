@@ -1525,15 +1525,17 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 >;
 
 ///Base object for webdesign plugins such a `<wrdauth>`
-PUBLIC STATIC OBJECTTYPE WebDesignPluginBase
-<
+PUBLIC STATIC OBJECTTYPE WebDesignPluginBase <
   // ---------------------------------------------------------------------------
   //
   // Override hooks
   //
 
-  PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) //override this to receive configuration
-  {
+  PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration) { //override this to receive configuration
+  }
+
+  PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) { //override this to receive configuration from plugins with yaml_property=
+    THROW NEW Exception("Plugin at  did not override ConfigureYamlPlugin"); //we'll require overriding us if you don't want to read anything to make sure you didn't forget to port the plugin
   }
 
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)

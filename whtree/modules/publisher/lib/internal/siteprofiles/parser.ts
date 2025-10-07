@@ -865,6 +865,15 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       const cellname = `yml_` + nameToSnakeCase(node.yamlProperty) as `yml_${string}`;
       rule[cellname] ||= [];
       rule[cellname].push(...Array.isArray(el) ? el : [el]);
+
+      if (node.composerHook || node.objectName || node.hooksFeatures.length) {
+        //we still need to add something to 'plugins' for activators to find us otherwise they have to scan though all yml_ and all plugin configs to find us
+        rule.plugins.push({
+          ...toSnakeCase(node),
+          combine: true,
+          data: null
+        });
+      }
     }
 
   for (const node of externalNodes)

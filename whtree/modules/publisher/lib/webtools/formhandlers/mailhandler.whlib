@@ -22,6 +22,7 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/forms/tasks.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/emailcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
@@ -735,7 +736,7 @@ PUBLIC STATIC OBJECTTYPE SelectWittyField EXTEND TolliumScreenBase
 //
 RECORD FUNCTION CreateMergeFieldsContext(OBJECT mailcomposer, OBJECT applytester, OBJECT formresults, OBJECT formdefinition, RECORD result)
 {
-  RECORD integrationsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  RECORD integrationsettings := GetFormPluginConfiguration(applytester);
   RECORD rtdtype := GetRTDType(integrationsettings.mailrtdtype);
   IF (NOT RecordExists(rtdtype))
     RETURN DEFAULT RECORD;

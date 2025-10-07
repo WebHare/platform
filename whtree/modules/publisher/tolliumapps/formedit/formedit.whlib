@@ -102,7 +102,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->frame->flags.showdevoptions := this->contexts->user->ShowDeveloperOptions();
 
     IF (ObjectExists(this->contexts->applytester))
-      this->integrationsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      this->integrationsettings := GetFormPluginConfiguration(this->contexts->applytester);
     this->allowsubmittype := RecordExists(this->integrationsettings) AND this->integrationsettings.allowsubmittype;
 
     //we need to use the language that applies to the form, not the current user's language!
@@ -1495,7 +1495,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     RECORD formsettings;
     IF(ObjectExists(this->contexts->applytester))
-      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      formsettings := GetFormPluginConfiguration(this->contexts->applytester);
 
     RECORD settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
     INTEGER curstoreresults := settings.storeresults = 0 ? GetFormDefaultStoreResults() : settings.storeresults < 0 ? 0 : settings.storeresults;
@@ -1593,7 +1593,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     RECORD formsettings;
     IF(ObjectExists(this->contexts->applytester))
-      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      formsettings := GetFormPluginConfiguration(this->contexts->applytester);
 
     ^cannotsaveresults->visible := FALSE;
     this->defaultstoreresults := GetFormDefaultStoreResults();

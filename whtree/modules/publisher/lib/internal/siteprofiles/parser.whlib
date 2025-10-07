@@ -822,6 +822,11 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
       apply := CellUpdate(apply, storename, [...GetCell(apply, storename), cleared_for_json]);
     } ELSE //insert as an array (even if it's not an array property, storing it as one for convenience)
       apply := CellInsert(apply, storename, RECORD[cleared_for_json]);
+
+    //we still need to add something to 'plugins' for activators to find us otherwise they have to scan though all yml_ and all plugin configs to find us
+    IF(config.object_name != "" OR config.composer_hook != "" OR Length(config.hooks_features) != 0)
+      INSERT InstantiatePlugin(config) INTO apply.plugins AT END;
+
     RETURN apply;
   }
 

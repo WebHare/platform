@@ -202,7 +202,7 @@ export type CSPPluginBase = ToSnakeCase<ModulePlugins["spPlugins"][number]>;
 export interface CSPPlugin extends CSPPluginBase {
   combine: boolean;
   //data stored by the plugin parser, format only known to the plugin itself
-  data: CSPPluginDataRow;
+  data: CSPPluginDataRow | null;
 }
 
 export interface CSPRtddoc {
@@ -454,6 +454,7 @@ export type CSPApplyRule = {
     script: string;
   } | null;
   webdesign: CSPWebDesign | null;
+  //TODO this is being double parsed (both for us and both into yml_ props) because HS readers haven't switched over to yml_forms
   webtoolsformrules: CSPWebtoolsFormRule[];
 } & {  /** Custom nodes/plugins */
   [k in `yml_${string}`]?: Array<Record<string, unknown>>;

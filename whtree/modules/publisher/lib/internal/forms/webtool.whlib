@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/buildformhandler.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
@@ -42,22 +43,25 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
   ///If set, the form is unavailable and this text should be shown
   PUBLIC RECORD unavailabletext;
 
-  MACRO NEW()
-  {
+  MACRO NEW() {
     this->formvariables := CELL[...this->formvariables, formsubmittype := "new" ];
     this->pvt_statstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formstats");
     this->pvt_formsettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(this->__form.webtoolformid);
 
-    // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
-    IF(ObjectExists(this->formcontext))
-    {
-      IF(NOT this->pvt_formsettings.disablecaptcha)
-      {
-        OBJECT formintegrationplugin := this->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration");
-        IF(ObjectExists(formintegrationplugin) AND formintegrationplugin->usecaptcha)
-          this->captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
+    /* NOTE: We used to also look at the current (target object) plugins settings for form configuration (although only for the 'usecaptcha' setting) but this is
+             inconsistent with pulling other settings from the content object (eg webtoolformhooks). Plus, when the form is editted only the content object
+             settings are relevant, as the editor can't know where we're embedded. So we now use the content object configuration for everything and just hope
+             that target object's formintegration plugin is sufficiently compatible */
 
-      }
+    OBJECT targetformapplytester := GetApplyTesterForObject(this->__form.webtoolformid); //TODO we could cache endresult of this lookup while parsing formdef ?
+    RECORD targetformsettings;
+    IF(ObjectExists(targetformapplytester))
+      targetformsettings := GetFormPluginConfiguration(targetformapplytester);
+
+    // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
+    IF(ObjectExists(this->formcontext)) {
+      IF(NOT this->pvt_formsettings.disablecaptcha AND RecordExists(targetformsettings) AND targetformsettings.usecaptcha)
+        this->captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
 
       IF(this->pvt_formsettings.unavailable)
         this->unavailabletext := this->pvt_formsettings.unavailabletext ?? [ htmltext := StringToBlob(`<html><body><p>${GetHTMLTid("publisher:site.forms.commonerrors.formunavailable")}</p></body></html>`) ];
@@ -80,25 +84,16 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     IF(this->__form.objref != "")
       INSERT CELL "wh-form-objref" := this->__form.objref INTO this->formdataset;
 
-    OBJECT targetformapplytester := GetApplyTesterForObject(this->__form.webtoolformid); //TODO we could cache endresult of this lookup while parsing formdef ?
-    IF(ObjectExists(targetformapplytester))
-    {
-      RECORD targetformsettings := targetformapplytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
-      IF(RecordExists(targetformsettings) AND targetformsettings.webtoolformhooks != "")
-      {
-        RECORD save__passthrough := __passthrough;
-        TRY
-        {
-          __passthrough := [ form := this ];
-          this->__directhookobject := MakeObject(targetformsettings.webtoolformhooks);
+    IF(RecordExists(targetformsettings) AND targetformsettings.webtoolformhooks != "") {
+      RECORD save__passthrough := __passthrough;
+      TRY {
+        __passthrough := [ form := this ];
+        this->__directhookobject := MakeObject(targetformsettings.webtoolformhooks);
 
-          IF(NOT (this->__directhookobject EXTENDSFROM WebtoolFormHooks))
-            THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
-        }
-        FINALLY
-        {
-          __passthrough := save__passthrough;
-        }
+        IF(NOT (this->__directhookobject EXTENDSFROM WebtoolFormHooks))
+          THROW NEW Exception(`Object '${targetformsettings.webtoolformhooks}' should derive from WebtoolFormHooks`);
+      } FINALLY {
+        __passthrough := save__passthrough;
       }
     }
   }

@@ -1378,11 +1378,12 @@ STATIC OBJECTTYPE ApplyRuleTester <
   PUBLIC RECORD ARRAY FUNCTION GetWebDesignPlugins()
   {
     RECORD ARRAY plugins;
+
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("PLUGINS"))
       plugins := plugins CONCAT apply.plugins;
 
     RETURN
-        SELECT AS RECORD ARRAY CellInsert(Any(plugins), "DATAS", GroupedValues(data))
+        SELECT AS RECORD ARRAY CellInsert(Any(plugins), "DATAS", Any(plugins).yaml_property = "" ? GroupedValues(data) : this->GetYamlPluginSettings(Any(plugins).yaml_property))
           FROM plugins
       GROUP BY combine ? "name:" || name : "id:" || ToString(#plugins)
              , combine ? namespace : "";

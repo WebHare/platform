@@ -96,8 +96,7 @@ PUBLIC RECORD FUNCTION __SplitBaseAndSubUrl(STRING requesturl, STRING urlpath)
   RETURN retval;
 }
 
-PUBLIC STATIC OBJECTTYPE WebContext
-<
+PUBLIC STATIC OBJECTTYPE WebContext <
   //webdesign config. it's format may change between versions, so external users should not rely on it
   RECORD __config;
 
@@ -141,11 +140,14 @@ PUBLIC STATIC OBJECTTYPE WebContext
     this->languagecode := "en";
   }
 
-  OBJECT FUNCTION __CreatePlugin(RECORD pluginrecord)
-  {
+  OBJECT FUNCTION __CreatePlugin(RECORD pluginrecord) {
     OBJECT pluginobj := MakeObject(pluginrecord.object_name);
-    RECORD mergedconfiguration := CombinePartialNodes(pluginrecord.datas);
-    pluginobj->ConfigurePlugin(this, mergedconfiguration);
+    IF(pluginrecord.yaml_property != "") {
+      pluginobj->ConfigureYamlPlugin(this, pluginrecord.datas);
+    } ELSE { //merge all nodes for this plugin into one record
+      RECORD mergedconfiguration := CombinePartialNodes(pluginrecord.datas);
+      pluginobj->ConfigurePlugin(this, mergedconfiguration);
+    }
     RETURN pluginobj;
   }
 

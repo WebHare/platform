@@ -819,7 +819,7 @@ PUBLIC INTEGER FUNCTION GetFormDefaultStoreResults()
 PUBLIC RECORD FUNCTION GetFormResultsExpirationDaysByInstance(OBJECT applytester, RECORD instancedata)
 {
   // If storeresults = 0, use the default value; if storeresults is -1, use 0 (as we cannot differentiate between explicit 0 and 'default')
-  RECORD formsettings := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  RECORD formsettings := GetFormPluginConfiguration(applytester);
   INTEGER storeresults   := instancedata.storeresults < 0 ? 0 : (instancedata.storeresults ?? GetFormDefaultStoreResults());
   INTEGER processresults := ReadRegistryKey("publisher.forms.processresults");
 

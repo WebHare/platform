@@ -72,20 +72,23 @@ PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord() {
              ];
 }
 
-PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
-{
+PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname) {
+  //Must match ModulePlugins["spPlugins"][number]
   RETURN [ object_name := objectname
          , parser := ""
          , name := ""
          , namespace := ""
          , hooks_features := DEFAULT STRING ARRAY
-         ];
+         , to_yaml := ""
+         , is_array := FALSE
+         , yaml_property := ""
+         , composer_hook := ""
+        ];
 }
 
 PUBLIC RECORD FUNCTION InstantiatePlugin(RECORD plugin)
 {
   INSERT CELL combine := TRUE
-            , wittyname := ""
             , data := DEFAULT RECORD
          INTO plugin;
   RETURN plugin;

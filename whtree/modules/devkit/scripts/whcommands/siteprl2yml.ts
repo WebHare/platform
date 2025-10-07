@@ -389,11 +389,6 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
     };
   }
 
-  if (ar.plugins?.length) {
-    console.error(`FIXME: we need to import ${ar.plugins.length} plugins but we have no YAML plan yet`);
-    console.log(ar.plugins);
-  }
-
   if (ar.webtoolsformrules?.length) {
     rule.forms ||= {};
 
@@ -459,7 +454,14 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
     if (!plugininfo)
       throw new Error(`No plugin registered for custom siteprofile property ${customKey}, cannot convert`);
 
-    rule[customKey] = toCamelCase(plugininfo.isArray ? data : data[0]);
+    if (plugininfo.isArray) {
+      if (rule[customKey])
+        throw new Error(`Custom siteprofile property ${customKey} already exists? Cannot merge an aray into it`);
+      rule[customKey] = toCamelCase(data);
+    } else {
+      // Merge it into a property. needed for 'forms'
+      rule[customKey] = { ...(rule[customKey] as object), ...toCamelCase(data[0]) };
+    }
   }
 
   return rule;
@@ -475,6 +477,9 @@ function myCSPRuleCompare(expect: unknown, actual: unknown, path: string) {
   if (path.endsWith(".uploadtypemapping")) //we'll drop this in 6.0 anyway
     return true;
   if (path.endsWith(".siteprofile"))
+    return true;
+  //these are double imported, we only check those in webtoolsformrules
+  if (path.match(/\.yml_forms\[\d+\]\.(components|handlers|rtdTypes)$/))
     return true;
 }
 
@@ -510,7 +515,7 @@ function fixAllTypeRefs<T>(topnode: T, remap: Map<string, string>, propertyName?
 
 run({
   flags: {
-    "v,verbose": { description: "Show more information" },
+    "dump-yaml": { description: "Dump all generated YAML documents" },
     "dry-run": { description: "Don't write any files, just validate the output" },
     "no-status-check": { description: "Don't check for a clean git status before proceeding" },
   },
@@ -729,13 +734,16 @@ run({
         test.eq(sp.siteprofile.applysiteprofiles.length, parsedYaml.applysiteprofiles.length); //since we rename XML to YML, lets only care about the count
       } catch (e) {
         spSuccess = false;
-
-        console.log("FINAL YAML:\n---\n" + yamlText);
-        throw e;
       }
 
-      if (!spSuccess)
+      if (!spSuccess) {
+        if (opts.dumpYaml) {
+          console.log("### " + sp.newName + "\n---\n");
+          console.log(yamlText);
+        }
         sp.result = null; //clear it, we had errors and won't be remapping this file
+      }
+
 
       //Add conversion result to the typemap
       for (const rt of parsedYaml.contenttypes)
@@ -835,6 +843,11 @@ run({
     for (const [path, content] of toWrite) {
       const outpath = toFSPath(path);
       if (content !== null) {
+        if (opts.dumpYaml && path.endsWith(".yml")) {
+          console.log("### " + path + "\n---\n");
+          console.log(content);
+        }
+
         if (opts.dryRun)
           console.log(`Would ${existsSync(outpath) ? "update" : "create"} ${outpath} (${content.length} bytes)`);
         else

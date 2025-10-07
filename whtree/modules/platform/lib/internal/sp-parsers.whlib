@@ -92,3 +92,38 @@ PUBLIC RECORD FUNCTION GetPollSettingsAsYaml(OBJECT node) {
     pollsettings := CELL[ revote_after := `PT${voteafter}M` ];
   RETURN pollsettings;
 }
+
+PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
+  RECORD formintegration := CELL[];
+
+  IF(node->HasAttribute("usecaptcha"))
+    formintegration := CELL[ ...formintegration, captcha := ParseXSBoolean(node->GetAttribute("usecaptcha")) ];
+  IF(node->HasAttribute("allowsubmittype"))
+    formintegration := CELL[ ...formintegration, match_submit_type := ParseXSBoolean(node->GetAttribute("allowsubmittype")) ];
+  IF(node->HasAttribute("enablepagetitles"))
+    formintegration := CELL[ ...formintegration, page_titles := ParseXSBoolean(node->GetAttribute("enablepagetitles")) ];
+  IF(node->HasAttribute("enableinfotexts"))
+    formintegration := CELL[ ...formintegration, info_texts := ParseXSBoolean(node->GetAttribute("enableinfotexts")) ];
+  IF(node->HasAttribute("infotextrtdtype"))
+    formintegration := CELL[ ...formintegration, info_text_rtd_type := node->GetAttribute("infotextrtdtype") ];
+  IF(node->HasAttribute("mailrtdtype"))
+    formintegration := CELL[ ...formintegration, mail_rtd_type := node->GetAttribute("mailrtdtype") ];
+  IF(node->HasAttribute("autocompleteusername"))
+    formintegration := CELL[ ...formintegration, auto_complete_user_name := node->GetAttribute("autocompleteusername") ];
+  IF(node->HasAttribute("webtoolformhooks"))
+    formintegration := CELL[ ...formintegration, page_hooks := node->GetAttribute("webtoolformhooks") ];
+
+  IF(node->HasAttribute("countrylist") OR node->HasAttribute("addressoptions") OR node->HasAttribute("addressvalidationkey") OR node->HasAttribute("addressvalidationschema")) {
+    formintegration := CELL[ ...formintegration, address_options := DEFAULT RECORD ];
+    IF(node->HasAttribute("countrylist"))
+      formintegration.address_options := CELL[ ...formintegration.address_options, country_list := ParseXSList(node->GetAttribute("countrylist")) ];
+    IF(node->HasAttribute("addressoptions"))
+      formintegration.address_options := CELL[ ...formintegration.address_options, derive_from_zip := node->GetAttribute("addressoptions")="nl-force-zip" ? "force": "suggest" ];
+    IF(node->HasAttribute("addressvalidationkey"))
+      formintegration.address_options := CELL[ ...formintegration.address_options, validation_registry_key := node->GetAttribute("addressvalidationkey") ];
+    IF(node->HasAttribute("addressvalidationschema"))
+      formintegration.address_options := CELL[ ...formintegration.address_options, validation_wrd_schema := node->GetAttribute("addressvalidationschema") ];
+  }
+
+  RETURN formintegration;
+}
