@@ -1,0 +1,136 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
+         gid="tolliumapps.filemanager.history"
+         library="history.whlib">
+
+  <screen name="history"
+          width="120x"
+          height="40x"
+          minwidth="70x"
+          allowresize="true"
+          flags="issysop"
+          footerbuttons="close"
+          gid=".dialog"
+          title="">
+    <actions>
+      <!--
+      <action name="createcopy" onexecute="docreatecopy" tid="~duplicate">
+        <enableon source="versionevents" min="1" max="1" />
+      </action>
+      <action name="restorecontent" onexecute="dorestorecontent" tid=".restore">
+        <enableon source="versionevents" min="1" max="1" />
+      </action>
+      -->
+    </actions>
+
+    <menus>
+      <menu name="context">
+        <!--
+        <item action="createcopy" />
+        <item action="restorecontent" />
+        -->
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener name="listener" onevents="GotEvents" />
+    </compositions>
+
+    <body spacers="none">
+      <split type="horizontal">
+        <part width="1pr" spacers="all">
+          <line layout="left">
+            <date name="filterfrom" onselect="GotDateRangeChange" />
+            <date name="filterto" onselect="GotDateRangeChange" />
+          </line>
+          <list name="versionevents"
+                borders="all"
+                flags="isactive"
+                highlightname="isactive"
+                icons="tollium:actions/accept
+                       tollium:objects/meredians
+                       tollium:actions/removepublication
+                       tollium:actions/upload
+                       tollium:actions/replace
+                       tollium:actions/accept
+                       tollium:actions/delete
+                       tollium:objects/questionmark
+                       tollium:status/draft-edit"
+                onselect="onselectrequest"
+                rowlayout="singlerow"
+                selectcontextmenu="context"
+                selectmode="single"
+                sortascending="false"
+                sortcolumn="when">
+            <!-- -->
+            <column name="icon" type="icon" title="" />
+            <column name="when" type="datetime" width="18x" storeutc="true" />
+            <column name="filename" type="text" />
+            <column name="comment" type="text" />
+            <column name="displayname" type="text" tid=".fullname" />
+            <column name="versionnumber" type="text" width="8x" sortkeyname="versionsort" tid=".versionnumber" />
+            <rowlayout name="singlerow">
+              <col coldef="icon" />
+              <col coldef="when" />
+              <col coldef="displayname" />
+              <col coldef="versionnumber" />
+              <row>
+                <cell coldef="icon" />
+                <cell coldef="when" />
+                <cell coldef="displayname" />
+                <cell coldef="versionnumber" />
+              </row>
+            </rowlayout>
+            <rowlayout name="tworows">
+              <col coldef="icon" combinewithnext="true" />
+              <col coldef="when" />
+              <col coldef="versionnumber" combinewithnext="true" />
+              <col coldef="displayname" />
+              <row>
+                <cell coldef="icon" rowspan="2" />
+                <cell coldef="when" />
+                <cell coldef="displayname" />
+                <cell coldef="versionnumber" />
+              </row>
+              <row>
+                <cell coldef="filename" />
+                <cell coldef="comment" colspan="2" />
+              </row>
+            </rowlayout>
+          </list>
+
+          <!--
+          <panel layout="right" borders="left right bottom" backgroundcolor="#e5e5e5" spacers="right">
+            <line>
+              <button action="restorecontent" />
+              <button action="createcopy" />
+            </line>
+          </panel>
+          -->
+        </part>
+        <part width="2pr" spacers="none">
+          <tabs name="proptabs" height="1pr">
+            <tab tid=".changes" visible="false">
+              <heading tid=".changes" />
+              <list name="modifications"
+                    height="1pr"
+                    icons="tollium:actions/properties
+                           tollium:folders/normal
+                           tollium:actions/delete
+                           tollium:objects/world
+                           tollium:files/application_x-webhare-general">
+                <column name="typeicon" type="icon" title="" />
+                <column name="changetype" type="text" width="1pr" />  <!-- properties / location / deletion / data / content / publication -->
+                <column name="changecontent" type="text" width="2pr" />
+              </list>
+            </tab>
+            <tab spacers="none" tid=".previewtab">
+              <publisher:previewbrowser name="previewbrowser" urlbarvisible="false" />
+            </tab>
+          </tabs>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+</screens>

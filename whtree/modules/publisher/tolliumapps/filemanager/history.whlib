@@ -1,0 +1,464 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/enrichment.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/inspect.whlib";
+
+
+// By default, show version events within the last 30 days
+INTEGER default_history_range := 30;
+
+INTEGER64 FUNCTION VersionToLong(STRING version) {
+  STRING ARRAY toks := Tokenize(version, ".");
+  IF(Length(toks)=2)
+    RETURN ToInteger(toks[0], 0) * 100000 + ToInteger(toks[1], 0);
+  ELSE
+    RETURN 0;
+}
+
+PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  //INTEGER siteid;
+
+  OBJECT liveobject;
+
+  //OBJECT historyextcomp;
+  //OBJECT policy;
+
+  //RECORD configdata;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data) {
+    IF (CellExists(data, "filterfrom"))
+      ^filterfrom->value := data.filterfrom;
+    ELSE
+      ^filterfrom->value := AddDaysToDate(-default_history_range, GetCurrentDatetime());
+    IF (CellExists(data, "filterto"))
+      ^filterto->value := data.filterto;
+
+    this->liveobject := OpenWHFSObject(data.id);
+
+    ^listener->masks := this->liveobject->GetEventMasks();
+
+    this->Refresh();
+    this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotEvents(RECORD ARRAY events) {
+    this->Refresh();
+  }
+
+  MACRO GotDateRangeChange() {
+    this->Refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // List fills
+  //
+
+  MACRO Refresh()
+  {
+    DATETIME from_date := ^filterfrom->value;
+    DATETIME to_date := ^filterto->value;
+    IF (from_date != DEFAULT DATETIME)
+      from_date := GetRoundedDateTime(from_date, 24*60*60*1000);
+    IF (to_date != DEFAULT DATETIME)
+      to_date := GetRoundedDateTime(AddDaysToDate(1, to_date), 24*60*60*1000);
+    ELSE
+      to_date := MAX_DATETIME;
+
+    RECORD ARRAY historyitems := ListObjectHistory(this->liveobject->id);
+
+    RECORD ARRAY rows :=
+        SELECT rowkey :=          id
+             , icon :=            type = "approved" ? 2 : 9
+             , when
+             , filename :=        "n/a"
+             , comment :=         "n/a"
+             , displayname :=     (CellExists(userdata, "realname") ? userdata.realname : "") ??
+                                  (CellExists(userdata, "login") ? userdata.login : "") ??
+                                  (CellExists(userdata, "emailaddress") ? userdata.emailaddress : "") ??
+                                  this->GetTid(".unknownuser")
+             , versionnumber :=   version
+             , versionsort :=     VersionToLong(version)
+             , isactive
+             , snapshot
+          FROM historyitems;
+
+    rows := SELECT * FROM rows WHERE when >= from_date AND when < to_date;
+/*
+    // Need the siteid from versionevents, so filter on dates after this query
+    this->siteid := SELECT AS INTEGER fs_site FROM rows WHERE fs_site != 0;
+
+    this->policy := GetVersioningPolicyForSite(this->siteid);
+    rows := this->contexts->userapi->EnrichUsers("USER", rows, [ celltype := "authobjectid", rightouterjoin := TRUE ]);
+
+    this->listener->masks := [ "system:versionevent." || this->siteid || "." || this->liveobject->id ];
+
+    this->configdata := this->policy->GetReviewAppConfig(
+        [ controller := this->tolliumcontroller
+        , sitename :=   OpenSite(this->siteid)->name
+        ]);
+*/
+
+    ^versionevents->rows := rows;
+  }
+
+  MACRO OnSelectRequest()
+  {
+    RECORD sel := ^versionevents->selection;
+    STRING previewlink;
+    IF (RecordExists(sel))
+    {
+      ^modifications->rows := RECORD[];//GetModifications(sel.rowkey);
+
+      STRING link := GetPreviewLink(this->liveobject->id, [ version := sel.snapshot ]);
+      ^previewbrowser->SetPreviewURL(link);
+    }
+    ELSE
+    {
+      ^modifications->rows := DEFAULT RECORD ARRAY;
+      ^previewbrowser->SetPreviewURL("");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+/*
+  MACRO DoCreateCopy()
+  {
+    STRING orgname := ^versionevents->selection.filename;
+    RECORD restoredata;
+
+    OBJECT draftobject := OpenWHFSDraft(^versionevents->selection.draft_object);
+    OBJECT draft_fsobject := draftobject->fsobject;
+
+    IF (this->configdata.getrestorelocation != DEFAULT FUNCTION PTR)
+    {
+      restoredata := this->configdata.getrestorelocation(this, draft_fsobject,
+          [ orgname :=    orgname
+          ]);
+
+      IF (NOT RecordExists(restoredata))
+        RETURN;
+    }
+    ELSE
+    {
+      INTEGER target := RunBrowseForFSObjectDialog(this, [ acceptfiles := FALSE
+                                                         , showreadonly := TRUE
+                                                         , title := this->GetTid(".createhistorycopy")
+                                                         , description := this->GetTid(".createhistorycopydescr")
+                                                         ]);
+
+      IF (target = 0)
+        RETURN;
+
+      restoredata :=
+          [ parent :=   target
+          , name :=     OpenWHFSObject(target)->GenerateUniqueName(orgname)
+          ];
+    }
+
+    OBJECT work := this->BeginUnvalidatedWork();
+
+    OBJECT targetobj := OpenWHFSObject(restoredata.parent);
+    OBJECT live_object := OpenWHFSObject(^versionevents->selection.live_object);
+
+    // Copy the live object, disable publication
+    OBJECT copy := live_object->CopyTo(targetobj, restoredata.name);
+    copy->UpdateMetadata([ publish := FALSE ]);
+
+    RECORD restorefields := this->policy->GetRestoreFields();
+
+    ApplyDraftByVersionedFields(draftobject, restorefields, [ target := copy, applyreadonlyfields := TRUE ]);
+
+    IF (work->Finish())
+    {
+      this->LoadScreen(".objectcopied",
+            [ configdata := this->configdata
+            , targetobj := targetobj
+            , name := restoredata.name
+            ])->RunModal();
+    }
+  }
+
+  MACRO DoRestoreContent()
+  {
+    RECORD sel := ^versionevents->selection;
+
+    RECORD options;
+    IF (NOT ^versionevents->selection.isactive)
+    {
+      STRING orgname := GetNameFromPath(sel.filename);
+      RECORD restoredata;
+
+      IF (this->configdata.getrestorelocation != DEFAULT FUNCTION PTR)
+      {
+        OBJECT draftobject := OpenWHFSDraft(sel.draft_object);
+        restoredata := this->configdata.getrestorelocation(this, draftobject->fsobject,
+            [ orgname :=    orgname
+            ]);
+
+        IF (NOT RecordExists(restoredata))
+          RETURN;
+      }
+      ELSE
+      {
+        INTEGER target := RunBrowseForFSObjectDialog(this, [ acceptfiles := FALSE
+                                                           , showreadonly := TRUE
+                                                           , title := this->GetTid(".undelete")
+                                                           , description := this->GetTid(".undeletedescription")
+                                                           , roots := INTEGER[this->siteid]
+                                                           ]);
+        IF(target = 0)
+          RETURN;
+
+        restoredata :=
+            [ parent :=   target
+            , name :=     OpenWHFSObject(target)->GenerateUniqueName(orgname)
+            ];
+      }
+
+      options :=
+          [ updates :=          restoredata
+          , modifypublished :=  PTR ConvertToWontPublish
+          ];
+    }
+
+    OBJECT draftobject := OpenWHFSDraft(sel.draft_object);
+    HandleVersionRestore(this, this->policy, draftobject, options);
+    this->Refresh();
+  }
+  */
+>;
+
+/*
+PUBLIC OBJECTTYPE DiffView EXTEND TolliumScreenBase
+<
+  RECORD data;
+
+  MACRO Init(RECORD data)
+  {
+    this->textdiff->value := data.diff;
+    this->data := data;
+    this->FillDiffArray();
+    this->FillRequestArray();
+    this->requestdescription->value := SELECT AS STRING comment FROM system.fs_versionevents WHERE id = data.event;
+    this->modifications->rows := GetModifications(data.event);
+  }
+
+  MACRO FillDiffArray()
+  {
+    RECORD ARRAY outrows;
+    FOREVERY(RECORD type FROM this->data.diffarray)
+    {
+      OBJECT typeinfo := OpenWHFSType(type.namespace);
+      RECORD instance_left, instance_right;
+      RECORD ARRAY leftside, rightside;
+      IF(ObjectExists(typeinfo))
+      {
+        instance_left := typeinfo->GetInstanceData(this->data.fsobject);
+        instance_right := typeinfo->GetInstanceData(this->data.fsdraft);
+        leftside := UnpackCTYPEToDBInfoRows(typeinfo, 0, this->tolliumuser, instance_left, typeinfo->id || ".left", TRUE, FALSE);
+        rightside := UnpackCTYPEToDBInfoRows(typeinfo, 0, this->tolliumuser, instance_right, typeinfo->id || ".right", TRUE, FALSE);
+      }
+      ELSE
+      {
+        instance_left := SELECT * FROM system.fs_objects WHERE id = this->data.fsobject;
+        instance_right := SELECT * FROM system.fs_objects WHERE id = this->data.fsdraft;
+        leftside := UnpackToDBInfoRows(this->tolliumuser, [ instance_left ], "base-left.", FALSE, FALSE);
+        rightside := UnpackToDBInfoRows(this->tolliumuser, [ instance_right ], "base-right.", FALSE, FALSE);
+      }
+      RECORD entry :=  [ name := type.namespace
+                       , rowkey := ToString(type.type)
+                       , subnodes := DEFAULT RECORD ARRAY
+                       , data := ""
+                       , expanded := ObjectExists(typeinfo)/// Favor instance data
+                       , canedit := FALSE
+                       , candownload := FALSE
+                       , type := "diff"
+                       ];
+      FOREVERY(RECORD diff FROM type.diff)
+      {
+        RECORD fieldinfo :=  [ name := diff.field
+                             , rowkey := type.namespace || "." || diff.field
+                             , subnodes := DEFAULT RECORD ARRAY
+                             , data := ""
+                             , expanded := FALSE
+                             , canedit := FALSE
+                             , candownload := FALSE
+                             , type := "field"
+                             ];
+        RECORD leftfield := SELECT * FROM leftside WHERE ToUpperCase(name) = ToUpperCase(diff.field);
+        fieldinfo.name := leftfield.name;/// This one has nice casing, whereas the version we have is uppercase
+        leftfield.name := "Left (original)";
+        RECORD rightfield := SELECT * FROM rightside WHERE ToUpperCase(name) = ToUpperCase(diff.field);
+        rightfield.name := "Right (updated)";
+
+        fieldinfo.subnodes := [ leftfield, rightfield ];
+
+        INSERT fieldinfo INTO entry.subnodes AT END;
+      }
+      INSERT entry INTO outrows AT END;
+    }
+    this->arraydiff->rows := outrows;
+  }
+
+  MACRO FillRequestArray()
+  {
+    RECORD request :=  [ name := "system.fs_versionevents"
+                       , rowkey := "versioningevent." || this->data.event
+                       , subnodes := UnpackToDBInfoRows(this->tolliumuser, (SELECT * FROM system.fs_versionevents WHERE id = this->data.event), "versionevent.", FALSE, FALSE)
+                       , data := ToString(this->data.event)
+                       , expanded := FALSE
+                       , canedit := FALSE
+                       , candownload := FALSE
+                       , type := "table row"
+                       ];
+    RECORD published :=  [ name := "system.fs_objects (published)"
+                         , rowkey := "fsobject." || this->data.fsobject
+                         , subnodes := UnpackToDBInfoRows(this->tolliumuser, (SELECT * FROM system.fs_objects WHERE id = this->data.fsobject), "liveobject.", FALSE, FALSE)
+                         , data := ToString(this->data.fsobject)
+                         , expanded := FALSE
+                         , canedit := FALSE
+                         , candownload := FALSE
+                         , type := "table row"
+                         ];
+    RECORD draft :=  [ name := "system.fs_objects (draft)"
+                     , rowkey := "fsobject." || this->data.fsdraft
+                     , subnodes := UnpackToDBInfoRows(this->tolliumuser, (SELECT * FROM system.fs_objects WHERE id = this->data.fsdraft), "draftobject.", FALSE, FALSE)
+                     , data := ToString(this->data.fsdraft)
+                     , expanded := FALSE
+                     , canedit := FALSE
+                     , candownload := FALSE
+                     , type := "table row"
+                     ];
+    this->versionrequest->rows := [ request, published, draft ];
+  }
+
+  MACRO DoShowPolicy()
+  {
+    this->RunMessageBox(".genericinfobox", this->data.policy->name);
+  }
+
+  MACRO DoInspectFSObject()
+  {
+    this->LoadScreen("mod::publisher/tolliumapps/filemanager/inspect.xml#inspect", [ fsobj := this->data.fsobject ])->RunModal();
+  }
+
+  MACRO DoShowPolicyInfo()
+  {
+    RETURN;/// Irrelevant now, might however become useful again in future iterations of the policy code
+  }
+
+  MACRO DoShowVersionedFields()
+  {
+    RECORD info := this->data.policyfields;/// readonly_fields, versioned_contenttypes, versioned_fields
+    OBJECT file := OpenWHFSObject(this->data.fsobject);
+    INTEGER type_id := file->type;
+    RECORD typed;
+    RECORD relevant := [ readonly := info.readonly_fields, instancedata := this->GetVersionedInstanceFields(info.versioned_contenttypes), base_fields := info.versioned_fields ];
+    OBJECT screen := this->LoadScreen(".fieldsview", relevant);
+    screen->frame->title := "Versioned fields for \"" || file->name || "\"";
+    screen->RunModal();
+  }
+
+  RECORD ARRAY FUNCTION GetVersionedInstanceFields(INTEGER ARRAY versioned)
+  {
+    RECORD ARRAY outrows;
+    RECORD ARRAY types := SELECT fs_type,id FROM system.fs_instances WHERE fs_object = this->data.fsobject AND fs_type IN versioned;
+    FOREVERY(RECORD typ FROM types)
+    {
+      OBJECT typeinfo := OpenWHFSTypeById(typ.fs_type);
+      RECORD instance := typeinfo->GetInstanceData(this->data.fsobject);
+      INSERT [ name := typeinfo->namespace
+             , rowkey := ToSTring(typ.fs_type)
+             , subnodes := UnpackCTYPEToDBInfoRows(typeinfo, 0, this->tolliumuser, instance, typ.fs_type || ".", TRUE, FALSE)
+             , data := ToString(typ.id)
+             , expanded := TRUE/// expand top level
+             , canedit := FALSE
+             , candownload := FALSE
+             , type := "whfs instance"
+            ] INTO outrows AT END;
+
+    }
+    RETURN outrows;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE FieldsView EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    RECORD ARRAY base_fields := ToRecordArray(data.base_fields, "name");
+    this->basefields->rows := SELECT rowkey := #base_fields, name FROM base_fields;
+    RECORD ARRAY readonly_fields := ToRecordArray(data.readonly, "name");
+    this->readonlyfields->rows := SELECT rowkey := #readonly_fields, name FROM readonly_fields;
+    this->contenttypes->rows := data.instancedata;// SELECT *, rowkey := #fields FROM data.instancedata.fields;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC OBJECTTYPE ObjectCopied EXTEND TolliumScreenBase
+<
+  INTEGER fileid;
+  RECORD configdata;
+
+  MACRO Init(RECORD data)
+  {
+    this->configdata := data.configdata;
+    this->objectcopiedto->value := this->GetTid(".objectcopiedto", data.name);
+    this->fileid := data.targetobj->OpenByName(data.name)->id;
+  }
+
+  MACRO DoOpenInApp()
+  {
+    this->configdata.openfileinapp(this, this->fileid);
+  }
+>;
+*/

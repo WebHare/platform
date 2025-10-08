@@ -337,7 +337,6 @@
         <text tid="movetobottombutton">Move to bottom</text>
         <text tid="movetotopbutton">Move to top</text>
         <text tid="moveupbutton">Move up</text>
-        <text tid="previewtab">Preview</text>
         <text tid="propstab">Properties</text>
         <text tid="refreshhint">Refresh preview</text>
         <text tid="showpart">Show folder tree</text>
@@ -522,7 +521,6 @@
           <text tid="showmodifications">Report of modifications</text>
           <text tid="sitename">Site</text>
           <textgroup gid="export">   <!-- filemanager.main.app.showmodifications.export -->
-            <text tid="filename">publisher_modifications</text>
             <text tid="fullpath">Full path</text>
             <text tid="modificationdate">Modification date</text>
             <text tid="modifiedby">Modified by</text>
@@ -1867,6 +1865,22 @@
           <text tid="historyurl">Historic URL</text>
           <text tid="iscurrent">Is current</text>
           <text tid="urlhistoryfor">URL history for <param p="1"/></text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="history">   <!-- tolliumapps.filemanager.history -->
+        <textgroup gid="dialog">   <!-- tolliumapps.filemanager.history.dialog -->
+          <text tid="changecontent">Data</text>
+          <text tid="changes">Changes</text>
+          <text tid="changetype">Type</text>
+          <text tid="comment">Comment</text>
+          <text tid="filename">Filename</text>
+          <text tid="filterfrom">Last changed between</text>
+          <text tid="filterto">and</text>
+          <text tid="fullname">Name</text>
+          <text tid="previewtab">Preview</text>
+          <text tid="unknownuser">Unknown user</text>
+          <text tid="versionnumber">Version number</text>
+          <text tid="when">Date</text>
         </textgroup>
       </textgroup>
       <textgroup gid="seoreport">   <!-- tolliumapps.filemanager.seoreport -->

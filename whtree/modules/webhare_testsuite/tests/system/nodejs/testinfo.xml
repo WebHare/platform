@@ -28,6 +28,7 @@
   <test script="test_whfs_types.ts" />
   <test script="test_whfs_siteprofiles.ts" />
   <test script="test_whfs_harescript.ts" />
+  <test script="test_whfs_events.ts" />
   <test script="test_whdb.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />

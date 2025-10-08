@@ -247,6 +247,8 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
     {
       onanalyzerissue("LOG", "Folder #" || folder.id || " has file #" || folder.indexdoc || " as index, which is not in that folder. Fixing.");
       UPDATE system.fs_objects SET indexdoc := 0 WHERE id=folder.id;
+      // FIXME: fire change events
+      // FIXME: fire change events on folder
     }
   }
   ELSE
@@ -258,6 +260,7 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
       UPDATE system.fs_objects SET indexdoc := subitem_index.id WHERE fs_objects.id = folder.id;
       //Force republishing of the file
       UPDATE subitems_files SET forcerepublish := TRUE WHERE COLUMN id=subitem_index.id;
+      // FIXME: fire change events on folder
     }
   }
 
