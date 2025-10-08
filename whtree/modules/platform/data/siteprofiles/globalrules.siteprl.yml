@@ -1,0 +1,204 @@
+apply:
+  - to: all
+    priority: -1000
+    forms:
+      components:
+        - allow: http://www.webhare.net/xmlns/publisher/forms#*
+        - deny: http://www.webhare.net/xmlns/publisher/forms#address
+        - deny: http://www.webhare.net/xmlns/publisher/forms#password
+        - deny: http://www.webhare.net/xmlns/publisher/forms#rtd
+        - deny: http://www.webhare.net/xmlns/publisher/forms#captcha
+        - deny: http://www.webhare.net/xmlns/publisher/forms#array
+        - deny: http://www.webhare.net/xmlns/publisher/forms#hidden
+      handlers:
+        - allow: http://www.webhare.net/xmlns/publisher/forms#*
+        - deny: http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler
+      rtdTypes:
+        - allow: http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype
+      mailRtdType: http://www.webhare.net/xmlns/publisher/defaultmailrtdtype
+    rtdDoc:
+      rtdType: http://www.webhare.net/xmlns/publisher/defaultrtdtype
+  - to: all
+    editProps:
+      - type: publisher.lifecycle
+        requireRight: system:supervisor
+        tabsExtension: mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle
+    fileTypes:
+      - allowType: http://www.webhare.net/xmlns/publisher/*
+      - denyType: filetypes.richdocumentfile
+      - denyType: filetypes.tagfile
+      - denyType: filetypes.tagrepository
+      - denyType: filetypes.profilefile
+      - denyType: http://www.webhare.net/xmlns/publisher/formwebtool
+      - denyType: http://www.webhare.net/xmlns/publisher/formwidget
+    folderTypes:
+      - allowType: foldertypes.normalfolder
+      - allowType: foldertypes.systemfolder
+    republish:
+      - mask: "*"
+        indexOnly: true
+  - to:
+      site: ?*
+    folderTypes:
+      - allowType: foldertypes.photoalbum
+      - allowType: foldertypes.foreignfolder
+  - to:
+      is: folder
+    republish:
+      - folder: ..
+        mask: "*"
+        indexOnly: true
+  - to:
+      is: folder
+      site: Repository
+    folderIndex: none
+  - comment: enable texteditors
+    to:
+      or:
+        - is: file
+          type: filetypes.javascriptfile
+        - is: file
+          type: filetypes.semidynamicfile
+        - is: file
+          type: filetypes.cssfile
+        - is: file
+          type: filetypes.libraryfile
+        - is: file
+          type: filetypes.plaintextfile
+        - is: file
+          type: http://www.webhare.net/xmlns/publisher/standalonetemplatefile
+        - is: file
+          type: filetypes.xmlfile
+        - is: file
+          type: filetypes.shtmlfile
+        - is: file
+          type: filetypes.shtmlwithdesignfile
+        - is: file
+          type: filetypes.wittyfile
+        - is: file
+          type: filetypes.templatefile
+    setObjectEditor:
+      name: publisher:texteditor
+  - comment: "Configure the photoalbum's content listing (index) to render the album"
+    to:
+      is: file
+      type: filetypes.contentlisting
+      parentType: foldertypes.photoalbum
+    bodyRenderer:
+      objectName: mod::publisher/lib/widgets/gallerywidget.whlib#RenderGalleryWidgetPage
+  - to:
+      or:
+        - is: folder
+          type: foldertypes.systemfolder
+        - is: folder
+          type: foldertypes.tagfolder
+        - is: folder
+          type: foldertypes.foreignfolder
+    folderSettings:
+      ordering: none
+  - to:
+      is: folder
+      sitePath: /
+    priority: 99999
+    folderTypes:
+      - allowType: foldertypes.normalfolder
+rtdTypes:
+  http://www.webhare.net/xmlns/publisher/defaultmailrtdtype:
+    css:
+      - mod::publisher/data/siteprofiles/defaultmailrtdtype.css
+    defaultBlockStyle: normal
+    blockStyles:
+      normal:
+        containerTag: p
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+      ordered:
+        containerTag: ol
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+      unordered:
+        containerTag: ul
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+    ignoreSiteProfileWidgets: true
+    linkHandlers: []
+    b: b
+    i: i
+  http://www.webhare.net/xmlns/publisher/defaultrtdtype:
+    defaultBlockStyle: normal
+    blockStyles:
+      heading1:
+        containerTag: h1
+        textStyles:
+          - i
+          - u
+      heading2:
+        containerTag: h2
+        textStyles:
+          - i
+          - u
+      heading3:
+        containerTag: h3
+        textStyles:
+          - i
+          - u
+      normal:
+        containerTag: p
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+      unordered:
+        containerTag: ul
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+      ordered:
+        containerTag: ol
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+          - img
+          - sup
+          - sub
+          - strike
+    tableStyles:
+      table:
+        allowStyles: []
+    linkHandlers: []
+    b: b
+    i: i

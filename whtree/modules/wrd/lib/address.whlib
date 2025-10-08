@@ -7,6 +7,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
 
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -623,7 +624,7 @@ PUBLIC RECORD FUNCTION __LookupFormIntegrationAddressInfo(OBJECT applytester)
   IF (NOT ObjectExists(applytester))
     RETURN DEFAULT RECORD;
 
-  RECORD config := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+  RECORD config := GetFormPluginConfiguration(applytester);
   STRING regkey := config.addressvalidationkey;
   STRING wrdschema := config.addressvalidationschema;
 

@@ -6,8 +6,11 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/composer.whlib";
+
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 OBJECT tag_regex; // Used for checking field name validity
 
@@ -246,4 +249,62 @@ PUBLIC STRING FUNCTION FormatQName(RECORD component)
     qname := qname || "?" || Detokenize(fields, "&");
   }
   RETURN qname;
+}
+
+
+PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
+  RECORD config :=
+    [ usecaptcha := FALSE
+    , allowsubmittype := FALSE
+    , countrylist := ["WORLD"]
+    , addressoptions := default_addressfield_options
+    , enablepagetitles := FALSE
+    , enableinfotexts := FALSE
+    , infotextrtdtype := ""
+    , mailrtdtype := ""
+    , addressvalidationkey := ""
+    , addressvalidationschema := ""
+    , webtoolformhooks := ""
+    , autocompleteusername := ""
+    ];
+
+  FOREVERY(RECORD p FROM props) {
+    IF(CellExists(p, "captcha"))
+      config.usecaptcha := p.captcha;
+    IF(CellExists(p, "match_submit_type"))
+      config.allowsubmittype := p.match_submit_type;
+    IF(CellExists(p, "country_list"))
+      config.countrylist := p.country_list;
+    IF(CellExists(p, "page_titles"))
+      config.enablepagetitles := p.page_titles;
+    IF(CellExists(p, "info_texts"))
+      config.enableinfotexts := p.info_texts;
+    IF(CellExists(p, "info_text_rtd_type"))
+      config.infotextrtdtype := p.info_text_rtd_type;
+    IF(CellExists(p, "mail_rtd_type"))
+      config.mailrtdtype := p.mail_rtd_type;
+    IF(CellExists(p, "auto_complete_user_name"))
+      config.autocompleteusername := p.auto_complete_user_name;
+    IF(CellExists(p, "page_hooks"))
+      config.webtoolformhooks := MakeAbsoluteResourcePath(p.source.siteprofile, p.page_hooks);
+
+    IF(CellExists(p, "address_options")) {
+      RECORD pao := p.address_options;
+      IF(CellExists(pao, "country_list"))
+        config.countrylist := pao.country_list;
+      IF(CellExists(pao, "derive_from_zip"))
+        config.addressoptions := pao.derive_from_zip = "force" ? "nl-force-zip" : "nl-suggest-zip";
+      IF(CellExists(pao, "validation_registry_key"))
+        config.addressvalidationkey := pao.validation_registry_key;
+      IF(CellExists(pao, "validation_wrd_schema"))
+        config.addressvalidationschema := pao.validation_wrd_schema;
+    }
+  }
+
+  RETURN config;
+}
+
+PUBLIC RECORD FUNCTION GetFormPluginConfiguration(OBJECT applytester) {
+  RECORD ARRAY settings := applytester->GetYamlPluginSettings("forms");
+  RETURN Length(settings) > 0 ? CombineFormPluginConfiguration(settings) : DEFAULT RECORD;
 }

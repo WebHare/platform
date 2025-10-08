@@ -433,6 +433,23 @@ $defs:
         items:
           type: string
 
+  AllowDenyTypeList:
+    type: array
+    items:
+      type: object
+      unevaluatedProperties: false
+      oneOf:
+        - type: object
+          required: [allow]
+          properties:
+            allow:
+              $ref: "#/$defs/MatchType"
+        - type: object
+          required: [deny]
+          properties:
+            deny:
+              $ref: "#/$defs/MatchType"
+
   Apply:
     type: object
     unevaluatedProperties: false
@@ -514,7 +531,7 @@ $defs:
     type: string
     description: Match a type. The typename may end in a wildcard. Non URLs are prefixed with the module name if not specified
     pattern: "^[^?*]*\\*?$" # A wildcard, if any, may only appear at the end
-    examples: [ "module:type.name.*", "group.type" ]
+    examples: ["module:type.name.*", "group.type"]
 
   MatchOrRegExp:
     oneOf:
@@ -829,42 +846,66 @@ $defs:
             denyType:
               "$ref": "#/$defs/MatchType"
 
-  ApplyForms: # an array of - allowQuestion, - denyHandler... not sure if we could do this more elegantly as wildcards make ordering important
-    type: array
-    items:
-      type: object
-      unevaluatedProperties: false
-      oneOf:
-        - type: object
-          required: [allowComponent]
-          properties:
-            allowComponent:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyComponent]
-          properties:
-            denyComponent:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [allowHandler]
-          properties:
-            allowHandler:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyHandler]
-          properties:
-            denyHandler:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [allowRTDType]
-          properties:
-            allowRTDType:
-              $ref: "#/$defs/MatchType"
-        - type: object
-          required: [denyRTDType]
-          properties:
-            denyRTDType:
-              $ref: "#/$defs/MatchType"
+  ApplyForms:
+    type: object
+    additionalProperties: false
+    properties:
+      components:
+        description: "Components to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
+      handlers:
+        description: "Handlers to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
+      rtdTypes:
+        description: "RTD Types to allow/deny"
+        $ref: "#/$defs/AllowDenyTypeList"
+      captcha:
+        description: Enable captcha checks by default for webtool forms
+        type: boolean
+      matchSubmitType:
+        description: Allow to match conditions based on submit type (new, change, cancel)
+        type: boolean
+      pageTitles:
+        description: Enable page titles by default for webtool forms
+        type: boolean
+      infoTexts:
+        description: Enable info texts by default for webtool forms
+        type: boolean
+      infoTextRtdType:
+        description: RTD type to use for info texts (if not set, falls back to the rtdDoc)
+        type: string
+      mailRtdType:
+        description: Default RTD type to use for mails
+        type: string
+      autoCompleteUsername:
+        description: Enable username autocomplete and set its title. Set to '*' to use the default title
+        type: string
+      pageHooks:
+        description: Supply hooks to the webtool form page (would otherwise be done by a %WebtoolFormPage)
+        type: string
+      addressOptions: # split off as we might need to reuse these settings elsewhere, and it cleans up a bit
+        description: Enable addresses by default for webtool forms
+        type: object
+        additionalProperties: false
+        properties:
+          countryList:
+            description: A list of two-letter country codes and "-" (a divider in the country select option list). WORLD to add all countries not explicitly mentioned
+            type: array
+            items:
+              type: string
+              pattern: "^[A-Z]{2}$|^-$|^WORLD$"
+          deriveFromZip:
+            description: Special zip/postal code handling, currently NL addresses only. Places the zip and house nr first and either suggests or forces an address based on the zip code
+            type: string
+            enum:
+            - suggest
+            - force
+          validationRegistryKey:
+            type: string
+            description: Registry key to get address verification settings from. Takes precedence over any wrdschema
+          validationWrdSchema:
+            type: string
+            description: Schema to get verification settings from
 
   ApplyToRepublish:
     type: array

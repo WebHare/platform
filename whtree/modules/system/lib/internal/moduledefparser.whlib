@@ -689,8 +689,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
 
       , virtualfs            := DEFAULT RECORD ARRAY
       , logfiles             := DEFAULT RECORD ARRAY
-      , webdesignplugins     := DEFAULT RECORD ARRAY
-      , customnodes          := DEFAULT RECORD ARRAY
 
       , globalappcontexts    := DEFAULT RECORD ARRAY
       , webdesigns           := DEFAULT RECORD ARRAY
@@ -1354,33 +1352,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
           RECORD searchfilter := this->ParseSearchFilter(subchild, childgid);
           IF (RecordExists(searchfilter))
             INSERT searchfilter INTO this->moduledef.searchfilters AT END;
-        }
-        CASE "webdesignplugin" {
-          RECORD plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname")));
-          plugin.name := subchild->GetAttribute("name");
-          plugin.namespace := subchild->GetAttribute("namespace");
-          plugin.hooksfeatures := ParseXSList(subchild->GetAttribute("hooksfeatures"));
-          plugin.parser := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("parser"));
-          IF(subchild->GetAttribute("composerhook") != "")
-            INSERT CELL composerhook := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("composerhook")) INTO plugin;
-
-          FOREVERY(STRING hookplugin FROM ParseXSList(subchild->GetAttribute("hooksplugins")))
-            INSERT subchild->LookupQualifiedName(hookplugin) INTO plugin.hooksplugins AT END;
-
-          INSERT plugin INTO this->moduledef.webdesignplugins AT END;
-        }
-        CASE "customnode" {
-          STRING yamlproperty := subchild->GetAttribute("yamlproperty");
-          IF(yamlproperty != "" AND this->moduledef.name NOT IN whconstant_builtinmodules) //we'll need to prefix it
-            yamlproperty := this->moduledef.name || ":" || yamlproperty;
-
-          RECORD plugin := [ name := subchild->GetAttribute("name")
-                           , namespace := subchild->GetAttribute("namespace")
-                           , toyaml := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("toyaml"))
-                           , isarray := ParseXSBoolean(subchild->GetAttribute("isarray"))
-                           , yamlproperty := yamlproperty
-                           ];
-          INSERT plugin INTO this->moduledef.customnodes AT END;
         }
         CASE "filemgrextension"
         {

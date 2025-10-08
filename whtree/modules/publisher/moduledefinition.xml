@@ -555,7 +555,10 @@
 
     <webdesignplugin name="formintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-                     objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin" />
+                     objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"
+                     yamlproperty="forms"
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetFormIntegrationAsYaml"
+                     />
     <webdesignplugin name="captchaintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin" />

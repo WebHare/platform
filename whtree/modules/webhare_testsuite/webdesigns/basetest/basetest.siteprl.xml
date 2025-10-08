@@ -39,6 +39,10 @@
     <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
   </filetype>
 
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/test_rtddoc_priority" kind="virtualfile">
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
+  </filetype>
+
   <!-- Global site settings -->
   <apply>
     <to type="all" />

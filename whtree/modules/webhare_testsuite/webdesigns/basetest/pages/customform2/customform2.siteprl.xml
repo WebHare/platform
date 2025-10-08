@@ -18,7 +18,7 @@
     <dynamicexecution routerfunction="customform2.whlib#CustomFormRouter2" />
   </filetype>
 
-  <apply>
+  <apply comment="Configure customform2">
     <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
     <extendformeditor settingsextension="customform2.xml#props" />

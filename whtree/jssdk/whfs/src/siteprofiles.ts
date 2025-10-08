@@ -2,7 +2,9 @@
 
 import type { FieldLayout } from "@mod-platform/generated/schema/siteprofile";
 import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
 import type { Rule } from "@mod-system/js/internal/webserver/webconfig";
+import type { ToSnakeCase } from "@webhare/std/src/types";
 
 export enum CSPMemberType {
   String = 2,
@@ -187,32 +189,20 @@ export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
   addressvalidationschema: string;
   allowsubmittype: boolean;
   countrylist: string[];
-  defaultstoredays: number;
-  dontencodewebpackquestions: boolean;
   enableinfotexts: boolean;
   enablepagetitles: boolean;
   infotextrtdtype: string;
   mailrtdtype: string;
-  maxstoredays: number;
-  processdays: number;
   usecaptcha: boolean;
   webtoolformhooks: string;
 }
 
-export interface CSPPluginBase {
-  combine: boolean;
-  hooksfeatures: string[];
-  hooksplugins: string[];
-  name: string;
-  namespace: string;
-  objectname: string;
-  wittyname: string;
-  composerhook?: string;
-}
+export type CSPPluginBase = ToSnakeCase<ModulePlugins["spPlugins"][number]>;
 
 export interface CSPPlugin extends CSPPluginBase {
+  combine: boolean;
   //data stored by the plugin parser, format only known to the plugin itself
-  data: CSPPluginDataRow;
+  data: CSPPluginDataRow | null;
 }
 
 export interface CSPRtddoc {
@@ -464,6 +454,7 @@ export type CSPApplyRule = {
     script: string;
   } | null;
   webdesign: CSPWebDesign | null;
+  //TODO this is being double parsed (both for us and both into yml_ props) because HS readers haven't switched over to yml_forms
   webtoolsformrules: CSPWebtoolsFormRule[];
 } & {  /** Custom nodes/plugins */
   [k in `yml_${string}`]?: Array<Record<string, unknown>>;

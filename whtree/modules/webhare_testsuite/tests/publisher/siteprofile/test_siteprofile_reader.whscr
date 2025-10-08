@@ -45,7 +45,7 @@ MACRO TestWHFSType()
   TestEq(DEFAULT RECORD, wordtype.dynamicexecution);
   TestEq(DEFAULT RECORD, DescribeContentTypeById(4, [isfolder := TRUE]));
 
-  TestEq("mod::platform/data/platform.siteprl.yml", wordtype.siteprofile);
+  TestEq("mod::platform/data/siteprofiles/types.siteprl.yml", wordtype.siteprofile);
   TestEq(TRUE, wordtype.line > 20);
 
   TestEq(DEFAULT RECORD, DescribeContentTypeById(0));

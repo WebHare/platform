@@ -7,6 +7,8 @@ LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
+
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
@@ -30,7 +32,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
   OBJECT webcontext;
   BOOLEAN didintegrate;
   BOOLEAN pvt_manualwebpackembed;
-  BOOLEAN __haswebpack;
+  BOOLEAN __haswebpack;  //FIXME drop in wh6.0
   RECORD __config;
 
   MACRO NEW()
@@ -42,10 +44,10 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
     }
   }
 
-  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD mergedconfiguration)
-  {
+  UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY props) {
     this->webcontext := webcontext;
-    this->__config := mergedconfiguration;
+    this->__config := CombineFormPluginConfiguration(props);
+
     IF(this->__haswebpack)
       this->__ConfigureWebpack(webcontext);
   }
@@ -55,27 +57,6 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
   {
     IF(this->__haswebpack)
       this->__PrepareWebpack();
-  }
-
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RETURN [ dontencodewebpackquestions := ParseXSBoolean(node->GetAttribute("dontencodewebpackquestions")) //'hack' to allow us to prevent html-encoding questions. some webpack users need this to embed hyperlinks
-           , usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
-           , allowsubmittype := ParseXSBoolean(node->GetAttribute("allowsubmittype"))
-           , countrylist := node->HasAttribute("countrylist") ? ParseXSList(node->GetAttribute("countrylist")) : ["WORLD"]
-           , addressoptions := node->HasAttribute("addressoptions") ? ParseXSList(node->GetAttribute("addressoptions")) : default_addressfield_options
-           , enablepagetitles := ParseXSBoolean(node->GetAttribute("enablepagetitles"))
-           , enableinfotexts := ParseXSBoolean(node->GetAttribute("enableinfotexts"))
-           , infotextrtdtype := node->GetAttribute("infotextrtdtype")
-           , mailrtdtype := node->GetAttribute("mailrtdtype")
-           , maxstoredays := node->HasAttribute("maxstoredays") ? ParseXSInt(node->GetAttribute("maxstoredays")) : -1
-           , defaultstoredays := node->HasAttribute("defaultstoredays") ? ParseXSInt(node->GetAttribute("defaultstoredays")) : -1
-           , processdays := node->HasAttribute("processdays") ? ParseXSInt(node->GetAttribute("processdays")) : -1
-           , addressvalidationkey := node->GetAttribute("addressvalidationkey")
-           , addressvalidationschema := node->GetAttribute("addressvalidationschema")
-           , webtoolformhooks := siteprofile->ParseFSPath(node, "webtoolformhooks")
-           , autocompleteusername := node->GetAttribute("autocompleteusername")
-           ];
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetContentNav()

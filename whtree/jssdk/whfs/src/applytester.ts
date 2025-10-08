@@ -467,7 +467,7 @@ export class WHFSApplyTester {
     const rows: CSPPluginDataRow[] = [];
     for (const apply of await this.getMatchingRules('plugins'))
       for (const plugin of apply.plugins)
-        if (plugin.name === name && plugin.namespace === namespace)
+        if (plugin.name === name && plugin.namespace === namespace && plugin.data)
           rows.push(plugin.data);
 
     return rows.length ? buildPluginData(rows) : null;
@@ -580,13 +580,14 @@ export class WHFSApplyTester {
 
     for (const apply of await this.getMatchingRules('plugins')) {
       for (const plugin of apply.plugins)
-        if (plugin.combine) //this is a normal plugin where we merge configuration
-          emplace(namedplugins, plugin.name, {
-            insert: () => ({ ...plugin, datas: [plugin.data] }),
-            update: cur => ({ ...cur, datas: [...cur.datas, plugin.data] })
-          });
-        else
-          customplugins.push({ ...plugin, datas: [plugin.data] });
+        if (plugin.data)
+          if (plugin.combine) //this is a normal plugin where we merge configuration
+            emplace(namedplugins, plugin.name, {
+              insert: () => ({ ...plugin, datas: [plugin.data!] }),
+              update: cur => ({ ...cur, datas: [...cur.datas, plugin.data!] })
+            });
+          else
+            customplugins.push({ ...plugin, datas: [plugin.data] });
     }
 
     webDesign.plugins = [...namedplugins.values(), ...customplugins];

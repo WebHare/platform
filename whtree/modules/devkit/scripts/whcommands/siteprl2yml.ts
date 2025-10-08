@@ -5,7 +5,7 @@ import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlo
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
 import { nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
 import { whconstant_builtinmodules, whconstant_defaultwidgetgroup } from "@mod-system/js/internal/webhareconstants";
-import type { ApplyForms, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
+import type { AllowDenyTypeList, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import YAML from "yaml";
 import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
@@ -389,18 +389,14 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
     };
   }
 
-  if (ar.plugins?.length) {
-    console.error(`FIXME: we need to import ${ar.plugins.length} plugins but we have no YAML plan yet`);
-    console.log(ar.plugins);
-  }
-
   if (ar.webtoolsformrules?.length) {
-    //We need to map the { allow, comp, type} triplet to a property named [allow | deny] [Component | Handler | RTDType]: comp //the actual mask
-    rule.forms = ar.webtoolsformrules.map(fr => {
-      const prop = fr.allow ? "allow" : "deny";
-      const comp = fr.comp === "component" ? "Component" : fr.comp === "handler" ? "Handler" : fr.comp === "rtdtype" ? "RTDType" : throwError(`Unsupported form rule type ${fr.comp}`);
-      return { [prop + comp]: fr.type } as ApplyForms[0];
-    });
+    rule.forms ||= {};
+
+    for (const fr of ar.webtoolsformrules) {
+      const comp = fr.comp === "component" ? "components" : fr.comp === "handler" ? "handlers" : fr.comp === "rtdtype" ? "rtdTypes" : throwError(`Unsupported form rule type ${fr.comp}`);
+      rule.forms[comp] ||= [];
+      rule.forms[comp].push({ [fr.allow ? "allow" : "deny"]: fr.type } as AllowDenyTypeList[number]);
+    }
   }
 
   if (ar.rtddoc) {
@@ -454,11 +450,18 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
 
   for (let [customKey, data] of Object.entries(ar).filter(([k, v]) => k.startsWith("yml_"))) {
     customKey = nameToCamelCase(customKey.substring(4));
-    const plugininfo = getExtractedConfig("plugins").customSPNodes.find(p => p.yamlProperty === customKey);
+    const plugininfo = getExtractedConfig("plugins").spPlugins.find(p => p.yamlProperty === customKey);
     if (!plugininfo)
       throw new Error(`No plugin registered for custom siteprofile property ${customKey}, cannot convert`);
 
-    rule[customKey] = toCamelCase(plugininfo.isArray ? data : data[0]);
+    if (plugininfo.isArray) {
+      if (rule[customKey])
+        throw new Error(`Custom siteprofile property ${customKey} already exists? Cannot merge an array into it`);
+      rule[customKey] = toCamelCase(data);
+    } else {
+      // Merge it into a property. needed for 'forms'
+      rule[customKey] = { ...(rule[customKey] as object), ...toCamelCase(data[0]) };
+    }
   }
 
   return rule;
@@ -474,6 +477,9 @@ function myCSPRuleCompare(expect: unknown, actual: unknown, path: string) {
   if (path.endsWith(".uploadtypemapping")) //we'll drop this in 6.0 anyway
     return true;
   if (path.endsWith(".siteprofile"))
+    return true;
+  //these are double imported, we only check those in webtoolsformrules
+  if (path.match(/\.yml_forms\[\d+\]\.(components|handlers|rtdTypes)$/))
     return true;
 }
 
@@ -509,7 +515,7 @@ function fixAllTypeRefs<T>(topnode: T, remap: Map<string, string>, propertyName?
 
 run({
   flags: {
-    "v,verbose": { description: "Show more information" },
+    "dump-yaml": { description: "Dump all generated YAML documents" },
     "dry-run": { description: "Don't write any files, just validate the output" },
     "no-status-check": { description: "Don't check for a clean git status before proceeding" },
   },
@@ -728,13 +734,16 @@ run({
         test.eq(sp.siteprofile.applysiteprofiles.length, parsedYaml.applysiteprofiles.length); //since we rename XML to YML, lets only care about the count
       } catch (e) {
         spSuccess = false;
-
-        console.log("FINAL YAML:\n---\n" + yamlText);
-        throw e;
       }
 
-      if (!spSuccess)
+      if (!spSuccess) {
+        if (opts.dumpYaml) {
+          console.log("### " + sp.newName + "\n---\n");
+          console.log(yamlText);
+        }
         sp.result = null; //clear it, we had errors and won't be remapping this file
+      }
+
 
       //Add conversion result to the typemap
       for (const rt of parsedYaml.contenttypes)
@@ -834,6 +843,11 @@ run({
     for (const [path, content] of toWrite) {
       const outpath = toFSPath(path);
       if (content !== null) {
+        if (opts.dumpYaml && path.endsWith(".yml")) {
+          console.log("### " + path + "\n---\n");
+          console.log(content);
+        }
+
         if (opts.dryRun)
           console.log(`Would ${existsSync(outpath) ? "update" : "create"} ${outpath} (${content.length} bytes)`);
         else

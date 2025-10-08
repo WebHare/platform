@@ -1,7 +1,7 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
 import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWebtoolsFormRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { existsSync, readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
@@ -231,6 +231,9 @@ export class SiteProfileParserContext {
     if (!isValidScopedType(type)) //looks like a XML namespace kind of type or a module:ref
       return type;
 
+    if (type === '*') //do not prefix wildcard with module:*
+      return type;
+
     if (this.basescope) {
       if (type.includes('.'))  //guessing it's module scoped (FIXME strongly considering to drop basescope support as it makes things way too ambiguous)
         return this.module + ':' + type;
@@ -389,9 +392,9 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     match_file: apply.is === "file" || apply.is === "index",
     match_folder: apply.is === "folder",
     match_all: !apply.is,
-    filetype: apply.is === "file" && typeof apply.type === "string" ? apply.type : "",
-    foldertype: apply.is === "folder" && typeof apply.type === "string" ? apply.type : "",
-    ...apply.type && apply.is !== "file" && apply.is !== "folder" ? { whfstype: apply.type } : {},
+    filetype: apply.is === "file" && typeof apply.type === "string" ? context.resolveType(apply.type) : "",
+    foldertype: apply.is === "folder" && typeof apply.type === "string" ? context.resolveType(apply.type) : "",
+    ...apply.type && apply.is !== "file" && apply.is !== "folder" ? { whfstype: context.resolveType(apply.type) } : {},
 
     pathmask: apply.sitePath && typeof apply.sitePath === "string" ? apply.sitePath : "",
     pathregex: apply.sitePath && typeof apply.sitePath === "object" && "regex" in apply.sitePath ? apply.sitePath.regex : "",
@@ -402,9 +405,9 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     parentmask: apply.parentPath && typeof apply.parentPath === "string" ? apply.parentPath : "",
     parentregex: apply.parentPath && typeof apply.parentPath === "object" && "regex" in apply.parentPath ? apply.parentPath.regex : "",
 
-    parenttype: apply.parentType || "",
-    withintype: apply.withinType || "",
-    sitetype: apply.siteType || "",
+    parenttype: context.resolveType(apply.parentType || ""),
+    withintype: context.resolveType(apply.withinType || ""),
+    sitetype: context.resolveType(apply.siteType || ""),
 
     sitename: apply.site && typeof apply.site === "string" && ![...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
     sitemask: apply.site && typeof apply.site === "string" && [...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
@@ -611,9 +614,9 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   }
 }
 
-function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
-  return types.map(t => "denyType" in t ? { isallow: false, typedef: t.denyType as string }
-    : { isallow: true, typedef: t.allowTemplate as string ?? t.allowType as string, newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
+function parseModifyTypes(context: SiteProfileParserContext, types: Sp.ApplyTypes): CSPModifyType[] {
+  return types.map(t => "denyType" in t ? { isallow: false, typedef: context.resolveType(t.denyType as string) }
+    : { isallow: true, typedef: context.resolveType(t.allowTemplate as string ?? t.allowType as string), newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
 }
 
 function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): CSPApplyRule {
@@ -775,21 +778,18 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   }
 
   if (apply.forms) {
-    rule.webtoolsformrules = apply.forms.map(fr =>
-      "allowComponent" in fr ? { allow: true, type: fr.allowComponent as string || '', comp: "component" }
-        : "denyComponent" in fr ? { allow: false, type: fr.denyComponent as string || '', comp: "component" }
-          : "allowHandler" in fr ? { allow: true, type: fr.allowHandler as string || '', comp: "handler" }
-            : "denyHandler" in fr ? { allow: false, type: fr.denyHandler as string || '', comp: "handler" }
-              : "allowRTDType" in fr ? { allow: true, type: fr.allowRTDType as string || '', comp: "rtdtype" }
-                : "denyRTDType" in fr ? { allow: false, type: fr.denyRTDType as string || '', comp: "rtdtype" }
-                  : throwError(`Unknown form rule type in ${JSON.stringify(fr)}`) as CSPWebtoolsFormRule
-    );
+    for (const tomap of apply.forms?.components || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "component", type: (tomap.allow || tomap.deny) as string });
+    for (const tomap of apply.forms?.handlers || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "handler", type: (tomap.allow || tomap.deny) as string });
+    for (const tomap of apply.forms?.rtdTypes || [])
+      rule.webtoolsformrules.push({ allow: "allow" in tomap, comp: "rtdtype", type: (tomap.allow || tomap.deny) as string });
   }
 
   if (apply.fileTypes)
-    rule.modifyfiletypes = parseModifyTypes(apply.fileTypes);
+    rule.modifyfiletypes = parseModifyTypes(context, apply.fileTypes);
   if (apply.folderTypes)
-    rule.modifyfoldertypes = parseModifyTypes(apply.folderTypes);
+    rule.modifyfoldertypes = parseModifyTypes(context, apply.folderTypes);
 
   if (apply.mailTemplates?.length) {
     rule.mailtemplates = apply.mailTemplates.map(t => ({
@@ -854,7 +854,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     }
 
   const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
-  for (const node of context.plugins.customSPNodes)
+  for (const node of context.plugins.spPlugins)
     if (apply[node.yamlProperty]) {
       externalNodes.delete(node.yamlProperty); //we handled it here
 
@@ -868,6 +868,15 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       const cellname = `yml_` + nameToSnakeCase(node.yamlProperty) as `yml_${string}`;
       rule[cellname] ||= [];
       rule[cellname].push(...Array.isArray(el) ? el : [el]);
+
+      if (node.composerHook || node.objectName || node.hooksFeatures.length) {
+        //we still need to add something to 'plugins' for activators to find us otherwise they have to scan though all yml_ and all plugin configs to find us
+        rule.plugins.push({
+          ...toSnakeCase(node),
+          combine: true,
+          data: null
+        });
+      }
     }
 
   for (const node of externalNodes)

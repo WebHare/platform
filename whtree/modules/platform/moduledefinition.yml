@@ -61,10 +61,13 @@ assetPacks:
     whPolyfills: false #actually no platform assetpacks should every be recompiled by webservices list changes
 
 siteProfiles:
-  - path: data/platform.siteprl.yml
+  - path: data/siteprofiles/types.siteprl.yml
+  - path: data/siteprofiles/globalrules.siteprl.yml
   - path: mod::consilio/data/consilio.siteprl.xml
   - path: mod::consilio/webfeatures/sitecontent/sitecontent.siteprl.xml
-  - path: mod::publisher/data/publisher.siteprl.xml
+  - path: mod::publisher/data/siteprofiles/abtest.siteprl.xml
+  - path: mod::publisher/data/siteprofiles/pwa.siteprl.xml
+  - path: mod::publisher/data/siteprofiles/shorturl.siteprl.xml
   - path: mod::publisher/data/embeddedobjects.siteprl.xml
   - path: mod::publisher/data/siteprofiles/contentlibraries.siteprl.xml
   - path: mod::publisher/data/siteprofiles/webtools.siteprl.xml

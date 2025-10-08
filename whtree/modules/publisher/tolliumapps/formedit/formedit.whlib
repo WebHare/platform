@@ -102,7 +102,7 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     this->frame->flags.showdevoptions := this->contexts->user->ShowDeveloperOptions();
 
     IF (ObjectExists(this->contexts->applytester))
-      this->integrationsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      this->integrationsettings := GetFormPluginConfiguration(this->contexts->applytester);
     this->allowsubmittype := RecordExists(this->integrationsettings) AND this->integrationsettings.allowsubmittype;
 
     //we need to use the language that applies to the form, not the current user's language!
@@ -1495,10 +1495,10 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     RECORD formsettings;
     IF(ObjectExists(this->contexts->applytester))
-      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      formsettings := GetFormPluginConfiguration(this->contexts->applytester);
 
     RECORD settings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
-    INTEGER curstoreresults := settings.storeresults = 0 ? GetFormDefaultStoreResults(formsettings) : settings.storeresults < 0 ? 0 : settings.storeresults;
+    INTEGER curstoreresults := settings.storeresults = 0 ? GetFormDefaultStoreResults() : settings.storeresults < 0 ? 0 : settings.storeresults;
 
     STRING title := curstoreresults = 0 ? this->GetTid(".implicthandler-dontstore") : this->GetTid(".implicthandler-storedays", ToString(curstoreresults));
     RETURN CELL[ ...basequestionlistrow
@@ -1593,28 +1593,18 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     RECORD formsettings;
     IF(ObjectExists(this->contexts->applytester))
-      formsettings := this->contexts->applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/publisher/siteprofile","formintegration");
+      formsettings := GetFormPluginConfiguration(this->contexts->applytester);
 
-    IF(RecordExists(formsettings) AND formsettings.maxstoredays = 0) //there shall be no saving
-    {
-      ^overwritestoreresults->visible := FALSE;
-      ^overwritestoreresults->value := FALSE; //revert to default
-    }
-    ELSE
-    {
-      ^cannotsaveresults->visible := FALSE;
-      this->defaultstoreresults := GetFormDefaultStoreResults(formsettings);
+    ^cannotsaveresults->visible := FALSE;
+    this->defaultstoreresults := GetFormDefaultStoreResults();
 
-      //append the number of days the default is set to
-      ^overwritestoreresults->options[0].title := `${^overwritestoreresults->options[0].title} (${this->defaultstoreresults} ${GetTid("~units.days")})`;
+    //append the number of days the default is set to
+    ^overwritestoreresults->options[0].title := `${^overwritestoreresults->options[0].title} (${this->defaultstoreresults} ${GetTid("~units.days")})`;
 
-      // If storeresults = 0, the default value is used as the result retention period, show -1 as the value
-      // If storeresults is -1, results won't be stored, show 0 as the value
-      ^storeresults->value := this->settings.storeresults = 0 ? -1 : this->settings.storeresults < 0 ? 0 : this->settings.storeresults;
-      IF(RecordExists(formsettings) AND formsettings.maxstoredays >= 0)
-        ^storeresults->maximumvalue  := formsettings.maxstoredays;
-      ^overwritestoreresults->value := this->settings.storeresults != 0;
-    }
+    // If storeresults = 0, the default value is used as the result retention period, show -1 as the value
+    // If storeresults is -1, results won't be stored, show 0 as the value
+    ^storeresults->value := this->settings.storeresults = 0 ? -1 : this->settings.storeresults < 0 ? 0 : this->settings.storeresults;
+    ^overwritestoreresults->value := this->settings.storeresults != 0;
 
 
     ^disablecaptcha->visible := RecordExists(formsettings) AND formsettings.usecaptcha;
