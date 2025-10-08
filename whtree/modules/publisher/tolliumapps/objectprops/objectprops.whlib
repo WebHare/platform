@@ -464,7 +464,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
     ELSE IF (this->startdata.why = "edit")
     {
-      this->SetupEditBaseForExistingObject(this->startdata.fsobj, this->startdata.readonly);
+      this->SetupEditBaseForExistingObject(this->startdata.fsobj, CELL[this->startdata.readonly]);
       this->itemid := this->startdata.fsobj;
       this->sourceitem := OpenWHFSObject(this->itemid);
 

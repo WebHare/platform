@@ -119,7 +119,8 @@
                             maxlength="256"
                             dirtylistener="dirtylistener"
                             tid="~name"
-                            validationchecks="whfsname" />
+                            validationchecks="whfsname"
+                            required="true" />
                   <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
                   <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
                   <textedit composition="seosettings"

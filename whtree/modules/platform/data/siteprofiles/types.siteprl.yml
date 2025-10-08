@@ -359,8 +359,8 @@ types:
     namespace: http://www.webhare.net/xmlns/publisher/draftmetadata
     workflow: false
     members:
-      parent:
-        type: whfsRef
+      #parent: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway
+      #  type: whfsRef
       name:
         type: string
       #flags: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway

@@ -14,7 +14,7 @@ async function testIgnoreMetatabsForOldContent() {
   const richdocfile = await openFile("site::webhare_testsuite.testsite/testpages/staticpage");
   const applyester = await getApplyTesterForObject(richdocfile);
   const metatabs = await describeMetaTabs(applyester);
-  test.eqPartial({ types: [], isNew: false }, metatabs);
+  test.eqPartial({ types: [] }, metatabs);
 }
 
 async function testMetadataReader() {
