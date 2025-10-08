@@ -436,6 +436,7 @@
           <text tid="togglepreview">Show preview</text>
           <text tid="unpinitems">Remove protection</text>
           <text tid="upload">Upload</text>
+          <text tid="versions">Versions</text>
           <text tid="viewbrowser">View</text>
           <text tid="viewbrowserlive">View published version in browser</text>
         </textgroup>

@@ -336,6 +336,18 @@ PUBLIC MACRO RunFSObjectInspectDialog(OBJECT parentscreen, INTEGER objectid, REC
   parentscreen->RunScreen("mod::publisher/tolliumapps/filemanager/inspect.xml#inspect", [ fsobj := objectid ]);
 }
 
+/** Run the 'version history' dialog
+    @param parentscreen Screen invoking us
+    @param objectid Object to inpsect */
+PUBLIC MACRO RunFSObjectVersionsDialog(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[], options);
+
+  IF(NOT parentscreen->contexts->user->HasRight("system:supervisor"))
+    THROW NEW Exception("Non-supervisors may not access the Inspect dialog");
+
+  parentscreen->RunScreen("mod::publisher/tolliumapps/versions/versions.xml", [ id := objectid ]);
+}
+
 
 /** Run the 'edit object properties' dialog
     @param parentscreen Screen invoking us

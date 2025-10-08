@@ -1,7 +1,7 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.filemanager.history"
-         library="history.whlib">
+         library="versions.whlib">
 
   <screen name="history"
           width="120x"
