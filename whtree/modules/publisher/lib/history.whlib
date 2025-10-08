@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -166,6 +167,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN this->__GetAutosavedObject();
   }
   PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
+    RECORD typeinfo := LookupContentTypeByName(whfstype);
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW Exception(`Type '${whfstype}' is not a known content type`);
+    IF(NOT typeinfo.workflow)
+      THROW NEW Exception(`Type '${whfstype}' does not support workflow and should not be retrieved from drafts`);
+
     RETURN this->GetInstanceObject()->GetInstanceData(whfstype);
   }
   MACRO EnsureAutosave() {
@@ -188,6 +195,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       RETURN SELECT name, title, keywords, description FROM system.fs_objects WHERE id = this->baseobject->id;
     }
   }
+
+  PUBLIC MACRO UpdateData(BLOB newdata) {
+    this->EnsureAutosave();
+    this->currentautosave->fsobject->UpdateData(newdata);
+  }
+
   PUBLIC MACRO UpdateMetadata(RECORD updates) {
     this->EnsureAutosave();
     this->currentautosave->UpdateMetadata(updates);
