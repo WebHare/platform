@@ -154,7 +154,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN GetPreviewLink(toshow->id, options);
   }
 
-  //exported for some legacy preveiw code, but GetPreview should be used
+  //exported for some legacy preview code, but GetPreview should be used
   PUBLIC OBJECT FUNCTION __GetAutosavedObject() {
     RETURN ObjectExists(this->currentautosave) ? this->currentautosave->fsobject : this->__GetDraftObject();
   }
@@ -163,15 +163,13 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : this->baseobject;
   }
   OBJECT FUNCTION GetInstanceObject() {
-    RETURN ObjectExists(this->currentautosave)
-        ? this->currentautosave->fsobject
-        : this->__GetAutosavedObject();
+    RETURN this->__GetAutosavedObject();
   }
   PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
     RETURN this->GetInstanceObject()->GetInstanceData(whfstype);
   }
   MACRO EnsureAutosave() {
-    IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
+    IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
       this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id, [ user := this->options.user ]);
   }
   PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
@@ -193,7 +191,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   PUBLIC MACRO UpdateMetadata(RECORD updates) {
     this->EnsureAutosave();
     this->currentautosave->UpdateMetadata(updates);
-    /* TODO is the drafts.whlib API really adding something useful... will there be other API users or is WorkflowManager more useful.for everyone?
+    /* TODO is the drafts.whlib API really adding something useful... will there be other API users or is WorkflowManager more useful for everyone?
     updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "" ], updates, [ optional := ["*"], title := "updates" ] );
 
     IF(CellExists(updates,'name'))
