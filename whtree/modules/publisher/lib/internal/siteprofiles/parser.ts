@@ -527,7 +527,7 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
     linkhandlers: type.linkHandlers?.map(lh => ({ namespaceuri: lh.split('#')[0], localname: lh.split('#')[1] || '' })) || [],
-    margins: "none",
+    margins: "",
     allowedobjects: parseAllowedObjects(type.allowedObjects || []),
 
   };
@@ -1033,6 +1033,9 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
   };
 
   if (rule.router) {
+    result.rule.ruledata = {
+      router: context.resolve(rule.router)
+    };
     result.rule.datastorage = [
       {
         method: 'direct',
