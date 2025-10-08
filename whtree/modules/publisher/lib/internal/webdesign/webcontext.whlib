@@ -9,11 +9,13 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 
 PUBLIC RECORD __pageinfo;
 
@@ -101,6 +103,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
   RECORD __config;
 
   RECORD ARRAY pvt_plugins;
+  BOOLEAN pvt_historic_contentobject;
   RECORD pvt_metadata;
   OBJECT pvt_navigationobject;
   OBJECT pvt_contentobject;
@@ -157,6 +160,17 @@ PUBLIC STATIC OBJECTTYPE WebContext <
 
   /** Get instance data from the relevant content/target object. Added since WH5.8.2 and should generally be used over this->contentobject/targetobject->GetInstanceData() */
   PUBLIC RECORD FUNCTION GetInstanceData(STRING ns) {
+    IF(ObjectExists(this->contentobject) AND IsRecycleOrHistoryWHFSPath(this->contentobject->whfspath)) {
+      //Workflowed types come from contentobject, the rest from targetobject
+      RECORD typeinfo := LookupContentTypeByName(ns);
+      IF(NOT RecordExists(typeinfo))
+        THROW NEW Exception(`Type '${ns}' is not a known content type`);
+      IF(typeinfo.workflow)
+        RETURN this->contentobject->GetInstanceData(ns);
+      ELSE
+        RETURN this->targetobject->GetInstanceData(ns);
+    }
+
     RETURN (this->contentobject ?? this->targetobject ?? this->targetfolder)->GetInstanceData(ns);
   }
 
@@ -209,8 +223,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
     UPDATE this->pvt_plugins SET pluginobj := this->__CreatePlugin(pvt_plugins) WHERE pluginobj = DEFAULT OBJECT;
   }
 
-  PUBLIC MACRO __SetObjectId(INTEGER objectid, OBJECT applytester)
-  {
+  PUBLIC MACRO __SetObjectId(INTEGER objectid, OBJECT applytester) {
     this->pvt_targetobject := OpenWHFSObject(objectid);
     this->pvt_navigationobject := (RecordExists(this->__config) ? this->__config.navigationobject : DEFAULT OBJECT) ?? this->pvt_targetobject;
     this->pvt_targetfolder := ObjectExists(this->pvt_targetobject) ? this->pvt_targetobject->isfolder ? this->pvt_targetobject : this->pvt_targetobject->parentobject : DEFAULT OBJECT;
@@ -222,14 +235,11 @@ PUBLIC STATIC OBJECTTYPE WebContext <
     IF(Length(sitelanguage) > 1)
       this->languagecountry := sitelanguage[1];
 
-    IF(ObjectExists(this->pvt_targetobject))
-    {
-      IF(RecordExists(this->__config) AND ObjectExists(this->__config.override_contentobject))
-      {
+    IF(ObjectExists(this->pvt_targetobject)) {
+      IF(RecordExists(this->__config) AND ObjectExists(this->__config.override_contentobject)) {
         this->pvt_contentobject := this->__config.override_contentobject;
-      }
-      ELSE IF(this->pvt_targetobject->type=20) //contentlink
-      {
+        this->pvt_historic_contentobject := IsRecycleOrHistoryWHFSPath(this->pvt_contentobject->whfspath);
+      } ELSE IF(this->pvt_targetobject->type=20) { //contentlink
         this->pvt_contentobject := OpenWHFSObject(this->pvt_targetobject->filelink);
         IF(NOT ObjectExists(this->pvt_contentobject))
           THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to an nonexisting file");
@@ -237,19 +247,18 @@ PUBLIC STATIC OBJECTTYPE WebContext <
           THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to folder #" || this->pvt_targetobject->filelink);
         IF(NOT this->pvt_contentobject->isactive)
           THROW NEW Exception("Contentlink #" || this->pvt_targetobject->id || " links to deleted file #" || this->pvt_targetobject->filelink);
-      }
-      ELSE
-      {
+      } ELSE {
         this->pvt_contentobject := this->pvt_targetobject;
       }
     }
 
     IF(ObjectExists(this->targetobject)) { //TODO should metadata exist without targetobject too? should we put more effort into finding fallbacks?
+      OBJECT metasource := this->pvt_historic_contentobject ? this->contentobject : this->targetobject;
       this->pvt_metadata :=
-            CELL[ name := this->targetobject->name
-                , title := this->targetobject->title
-                , keywords := this->targetobject->keywords
-                , description := this->targetobject->description
+            CELL[ name := metasource->name //FIXME should take from draftmetadata and cover this with a test
+                , title := metasource->title
+                , keywords := metasource->keywords
+                , description := metasource->description
                 , typens := (this->contentobject ?? this->targetobject)->typens
                 ];
     }

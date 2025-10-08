@@ -31,6 +31,9 @@
   [/if]
   [if comments]<div id="comments">[comments]</div>[/if]
   [if sharedblocks]<div id="sharedblocks">[forevery sharedblocks]<div class="basetest__sharedblock">[sharedblocks]</div>[/forevery]</div>[/if]
+  [if type_no_clone.no_clone_string]<div id="no_clone_string">[type_no_clone.no_clone_string]</div>[/if]
+  [if type_with_workflow.with_workflow_string]<div id="with_workflow_string">[type_with_workflow.with_workflow_string]</div>[/if]
+  [if type_clone_only.clone_only_string]<div id="clone_only_string">[type_clone_only.clone_only_string]</div>[/if]
 [/component]
 
 [component wrapbody][embed basetest.witty:wrapbody2][/component]

@@ -84,6 +84,17 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
   TestEq([ name := "test.html", title := "A new title", keywords := "my new keywords", description := "d" ], workflowmgr->GetMetadata());
 
+  testfw->CommitWork();
+
+  TestEqMembers([
+    title := "A new title",
+    with_workflow_string := "created_0_1",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1"
+  ], AnalyzePreview(workflowmgr->__GetDraftObject()->id), "*");
+
+  testfw->BeginWork();
+
   workflowmgr->UpdateData(StringToBlob("This just went into a temporary draft"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_1" ]);
@@ -96,6 +107,24 @@ MACRO DraftingTest() {
   TestEq([ with_workflow_string := "pvt_draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
 
+  testfw->CommitWork();
+
+  TestEqMembers([
+    title := "A new title",
+    with_workflow_string := "created_0_1",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1"
+  ], AnalyzePreview(testfile->id), "*");
+
+  TestEqMembers([
+    title := "An even newer title",
+    with_workflow_string := "pvt_draft_0_1",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1"
+  ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
+
+
+  testfw->BeginWork();
   TestEqMembers([[ ispublic := FALSE
                  , mine := TRUE
                  , user := testfw->GetUserAuthobjectId("marge")
@@ -120,8 +149,10 @@ MACRO DraftingTest() {
   //Now create a public draft from the first autosave. A public draft will destroy all autosaves FIXME why should it ? temp history may still have some value see VSCode file history
   //Note that this converts the autosave to a public draft and logs it into the history - no new file is actually created here!
   workflowmgr->Save(FALSE); //commits the autosave changes to the draft
+
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
   TestEqMembers([ mine := TRUE ], workflowmgr->GetCurrentDraft(), "*");
+
 
   //This draft is part of history now and shouldn't be easily modified
   TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "try_update"]));
@@ -171,7 +202,25 @@ MACRO DraftingTest() {
   //Create a draft!
   Sleep(1);
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
+  workflowmgr->UpdateMetadata([ title := "Jolly Good Autosave"]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "jolly-good-autosave" ]);
 
+  testfw->CommitWork();
+
+  TestEqMembers([
+    title := "Jolly Good Autosave",
+    with_workflow_string := "jolly-good-autosave",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1"
+  ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
+  TestEqMembers([
+    title := "An even newer title",
+    with_workflow_string := "draft_0_1",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1"
+  ], AnalyzePreview(workflowmgr->__GetDraftObject()->id), "*");
+
+  testfw->BeginWork();
   //We need more drafts!
   Sleep(1);
   testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("homer"));

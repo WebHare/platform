@@ -94,6 +94,9 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
                         , contentobjectpath := ObjectExists(this->contentobject) ? this->contentobject->whfspath : ""
                         , navigationobjectpath := ObjectExists(this->navigationobject) ? this->navigationobject->whfspath : ""
                         , betatestinstance := this->GetInstanceData("http://www.webhare.net/xmlns/beta/test")
+                        , type_no_clone := this->GetInstanceData("webhare_testsuite:global.type_no_clone")
+                        , type_with_workflow := this->GetInstanceData("webhare_testsuite:global.type_with_workflow")
+                        , type_clone_only := this->GetInstanceData("webhare_testsuite:global.type_clone_only")
                         ];
 
     RETURN wittydata;
