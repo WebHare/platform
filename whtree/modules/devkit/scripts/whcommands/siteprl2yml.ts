@@ -456,7 +456,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
 
     if (plugininfo.isArray) {
       if (rule[customKey])
-        throw new Error(`Custom siteprofile property ${customKey} already exists? Cannot merge an aray into it`);
+        throw new Error(`Custom siteprofile property ${customKey} already exists? Cannot merge an array into it`);
       rule[customKey] = toCamelCase(data);
     } else {
       // Merge it into a property. needed for 'forms'

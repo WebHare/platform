@@ -49,7 +49,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     this->pvt_formsettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(this->__form.webtoolformid);
 
     /* NOTE: We used to also look at the current (target object) plugins settings for form configuration (although only for the 'usecaptcha' setting) but this is
-             inconsistent with pulling other settings from the content object (eg webtoolformhooks). Plus, when the form is editted only the content object
+             inconsistent with pulling other settings from the content object (eg webtoolformhooks). Plus, when the form is edited only the content object
              settings are relevant, as the editor can't know where we're embedded. So we now use the content object configuration for everything and just hope
              that target object's formintegration plugin is sufficiently compatible */
 
