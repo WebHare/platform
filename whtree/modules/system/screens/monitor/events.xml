@@ -18,15 +18,18 @@
     <body height="1pr" spacers="none">
       <split type="horizontal">
         <part width="1pr" spacers="right">
-          <line>
-            <checkbox name="enableintercept" onchange="onenableinterceptchange" />
-            <textedit name="eventfilter" width="1pr" title="" />
-            <button action="applyfilter" />
-          </line>
-          <line>
-            <checkbox name="decodeknownmessages" onchange="onenablemessagedecodingchange" />
-            <button width="1pr" action="clearlist" tid="~clear" />
-          </line>
+          <panel spacers="left top bottom">
+            <line>
+              <checkbox name="enableintercept" onchange="onenableinterceptchange" />
+              <textedit name="eventfilter" width="1pr" title="" />
+              <button action="applyfilter" />
+            </line>
+            <line>
+              <checkbox name="decodeknownmessages" onchange="onenablemessagedecodingchange" />
+              <button action="clearlist" tid="~clear" />
+            </line>
+          </panel>
+
           <list name="events" height="1pr" borders="top right" onselect="onselectevent" selectmode="single">
             <column name="when" type="datetime" width="22x" precision="seconds" sortkeyname="rowkey" storeutc="true" />  <!-- 18 min -->
             <column name="event" type="text" />
@@ -34,22 +37,24 @@
           </list>
         </part>
         <part name="messageinfo" width="1pr" spacers="left" visible="false">
-          <grid>
-            <col width="1pr" />
-            <col />
-            <row>
-              <cell>
-                <text name="eventwhen" />
-                <text name="eventname" />
-              </cell>
-              <cell>
-                <button name="button_openinwrd" width="1pr" action="openwrdschema" tid=".openwrdschema" />
-                <button name="button_openinpublisher" width="1pr" action="openinpublisher" tid=".openinpublisher" />
-              </cell>
-            </row>
-          </grid>
-          <panel height="1pr" spacers="top">
-            <tabs name="eventtabs" height="1pr">
+          <panel spacers="top right bottom">
+            <grid>
+              <col width="1pr" />
+              <col />
+              <row>
+                <cell>
+                  <text name="eventwhen" />
+                  <text name="eventname" />
+                </cell>
+                <cell>
+                  <button name="button_openinwrd" width="1pr" action="openwrdschema" tid=".openwrdschema" />
+                  <button name="button_openinpublisher" width="1pr" action="openinpublisher" tid=".openinpublisher" />
+                </cell>
+              </row>
+            </grid>
+          </panel>
+          <panel height="1pr" spacers="none" borders="top">
+            <tabs name="eventtabs" height="1pr" >
               <tab name="interpreteddatatab">
                 <list name="wrdentities"
                       height="1pr"
