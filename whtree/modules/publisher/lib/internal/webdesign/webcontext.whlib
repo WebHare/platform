@@ -101,6 +101,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
   RECORD __config;
 
   RECORD ARRAY pvt_plugins;
+  RECORD pvt_metadata;
   OBJECT pvt_navigationobject;
   OBJECT pvt_contentobject;
   OBJECT pvt_targetobject;
@@ -116,6 +117,9 @@ PUBLIC STATIC OBJECTTYPE WebContext <
   PUBLIC STRING languagecountry;
   ///Completed debug log (if any)
   PUBLIC BLOB __finaldebuglog;
+
+  /** Object metadata from the relevant content/target object. Added since WH5.8.2 and should generally be used over this->contentobject/targetobject properties */
+  PUBLIC PROPERTY metadata(pvt_metadata, -);
 
   /// The object we've navigated to. The same as the targetobject unless this is an A/B test
   PUBLIC PROPERTY navigationobject(pvt_navigationobject, -);
@@ -149,6 +153,11 @@ PUBLIC STATIC OBJECTTYPE WebContext <
       pluginobj->ConfigurePlugin(this, mergedconfiguration);
     }
     RETURN pluginobj;
+  }
+
+  /** Get instance data from the relevant content/target object. Added since WH5.8.2 and should generally be used over this->contentobject/targetobject->GetInstanceData() */
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING ns) {
+    RETURN (this->contentobject ?? this->targetobject ?? this->targetfolder)->GetInstanceData(ns);
   }
 
   PUBLIC OBJECT ARRAY FUNCTION GetPluginsByFeature(STRING featurename)
@@ -233,6 +242,16 @@ PUBLIC STATIC OBJECTTYPE WebContext <
       {
         this->pvt_contentobject := this->pvt_targetobject;
       }
+    }
+
+    IF(ObjectExists(this->targetobject)) { //TODO should metadata exist without targetobject too? should we put more effort into finding fallbacks?
+      this->pvt_metadata :=
+            CELL[ name := this->targetobject->name
+                , title := this->targetobject->title
+                , keywords := this->targetobject->keywords
+                , description := this->targetobject->description
+                , typens := (this->contentobject ?? this->targetobject)->typens
+                ];
     }
   }
 
