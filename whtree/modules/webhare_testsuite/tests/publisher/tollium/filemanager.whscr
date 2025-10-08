@@ -82,8 +82,7 @@ ASYNC MACRO InitialGotoFolder() //used by eg Find.
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-ASYNC MACRO WalkTheTree()
-{
+ASYNC MACRO WalkTheTree() {
   testfw->SetTestUser("lisa");
 
   testfw->BeginWork();
@@ -315,13 +314,13 @@ ASYNC MACRO WalkTheTree()
   TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/preview/*", pvs.browserurl, 'it should be previewed as an unpublished file');
   TestEq(TRUE, pvs.showingmessages);
 
+  // this isn't really testing previewbrowser but hte goto anything dialog
   AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
   TestEqMembers([[ title := "webhare_testsuite.testsite" ]], TT("obj")->options, "*");
   TT("obj")->value := "webhare_testsuite.testsite";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq("webhare_testsuite.testsite", TT("foldertree")->selection.name);
-
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -369,11 +368,40 @@ ASYNC MACRO CreatePhotoAlbum()
   TestEQ(24, indexdoc->type);
 }
 
+ASYNC MACRO WalkTheTreeSysop() {
+  RECORD pvs;
+
+  testfw->SetTestUser("sysop");
+
+  testfw->BeginWork();
+
+  OBJECT testfolderobj := testfw->GetWHFSTestRoot();
+  OBJECT testfolderindex := testfolderobj->CreateFile([ name := "index.rtd", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ], [setindex := TRUE]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
+
+  //Verify files outside any site
+  AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
+  TT("obj")->value := testfolderindex->whfspath;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("index.rtd", TT("filelist")->selection.name);
+  pvs := TT("previewbrowser")->GetPreviewState();
+  TestEq(FALSE, pvs.showingmessages);// Files of this type should be published as .shtml, but this one has the extension .html
+  TestEq("", pvs.displayurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree
                  , PTR CreateRootObject
                  , PTR CreatePhotoAlbum
+                 , PTR WalkTheTreeSysop
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
                                    ]]);

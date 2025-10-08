@@ -344,7 +344,9 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
     RECORD baseinfo; //previewfile is the file we'll be viewing (baseinfo unless baseinfo is an index document)
     RECORD previewfile; //baseinfo is the selected file
     IF(fileid > 0)
-      baseinfo := SELECT id, parent, name, link, type, published, filelink, externallink, parentsite, isfolder, objecturl, indexdoc FROM system.fs_objects WHERE id = fileid AND isactive;
+      baseinfo := SELECT id, parent, name, link, type, published, filelink, externallink, parentsite, isfolder, objecturl, indexdoc
+                    FROM system.fs_objects
+                   WHERE id = fileid AND parentsite != 0; //if not in a site we have no idea what <webdesign> to use..
 
     //previewurl is the url shown to the user in the previewbrowsers's navigation bar and is available for sharing/copying
     IF(RecordExists(baseinfo)) {
