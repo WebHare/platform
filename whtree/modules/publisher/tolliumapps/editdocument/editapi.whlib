@@ -63,7 +63,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   PUBLIC INTEGER ARRAY internallinkroots;
 
   PUBLIC PROPERTY baseobject(GetBaseObject, -);
-  //FIXME dangeorus endpoints to give such full access
+  //FIXME dangerous endpoints to give such full access
   PUBLIC PROPERTY editobject(GetEditObject, -);
 
   PUBLIC PROPERTY readonly(this->editscreen->readonly, -);
