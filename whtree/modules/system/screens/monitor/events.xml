@@ -47,8 +47,8 @@
                   <text name="eventname" />
                 </cell>
                 <cell>
-                  <button name="button_openinwrd" width="1pr" action="openwrdschema" tid=".openwrdschema" />
-                  <button name="button_openinpublisher" width="1pr" action="openinpublisher" tid=".openinpublisher" />
+                  <button name="button_openinwrd" width="1pr" action="openwrdschema" tid=".openwrdschema" visible="false" />
+                  <button name="button_openinpublisher" width="1pr" action="openinpublisher" tid=".openinpublisher" visible="false" />
                 </cell>
               </row>
             </grid>
