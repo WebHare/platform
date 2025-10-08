@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
@@ -629,10 +630,12 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
   {
     RECORD fsobj;
     RECORD siterecord;
+    RECORD ARRAY historyrecords;
     IF (ObjectExists(myfsobj))
     {
       fsobj := SELECT * FROM system.fs_objects WHERE id = myfsobj->id;
       siterecord := SELECT * FROM system.sites WHERE id = myfsobj->id;
+      historyrecords := SELECT * FROM system_internal.fs_history WHERE fs_history.snapshot = myfsobj->id;
     }
     IF(NOT RecordExists(fsobj))
     {
@@ -660,6 +663,18 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
                  , data := ToString(myfsobj->id)
                  , type := "table row"
                  , original := siterecord
+                 ] INTO outrows AT END;
+    }
+
+    FOREVERY(RECORD hist FROM historyrecords)
+    {
+      INSERT CELL[ ...dbinfo_baserow
+                 , rowkey := "fs_history." || hist.id
+                 , name := "system.fs_history"
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, hist, "fs_history." || hist.id || ".", FALSE, FALSE)
+                 , data := ToString(hist.id)
+                 , type := "table row"
+                 , original := hist
                  ] INTO outrows AT END;
     }
 
