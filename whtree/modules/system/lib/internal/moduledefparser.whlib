@@ -1329,6 +1329,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
                             , documenteditor := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("documenteditor"))
                             , supportsreadonly := ParseXSBoolean(subchild->GetAttribute("supportsreadonly"))
                             , supportsnoaccess := ParseXSBoolean(subchild->GetAttribute("supportsnoaccess"))
+                            , types := ParseXSList(subchild->GetAttribute("types"))
                             ];
 
           IF(app.documenteditor != "")

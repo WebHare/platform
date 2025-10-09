@@ -539,9 +539,9 @@
   </consilio>
 
   <publisher>
-    <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" />
-    <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" />
-    <objecteditor name="editmarkdown" documenteditor="tolliumapps/editmarkdown/editmarkdown.xml" supportsreadonly="true" />
+    <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/richdocumentfile"/>
+    <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/formwebtool"/>
+    <objecteditor name="editmarkdown" documenteditor="tolliumapps/editmarkdown/editmarkdown.xml" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/markdownfile" />
     <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlib#runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" documenteditor="tolliumapps/texteditor/texteditor.xml" supportsreadonly="true" />

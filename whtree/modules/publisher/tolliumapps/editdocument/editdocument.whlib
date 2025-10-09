@@ -77,7 +77,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   //
 
   MACRO Init(RECORD data)  {
-    data := EnforceStructure( [ assumewriteaccess := FALSE ], data);
+    data := EnforceStructure( [ assumewriteaccess := FALSE, objeditor := DEFAULT RECORD ], data);
+
+    IF(NOT RecordExists(data.objeditor))
+      THROW NEW Exception("EditDocumentApp requires objeditor parameter");
+
     this->frame->flags.isdeveloper := this->contexts->user->ShowDeveloperOptions();
     this->frame->flags.isdirty := FALSE;
     ^developersmenu->visible := this->frame->flags.isdeveloper;
@@ -87,7 +91,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->frame->flags.canpublish := FALSE;
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
-    this->SetupEditBaseForExistingObject(data.id, CELL[ data.readonly, data.assumewriteaccess, useworkflow := TRUE ]);
+    this->SetupEditBaseForExistingObject(data.id, CELL[ data.readonly, data.assumewriteaccess, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
 
     OBJECT fsobject := OpenWHFSObject(this->itemid);
 
@@ -181,9 +185,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
   {
-    IF(objecteditor.documenteditor = "")
-      objecteditor.documenteditor := "mod::tolliumapps/rtdedit/rtdedit.xml#richdoc";
-
     IF(this->AddTypesTabs() )
     {
       ^metapart->visible := TRUE;
