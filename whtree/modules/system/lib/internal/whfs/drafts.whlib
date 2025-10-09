@@ -154,12 +154,12 @@ STATIC OBJECTTYPE WHFSDraft <
 
   PUBLIC RECORD FUNCTION GetMetadata() {
     RECORD draftmeta := this->pvt_fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
-    RECORD basefields := SELECT title, keywords, description FROM system.fs_objects WHERE id = this->id;
-    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description ];
+    RECORD basefields := SELECT title, keywords, description, data FROM system.fs_objects WHERE id = this->id;
+    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description, basefields.data ];
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD updates) {
-    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "" ], updates, [ optional := ["*"], title := "updates" ] );
+    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "", data := DEFAULT BLOB ], updates, [ optional := ["*"], title := "updates" ] );
 
     IF(NOT ObjectExists(this->pvt_fsobject))
       THROW NEW Exception("This draft no longer exists");
@@ -169,7 +169,7 @@ STATIC OBJECTTYPE WHFSDraft <
     IF(CellExists(updates,'name'))
       this->pvt_fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
 
-    RECORD directupdates :=  PickCells(updates, ["title","description","keywords"]);
+    RECORD directupdates :=  PickCells(updates, ["title","description","keywords","data"]);
     UPDATE system.fs_objects SET RECORD CELL[ ...directupdates
                                             , modificationdate := GetCurrentDatetime()
                                             ]

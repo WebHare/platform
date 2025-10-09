@@ -82,7 +82,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ name := "test.html", title := "A new title", keywords := "my new keywords", description := "d" ], workflowmgr->GetMetadata());
+  TestEq([ name := "test.html", title := "A new title", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
 
   testfw->CommitWork();
 
@@ -101,7 +101,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
 
   workflowmgr->UpdateMetadata(CELL[ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ]);
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ], workflowmgr->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
 
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "pvt_draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -252,7 +252,7 @@ MACRO DraftingTest() {
   //Let's save another draft
   draft := OpenWHFSDraft(drafts[1].id); //This is taking the autosave I created
   TestEq([ with_workflow_string := "draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ], draft->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file with some data added by Homer!") ], draft->GetMetadata());
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
   workflowmgr->Save(FALSE);
 

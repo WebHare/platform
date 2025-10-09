@@ -82,9 +82,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
     this->editscreen->^dirtylistener->SetDirty();
   }
 
-  PUBLIC RECORD FUNCTION GetMetadata()
-  {
-    RETURN SELECT data FROM system.fs_objects WHERE id = this->editobject;
+  PUBLIC RECORD FUNCTION GetMetadata() {
+    RETURN this->editscreen->workflowmgr->GetMetadata();
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD fields)

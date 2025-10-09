@@ -3,6 +3,7 @@
   <test script="richdocumenteditor.whscr" />
   <test script="testrtddoc.whscr" />
   <test script="testrtdpublish.whscr" />
+  <test script="test-plaintext-savepublish.whscr" />
   <test script="test-rtdedit-savepublish.whscr" />
   <test script="testrestructuring.whscr" />
 </group>

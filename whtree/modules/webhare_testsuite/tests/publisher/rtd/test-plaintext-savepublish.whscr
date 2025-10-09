@@ -1,0 +1,62 @@
+<?wh
+//not really a RTD test, but it's an editdocument test and RTD is split into editdocuemnt and rtd
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+ASYNC MACRO TestPlainTextDocs() {
+  testfw->BeginWork();
+
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "plain.txt"
+      , typens := "platform:filetypes.plaintextfile"
+      , title := "My text document"
+      , publish := TRUE
+      , data := StringToBlob("Ik heb tekst")
+      ]);
+
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  TestEq(FALSE, topscreen->frame->flags.isdirty);
+  TestEq(FALSE, topscreen->frame->flags.canpublish);
+
+  TT("doceditor")->contents->^code->value := "Ik heb meer text";
+  TT("doceditor")->contents->^code->SetDirty(); //pretend the client did it
+
+  TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
+  TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
+
+  TTClick(":Save");
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq("Ik heb tekst", BlobToString(testfile->data), "Verifies save worked");
+
+  //Restart RTD
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  TestEq("Ik heb meer text", TT("doceditor")->contents->^code->value);
+
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  testfile := OpenWHFSObject(testfile->id);
+  TestEq("Ik heb meer text", BlobToString(testfile->data), "Verifies publish worked");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestFramework(
+    [ PTR TestPlainTextDocs
+    ],
+    [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                   ]
+    ]);
