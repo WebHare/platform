@@ -258,7 +258,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
         THROW NEW Exception("A webdesign requires a target site, but target object " || this->pvt_targetobject->whfspath || " is outside any site");
 
       this->_seosettings := this->pvt_targetobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings");
-      this->navigationtitle := this->pvt_targetobject->title ?? this->pvt_targetfolder->title;
+      this->navigationtitle := this->metadata.title ?? this->pvt_targetfolder->title;
       IF(NOT this->pvt_targetobject->isfolder)
       {
         this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;

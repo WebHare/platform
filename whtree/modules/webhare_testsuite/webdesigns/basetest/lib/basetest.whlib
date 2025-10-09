@@ -33,9 +33,9 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
     {
       STRING deeperlink := this->GetStaticFileLink("test.txt");
       STRING compareroot := Substring(this->targetsite->webroot, this->targetsite->webroot LIKE "https:*" ? 6 : 5);
-      IF(this->targetobject->name="headings.doc" AND compareroot || "headings/test.txt" != deeperlink) //expect the link without 'http:'
+      IF(this->metadata.name="headings.doc" AND compareroot || "headings/test.txt" != deeperlink) //expect the link without 'http:'
         ABORT("Incorrect deeperlink, got '" || deeperlink ||"' want '" || compareroot || "headings/test.txt'");
-      IF(this->targetobject->name="static.html" AND compareroot || "%5Estatic.html/test.txt" != deeperlink) //expect the link without 'http:'
+      IF(this->metadata.name="static.html" AND compareroot || "%5Estatic.html/test.txt" != deeperlink) //expect the link without 'http:'
         ABORT("Incorrect deeperlink, got '" || deeperlink ||"' want '" || compareroot || "%5Estatic.html/test.txt'");
       this->CreateStaticFile("test.txt", PTR Print(RepeatText("dit was een test\n", 10)));
     }
@@ -45,15 +45,15 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
       INSERT CELL rpcformtarget := OpenWebtoolForm(this->targetobject->id)->GetFormTarget() INTO this->htmldata;
     }
 
-    IF(this->targetobject->name LIKE "explicitly-no-title.*")
+    IF(this->metadata.name LIKE "explicitly-no-title.*")
     {
       this->pagetitle := "";
     }
 
-    IF(this->targetobject->name = "testfile6.rtd")
+    IF(this->metadata.name = "testfile6.rtd")
     {
       this->consiliofields := CELL[ ...this->consiliofields
-                                  , pagekeywords := [ "by-name " || this->targetobject->name, "</script>", "by-id " || this->targetobject->id ]
+                                  , pagekeywords := [ "by-name " || this->metadata.name, "</script>", "by-id " || this->targetobject->id ]
                                   ];
     }
   }
@@ -93,7 +93,10 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
                         , targetobjectpath := ObjectExists(this->targetobject) ? this->targetobject->whfspath : ""
                         , contentobjectpath := ObjectExists(this->contentobject) ? this->contentobject->whfspath : ""
                         , navigationobjectpath := ObjectExists(this->navigationobject) ? this->navigationobject->whfspath : ""
-                        , betatestinstance := this->contentobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test")
+                        , betatestinstance := this->GetInstanceData("http://www.webhare.net/xmlns/beta/test")
+                        , type_no_clone := this->GetInstanceData("webhare_testsuite:global.type_no_clone")
+                        , type_with_workflow := this->GetInstanceData("webhare_testsuite:global.type_with_workflow")
+                        , type_clone_only := this->GetInstanceData("webhare_testsuite:global.type_clone_only")
                         ];
 
     RETURN wittydata;
