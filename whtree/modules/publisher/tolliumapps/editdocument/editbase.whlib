@@ -220,43 +220,41 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
                                 ]);
   }
 
-  BOOLEAN FUNCTION AddTypesTabs()
-  {
+  BOOLEAN FUNCTION AddTypesTabs() {
     INTEGER insertpos := 1;
-    IF(RecordExists(this->metatabsconfig))
-      FOREVERY(RECORD type FROM this->metatabsconfig.types)
-    {
-      OBJECT fsinstance := this->CreateTolliumComponent("record");
-      RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
-      fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
-      INSERT controller INTO this->metacontrollers AT END;
 
-      FOREVERY(RECORD section FROM type.sections)
-      {
-        //TODO restore tab merging - or have metatabsconfig calculate this for us?
-        OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(section.title));
-        insertpos := insertpos + 1;
-        FOREVERY(RECORD field FROM section.fields)
-        {
-          STRING title := GetTid(field.title);
-          STRING layout := CellExists(field, 'layout') ? field.layout : "inline";
-          IF(title != "" AND layout = "block") //put it in the H1 above.
-          {
-            OBJECT heading := this->CreateTolliumComponent("heading");
-            heading->title := title;
-            newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
+    IF(RecordExists(this->metatabsconfig)) {
+      FOREVERY(RECORD type FROM this->metatabsconfig.types) {
+        OBJECT fsinstance := this->CreateTolliumComponent("record");
+        RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
+        fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
+        INSERT controller INTO this->metacontrollers AT END;
+
+        FOREVERY(RECORD section FROM type.sections) {
+          //TODO restore tab merging - or have metatabsconfig calculate this for us?
+          OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(section.title));
+          insertpos := insertpos + 1;
+          FOREVERY(RECORD field FROM section.fields) {
+            STRING title := GetTid(field.title);
+            OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
+                                                                         , cellname := field.name
+                                                                         , dirtylistener := ^dirtylistener
+                                                                         , yamlscope := fsinstance->yamlscope
+                                                                         ]);
+
+            STRING layout := CellExists(field, 'layout') ? field.layout : newcomp->blockelement ? "block" : "inline";
+            IF(title != "" AND layout = "block") { //put it in the H1 above.
+              OBJECT heading := this->CreateTolliumComponent("heading");
+              heading->title := title;
+              newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
+            }
+
+
+            newcomp->title := layout = "inline" ? title : "";
+            newcomp->errorlabel := title;
+            newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
+            newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
           }
-
-          OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
-                                                                       , cellname := field.name
-                                                                       , dirtylistener := ^dirtylistener
-                                                                       , yamlscope := fsinstance->yamlscope
-                                                                       ]);
-
-          newcomp->title := layout = "inline" ? title : "";
-          newcomp->errorlabel := title;
-          newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
-          newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
         }
       }
     }

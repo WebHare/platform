@@ -89,3 +89,6 @@ PUBLIC MACRO RunIframeDialog(OBJECT parent, STRING url, RECORD options DEFAULTST
   parent->RunScreen("mod::tollium/tolliumapps/dialogs/iframe.xml#iframedialog", CELL[...options, url]);
 }
 
+PUBLIC MACRO RunTolliumInspector(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  parent->contexts->opener->RunScreen("mod::tollium/tolliumapps/inspector/inspector.xml", [ target := parent->frame, ...options ]);
+}

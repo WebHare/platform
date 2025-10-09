@@ -148,6 +148,12 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
   // Property getters/setters
   //
 
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    ^path->title := newtitle;
+    TolliumFragmentBase::SetTitle(newtitle);
+  }
+
   INTEGER FUNCTION GetValue()
   {
     RETURN ObjectExists(this->pvt_value) ? this->pvt_value->id : this->acceptrootfolder ? -1 : 0;
