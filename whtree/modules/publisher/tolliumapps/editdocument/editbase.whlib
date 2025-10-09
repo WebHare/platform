@@ -236,18 +236,19 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
           insertpos := insertpos + 1;
           FOREVERY(RECORD field FROM section.fields) {
             STRING title := GetTid(field.title);
-            STRING layout := CellExists(field, 'layout') ? field.layout : "inline";
+            OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
+                                                                         , cellname := field.name
+                                                                         , dirtylistener := ^dirtylistener
+                                                                         , yamlscope := fsinstance->yamlscope
+                                                                         ]);
+
+            STRING layout := CellExists(field, 'layout') ? field.layout : newcomp->blockelement ? "block" : "inline";
             IF(title != "" AND layout = "block") { //put it in the H1 above.
               OBJECT heading := this->CreateTolliumComponent("heading");
               heading->title := title;
               newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
             }
 
-            OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
-                                                                        , cellname := field.name
-                                                                        , dirtylistener := ^dirtylistener
-                                                                        , yamlscope := fsinstance->yamlscope
-                                                                        ]);
 
             newcomp->title := layout = "inline" ? title : "";
             newcomp->errorlabel := title;
