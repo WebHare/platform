@@ -35,12 +35,6 @@
       <action name="openineditor" tid="~openineditor">
         <enableon source="applies" min="1" max="1" onexecute="doopenineditor" />
       </action>
-      <action name="openversion" tid="~open">
-        <enableon source="historyitems" min="1" max="1" onexecute="doopenversion" />
-      </action>
-      <action name="copyversion" ellipsis="true" tid="~copyto">
-        <enableon source="historyitems" min="1" max="1" onexecute="docopyversion" />
-      </action>
     </actions>
 
     <menus>
@@ -52,10 +46,6 @@
       </menu>
       <menu name="appliesmenu">
         <item action="openineditor" />
-      </menu>
-      <menu name="historymenu">
-        <item action="openversion" />
-        <item action="copyversion" />
       </menu>
     </menus>
 
@@ -140,21 +130,6 @@
           <textedit name="dynamicexecution_startmacro" width="1pr" enabled="false" visible="false" />
           <textedit name="dynamicexecution_webpageobjectname" width="1pr" enabled="false" visible="false" />
           <text name="dynamicexecution_cached" visible="false" />
-        </tab>
-        <tab name="history">
-          <list name="historyitems"
-                width="1pr"
-                height="1pr"
-                openaction="openversion"
-                selectcontextmenu="historymenu"
-                selectmode="single"
-                sortascending="false">
-            <column name="version" type="text" width="10x" align="right" sortkeyname="versionsort" />
-            <column name="when" type="datetime" width="24x" precision="milliseconds" storeutc="true" />
-            <column name="type" type="text" />
-            <column name="login" type="text" tid="~username" />
-            <column name="fullname" type="text" tid="~fullname" />
-          </list>
         </tab>
         <tab name="references">
           <list name="refs" height="1pr" emptytid=".noreferences" openaction="jumptoreference" selectmode="single">

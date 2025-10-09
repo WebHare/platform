@@ -423,9 +423,9 @@ ASYNC MACRO ViewHistory() {
   //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
   OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
 
-  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/inspect
-  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), unpublishedfile->id));
-  TT("historyitems")->selection := SELECT * FROM TT("historyitems")->rows WHERE version="0.2"; //this one contained temproary data
+  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/versions
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectVersionsDialog(GetTestController(), unpublishedfile->id));
+  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.2"; //this one contained temporary data
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Copy to"));
   TT("folders")->value := GetTestsuiteTempFolder()->id;

@@ -451,7 +451,11 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     IF (MemberExists(this, "label"))
       INSERT CELL label := GetMember(this, "label") INTO retval;
     IF (MemberExists(this, "value"))
-      INSERT CELL value := GetMember(this, "value") INTO retval;
+      TRY {
+        INSERT CELL value := GetMember(this, "value") INTO retval;
+      } CATCH {
+        //ignore, value cannot be read, eg list with an uninitialized rowkey
+      }
 
     RETURN retval;
   }

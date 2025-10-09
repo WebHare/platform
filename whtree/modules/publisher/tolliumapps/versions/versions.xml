@@ -1,22 +1,25 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
          gid="tolliumapps.filemanager.history"
-         library="history.whlib">
+         library="versions.whlib">
 
   <screen name="history"
           width="120x"
           height="40x"
           minwidth="70x"
           allowresize="true"
-          flags="issysop"
+          flags="issupervisor issysop"
           footerbuttons="close"
           gid=".dialog"
           title="">
     <actions>
-      <!--
-      <action name="createcopy" onexecute="docreatecopy" tid="~duplicate">
-        <enableon source="versionevents" min="1" max="1" />
+      <action name="createcopy" ellipsis="true" tid="~copyto">
+        <enableon source="versions" min="1" max="1" onexecute="DoCopy" />
       </action>
+      <action name="inspect" tid="~inspect" frameflags="issupervisor">
+        <enableon source="versions" min="1" max="1" onexecute="DoInspect" />
+      </action>
+      <!--
       <action name="restorecontent" onexecute="dorestorecontent" tid=".restore">
         <enableon source="versionevents" min="1" max="1" />
       </action>
@@ -25,10 +28,10 @@
 
     <menus>
       <menu name="context">
-        <!--
         <item action="createcopy" />
-        <item action="restorecontent" />
-        -->
+        <!--        <item action="restorecontent" />        -->
+        <divider />
+        <item action="inspect"/>
       </menu>
     </menus>
 
@@ -43,7 +46,7 @@
             <date name="filterfrom" onselect="GotDateRangeChange" />
             <date name="filterto" onselect="GotDateRangeChange" />
           </line>
-          <list name="versionevents"
+          <list name="versions"
                 borders="all"
                 flags="isactive"
                 highlightname="isactive"
@@ -99,14 +102,12 @@
             </rowlayout>
           </list>
 
-          <!--
           <panel layout="right" borders="left right bottom" backgroundcolor="#e5e5e5" spacers="right">
             <line>
-              <button action="restorecontent" />
+<!--              <button action="restorecontent" /> -->
               <button action="createcopy" />
             </line>
           </panel>
-          -->
         </part>
         <part width="2pr" spacers="none">
           <tabs name="proptabs" height="1pr">

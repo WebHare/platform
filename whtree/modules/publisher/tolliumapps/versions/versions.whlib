@@ -21,11 +21,12 @@ LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/inspect.whlib";
 
 
 // By default, show version events within the last 30 days
-INTEGER default_history_range := 30;
+INTEGER default_history_range := 365;
 
 INTEGER64 FUNCTION VersionToLong(STRING version) {
   STRING ARRAY toks := Tokenize(version, ".");
@@ -67,8 +68,10 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
     ^listener->masks := this->liveobject->GetEventMasks();
 
-    this->Refresh();
     this->frame->flags.issysop := this->tolliumuser->HasRight("system:sysop");
+    this->frame->flags.issupervisor := this->frame->flags.issysop OR this->tolliumuser->HasRight("system:supervisor");
+
+    this->Refresh();
   }
 
   // ---------------------------------------------------------------------------
@@ -134,18 +137,18 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         ]);
 */
 
-    ^versionevents->rows := rows;
+    ^versions->rows := rows;
   }
 
   MACRO OnSelectRequest()
   {
-    RECORD sel := ^versionevents->selection;
+    RECORD sel := ^versions->selection;
     STRING previewlink;
     IF (RecordExists(sel))
     {
       ^modifications->rows := RECORD[];//GetModifications(sel.rowkey);
 
-      STRING link := GetPreviewLink(this->liveobject->id, [ version := sel.snapshot ]);
+      STRING link := GetPreviewLink(sel.snapshot);
       ^previewbrowser->SetPreviewURL(link);
     }
     ELSE
@@ -159,6 +162,14 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
   //
   // Actions
   //
+
+  MACRO DoCopy() {
+    RunCopyMoveObjects(this, INTEGER[ ^versions->selection.snapshot], "copy", [ suggestdestination := this->liveobject->parent ]);
+  }
+
+  MACRO DoInspect() {
+    RunFSObjectInspectDialog(this, ^versions->selection.snapshot);
+  }
 
 /*
   MACRO DoCreateCopy()

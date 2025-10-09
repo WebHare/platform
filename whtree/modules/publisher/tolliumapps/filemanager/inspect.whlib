@@ -7,11 +7,9 @@ LOADLIB "wh::float.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
-LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
-LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -19,6 +17,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
@@ -622,7 +621,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
     this->ReloadApplyRules();
     this->RefreshFSObjectType();
     this->RefreshRefs();
-    this->RefreshHistory();
     ^consiliotab->Refresh(this->fsobj);
     this->OnApplySelect();
     RETURN TRUE;
@@ -632,10 +630,12 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
   {
     RECORD fsobj;
     RECORD siterecord;
+    RECORD ARRAY historyrecords;
     IF (ObjectExists(myfsobj))
     {
       fsobj := SELECT * FROM system.fs_objects WHERE id = myfsobj->id;
       siterecord := SELECT * FROM system.sites WHERE id = myfsobj->id;
+      historyrecords := SELECT * FROM system_internal.fs_history WHERE fs_history.snapshot = myfsobj->id;
     }
     IF(NOT RecordExists(fsobj))
     {
@@ -666,16 +666,15 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
                  ] INTO outrows AT END;
     }
 
-    RECORD fs_history := SELECT * FROM system.fs_history WHERE fs_object = myfsobj->id;
-    IF (RecordExists(fs_history))
+    FOREVERY(RECORD hist FROM historyrecords)
     {
       INSERT CELL[ ...dbinfo_baserow
-                 , rowkey := "fs_history"
+                 , rowkey := "fs_history." || hist.id
                  , name := "system.fs_history"
-                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, fs_history, "fs_history.", FALSE, FALSE)
-                 , data := ToString(fs_history.id)
+                 , subnodes := UnpackToDBInfoRows(this->tolliumuser, hist, "fs_history." || hist.id || ".", FALSE, FALSE)
+                 , data := ToString(hist.id)
                  , type := "table row"
-                 , original := fs_history
+                 , original := hist
                  ] INTO outrows AT END;
     }
 
@@ -801,18 +800,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
       this->FillDBInfo(^draftdbinfo, OpenWHFSDraft(^drafts->selection.id)->fsobject, ^drafts->selection.versionid);
     ELSE
       this->FillDBInfo(^draftdbinfo, DEFAULT OBJECT, 0);
-  }
-
-  MACRO RefreshHistory() {
-    RECORD ARRAY rows := ListObjectHistory(this->fsobjid);
-    ^historyitems->rows := SELECT
-        *,
-        rowkey := id,
-        login := CellExists(userdata,'login') ? userdata.login : user !=0 ? "#" || user : "",
-        fullname := CellExists(userdata,'fullname') ? userdata.fullname : "",
-        versionsort := VersionToLong(version)
-      FROM rows;
-    //FIXME restore with history v4 code
   }
 
   MACRO RefreshRefs()
@@ -984,14 +971,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
   MACRO DoJumpToReference()
   {
     RunPublisherFileManager(this, ^refs->value);
-  }
-
-  MACRO DoOpenVersion() {
-    RunFSObjectEditApplication(this, ^historyitems->selection.snapshot, [ assumereadaccess := TRUE, readonly := TRUE ]);
-  }
-
-  MACRO DoCopyVersion() {
-    RunCopyMoveObjects(this, INTEGER[ ^historyitems->selection.snapshot], "copy", [ suggestdestination := this->fsobj->parent ]);
   }
 >;
 
