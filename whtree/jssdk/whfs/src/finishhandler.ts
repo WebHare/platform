@@ -2,11 +2,33 @@ import { HareScriptType, setHareScriptType } from "@webhare/hscompat";
 import { emplace } from "@webhare/std";
 import { type FinishHandler, broadcastOnCommit } from "@webhare/whdb";
 import { finishHandlerFactory } from "@webhare/whdb/src/impl";
+import type { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 
 /** Events on parentfolder level. Update is triggered by an update to indexDoc */
 export type WHFSFolderEventType = "update" | "fullrep";
 export type WHFSObjectEventType = "rep" | "create" | "update" | "history" | "rename" | "move" | "moved" | "del" | "unp" | "order";
 export type WHFSPublishEventType = "pub";
+
+type EventCompletionRequest = {
+  type: "havependingcompletions";
+  __responseKey: { type: "havependingcompletions-result" };
+} | {
+  type: "newcompletions";
+  checksitesettings: boolean;
+  completions: Array<{ type: "addfile" | "replacefile" | "addfolder" | "updatefolder" | "deletechild"; id: number }>;
+  __responseKey: { type: "newcompletions-result" };
+};
+
+type EventCompletionResponses = {
+  type: "havependingcompletions-result";
+  result: boolean;
+} | {
+  type: "newcompletions-result";
+} | {
+  type: "unknownaction-result";
+};
+
+export type EventCompletionLink = IPCLinkType<EventCompletionRequest, EventCompletionResponses>;
 
 
 class WHFSFinishHandler implements FinishHandler {

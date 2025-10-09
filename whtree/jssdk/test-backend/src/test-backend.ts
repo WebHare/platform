@@ -6,19 +6,24 @@ declare module "@webhare/test-backend" {
 }
 
 import * as test from "@webhare/test";
-import { beginWork } from "@webhare/whdb";
+import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
-import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
-import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
+import { lookupURL, openFileOrFolder, openFolder, type WHFSObject } from "@webhare/whfs";
+import { convertWaitPeriodToDate, isDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
-import type { IntExtLink, Instance } from "@webhare/services";
+import { type IntExtLink, type Instance, openBackendService } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
 import type { InstanceExport, WHFSTypeName, TypedInstanceExport, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
+import { getPrioOrErrorFromPublished, getWHFSDescendantIds } from "@webhare/whfs/src/support";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { selectFSPublish, selectFSWHFSPath } from "@webhare/whdb/src/functions";
+import type { EventCompletionLink } from "@webhare/whfs/src/finishhandler";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -127,36 +132,148 @@ export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type
   return (await getAuditEvents<S, Type>(w, { ...filter, limit: 1 }))[0] || throwError(`No audit event found for schema ${w.tag} with filter ${JSON.stringify(filter)}`);
 }
 
-/** Wait for publication to complete!
-    @param startingpoint - Folder or file we're waiting to complete republishing (recursively)
-    @param options - Options for waiting
-    @param options.deadline - Maximum time to wait (defaults to 5 minutes)
-    @param options.reportFrequency - If set, frequency (in ms) to report we're still waiting
-    @param options.skipEventCompletion - Do not wait for publisher (republish) events to complete processing
-    @param options.acceptErrors - Accept any error in the publication (WebHare 4.33+)
-    @param options.expectErrorsFor - Explicit file IDs we accept and expect an error for */
-export async function waitForPublishCompletion(startingpoint: number | string, options: {
-  deadline?: WaitPeriod;
-  reportFrequency?: number;
-  skipEventCompletion?: boolean;
-  acceptErrors?: boolean;
-  expectErrorsFor?: number[];
-} = {}): Promise<void> {
-  const deadline = convertWaitPeriodToDate(options.deadline ?? 5 * 60 * 1000);
+/** Wait for all event completions to finish
+    @param deadline Error out when the wait hasn't completed after this time
+*/
+export async function waitForEventCompletions(deadline: WaitPeriod) {
+  deadline = convertWaitPeriodToDate(deadline).toTemporalInstant();
+  const link = bridge.connect<EventCompletionLink>("system:eventcompletion", { global: true });
+  try {
+    await link.activate();
+    while (true) {
+      const rec = await link.doRequest({ type: "havependingcompletions" });
+      if (!rec.result)
+        break;
+      if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0)
+        throw new Error("system:eventcompletion isn't completing");
+      await test.sleep(10);
 
-  let target;
-  if (typeof startingpoint === "string" && startingpoint.match(/^https?:/)) {
-    const urlinfo = await lookupURL(new URL(startingpoint));
-    if (!urlinfo?.folder)
-      throw new Error(`Invalid URL ${startingpoint}`);
-    target = await openFolder(urlinfo.folder);
-  } else {
-    target = await openFileOrFolder(startingpoint);
+    }
+  } finally {
+    link.close();
+  }
+}
+
+export async function isStillPublishing(folderIds: number[], onlyFileId: number, startingPoint: string, acceptErrors: boolean, expectErrorsFor: number[]): Promise<boolean> {
+  const objects = await db<PlatformDB>()
+    .selectFrom("system.fs_objects")
+    .select(["id", "isfolder", "published", "errordata", selectFSWHFSPath().as("whfspath"), selectFSPublish().as("publish"),])
+    .$call(query => onlyFileId ?
+      query.where("id", "=", onlyFileId) :
+      query.where("isfolder", "=", false).where("parent", "in", folderIds))
+    .execute();
+  for (const o of objects) {
+    if (o.publish && (o.published % 100000) > 0 && (o.published % 100000) < 100)
+      return true;
   }
 
-  const opts = { ...options, deadline };
-  if (!await loadlib("mod::publisher/lib/control.whlib").WaitForPublishCompletion(target.id, opts))
-    throw new Error(`Publication of ${target.whfsPath} (#${startingpoint}) isn't completing`);
+  let isScheduled = false;
+  const service = await openBackendService("publisher:publication");
+  try {
+    const scheduled = await service.testFilesScheduled(objects.map(o => o.id));
+    isScheduled = scheduled.length > 0;
+  } finally {
+    service.close();
+  }
+
+  for (const expected of expectErrorsFor) {
+    const obj = objects.find(o => o.id === expected);
+    if (!obj)
+      throw new Error(`Expected publication of file #${expected} to fail but it's not inside ${startingPoint}`);
+    if (getPrioOrErrorFromPublished(obj.published) === 0)
+      throw new Error(`Publication of file ${obj.whfspath} (#${expected}) unexpectedly succeeded`);
+  }
+  if (!acceptErrors) {
+    let firsterror: string | null = null;
+    for (const o of objects) {
+      if (expectErrorsFor.indexOf(o.id) === -1 && getPrioOrErrorFromPublished(o.published) !== 0) {
+        const error = `Publication error for #${o.id} (${o.whfspath}): errorcode ${getPrioOrErrorFromPublished(o.published)}${o.errordata ? "," + o.errordata : ""}`;
+        console.error(error);
+        firsterror ??= error;
+      }
+    }
+    if (firsterror)
+      throw new Error(`${firsterror} - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
+  }
+
+  return isScheduled;
+}
+
+function getMinWaitMs(until: Array<Temporal.Instant | Temporal.Duration | Date | number | undefined>) {
+  const now = Date.now();
+  return Math.min(...until.map(u => {
+    if (u === undefined || u === null)
+      return Infinity;
+    if (isDate(u))
+      return u.getTime() - now;
+    if (typeof u === "number")
+      return u;
+    if ("epochMilliseconds" in u)
+      return u.epochMilliseconds - now;
+    return u.total({ unit: "milliseconds" });
+  }));
+}
+
+/** Wait for publication to complete
+    @param startingPoint Folder or file we're waiting to complete republishing (recursively)
+    @return True if publication completed, false on timeout*/
+export async function waitForPublishCompletion(startingPoint: number | string | null | WHFSObject, options: {
+  /// Maximum time to wait (defaults to 1 hour)
+  deadline?: WaitPeriod;
+  /// If set, frequency (in ms) to report we're still waiting
+  reportFrequencyMs?: number;
+  /// Do not wait for publisher (republish) events to complete processing
+  skipEventCompletion?: boolean;
+  /// Accept any error in the publication (WebHare 4.33+)
+  acceptErrors?: boolean;
+  /// Explicit file IDs we accept and expect an error for
+  expectErrorsFor?: number[];
+} = {}): Promise<boolean> {
+  options.deadline = convertWaitPeriodToDate(options.deadline ?? Temporal.Now.instant().add({ hours: 1 })).toTemporalInstant();
+  if (!options.skipEventCompletion)
+    await waitForEventCompletions(options.deadline);
+
+  if (typeof startingPoint === "string" && startingPoint.match(/^https?:/)) {
+    const urlinfo = await lookupURL(new URL(startingPoint));
+    if (!urlinfo?.folder)
+      throw new Error(`Invalid URL ${startingPoint}`);
+    startingPoint = await openFolder(urlinfo.folder);
+  } else if (typeof startingPoint !== "object" || startingPoint === null)
+    startingPoint = await openFileOrFolder(startingPoint, { allowRoot: true });
+
+  const folderIds = (startingPoint.isFolder ? [startingPoint.id, ...await getWHFSDescendantIds([startingPoint.id], true, false)] : [startingPoint.parent]).filter(_ => _ !== null);
+
+  let wait: PromiseWithResolvers<boolean> | null = null;
+  const cb = bridge.on("event", data => {
+    if (data.name.startsWith("publisher:publish.folder.") && folderIds.includes((data.data as { folder: number }).folder))
+      wait?.resolve(true);
+  });
+
+  try {
+    let nextFeedback = options.reportFrequencyMs ? Temporal.Now.instant().add({ milliseconds: options.reportFrequencyMs }) : undefined;
+    while (true) {
+      wait = Promise.withResolvers();
+      if (!await isStillPublishing(folderIds, startingPoint.isFolder ? 0 : startingPoint.id, startingPoint.whfsPath, options.acceptErrors ?? false, options.expectErrorsFor ?? []))
+        break;
+
+      if (options.deadline && Temporal.Instant.compare(Temporal.Now.instant(), options.deadline) >= 0)
+        return false;
+
+      if (nextFeedback && Temporal.Instant.compare(Temporal.Now.instant(), nextFeedback) >= 0) {
+        console.error(`Publication of ${startingPoint.whfsPath} (#${startingPoint.id}) still isn't complete...`);
+        nextFeedback = Temporal.Now.instant().add({ milliseconds: options.reportFrequencyMs! });
+      }
+
+      // Wait max 1 sec, retry immediately if we get a notification.
+      const currentWait = wait;
+      setTimeout(() => currentWait.resolve(false), getMinWaitMs([1000, options.deadline, nextFeedback]));
+      await wait.promise;
+    }
+
+    return true;
+  } finally {
+    bridge.off(cb);
+  }
 }
 
 /** Replace the system's geoip database with a test version - or revert that */
