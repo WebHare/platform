@@ -75,6 +75,11 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
     this->RefreshActions();
   }
 
+  UPDATE MACRO SetTitle(STRING newtitle)
+  {
+    this->filename->title := newtitle;
+    TolliumFragmentBase::SetTitle(newtitle);
+  }
 
   // ---------------------------------------------------------------------------
   //
