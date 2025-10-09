@@ -1,5 +1,5 @@
 <?wh
-//not really a RTD test, but it's an editdocument test and RTD is split into editdocuemnt and rtd
+//not really a RTD test, but it's an editdocument test and RTD is split into editdocument and rtd
 
 LOADLIB "wh::files.whlib";
 
