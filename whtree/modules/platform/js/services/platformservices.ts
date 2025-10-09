@@ -20,8 +20,57 @@ declare module "@webhare/services" {
     "platform:coreservices": NodeServicesClient;
     "platform:nodeservices": NodeServicesClient;
     "platform:servicemanager": ServiceManagerClient;
+    "publisher:publication": PublicationService;
+    "publisher:outputanalyzer": OutputAnalyzerService;
   }
 }
+
+type PersistentQueueStats<TaskItem> = {
+  status: "ok";
+  running: Array<{ taskdata: TaskItem; date_running: Date }>;
+  runnable: number;
+  timedwait: number;
+  queuestats: {
+    fields: Array<{ name: string; type: "level" | "event" }>;
+    interval: number;
+    history: Array<{ intervalstart: Date; queuelength: { firstvalue: number; lastvalue: number; minvalue: number; maxvalue: number }; finished: number }>;
+    currentstatus: { intervalstart: Date; queuelength: { firstvalue: number; lastvalue: number; minvalue: number; maxvalue: number }; finished: number };
+  };
+};
+
+type PublicationTaskItem = { id: number; priority: number; lastpublishtime: number };
+type PublicationService = {
+  schedule(item: PublicationTaskItem): Promise<{
+    scheduled: Array<PublicationTaskItem>;
+    updated: Array<PublicationTaskItem>;
+  }>;
+  scheduleMultiple(items: PublicationTaskItem[]): Promise<{
+    scheduled: Array<PublicationTaskItem>;
+    updated: Array<PublicationTaskItem>;
+  }>;
+  getState(): Promise<PersistentQueueStats<PublicationTaskItem> & {
+    expectedtimetocompletion: bigint;
+  }>;
+  testFilesScheduled(ids: number[]): Promise<number[]>;
+  getExpectedTimeToCompletion(id: number): Promise<number>;
+  shutdown(): Promise<void>;
+};
+
+type OutputAnalyzerTaskItem = { action: "SCAN"; folderid: number; recursive: boolean } | { action: "GATHERFOLDERS" };
+type OutputAnalyzerService = {
+  schedule(item: OutputAnalyzerTaskItem & { priority?: number }): Promise<{
+    scheduled: Array<OutputAnalyzerTaskItem>;
+    updated: Array<OutputAnalyzerTaskItem>;
+  }>;
+  scheduleMultiple(items: (OutputAnalyzerTaskItem & { priority?: number })[]): Promise<{
+    scheduled: Array<OutputAnalyzerTaskItem>;
+    updated: Array<OutputAnalyzerTaskItem>;
+  }>;
+  getState(): Promise<PersistentQueueStats<PublicationTaskItem>>;
+  testFoldersScheduled(ids: number[]): Promise<number[]>;
+  shutdown(): Promise<void>;
+};
+
 
 //TypeScript issue - if we don't import it explicitly, TS looks to us for the "@webhare/services" and suddenly can't find @webhare/services anymore
 import type { BackendServices, GetBackendServiceInterface } from "@webhare/services";

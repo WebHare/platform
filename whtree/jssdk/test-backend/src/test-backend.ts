@@ -214,6 +214,20 @@ function getMinWaitMs(until: Array<Temporal.Instant | Temporal.Duration | Date |
   }));
 }
 
+export async function waitForOutputAnalyzer(folders: number[], deadline: Temporal.Instant) {
+  const service = await openBackendService("publisher:outputanalyzer");
+  try {
+    const scheduled = await service.testFoldersScheduled(folders);
+    if (!scheduled.length)
+      return;
+    if (Date.now() > deadline.epochMilliseconds)
+      throw new Error(`Timeout waiting for output analyzer to finish processing folders ${folders.join(", ")}, still scheduled: ${scheduled.join(", ")}`);
+    await test.sleep(10);
+  } finally {
+    service.close();
+  }
+}
+
 /** Wait for publication to complete
     @param startingPoint Folder or file we're waiting to complete republishing (recursively)
     @return True if publication completed, false on timeout*/
