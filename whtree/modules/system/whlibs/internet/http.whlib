@@ -3,6 +3,7 @@
     @long These functions allow access to HTTP sites.
 */
 
+LOADLIB "wh::datetime.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
