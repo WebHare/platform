@@ -314,7 +314,7 @@ ASYNC MACRO WalkTheTree() {
   TestEqLike(GetPrimaryWebhareInterfaceURL() || ".publisher/preview/*", pvs.browserurl, 'it should be previewed as an unpublished file');
   TestEq(TRUE, pvs.showingmessages);
 
-  // this isn't really testing previewbrowser but hte goto anything dialog
+  // this isn't really testing previewbrowser but the goto anything dialog
   AWAIT ExpectScreenChange(+1, PTR TTClick("gotoanything"));
   TestEqMembers([[ title := "webhare_testsuite.testsite" ]], TT("obj")->options, "*");
   TT("obj")->value := "webhare_testsuite.testsite";
