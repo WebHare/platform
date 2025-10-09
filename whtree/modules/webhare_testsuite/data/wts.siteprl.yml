@@ -68,20 +68,17 @@ types:
         type: intextlink
 
   type_no_clone:
-    workflow: false
     clone: never
     members:
       noCloneString:
         type: string
 
   type_with_workflow:
-    workflow: true
     members:
       withWorkflowString:
         type: string
 
   type_clone_only:
-    workflow: false
     members:
       cloneOnlyString:
         type: string

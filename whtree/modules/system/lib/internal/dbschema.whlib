@@ -249,6 +249,7 @@ PUBLIC SCHEMA
     < INTEGER64 "id" NULL := 0
     , INTEGER "fs_type" NULL := 0
     , INTEGER "fs_object" NULL := 0
+    , BOOLEAN workflow
     ; KEY id
     > fs_instances
   , TABLE

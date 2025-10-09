@@ -7,6 +7,7 @@ LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -387,6 +388,16 @@ PUBLIC INTEGER ARRAY FUNCTION GetWHFSDescendantIds(INTEGER basefolder, BOOLEAN r
     maximumdepth := maximumdepth - 1;
   }
   RETURN allsubs;
+}
+
+//list active instances linked to a object that should be copied
+PUBLIC RECORD ARRAY FUNCTION ListInstances(INTEGER forobject) {
+  //TODO doesn't this incorrectly pick up instance-in-instances? It probably won't hurt though as GetInstanceData/SetInstanceData still filter the actual results
+  RETURN SELECT instance := fs_instances.id, fstype := fs_types.id, fs_types.namespace, fs_types.scopedtype, fs_instances.workflow
+           FROM system_internal.fs_instances, system_internal.fs_types
+          WHERE fs_instances.fs_type = fs_types.id
+                AND fs_instances.fs_object = VAR forobject
+       ORDER BY fs_types.scopedtype, fs_types.namespace, fs_instances.id;
 }
 
 //list active instances linked to a object that should be copied

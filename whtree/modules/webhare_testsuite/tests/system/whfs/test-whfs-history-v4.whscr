@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -76,7 +77,11 @@ MACRO DraftingTest() {
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
 
   //Start editing this document. Create a private draft (autosave)
-  OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser(),
+      useworkflow := TRUE,
+      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
   workflowmgr->GetCurrentDraft();
 
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
@@ -108,6 +113,10 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
 
   testfw->CommitWork();
+
+  TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
+                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   TestEqMembers([
     title := "A new title",
@@ -227,7 +236,11 @@ MACRO DraftingTest() {
 
   testfw->SetTestUser("homer"); //FIXME we also need to test with a user who has no write access (yet) as they currently cannot see drafts.
   //reopen for homer
-  workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser()
+    , useworkflow := TRUE
+    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
   workflowmgr->GetCurrentDraft();
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file with some data added by Homer!"));
 
@@ -278,7 +291,11 @@ MACRO DraftingTest() {
 
   DATETIME oldmoddate := testfile->modificationdate;
   testfw->SetTestUser("marge");
-  workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser()
+    , useworkflow := TRUE
+    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
   workflowmgr->GetCurrentDraft();
   workflowmgr->Save(TRUE);
 
@@ -319,13 +336,21 @@ MACRO DraftingTest() {
 
   //Create someone else's autosave
   testfw->SetTestUser("homer");
-  workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser()
+    , useworkflow := TRUE
+    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
   workflowmgr->GetCurrentDraft();
   workflowmgr->UpdateData(StringToBlob("Simple change to trigger an autosave"));
 
   //Create our autosave for this draft
   testfw->SetTestUser("marge");
-  workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  workflowmgr := NEW WorkflowManager(testfile->id,
+    [ user := GetEffectiveUser()
+    , useworkflow := TRUE
+    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
   workflowmgr->GetCurrentDraft();
   //FIXME not changing anything but going straight to Save() doesnt seem to clear autosaves. regression? but we'll be reworking that soon anyway
   workflowmgr->UpdateData(StringToBlob("another change to trigger an autosave"));
@@ -342,17 +367,6 @@ MACRO DraftingTest() {
                 , [ type := "approved", version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
 
-  /////////////////////
-  //
-  // STORY: Neither should: Autosave, Draft, Edit, Publish leave a lingering autosave
-  //
-
-  // TODO fixup these tests, beta/test is not workflowed so what are we exactly proving, other than that we can create pointless versions by invoking lowlevel StartWorkflowUpdate?
-  draft := StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("homer")]);
-  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["robots"] ]);
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
-  draft := StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("homer")]);
-  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["death"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("homer"));
 
   TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
@@ -363,7 +377,7 @@ MACRO DraftingTest() {
                 , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
                 , [ type := "approved", version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "approved", version := "2.0", user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "saved",    version := "2.1", user := testfw->GetUserAuthobjectId("homer") ]
+                // , [ type := "saved",    version := "2.1", user := testfw->GetUserAuthobjectId("homer") ]
                 , [ type := "approved", version := "3.0", user := testfw->GetUserAuthobjectId("homer") ]
                 ], history, "*");
 
@@ -384,20 +398,26 @@ ASYNC MACRO UnpublishedSavesTest()
     , publish := FALSE
     ]);
 
-  OBJECT draft := StartWorkflowUpdate(unpublishedfile->id, [user := testfw->GetUserObject("marge")]);
-  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["love"] ]);
+  testfw->SetTestUser("homer");
+  OBJECT workflowmgr := NEW WorkflowManager(unpublishedfile->id,
+    [ user := GetEffectiveUser(),
+      useworkflow := TRUE,
+      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
+  workflowmgr->GetCurrentDraft();
 
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-draft" ]);
+  workflowmgr->Save(FALSE);
+
   TestEqMembers([[ ispublic := TRUE ]], GetDrafts(unpublishedfile->id), "*", "SaveAsNewPublicDraft should have discarded all autosaves");
 
-  draft->SaveAsFinal(testfw->GetUserObject("homer"));
+  workflowmgr->Save(TRUE);
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
   TestEq(FALSE, OpenWHFSObject(unpublishedfile->id)->publish);
 
   //Create an autosave or an unpublished file and finalize it straight away
-  draft := StartWorkflowUpdate(unpublishedfile->id, [user := testfw->GetUserObject("marge")]);
-  draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["homer"] ]);
-  draft->SaveAsFinal(testfw->GetUserObject("homer"));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-update" ]);
+  workflowmgr->Save(TRUE);
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
 
   RECORD ARRAY history := ListObjectHistory(unpublishedfile->id);
@@ -409,7 +429,7 @@ ASYNC MACRO UnpublishedSavesTest()
 
   testfw->CommitWork();
 
-  //Verify that even sysop cannot edit this a history item
+  //Verify that even sysop cannot edit this history item
   testfw->SetTestUser("sysop");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ToString(history[3].snapshot)]]));
   BOOLEAN clicked := AWAIT ExpectNoScreenChange(PTR TTClick("publish", [ allowfailure := TRUE ]));

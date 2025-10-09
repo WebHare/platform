@@ -1523,67 +1523,64 @@ STATIC OBJECTTYPE WHFSType <
       @see __ExportInstanceData, SetInstanceData
   */
 
-  PUBLIC INTEGER64 FUNCTION __ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[])
-  {
+  PUBLIC INTEGER64 FUNCTION __ImportInstanceData(INTEGER objectid, RECORD newinstancedata, OBJECT remapper, BOOLEAN export_orphans, RECORD options DEFAULTSTO CELL[]) {
     //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
     options := ValidateOptions(
         [ isvisibleedit :=    this->cloneoncopy
         , ifreadonly := "fail"
+        , workflow      := FALSE
         ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     RECORD file := SELECT parentsite, parent, type, whfspath FROM system.fs_objects WHERE id = objectid;
     IF(NOT RecordExists(file))
       THROW NEW Exception(`Attempting to update instance data on non existing file #${objectid}`);
 
-    IF(options.ifreadonly != "update" AND IsReadonlyWHFSSpace(file.whfspath)) //we still allow invisible edits so (old?) Draft code can do its job
-    {
+    IF(IsReadonlyWHFSSpace(file.whfspath)) {
       IF(options.ifreadonly = "skip")
         RETURN 0;
-
-      THROW NEW Exception(`Attempting to update readonly object ${file.whfspath}`);
+      IF(options.ifreadonly != "update")
+        THROW NEW Exception(`Attempting to update readonly object ${file.whfspath}`);
+    } ELSE {
+      IF(options.workflow)
+        THROW NEW Exception("Workflow option can only be used when updating objects in readonly spaces");
     }
 
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
 
-    INTEGER64 instance := SELECT AS INTEGER64 id
-                            FROM system.fs_instances
-                           WHERE fs_type = this->typedef.id
-                                 AND fs_object = objectid;
+    RECORD instance := SELECT id, workflow
+                        FROM system_internal.fs_instances
+                        WHERE fs_type = this->typedef.id
+                              AND fs_object = objectid;
 
-    BOOLEAN isnew := instance=0;
     RECORD ARRAY cursettings;
-    IF(isnew) //ADDME Don't create the instance if ALL members equal their emptyval
-    {
-      instance := MakeAutonumber(system.fs_instances,"id");
-      INSERT INTO system.fs_instances(id, fs_type, fs_object) VALUES(instance, this->typedef.id, objectid);
-    }
-    ELSE
-    {
+    IF(NOT RecordExists(instance)) {
+      INTEGER64 instanceid := MakeAutonumber64(system_internal.fs_instances,"id");
+      INSERT INTO system_internal.fs_instances(id, fs_type, fs_object, workflow) VALUES(instanceid, this->typedef.id, objectid, options.workflow);
+      instance := [ id := instanceid, workflow := options.workflow ];
+    } ELSE {
       cursettings :=
           SELECT parent
                , fs_member
                , settings := GroupedValues(CELL[id,setting,fs_object,ordering,instancetype,blobdata])
            FROM system.fs_settings
-          WHERE fs_instance = VAR instance
+          WHERE fs_instance = VAR instance.id
        GROUP BY parent, fs_member
        ORDER BY parent, fs_member;
     }
 
-    RECORD rec := this->__RecurseSetInstanceData(instance, 0, 0, newinstancedata, cursettings, remapper, export_orphans);
-    IF (NOT rec.any_nondefault)
-    {
+    RECORD rec := this->__RecurseSetInstanceData(instance.id, 0, 0, newinstancedata, cursettings, remapper, export_orphans);
+    IF (NOT rec.any_nondefault) {
       /* We may be able to delete the instance completely. Check if settings still remain, there may be
          members RecurseSetInstanceData didn't know about */
-      IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance LIMIT 1))
-      {
-        DELETE FROM system.fs_instances WHERE id = instance;
-        instance := 0;
+      IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance.id LIMIT 1) AND NOT instance.workflow) {
+        DELETE FROM system.fs_instances WHERE id = instance.id;
+        instance := DEFAULT RECORD;
       }
-    }
-    ELSE
-    {
+    } ELSE {
       GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
+      IF(options.workflow AND NOT instance.workflow)
+        UPDATE system_internal.fs_instances SET workflow := TRUE WHERE id = instance.id;
     }
 
     IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
@@ -1594,7 +1591,7 @@ STATIC OBJECTTYPE WHFSType <
     ELSE
       GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
 
-    RETURN instance;
+    RETURN RecordExists(instance) ? instance.id : 0i64;
   }
 
   /** Set the instance data for a specific whfs object
@@ -1611,6 +1608,7 @@ STATIC OBJECTTYPE WHFSType <
         [ isvisibleedit := this->cloneoncopy
         , orphans       := FALSE
         , ifreadonly := "fail"
+        , workflow      := FALSE
         ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     BOOLEAN orphans := options.orphans;

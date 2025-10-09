@@ -130,7 +130,7 @@ $defs:
           - never
       workflow:
         type: boolean
-        description: "If set, data in this type should be managed together with its owning object's workflow. Incompatible with `clone: never`"
+        description: "Obsolete, will be removed"
 
   UploadType:
     type: object

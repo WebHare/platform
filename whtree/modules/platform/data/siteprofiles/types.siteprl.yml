@@ -357,6 +357,7 @@ types:
             type: file
   publisher.draftmetadata:
     namespace: http://www.webhare.net/xmlns/publisher/draftmetadata
+    clone: never # We manually manage this type when drafting
     workflow: false
     members:
       #parent: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway

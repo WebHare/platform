@@ -108,6 +108,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   PUBLIC PROPERTY useworkflow(this->options.useworkflow,-);
 
+  RECORD ARRAY workflowtypes;
+
   /** @param options.useworkflow - Enable to only show workflow-enabled tabs
    */
   MACRO NEW(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
@@ -115,7 +117,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
                                          , useworkflow := FALSE
                                          , assumewriteaccess := FALSE
                                          , user := DEFAULT OBJECT
+                                         , workflowtypes := STRING[]
                                          ], options);
+
+    this->AddTypes(this->options.workflowtypes);
     this->baseobject := OpenWHFSObject(objid);
 
     //TODO Or handle this as part of state requests
@@ -166,12 +171,32 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   OBJECT FUNCTION GetInstanceObject() {
     RETURN this->__GetAutosavedObject();
   }
+
+  /** Register additional types. This is okay as long as we haven't started working on the autosave yet */
+  PUBLIC MACRO AddTypes(STRING ARRAY types) {
+    IF(Length(types) > 0) {
+      IF(ObjectExists(this->currentautosave))
+        THROW NEW Exception("Can't add types when an autosave is already active");
+      IF(NOT this->options.useworkflow)
+        THROW NEW Exception("Setting 'workflowtypes' requires setting 'useworkflow' to TRUE");
+    }
+
+    FOREVERY(STRING type FROM types) {
+      IF(RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR type OR scopedtype = VAR type))
+        CONTINUE;
+
+      RECORD typeinfo := LookupContentTypeByName(type);
+      IF(NOT RecordExists(typeinfo))
+        THROW NEW Exception(`Type '${type}' is not a known content type`);
+      IF(NOT typeinfo.cloneonarchive AND NOT typeinfo.clonencopy)
+        THROW NEW Exception(`Type '${type}' is not copyable and not a suitable workflow type`);
+
+      INSERT typeinfo INTO this->workflowtypes AT END;
+    }
+  }
   PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
-    RECORD typeinfo := LookupContentTypeByName(whfstype);
-    IF(NOT RecordExists(typeinfo))
-      THROW NEW Exception(`Type '${whfstype}' is not a known content type`);
-    IF(NOT typeinfo.workflow)
-      THROW NEW Exception(`Type '${whfstype}' does not support workflow and should not be retrieved from drafts`);
+    IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
+      THROW NEW Exception(`Type '${whfstype}' is not setup to be tracked in the workflow`);
 
     RETURN this->GetInstanceObject()->GetInstanceData(whfstype);
   }
@@ -180,9 +205,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id, [ user := this->options.user ]);
   }
   PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
+    IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
+      THROW NEW Exception(`Type '${whfstype}' is not setup to be tracked in the workflow`);
+
     this->EnsureAutosave();
     //TODO workflow validation?
-    this->currentautosave->SetInstanceData(whfstype, data);
+    this->currentautosave->fsobject->SetInstanceData(whfstype, data, [ ifreadonly := "update", workflow := TRUE ]);
   }
   PUBLIC RECORD FUNCTION GetMetadata() {
     OBJECT historicobj := this->currentautosave ?? this->currentdraft;
@@ -195,7 +223,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   PUBLIC MACRO UpdateData(BLOB newdata) {
     this->EnsureAutosave();
-    this->currentautosave->fsobject->UpdateData(newdata);
+    this->currentautosave->fsobject->UpdateMetadata(CELL[data := newdata ], [ ifreadonly := "update" ]);
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD updates) {

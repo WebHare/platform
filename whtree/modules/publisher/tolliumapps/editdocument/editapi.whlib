@@ -16,9 +16,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   MACRO PTR pvt_oncanview;
   MACRO PTR pvt_oncanpreview;
 
+  STRING ARRAY pvt_editcontenttypes;
 
-  /// Deprecated and ignored since WH5.9.
-  PUBLIC STRING ARRAY editcontenttypes;
+  /// The content types that are edited by this editor (only these types are read/written through GetInstanceData/SetInstanceData)
+  PUBLIC PROPERTY editcontenttypes(pvt_editcontenttypes, SetEditContentTypes);
 
   /// Can this file be published? Some library/reusable content may disable this. This is not foolproof but prevents obvious mistakes
   PUBLIC BOOLEAN canpublish;
@@ -92,18 +93,14 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
     this->editscreen->workflowmgr->UpdateMetadata(fields);
   }
 
-  MACRO AssertWorkflowSupport(STRING type) {
-    RECORD typeinfo := LookupContentTypeByName(type);
-    IF(NOT RecordExists(typeinfo))
-      THROW NEW Exception(`Type '${type}' is not a known content type`);
-    IF(NOT typeinfo.workflow)
-      THROW NEW Exception(`Type '${type}' has not been enabled for workflow. To enable it, set workflow="true" in the content type definition`);
+  PUBLIC MACRO SetEditContentTypes(STRING ARRAY types) {
+    this->pvt_editcontenttypes := types;
+    IF(this->editscreen->workflowmgr->useworkflow)
+      this->editscreen->workflowmgr->AddTypes(types);
   }
 
   /// Get instance data of a given type from the object being edited (containing last changes)
   PUBLIC RECORD FUNCTION GetInstanceData(STRING type) {
-    this->AssertWorkflowSupport(type);
-
     RECORD originaldata := this->editscreen->workflowmgr->GetInstanceData(type);
     RECORD cached := SELECT * FROM this->instancedatacache WHERE namespace = type;
     IF (RecordExists(cached))
@@ -115,8 +112,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   /** Write instance data of a given type to the object being edited. We store any cell modified, but shouldn't 'save and continously replace' a cell that was never touched by the editor
   */
   PUBLIC MACRO SetInstanceData(STRING type, RECORD data)   {
-    this->AssertWorkflowSupport(type);
-
     IF (NOT RecordExists(SELECT FROM this->instancedatacache WHERE namespace = type)) {
       INSERT [ namespace := type, data := data ]
         INTO this->instancedatacache AT END;

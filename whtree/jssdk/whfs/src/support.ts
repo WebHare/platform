@@ -76,6 +76,7 @@ export function formatPathOrId(path: number | string) {
 export function isReadonlyWHFSSpace(path: string) {
   path = path.toUpperCase();
   return path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/") ||
+    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/") || //not so much readonly but requires setting a workflow flag
     path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/") ||
     path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/");
 }

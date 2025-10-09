@@ -275,7 +275,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     appendToArray(setter.toinsert, await setData(descr.members, data));
 
     if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
-      instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
+      instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id, workflow: false }).returning("id").executeTakeFirstOrThrow()).id;
 
     await setter.apply(instanceId);
 

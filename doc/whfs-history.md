@@ -45,10 +45,13 @@ The document editor creates an autosave in the `whconstant_whfsid_autosaves` fol
 the original source) when you start editing a document to record the current changes. This autosave is then periodically updated.
 
 A public draft is created when a published file has pending content changes - ie the Save button for a published
-file creates a draft but does not update the source. You cannot create a public draft for an unpublished document.
+file creates a draft but does not update the source. Since WH5.9 you can also create public drafts for an unpublished document
+or unpublishable documents.
 
-When you save a draft the current autosave is moved to the `whconstant_whfsid_drafts` folder. All clonable unmanaged data is
-recopied from the source. The draft's minor version number is increased and the editor is set to the user saving
+When you save a draft the current autosave is moved to the `whconstant_whfsid_drafts` folder. All content types that are managed
+in the editor are stored with the autosave (with the 'workflow' attribute). (Before WH5.9: all clonable data would copied)
+
+The draft's minor version number is increased and the editor is set to the user saving
 this draft. A version event of type 'saved' is generated and the snapshot is set to the draft id. Any earlier drafts are
 moved to the `whconstant_whfsid_whfs_snapshots` folder. (there should only be one draft per source in the drafts folder and
 it should only exist as long as there are unpublished changes. the existence of the draft is cached in the 'Draft' published flag)
@@ -57,10 +60,6 @@ When you publish a draft its managed fields are copied to the source. The source
 the minor reset to 0) - eg the last draft might be `0.6` and the first published version will then have version `1.0`.
 The existing draft is moved to the `whconstant_whfsid_whfs_snapshots` folder. A version event of type 'publish' is generated
 with the snapshot pointing to the same draft (so there may be two version events referring to the same snapshot).
-
-The source's version metadata 'editor' field is updated to reflect the draft's editor, and the publish user and time are set
-to the current user. These 'published user/time' will not be updated if the file is later unpublished and republished - they're
-supposed to reflect the user that approved the file's content.
 
 Reverting a draft moves it to the snapshots folder and creates a 'revert' event pointing to the snapshot. A revert keeps
 its version number and a new draft generated from the source will have an incremented minor version.

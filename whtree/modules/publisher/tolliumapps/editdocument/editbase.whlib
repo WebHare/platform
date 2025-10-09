@@ -138,7 +138,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
-    this->workflowmgr := NEW WorkflowManager(objectid, CELL[ user := this->contexts->user, ...options, DELETE workflowtypes]);
     this->__SetupEditBase(objectid, 01, FALSE, -1, options);
   }
 
@@ -173,6 +172,14 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
           INSERT t.namespace INTO workflowtypes AT END;
       }
     }
+
+    IF(objectid != 0)
+      this->workflowmgr := NEW WorkflowManager(objectid,
+        CELL[ user := this->contexts->user
+            , ...options
+            , workflowtypes := options.useworkflow ? workflowtypes : STRING[]
+            ]);
+
     IF(NOT ObjectExists(this->contexts->applytester))
       THROW NEW TolliumException(this, "No applytester found for this object");
 
