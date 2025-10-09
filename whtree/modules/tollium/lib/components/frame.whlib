@@ -3,6 +3,7 @@ LOADLIB "wh::crypto.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/components/panel.whlib";
 LOADLIB "mod::tollium/lib/components/defaultformbuttons.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -379,6 +380,9 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
       {
         this->owner->TolliumExecuteCancel();
         RETURN;
+      }
+      CASE "inspectelement" {
+        RunTolliumInspector(this->owner, CELL [ path := msgdata.path ]);
       }
       DEFAULT
       {

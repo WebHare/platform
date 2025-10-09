@@ -1,0 +1,95 @@
+<?wh
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Inspector EXTEND TolliumScreenBase <
+  OBJECT target;
+  RECORD compmap;
+  OBJECT currentcomp;
+
+  MACRO Init(RECORD opts) {
+    opts := ValidateOptions([target := DEFAULT OBJECT, path := STRING[]], opts);
+    this->target := opts.target;
+
+    this->RefreshComponents();
+    FOREVERY(STRING trylookup FROM opts.path) {
+      IF(trylookup LIKE "*:*") {
+        STRING tofind := Tokenize(trylookup,":")[1]; //we receive it prefixed with window name
+        RECORD match := SELECT * FROM ^components->rows WHERE name = tofind;
+        IF(RecordExists(match)) {
+          ^components->selection := match;
+          BREAK;
+        }
+      }
+    }
+  }
+
+  RECORD ARRAY FUNCTION RecurseNodes(OBJECT parent) {
+    RECORD ARRAY list;
+    FOREVERY(OBJECT comp FROM parent->GetChildComponents()) {
+      //we need to keep the component outside the list or 'inspect row' will go crazy
+      STRING rowkey :="comp_" || __INTERNAL_GETOBJECTID(comp);
+      this->compmap := CellInsert(CellDelete(this->compmap, rowkey), rowkey, comp);
+      INSERT CELL [ rowkey
+                  , name := comp->name
+                  , type := comp->componenttype
+                  , title := comp->title
+                  , subnodes := this->RecurseNodes(comp)
+                  , iscomponent := TRUE
+                  ] INTO list AT END;
+    }
+
+    FOREVERY(STRING togroup FROM ["action","menuitem"]) {
+      RECORD ARRAY items := SELECT * FROM list WHERE type = togroup;
+      IF(Length(items) > 0) {
+        INSERT CELL [ rowkey := "acions_" || __INTERNAL_GETOBJECTID(parent)
+                    , name := togroup || "s"
+                    , type := togroup
+                    , title := ""
+                    , subnodes := items
+                    ] INTO list AT END;
+        DELETE FROM list WHERE type = togroup;
+      }
+    }
+
+    RETURN list;
+  }
+
+  MACRO RefreshComponents() {
+    RECORD ARRAY list;
+    ^components->rows := this->RecurseNodes(this->target);
+  }
+
+  MACRO DoInspectComponent() {
+    Reflect(GetCell(this->compmap, ^components->value));
+  }
+
+  MACRO DoInspectProperty() {
+    Reflect(GetMember(this->currentcomp, ^properties->value));
+  }
+
+  MACRO OnSelectComponent() {
+    IF(^components->value = "") {
+      ^properties->rows := RECORD[];
+      RETURN;
+    }
+
+    this->currentcomp := __HS_INTERNAL_MakeObjectReferencePrivileged(GetCell(this->compmap, ^components->value));
+    RECORD props := __INTERNAL_DescribeObjectStructure (this->currentcomp,TRUE);
+    ^properties->rows := (SELECT rowkey := name
+                               , prop := ToLowercase(name)
+                               , value := AnyToString(GetMember(this->currentcomp, name),'tree:0')
+                               , isproperty := FALSE
+                            FROM props.members
+                           WHERE CellExists(members,'type'))
+                           CONCAT
+                        (SELECT rowkey := name
+                              , prop := ToLowercase(name)
+                              , value := ToLowercase(getter) || "()"
+                              , isproperty := TRUE
+                          FROM props.properties);
+  }
+>;

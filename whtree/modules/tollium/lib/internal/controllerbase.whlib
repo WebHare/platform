@@ -3068,10 +3068,8 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   }
 
 
-  RECORD FUNCTION ExecuteMessageAction(RECORD todd_request)
-  {
-    SWITCH (todd_request.action)
-    {
+  RECORD FUNCTION ExecuteMessageAction(RECORD todd_request) {
+    SWITCH (todd_request.action) {
       CASE ""
       {
         ABORT("Empty request received");
@@ -3106,16 +3104,22 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
       CASE "$devhook"
       {
-        SWITCH (todd_request.param.action)
-        {
-          CASE "openineditor"
-          {
+        SWITCH (todd_request.param.action) {
+          CASE "openineditor" {
             RECORD resolved := ResolveComponentPath(todd_request.param.screen, todd_request.param.componentpath);
-            IF (RecordExists(resolved))
-            {
+            IF (RecordExists(resolved)) {
               // Don't supply contexts, so the launch call won't be resent to the client again
               LaunchOpenInEditor(DEFAULT OBJECT, resolved.resourcename, CELL[ resolved.line, resolved.col ]);
             }
+          }
+          CASE "inspectElement" {
+            FOREVERY(OBJECT win FROM this->windowstack)
+              IF (win->tolliumscreenmanager->frame->instancename = todd_request.param.window) {
+                win->tolliumscreenmanager->frame->QueueInboundMessage("inspectelement", CELL [ path := todd_request.param.componentpath ]);
+                RETURN DEFAULT RECORD;
+              }
+          }
+          DEFAULT {
           }
         }
       }
