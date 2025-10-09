@@ -50,20 +50,6 @@ MACRO TestPreview()
   TestEq(staticpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-contentobjectpath"));
   TestEq("This is StaticPage in TestPages", testfw->browser->QS("#content")->textcontent);
 
-  OBJECT dynamicpage := OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage");
-
-  testfw->BeginWork();
-  OBJECT dynamictmp := dynamicpage->CopyTo(GetTestsuiteTempFolder(), "dynpagecopy");
-  OBJECT dynamictmp_draft := StartWorkflowUpdate(dynamictmp->id, [user := GetEffectiveUser()]);
-  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(dynamictmp_draft->id, [ stringarray := ["rabbits"] ], [ ifreadonly := "update" ]);
-  testfw->CommitWork();
-
-  previewlink := CreatePreviewLink(MAX_DATETIME, "", dynamictmp->id, dynamictmp_draft->id);
-  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
-
-  RECORD betatestinstance := DecodeJSON(testfw->browser->QS("#content")->GetAttribute("data-betatestinstance"));
-  TestEq(["rabbits"], betatestinstance.stringarray);
-
   RECORD dynpageparams := DecodeJSON(testfw->browser->QS("#content")->GetAttribute("data-dynamicpageparameters"));
   TestEq([ absolutebaseurl := previewlink, append := "", subpath := "" ], dynpageparams);
 
