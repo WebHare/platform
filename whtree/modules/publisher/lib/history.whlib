@@ -188,11 +188,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     OBJECT historicobj := this->currentautosave ?? this->currentdraft;
     IF(ObjectExists(historicobj)) {
       RETURN historicobj->GetMetadata();
-      // RECORD draftmeta := historicobj->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
-      // RECORD basefields := SELECT title, keywords, description FROM system.fs_objects WHERE id = historicobj->id;
-      // RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description ];
     } ELSE {
-      RETURN SELECT name, title, keywords, description FROM system.fs_objects WHERE id = this->baseobject->id;
+      RETURN SELECT name, title, keywords, description, data FROM system.fs_objects WHERE id = this->baseobject->id;
     }
   }
 

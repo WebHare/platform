@@ -133,7 +133,7 @@ ASYNC MACRO TestMetaTab()
   TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
   TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
-  TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "" ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
+  TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "", data := DEFAULT BLOB ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
 
   //Make a change, not saving or publishing but checking through My changes
   AWAIT TestMetaFields(FALSE, FALSE);
