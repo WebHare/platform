@@ -293,7 +293,7 @@ PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
       IF(CellExists(pao, "country_list"))
         config.countrylist := pao.country_list;
       IF(CellExists(pao, "derive_from_zip"))
-        config.addressoptions := pao.derive_from_zip = "force" ? "nl-force-zip" : "nl-suggest-zip";
+        config.addressoptions := pao.derive_from_zip = "force" ? ["nl-zip-force"] : ["nl-zip-suggest"];
       IF(CellExists(pao, "validation_registry_key"))
         config.addressvalidationkey := pao.validation_registry_key;
       IF(CellExists(pao, "validation_wrd_schema"))

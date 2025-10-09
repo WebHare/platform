@@ -118,7 +118,7 @@ PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
     IF(node->HasAttribute("countrylist"))
       formintegration.address_options := CELL[ ...formintegration.address_options, country_list := ParseXSList(node->GetAttribute("countrylist")) ];
     IF(node->HasAttribute("addressoptions"))
-      formintegration.address_options := CELL[ ...formintegration.address_options, derive_from_zip := node->GetAttribute("addressoptions")="nl-force-zip" ? "force": "suggest" ];
+      formintegration.address_options := CELL[ ...formintegration.address_options, derive_from_zip := node->GetAttribute("addressoptions") = "nl-zip-force" ? "force": "suggest" ];
     IF(node->HasAttribute("addressvalidationkey"))
       formintegration.address_options := CELL[ ...formintegration.address_options, validation_registry_key := node->GetAttribute("addressvalidationkey") ];
     IF(node->HasAttribute("addressvalidationschema"))

@@ -207,7 +207,7 @@ PUBLIC MACRO TestAddressField()
                       , "address.city" :=       ""
                       , "address2.country" :=    "NL"
                       , "address2.street" :=     "Straat"
-                      , "address2.nr_detail" :=  "5" // may still trigger zip code, 'somehow' the providers know even in offline mode. also allows you to test handling of this situation without switching to nl-force-zip
+                      , "address2.nr_detail" :=  "5" // may still trigger zip code, 'somehow' the providers know even in offline mode. also allows you to test handling of this situation without switching to nl-zip-force
                       , "address2.zip" :=        "7500 OO"
                       , "address2.city" :=       "Stad"
                       ];
