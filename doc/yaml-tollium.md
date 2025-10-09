@@ -20,7 +20,7 @@ How this plays out in siteprofiles:
 
 - these constraints are then used when creating a component from the member by `suggestTolliumComponent` (tested by mod::webhare_testsuite/tests/tollium/api/test_constraints.ts)
 
-- compontents can also directly declare their component:
+- components can also directly declare their component:
     ```yaml
     ...
       whUser:
