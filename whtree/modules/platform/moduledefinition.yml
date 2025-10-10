@@ -62,6 +62,7 @@ assetPacks:
 
 siteProfiles:
   - path: data/siteprofiles/types.siteprl.yml
+  - path: data/siteprofiles/internal-types.siteprl.yml
   - path: data/siteprofiles/globalrules.siteprl.yml
   - path: mod::consilio/data/consilio.siteprl.xml
   - path: mod::consilio/webfeatures/sitecontent/sitecontent.siteprl.xml
