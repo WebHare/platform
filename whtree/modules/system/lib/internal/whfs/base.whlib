@@ -187,6 +187,7 @@ PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path)
 {
   path := ToUppercase(path);
   RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*"
+         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*" //not so much readonly but requires setting a workflow flag
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*"
          OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*";
 }

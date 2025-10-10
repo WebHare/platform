@@ -854,6 +854,9 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:integer name="fs_type" noupdate="true" nullable="false" ondelete="cascade" references=".fs_types">
         <d:documentation>The content type</d:documentation>
       </d:integer>
+      <d:boolean name="workflow">
+        <d:documentation>This instance is managed as part of a workflow (drafts/autosaves)</d:documentation>
+      </d:boolean>
     </d:table>
 
     <d:table name="fs_members" primarykey="id">

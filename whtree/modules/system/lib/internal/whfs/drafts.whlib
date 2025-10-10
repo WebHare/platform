@@ -44,6 +44,21 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
          ?? [ userdata := DEFAULT RECORD, major := 0, minor := 0 ];
 }
 
+MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRAY addworkflowtypes, BOOLEAN isfinal) {
+  RECORD ARRAY instances := ListInstances(instancesource);
+  INTEGER ARRAY copiedtypes;
+  FOREVERY(RECORD inst FROM instances) {
+    IF(inst.workflow OR inst.fstype IN addworkflowtypes) {
+      INSERT destid INTO copiedtypes AT END;
+      OBJECT typeobj := OpenWHFSType(inst.namespace);
+      typeobj->SetInstanceData(destid, typeobj->GetInstanceData(instancesource),
+          [ ifreadonly := "update", isvisibleedit := FALSE, workflow := NOT isfinal ]);
+    }
+  }
+
+  //FIXME create explicit empty instances as needed
+}
+
 RECORD ARRAY FUNCTION GetDraftableInstanceTypes(INTEGER ARRAY forobjects) {
   // Get all workflow: true types that exist on the object
   // FIXME might be more robust to set workflow to the database so we can't forget to copy due to siteprofile corruption, but figure out schema first
@@ -57,14 +72,6 @@ RECORD ARRAY FUNCTION GetDraftableInstanceTypes(INTEGER ARRAY forobjects) {
                                 WHERE fs_instances.fs_object IN forobjects;
 
   RETURN SELECT * FROM cloneable WHERE id IN activetypes;
-}
-
-MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid) {
-  RECORD ARRAY tocopy := GetDraftableInstanceTypes([instancesource,destid]);
-  FOREVERY(RECORD trycopy FROM tocopy) {
-    OBJECT typeobj := OpenWHFSType(trycopy.namespace);
-    typeobj->SetInstanceData(destid, typeobj->GetInstanceData(instancesource), [ ifreadonly := "update" ]);
-  }
 }
 
 MACRO RefreshDraftStatus(INTEGER fsobjectid)
@@ -299,7 +306,7 @@ STATIC OBJECTTYPE WHFSDraft <
      WHERE id IN (SELECT AS INTEGER ARRAY id FROM olddrafts);
 
     //Copy managed data from this the draft to the final
-    CopyWorkflowInstances(this->id, this->source);
+    CopyWorkflowInstances(this->id, this->source, INTEGER[], TRUE);
 
     //And reapply managed fields
     RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->id;
@@ -385,7 +392,7 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
 /** Start a workflow update (create an autosave to have an object that can receive a RTD being updated)
     @param objid - The ID of the object we're updating. Draft or final object id */
 PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
-  options := ValidateOptions([ user := DEFAULT OBJECT ], options);
+  options := ValidateOptions([ user := DEFAULT OBJECT, workflowtypes := INTEGER[] ], options);
   IF(NOT ObjectExists(options.user))
     THROW NEW Exception(`StartWorkflowUpdate requires a user object`);
 
@@ -414,7 +421,7 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
               , modifiedby := options.user->authobjectid
              ] INTO system.fs_objects;
 
-  CopyWorkflowInstances(objid, destid);
+  CopyWorkflowInstances(objid, destid, options.workflowtypes, FALSE);
 
   OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
   typeobj->SetInstancedata(destid,

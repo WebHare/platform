@@ -16,6 +16,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 PUBLIC RECORD __pageinfo;
 
@@ -111,6 +112,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
   OBJECT pvt_targetfolder;
   OBJECT pvt_targetsite;
   OBJECT pvt_targetapplytester;
+  RECORD ARRAY pvt_contentinstances;
 
   ///The base URL for this page
   PUBLIC STRING baseurl;
@@ -160,12 +162,10 @@ PUBLIC STATIC OBJECTTYPE WebContext <
 
   /** Get instance data from the relevant content/target object. Added since WH5.8.2 and should generally be used over this->contentobject/targetobject->GetInstanceData() */
   PUBLIC RECORD FUNCTION GetInstanceData(STRING ns) {
-    IF(ObjectExists(this->contentobject) AND IsRecycleOrHistoryWHFSPath(this->contentobject->whfspath)) {
-      //Workflowed types come from contentobject, the rest from targetobject
-      RECORD typeinfo := LookupContentTypeByName(ns);
-      IF(NOT RecordExists(typeinfo))
-        THROW NEW Exception(`Type '${ns}' is not a known content type`);
-      IF(typeinfo.workflow)
+    IF(this->pvt_historic_contentobject) {
+      RECORD typeinfo := SELECT * FROM this->pvt_contentinstances WHERE namespace = VAR ns OR scopedtype = VAR ns;
+      //Workflowed instances come from the draft
+      IF(RecordExists(typeinfo) AND typeinfo.workflow)
         RETURN this->contentobject->GetInstanceData(ns);
       ELSE
         RETURN this->targetobject->GetInstanceData(ns);
@@ -239,6 +239,9 @@ PUBLIC STATIC OBJECTTYPE WebContext <
       IF(RecordExists(this->__config) AND ObjectExists(this->__config.override_contentobject)) {
         this->pvt_contentobject := this->__config.override_contentobject;
         this->pvt_historic_contentobject := IsRecycleOrHistoryWHFSPath(this->pvt_contentobject->whfspath);
+        IF(this->pvt_historic_contentobject) {
+          this->pvt_contentinstances := ListInstances(this->pvt_contentobject->id);
+        }
       } ELSE IF(this->pvt_targetobject->type=20) { //contentlink
         this->pvt_contentobject := OpenWHFSObject(this->pvt_targetobject->filelink);
         IF(NOT ObjectExists(this->pvt_contentobject))

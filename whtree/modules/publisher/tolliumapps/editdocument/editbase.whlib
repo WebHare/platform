@@ -138,18 +138,48 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
-    this->workflowmgr := NEW WorkflowManager(objectid, CELL[ user := this->contexts->user, ...options]);
-    this->__SetupEditBase(objectid, 01, FALSE, -1);
-  }
-  MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type)
-  {
-    this->__SetupEditBase(0, parent, isfolder, type);
+    this->__SetupEditBase(objectid, 01, FALSE, -1, options);
   }
 
-  MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type) {
-    BOOLEAN useworkflow := ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow;
-    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[ objectid, parent, isfolder, type, useworkflow ] );
+  MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type) {
+    this->__SetupEditBase(0, parent, isfolder, type, DEFAULT RECORD);
+  }
+
+  MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type, RECORD options) {
+    options := ValidateOptions(CELL[ readonly := FALSE
+                                   , useworkflow := FALSE
+                                   , assumewriteaccess := FALSE
+                                   , workflowtypes := STRING[]
+                                  ], options);
+
+    /* The ordering here is pretty sensitive:
+       - we need the meta tabs description first just to get the editcontenttypes
+       - we need to load the subscreen for the document editor just in case that one registers more types too at runtime
+         (TODO it would help if the user declared these types on <objecteditor>
+       - and then we can setup a workflow manager
+       */
+
+    STRING ARRAY workflowtypes := STRING[ "http://www.webhare.net/xmlns/publisher/seosettings",
+                                          ...options.workflowtypes
+                                        ];
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[ objectid, parent, isfolder, type, options.useworkflow ] );
     this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
+
+    IF(objectid != 0) {
+      IF(options.useworkflow AND RecordExists(this->metatabsconfig)) {
+         //add the metacontroller requested types to the type edit list
+        FOREVERY(RECORD t FROM this->metatabsconfig.types)
+          INSERT t.namespace INTO workflowtypes AT END;
+      }
+    }
+
+    IF(objectid != 0)
+      this->workflowmgr := NEW WorkflowManager(objectid,
+        CELL[ user := this->contexts->user
+            , ...options
+            , workflowtypes := options.useworkflow ? workflowtypes : STRING[]
+            ]);
+
     IF(NOT ObjectExists(this->contexts->applytester))
       THROW NEW TolliumException(this, "No applytester found for this object");
 
