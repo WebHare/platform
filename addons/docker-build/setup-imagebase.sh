@@ -145,10 +145,12 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKA
 fi
 
 
-# if it's just one of those days...  downgrade it, see https://github.com/nodejs/node/issues/52909
-# if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
-#  apt-get install -y --allow-downgrades nodejs=20.12.2-1nodesource1
-# fi
+# downgrade node if we meet a broken version
+# 24.10.x ships with broken npm 11.6.1 not installing dependencies properly, missing ajv/dist/core - https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1183
+if [[ $(node -v) =~ ^v24.10. ]]; then
+ apt-get install -y --allow-downgrades nodejs=24.9.0-1nodesource1
+fi
+
 
 if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
   echo "$(node -v) is broken, ensure you pick up a newer version" 1>&2
