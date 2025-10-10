@@ -1,6 +1,6 @@
 types:
   ######## File types
-  filetypes.archivefile:
+  filetypes.archive:
     namespace: http://www.webhare.net/xmlns/publisher/archivefile
     tid: publisher:filetypes.archive
     icon: tollium:files/application_zip #The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon
@@ -21,7 +21,7 @@ types:
     metaType: page
     workflow: false
     isPublishedAsSubdir: false
-  filetypes.cssfile:
+  filetypes.css:
     namespace: http://www.webhare.net/xmlns/publisher/cssfile
     tid: publisher:filetypes.css
     icon: tollium:files/text_css
@@ -45,7 +45,7 @@ types:
     useWebDesign: false
     apply:
       usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
-  filetypes.htmlfile:
+  filetypes.html:
     namespace: http://www.webhare.net/xmlns/publisher/htmlfile
     tid: publisher:filetypes.html
     icon: tollium:files/text_html
@@ -59,7 +59,7 @@ types:
         objectName: mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile
       setObjectEditor:
         name: publisher:texteditor
-  filetypes.imagefile:
+  filetypes.image:
     namespace: http://www.webhare.net/xmlns/publisher/imagefile
     tid: publisher:filetypes.image
     icon: tollium:files/image
@@ -75,14 +75,14 @@ types:
     useWebDesign: false
     apply:
       usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
-  filetypes.javascriptfile:
+  filetypes.javascript:
     namespace: http://www.webhare.net/xmlns/publisher/javascriptfile
     tid: publisher:filetypes.javascript
     icon: tollium:files/application_x-javascript
     metaType: upload
     extension: .js
     searchContentProvider: publisher:contentblob
-  filetypes.libraryfile:
+  filetypes.library:
     namespace: http://www.webhare.net/xmlns/publisher/libraryfile
     tid: publisher:filetypes.library
     icon: tollium:files/application_x-webhare-library
@@ -90,7 +90,7 @@ types:
     extension: .whlib
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.markdownfile:
+  filetypes.markdown:
     namespace: http://www.webhare.net/xmlns/publisher/markdownfile
     tid: publisher:filetypes.markdownfile
     icon: tollium:files/text_plain
@@ -106,7 +106,7 @@ types:
       setObjectEditor:
         separateApp: true
         name: publisher:editmarkdown
-  filetypes.mp3audiofile:
+  filetypes.mp3audio:
     namespace: http://www.webhare.net/xmlns/publisher/mp3audiofile
     tid: publisher:filetypes.mp3audiofile
     icon: tollium:files/audio
@@ -120,7 +120,7 @@ types:
     requiresContent: true
     extension: .doc
     searchContentProvider: publisher:contentblob
-  filetypes.mswordfile:
+  filetypes.msword:
     namespace: http://www.webhare.net/xmlns/publisher/mswordfile
     tid: publisher:filetypes.msword
     icon: tollium:files/application_msword
@@ -133,7 +133,7 @@ types:
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile
-  filetypes.multimediafile:
+  filetypes.multimedia:
     namespace: http://www.webhare.net/xmlns/publisher/multimediafile
     tid: publisher:filetypes.multimedia
     comment: The multimedia file type uses the 'video' icon as we don't have a
@@ -141,7 +141,7 @@ types:
     icon: tollium:files/video
     metaType: upload
     requiresContent: true
-  filetypes.pdffile:
+  filetypes.pdf:
     namespace: http://www.webhare.net/xmlns/publisher/pdffile
     tid: publisher:filetypes.pdf
     icon: tollium:files/application_pdf
@@ -150,14 +150,14 @@ types:
     extension: .pdf
     browserPreview: /.publisher/backend/preview/direct.shtml
     searchContentProvider: publisher:contentblob
-  filetypes.plaintextfile:
+  filetypes.plaintext:
     namespace: http://www.webhare.net/xmlns/publisher/plaintextfile
     tid: publisher:filetypes.plaintext
     icon: tollium:files/text_plain
     metaType: upload
     extension: .txt
     searchContentProvider: publisher:contentblob
-  filetypes.profilefile:
+  filetypes.profile:
     namespace: http://www.webhare.net/xmlns/publisher/profilefile
     tid: publisher:filetypes.profile
     icon: tollium:files/application_x-webhare-profile
@@ -165,7 +165,7 @@ types:
     extension: .prl
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.richdocumentfile:
+  filetypes.richdocument:
     namespace: http://www.webhare.net/xmlns/publisher/richdocumentfile
     tid: publisher:filetypes.richdocumentfile
     icon: tollium:files/application_x-webhare-richdocument
@@ -182,7 +182,7 @@ types:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
       setObjectEditor:
         name: publisher:editdocument
-  filetypes.semidynamicfile:
+  filetypes.semidynamic:
     namespace: http://www.webhare.net/xmlns/publisher/semidynamicfile
     tid: publisher:filetypes.semidynamic
     icon: tollium:files/application_x-webhare-semidynamic
@@ -190,7 +190,7 @@ types:
     extension: .html
     isAcceptableIndex: true
     useWebDesign: true
-  filetypes.shtmlfile:
+  filetypes.shtml:
     namespace: http://www.webhare.net/xmlns/publisher/shtmlfile
     tid: publisher:filetypes.shtml
     icon: tollium:files/application_x-webhare-whscript
@@ -198,7 +198,7 @@ types:
     extension: .shtml
     isAcceptableIndex: true
     searchContentProvider: publisher:contentblob
-  filetypes.shtmlwithdesignfile:
+  filetypes.shtmlwithdesign:
     namespace: http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile
     tid: publisher:filetypes.shtmlwithdesign
     icon: tollium:files/application_x-webhare-whscript
@@ -207,7 +207,7 @@ types:
     isAcceptableIndex: true
     useWebDesign: true
     searchContentProvider: publisher:contentblob
-  filetypes.tagfile:
+  filetypes.tag:
     namespace: http://www.webhare.net/xmlns/publisher/tagfile
     tid: publisher:filetypes.tagfile
     icon: tollium:files/application_x-webhare-tag
@@ -223,14 +223,14 @@ types:
     members:
       tags:
         type: whfsRefArray
-  filetypes.targzfile:
+  filetypes.targz:
     namespace: http://www.webhare.net/xmlns/publisher/targzfile
     tid: publisher:filetypes.targz
     icon: tollium:files/application_x-gzip
     metaType: upload
     requiresContent: true
     extension: .tar.gz
-  filetypes.templatefile:
+  filetypes.template:
     namespace: http://www.webhare.net/xmlns/publisher/templatefile
     tid: publisher:filetypes.template
     icon: tollium:files/application_x-webhare-template
@@ -238,13 +238,13 @@ types:
     extension: .tpl
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.unknownfile:
+  filetypes.unknown:
     namespace: http://www.webhare.net/xmlns/publisher/unknownfile
     tid: publisher:terminology.types.unknownfile
     icon: tollium:files/application_x-webhare-unknown
     metaType: upload
     requiresContent: true
-  filetypes.webharearchivefile:
+  filetypes.webharearchive:
     namespace: http://www.webhare.net/xmlns/publisher/webharearchivefile
     tid: publisher:filetypes.webharearchive
     icon: tollium:files/application_wharchive
@@ -252,7 +252,7 @@ types:
     requiresContent: true
     extension: .wharchive
     isPublishable: false
-  filetypes.wittyfile:
+  filetypes.witty:
     namespace: http://www.webhare.net/xmlns/publisher/wittyfile
     tid: publisher:filetypes.witty
     icon: tollium:files/application_x-webhare-witty
@@ -260,14 +260,14 @@ types:
     extension: .witty
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.xmlfile:
+  filetypes.xml:
     namespace: http://www.webhare.net/xmlns/publisher/xmlfile
     tid: publisher:filetypes.xml
     icon: tollium:files/text_xml
     metaType: upload
     extension: .xml
     searchContentProvider: publisher:contentblob
-  filetypes.zipfile:
+  filetypes.zip:
     namespace: http://www.webhare.net/xmlns/publisher/zipfile
     tid: publisher:filetypes.zip
     icon: tollium:files/application_zip
@@ -276,13 +276,13 @@ types:
     extension: .zip
 
   ######## Folder types
-  foldertypes.normalfolder:
+  foldertypes.default:
     namespace: http://www.webhare.net/xmlns/publisher/normalfolder
     tid: publisher:terminology.types.normalfolder
     comment: Define the special '0' types
     icon: tollium:folders/normal
     metaType: folder
-  foldertypes.foreignfolder:
+  foldertypes.extern:
     namespace: http://www.webhare.net/xmlns/publisher/foreignfolder
     tid: publisher:foldertypes.foreign
     icon: tollium:folders/locked
@@ -314,32 +314,33 @@ types:
       editProps:
         - type: foldertypes.photoalbum
           tabsExtension: mod::publisher/data/publisher.siteprl.xml#photoalbum_settings
-  foldertypes.systemfolder:
+  foldertypes.system:
     namespace: http://www.webhare.net/xmlns/publisher/systemfolder
     tid: publisher:foldertypes.system
     icon: tollium:folders/system
     metaType: folder
-  foldertypes.tagfolder:
+  foldertypes.tags:
     namespace: http://www.webhare.net/xmlns/publisher/tagfolder
     tid: publisher:foldertypes.tagfolder
     icon: tollium:folders/tag
     metaType: folder
-  foldertypes.keystorefolder:
-    namespace: http://www.webhare.net/xmlns/system/keystorefolder
-    comment: Key store
-    metaType: folder
-    members:
-      warnexpirydays:
-        type: integer
 
   ## Internal filetypes
-  wrd.instancefile:
+  wrd.instance:
     namespace: http://www.webhare.net/xmlns/wrd/instancefile
     tid: publisher:filetypes.wrdinstancefile
     metaType: dataFile
     members:
       instance:
         type: instance
+  system.keystorefolder:
+    # Applied to folders inside /webhare-private/system/keystore. Not that useful anymore as we generally renew keys when requesting a cert so the keystorefolder's config is not carried over
+    namespace: http://www.webhare.net/xmlns/system/keystorefolder
+    comment: Key store settings
+    metaType: folder
+    members:
+      warnexpirydays:
+        type: integer
 
   ## Instance data
   publisher.dbpublication:

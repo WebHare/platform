@@ -179,5 +179,5 @@ PUBLIC RECORD FUNCTION SelectFSType(STRING getnamespace) {
 }
 
 PUBLIC BOOLEAN FUNCTION IsTypeZero(STRING ns) {
-  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/normalfolder","http://www.webhare.net/xmlns/publisher/unknownfile","platform:filetypes.normalfolder","platform:filetypes.unknownfile"];
+  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/normalfolder","http://www.webhare.net/xmlns/publisher/unknownfile","platform:foldertypes.default","platform:filetypes.unknown"];
 }
