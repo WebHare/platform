@@ -1636,9 +1636,20 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   /** Returns the event masks for broadcasts fired for this object
       @return List of event masks
   */
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks(STRING ARRAY types DEFAULTSTO [ "object" ])
   {
-    RETURN [ "system:whfs.folder." || this->id ];
+    types := GetSortedSet(types);
+    FOREVERY (STRING type FROM types) {
+      SWITCH (type) {
+        CASE "object" { types[#type] := `system:whfs.folder.${this->id}`; }
+        CASE "history" { types[#type] := `system:whfs-history.folder.${this->id}`; }
+        CASE "pub" { types[#type] := `publisher:publish.folder.${this->id}`; }
+        DEFAULT {
+          THROW NEW Exception(`Invalid event type '${type}' requested`);
+        }
+      }
+    }
+    RETURN types;
   }
 >;
 
@@ -1788,9 +1799,20 @@ OBJECTTYPE WHFSFile EXTEND WHFSObject
 
   /** Returns the event masks for broadcasts fired for this object
   */
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetEventMasks(STRING ARRAY types DEFAULTSTO [ "object" ])
   {
-    RETURN [ "system:whfs.folder." || this->parent ];
+    types := GetSortedSet(types);
+    FOREVERY (STRING type FROM types) {
+      SWITCH (type) {
+        CASE "object" { types[#type] := `system:whfs.folder.${this->parent}`; }
+        CASE "history" { types[#type] := `system:whfs-history.folder.${this->parent}`; }
+        CASE "pub" { types[#type] := `publisher:publish.folder.${this->parent}`; }
+        DEFAULT {
+          THROW NEW Exception(`Invalid event type '${type}' requested`);
+        }
+      }
+    }
+    RETURN types;
   }
 >;
 
