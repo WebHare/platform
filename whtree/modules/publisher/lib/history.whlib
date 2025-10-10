@@ -195,14 +195,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     }
   }
   PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
-    IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
+    RECORD match := SELECT * FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype;
+    IF(NOT RecordExists(match))
       THROW NEW Exception(`Type '${whfstype}' is not setup to be tracked in the workflow`);
 
-    RETURN this->GetInstanceObject()->GetInstanceData(whfstype);
+    BOOLEAN hasworkflow := SELECT AS BOOLEAN workflow FROM system_internal.fs_instances WHERE fs_object = this->GetInstanceObject()->id AND fs_type = match.id;
+    RETURN hasworkflow ? this->GetInstanceObject()->GetInstanceData(whfstype) : this->baseobject->GetInstanceData(whfstype);
   }
   MACRO EnsureAutosave() {
-    IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
-      this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id, [ user := this->options.user ]);
+    IF(NOT ObjectExists(this->currentautosave))   //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
+      this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
+          [ user := this->options.user, workflowtypes := SELECT AS INTEGER ARRAY id FROM this->workflowtypes ]);
   }
   PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
     IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
