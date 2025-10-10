@@ -635,7 +635,7 @@ PUBLIC MACRO ScanSingleFolder(INTEGER folderid, RECORD options DEFAULTSTO DEFAUL
     //Unconnected folder?!
     STRING newname := "folder-" || folder.id;
     onanalyzerissue("LOG", "Moving unconnected directory '" || folder.name || "' to lost&found as folder '" || newname || "'");
-    UPDATE system.fs_objects SET name := newname, parent := 6/*lost&found*/ WHERE id=folderid;
+    UPDATE system.fs_objects SET name := newname, parent := whconstant_whfsid_lostandfound WHERE id=folderid;
   }
   ELSE IF (folder.type != 1) //don't scan foreigns
   {

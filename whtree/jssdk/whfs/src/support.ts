@@ -73,6 +73,11 @@ export function formatPathOrId(path: number | string) {
   return typeof path === "number" ? `#${path}` : `'${path}'`;
 }
 
+export function isQueuedForPublication(published: number) {
+  const code = published % 100000;
+  return code > 0 && code <= 100;
+}
+
 export function isReadonlyWHFSSpace(path: string) {
   path = path.toUpperCase();
   return path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/") ||
