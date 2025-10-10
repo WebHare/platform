@@ -162,14 +162,13 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   //exported for some legacy preview code, but GetPreview should be used
   PUBLIC OBJECT FUNCTION __GetAutosavedObject() {
+    this->LoadDrafts();
     RETURN ObjectExists(this->currentautosave) ? this->currentautosave->fsobject : this->__GetDraftObject();
   }
 
   PUBLIC OBJECT FUNCTION __GetDraftObject() {
+    this->LoadDrafts();
     RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : this->baseobject;
-  }
-  OBJECT FUNCTION GetInstanceObject() {
-    RETURN this->__GetAutosavedObject();
   }
 
   /** Register additional types. This is okay as long as we haven't started working on the autosave yet */
@@ -195,14 +194,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     }
   }
   PUBLIC RECORD FUNCTION GetInstanceData(STRING whfstype) {
+    this->LoadDrafts();
+
     RECORD match := SELECT * FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype;
     IF(NOT RecordExists(match))
       THROW NEW Exception(`Type '${whfstype}' is not setup to be tracked in the workflow`);
 
-    BOOLEAN hasworkflow := SELECT AS BOOLEAN workflow FROM system_internal.fs_instances WHERE fs_object = this->GetInstanceObject()->id AND fs_type = match.id;
-    RETURN hasworkflow ? this->GetInstanceObject()->GetInstanceData(whfstype) : this->baseobject->GetInstanceData(whfstype);
+    BOOLEAN hasworkflow := SELECT AS BOOLEAN workflow FROM system_internal.fs_instances WHERE fs_object = this->__GetAutosavedObject()->id AND fs_type = match.id;
+    RETURN hasworkflow ? this->__GetAutosavedObject()->GetInstanceData(whfstype) : this->baseobject->GetInstanceData(whfstype);
   }
   MACRO EnsureAutosave() {
+    this->LoadDrafts();
     IF(NOT ObjectExists(this->currentautosave))   //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
       this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
           [ user := this->options.user, workflowtypes := SELECT AS INTEGER ARRAY id FROM this->workflowtypes ]);
@@ -244,34 +246,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     */
   }
 
-  RECORD ARRAY FUNCTION RefreshCurrentDraft() {
+  RECORD ARRAY FUNCTION LoadDrafts() {
+    IF(this->IsReadOnly()) //when readonly only the finals are relevant to you
+      RETURN RECORD[];
+
+    //TODO skip if our cached info should be up to date
     RECORD ARRAY drafts := GetDrafts(this->baseobject->id);
-    IF(Length(SELECT FROM drafts WHERE ispublic)>1)
-      THROW NEW Exception("Multiple public drafts");
+    RECORD lastautosave := SELECT * FROM drafts WHERE ispublic = FALSE ORDER BY creationdate DESC LIMIT 1;
+    RECORD lastdraft := SELECT * FROM drafts WHERE ispublic = TRUE ORDER BY creationdate DESC LIMIT 1;
 
-    /* Public draft present?
-          Submitted for approval?
-              Say so, exit
-          Someone else created it?
-              Say so, exit if user wants to exit
-
-        Private draft present for current user?
-            Open it, ask if user wants to resume
-                No->revert to default version
-                Yes->keep private draft as current version
-    */
-
-    this->currentdraft := DEFAULT OBJECT; //reset the current draft in case we can't find any active one,
-
-    //ADDME: Add a way for read-only users to switch between draft en live?
-    IF (NOT this->IsReadOnly()) {
-      RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
-      IF(RecordExists(currentdraft)) {
-        this->currentdraft := OpenDraft(this->baseobject->id, currentdraft.id);
-        IF(NOT ObjectExists(this->currentdraft))
-          THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
-      }
-    }
+    this->currentautosave := RecordExists(lastautosave) AND lastautosave.mine ? OpenDraft(this->baseobject->id, lastautosave.id) : DEFAULT OBJECT;
+    this->currentdraft := RecordExists(lastdraft) ? OpenDraft(this->baseobject->id, lastdraft.id) : DEFAULT OBJECT;
 
     RETURN drafts;
   }
@@ -281,7 +266,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       THROW NEW Exception("Draft management requires setting 'useworkflow'");
 
     //FIXME this currently sets this->currentdraft but the APIs shouldn't rely on a user invoking GetCompetingDraft
-    RECORD ARRAY drafts := this->RefreshCurrentDraft();
+    RECORD ARRAY drafts := this->LoadDrafts();
 
     RECORD activedraft := SELECT * FROM drafts WHERE ispublic  ORDER BY creationdate DESC LIMIT 1;
     IF(NOT this->IsReadOnly() AND RecordExists(activedraft)) {
@@ -297,17 +282,9 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     IF(NOT this->options.useworkflow)
       THROW NEW Exception("Draft management requires setting 'useworkflow'");
 
-    RECORD ARRAY drafts := GetDrafts(this->baseobject->id);
-    IF(this->IsReadOnly())
-      RETURN DEFAULT RECORD;
-
-    //FIXME this currently sets this->currentautosave but the APIs shouldn't rely on a user invoking GetResumableAutosave
-    BOOLEAN mustloadrte := TRUE;
-    RECORD myautosave := SELECT * FROM drafts WHERE mine AND NOT ispublic ORDER BY creationdate DESC LIMIT 1;
-    IF(RecordExists(myautosave)) {
-      this->currentautosave := OpenDraft(this->baseobject->id, myautosave.id);
-      RETURN CELL[];
-    }
+    RECORD ARRAY drafts := this->LoadDrafts();
+    IF(ObjectExists(this->currentautosave))
+      RETURN CELL[]; //no useful metadata yet to report (TODO last mod date?
 
     RETURN DEFAULT RECORD;
   }
@@ -354,6 +331,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
 
   PUBLIC MACRO Save(BOOLEAN withpublish) {
+    this->LoadDrafts();
+
     IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
       this->currentautosave->SaveAsNewPublicDraft(this->options.user);
     } ELSE { // commit or publish
@@ -363,9 +342,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
         source->SaveAsFinal(this->options.user);
       }
     }
-    this->RefreshCurrentDraft();
-
-    this->currentautosave := DEFAULT OBJECT;
+    this->LoadDrafts();
   }
 
 

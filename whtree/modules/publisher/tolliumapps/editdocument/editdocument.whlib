@@ -21,8 +21,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
-
 /* Saving logic:
    Always:
     autosave -> save to private draft
@@ -143,6 +141,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     RECORD continue_autosave := this->workflowmgr->GetResumableAutosave();
     BOOLEAN mustloadrte := TRUE;
     IF(RecordExists(continue_autosave)) {
+      this->ReloadRTEContents(); //make sure you can see the autosave in question
+
       STRING response := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave"), [ buttons := [ "yes", "no", "cancel" ]]);
       IF(response != "yes" AND response != "no") {
         this->tolliumresult := "cancel";
@@ -154,7 +154,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         ^dirtylistener->SetDirty();
       } ELSE {
         OBJECT work := this->BeginUnvalidatedWork();
-        this->workflowmgr->DiscardUnsavedChanges();
+        this->workflowmgr->DiscardAutosavedChanges();
         work->Finish();
       }
     }
@@ -437,11 +437,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF (NOT work->HasFailed() AND this->contexts->editdocumentapi->onsave != DEFAULT FUNCTION PTR)
       this->contexts->editdocumentapi->onsave(work, withpublish);
 
-    IF (NOT work->Finish())     {
-      this->workflowmgr->GetCurrentDraft();
-      this->workflowmgr->GetResumableAutosave();
+    IF (NOT work->Finish())
       RETURN FALSE;
-    }
 
     ^dirtylistener->ClearDirty();
     //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
@@ -650,7 +647,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         CASE "no"
         {
           OBJECT work := this->BeginUnvalidatedWork();
-          this->workflowmgr->DiscardUnsavedChanges(this->itemid);
+          this->workflowmgr->DiscardAutosavedChanges();
           work->Finish();
 
           this->tolliumresult := "ok";
@@ -673,9 +670,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->RefreshState();
 
       this->RunSimpleScreen("info", GetTid("publisher:tolliumapps.editdocument.messageboxes.draftcancelled"));
-    } ELSE {
-      this->workflowmgr->GetCurrentDraft();
-      this->workflowmgr->GetResumableAutosave();
     }
   }
 
