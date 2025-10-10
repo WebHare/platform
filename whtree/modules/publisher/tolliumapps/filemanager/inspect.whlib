@@ -19,7 +19,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/modules/devhooks.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -617,7 +616,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
     this->applytester := GetApplyTesterForObject(this->fsobjid);
 
     this->RefreshDBInfo();
-    this->RefreshDrafts();
     this->ReloadApplyRules();
     this->RefreshFSObjectType();
     this->RefreshRefs();
@@ -719,11 +717,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
       this->Refresh();
   }
 
-  MACRO DoEditDraftDBInfo()
-  {
-    this->DoEditDBInfo(^draftdbinfo, ^drafts->selection.id);
-  }
-
   MACRO DoPreviewDBInfo(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)
   {
     RECORD sel := (comp ?? ^dbinfo)->selection;
@@ -734,21 +727,11 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
       this->Refresh();
   }
 
-  MACRO DoPreviewDraftDBInfo()
-  {
-    this->DoPreviewDBInfo(^draftdbinfo, ^drafts->selection.id);
-  }
-
   MACRO DoReflect(OBJECT comp DEFAULTSTO DEFAULT OBJECT, INTEGER fsobjid DEFAULTSTO 0)
   {
     RECORD sel := (comp ?? ^dbinfo)->selection;
     STRING ARRAY toks := Tokenize(sel.rowkey,'.');
     Reflect(sel.original);
-  }
-
-  MACRO DoReflectDraft()
-  {
-    this->DoReflect(^draftdbinfo, ^drafts->selection.id);
   }
 
   MACRO OnDbinfoDownload(OBJECT downloadhandler)
@@ -758,48 +741,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
       downloadhandler->SendFile(todownload, "", "");
     ELSE IF(TypeID(todownload) = TypeID(RECORD))
       downloadhandler->SendFile(todownload.data, todownload.mimetype, todownload.filename);
-  }
-
-  MACRO OnDraftDbinfoDownload(OBJECT downloadhandler)
-  {
-    VARIANT todownload := ^draftdbinfo->selection.original;
-    IF(TypeID(todownload) = TypeID(BLOB))
-      downloadhandler->SendFile(todownload, "", "");
-    ELSE IF(TypeID(todownload) = TypeID(RECORD))
-      downloadhandler->SendFile(todownload.data, todownload.mimetype, todownload.filename);
-  }
-
-
-  MACRO RefreshDrafts()
-  {
-    RECORD ARRAY rows :=
-        SELECT rowkey :=  "draft-" || id
-             , id
-             , versionid :=  0
-             , type :=    ispublic ? this->GetTid(".public") : this->GetTid(".private")
-             , user
-             , when :=    creationdate
-          FROM GetDrafts(this->fsobj->id)
-      ORDER BY id;
-
-    IF(ObjectExists(this->contexts->userapi)) //under extreme configuration issues, such as a 427->426 downgrade, userapi may not exist
-      rows := this->contexts->userapi->EnrichUsers("USER", rows, [ celltype := "authobjectid", rightouterjoin := TRUE ]);
-    ELSE
-      rows := SELECT *, entityid := 0, fullname := "" FROM rows;
-
-    ^drafts->rows :=
-        SELECT *
-             , user :=    entityid = 0 ? this->GetTid(".unknownuser") : fullname
-          FROM rows;
-    ^draftcontenttypes->visible := LENGTH(^drafts->rows) != 0;
-  }
-
-  MACRO GotSelectDraft()
-  {
-    IF (RecordExists(^drafts->selection))
-      this->FillDBInfo(^draftdbinfo, OpenWHFSDraft(^drafts->selection.id)->fsobject, ^drafts->selection.versionid);
-    ELSE
-      this->FillDBInfo(^draftdbinfo, DEFAULT OBJECT, 0);
   }
 
   MACRO RefreshRefs()
