@@ -387,8 +387,8 @@ MACRO TestEvents() {
       folder := whconstant_whfsid_autosaves,
       events := STRING[],
       files := [
-        [ file := draft->id, isfolder := FALSE, events := [ "create", "update" ] ],
-        [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
+        [ file := draft->id, isfolder := FALSE, events := [ "create" ] ],
+        [ file := draft2->id, isfolder := FALSE, events := [ "create" ] ]
       ]
     ]
   ], ExpectWHFSEvents(1));
@@ -458,8 +458,8 @@ MACRO TestEvents() {
       folder := whconstant_whfsid_autosaves,
       events := STRING[],
       files := [
-                [ file := draft3->id, isfolder := FALSE, events := [ "create", "update" ] ],
-                [ file := draft4->id, isfolder := FALSE, events := [ "create", "update" ] ]
+                [ file := draft3->id, isfolder := FALSE, events := [ "create" ] ],
+                [ file := draft4->id, isfolder := FALSE, events := [ "create" ] ]
               ]
     ]
   ], ExpectWHFSEvents(1));
