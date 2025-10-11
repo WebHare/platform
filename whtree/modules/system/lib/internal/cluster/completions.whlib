@@ -56,6 +56,7 @@ MACRo HandleCompletions(RECORD ARRAY completions)
           INSERT newfile.id INTO checkscripts AT END;
     }
 
+    // FIXME: unreachable? No mention of "updatefolder" in calls to completion
     IF("addfolder" IN compl.actions OR "updatefolder" IN compl.actions)
     {
       RECORD target := __FindFolder(compl.id);
@@ -235,12 +236,13 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
     {
       this->completions := this->completions CONCAT message.data;
       this->checksitesettings := this->checksitesettings OR message.checksitesettings;
+      RETURN [ result := "message", msg := [ type := "newcompletions-result", result := IsValueSet(this->completions) ] ];
     }
     IF(message.type="havependingcompletions")
-      RETURN [ result := "message", msg := [ result := IsValueSet(this->completions) ] ];
+      RETURN [ result := "message", msg := [ type := "havependingcompletions-result", result := IsValueSet(this->completions) ] ];
 
     RETURN [ result := "message"
-           , msg := DEFAULT RECORD
+           , msg := [ type := "unknowntype-result" ]
            ];
   }
 

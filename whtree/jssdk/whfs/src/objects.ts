@@ -5,7 +5,7 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";
+import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -258,6 +258,7 @@ class WHFSBaseObject {
           }
         }
         storedata.indexdoc = metadata.indexDoc;
+        whfsFinishHandler().folderIndexDocUpdated(this.parentSite, this.parent, this.id);
       }
     }
 
@@ -331,27 +332,25 @@ class WHFSBaseObject {
       ])
       .executeTakeFirstOrThrow();
 
-    const isMove = storedata.parent !== undefined && storedata.parent !== this.dbrecord.parent;
-    const isRename = storedata.name !== undefined && storedata.name !== this.dbrecord.name;
-    const isReordering = storedata.ordering !== undefined && storedata.ordering !== this.dbrecord.ordering;
-    const isUnpublish = !this.isFolder && storedata.published !== undefined && !isPublish(storedata.published) && isPublish(this.dbrecord.published);
-    const isRepublish = !this.isFolder && storedata.published !== undefined && isPublish(storedata.published) && !isPublish(this.dbrecord.published);
+    const emitMove = storedata.parent !== undefined && storedata.parent !== this.dbrecord.parent;
+    const emitRename = storedata.name !== undefined && storedata.name !== this.dbrecord.name;
+    const emitReordering = storedata.ordering !== undefined && storedata.ordering !== this.dbrecord.ordering;
+    const emitUnpublish = !this.isFolder && storedata.published !== undefined && !isPublish(storedata.published) && isPublish(this.dbrecord.published);
+    const emitRepublish = !this.isFolder && storedata.published !== undefined && isPublish(storedata.published) && !isPublish(this.dbrecord.published);
 
     const oldData = std.pick(this.dbrecord, ["parentsite", "parent"]);
     Object.assign(this.dbrecord, storedata);
     Object.assign(this.dbrecord, updatedRec);
 
-    if (isMove) {
-      finishHandler.objectMove(oldData.parentsite, oldData.parent, this.id, this.isFolder);
-      finishHandler.objectMoved(this.parentSite, this.parent, this.id, this.isFolder);
-    }
-    if (isRename)
+    if (emitMove)
+      finishHandler.objectMove(oldData.parentsite, oldData.parent, this.parentSite, this.parent, this.id, this.isFolder);
+    if (emitRename)
       finishHandler.objectRename(this.parentSite, this.parent, this.id, this.isFolder);
-    if (isUnpublish)
+    if (emitUnpublish)
       finishHandler.fileUnpublish(this.parentSite, this.parent, this.id);
-    if (isRepublish)
+    if (emitRepublish)
       finishHandler.fileRepublish(this.parentSite, this.parent, this.id);
-    if (isReordering)
+    if (emitReordering)
       finishHandler.objectReordered(this.parentSite, this.parent, this.id, this.isFolder);
     finishHandler.objectUpdate(this.parentSite, this.parent, this.id, this.isFolder);
   }
@@ -394,6 +393,36 @@ export class WHFSFile extends WHFSBaseObject {
     const viewdata = encryptForThisServer("publisher:preview", { id: this.id, c: new Date(this.creationDate.epochMilliseconds), v: until, p: options?.password || "" });
     //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
     return new URL(`/.publisher/preview/${viewdata}/`, base).toString();
+  }
+  async republish() {
+    const rec = await db<PlatformDB>()
+      .selectFrom("system.fs_objects")
+      .select(["published"])
+      .where("id", "=", this.id)
+      .where("isfolder", "=", false)
+      .executeTakeFirst();
+    if (rec) {
+      const newPublish = convertToWillPublish(rec.published, false, false, PubPrio_Scheduled); //if you actually bother to republish a single file, expedite it
+      if (newPublish !== rec.published) {
+        await db<PlatformDB>()
+          .updateTable("system.fs_objects")
+          .set({ published: newPublish })
+          .where("id", "=", this.id)
+          .execute();
+        whfsFinishHandler().fileRepublish(this.parentSite, this.parent, this.id);
+      }
+    }
+  }
+
+  getEventMasks(types: ("default" | "history" | "publication")[] = ["default"]): string[] {
+    const res: string[] = [];
+    if (types.includes("default"))
+      res.push(`system:whfs.folder.${this.parent}`);
+    if (types.includes("history"))
+      res.push(`system:whfs-history.folder.${this.parent}`);
+    if (types.includes("publication"))
+      res.push(`publisher:publication.folder.${this.parent}`);
+    return res;
   }
 }
 
@@ -541,6 +570,8 @@ export class WHFSFolder extends WHFSBaseObject {
     }
 
     whfsFinishHandler().objectCreate(this.parentSite, this.id, retval.id, isfolder);
+    if (isPublish(published))
+      whfsFinishHandler().fileRepublish(this.parentSite, this.id, retval.id);
     return retval.id;
   }
 
@@ -841,7 +872,7 @@ export async function __openWHFSObj(startingpoint: number, path: string | number
   let dbrecord: FsObjectRow | undefined;
   if (location === 0)
     if (!allowRoot)
-      throw new Error(`Cannot open root folder unless the 'allowRoot' option is explcitly set`);
+      throw new Error(`Cannot open root folder unless the 'allowRoot' option is explicitly set`);
     else
       dbrecord = getRootFolderDBRow();
   else if (location > 0) {//FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
@@ -885,20 +916,24 @@ export async function openFile(path: number | string, options?: OpenWHFSObjectOp
   return __openWHFSObj(0, path, true, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
+export async function openFolder(path: number | string | null, options: OpenWHFSObjectOptions & { allowRoot: true; allowMissing: true }): Promise<WHFSFolder | null>;
+export async function openFolder(path: number | string | null, options?: OpenWHFSObjectOptions & { allowRoot: true }): Promise<WHFSFolder>;
 export async function openFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
 export async function openFolder(path: number | string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
 
 /** Open a folder */
-export async function openFolder(path: number | string, options?: OpenWHFSObjectOptions) {
-  return __openWHFSObj(0, path, false, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+export async function openFolder(path: number | string | null, options?: OpenWHFSObjectOptions) {
+  return __openWHFSObj(0, path ?? 0, false, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
+export async function openFileOrFolder(path: number | string | null, options: OpenWHFSObjectOptions & { allowRoot: true; allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
+export async function openFileOrFolder(path: number | string | null, options: OpenWHFSObjectOptions & { allowRoot: true }): Promise<WHFSFolder | WHFSFile>;
 export async function openFileOrFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
 export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder | WHFSFile>;
 
 /** Open a file or folder - used when you're unsure what an ID points to */
-export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions) {
-  return __openWHFSObj(0, path, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+export async function openFileOrFolder(path: number | string | null, options?: OpenWHFSObjectOptions) {
+  return __openWHFSObj(0, path ?? 0, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
 /** Get a new WHFS object id */

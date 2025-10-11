@@ -44,14 +44,14 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   // Helper functions
   //
 
-  INTEGER FUNCTION GetEntry(INTEGER id, BOOLEAN ispub)
+  INTEGER FUNCTION GetEntry(INTEGER id, STRING type) // type: "pub" for publication, "history" for history, "" for normal fs events
   {
-    RECORD pos := RecordLowerBound(this->items, [ folder := id, ispub := ispub ], [ "FOLDER", "ISPUB" ]);
+    RECORD pos := RecordLowerBound(this->items, CELL[ folder := id, type ], [ "FOLDER", "TYPE" ]);
     IF (NOT pos.found)
     {
-      INSERT
+      INSERT CELL
           [ folder :=           id
-          , ispub :=            ispub
+          , type
           , files :=            DEFAULT RECORD ARRAY
           , events :=           DEFAULT STRING ARRAY
           , sites :=            DEFAULT INTEGER ARRAY
@@ -67,7 +67,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       LogDebug("system:whfscommithandler", event, CELL[ site, folderid, fileid, trace := GetStackTrace() ]);
 
     // 'pub' events don't trigger publisher:site events, and have a different broadcast name
-    INTEGER itempos := this->GetEntry(folderid, event = "pub");
+    INTEGER itempos := this->GetEntry(folderid, event IN [ "history", "pub" ] ? event : "");
     RECORD rec := this->items[itempos];
 
     IF(site != 0 AND site NOT in rec.sites AND event != "pub")
@@ -171,9 +171,15 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
           , files :=    rec.files
           ];
 
-      IF (rec.ispub)
+      INSERT CELL trace := (SELECT AS STRING ARRAY `${filename}(${line}:${col})` FROM GetStackTrace()) INTO data ;
+
+      IF (rec.type = "pub")
       {
         BroadcastEvent("publisher:publish.folder." || rec.folder, data);
+      }
+      ELSE IF (rec.type = "history")
+      {
+        BroadcastEvent("system:whfs-history.folder." || rec.folder, data);
       }
       ELSE
       {

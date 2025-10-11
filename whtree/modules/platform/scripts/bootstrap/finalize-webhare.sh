@@ -37,6 +37,11 @@ logWithTime "Finalizing WebHare in $WEBHARE_DATAROOT"
 
 getwebhareversion
 
+if [[ "$(npm -v)" =~ ^11.6.[12]$ ]]; then
+  echo "Buggy version of npm installed! Buggy versions are 11.6.1 and 11.6.2, current version: $(npm -v). Please downgrade to 11.6.0 (npm -g i npm@11.6.0)"
+  die "Buggy npm version installed"
+fi
+
 # Install node_modules
 NPMOPTS=(--ignore-scripts --omit=dev --omit=peer --foreground-scripts)
 if [ -n "$UPDATE_PACKAGES" ]; then

@@ -34,7 +34,7 @@ RECORD ARRAY FUNCTION ExpectWHFSEvents(INTEGER msgcount, RECORD options DEFAULTS
     IF (event.status = "timeout")
       BREAK;
 
-    IF (event.event != `system:whfs.folder.${event.msg.folder}`) {
+    IF (event.event != `system:whfs.folder.${event.msg.folder}` AND event.event != `system:whfs-history.folder.${event.msg.folder}`) {
       DumpValue(events, "tree");
       THROW NEW Exception(`Unexpected event ${event.event}, expected system:whfs.folder.${event.msg.folder}`);
     }
@@ -80,6 +80,7 @@ MACRO TestEvents() {
 
   eventmgr := NEW EventManager;
   eventmgr->RegisterInterest(`system:whfs.folder.*`);
+  eventmgr->RegisterInterest(`system:whfs-history.folder.*`);
   ListenToId(whconstant_whfsid_autosaves);
   ListenToId(whconstant_whfsid_drafts);
   ListenToId(whconstant_whfsid_whfs_snapshots);
@@ -210,8 +211,7 @@ MACRO TestEvents() {
   OBJECT subfile := testfolder->CreateFile([
     name := "published.txt",
     typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile",
-    publish := TRUE,
-    data := StringToBlob("test file")
+    publish := TRUE
   ]);
   testfw->CommitWork();
 
@@ -339,7 +339,6 @@ MACRO TestEvents() {
   }
 
   // STORY: reset indexdoc of testfolder
-  PRINT("\nreset indexdoc\n");
   testfw->BeginWork();
   testfolder->UpdateMetadata([ indexdoc := 0 ]);
   testfw->CommitWork();
@@ -411,7 +410,7 @@ MACRO TestEvents() {
 
   INTEGER snapshotfolder;
   {
-    RECORD ARRAY events := ExpectWHFSEvents(4);
+    RECORD ARRAY events := ExpectWHFSEvents(5);
 
     snapshotfolder := events[2].files[0].file; // The snapshot parent folder
 
@@ -440,7 +439,11 @@ MACRO TestEvents() {
       ], [
         folder := testfolder->id,
         events := STRING[],
-        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history", "update" ] ] ]
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ] ]
+      ], [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ]
     ], events);
   }
@@ -464,8 +467,6 @@ MACRO TestEvents() {
     ]
   ], ExpectWHFSEvents(1));
 
-  PRINT("\nsave as final\n");
-  DumpValue(CELL[ snapshotfolder ]);
   testfw->BeginWork();
   INTEGER draft3_id := draft3->id; // save because draft3 will be invalid after SaveAsFinal
   draft3->SaveAsFinal(GetEffectiveUser());
@@ -475,7 +476,7 @@ MACRO TestEvents() {
   WaitForPublishCompletion(subfile->parent);
 
   {
-    RECORD ARRAY events := ExpectWHFSEvents(5, [ minmsgcount := 4 ]);
+    RECORD ARRAY events := ExpectWHFSEvents(6, [ minmsgcount := 5 ]);
     TestEQ([
       [
         folder := whconstant_whfsid_autosaves,
@@ -493,9 +494,13 @@ MACRO TestEvents() {
       ], [
         folder := testfolder->id,
         events := STRING[],
-        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history", "rep", "update" ] ] ]
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "update" ] ] ]
+      ], [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ],
-      ...(LENGTH(events) = 5 ? [ // if output analyzer runs after publish no 'rep' is issued
+      ...(LENGTH(events) = 6 ? [ // if output analyzer runs after publish no 'rep' is issued
           [
             folder := testfolder->id,
             events := STRING[],
