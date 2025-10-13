@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -377,8 +378,15 @@ MACRO TestEvents() {
   }
 
   testfw->BeginWork();
-  OBJECT draft := StartWorkflowUpdate(subfile->id, [ user := GetEffectiveUser() ]);
-  OBJECT draft2 := StartWorkflowUpdate(subfile->id, [ user := GetEffectiveUser() ]);
+
+  OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  metamgr->UpdateData(StringToBlob("Draft data 1"));
+  OBJECT draft := metamgr->__GetAutosavedObject();
+
+  metamgr->DiscardAutosavedChanges(); //FIXME this isn't generating events as CleanupMyPrivateDrafts isn't caring
+  metamgr->UpdateData(StringToBlob("Draft data 2"));
+  OBJECT draft2 := metamgr->__GetAutosavedObject();
+
   testfw->CommitWork();
 
   TestEQ([
@@ -386,26 +394,26 @@ MACRO TestEvents() {
       folder := whconstant_whfsid_autosaves,
       events := STRING[],
       files := [
-        [ file := draft->id, isfolder := FALSE, events := [ "create" ] ],
-        [ file := draft2->id, isfolder := FALSE, events := [ "create" ] ]
+        [ file := draft->id, isfolder := FALSE, events := [ "create", "update" ] ],
+        [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
       ]
     ]
   ], ExpectWHFSEvents(1));
 
   testfw->BeginWork();
-  draft->UpdateMetadata([ title := "updated title" ]);
+  metamgr->UpdateMetadata([ title := "updated title" ]);
   testfw->CommitWork();
 
   TestEQ([
     [
       folder := whconstant_whfsid_autosaves,
       events := STRING[],
-      files := [ [ file := draft->id, isfolder := FALSE, events := [ "update" ] ] ]
+      files := [ [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ] ]
     ]
   ], ExpectWHFSEvents(1));
 
   testfw->BeginWork();
-  draft->SaveAsNewPublicDraft(GetEffectiveUser());
+  metamgr->Save(FALSE);
   testfw->CommitWork();
 
   INTEGER snapshotfolder;
@@ -421,14 +429,13 @@ MACRO TestEvents() {
         folder := whconstant_whfsid_autosaves,
         events := STRING[],
         files := [
-          [ file := draft->id, isfolder := FALSE, events := [ "moved" ] ],
-          [ file := draft2->id, isfolder := FALSE, events := [ "del" ] ]
+          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ]
         ]
       ], [
         folder := whconstant_whfsid_drafts,
         events := STRING[],
         files := [
-          [ file := draft->id, isfolder := FALSE, events := [ "move", "update" ] ]
+          [ file := draft2->id, isfolder := FALSE, events := [ "move", "update" ] ]
         ]
       ], [
         folder := whconstant_whfsid_whfs_snapshots,
@@ -452,8 +459,9 @@ MACRO TestEvents() {
   ListenToId(snapshotfolder);
 
   testfw->BeginWork();
-  OBJECT draft3 := StartWorkflowUpdate(subfile->id, [ user := GetEffectiveUser() ]);
-  OBJECT draft4 := StartWorkflowUpdate(subfile->id, [ user := GetEffectiveUser() ]);
+  metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  metamgr->UpdateData(StringToBlob("Draft data 3"));
+  OBJECT draft3 := metamgr->__GetAutosavedObject();
   testfw->CommitWork();
 
   TestEQ([
@@ -461,15 +469,13 @@ MACRO TestEvents() {
       folder := whconstant_whfsid_autosaves,
       events := STRING[],
       files := [
-                [ file := draft3->id, isfolder := FALSE, events := [ "create" ] ],
-                [ file := draft4->id, isfolder := FALSE, events := [ "create" ] ]
+                [ file := draft3->id, isfolder := FALSE, events := [ "create", "update" ] ]
               ]
     ]
   ], ExpectWHFSEvents(1));
 
   testfw->BeginWork();
-  INTEGER draft3_id := draft3->id; // save because draft3 will be invalid after SaveAsFinal
-  draft3->SaveAsFinal(GetEffectiveUser());
+  metamgr->Save(TRUE);
   testfw->CommitWork();
 
   WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
@@ -482,14 +488,13 @@ MACRO TestEvents() {
         folder := whconstant_whfsid_autosaves,
         events := STRING[],
         files := [
-          [ file := draft3_id, isfolder := FALSE, events := [ "moved" ] ],
-          [ file := draft4->id, isfolder := FALSE, events := [ "moved" ] ]
+          [ file := draft3->id, isfolder := FALSE, events := [ "moved" ] ]
         ]
       ], [
         folder := whconstant_whfsid_drafts,
         events := STRING[],
         files := [
-          [ file := draft->id, isfolder := FALSE, events := [ "moved" ] ]
+          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ]
         ]
       ], [
         folder := testfolder->id,
@@ -510,9 +515,8 @@ MACRO TestEvents() {
         folder := snapshotfolder,
         events := STRING[],
         files := [
-          [ file := draft->id, isfolder := FALSE, events := [ "move" ] ],
-          [ file := draft3_id, isfolder := FALSE, events := [ "move" ] ],
-          [ file := draft4->id, isfolder := FALSE, events := [ "move" ] ]
+          [ file := draft2->id, isfolder := FALSE, events := [ "move" ] ],
+          [ file := draft3->id, isfolder := FALSE, events := [ "move" ] ]
         ]
       ]
     ], events);
