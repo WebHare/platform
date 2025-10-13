@@ -308,6 +308,7 @@ class WHFSBaseObject {
             if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
               storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
           } else {
+            // Remove flag PublishedFlag_OncePublished and publish prio/error
             storedata.published = storedata.published - (storedata.published % 200000);
           }
         }
@@ -357,6 +358,11 @@ class WHFSBaseObject {
     const oldData = std.pick(this.dbrecord, ["parentsite", "parent"]);
     Object.assign(this.dbrecord, storedata);
     Object.assign(this.dbrecord, updatedRec);
+
+    if (emitRename && this.id === this.parentSite && this.isFolder) {
+      await db<PlatformDB>().updateTable("system.sites").set({ name: this.dbrecord.name }).where("id", "=", this.id).execute();
+      whfsFinishHandler().checkSiteSettings();
+    }
 
     if (emitMove)
       finishHandler.objectMove(oldData.parentsite, oldData.parent, this.parentSite, this.parent, this.id, this.isFolder);
