@@ -405,9 +405,6 @@ export async function visitResources(callback: VisitCallback, scope: {
         }, reconstructedDescriptor);
 
       if (update) {
-        if (scope?.isVisibleEdit !== false) //for now we'll require setting this flag until we can actually update modificationdates ... and then we should just set it to true
-          throw new Error("Updating resources requires setting isVisibleEdit to false");
-
         //TODO check against parallel modification, if so retry or skip
         await runInWork(async () => {
           // When updating embedded content the filename holds the cid so we shouldn't change it
@@ -416,6 +413,8 @@ export async function visitResources(callback: VisitCallback, scope: {
             set({ blobdata: await uploadBlob(update.resource), setting: await addMissingScanData(update, { fileName }) }).
             where("id", "=", result.id).
             executeTakeFirstOrThrow();
+          if (scope?.isVisibleEdit ?? true)
+            whfsFinishHandler().triggerEmptyUpdateOnCommit(result.fs_object);
         });
       }
     }
