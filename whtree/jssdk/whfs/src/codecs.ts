@@ -130,6 +130,7 @@ async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting
     setting: rootSetting,
     ordering: 0,
     blobdata: await uploadBlob(storetext),
+    checkLink: Boolean(storetext.size),
   });
 
   for (const [contentid, image] of toSerialize.embedded) { //encode images
@@ -384,7 +385,7 @@ export const codecs = {
 
     encoder: (value: string) => {
       const strvalue = assertValidString(value);
-      return strvalue ? { setting: strvalue } : null;
+      return strvalue ? { setting: strvalue, checkLink: true } : null;
     },
     decoder: (settings: FSSettingsRow[]): string => {
       return settings[0]?.setting || "";
@@ -640,7 +641,7 @@ export const codecs = {
         return null;
 
       const data = value.internalLink ? value.append : value.externalLink;
-      return { fs_object: value.internalLink || null, setting: data || "" };
+      return { fs_object: value.internalLink || null, setting: data || "", checkLink: Boolean(data) };
     },
     decoder: (settings: FSSettingsRow[]): IntExtLink | null => {
       if (settings[0]?.fs_object)
@@ -703,6 +704,7 @@ export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"
   id?: number;
   fs_member?: number;
   sub?: EncodedFSSetting[];
+  checkLink?: boolean;
 };
 
 /** Recursively set the data
