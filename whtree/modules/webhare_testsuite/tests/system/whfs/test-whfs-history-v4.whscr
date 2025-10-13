@@ -383,8 +383,15 @@ MACRO DraftingTest() {
 
   workflowmgr->UpdateData(StringToBlob("yet another change to trigger an autosave"));
 
-  //TODO should this already sync webhare_testsuite:global.type_clone_only as workflow or not, as we haven't observed/touched it yet. normally the RTD would setinstancedata the exact same adta back and that would bring i it
-  //     i can currently defend both behaviours, for now i'll lock in the 'no need to sync unrelated stuff immediately' approach but we could change this in the future
+  /* TODO
+     should this already sync webhare_testsuite:global.type_clone_only as workflow or not, as we haven't observed/touched it yet.
+     it's hard to observe as the editdocument app normally creates the autosave and immediately writes back all instances.
+
+     but other users of workflow might care about this specific window between creating an autosave and writing all instances
+
+     i can currently defend both behaviours, for now i'll lock in the 'no need to sync unrelated stuff immediately' approach
+     but we could change this in the future
+  */
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
                 // ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := TRUE] //not expecting it yet
                 ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
