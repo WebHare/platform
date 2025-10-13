@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
@@ -22,6 +23,30 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/export.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+CONSTANT RECORD createoptions :=
+  CELL[ instances := RECORD[]
+      , createdby := DEFAULT OBJECT
+      ];
+
+MACRO ApplyCreationOptions(RECORD metadata, RECORD options) {
+  FOREVERY(RECORD instance FROM options.instances) {
+      IF(NOT CellExists(instance,'whfstype'))
+        THROW NEW Exception(`Instance #${#instance} has no cell 'whfstype'`);
+      OpenWHFSType(instance.whfstype)->SetInstancedata(metadata.id, CELL[...instance, DELETE whfstype], [ isvisibleedit := FALSE ]);
+    }
+
+  IF(ObjectExists(options.createdby)) {
+    RECORD userinfo := options.createdby->GetUserDataForLogging();
+    INSERT CELL[ fs_object := metadata.id
+               , user := options.createdby->authobjectid
+               , userdata := EncodeHSON(userinfo)
+               , type := whconstant_historytype_created
+               , when := metadata.creationdate
+               , version := "0.1"
+               ] INTO system_internal.fs_history;
+  }
+}
 
 /** Looks up an object from a path relative to another object
     @param(object %WHFSFolder) relativeto Base object
@@ -615,6 +640,11 @@ OBJECTTYPE WHFSObject
 
     OBJECT typeinfo := OpenWHFSTypeById(this->type);
     RETURN ObjectExists(typeinfo) AND typeinfo->isacceptableindex;
+  }
+
+  /** Get core versionable metadata */
+  PUBLIC RECORD FUNCTION GetMetadata() {
+    RETURN CELL[ this->name, this->title, this->keywords, this->description ];
   }
 
   /** @short Update the metadata for this whfs object. Throws on invalid data.
@@ -1269,12 +1299,16 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   */
   PUBLIC OBJECT FUNCTION CreateFolder(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[], options);
+    options := ValidateOptions(
+          CELL[ ...createoptions
+              ], options);
 
     metadata := VerifyMetadata(metadata, TRUE);
     metadata := this->FixupNewObjectMetadata(metadata, TRUE);
 
     INSERT metadata INTO system.fs_objects;
+    ApplyCreationOptions(metadata, options);
+
     OBJECT commithandler := GetWHFSCommitHandler();
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
 
@@ -1306,7 +1340,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   {
     //note: dataistrusted and published are not documented as they are deprecated or for internal use only
     //      dataistrusted should have been an option, not metadata
-    options := ValidateOptions( [ setindex := FALSE
+    options := ValidateOptions( [ ...createoptions
+                                , setindex := FALSE
                                 ], options);
 
     metadata := VerifyMetadata(metadata, FALSE);
@@ -1326,6 +1361,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       metadata := CELL[ ...metadata, contentmodificationdate := metadata.creationdate ];
 
     INSERT metadata INTO system.fs_objects;
+    ApplyCreationOptions(metadata, options);
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.

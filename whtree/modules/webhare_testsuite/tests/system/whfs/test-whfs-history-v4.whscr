@@ -25,20 +25,22 @@ MACRO Prep()
 
   testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("marge"));
 
-  OBJECT testfolderobj2 := CreateObjectWithHistory(testfw->GetUserObject("sysop"), GetTestsuiteTempFolder(),
-    [ name := "sub", typens := "http://www.webhare.net/xmlns/publisher/normalfolder" ]);
+  OBJECT testfolderobj2 := GetTestsuiteTempFolder()->CreateFolder([ name := "sub" ], [ createdby := testfw->GetUserObject("sysop") ]);
   TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop"), when := testfolderobj2->creationdate, userdata := [ login := "sysop@beta.webhare.net" ] ]], ListObjectHistory(testfolderobj2->id), "*");
   TestEq(testfolderobj2->creationdate, testfolderobj2->modificationdate);
 
-  OBJECT newfile := CreateObjectWithHistory(testfw->GetUserObject("marge"), testfolderobj2,
+  OBJECT newfile := testfolderobj2->CreateFile(
     [ name :="test.html"
     , title :="A new title"
     , keywords := "my new keywords"
     , description := "d"
     , data := StringToBlob("I'm a jolly good file")
     , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
-    , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["a","b","d"]  ]]
-    ]);
+    ],[ instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["a","b","d"]  ]]
+      , createdby := testfw->GetUserObject("marge")
+      ]
+    );
+
   TestEq(newfile->creationdate, newfile->modificationdate);
   newfile->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "created_0_1"]);
   newfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "created_0_1"]);
@@ -464,14 +466,15 @@ ASYNC MACRO UnpublishedSavesTest()
   testfw->BeginWork();
 
   OBJECT testfolderobj2 := GetTestsuiteTempFolder()->OpenByName("sub");
-  OBJECT unpublishedfile := CreateObjectWithHistory(testfw->GetUserObject("marge"), testfolderobj2,
+  OBJECT unpublishedfile := testfolderobj2->CreateFile(
     [ name := "unpublishedfile.html"
     , title :="An unpublished file"
     , data := StringToBlob("Don't publish me now")
     , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
-    , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["nonopublish"]  ]]
     , publish := FALSE
-    ]);
+    ], [ createdby := testfw->GetUserObject("marge")
+       , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["nonopublish"] ]]
+       ]);
 
   testfw->SetTestUser("homer");
   OBJECT workflowmgr := NEW WorkflowManager(unpublishedfile->id,
