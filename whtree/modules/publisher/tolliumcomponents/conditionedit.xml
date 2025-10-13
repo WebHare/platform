@@ -20,7 +20,10 @@
     </compositions>
     <contents>
       <line>
-        <image name="subconditionline" width="16px" height="16px" title="" value="tollium:forms/subcondition" />
+        <inlineblock name="subconditionline" title="">
+          <image width="16px" height="16px" title="" value="tollium:forms/subcondition" />
+          <spacer height="1pr" />
+        </inlineblock>
         <select name="field" type="pulldown" onchange="onfieldselect" title="" />
         <inlineblock name="conditioncontainer" width="1pr" title="">
           <!-- The condition fragment is loaded here -->
@@ -30,7 +33,7 @@
       </line>
       <line>
         <spacer name="subconditionspacer" width="16px" />
-        <inlineblock name="subconditions" title="">
+        <inlineblock name="subconditions" title="" width="1pr">
           <!-- 'condition' components are added dynamically -->
         </inlineblock>
       </line>

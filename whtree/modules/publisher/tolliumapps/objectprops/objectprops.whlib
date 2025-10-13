@@ -1360,20 +1360,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         ];
   }
 
-  MACRO DoRestore()
-  {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".messageboxes.confirmrestore")) = "yes")
-    {
-      // files in recyclebin only have objectpolicy when in versionarchive
-      OBJECT work := this->BeginUnvalidatedWork();
-      this->sourceitem->RestoreSelf();
-      work->Finish();
-
-      // Close the window for now, the file has disappeared from the parent list anyway
-      this->tolliumresult := "ok";
-    }
-  }
-
   INTEGER FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
   {
     // Auto-check for required fields
