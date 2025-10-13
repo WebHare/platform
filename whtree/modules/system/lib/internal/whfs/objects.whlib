@@ -363,8 +363,8 @@ BOOLEAN FUNCTION LookupNeedsTemplate(INTEGER type, INTEGER filelink)
 
 /** @short Base class for WHFS objects
 */
-OBJECTTYPE WHFSObject
-< // ---------------------------------------------------------------------------
+OBJECTTYPE WHFSObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -669,8 +669,7 @@ OBJECTTYPE WHFSObject
       @cell(boolean) options.setindex If TRUE, make this file the index of its parent folder
       @see WHFSFolder::CreateFile, WHFSFolder::CreateFolder
   */
-  PUBLIC MACRO UpdateMetadata(RECORD newmetadata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO UpdateMetadata(RECORD newmetadata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions( [ setindex := FALSE
                                 , ifreadonly := "fail"
                                 ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
@@ -787,8 +786,7 @@ OBJECTTYPE WHFSObject
                    AND publish = TRUE;
     }
 
-    IF(this->isfolder AND CellExists(newmetadata,'indexdoc') AND newmetadata.indexdoc != oldversion.indexdoc)
-    {
+    IF(this->isfolder AND CellExists(newmetadata,'indexdoc') AND newmetadata.indexdoc != oldversion.indexdoc) {
       //Indexdocument changed. Republish old and new one, if needed
       INTEGER ARRAY toupdate;
       IF(oldversion.indexdoc != 0)
@@ -1139,8 +1137,8 @@ OBJECTTYPE WHFSObject
     @topic sitedev/whfs
     @public
 */
-OBJECTTYPE WHFSFolder EXTEND WHFSObject
-< // ---------------------------------------------------------------------------
+OBJECTTYPE WHFSFolder EXTEND WHFSObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1189,8 +1187,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @param isfolder Type of the new object
       @return Fixed-up metadata
   */
-  RECORD FUNCTION FixupNewObjectMetadata(RECORD metadata, BOOLEAN isfolder)
-  {
+  RECORD FUNCTION FixupNewObjectMetadata(RECORD metadata, BOOLEAN isfolder) {
     STRING ARRAY caninsert := GetUpdatableMetadataFields(isfolder) CONCAT ["ID"];
     FOREVERY(RECORD cellrec FROM UnpackRecord(metadata))
     {
@@ -1336,8 +1333,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell(boolean) options.setindex Set to TRUE to make this document the folder's index
       @return (object %WHFSFile) New file object
   */
-  PUBLIC OBJECT FUNCTION CreateFile(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC OBJECT FUNCTION CreateFile(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     //note: dataistrusted and published are not documented as they are deprecated or for internal use only
     //      dataistrusted should have been an option, not metadata
     options := ValidateOptions( [ ...createoptions
@@ -1984,8 +1980,8 @@ OBJECT FUNCTION OpenWHFSObjectOrRoot(INTEGER objid)
     :pathwithin Path from whfs root
     sitename:pathwithinsite Path within specified site
 */
-STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -2370,8 +2366,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
   }
 
 
-  MACRO ExecuteCopyAction(RECORD tocopy, FUNCTION PTR get_metadata, STRING type)
-  {
+  MACRO ExecuteCopyAction(RECORD tocopy, FUNCTION PTR get_metadata, STRING type) {
     // Lookup the destination folder; it should exist because of the lowest-depth ordering,
     OBJECT destfolder := this->destfolder->OpenByPath(tocopy.destparentpath);
     IF(NOT ObjectExists(destfolder))
