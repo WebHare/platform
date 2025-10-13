@@ -4,6 +4,7 @@
 
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
@@ -174,34 +175,45 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
   IF(NOT options.issite AND createres.template = 0 AND createres.createtype != 0 AND options.isfolder = FALSE)
   {
     OBJECT applytester := GetApplyTesterForFakeObject(parentfolder,TRUE, createres.createtype);
-    RECORD editorinfo := applytester->GetLastValueForCell("SETOBJECTEDITOR"); //TODO this is replicating the editor selection logic from RunFSObjectEditApplication, cleaner?
-    IF(NOT RecordExists(editorinfo)) //if no custom editor was set...
+    IF(RecordExists(applytester->GetWorkflowEditor())) {
+      GetPrimary()->BeginWork();
+      OBJECt parentobj := OpenWHFSObject(parentfolder);
+      RECORD typeinfo := DescribeContentTypeById(createres.createtype, [isfolder := FALSE, mockifmissing := TRUE ]);
+      OBJECT newfile := parentobj->CreateFile(
+        [ name := SuggestSeoNameFromTitle("New " || GetTid(typeinfo.title), [ parentfolder := parentfolder ])
+        , type := createres.createtype
+        , ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = VAR parentfolder)
+        ], [ createdby := parentscreen->contexts->user, implicit_name := TRUE ]);
+      GetPrimary()->CommitWork();
+      parentscreen->contexts->controller->SendApplicationMessage("publisher:edit", CELL[ id := newfile->id ], DEFAULT RECORD, TRUE);
+      RETURN newfile->id;
+    }
+
+    //if no custom editor was set...
+    STRING typens := SELECT AS STRING namespace FROM system.fs_types WHERE id = createres.createtype;
+    RECORD typedef := LookupContentType(typens);
+    IF(RecordExists(typedef) AND typedef.isembeddedobjecttype AND RecordExists(typedef.editor) AND typedef.editor.type = "extension")
     {
-      STRING typens := SELECT AS STRING namespace FROM system.fs_types WHERE id = createres.createtype;
-      RECORD typedef := LookupContentType(typens);
-      IF(RecordExists(typedef) AND typedef.isembeddedobjecttype AND RecordExists(typedef.editor) AND typedef.editor.type = "extension")
-      {
-        //NEW widget... so go straight to the widget editor
-        RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, typens, DEFAULT RECORD, DEFAULT OBJECT, applytester, FALSE, TRUE, "", DEFAULT RECORD);
-        IF(NOT RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
-          RETURN 0;
+      //NEW widget... so go straight to the widget editor
+      RECORD embobj := DoEditWidget(parentscreen, DEFAULT OBJECT, typens, DEFAULT RECORD, DEFAULT OBJECT, applytester, FALSE, TRUE, "", DEFAULT RECORD);
+      IF(NOT RecordExists(embobj)) // was the data editted? ('Cancel' returns a DEFAULT RECORD)
+        RETURN 0;
 
-        GetPrimary()->BeginWork();
-        OBJECt parentobj := OpenWHFSObject(parentfolder);
-        OBJECT newfile := parentobj->CreateFile(
-          [ name := parentobj->GenerateUniqueName(embobj.title)
-          , title := embobj.title
-          , typens := embobj.instance.whfstype
-          ]);
+      GetPrimary()->BeginWork();
+      OBJECT parentobj := OpenWHFSObject(parentfolder);
+      OBJECT newfile := parentobj->CreateFile(
+        [ name := parentobj->GenerateUniqueName(embobj.title)
+        , title := embobj.title
+        , typens := embobj.instance.whfstype
+        ]);
 
-        //FIXME: verify that file is still available, writeable atc - although we actually -should-
-        //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
-        newfile->SetInstanceData(embobj.instance.whfstype, embobj.instance);
-        newfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", embobj.widgetsettings);
+      //FIXME: verify that file is still available, writeable atc - although we actually -should-
+      //       be given such notifications in __editEmbeddedObject's SUBMIT handler.
+      newfile->SetInstanceData(embobj.instance.whfstype, embobj.instance);
+      newfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget", embobj.widgetsettings);
 
-        GetPrimary()->CommitWork();
-        RETURN newfile->id;
-      }
+      GetPrimary()->CommitWork();
+      RETURN newfile->id;
     }
   }
 

@@ -306,7 +306,7 @@ MACRO TestReplaceContents() {
   workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
             [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Draft</p></body></html>') ]
             ]);
-  workflowmgr->Save(FALSE);
+  workflowmgr->Save([ finalize := FALSE]);
 
   history := ListObjectHistory(toreplacefile->id);
   TestEqMembers([ [ type := "import" ]
@@ -479,7 +479,7 @@ MACRO PublicationOfDrafts() {
             [ data := [ htmltext := StringToBlob('<html><body><p class="normal">D1</p></body></html>') ]
             ]);
 
-  workflowmgr->Save(FALSE);
+  workflowmgr->Save([ finalize := FALSE]);
 
   TestEq(DEFAULT RECORD, testrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
 
@@ -498,7 +498,7 @@ MACRO PublicationOfDrafts() {
                 ,[ type := "saved", version := "1.1" ]
                 ,[ type := "final", version := "2.0" ]
                 ], ListObjectHistory(testrtd->id), "*");
-  TestEq("New Title", OpenWHFSObject(testrtd->id)->title);
+  TestEq("", OpenWHFSObject(testrtd->id)->title, "Reverting to the title of the draft");
 }
 
 MACRO SetIndexDocTest()

@@ -187,7 +187,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         parent := this->liveobject->parent,
         isfolder := this->liveobject->isfolder,
         type := this->liveobject->type,
-        requireworkflow := FALSE
+        isobjectprops := FALSE
       ]);
 
       renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);

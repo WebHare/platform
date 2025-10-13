@@ -202,7 +202,7 @@ async function getMockTestApplyTester(name: string) {
 }
 
 async function testAllTypes() {
-  const allpropsTabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
+  const allpropsTabs = await describeMetaTabs(await getMockTestApplyTester("allprops"), { isObjectProps: true});
   test.eq([":WTS base test", ":Folksonomy tags", ":WTS Generic", ":rich"], allpropsTabs?.types.map(t => t.sections.map(s => s.title)).flat());
 
   const wtsgenerictab = allpropsTabs!.types[1].sections[0];

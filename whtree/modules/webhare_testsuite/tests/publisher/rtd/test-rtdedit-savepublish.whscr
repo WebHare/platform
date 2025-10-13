@@ -16,6 +16,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+
 OBJECT FUNCTION Rte()
 {
   RETURN TT("doceditor")->contents->rte;
@@ -26,11 +27,17 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
 }
 
 INTEGER round;
+
+MACRO ExpectWorkflowFieldsPresent(BOOLEAN expect_present) {
+  TestEq(expect_present, TTIsVisible(":Meta title", [ allowmissing := TRUE ]));
+  TestEq(expect_present, TTIsVisible(":A number field", [ allowmissing := TRUE ]));
+}
+
 ASYNC FUNCTION TestMetaFields(BOOLEAN readonly) //shared MetaTabs and ObjectProps stuff
 {
-  //naming is inconsistent here
+  ExpectWorkflowFieldsPresent(TRUE);
   STRING metatitletitle := ":Meta title";
-  TestEq(TRUE,  TTIsVisible(metatitletitle));
+  TestEq(TRUE, TTIsVisible(metatitletitle));
 
   // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
   // TestEq(FALSE,  TTIsVisible(":Keywords"));
@@ -113,10 +120,10 @@ ASYNC MACRO TestMetaTab()
 
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);
-  TestEq(TRUE, TT(":Name")->enabled);
-  TestEq("testmetatab.rtd", TT(":Name")->value);
+  TestEq(TRUE, TT(":File name")->enabled);
+  TestEq("testmetatab.rtd", TT(":File name")->value);
   TestEq("My document", TT(":Title")->value);
-  TT(":Name")->value := "testmetatab1.rtd";
+  TT(":File name")->value := "testmetatab1.rtd";
   TT(":Title")->value := "My autosaved document";
   RTE()->TolliumWeb_FormUpdate('<p class="normal">autosaved text</p>');
   RTE()->__debug_simulatedirty();
@@ -134,31 +141,31 @@ ASYNC MACRO TestMetaTab()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
 
   //Verify the autosave is visible
-  TestEq("testmetatab1.rtd", TT(":Name")->value);
+  TestEq("testmetatab1.rtd", TT(":File name")->value);
   TestEq("My autosaved document", TT(":Title")->value);
   AWAIT TestMetaFields(FALSE);
   TestEQLike("*autosaved text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
 
   AWAIT ExpectAndAnswerMessageBox("yes", DEFAULT MACRO PTR , [ messagemask := "You have unsaved changes*" ]); //confirm restore
-  TestEq("testmetatab1.rtd", TT(":Name")->value);
+  TestEq("testmetatab1.rtd", TT(":File name")->value);
   TestEq("My autosaved document", TT(":Title")->value);
 
   AWAIT TestMetaFields(FALSE);
 
-  TT(":Name")->value := "testmetatab2.rtd";
+  TT(":File name")->value := "testmetatab2.rtd";
   TT(":Title")->value := "My updated document";
   TestEQLike("*autosaved text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
 
   TTClick(":Save");
 
-  RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
-  TestEq(1,Length(autosaves));
+  RECORD ARRAY autosaves := ListObjectHistory(testfile->id);
+  TestEqMembers([[ name := "", type := "import"]
+                ,[ name := "testmetatab2.rtd", type := "saved", user := testfw->GetUserAuthobjectId("sysop")]
+                ], autosaves,'*');
 
-  INTEGER currentdraft := autosaves[0].id;
+  INTEGER currentdraft := autosaves[1].snapshot;
   TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
   TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
-
-  TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "", data := DEFAULT BLOB ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
 
   //Make a change, not saving or publishing but checking through My changes
   AWAIT TestMetaFields(FALSE);
@@ -183,19 +190,30 @@ ASYNC MACRO TestMetaTab()
   }
 
   TTClick(":Save"); //save again
+  autosaves := ListObjectHistory(testfile->id);
+
+  TestEqMembers([[ name := "", type := "import"]
+                ,[ name := "testmetatab2.rtd", type := "saved", user := testfw->GetUserAuthobjectId("sysop")]
+                ,[ name := "testmetatab2.rtd", type := "saved", user := testfw->GetUserAuthobjectId("sysop")]
+                ], autosaves,'*');
 
   //Restart RTD
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
 
-  TestEq("testmetatab2.rtd", TT(":Name")->value);
+  TestEq("testmetatab2.rtd", TT(":File name")->value);
   TestEq("My updated document", TT(":Title")->value);
   AWAIT TestMetaFields(FALSE); //verifies the fields but also increases number_Field again
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
-  autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
-  TestEq(RECORD[], autosaves);
+  autosaves := ListObjectHistory(testfile->id);
+  TestEqMembers([[ name := "", type := "import"]
+                ,[ name := "testmetatab2.rtd", type := "saved", user := testfw->GetUserAuthobjectId("sysop")]
+                ,[ name := "testmetatab2.rtd", type := "saved", user := testfw->GetUserAuthobjectId("sysop")]
+                ,[ name := "testmetatab2.rtd", type := "final", user := testfw->GetUserAuthobjectId("sysop")]
+                ], autosaves,'*');
+
 
   TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
@@ -214,12 +232,10 @@ ASYNC MACRO TestMetaTab()
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
+  //Verify that objectprops works but is hiding the workflow controlled fields
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(FALSE);
+  ExpectWorkflowFieldsPresent(FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
-
-  TestEqMembers([ number_field := 50 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()
@@ -267,12 +283,12 @@ ASYNC MACRO TestRevert()
 ASYNC MACRO TestPinned()
 {
   testfw->BeginWork();
-  OBJECT testfile := GetTestsuiteJSTempFolder()->OpenByNAme("testmetatab.rtd");
+  OBJECT testfile := GetTestsuiteJSTempFolder()->OpenByName("testmetatab2.rtd");
   testfile->UpdateMetadata([ispinned := TRUE]);
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
-  TestEq(FALSE, TT(":Name")->enabled);
+  TestEq(FALSE, TT(":File name")->enabled);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -291,6 +307,7 @@ ASYNC MACRO TestSaveToUnpublishedSite()
   testfw->SetTestUser("sysop");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testfile->id) ]  ]));
 
+  TT(":Title")->value := "My Doc";
   RTE()->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
   RTE()->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
 
@@ -311,7 +328,7 @@ ASYNC MACRO TestReopenDeletedFile()
 {
   //TODO also test History at some point
   testfw->BeginWork();
-  OBJECT testfile := GetTestsuiteJSTempFolder()->OpenByNAme("testmetatab.rtd");
+  OBJECT testfile := GetTestsuiteJSTempFolder()->OpenByName("testmetatab2.rtd");
   testfile->RecycleSelf();
   testfw->CommitWork();
 

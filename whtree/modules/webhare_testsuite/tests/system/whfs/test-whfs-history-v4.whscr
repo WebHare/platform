@@ -44,7 +44,8 @@ MACRO Prep()
   testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("marge"));
 
   OBJECT testfolderobj2 := GetTestsuiteTempFolder()->CreateFolder([ name := "sub" ], [ createdby := testfw->GetUserObject("sysop") ]);
-  TestEqMembers([[ type := "created", user := testfw->GetUserAuthobjectId("sysop"), when := testfolderobj2->creationdate, userdata := [ login := "sysop@beta.webhare.net" ] ]], ListObjectHistory(testfolderobj2->id), "*");
+  TestEqMembers([[ name := "sub", type := "created", user := testfw->GetUserAuthobjectId("sysop"), when := testfolderobj2->creationdate, userdata := [ login := "sysop@beta.webhare.net" ] ]],
+                  ListObjectHistory(testfolderobj2->id), "*");
   TestEq(testfolderobj2->creationdate, testfolderobj2->modificationdate);
 
   OBJECT newfile := testfolderobj2->CreateFile(
@@ -65,8 +66,8 @@ MACRO Prep()
   newfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "created_0_1"]);
   newfile->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "created_0_1"]);
 
-  TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge"), when := newfile->modificationdate, userdata := [ login := "marge@beta.webhare.net" ] ]
-                ], ListObjectHistory(newfile->id), "*");
+  TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge"), when := newfile->modificationdate, userdata := [ login := "marge@beta.webhare.net" ] ]
+                ], ListObjectHistory(newfile->id), "*", "No name, we did not explicitly set it");
   TestEq(['a','b','d'], newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
 
   testfw->CommitWork();
@@ -97,10 +98,10 @@ MACRO DraftingTest() {
   OBJECT testfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
   TestEq(TRUE, ObjectExists(testfile));
 
-  TestEq(0, Length(GetDrafts(testfile->id)), "There shouldn't be anything being editted about this file");
   TestEq(["created"], (SELECT AS STRING ARRAY type FROM ListObjectHistory(testfile->id)), "And no additional history yet");
 
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
+  testfw->CommitWork();
 
   //Start editing this document. Create a private draft (autosave)
   OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
@@ -112,9 +113,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ name := "test.html", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
-
-  testfw->CommitWork();
+  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
 
   TestEqMembers([
     title := "Test!",
@@ -126,6 +125,13 @@ MACRO DraftingTest() {
   testfw->BeginWork();
 
   workflowmgr->UpdateData(StringToBlob("This just went into a temporary draft"));
+
+  //Writing triggers an autosave in the history
+  TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
+                , [ name := "", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
+                ], ListObjectHistory(testfile->id), "*");
+
+  //Unclaimed instances cannot be managed through the workflow
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_1" ]);
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
@@ -139,8 +145,7 @@ MACRO DraftingTest() {
 
   testfw->CommitWork();
 
-  TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   TestEqMembers([
@@ -151,7 +156,7 @@ MACRO DraftingTest() {
   ], AnalyzePreview(testfile->id), "*");
 
   TestEqMembers([
-    title := "Test!", // TODO should be "An even newer title",
+    title := "An even newer title",
     with_workflow_string := "pvt_draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -159,10 +164,6 @@ MACRO DraftingTest() {
 
 
   testfw->BeginWork();
-  TestEqMembers([[ ispublic := FALSE
-                 , mine := TRUE
-                 , user := testfw->GetUserAuthobjectId("marge")
-                 ]], GetDrafts(testfile->id), "*");
 
   //Let's create another private draft. Ignore it though (TODO does this scenario make sense? it doesn't use the previous autosave as basis? Replace it with multiple historic autosaves later)
   //FIXME this just updates the existing draft. if we really want a new a new private draft we need a ->Checkpoint() API or something which stops updating the previous draft.
@@ -170,13 +171,9 @@ MACRO DraftingTest() {
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_2" ]);
  TestEq(2, Length(GetDrafts(testfile->id)));
 
-  //Get autosaves for this user
-  RECORD ARRAY autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
-  TestEq(2,Length(autosaves));
-
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 ], ListObjectHistory(testfile->id), "*", "Private drafts always stay out of the history");
-*/
+  */
 
   //Set a clonable instance on the draft to see if its properly copied
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "draft_0_1"]));
@@ -185,10 +182,11 @@ MACRO DraftingTest() {
 
   //Now create a public draft from the first autosave. A public draft will destroy all autosaves FIXME why should it ? temp history may still have some value see VSCode file history
   //Note that this converts the autosave to a public draft and logs it into the history - no new file is actually created here!
-  workflowmgr->Save(FALSE); //commits the autosave changes to the draft
+  workflowmgr->Save(); //commits the autosave changes to the draft
 
-  TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+
+  TestEq(TRUE, RecordExists(workflowmgr->GetCurrentDraft()));
+  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetDraftObject()->id), '*');
 
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
@@ -199,10 +197,9 @@ MACRO DraftingTest() {
   TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "try_update"]));
   TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->UpdateMetadata(CELL[ title := "Try update" ]));
 
-  // FIXME verify that empty instances properly get copied too
   RECORD ARRAY history := ListObjectHistory(testfile->id);
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
-                , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge"), userdata := [ login := "marge@beta.webhare.net" ] ]
+                , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge"), userdata := [ login := "marge@beta.webhare.net" ], snapshot := workflowmgr->__GetDraftObject()->id ]
                 ], history, "*");
 
   // Original file is still untouched
@@ -231,7 +228,7 @@ MACRO DraftingTest() {
   STRING thisversionlink := GetPreviewLink(history[1].snapshot);
   STRING mostrecentversionlink := GetPreviewLink(history[1].snapshot, [ share := "mostrecentversion" ]);
   RECORD expect_analyze_thisversion := [
-    title := "Test!", // TODO should be "An even newer title",
+    title := "An even newer title",
     with_workflow_string := "draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1",
@@ -242,28 +239,25 @@ MACRO DraftingTest() {
   TestEqMembers(expect_analyze_thisversion, AnalyzePreview(testfile->id), "*");
 
   testfw->BeginWork();
-  //Verify the autosaves were cleaned up
-  RECORD ARRAY drafts := GetDrafts(testfile->id);
-  TestEqMembers([
-    [ ispublic := TRUE, mine := TRUE ]
-  ], drafts, "*", "SaveAsNewPublicDraft should have discarded all autosaves and private drafts");
 
-  //Create a draft!
+  //Create a draft. Verify it clones metadata properly
   Sleep(1);
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file, but now with more data!")  ], workflowmgr->GetMetadata());
   workflowmgr->UpdateMetadata([ title := "Jolly Good Autosave"]);
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "jolly-good-autosave" ]);
 
   testfw->CommitWork();
 
   TestEqMembers([
-    title := "Test!", // TODO should be "Jolly Good Autosave",
+    title := "Jolly Good Autosave",
     with_workflow_string := "jolly-good-autosave",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
   TestEqMembers([
-    title := "Test!", // TODO should be "An even newer title",
+    title := "An even newer title",
     with_workflow_string := "draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -286,29 +280,13 @@ MACRO DraftingTest() {
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file with some data added by Homer!"));
   TestAssert(workflowmgr->__GetAutosavedObject()->modificationdate >= now, "Verify moddate was updated");
 
-  drafts := GetDrafts(testfile->id);
-  TestEq(TRUE, drafts[0].creationdate < drafts[1].creationdate, "Verify sort");
-  TestEqMembers([
-    [ ispublic := TRUE,  mine := FALSE, user := testfw->GetUserAuthobjectId("marge") ],
-    [ ispublic := FALSE, mine := FALSE, user := testfw->GetUserAuthobjectId("marge") ],
-    [ ispublic := FALSE, mine := TRUE,  user := testfw->GetUserAuthobjectId("homer")  ]
-  ], drafts, "*", "1 public draft and 2 autosaves, one of which is Homer's");
-
-
-  //Cleanup discardable work from other users. Note that we switched to Homer earlier so we're clearing Marge's drafts.
-  CleanupOtherPrivateDrafts(testfile->id);//FIXME shouldn't be messing low level
-  drafts := GetDrafts(testfile->id);
-  TestEq(2, Length(drafts));
-  TestEq(FALSE, drafts[0].mine);
-  TestEq(TRUE, drafts[1].mine);
-
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
 
   //Let's save another draft
   TestEq([ with_workflow_string := "draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file with some data added by Homer!") ], workflowmgr->GetMetadata());
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
-  workflowmgr->Save(FALSE);
+  workflowmgr->Save();
 
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
                 ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
@@ -325,15 +303,10 @@ MACRO DraftingTest() {
   TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
-  drafts := GetDrafts(testfile->id);
-  TestEq(1, Length(drafts));
-  TestEq(TRUE, drafts[0].mine);
-  TestEq(history[2].snapshot, drafts[0].id);
-
   testfw->CommitWork();
   TestEqMembers(expect_analyze_thisversion, AnalyzeURL(thisversionlink), "*", "Locked to its draft");
   TestEqMembers([
-    title := "Test!", // TODO should be "An even newer title",
+    title := "An even newer title",
     with_workflow_string := "yet-another-draft",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1",
@@ -350,7 +323,9 @@ MACRO DraftingTest() {
     , useworkflow := TRUE
     , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
     ]);
-  workflowmgr->Save(TRUE);
+  workflowmgr->Save([ finalize := TRUE]);
+  TestEq(FALSE, RecordExists(workflowmgr->GetCurrentDraft()));
+  TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
 
   TestEqMembers([[ namespace := "http://www.webhare.net/xmlns/beta/test", workflow := FALSE ]
                 ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := FALSE ]
@@ -367,8 +342,8 @@ MACRO DraftingTest() {
   TestEq("An even newer title", testfile->title);
   TestEq("my new keywords, plus more", testfile->keywords);
   TestEq("dd", testfile->description);
+  TestEq("/tmp/sub/test2.html", testfile->fullpath, "The file was now actually renamed!");
 
-  TestEq(0, Length(GetDrafts(testfile->id)));
   TestEq(TRUE, testfile->modificationdate > oldmoddate);
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
 
@@ -388,7 +363,8 @@ MACRO DraftingTest() {
   TestEq(['http://www.webhare.net/xmlns/beta/test', 'webhare_testsuite:global.type_clone_only', 'webhare_testsuite:global.type_no_clone', 'webhare_testsuite:global.type_with_workflow'], SELECT AS STRING ARRAY namespace FROM ListInstances(testfile->id) ORDER BY namespace);
 
   TestAssert(testfile->id != history[3].snapshot, "Assure us that the 1.0 version is really independent from the live file");
-  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts"); //FIXME we probably don't want this in the future
+  TestEq(DEFAULT RECORD, workflowmgr->GetCurrentDraft());
+  TestEq(DEFAULT RECORD, workflowmgr->GetResumableAutosave());
 
   /////////////////////
   //
@@ -469,7 +445,8 @@ MACRO DraftingTest() {
                 ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
-  workflowmgr->Save(TRUE);
+  workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
+  TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
 
   TestEq([ clone_only_string := "" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
   TestEq([ with_workflow_string := "pvt_draft_1_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -501,19 +478,107 @@ MACRO DraftingTest() {
   workflowmgr->DiscardAutosavedChanges();
 
   testfile := OpenWHFSObject(testfile->id);
-  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
+  TestEq(DEFAULT RECORD, workflowmgr->GetCurrentDraft(), "Finalizing should have discarded all drafts");
+  TestEq(DEFAULT RECORD, workflowmgr->GetResumableAutosave());
 
   history := ListObjectHistory(testfile->id);
-  TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "final",    version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
+  TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "" ]
+                , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html" ]
+                , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer"), name := "test2.html" ]
+                , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html" ]
+                , [ type := "final",    version := "2.0", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html", when := testfile->modificationdate ]
                 ], history, "*");
   //FIXME verify we can to 'thisversion' links to both 1.0 and 2.0
 
   testfw->CommitWork();
 
+}
+
+ASYNC MACRO NamingTest() {
+  OBJECT testfolder := GetTestsuiteTempFolder()->OpenByName("sub");
+  testfw->BeginWork();
+
+  { // Naming scenarios 1: Create a file with just a title. Save it. Publish it. Only then a name is recorded in metadata
+    OBJECT testfile := testfolder->CreateFile([ title := "An unnamed file", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
+    TestEq(FALSE, testfile->publish);
+    TestEq("an-unnamed-file.txt", testfile->name, "The system should have auto-named the file");
+
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    workflowmgr->UpdateData(StringToBlob("Just some changed text"));
+    workflowmgr->Save();
+    TestEqMembers([ name := "", title := "An unnamed file" ], workflowmgr->GetMetadata(), "*", "Name should be empty, we just hace a title");
+    workflowmgr->Save([ finalize := TRUE ]);
+
+    TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
+                  ,[ type := "saved",    version := "0.2", name := "" ]
+                  ,[ type := "final",    version := "1.0", name := "an-unnamed-file.txt" ]
+                ], ListObjectHistory(testfile->id), "*");
+    TestEqMembers([ name := "an-unnamed-file.txt" ], workflowmgr->GetMetadata(), "*", "Name should persist after a final publication");
+  }
+
+  { // Naming scenarios 2: Create a file with just a title. Save it. Then name it. It should persist from there on. Publish it.
+    OBJECT testfile := testfolder->CreateFile([ title := "Naming during draft", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
+    TestEq("naming-during-draft.txt", testfile->name, "The system should have auto-named the file");
+
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    workflowmgr->UpdateData(StringToBlob("Just some changed text"));
+    workflowmgr->Save();
+
+    TestEqMembers([ name := "" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->UpdateMetadata([ name := "new-name-during-draft.txt" ]);
+    workflowmgr->Save([ finalize := TRUE]);
+
+    TestEqMembers([ name := "new-name-during-draft.txt" ], workflowmgr->GetMetadata(), "*");
+
+    TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
+                  ,[ type := "saved",    version := "0.2", name := "" ]
+                  ,[ type := "final",    version := "1.0", name := "new-name-during-draft.txt" ]
+                ], ListObjectHistory(testfile->id), "*");
+    TestEqMembers([ name := "new-name-during-draft.txt" ], workflowmgr->GetMetadata(), "*", "Name should persist after a final publication");
+  }
+
+  { // Naming scenario 3: Create a file with just a title. Name it. Save it. It should have persisted. Name it again. Publish it. It should persist.
+    OBJECT testfile := testfolder->CreateFile([ title := "Naming twice", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
+    TestEq("naming-twice.txt", testfile->name, "The system should have auto-named the file");
+
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    workflowmgr->UpdateMetadata([name := "naming-twice-autosaved.dat"]);
+    TestEqMembers([ name := "naming-twice-autosaved.dat" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->Save();
+    TestEqMembers([ name := "naming-twice-autosaved.dat" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->UpdateMetadata([name := "naming-twice-draft.dat"]);
+    TestEqMembers([ name := "naming-twice-draft.dat" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->Save([ finalize := TRUE ]);
+    TestEqMembers([ name := "naming-twice-draft.dat" ], workflowmgr->GetMetadata(), "*");
+
+    TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
+                  ,[ type := "saved",    version := "0.2", name := "naming-twice-autosaved.dat" ]
+                  ,[ type := "final",    version := "1.0", name := "naming-twice-draft.dat" ]
+                ], ListObjectHistory(testfile->id), "*");
+    TestEq("naming-twice-draft.dat", OpenWHFSObject(testfile->id)->name, "Name should persist after a final publication");
+  }
+
+  { // Naming scenario 4: Create a file with neither name or title. Title it, save it. Lack of name persists.Publish it. Only now is a name recorded based on the title
+    OBJECT testfile := testfolder->CreateFile([ name := "new.txt", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser(), implicit_name := TRUE ]);
+    TestEq("new.txt", testfile->name);
+
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    TestEqMembers([ name := "" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->UpdateMetadata([title := "New ASCII"]);
+    workflowmgr->Save();
+    TestEqMembers([ name := "" ], workflowmgr->GetMetadata(), "*");
+    TestEq("new-ascii.txt", OpenWHFSObject(testfile->id)->name, "Name is updated immediately so we can find ourselves in the publisher");
+    TestEq("New ASCII", OpenWHFSObject(testfile->id)->title, "And title is visible too");
+    workflowmgr->Save([ finalize := TRUE ]);
+    TestEq("new-ascii.txt", OpenWHFSObject(testfile->id)->name, "Name should persist after a final publication");
+
+    TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
+                  ,[ type := "saved",    version := "0.2", name := "" ]
+                  ,[ type := "final", version := "1.0", name := "new-ascii.txt" ]
+                ], ListObjectHistory(testfile->id), "*");
+  }
+
+  testfw->CommitWork();
 }
 
 ASYNC MACRO UnpublishedSavesTest()
@@ -523,13 +588,16 @@ ASYNC MACRO UnpublishedSavesTest()
   OBJECT testfolderobj2 := GetTestsuiteTempFolder()->OpenByName("sub");
   OBJECT unpublishedfile := testfolderobj2->CreateFile(
     [ name := "unpublishedfile.html"
-    , title :="An unpublished file"
+    , title := "An unpublished file"
     , data := StringToBlob("Don't publish me now")
     , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
     , publish := FALSE
     ], [ createdby := testfw->GetUserObject("marge")
        , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["nonopublish"] ]]
        ]);
+
+  TestEqMembers([[ type := "created",  version := "0.1", userdata := [ login := "marge@beta.webhare.net"], user := testfw->GetUserAuthobjectId("marge"), name := "unpublishedfile.html" ]
+              ], ListObjectHistory(unpublishedfile->id), "*", "The 'created' event should show a name as we set it explicitly");
 
   testfw->SetTestUser("homer");
   OBJECT workflowmgr := NEW WorkflowManager(unpublishedfile->id,
@@ -539,24 +607,21 @@ ASYNC MACRO UnpublishedSavesTest()
     ]);
 
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-draft" ]);
-  workflowmgr->Save(FALSE);
+  workflowmgr->Save();
 
-  TestEqMembers([[ ispublic := TRUE ]], GetDrafts(unpublishedfile->id), "*", "SaveAsNewPublicDraft should have discarded all autosaves");
-
-  workflowmgr->Save(TRUE);
-  TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
+  workflowmgr->Save([ finalize := TRUE ]);
+  TestEq(FALSE, RecordExists(workflowmgr->GetCurrentDraft()));
   TestEq(FALSE, OpenWHFSObject(unpublishedfile->id)->publish);
 
   //Create an autosave or an unpublished file and finalize it straight away
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-update" ]);
-  workflowmgr->Save(TRUE);
-  TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
+  workflowmgr->Save([ finalize := TRUE ]);
 
   RECORD ARRAY history := ListObjectHistory(unpublishedfile->id);
-  TestEqMembers([ [ type := "created",  version := "0.1", userdata := [ login := "marge@beta.webhare.net"], user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "saved",    version := "0.2", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "final",    version := "1.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "final",    version := "2.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
+  TestEqMembers([ [ type := "created",  version := "0.1", userdata := [ login := "marge@beta.webhare.net"], user := testfw->GetUserAuthobjectId("marge"), name := "unpublishedfile.html" ]
+                , [ type := "saved",    version := "0.2", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer"), name := "unpublishedfile.html" ]
+                , [ type := "final",    version := "1.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer"), name := "unpublishedfile.html" ]
+                , [ type := "final",    version := "2.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer"), name := "unpublishedfile.html" ]
                 ], history, "*");
 
   testfw->CommitWork();
@@ -595,7 +660,7 @@ ASYNC MACRO ImportTest() {
     ]);
   workflowmgr->UpdateData(StringToBlob("I'm an  updated file"));
   workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["x","z"]  ]);
-  workflowmgr->Save(TRUE);
+  workflowmgr->Save([ finalize := TRUE ]);
 
   history := ListObjectHistory(importfile->id);
   TestEqMembers([ [ type := "import",   version := "1.0", userdata := DEFAULT RECORD, user := 0 ]
@@ -619,7 +684,7 @@ ASYNC MACRO ViewHistory() {
   DATETIME startcopy := GetCurrentDatetime();
 
   //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
-  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
+  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/test2.html");
 
   //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/versions
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectVersionsDialog(GetTestController(), unpublishedfile->id));
@@ -640,6 +705,7 @@ ASYNC MACRO ViewHistory() {
 
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
+                 , PTR NamingTest
                  , PTR UnpublishedSavesTest
                  , PTR ImportTest
                  , PTR ViewHistory

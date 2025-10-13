@@ -1,8 +1,12 @@
 <?wh
 
 LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
@@ -66,6 +70,14 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   // Metatabs renderer
   OBJECT renderer;
+  /// Record definition of current (or new) type for the object
+  RECORD curtype;
+  /// Can the name follow the title?
+  BOOLEAN namefollowstitle;
+  // Metatabs config as received from describeMetaTabsForHS
+  RECORD metatabsconfig;
+  // Controllers for the metadata. For now we'll rely on compositions
+  PUBLIC RECORD ARRAY metacontrollers;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
   /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
@@ -81,7 +93,16 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   RECORD basesettings;
 
+  /// Are we objectprops? some tweaks will be done
+  BOOLEAN isobjectprops;
+  /// Workflow editor settings, if any
+  RECORD workfloweditor;
+
   OBJECT workflowmgr;
+
+  MACRO NEW(BOOLEAN isobjectprops) {
+    this->isobjectprops := isobjectprops;
+  }
 
   MACRO RefreshReadonly()
   {
@@ -103,11 +124,19 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   MACRO SetupBaseSettings()
   {
     this->basesettings := GetBaseProperties(this->contexts->applytester);
+
+    ^name->title := this->isfolder ? GetTid("~foldername") : GetTid("~filename");
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
     ^isunlisted->visible := this->basesettings.isunlisted;
     ^title->required := this->basesettings.requiretitle;
 
+    IF(this->namefollowstitle) {
+      ^title->onchange := PTR this->SyncNameWithTitle;
+      this->SyncNameWithTitle();
+    }
+
+    //FIXME restore seotabrequireright. see objectprops.whlib
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
@@ -128,30 +157,46 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
-    this->__SetupEditBase(objectid, 0, FALSE, -1, options);
+    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = VAR objectid;
+    this->__SetupEditBase(objectid, 0, isfolder, -1, options);
   }
 
   MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type) {
+    this->isnew := TRUE;
+    // ^title->required := TRUE; //as we don't go through LoadBaseData we need to set this ourselves
     this->__SetupEditBase(0, parent, isfolder, type, DEFAULT RECORD);
   }
 
   MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type, RECORD options) {
+    this->isnew := objectid = 0;
+
     options := ValidateOptions(CELL[ readonly := FALSE
                                    , useworkflow := FALSE
                                    , assumewriteaccess := FALSE
                                    , workflowtypes := STRING[]
                                   ], options);
 
-    /* The ordering here is pretty sensitive:
-       - we need the meta tabs description first just to get the editcontenttypes
-       - we need to load the subscreen for the document editor just in case that one registers more types too at runtime
-         (TODO it would help if the user declared these types on <objecteditor>
-       - and then we can setup a workflow manager
-       */
+    this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, this->isobjectprops ]);
+    this->metatabsconfig := this->renderer->metatabsconfig;
+    this->workfloweditor := RecordExists(this->metatabsconfig) ? this->metatabsconfig.workfloweditor : DEFAULT RECORD;
+    this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
+    IF(NOT ObjectExists(this->contexts->applytester))
+      THROW NEW TolliumException(this, "No applytester found for this object");
+
+    //We currently need this->parentfolder to be set so we can run UpdatePinned which will be triggered below by ^pinobject->value :=
+    this->parentfolder := this->contexts->applytester->objparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->contexts->applytester->objparent);
+
+    RECORD objinfo;
+    IF(objectid != 0) {
+      objinfo := SELECT COLUMN type, ispinned FROM system.fs_objects WHERE id = VAR objectid;
+      ^pinobject->value := objinfo.ispinned;
+      type := objinfo.type;
+    }
+    this->curtype := DescribeContentTypeById(type, CELL[ isfolder, mockifmissing := TRUE ]);
+    this->namefollowstitle := type != whconstant_whfstype_foreignfolder AND (isfolder OR this->curtype.ispublishedassubdir);
 
     STRING ARRAY workflowtypes := STRING[ "platform:web.config", "platform:web.metadata", ...options.workflowtypes ];
 
-    this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, requireworkflow :=options.useworkflow ]);
     this->contexts->applytester := this->renderer->applytester;
 
     IF(objectid != 0) {
@@ -160,22 +205,16 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
         FOREVERY(RECORD t FROM this->renderer->metatabsconfig.types)
           INSERT t.namespace INTO workflowtypes AT END;
       }
-    }
 
-    IF(objectid != 0)
       this->workflowmgr := NEW WorkflowManager(objectid,
         CELL[ user := this->contexts->user
             , ...options
             , workflowtypes := options.useworkflow ? workflowtypes : STRING[]
             ]);
+    }
 
-    IF(NOT ObjectExists(this->contexts->applytester))
-      THROW NEW TolliumException(this, "No applytester found for this object");
-
-    this->parentfolder := this->contexts->applytester->objparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->contexts->applytester->objparent);
     this->itemid := objectid;
     this->SetupBaseSettings();
-    this->isnew := objectid = 0;
     this->assumewriteaccess := options.assumewriteaccess;
   }
 
@@ -183,40 +222,69 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     Reflect(this->renderer->metatabsconfig);
   }
 
+  STRING FUNCTION GetSuggestedSlug() {
+    //FIXME don't select from database, we should just load this info at startup. we need it for the titlebar anyway
+    RETURN ^title->value != "" ? SuggestSeoNameFromTitle(^title->value) : SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;;
+  }
+
+  MACRO SyncNameWithTitle()  {
+    ^name->placeholder := this->GetSuggestedSlug();
+    //TODO can Tollium control the refresh button's visibility based on title set/not set ?
+    ^refreshnamebutton->visible := ^title->value != "";
+  }
+
+  MACRO DoRefreshName() {
+    ^name->value := this->GetSuggestedSlug();
+  }
+
   MACRO RefreshMetaTabsReadonly()
   {
     this->renderer->SetControllersEnabled(NOT this->readonly);
 
+    // objectprops is not allowed to edit workflow fields when editing existing files which have a true workflow (and document editor)
+    BOOLEAN edit_workflow_metadata := this->isnew OR NOT RecordExists(this->workfloweditor) OR NOT this->isobjectprops;
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
-    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
-    ^title->enabled := NOT this->readonly AND ^title->visible;
-    ^description->enabled := NOT this->readonly AND ^description->visible;
-    ^keywords->enabled := NOT this->readonly AND ^keywords->visible;
+    ^seotitle->visible := needstemplate AND this->basesettings.seotitle AND edit_workflow_metadata;
+    ^title->enabled := NOT this->readonly AND ^title->visible AND edit_workflow_metadata;
+    ^isunlisted->enabled := NOT this->readonly AND ^isunlisted->visible AND edit_workflow_metadata;
+    ^description->enabled := NOT this->readonly AND ^description->visible AND edit_workflow_metadata;
+    ^keywords->enabled := NOT this->readonly AND ^keywords->visible AND edit_workflow_metadata;
     this->UpdatePinned();
   }
 
   MACRO LoadBaseData(OBJECT sourceobject) {
-    this->recyclebininfo := IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
-    ^pinobject->value := sourceobject->ispinned AND NOT this->isnew;
+    //TODO instead of a sourceobject hack perhaps workflowmgr should handle recycle bin too?
+    //TODO we might be overcomplicating by sharing LoadBaseData and then checking workflow settings.
+    this->recyclebininfo := MemberExists(sourceobject, 'whfspath') AND IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
 
-    IF(this->isnew)
-      ^name->value := "";
-    ELSE IF(RecordExists(this->recyclebininfo))
-      ^name->value := this->recyclebininfo.origname;
-    ELSE
-      ^name->value := sourceobject->name;
-
-    FOREVERY (STRING field FROM ["title", "description", "keywords" ])
-    {
-      OBJECT fieldobj := GetMember(this, "^" || field);
-      fieldobj->value := GetMember(sourceobject, field);
-    }
+    RECORD metadata := sourceobject->GetMetadata();
+    ^name->value := metadata.name;
+    ^title->value := metadata.title;
+    ^keywords->value := metadata.keywords;
+    ^description->value := metadata.description;
   }
 
   MACRO LoadMetadata(OBJECT sourceobject) {
     FOREVERY(RECORD controller FROM this->renderer->metacontrollers)
       controller.fsinstance->value := sourceobject->GetInstanceData(controller.type->namespace);
+  }
+
+  RECORD FUNCTION GetMetadata() {
+    RECORD metadata;
+
+    IF(^title->enabled)
+      INSERT CELL title := ^title->value INTO metadata;
+    IF(^description->enabled)
+      INSERT CELL description := ^description->value INTO metadata;
+    IF(^keywords->enabled)
+      INSERT CELL keywords := ^keywords->value INTO metadata;
+    IF(^isunlisted->enabled)
+      INSERT CELL isunlisted := ^isunlisted->value INTO metadata;
+    IF(ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow)
+      INSERT CELL name := ^name->value INTO metadata;
+
+    RETURN metadata;
   }
 
   MACRO SaveMetadata(INTEGER targetobject) { //editdocument will always be invoking us with a draft as parameter
@@ -229,12 +297,37 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       target->SetInstanceData(controller.type->namespace, controller.fsinstance->GetUpdateValue());
     }
 
-    target->UpdateMetadata(CELL [ title := ^title->value
-                                , description := ^description->value
-                                , keywords := ^keywords->value
-                                //FIXME unsafe when renaming from RTD, needs the same checks as objectprops?
-                                , ...(ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow ? [ name := ^name->value ] : DEFAULT RECORD)
-                                ]);
+    RECORD metadata := this->GetMetadata();
+    IF(RecordExists(metadata))
+      target->UpdateMetadata(metadata);
+  }
+
+  MACRO CheckNameConflict(OBJECT work) {
+
+    IF(this->itemid != 0 AND RecordExists(SELECT FROM system.sites WHERE id = this->itemid)) { //it's a site
+      STRING name := ^name->value ?? ^name->placeholder;
+
+      // check for site conflict - do this first as even moving the site won't fix it
+      OBJECT othersite := OpenSiteByName(name);
+      IF(ObjectExists(othersite) AND othersite->id != this->itemid) {
+        work->AddError(GetTid("publisher:common.errors.sitealreadyexists", name));
+        RETURN;
+      }
+    }
+
+    IF(^name->value != "") {
+      // Test for an object with the same name at the target location
+      OBJECT otherobject := this->parentfolder->OpenByName(^name->value);
+      IF (ObjectExists(otherobject) AND otherobject->id != this->itemid) {
+        BOOLEAN hiddenforme := IsObjectHiddenForMe(GetEffectiveUser(), otherobject->id);
+        IF(hiddenforme)
+          work->AddError(GetTid("publisher:common.errors.hiddenfolderexists", ^name->value, this->parentfolder->name));
+        ELSE
+          work->AddError(GetTid("publisher:common.errors.fileorfolderexists", ^name->value, this->parentfolder->name));
+
+        RETURN;
+      }
+    }
   }
 
   BOOLEAN FUNCTION AddTypesTabs() {
@@ -249,6 +342,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
     this->RefreshMetaTabsReadonly();
     RETURN RecordExists(this->renderer->metatabsconfig) AND Length(this->renderer->metatabsconfig.types) > 0;
+  }
+
+  PUBLIC INTEGER FUNCTION __GetTargetId()
+  {
+    RETURN this->isnew ? 0 : this->itemid;
   }
 >;
 
@@ -331,10 +429,10 @@ PUBLIC OBJECT FUNCTION CreateMetatabsRenderer(RECORD objdata) {
     parent := 0,
     isfolder := FALSE,
     type := -1,
-    requireworkflow := FALSE,
+    isobjectprops := FALSE,
     user := GetEffectiveUser()->entityid //TODO FIX for overrideuser, has no entityid
   ], objdata, [
-    required := STRING[ "objectid", "parent", "isfolder", "type", "requireworkflow" ]
+    required := STRING[ "objectid", "parent", "isfolder", "type", "isobjectprops" ]
   ]);
 
   RECORD metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objdata);

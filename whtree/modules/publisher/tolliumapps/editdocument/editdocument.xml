@@ -39,6 +39,7 @@
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
       <action name="inspectmetatabs" frameflags="isdeveloper" onexecute="doinspectmetatabs" />
+      <action name="refreshname" onexecute="dorefreshname" tid="tolliumapps.objectprops.objectprops.refreshname" />
     </actions>
 
     <menus>
@@ -114,20 +115,28 @@
               <tabs name="maintabs" type="stacked" height="1pr">
                 <tab name="maintab" tid="tolliumapps.objectprops.objectprops.maintab">
                   <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
-                  <textedit name="name"
-                            width="1pr"
-                            maxlength="256"
-                            dirtylistener="dirtylistener"
-                            tid="~name"
-                            validationchecks="whfsname"
-                            required="true" />
                   <line>
-                    <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                    <textedit name="title"
+                              width="1pr"
+                              maxlength="256"
+                              dirtylistener="dirtylistener"
+                              tid="~title"/>
                     <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
                       <option rowkey="false" tid="tolliumapps.objectprops.objectprops.isunlisted-false" />
                       <option rowkey="true" tid="tolliumapps.objectprops.objectprops.isunlisted-true" />
                     </select>
                   </line>
+                  <textedit name="name"
+                            width="1pr"
+                            maxlength="256"
+                            dirtylistener="dirtylistener"
+                            tid="~name"
+                            validationchecks="whfsname">
+                    <button name="refreshnamebutton"
+                            action="refreshname"
+                            icon="tollium:actions/refresh"
+                            tid="tolliumapps.objectprops.objectprops.refreshname" />
+                  </textedit>
                   <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
                   <textedit composition="webmetadata"
                             cellname="seo_title"

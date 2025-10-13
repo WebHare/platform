@@ -1,0 +1,25 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+PUBLIC ASYNC FUNCTION RestartEditorAndVerify() {
+  STRING old_name_placeholder := TT("name")->placeholder;
+  STRING old_name_value := TT("name")->value;
+  BOOLEAN old_name_required := TT("name")->required;
+  BOOLEAN old_title_required := TT("title")->required;
+
+  INTEGER currentitem := topscreen->__GetTargetId();
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := STRING[ ToString(currentitem) ]]));
+
+  TestEq(old_name_placeholder, TT("name")->placeholder);
+  TestEq(old_name_value, TT("name")->value);
+  TestEq(old_name_required, TT("name")->required);
+  TestEq(old_title_required, TT("title")->required);
+
+  RETURN OpenWHFSObject(currentitem);
+}

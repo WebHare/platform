@@ -20,15 +20,11 @@ ASYNC MACRO CreateMDFile()
 
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Markdown document";
   TestEq(TRUE, RecordExists(TT("types")->selection));
-  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
-  TT(":Name")->value:="md1";
-  TT("makeindex")->value := FALSE;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //confirm dialog and create the file
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //exit publisher
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp()); //opens the RTD
 
-  //edit the file
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "markdown/md1" ], target := DEFAULT RECORD ]));
+  TT(":Title")->value:="md1";
   TT("doceditor")->contents->^markdowntext->value := "# Heya\nThis is marked down!\n";
   TT("doceditor")->contents->^dirtylistener->SetDirty();
 
@@ -45,7 +41,8 @@ ASYNC MACRO CreateMDFile()
 
   TestEq("# Heya\nThis is marked down!", BlobToString(mdfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data.text));
 
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //exit editor
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
 }
 
 RunTestframework([ PTR PrepIt

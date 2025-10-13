@@ -20,6 +20,7 @@
   <test name="forms"       path="forms/" />
   <test name="webtools" path="webtools/" />
   <test name="siteprofile" path="siteprofile/" />
+  <test name="versions" path="versions/" />
   <test name="assetpacks" path="assetpacks/" />
   <test name="pwa" path="pwa/" />
   <test name="shorturl" path="shorturl/" />

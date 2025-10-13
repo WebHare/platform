@@ -1,0 +1,133 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/tests/publisher/versions/data/test-versions.whlib";
+
+
+ASYNC MACRO TestCreateFile() {
+
+}
+
+ASYNC MACRO TestCreateRTD() {
+  /////////////////////////
+  // STORY: The usual flow: New file -> Title it (autosave) -> Save draft -> Publish -> Now name is fixed
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TTFillByTitle("types", "Rich text document");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("new-rich-text-document", TT("filelist")->selection.name);
+  INTEGER createdid := TT("filelist")->selection.rowkey;
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp()); //opens the RTD
+
+  //Initially the name follows the document's title
+  TestEq("", TT(":Title")->value);
+  TestEq("", TT(":File name")->value);
+  TestEq(FALSE, TT(":File name")->required);
+  TestEq(FALSE, TT(":Title")->required);
+  //TODO also test not setting a title immediately but saving and restarting first
+
+  TT(":Title")->SetDirty(); //just to enable save button. would be better to set some RTD content?
+  TTClick(":Save"); //saving once, even without filling a title, should work
+  OBJECT unnamedfile := AWAIT RestartEditorAndVerify();
+  TestEq("new-rich-text-document", unnamedfile->name, "Name should still be the default one");
+
+  TT(":Title")->value := "Base metadata test";
+  TT(":Title")->SetDirty();
+  TestEq("base-metadata-test", TT(":File name")->placeholder, "it's following the title");
+
+  //Even if we now save and reopen...
+  TTClick(":Save");
+  unnamedfile := AWAIT RestartEditorAndVerify();
+  TestEq("base-metadata-test", unnamedfile->name, "This new name is immediately visible in the filemanager so you can find us");
+  TestEq("Base metadata test", unnamedfile->title, "Plus the title");
+  TestEq(FALSE, unnamedfile->publish, "But we are still unpublished");
+
+  //Set a name
+  TT(":File name")->value := "this-name-please";
+  TT(":File name")->SetDirty();
+
+  //Save this
+  TTClick(":Save");
+  TestEq(FALSE, TT(":File name")->required);
+  TestEq(FALSE, TT(":Title")->required);
+  AWAIT RestartEditorAndVerify();
+
+  //Publish it
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
+
+  //Name should materialize
+  TestEq("Base metadata test", TT(":Title")->value);
+  TestEq("this-name-please", TT(":File name")->value);
+  TestEq(FALSE, TT(":Title")->required, "After publishing, Title should become un-required"); // TODO modern sites should be able to keep it required
+  TestEq(FALSE, TT(":File name")->required);
+
+  AWAIT RestartEditorAndVerify();
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
+
+  //FIXME check if pinned files can't be asynchronously overwritten
+}
+
+ASYNC MACRO TestCreateRTDProps() { //test the properties dialog behavior of a new rtd
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+
+  //Create a richtext document
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TTFillByTitle("types", "Rich text document");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  TestEq("new-rich-text-document", TT("filelist")->selection.name);
+  OBJECT newfile := GetTestsuiteTempFolder()->OpenByName("new-rich-text-document", [expect:="file"]);
+
+  TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("sysop") ]
+                ], ListObjectHistory(newfile->id), "*", "No name, we did not explicitly set it");
+
+  //Open props, is the name still in placeholder mode? Change title and see if name follows
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq(TRUE, TT("name")->required);
+  TestEq("", TT("title")->value);
+  TestEq("new-rich-text-document", TT("name")->value);
+  TestEq("", TT("title")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+ASYNC MACRO TestCreateFolder() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TTFillByTitle("types", "Normal folder");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+
+  TestEq("", TT("name")->value);
+  TT("Title")->value := "My new folder";
+  TestEq("my-new-folder", TT("name")->placeholder, "it's following the title");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("my-new-folder", TT("filelist")->selection.name);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Properties"));
+  TestEq(TRUE, TT("name")->required);
+  TestEq("my-new-folder", TT("name")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR TestCreateFile
+                 , PTR TestCreateRTD
+                 , PTR TestCreateRTDProps
+                 , PTR TestCreateFolder
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]]);

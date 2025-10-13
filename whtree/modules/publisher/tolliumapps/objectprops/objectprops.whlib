@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -150,9 +151,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   */
   RECORD startdata;
 
-  ///Show development options
-  BOOLEAN autotitles;
-
   /// Whether to show developer options
   BOOLEAN showdeveloperoptions;
 
@@ -177,9 +175,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   /// Source item (original file for duplications, draft or edited file when editing)
   OBJECT sourceitem;
-
-  /// Record definition of current (or new) type for the object
-  RECORD curtype;
 
   /**@}*/
 
@@ -216,12 +211,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   // Constructor & init
   //
 
-  MACRO NEW() {
+  MACRO NEW(): PublisherEditorBase(TRUE) {
     this->contexts->objectpropsapi := NEW ObjectPropsAPI(this);
   }
 
   MACRO ReadUserSettings() {
-    this->autotitles := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
     this->showdeveloperoptions := this->tolliumuser->HasRight("system:supervisor");
     this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
   }
@@ -236,7 +230,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->ReadUserSettings();
 
     // Fill in the data about the object to edit/create.
-    this->SetCurrentObjectData();
+    this->SetCurrentObjectData(); //handles SetupEditBaseForExistingObject / SetupEditBaseForNewObject
 
     /// Fill base fields from the source
     this->FillBaseFields(); //name,title,description
@@ -440,7 +434,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     ELSE IF (this->startdata.why = "edit")
     {
       this->SetupEditBaseForExistingObject(this->startdata.fsobj, CELL[this->startdata.readonly, useworkflow := FALSE]);
-      this->itemid := this->startdata.fsobj;
       this->sourceitem := OpenWHFSObject(this->itemid);
 
       IF (NOT ObjectExists(this->sourceitem))
@@ -475,8 +468,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     //configure settings that depend on the applytester
     this->SetupBaseSettings();
+
     this->renderer->RegisterMetaController(^webconfig->type, ^webconfig);
-  }
+}
 
   // ---------------------------------------------------------------------------
   //
@@ -501,7 +495,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       // Calculate unique name for duplicate of file
       ^name->value := this->parentfolder->GenerateUniqueName(this->sourceitem->name);
     }
-    ELSE
+    ELSE IF(NOT this->namefollowstitle)
     {
       // The new file name
       STRING newname;
@@ -526,7 +520,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO FillBaseFields()
   {
-    IF(ObjectExists(this->sourceitem))
+    IF(ObjectExists(this->sourceitem)) //editing or duplicating
       this->LoadBaseData(this->sourceitem);
 
     INTEGER64 filesize := ObjectExists(this->sourceitem) AND NOT this->isfolder ? Length64(this->sourceitem->data) : 0i64;
@@ -559,12 +553,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       }
     }
 
-    IF (this->isnew AND this->autotitles)
-    {
-      ^name->visible := FALSE;
-      ^name->required := FALSE;
-      ^title->required := TRUE;
-    }
+    ^name->required := NOT this->isnew; //name becomes required as soon as you're done editing
 
     // If the item is deleted or if the user has no edit rights, setup the dialog as information window
     IF (NOT this->isnew AND (RecordExists(this->recyclebininfo) OR NOT this->CanWriteCurrentItem())) {
@@ -641,7 +630,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   */
   MACRO ConfigureForObjectType(INTEGER settype)
   {
-    this->curtype := DescribeContentTypeById(settype, [ isfolder := this->isfolder, mockifmissing := TRUE ]);
     ^type->value := GetTid(this->curtype.title);
 
     IF(this->curtype.id=18 OR this->curtype.id=19) //http://www.webhare.net/xmlns/publisher/externallink OR http://www.webhare.net/xmlns/publisher/internallink
@@ -1231,6 +1219,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   INTEGER FUNCTION Submit() {
     // Auto-check for required fields
     OBJECT quickfeedback := this->BeginFeedback();
+    IF(^name->value = "" AND ^title->value = "")
+      quickfeedback->AddErrorFor(^name, this->GetTid(".nameortitle", this->isfolder ? "folder" : "file"));
+
     IF(quickfeedback->HasFailed())
     {
       quickfeedback->Finish();
@@ -1238,15 +1229,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
 
     quickfeedback->Cancel(); //don't show any warnings now yet... the next BeginWork will.
-
-    // Extra validation
-    STRING name := ^name->value;
-
-    // Create a name based on the title for new folders and files
-    IF (this->isnew AND this->autotitles)
-    {
-      name := this->GenerateAutoTitle();
-    }
 
     // Reset scheduled message boxes from previous submits
     this->scheduledmessageboxes := DEFAULT RECORD ARRAY;
@@ -1261,13 +1243,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       // Refresh cached data
       this->parentfolder->Refresh();
 
-      RECORD metadata :=
-          [ name := name
-          , title := ^title->value
-          , description := ^description->value
-          , isunlisted := ^isunlisted->value
-          ];
-
+      // Get settable metadata plus filename. We won't be getting eg. title for RTDs we're editing
+      RECORD metadata := this->GetMetadata();
+      IF(^name->value != "")
+        metadata := CELL[...metadata, name := ^name->value ];
       BOOLEAN update_ordering_otherfiles;
 
       IF (this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable") {
@@ -1282,36 +1261,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         }
       }
 
-      // check for site conflict - do this first as even moving the site won't fix it
-      IF(ObjectExists(this->sourceitem) AND this->sourceitem->parentsite = this->sourceitem->id)
-      {
-        OBJECT othersite := OpenSiteByName(name);
-        IF(ObjectExists(othersite) AND othersite->id != this->sourceitem->id)
-        {
-          work->AddError(GetTid("publisher:common.errors.sitealreadyexists", name));
-          work->Finish();
-          RETURN 0;
-        }
-      }
-
-      // Test for an object with the same name at the target location
-      OBJECT otherobject := this->parentfolder->OpenByName(name);
-      IF (ObjectExists(otherobject) AND otherobject->id != this->itemid)
-      {
-        BOOLEAN hiddenforme := IsObjectHiddenForMe(GetEffectiveUser(), otherobject->id);
-        IF(hiddenforme)
-          work->AddError(GetTid("publisher:common.errors.hiddenfolderexists", name, this->parentfolder->name));
-        ELSE
-          work->AddError(GetTid("publisher:common.errors.fileorfolderexists", name, this->parentfolder->name));
-
+      this->CheckNameConflict(work);
+      IF(work->HasFailed()) {
         work->Finish();
         RETURN 0;
       }
 
       RECORD indexactions;
       IF(NOT this->isfolder) {
-        INSERT CELL keywords := ^keywords->value INTO metadata;
-
         IF (^publish->visible) {
           INTEGER new_publish := this->isnew ? 0 : GetFlagsFromPublished(this->sourceitem->published);
           IF (RecordExists(this->parentsite) AND this->parentsite.outputweb != 0 AND ^publish->value)
@@ -1397,9 +1354,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name);
           draftitem->UpdateMetadata(metadata);
         } ELSE IF (this->isfolder) {
-          draftitem := this->parentfolder->CreateFolder(metadata);
+          draftitem := this->parentfolder->CreateFolder(metadata, [ createdby := this->contexts->user ]);
         } ELSE {
-          draftitem := this->parentfolder->CreateFile(metadata);
+          draftitem := this->parentfolder->CreateFile(metadata, [ createdby := this->contexts->user ]);
         }
         objid := draftitem->id;
       } ELSE {
@@ -1474,10 +1431,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->UpdateMakeIndexVisibility();
   }
 
-  PUBLIC INTEGER FUNCTION __GetTargetId()
-  {
-    RETURN this->isnew ? 0 : this->itemid;
-  }
   PUBLIC OBJECT FUNCTION __GetTargetFolder()
   {
     RETURN this->parentfolder;
