@@ -25,15 +25,15 @@ apply:
         tabsExtension: mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle
     fileTypes:
       - allowType: http://www.webhare.net/xmlns/publisher/*
-      - denyType: filetypes.richdocumentfile
-      - denyType: filetypes.tagfile
+      - denyType: filetypes.richdocument
+      - denyType: filetypes.tag
       - denyType: filetypes.tagrepository
-      - denyType: filetypes.profilefile
+      - denyType: filetypes.profile
       - denyType: http://www.webhare.net/xmlns/publisher/formwebtool
       - denyType: http://www.webhare.net/xmlns/publisher/formwidget
     folderTypes:
-      - allowType: foldertypes.normalfolder
-      - allowType: foldertypes.systemfolder
+      - allowType: foldertypes.default
+      - allowType: foldertypes.system
     republish:
       - mask: "*"
         indexOnly: true
@@ -41,7 +41,7 @@ apply:
       site: ?*
     folderTypes:
       - allowType: foldertypes.photoalbum
-      - allowType: foldertypes.foreignfolder
+      - allowType: foldertypes.extern
   - to:
       is: folder
     republish:
@@ -56,27 +56,27 @@ apply:
     to:
       or:
         - is: file
-          type: filetypes.javascriptfile
+          type: filetypes.javascript
         - is: file
-          type: filetypes.semidynamicfile
+          type: filetypes.semidynamic
         - is: file
-          type: filetypes.cssfile
+          type: filetypes.css
         - is: file
-          type: filetypes.libraryfile
+          type: filetypes.library
         - is: file
-          type: filetypes.plaintextfile
+          type: filetypes.plaintext
         - is: file
           type: http://www.webhare.net/xmlns/publisher/standalonetemplatefile
         - is: file
-          type: filetypes.xmlfile
+          type: filetypes.xml
         - is: file
-          type: filetypes.shtmlfile
+          type: filetypes.shtml
         - is: file
-          type: filetypes.shtmlwithdesignfile
+          type: filetypes.shtmlwithdesign
         - is: file
-          type: filetypes.wittyfile
+          type: filetypes.witty
         - is: file
-          type: filetypes.templatefile
+          type: filetypes.template
     setObjectEditor:
       name: publisher:texteditor
   - comment: "Configure the photoalbum's content listing (index) to render the album"
@@ -89,11 +89,11 @@ apply:
   - to:
       or:
         - is: folder
-          type: foldertypes.systemfolder
+          type: foldertypes.system
         - is: folder
-          type: foldertypes.tagfolder
+          type: foldertypes.tags
         - is: folder
-          type: foldertypes.foreignfolder
+          type: foldertypes.extern
     folderSettings:
       ordering: none
   - to:
@@ -101,7 +101,7 @@ apply:
       sitePath: /
     priority: 99999
     folderTypes:
-      - allowType: foldertypes.normalfolder
+      - allowType: foldertypes.default
 rtdTypes:
   http://www.webhare.net/xmlns/publisher/defaultmailrtdtype:
     css:

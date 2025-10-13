@@ -150,7 +150,7 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 export async function listSites<K extends keyof ListableSiteRow = never>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
   const getkeys = new Set<keyof ListableSiteRow>(["id", "name", ...keys]);
   const selectkeys = new Set<keyof SiteRow>;
-  const getSiteProps: Array<keyof TypedInstanceData<"platform:publisher.sitesettings">> = [];
+  const getSiteProps: Array<keyof TypedInstanceData<"platform:web.sitesettings">> = [];
 
   for (const k of getkeys) {
     switch (k) {
@@ -176,7 +176,7 @@ export async function listSites<K extends keyof ListableSiteRow = never>(keys: K
     .execute();
 
   if (getSiteProps.length) {
-    rows = await whfsType("platform:publisher.sitesettings").enrich(rows, "id", getSiteProps);
+    rows = await whfsType("platform:web.sitesettings").enrich(rows, "id", getSiteProps);
   }
 
   const mappedrows = rows.map(row => {

@@ -260,7 +260,7 @@ async function testInstanceData() {
       </formdefinitions>`), {
     instances: {
       'Yl98JQ8ztbgW3-KdqLzYBA': await buildInstance({
-        whfsType: 'platform:filetypes.richdocumentfile',
+        whfsType: 'platform:filetypes.richdocument',
         data: {
           data: await buildRTD([{ p: "asdf def" }])
         }
@@ -632,7 +632,7 @@ async function testVisitor() {
   //Let's actually rewrite
   await whfs.visitResources(async (ctx, resource) => {
     if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richTextDocument") {
-      test.eq("platform:filetypes.richdocumentfile", ctx.fsType);
+      test.eq("platform:filetypes.richdocument", ctx.fsType);
       test.eq("data", ctx.fieldName);
       return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg");
     }

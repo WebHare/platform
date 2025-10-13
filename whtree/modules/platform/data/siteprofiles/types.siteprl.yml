@@ -1,14 +1,13 @@
+gid: siteprofiles.types
 types:
   ######## File types
-  filetypes.archivefile:
+  filetypes.archive:
     namespace: http://www.webhare.net/xmlns/publisher/archivefile
-    tid: publisher:filetypes.archive
     icon: tollium:files/application_zip #The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon
     metaType: upload
     requiresContent: true
   filetypes.contentlink:
     namespace: http://www.webhare.net/xmlns/publisher/contentlink
-    tid: publisher:filetypes.contentlink
     icon: tollium:files/application_x-webhare-contentlink
     metaType: page
     workflow: false
@@ -16,21 +15,18 @@ types:
     isPublishedAsSubdir: false
   filetypes.contentlisting:
     namespace: http://www.webhare.net/xmlns/publisher/contentlisting
-    tid: publisher:filetypes.contentlisting
     icon: tollium:files/application_x-webhare-contentlisting
     metaType: page
     workflow: false
     isPublishedAsSubdir: false
-  filetypes.cssfile:
+  filetypes.css:
     namespace: http://www.webhare.net/xmlns/publisher/cssfile
-    tid: publisher:filetypes.css
     icon: tollium:files/text_css
     metaType: upload
     extension: .css
     searchContentProvider: publisher:contentblob
   filetypes.dynamicfoldercontents:
     namespace: http://www.webhare.net/xmlns/publisher/dynamicfoldercontents
-    tid: publisher:filetypes.dynamicfoldercontents
     icon: tollium:files/application_x-webhare-contentlisting
     metaType: page
     workflow: false
@@ -38,16 +34,14 @@ types:
     isPublishedAsSubdir: false
   filetypes.externallink:
     namespace: http://www.webhare.net/xmlns/publisher/externallink
-    tid: publisher:filetypes.externallink
     icon: tollium:files/application_x-webhare-externallink
     metaType: page
     workflow: false
     useWebDesign: false
     apply:
       usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
-  filetypes.htmlfile:
+  filetypes.html:
     namespace: http://www.webhare.net/xmlns/publisher/htmlfile
-    tid: publisher:filetypes.html
     icon: tollium:files/text_html
     metaType: upload
     extension: .html
@@ -59,40 +53,35 @@ types:
         objectName: mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile
       setObjectEditor:
         name: publisher:texteditor
-  filetypes.imagefile:
+  filetypes.image:
     namespace: http://www.webhare.net/xmlns/publisher/imagefile
-    tid: publisher:filetypes.image
     icon: tollium:files/image
     metaType: upload
     requiresContent: true
     browserPreview: /.publisher/backend/preview/image.shtml
   filetypes.internallink:
     namespace: http://www.webhare.net/xmlns/publisher/internallink
-    tid: publisher:filetypes.internallink
     icon: tollium:files/application_x-webhare-internallink
     metaType: page
     workflow: false
     useWebDesign: false
     apply:
       usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
-  filetypes.javascriptfile:
+  filetypes.javascript:
     namespace: http://www.webhare.net/xmlns/publisher/javascriptfile
-    tid: publisher:filetypes.javascript
     icon: tollium:files/application_x-javascript
     metaType: upload
     extension: .js
     searchContentProvider: publisher:contentblob
-  filetypes.libraryfile:
+  filetypes.library:
     namespace: http://www.webhare.net/xmlns/publisher/libraryfile
-    tid: publisher:filetypes.library
     icon: tollium:files/application_x-webhare-library
     metaType: upload
     extension: .whlib
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.markdownfile:
+  filetypes.markdown:
     namespace: http://www.webhare.net/xmlns/publisher/markdownfile
-    tid: publisher:filetypes.markdownfile
     icon: tollium:files/text_plain
     metaType: page
     workflow: true
@@ -106,23 +95,20 @@ types:
       setObjectEditor:
         separateApp: true
         name: publisher:editmarkdown
-  filetypes.mp3audiofile:
+  filetypes.mp3audio:
     namespace: http://www.webhare.net/xmlns/publisher/mp3audiofile
-    tid: publisher:filetypes.mp3audiofile
     icon: tollium:files/audio
     metaType: upload
     requiresContent: true
   filetypes.msworddownload:
     namespace: http://www.webhare.net/xmlns/publisher/msworddownload
-    tid: publisher:filetypes.msworddownload
     icon: tollium:files/application_msword
     metaType: upload
     requiresContent: true
     extension: .doc
     searchContentProvider: publisher:contentblob
-  filetypes.mswordfile:
+  filetypes.msword:
     namespace: http://www.webhare.net/xmlns/publisher/mswordfile
-    tid: publisher:filetypes.msword
     icon: tollium:files/application_msword
     metaType: upload
     requiresContent: true
@@ -133,41 +119,36 @@ types:
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile
-  filetypes.multimediafile:
+  filetypes.multimedia:
     namespace: http://www.webhare.net/xmlns/publisher/multimediafile
-    tid: publisher:filetypes.multimedia
     comment: The multimedia file type uses the 'video' icon as we don't have a
       general 'multimedia' icon
     icon: tollium:files/video
     metaType: upload
     requiresContent: true
-  filetypes.pdffile:
+  filetypes.pdf:
     namespace: http://www.webhare.net/xmlns/publisher/pdffile
-    tid: publisher:filetypes.pdf
     icon: tollium:files/application_pdf
     metaType: upload
     requiresContent: true
     extension: .pdf
     browserPreview: /.publisher/backend/preview/direct.shtml
     searchContentProvider: publisher:contentblob
-  filetypes.plaintextfile:
+  filetypes.plaintext:
     namespace: http://www.webhare.net/xmlns/publisher/plaintextfile
-    tid: publisher:filetypes.plaintext
     icon: tollium:files/text_plain
     metaType: upload
     extension: .txt
     searchContentProvider: publisher:contentblob
-  filetypes.profilefile:
+  filetypes.profile:
     namespace: http://www.webhare.net/xmlns/publisher/profilefile
-    tid: publisher:filetypes.profile
     icon: tollium:files/application_x-webhare-profile
     metaType: upload
     extension: .prl
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.richdocumentfile:
+  filetypes.richdocument:
     namespace: http://www.webhare.net/xmlns/publisher/richdocumentfile
-    tid: publisher:filetypes.richdocumentfile
     icon: tollium:files/application_x-webhare-richdocument
     metaType: page
     workflow: true
@@ -182,34 +163,30 @@ types:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
       setObjectEditor:
         name: publisher:editdocument
-  filetypes.semidynamicfile:
+  filetypes.semidynamic:
     namespace: http://www.webhare.net/xmlns/publisher/semidynamicfile
-    tid: publisher:filetypes.semidynamic
     icon: tollium:files/application_x-webhare-semidynamic
     metaType: upload
     extension: .html
     isAcceptableIndex: true
     useWebDesign: true
-  filetypes.shtmlfile:
+  filetypes.shtml:
     namespace: http://www.webhare.net/xmlns/publisher/shtmlfile
-    tid: publisher:filetypes.shtml
     icon: tollium:files/application_x-webhare-whscript
     metaType: upload
     extension: .shtml
     isAcceptableIndex: true
     searchContentProvider: publisher:contentblob
-  filetypes.shtmlwithdesignfile:
+  filetypes.shtmlwithdesign:
     namespace: http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile
-    tid: publisher:filetypes.shtmlwithdesign
     icon: tollium:files/application_x-webhare-whscript
     metaType: upload
     extension: .shtml
     isAcceptableIndex: true
     useWebDesign: true
     searchContentProvider: publisher:contentblob
-  filetypes.tagfile:
+  filetypes.tag:
     namespace: http://www.webhare.net/xmlns/publisher/tagfile
-    tid: publisher:filetypes.tagfile
     icon: tollium:files/application_x-webhare-tag
     metaType: dataFile
     members:
@@ -217,79 +194,68 @@ types:
         type: whfsRefArray
   filetypes.tagrepository:
     namespace: http://www.webhare.net/xmlns/publisher/tagrepository
-    tid: publisher:filetypes.tagrepository
     icon: tollium:folders/repository
     metaType: dataFile
     members:
       tags:
         type: whfsRefArray
-  filetypes.targzfile:
+  filetypes.targz:
     namespace: http://www.webhare.net/xmlns/publisher/targzfile
-    tid: publisher:filetypes.targz
     icon: tollium:files/application_x-gzip
     metaType: upload
     requiresContent: true
     extension: .tar.gz
-  filetypes.templatefile:
+  filetypes.template:
     namespace: http://www.webhare.net/xmlns/publisher/templatefile
-    tid: publisher:filetypes.template
     icon: tollium:files/application_x-webhare-template
     metaType: upload
     extension: .tpl
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.unknownfile:
+  filetypes.unknown:
     namespace: http://www.webhare.net/xmlns/publisher/unknownfile
-    tid: publisher:terminology.types.unknownfile
     icon: tollium:files/application_x-webhare-unknown
     metaType: upload
     requiresContent: true
-  filetypes.webharearchivefile:
+  filetypes.webharearchive:
     namespace: http://www.webhare.net/xmlns/publisher/webharearchivefile
-    tid: publisher:filetypes.webharearchive
     icon: tollium:files/application_wharchive
     metaType: upload
     requiresContent: true
     extension: .wharchive
     isPublishable: false
-  filetypes.wittyfile:
+  filetypes.witty:
     namespace: http://www.webhare.net/xmlns/publisher/wittyfile
-    tid: publisher:filetypes.witty
     icon: tollium:files/application_x-webhare-witty
     metaType: upload
     extension: .witty
     isPublishable: false
     searchContentProvider: publisher:contentblob
-  filetypes.xmlfile:
+  filetypes.xml:
     namespace: http://www.webhare.net/xmlns/publisher/xmlfile
-    tid: publisher:filetypes.xml
     icon: tollium:files/text_xml
     metaType: upload
     extension: .xml
     searchContentProvider: publisher:contentblob
-  filetypes.zipfile:
+  filetypes.zip:
     namespace: http://www.webhare.net/xmlns/publisher/zipfile
-    tid: publisher:filetypes.zip
     icon: tollium:files/application_zip
     metaType: upload
     requiresContent: true
     extension: .zip
 
   ######## Folder types
-  foldertypes.normalfolder:
+  foldertypes.default:
     namespace: http://www.webhare.net/xmlns/publisher/normalfolder
-    tid: publisher:terminology.types.normalfolder
     comment: Define the special '0' types
     icon: tollium:folders/normal
     metaType: folder
-  foldertypes.foreignfolder:
+  foldertypes.extern:
     namespace: http://www.webhare.net/xmlns/publisher/foreignfolder
-    tid: publisher:foldertypes.foreign
     icon: tollium:folders/locked
     metaType: folder
   foldertypes.photoalbum:
     namespace: http://www.webhare.net/xmlns/publisher/photoalbum
-    tid: publisher:foldertypes.photoalbum
     icon: tollium:folders/photoalbum
     metaType: folder
     members:
@@ -314,160 +280,16 @@ types:
       editProps:
         - type: foldertypes.photoalbum
           tabsExtension: mod::publisher/data/publisher.siteprl.xml#photoalbum_settings
-  foldertypes.systemfolder:
+  foldertypes.system:
     namespace: http://www.webhare.net/xmlns/publisher/systemfolder
-    tid: publisher:foldertypes.system
     icon: tollium:folders/system
     metaType: folder
-  foldertypes.tagfolder:
+  foldertypes.tags:
     namespace: http://www.webhare.net/xmlns/publisher/tagfolder
-    tid: publisher:foldertypes.tagfolder
     icon: tollium:folders/tag
     metaType: folder
-  foldertypes.keystorefolder:
-    namespace: http://www.webhare.net/xmlns/system/keystorefolder
-    comment: Key store
-    metaType: folder
-    members:
-      warnexpirydays:
-        type: integer
 
-  ## Internal filetypes
-  wrd.instancefile:
-    namespace: http://www.webhare.net/xmlns/wrd/instancefile
-    tid: publisher:filetypes.wrdinstancefile
-    metaType: dataFile
-    members:
-      instance:
-        type: instance
-
-  ## Instance data
-  publisher.dbpublication:
-    namespace: http://www.webhare.net/xmlns/publisher/dbpublication
-    comment: DBfile publishing
-    workflow: false
-    clone: never
-    members:
-      dbfiles:
-        type: array
-        members:
-          filename:
-            type: string
-          data:
-            type: file
-  publisher.draftmetadata:
-    namespace: http://www.webhare.net/xmlns/publisher/draftmetadata
-    clone: never # We manually manage this type when drafting
-    workflow: false
-    members:
-      #parent: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway
-      #  type: whfsRef
-      name:
-        type: string
-      #flags: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway
-      #  type: integer
-  publisher.errorinfo:
-    namespace: http://www.webhare.net/xmlns/publisher/errorinfo
-    workflow: false
-    clone: never
-    members:
-      messages:
-        type: array
-        members:
-          type:
-            type: integer
-          line:
-            type: integer
-          col:
-            type: integer
-          file:
-            type: whfsRef
-          filename:
-            type: string
-          code:
-            type: integer
-          param1:
-            type: string
-          param2:
-            type: string
-      trace:
-        type: array
-        members:
-          line:
-            type: integer
-          col:
-            type: integer
-          file:
-            type: whfsRef
-          filename:
-            type: string
-          func:
-            type: string
-  publisher.foldersync:
-    namespace: http://www.webhare.net/xmlns/publisher/foldersync
-    comment: Folder sync
-    workflow: false
-    clone: never
-    members:
-      peers:
-        type: array
-        members:
-          peer:
-            type: string
-          remotepath:
-            type: string
-  publisher.lifecycle:
-    namespace: http://www.webhare.net/xmlns/publisher/lifecycle
-    comment: Lifecycle management. Designed to be copied/synced so we can't accidentally drop lifetime info after a WHFS sync.
-    workflow: false
-    members:
-      deletion:
-        type: instant
-        comment: When to delete this file. PERMANENT!
-  publisher.seosettings:
-    namespace: http://www.webhare.net/xmlns/publisher/seosettings
-    workflow: true # We need this to be able to set seoTitle
-    members:
-      noindex:
-        type: boolean
-        comment: Set 'noindex', preventing search engines from indexing this page or folder, recursively
-      nofollow:
-        type: boolean
-        comment: Set 'nofollow', preventing search engines from following links on this page or folder, recursively
-      noarchive:
-        type: boolean
-        comment: Set 'noarchive', preventing search engines from storing a cached copy of this page or folder
-      customrobots:
-        type: string
-        comment: Custom robots meta tag content
-      canonical:
-        type: whfsRef
-        comment: Points to the canonical URL of this page
-      comments:
-        type: string
-        comment: Comments for editors/administrators to explain the SEO choices, not shown on the site
-      seotitle:
-        type: string
-        comment: Override the <title> tag to use in the HTML head
-  publisher.sharedblocks:
-    namespace: http://www.webhare.net/xmlns/publisher/sharedblocks
-    comment: Sharedblocks
-    workflow: false
-    members:
-      overridetype:
-        type: integer
-        comment: 0 = inherit from parent, 1 = don't show any blocks, 2 = set specific
-          blocks
-      overridefromparent:
-        type: boolean
-        comment: Old, but remaining for a little while to be able to make convert
-          scripts if needed
-      blocks:
-        type: array
-        members:
-          block:
-            type: whfsRef
-  publisher.sitesettings:
+  web.sitesettings:
     namespace: http://www.webhare.net/xmlns/publisher/sitesettings
     workflow: false
     members:
@@ -477,57 +299,10 @@ types:
         type: stringArray
       comments:
         type: string
+        tid: ~comments
       productionurl:
         type: string
-  publisher.taginfo:
-    namespace: http://www.webhare.net/xmlns/publisher/taginfo
-    comment: "Tag meta for files:"
-    workflow: false
-    members:
-      tags:
-        type: whfsRefArray
   # FIXME obsolete type:  http://www.webhare.net/xmlns/publisher/version - redundant with fs_history table
-
-  publisher.savedurlhistory:
-    namespace: http://www.webhare.net/xmlns/publisher/savedurlhistory
-    comment: URLHistory save - saves URL history and other related data for recovery
-      before migrating between servers
-    workflow: false
-    members:
-      creationdate:
-        type: instant
-      modificationdate:
-        type: instant
-      firstpublishdate:
-        type: instant
-      contentmodificationdate:
-        type: instant
-      originalid:
-        type: integer
-      modifiedby:
-        type: integer
-      path:
-        type: string
-      targetpath:
-        type: string
-      objecturl:
-        type: string
-      urlhistory:
-        type: array
-        members:
-          creationdate:
-            type: instant
-          url:
-            type: string
-  publisher.previewinfo:
-    namespace: http://www.webhare.net/xmlns/publisher/previewinfo
-    workflow: false
-    clone: never
-    members:
-      previewmodificationdate:
-        type: instant
-      previewimage:
-        type: file
 
 apply:
   - to: all

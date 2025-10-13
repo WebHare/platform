@@ -16,7 +16,7 @@ ASYNC MACRO TestPlainTextDocs() {
 
   OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
       [ name :=   "plain.txt"
-      , typens := "platform:filetypes.plaintextfile"
+      , typens := "platform:filetypes.plaintext"
       , title := "My text document"
       , publish := TRUE
       , data := StringToBlob("Ik heb tekst")

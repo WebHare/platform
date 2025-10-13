@@ -414,8 +414,8 @@ PUBLIC INTEGER ARRAY FUNCTION GetCopyableInstanceTypes(INTEGER forobject)
 
 PUBLIC RECORD FUNCTION GetNamespacesForType(INTEGER find_id, BOOLEAN isfolder) {
   IF(find_id=0)
-    RETURN isfolder ? [ namespace := "http://www.webhare.net/xmlns/publisher/normalfolder", scopedtype := "platform:foldertypes.normalfolder" ]
-                    : [ namespace := "http://www.webhare.net/xmlns/publisher/unknownfile", scopedtype := "platform:filetypes.unknownfile" ];
+    RETURN isfolder ? [ namespace := "http://www.webhare.net/xmlns/publisher/normalfolder", scopedtype := "platform:foldertypes.default" ]
+                    : [ namespace := "http://www.webhare.net/xmlns/publisher/unknownfile", scopedtype := "platform:filetypes.unknown" ];
 
   RETURN SELECT namespace, scopedtype FROM system.fs_types WHERE id = find_id;
 }

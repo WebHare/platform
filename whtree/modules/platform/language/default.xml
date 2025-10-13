@@ -35,4 +35,143 @@
       <text tid="api-description">Has access to the WebHare Platform API</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="siteprofiles" limitlanguages="en nl">   <!-- siteprofiles -->
+    <textgroup gid="types">   <!-- siteprofiles.types -->
+      <textgroup gid="filetypes">   <!-- siteprofiles.types.filetypes -->
+        <textgroup gid="archive">   <!-- siteprofiles.types.filetypes.archive -->
+          <text tid="archive">Archive</text>
+        </textgroup>
+        <textgroup gid="contentlink">   <!-- siteprofiles.types.filetypes.contentlink -->
+          <text tid="contentlink">Content Link</text>
+        </textgroup>
+        <textgroup gid="contentlisting">   <!-- siteprofiles.types.filetypes.contentlisting -->
+          <text tid="contentlisting">Content Listing</text>
+        </textgroup>
+        <textgroup gid="css">   <!-- siteprofiles.types.filetypes.css -->
+          <text tid="css">Style Sheet File</text>
+        </textgroup>
+        <textgroup gid="dynamicfoldercontents">   <!-- siteprofiles.types.filetypes.dynamicfoldercontents -->
+          <text tid="dynamicfoldercontents">Dynamic folder contents</text>
+        </textgroup>
+        <textgroup gid="externallink">   <!-- siteprofiles.types.filetypes.externallink -->
+          <text tid="externallink">External Link</text>
+        </textgroup>
+        <textgroup gid="html">   <!-- siteprofiles.types.filetypes.html -->
+          <text tid="html">HTML File</text>
+        </textgroup>
+        <textgroup gid="image">   <!-- siteprofiles.types.filetypes.image -->
+          <text tid="image">Image File</text>
+        </textgroup>
+        <textgroup gid="internallink">   <!-- siteprofiles.types.filetypes.internallink -->
+          <text tid="internallink">Internal Link</text>
+        </textgroup>
+        <textgroup gid="javascript">   <!-- siteprofiles.types.filetypes.javascript -->
+          <text tid="javascript">JavaScript File</text>
+        </textgroup>
+        <textgroup gid="library">   <!-- siteprofiles.types.filetypes.library -->
+          <text tid="library">Library</text>
+        </textgroup>
+        <textgroup gid="markdown">   <!-- siteprofiles.types.filetypes.markdown -->
+          <text tid="data">Document</text>
+          <text tid="markdown">Markdown document</text>
+        </textgroup>
+        <textgroup gid="mp3audio">   <!-- siteprofiles.types.filetypes.mp3audio -->
+          <text tid="mp3audio">MP3 Audio File</text>
+        </textgroup>
+        <textgroup gid="msword">   <!-- siteprofiles.types.filetypes.msword -->
+          <text tid="msword">Word Document</text>
+        </textgroup>
+        <textgroup gid="msworddownload">   <!-- siteprofiles.types.filetypes.msworddownload -->
+          <text tid="msworddownload">Downloadable Word Document</text>
+        </textgroup>
+        <textgroup gid="multimedia">   <!-- siteprofiles.types.filetypes.multimedia -->
+          <text tid="multimedia">Multimedia File</text>
+        </textgroup>
+        <textgroup gid="pdf">   <!-- siteprofiles.types.filetypes.pdf -->
+          <text tid="pdf">PDF File</text>
+        </textgroup>
+        <textgroup gid="plaintext">   <!-- siteprofiles.types.filetypes.plaintext -->
+          <text tid="plaintext">Plain Text File</text>
+        </textgroup>
+        <textgroup gid="profile">   <!-- siteprofiles.types.filetypes.profile -->
+          <text tid="profile">Profile</text>
+        </textgroup>
+        <textgroup gid="richdocument">   <!-- siteprofiles.types.filetypes.richdocument -->
+          <text tid="data">Document</text>
+          <text tid="original">Original MS Word file</text>
+          <text tid="richdocument">Rich text document</text>
+        </textgroup>
+        <textgroup gid="semidynamic">   <!-- siteprofiles.types.filetypes.semidynamic -->
+          <text tid="semidynamic">Semi-dynamic Content File</text>
+        </textgroup>
+        <textgroup gid="shtml">   <!-- siteprofiles.types.filetypes.shtml -->
+          <text tid="shtml">Dynamic Server Page</text>
+        </textgroup>
+        <textgroup gid="shtmlwithdesign">   <!-- siteprofiles.types.filetypes.shtmlwithdesign -->
+          <text tid="shtmlwithdesign">Dynamic Server Page in design</text>
+        </textgroup>
+        <textgroup gid="tag">   <!-- siteprofiles.types.filetypes.tag -->
+          <text tid="belongstorepos">Belongs to repositories</text>
+          <text tid="tag">Tag file</text>
+        </textgroup>
+        <textgroup gid="tagrepository">   <!-- siteprofiles.types.filetypes.tagrepository -->
+          <text tid="tagrepository">Tag repository</text>
+          <text tid="tags">Tags</text>
+        </textgroup>
+        <textgroup gid="targz">   <!-- siteprofiles.types.filetypes.targz -->
+          <text tid="targz">Tar.gz Archive</text>
+        </textgroup>
+        <textgroup gid="template">   <!-- siteprofiles.types.filetypes.template -->
+          <text tid="template">Template</text>
+        </textgroup>
+        <textgroup gid="unknown">   <!-- siteprofiles.types.filetypes.unknown -->
+          <text tid="unknown">Unknown File Type</text>
+        </textgroup>
+        <textgroup gid="webharearchive">   <!-- siteprofiles.types.filetypes.webharearchive -->
+          <text tid="webharearchive">WebHare archive</text>
+        </textgroup>
+        <textgroup gid="witty">   <!-- siteprofiles.types.filetypes.witty -->
+          <text tid="witty">Witty Template</text>
+        </textgroup>
+        <textgroup gid="xml">   <!-- siteprofiles.types.filetypes.xml -->
+          <text tid="xml">XML File</text>
+        </textgroup>
+        <textgroup gid="zip">   <!-- siteprofiles.types.filetypes.zip -->
+          <text tid="zip">Zip Archive</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="foldertypes">   <!-- siteprofiles.types.foldertypes -->
+        <textgroup gid="default">   <!-- siteprofiles.types.foldertypes.default -->
+          <text tid="default">Normal folder</text>
+        </textgroup>
+        <textgroup gid="extern">   <!-- siteprofiles.types.foldertypes.extern -->
+          <text tid="extern">External folder (allows placing sites-in-sites)</text>
+        </textgroup>
+        <textgroup gid="photoalbum">   <!-- siteprofiles.types.foldertypes.photoalbum -->
+          <text tid="columns">columns</text>
+          <text tid="photoalbum">Photo gallery</text>
+          <text tid="pictureheight">Picture maximum height</text>
+          <text tid="picturewidth">Picture maximum width</text>
+          <text tid="publishoriginals">Publish the original uncompressed pictures as well</text>
+          <text tid="rows">rows</text>
+          <text tid="thumbnailheight">Thumbnail maximum height</text>
+          <text tid="thumbnailwidth">Thumbnail maximum width</text>
+        </textgroup>
+        <textgroup gid="system">   <!-- siteprofiles.types.foldertypes.system -->
+          <text tid="system">System folder (hidden, can be used to store content)</text>
+        </textgroup>
+        <textgroup gid="tags">   <!-- siteprofiles.types.foldertypes.tags -->
+          <text tid="tags">Tag folder (hidden, used to store tags)</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="web">   <!-- siteprofiles.types.web -->
+        <textgroup gid="sitesettings">   <!-- siteprofiles.types.web.sitesettings -->
+          <text tid="productionurl">Production URL</text>
+          <text tid="sitedesign">Site design</text>
+          <text tid="sitesettings">Site settings</text>
+          <text tid="webfeatures">Web features</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
 </language>
