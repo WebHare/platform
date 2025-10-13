@@ -13,13 +13,14 @@
           <line layout="left">
             <text name="enterpasswordforauthorization" title="" valuetid=".pleaseentercurrentpassword" wordwrap="true" />
           </line>
-          <textedit name="password" width="1pr" defaultbutton="btn_next" password="true" required="true" tid="~password" />
+          <textedit name="username" width="1pr" required="true" tid="~username" autocomplete="username" enabled="false"/>
+          <textedit name="password" width="1pr" defaultbutton="btn_next" password="true" required="true" tid="~password" autocomplete="current-password"/>
         </tab>
         <tab name="tab_secondfactor" title="">
           <line layout="left">
             <text name="entersecondfactorforauthorization" title="" valuetid=".pleaseentersecondfactor" wordwrap="true" />
           </line>
-          <textedit name="totpcode" width="40x" defaultbutton="btn_next" required="true" />
+          <textedit name="totpcode" width="40x" defaultbutton="btn_next" required="true" autocomplete="one-time-code"/>
         </tab>
       </tabs>
     </body>

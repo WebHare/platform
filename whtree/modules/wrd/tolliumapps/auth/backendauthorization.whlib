@@ -32,6 +32,8 @@ PUBLIC STATIC OBJECTTYPE BackendAuthorizationDialog EXTEND TolliumScreenBase
     IF (this->options.allowemptypassword AND (IsDefaultValue(settings.passwords) OR settings.passwords[END-1].passwordhash IN [ "", "*" ]))
       this->options.askpassword := FALSE;
 
+    ^username->value := this->contexts->user->login;
+
     IF (NOT this->options.askpassword)
     {
       ^password->required := FALSE;

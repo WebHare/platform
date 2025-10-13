@@ -138,12 +138,6 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
       ariaLabel: this.title
     });
 
-    // LastPass support, needs name="login/user/uname..." to detect as login field
-    if (this.autocomplete.includes("username"))
-      this.inputnode.name = "username";
-    else if (this.autocomplete.includes("current-password"))
-      this.inputnode.name = "password";
-
     // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
     if (this.maxlength > 0) {
       this.inputnode.maxLength = this.maxlength;
@@ -177,6 +171,14 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
 
     if (this.hiderequiredifdisabled)
       this.node.classList.add("textedit--hiderequiredifdisabled");
+
+    // LastPass support, needs name="login/user/uname..." to detect as login field
+    if (this.autocomplete.includes("username"))
+      this.inputnode.name = "username";
+    else if (this.autocomplete.includes("current-password"))
+      this.inputnode.name = "password";
+    else if (!this.autocomplete.includes("one-time-code"))
+      this.inputnode.dataset.opIgnore = ""; //tells 1password to not offer suggestions to plain field. it'll otherwise try to put your full name into file "name:" fields
 
     this.setRequired(data.required);
     this.setEnabled(data.enabled);

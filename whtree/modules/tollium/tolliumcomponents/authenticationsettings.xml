@@ -104,7 +104,7 @@
               <button action="copytotpsecret" icon="tollium:actions/copy" title="" />
             </textedit>
           </line>
-          <textedit name="entercode" maxlength="9" required="true" />
+          <textedit name="entercode" maxlength="9" required="true" autocomplete="one-time-code"/>
         </page>
         <page isfinish="true">
           <heading tid=".totpbackupcodes" />
