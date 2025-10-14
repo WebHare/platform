@@ -47,6 +47,7 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
 MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRAY addworkflowtypes, BOOLEAN isfinal) {
   RECORD ARRAY instances := ListInstances(instancesource);
   INTEGER ARRAY copiedtypes;
+
   FOREVERY(RECORD inst FROM instances) {
     IF(inst.workflow OR inst.fstype IN addworkflowtypes) {
       INSERT destid INTO copiedtypes AT END;
@@ -56,7 +57,17 @@ MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRA
     }
   }
 
-  //FIXME create explicit empty instances as needed
+  //Create explicit empty instances as needed
+  IF(NOT isfinal)
+    FOREVERY(INTEGER typ FROM addworkflowtypes) {
+      IF(typ NOT IN copiedtypes) {
+        RECORD typeinfo := SELECT namespace FROM system.fs_types WHERE id = typ;
+        IF(RecordExists(typeinfo)) {
+          OBJECT typeobj := OpenWHFSType(typeinfo.namespace);
+          typeobj->SetInstanceData(destid, CELL[], [ ifreadonly := "update", isvisibleedit := FALSE, workflow := TRUE ]);
+        }
+      }
+    }
 }
 
 RECORD ARRAY FUNCTION GetDraftableInstanceTypes(INTEGER ARRAY forobjects) {

@@ -116,13 +116,38 @@ ASYNC MACRO TestMetaTab()
   TestEq(TRUE, TT(":Name")->enabled);
   TestEq("testmetatab.rtd", TT(":Name")->value);
   TestEq("My document", TT(":Title")->value);
-  TT(":Name")->value := "testmetatab2.rtd";
-  TT(":Title")->value := "My updated document";
+  TT(":Name")->value := "testmetatab1.rtd";
+  TT(":Title")->value := "My autosaved document";
+  RTE()->TolliumWeb_FormUpdate('<p class="normal">autosaved text</p>');
+  RTE()->__debug_simulatedirty();
 
   AWAIT TestMetaFields(FALSE, FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
+
+  // Kill the RTD
+  topscreen->tolliumresult := "escape";
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
+
+  //Reopen it
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  //Verify the autosave is visible
+  TestEq("testmetatab1.rtd", TT(":Name")->value);
+  TestEq("My autosaved document", TT(":Title")->value);
+  AWAIT TestMetaFields(FALSE, FALSE);
+  TestEQLike("*autosaved text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
+
+  AWAIT ExpectAndAnswerMessageBox("yes", DEFAULT MACRO PTR , [ messagemask := "You have unsaved changes*" ]); //confirm restore
+  TestEq("testmetatab1.rtd", TT(":Name")->value);
+  TestEq("My autosaved document", TT(":Title")->value);
+
+  AWAIT TestMetaFields(FALSE, FALSE);
+
+  TT(":Name")->value := "testmetatab2.rtd";
+  TT(":Title")->value := "My updated document";
+  TestEQLike("*autosaved text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
 
   TTClick(":Save");
 
@@ -130,7 +155,7 @@ ASYNC MACRO TestMetaTab()
   TestEq(1,Length(autosaves));
 
   INTEGER currentdraft := autosaves[0].id;
-  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+  TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
   TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "", data := DEFAULT BLOB ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
@@ -141,8 +166,8 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
     TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
@@ -152,8 +177,8 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 47 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
     TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
@@ -172,7 +197,7 @@ ASYNC MACRO TestMetaTab()
   autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
   TestEq(RECORD[], autosaves);
 
-  TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   //Make yet ANOTHER change
   AWAIT TestMetaFields(FALSE, FALSE);
@@ -181,8 +206,8 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 47 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+    TestEqMembers([ number_field := 49 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
@@ -194,7 +219,7 @@ ASYNC MACRO TestMetaTab()
   AWAIT TestMetaFields(FALSE, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 50 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()
