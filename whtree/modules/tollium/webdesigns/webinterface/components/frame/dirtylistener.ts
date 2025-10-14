@@ -31,9 +31,9 @@ export default class DirtyListener extends ComponentBase {
   manualdirty: boolean;
   checkcomponents = new Map<string, boolean>;
 
-  // The dirty listener is dirty if it's manually set to dirty or any of its components is dirty
+  // The dirty listener is dirty if it's enabled and  manually set to dirty or any of its components is dirty
   get dirty() {
-    return this.manualdirty || [...this.checkcomponents.values()].some(_ => _);
+    return this.enabled && (this.manualdirty || [...this.checkcomponents.values()].some(_ => _));
   }
 
   /****************************************************************************************************************************
@@ -53,6 +53,7 @@ export default class DirtyListener extends ComponentBase {
     // Register the dirty listener with the application if it can make the application dirty
     if (data.makeappdirty)
       this.owner.hostapp.registerDirtyListener(this);
+    this.setEnabled(data.enabled);
   }
 
   /****************************************************************************************************************************
@@ -108,6 +109,13 @@ export default class DirtyListener extends ComponentBase {
   /****************************************************************************************************************************
    * Property getters & setters
    */
+
+  setEnabled(enabled: boolean) {
+    super.setEnabled(enabled);
+
+    // Maybe update the dirty state of the application (if the dirty listener is disabled, it's no longer dirty)
+    this.owner.hostapp.checkDirtyState();
+  }
 
   /****************************************************************************************************************************
   * Communications

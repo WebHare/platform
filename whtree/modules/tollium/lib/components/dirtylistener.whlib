@@ -258,9 +258,17 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   // Property getters/setters
   //
 
+  UPDATE MACRO SetEnabled(BOOLEAN enabled)
+  {
+    BOOLEAN nowdirty := this->dirty;
+    TolliumSpecialComponent::SetEnabled(enabled);
+    IF (this->dirty != nowdirty AND this->ondirty != DEFAULT FUNCTION PTR)
+      this->ondirty();
+  }
+
   BOOLEAN FUNCTION GetDirty()
   {
-    RETURN this->manualdirty OR RecordExists(SELECT FROM this->components WHERE isdirty);
+    RETURN this->enabled AND (this->manualdirty OR RecordExists(SELECT FROM this->components WHERE isdirty));
   }
 
   MACRO SetMakeAppDirty(BOOLEAN makeappdirty)
