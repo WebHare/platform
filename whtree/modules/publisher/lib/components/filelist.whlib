@@ -269,6 +269,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     this->resultslimitedpanel->visible := FALSE;
     this->foldersettings := foldersettings;
 
+    STRING ARRAY eventmasks;
     STRING filterscreen := foldersettings.filterscreen;
     IF(filterscreen != "")
     {
@@ -287,6 +288,8 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->filterpanel->visible := TRUE;
       cachedscreen->ResetFilter();
       this->RunTheFilter(FALSE, FALSE);
+      // _SetFilterResult sets the folderlistener event masks, don't lose them
+      eventmasks := this->folderlistener->masks;
     }
     ELSE
     {
@@ -295,9 +298,8 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
       this->folderfilter->contents := DEFAULT OBJECT;
     }
 
-    STRING ARRAY eventmasks;
     IF (folderid >= 0)
-      eventmasks := [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
+      eventmasks := eventmasks CONCAT [ "system:whfs.folder." || folderid, "publisher:publish.folder." || folderid ];
 
     OBJECT cachedlisthandler := this->GetCustomContentsHandler(folderid);
     IF (ObjectExists(cachedlisthandler))
