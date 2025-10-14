@@ -171,8 +171,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
           , files :=    rec.files
           ];
 
-      INSERT CELL trace := (SELECT AS STRING ARRAY `${filename}(${line}:${col})` FROM GetStackTrace()) INTO data ;
-
       IF (rec.type = "pub")
       {
         BroadcastEvent("publisher:publish.folder." || rec.folder, data);
