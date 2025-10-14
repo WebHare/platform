@@ -138,7 +138,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO SetupEditBaseForExistingObject(INTEGER objectid, RECORD options) {
-    this->__SetupEditBase(objectid, 01, FALSE, -1, options);
+    this->__SetupEditBase(objectid, 0, FALSE, -1, options);
   }
 
   MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type) {
@@ -207,8 +207,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->UpdatePinned();
   }
 
-  MACRO LoadBaseData(OBJECT sourceobject)
-  {
+  MACRO LoadBaseData(OBJECT sourceobject) {
     this->recyclebininfo := IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
     ^pinobject->value := sourceobject->ispinned AND NOT this->isnew;
 
@@ -226,8 +225,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     }
   }
 
-  MACRO LoadMetadata(OBJECT sourceobject)
-  {
+  MACRO LoadMetadata(OBJECT sourceobject) {
     FOREVERY(RECORD controller FROM this->metacontrollers)
       controller.fsinstance->value := sourceobject->GetInstanceData(controller.type->namespace);
   }

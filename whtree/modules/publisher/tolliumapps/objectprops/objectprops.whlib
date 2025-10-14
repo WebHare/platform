@@ -223,13 +223,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   // Constructor & init
   //
 
-  MACRO NEW()
-  {
+  MACRO NEW() {
     this->contexts->objectpropsapi := NEW ObjectPropsAPI(this);
   }
 
-  MACRO ReadUserSettings()
-  {
+  MACRO ReadUserSettings() {
     this->autotitles := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
     this->showdeveloperoptions := this->tolliumuser->HasRight("system:supervisor");
     this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
@@ -252,8 +250,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->FillBaseFields(); //name,title,description
 
     BOOLEAN canschedule := RecordExists(this->parentsite) AND this->parentsite.outputweb != 0; // site is published _some_where
-    IF (this->isfolder)
-    {
+    IF (this->isfolder) {
       ^publish->visible := FALSE;
       ^makeindex->visible := FALSE;
       ^tasksettings->visible := FALSE;
@@ -262,18 +259,14 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     //ADDME: Set using site profile?
     ^keywords->visible := NOT this->isfolder;
 
-    IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
-    {
+    IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ]) {
       this->CalculateNameForNewObject();
 
       this->frame->title := this->isfolder ? this->GetTid(".newfolder-title")
                                            : this->GetTid(".newfile-title");
 
-      IF (NOT this->isfolder)
-      {
-        IF (this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/internallink"
-            OR this->curtype.namespace = "http://www.webhare.net/xmlns/publisher/contentlink")
-        {
+      IF (NOT this->isfolder) {
+        IF (this->curtype.id IN [ whconstant_whfstype_internallink, whconstant_whfstype_contentlink]) {
           ^path->folder := this->parentfolder->id;
         }
 
@@ -293,8 +286,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           ^makeindex->value := TRUE;
       }
     }
-    ELSE IF (this->startdata.why = "edit")
-    {
+    ELSE IF (this->startdata.why = "edit") {
       ^pinobject->value := this->sourceitem->ispinned;
 
       IF (RecordExists(this->recyclebininfo))
@@ -313,29 +305,23 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
                                : this->isfolder ? this->GetTid(".editfolder-title", this->sourceitem->name)
                                                 : this->GetTid(".editfile-title",   this->sourceitem->name);
 
-    }
-    ELSE
-    {
+    } ELSE {
       ABORT("Unknown 'why'");
     }
 
     // Initialization for edited/duplicated files
-    IF (NOT this->isfolder AND this->startdata.why IN [ "duplicate", "edit" ])
-    {
+    IF (NOT this->isfolder AND this->startdata.why IN [ "duplicate", "edit" ]) {
       RECORD inittype := this->curtype;
 
       // Links cannot be versioned, so use the data of the sourceitem
-      IF (inittype.id = 18 OR inittype.id = 19) //http://www.webhare.net/xmlns/publisher/externallink OR http://www.webhare.net/xmlns/publisher/internallink
-      {
-        IF (inittype.id = 18)
+      IF (inittype.id = whconstant_whfstype_externallink OR inittype.id = whconstant_whfstype_internallink) {
+        IF (inittype.id = whconstant_whfstype_externallink)
           ^link->value := [ externallink := this->sourceitem->externallink, internallink := 0, append := ""  ];
         ELSE
           ^link->value := [ externallink := "", internallink := this->sourceitem->filelink, append := this->sourceitem->externallink ];
         ^link->visible := TRUE;
         ^link->required := TRUE;
-      }
-      ELSE IF (inittype.id = 20) //http://www.webhare.net/xmlns/publisher/contentlink
-      {
+      } ELSE IF (inittype.id = whconstant_whfstype_contentlink) {
         ^path->value := this->sourceitem->filelink;
         ^path->visible := TRUE;
         ^path->required := TRUE;
@@ -562,8 +548,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     SetWHFSObjectLastModifiedField(^modified, this->isnew ? DEFAULT OBJECT : this->sourceitem);
   }
 
-  MACRO PrepareDialog()
-  {
+  MACRO PrepareDialog() {
     IF(this->showpinning)
     {
       ^pinobject->visible := TRUE;
@@ -597,8 +582,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
 
     // If the item is deleted or if the user has no edit rights, setup the dialog as information window
-    IF (NOT this->isnew AND (RecordExists(this->recyclebininfo) OR NOT this->CanWriteCurrentItem()))
-    {
+    IF (NOT this->isnew AND (RecordExists(this->recyclebininfo) OR NOT this->CanWriteCurrentItem())) {
       ^name->readonly := TRUE;
       IF (^title->value = "")
         ^title->visible := FALSE;
@@ -1255,8 +1239,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       @cell(integer) return.recycleoldindex Id of old index file to recycle
       @cell(integer) return.scheduleoldindex Id of old index file republish
   */
-  RECORD FUNCTION CheckMakeIndex()
-  {
+  RECORD FUNCTION CheckMakeIndex() {
     // Calculate (new) parentfolder and parentsite
     OBJECT parentfolder := this->parentfolder;
     RECORD parentsite := this->parentsite;
@@ -1360,8 +1343,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         ];
   }
 
-  INTEGER FUNCTION Submit(BOOLEAN execute_approval_request DEFAULTSTO FALSE)
-  {
+  INTEGER FUNCTION Submit() {
     // Auto-check for required fields
     OBJECT quickfeedback := this->BeginFeedback();
     IF(quickfeedback->HasFailed())
@@ -1384,8 +1366,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     // Reset scheduled message boxes from previous submits
     this->scheduledmessageboxes := DEFAULT RECORD ARRAY;
 
-    WHILE (TRUE)
-    {
+    WHILE (TRUE) {
       // Run all scheduled messageboxes
       IF (NOT this->RunScheduledMessageBoxes())
         RETURN 0;
@@ -1403,17 +1384,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
       BOOLEAN update_ordering_otherfiles;
 
-      IF (this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable")
-      {
-        IF(this->isduplicate)
-        {
+      IF (this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable") {
+        IF(this->isduplicate) {
           //NOTE: When duplicating an item, the ordering should be original + 1, and any files that follow need to be shifted down appropriately, requiring an op transaction.
           INTEGER newordering := this->sourceitem->ordering + 1;
           INSERT CELL ordering := newordering INTO metadata;
           update_ordering_otherfiles := TRUE;
-        }
-        ELSE IF(this->isnew)
-        {
+        } ELSE IF(this->isnew) {
           INTEGER newordering := ObjectExists(this->sourceitem) AND this->sourceitem->ordering != 0 ? this->sourceitem->ordering : SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = this->parentfolder->id;
           INSERT CELL ordering := newordering INTO metadata;
         }
@@ -1446,12 +1423,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       }
 
       RECORD indexactions;
-      IF(NOT this->isfolder)
-      {
+      IF(NOT this->isfolder) {
         INSERT CELL keywords := ^keywords->value INTO metadata;
 
-        IF (^publish->visible)
-        {
+        IF (^publish->visible) {
           INTEGER new_publish := this->isnew ? 0 : GetFlagsFromPublished(this->sourceitem->published);
           IF (RecordExists(this->parentsite) AND this->parentsite.outputweb != 0 AND ^publish->value)
             new_publish := ConvertToWillPublish(new_publish, FALSE, TRUE, PubPrio_DirectEdit);
@@ -1462,8 +1437,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         }
 
         indexactions := this->CheckMakeIndex();
-        IF (indexactions.status = "retry")
-        {
+        IF (indexactions.status = "retry") {
           work->Cancel();
           CONTINUE;
         }
@@ -1472,16 +1446,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       }
 
       //set pinning flag if it is changed, or set on a new object
-      IF((this->isnew = TRUE AND ^pinobject->value) OR (this->isnew = FALSE AND ^pinobject->value != this->sourceitem->ispinned))
-      {
+      IF((this->isnew = TRUE AND ^pinobject->value) OR (this->isnew = FALSE AND ^pinobject->value != this->sourceitem->ispinned)) {
         //warn if pinning is removed from an existing object
         IF (this->isnew OR ^pinobject->value)
           INSERT CELL ispinned := ^pinobject->value INTO metadata;
-        ELSE
-        {
+        ELSE {
           STRING feedback := this->QueryMessageBox("unpinconfirm");
-          IF (feedback = "")
-          {
+          IF (feedback = "") {
             work->Cancel();
             CONTINUE;
           }
@@ -1491,42 +1462,30 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       }
 
       INTEGER linktype;
-      IF(^link->visible)
-      {
-        IF (^link->value.internallink != 0)
-        {
+      IF(^link->visible) {
+        IF (^link->value.internallink != 0) {
           linktype := 19;
           INSERT CELL filelink := ^link->value.internallink INTO metadata;
           INSERT CELL externallink := ^link->value.append INTO metadata;
-        }
-        ELSE
-        {
-          linktype := 18;
+        } ELSE {
+          linktype := whconstant_whfstype_externallink;
           INSERT CELL filelink := 0 INTO metadata;
           INSERT CELL externallink := ^link->value.externallink INTO metadata;
         }
-      }
-      ELSE IF(^path->visible)
+      } ELSE IF(^path->visible)
         INSERT CELL filelink := ^path->value INTO metadata;
 
-      IF (this->isnew)
-      {
-        IF (NOT ObjectExists(this->sourceitem))
-        {
+      IF (this->isnew) {
+        IF (NOT ObjectExists(this->sourceitem)) {
           INSERT CELL type := linktype ?? this->curtype.id INTO metadata;
-        }
-        ELSE
-        {
+        } ELSE {
           INSERT CELL type := linktype ?? this->sourceitem->type INTO metadata;
-          IF(NOT this->sourceitem->isfolder)
-          {
+          IF(NOT this->sourceitem->isfolder) {
             INSERT CELL data := this->sourceitem->data INTO metadata;
             INSERT CELL dataistrusted := this->isduplicate INTO metadata;
           }
         }
-      }
-      ELSE IF (linktype != 0)
-      {
+      } ELSE IF (linktype != 0) {
         INSERT CELL type := linktype INTO metadata;
       }
 
@@ -1534,18 +1493,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       IF(NOT this->isnew)
         oldversion := SELECT * FROM system.fs_objects WHERE id = this->sourceitem->id;
 
-      IF(work->HasFailed())
-      {
+      IF(work->HasFailed()) {
         work->Finish();
         RETURN 0;
       }
 
       // All updates have been calculated, start applying them
-
-      // See if we're going to need submit approval. If so, get it before any change is made, don't
-      // want to mess with caches
-      RECORD approvalrequest_feedback;
-
       IF (update_ordering_otherfiles)
         UPDATE system.fs_objects SET ordering := ordering + 1 WHERE ordering >= metadata.ordering AND parent = this->parentfolder->id;
 
@@ -1553,31 +1506,24 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
       // Create the new file/folder, apply non-versioned metadata
       INTEGER objid := this->itemid;
-      IF(this->isnew)
-      {
-        IF(ObjectExists(this->sourceitem)) //cloning an item
-        {
+      IF(this->isnew) {
+        IF(ObjectExists(this->sourceitem)) { //cloning an item
           draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name);
           draftitem->UpdateMetadata(metadata);
-        }
-        ELSE IF (this->isfolder)
+        } ELSE IF (this->isfolder) {
           draftitem := this->parentfolder->CreateFolder(metadata);
-        ELSE
+        } ELSE {
           draftitem := this->parentfolder->CreateFile(metadata);
-
+        }
         objid := draftitem->id;
-      }
-      ELSE
-      {
-        //this->sourceitem->UpdateMetadataAndHistory(metadata, TRUE, 0); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
+      } ELSE {
         this->sourceitem->UpdateMetadata(metadata); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
       }
 
       FOREVERY(MACRO PTR onsubmit FROM this->onsubmits)
         onsubmit(work);
 
-      IF(work->HasFailed())
-      {
+      IF(work->HasFailed()) {
         work->Finish();
         RETURN 0;
       }
@@ -1606,28 +1552,22 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       this->WriteExtensionData(work, objid, 0, INTEGER[]);
       ^maintabs->SubmitExtensions(work);
 
-      IF(NOT this->isnew AND this->isfolder AND this->curtype.id = 3) //photoalbums?
-      {
+      IF(NOT this->isnew AND this->isfolder AND this->curtype.id = whconstant_whfstype_photoalbum) { //photoalbums?      {
         //ADDME: Generalize so any type cna trigger a non-template-too republish if certain metadata fields changed
         //ADDME: Trigger only if width/height/publishoriginals properties changed
         ScheduleFolderRepublish(this->sourceitem->id, /*recursive=*/FALSE, /*non_template_too=*/TRUE);
       }
 
       //Invoke any hooks, add default contents to folders, if necessary
-      IF(this->isnew)
-      {
-        IF(this->isfolder)
-        {
+      IF(this->isnew) {
+        IF(this->isfolder) {
           // Add the default index file if there is no template
           IF(NOT ObjectExists(this->sourceitem))
             AddDefaultIndexToFolder(objid);
           RunAddFolderHooks(objid);
-        }
-        ELSE
+        } ELSE
           RunAddFileHooks(objid);
-      }
-      ELSE
-      {
+      } ELSE {
         IF(this->isfolder)
           RunEditFolderHooks(oldversion, objid);
         ELSE
