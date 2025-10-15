@@ -51,10 +51,11 @@ OBJECT ASYNC FUNCTION FilteredFolders()
 
   // Create a new file and test if the filtering is reset and the file is displayed
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->value := "type:21"; //plain text
+  TTFillByTitle("types", "External Link");
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit()); // ok new file, immediately opens props
 
   TT("name")->value := "e";
+  TT(":External link[2/2]")->value := "https://www.example.com/";
 
   //ok new file dialog
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
