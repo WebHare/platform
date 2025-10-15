@@ -359,7 +359,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _gotMouseClick(event) {
-    if (!event.target || !this.isEditable())
+    if (!event.target)
       return;
 
     let button;
@@ -367,6 +367,10 @@ export default class StructuredEditor extends EditorBase {
       button = event.target;
     else
       button = event.target.closest("*[data-rte-subaction]");
+
+    // If the editor is disabled, the button is still enabled if clicked within an explicitly writable embedded component
+    if (!this.isEditable() && !this._getTopmostEmbeddedObject(button)?.classList.contains("wh-rtd-embeddedobject--writable"))
+       return;
 
     if (button) {
       event.preventDefault();
@@ -397,12 +401,24 @@ export default class StructuredEditor extends EditorBase {
   }
 
   _gotDoubleClick(event) {
-    if (!event.target || !this.isEditable())
+    const embobj = this._getTopmostEmbeddedObject(event.target);
+    // If the editor is disabled, the embedded object can still be edited if made explicitly writable
+    if (!embobj || (!this.isEditable() && !embobj.classList.contains("wh-rtd-embeddedobject--writable")))
       return;
 
-    if (event.target) {
+    if (embobj) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.launchActionPropertiesForNode(embobj, 'edit');
+      return;
+    }
+    super._gotDoubleClick(event);
+  }
+
+  _getTopmostEmbeddedObject(target) {
+    if (target) {
       // Find outer embedded object
-      let embobj = event.target.closest('.wh-rtd-embeddedobject');
+      let embobj = target.closest('.wh-rtd-embeddedobject');
       if (embobj) {
         for (; ;) {
           const parentembobj = embobj.parentNode.closest('.wh-rtd-embeddedobject');
@@ -410,14 +426,9 @@ export default class StructuredEditor extends EditorBase {
             break;
           embobj = parentembobj;
         }
-
-        event.preventDefault();
-        event.stopPropagation();
-        this.launchActionPropertiesForNode(embobj, 'edit');
-        return;
       }
+      return embobj;
     }
-    super._gotDoubleClick(event);
   }
 
   executeDefaultPropertiesAction(event) {

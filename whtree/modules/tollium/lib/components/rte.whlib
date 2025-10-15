@@ -511,6 +511,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     TolliumComponentBase::TolliumWebRender();
   }
 
+  // Updated by TolliumRTE to support editable instances
   PUBLIC STRING FUNCTION GetRenderValue() //FIXME: make private, but then the selftests need a way to capture the outbound messages to verify innerhtml
   {
     RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE() : "";
@@ -993,11 +994,17 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     IF(NOT RecordExists(instance))
       RETURN DEFAULT RECORD;
 
-    RECORD preview := this->editable->UpdateWidget(data.instanceref, instance.instance);
+    RECORD preview := this->GetUpdatedWidgetPreview(data.instanceref, instance.instance);
     RETURN
         [ type := "replace"
         , data := preview
         ];
+  }
+
+  // Updated by TolliumRTE to support editable instances
+  RECORD FUNCTION GetUpdatedWidgetPreview(STRING instanceref, RECORD instance)
+  {
+    RETURN this->editable->UpdateWidget(instanceref, instance);
   }
 
   PUBLIC UPDATE MACRO __RemoveChildComponent(OBJECT comp)
@@ -1068,6 +1075,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 <
   PUBLIC BOOLEAN __this_is_tolliumrichdocument; //our widget editor currently needs this
   PUBLIC RECORD ARRAY allowwidgettypes;
+  STRING ARRAY __editableinstanceids;
   RECORD __appliedsettings;
 
   //The current RTD settings as specified by the applytester. Only set if we're currently getting our settings from a `<rtddoc>`
@@ -1076,6 +1084,9 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
   PUBLIC PROPERTY mergefields(this->editable->mergefields, SetMergeFields);
 
   PUBLIC PROPERTY margins(this->__margins, SetMargins);
+
+  // The instanceids of widgets that are editable even if the rtd itself is readonly
+  PUBLIC PROPERTY editableinstanceids(__editableinstanceids, SetWritableWidgetInstances);
 
   MACRO NEW()
   {
@@ -1126,13 +1137,20 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
   MACRO SetMargins(STRING newmargins)
   {
     IF(newmargins NOT IN whconstant_tollium_rtd_margins)
-      THROW NEW Exception(`Invalid margins '${newmargins}, must be one of '${Detokenize(whconstant_tollium_rtd_margins, "', '")}'`);
+      THROW NEW Exception(`Invalid margins '${newmargins}', must be one of '${Detokenize(whconstant_tollium_rtd_margins, "', '")}'`);
 
     IF(this->__margins = newmargins)
       RETURN;
 
     this->__margins := newmargins;
     this->ExtUpdatedComponent();
+  }
+
+  MACRO SetWritableWidgetInstances(STRING ARRAY instanceids)
+  {
+    this->__editableinstanceids := instanceids;
+    // Generate a new render value using these instanceids
+    this->ExtUpdatedText();
   }
 
   UPDATE PUBLIC MACRO PreinitComponent()
@@ -1213,5 +1231,22 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     IF (ObjectExists(mergefields) AND mergefields NOT EXTENDSFROM MergeFieldsContext)
       THROW NEW TolliumException(this, "mergefields value should extend MergeFieldsContext");
     this->editable->mergefields := mergefields;
+  }
+
+  // Updated to support editable instances
+  UPDATE PUBLIC STRING FUNCTION GetRenderValue() //FIXME: make private, but then the selftests need a way to capture the outbound messages to verify innerhtml
+  {
+    RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE([ editableinstanceids := this->__editableinstanceids ]) : "";
+  }
+
+  // Updated to support editable instances
+  UPDATE RECORD FUNCTION GetUpdatedWidgetPreview(STRING instanceref, RECORD instance)
+  {
+    RECORD preview := RTEBase::GetUpdatedWidgetPreview(instanceref, instance);
+    RETURN CELL
+        [ ...preview
+          // Check if this widget is still editable
+        , canwrite := preview.instanceid IN this->__editableinstanceids
+        ];
   }
 >;

@@ -152,10 +152,20 @@ div.wh-rtd--margins-wide
 }
 
 //Hide edit button if the object is not editable
-  .wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--editable) .wh-rtd-editbutton
-, .wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--editable) .wh-rtd-editbutton + .wh-rtd-separator
+.wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--editable) .wh-rtd-editbutton
 {
   display:none;
+}
+//Hide nav above/under and delete buttons if the rte is not enabled
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-navabovebutton,
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-navunderbutton,
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-deletebutton
+{
+  display:none;
+}
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-editbutton
+{
+  border-left: none;
 }
 
 .wh-rtd-embeddedobject__stickyheader

@@ -481,7 +481,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   _constructorTail() {
-    if (this.options.enabled && !this.options.readonly)
+    if (this.options.enabled)
       this.editareaconnect();
 
     this.toolbar = new RTEToolbar(this, this.toolbarnode, this.toolbaropts);
@@ -1180,7 +1180,10 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   editareaconnect() {
-    this.bodydiv.contentEditable = true;
+    if (this.options.readonly)
+      this.bodydiv.tabIndex = 0; // Even if it's not editable, the body div is still focusable (e.g. for editing specific embedded components)
+    else
+      this.bodydiv.contentEditable = true;
 
     // No Firefox, we don't want your fancy inline table editing or object resizing (can only be called _after_ editarea is
     // connected, i.e. contentEditable is set)
@@ -1190,7 +1193,10 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.stateHasChanged();
   }
   editareadisconnect() {
-    this.bodydiv.contentEditable = false;
+    if (this.options.readonly)
+      this.bodydiv.tabIndex = -1;
+    else
+      this.bodydiv.contentEditable = false;
 
     this.stateHasChanged();
   }

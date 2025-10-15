@@ -460,8 +460,19 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
   }
 
   //Get the value as the RTE component expects it
-  PUBLIC STRING FUNCTION GetHTMLForClientRTE(BOOLEAN innerbody DEFAULTSTO FALSE)
+  PUBLIC STRING FUNCTION GetHTMLForClientRTE(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions(
+        [ innerbody := FALSE
+        , editableinstanceids := STRING[] // The instanceids of widget that may be edited if the rtd itself is readonly
+        ], options);
+
+    // Map the instanceids to instancerefs for the frontend editor
+    STRING ARRAY editableinstancerefs :=
+        SELECT AS STRING ARRAY instanceref
+          FROM this->org_instance_mapping
+         WHERE instanceid IN options.editableinstanceids;
+
     STRING retval := GetRTDValueWithRenderedEmbeddedObjects(this->htmldoc,
                              [ instances := DEFAULT RECORD ARRAY
                              , embedded := this->embedded
@@ -470,7 +481,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
                               , this->rtdtype
                               , this->basefsobject
                               , this->applytester ?? ObjectExists(this->basefsobject) ? GetApplyTesterForObject(this->basefsobject->id) : DEFAULT OBJECT
-                              , innerbody
+                              , CELL[ ...options, editableinstancerefs, DELETE editableinstanceids ]
                               );
 
     RETURN retval;
@@ -528,19 +539,36 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
 //    // Reget the instance data to get the reflected version after creation
 //    STRING instanceid := this->CreateInstance(instancerec);
 
-    STRING instanceid := StoreTemporaryEmbeddedObject(instancerec);
-    RECORD preview := this->GetRTDSingleObjectPreview(instanceid);
+    STRING instanceref := StoreTemporaryEmbeddedObject(instancerec);
+    RECORD preview := this->GetRTDSingleObjectPreview(instanceref);
     RETURN preview;
   }
 
-  PUBLIC RECORD FUNCTION UpdateWidget(STRING instanceid, RECORD instancerec)
+  PUBLIC RECORD FUNCTION UpdateWidget(STRING instanceref, RECORD instancerec)
   {
-    instanceid := StoreTemporaryEmbeddedObject(instancerec);
-//    this->SetInstance(instanceid, instancerec, FALSE);
-    instancerec := this->GetWidget(instanceid);
+    // StoreTemporaryEmbeddedObject creates a new instanceref, so in order to be able to map that to the existing instanceid,
+    // we'll first retrieve the instanceid for the current instanceref
+    STRING instanceid;
+    RECORD pos := RecordLowerBound(this->org_instance_mapping, CELL[ instanceref ], [ "INSTANCEREF" ]);
+    IF (pos.found)
+      instanceid := this->org_instance_mapping[pos.position].instanceid;
 
-    RECORD preview := this->GetRTDSingleObjectPreview(instanceid);
-    RETURN preview;
+    instanceref := StoreTemporaryEmbeddedObject(instancerec);
+
+    // Store a mapping from the new instanceref to the instanceid
+    IF (instanceid != "")
+    {
+      RECORD rec := CELL[ instanceref, instanceid ];
+      INSERT rec INTO this->org_instance_mapping AT RecordUpperBound(this->org_instance_mapping, rec, [ "INSTANCEREF" ]);
+    }
+
+//    this->SetInstance(instanceref, instancerec, FALSE);
+//    instancerec := this->GetWidget(instanceref);
+
+    RECORD preview := this->GetRTDSingleObjectPreview(instanceref);
+    // Return the instanceid, so RTEBase knows which instance was edited; the instanceref it gives us is just the ref received
+    // from the frontend (which doesn't about instanceids)
+    RETURN CELL[ ...preview, instanceid ];
   }
 
   PUBLIC STRING ARRAY FUNCTION CalculateAllowedTags()
@@ -860,8 +888,13 @@ PUBLIC RECORD FUNCTION GetRTDSingleObjectPreview(OBJECT fsobject, OBJECT applyte
          ];
 }
 
-PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, RECORD rtd, STRING language, RECORD rtdtypeinfo, OBJECT fsobject, OBJECT applytester, BOOLEAN innerbody DEFAULTSTO FALSE)
+PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, RECORD rtd, STRING language, RECORD rtdtypeinfo, OBJECT fsobject, OBJECT applytester, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(
+      [ innerbody := FALSE
+      , editableinstancerefs := STRING[]
+      ], options);
+
   IF(NOT ObjectExists(sourcedoc))
   {
     IF(CellExists(rtd,'htmltext') AND Length(rtd.htmltext)>0)
@@ -886,6 +919,8 @@ PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, 
       div->SetAttribute("data-widget-typetext", preview.typetext);
       IF(preview.wide)
         div->SetAttribute("data-widget-wide", "");
+      IF (instanceref IN options.editableinstancerefs)
+        div->SetAttribute("data-writable", "");
       div->Empty();
       div->SetAttribute("class", "wh-rtd-embeddedobject"
                                 || (preview.canedit ? " wh-rtd-embeddedobject--editable" : "")
@@ -893,7 +928,7 @@ PUBLIC STRING FUNCTION GetRTDValueWithRenderedEmbeddedObjects(OBJECT sourcedoc, 
                                 );
     }
   }
-  RETURN innerbody ? sourcedoc->body->innerhtml : sourcedoc->outerhtml;
+  RETURN options.innerbody ? sourcedoc->body->innerhtml : sourcedoc->outerhtml;
 }
 
 STRING embtemp_instance_packet := "file:L,instance:L,cc:L,md:L,ms:L";
@@ -984,7 +1019,7 @@ STRING ARRAY FUNCTION StoreTemporaryEmbeddedObjects(RECORD ARRAY whfsinstances, 
       }
     }
 
-    IF(options.openprimary AND NOT ObjectExists(trans)) // open on demand, assume our caller will clean uo
+    IF(options.openprimary AND NOT ObjectExists(trans)) // open on demand, assume our caller will clean up
       trans := OpenPrimary();
 
     IF(NOT ObjectExists(temppath))
