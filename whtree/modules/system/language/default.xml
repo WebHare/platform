@@ -1374,6 +1374,7 @@
         <text tid="editapikey">API Key</text>
         <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain that is accessible by the url 'about:srcdoc'</text>
         <text tid="keytype">Keytype</text>
+        <text tid="keytype-friendly-captcha">Friendly Captcha</text>
         <text tid="keytype-google">Google cloud APIs</text>
         <text tid="keytype-google-recaptcha">Google Recaptcha</text>
         <text tid="maps">Maps</text>
@@ -1383,6 +1384,7 @@
         <text tid="scopetype-any">Any</text>
         <text tid="scopetype-client">Client</text>
         <text tid="scopetype-server">Server</text>
+        <text tid="sitekey">Site key</text>
       </textgroup>
       <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
         <text tid="confirmdeleteentries">Are you sure you want to delete the selected cache entries ?</text>

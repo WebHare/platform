@@ -1188,6 +1188,7 @@
         <text tid="editapikey">API sleutel</text>
         <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
         <text tid="keytype">Sleuteltype</text>
+        <text tid="keytype-friendly-captcha">Friendly Captcha</text>
         <text tid="keytype-google">Google cloud APIs</text>
         <text tid="keytype-google-recaptcha">Google Recaptcha</text>
         <text tid="maps">Kaarten</text>
@@ -1197,6 +1198,7 @@
         <text tid="scopetype-any">Elke</text>
         <text tid="scopetype-client">Client</text>
         <text tid="scopetype-server">Server</text>
+        <text tid="sitekey">Site sleutel</text>
       </textgroup>
       <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
         <text tid="confirmdeleteentries">Weet je zeker dat je de geselecteerde cache entries wil verwijderen?</text>

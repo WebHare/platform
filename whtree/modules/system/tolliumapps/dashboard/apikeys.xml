@@ -57,11 +57,12 @@
               cellname="keytype"
               name="keytype"
               type="radio"
-              flags="isgoogle isgooglerecapcta"
+              flags="isgoogle isgooglerecapcta isfriendlycaptcha"
               onchange="ontypechange"
               rowkeytype="integer">
         <option rowkey="0" flags="isgoogle" tid=".keytype-google" />
         <option rowkey="1" flags="isgooglerecaptcha" tid=".keytype-google-recaptcha" />
+        <option rowkey="2" flags="isfriendlycaptcha" tid=".keytype-friendly-captcha" />
       </select>
       <select composition="apikey" cellname="scopetype" type="radio" onchange="ontypechange" rowkeytype="integer">
         <option rowkey="0" tid=".scopetype-any" />
