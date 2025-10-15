@@ -1176,6 +1176,28 @@
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="apikeys">   <!-- tolliumapps.dashboard.apikeys -->
+        <text tid="apikey">API-sleutel</text>
+        <text tid="apikeys">API Keys</text>
+        <text tid="apitab">API sleutels</text>
+        <text tid="confirmdeleteapikeys">Weet u zeker dat u de geselecteede sleutel(s) wil verwijderen ?</text>
+        <text tid="defaultprovider">Standaardprovider voor kaarten in de WebHare backend</text>
+        <text tid="defaultprovider-googlemap">Google Map</text>
+        <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
+        <text tid="domain">Domein</text>
+        <text tid="editapikey">API sleutel</text>
+        <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
+        <text tid="keytype">Sleuteltype</text>
+        <text tid="keytype-google">Google cloud APIs</text>
+        <text tid="keytype-google-recaptcha">Google Recaptcha</text>
+        <text tid="maps">Kaarten</text>
+        <text tid="nokeys">Er zijn nog geen sleutels ingevoerd</text>
+        <text tid="privatekey">Prive sleutel</text>
+        <text tid="scopetype">Scope</text>
+        <text tid="scopetype-any">Elke</text>
+        <text tid="scopetype-client">Client</text>
+        <text tid="scopetype-server">Server</text>
+      </textgroup>
       <textgroup gid="caches">   <!-- tolliumapps.dashboard.caches -->
         <text tid="confirmdeleteentries">Weet je zeker dat je de geselecteerde cache entries wil verwijderen?</text>
         <text tid="func">Functie</text>

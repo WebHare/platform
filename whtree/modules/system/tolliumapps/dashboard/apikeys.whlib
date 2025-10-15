@@ -5,7 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::socialite/lib/database.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC STATIC OBJECTTYPE GoogleApiKeys EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase
 <
   STRING ARRAY keytypes;
   STRING ARRAY scopetypes;
@@ -91,4 +91,3 @@ PUBLIC STATIC OBJECTTYPE EditApiKey EXTEND TolliumScreenBase
     RETURN work->Finish();
   }
 >;
-

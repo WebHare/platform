@@ -277,6 +277,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RunScreen(Resolve("../config/mailrouting.xml#mailroutes"));
   }
 
+  MACRO DoApiKeys()
+  {
+    this->RunScreen(Resolve("apikeys.xml#apikeys"));
+  }
+
   MACRO DoExportWebserverUsageStats()
   {
     this->RunScreen("mod::system/tolliumapps/webservers/webservers.xml#exportusagestats");

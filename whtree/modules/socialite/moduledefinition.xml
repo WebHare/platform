@@ -1,6 +1,6 @@
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
 
-  <meta configscreen="screens/sysmgmt.xml#googleapikeys">
+  <meta>
     <!--
     1.2 - recaptcha, sharepage, embedvideoproviders, misc
     1.3 - YouTube V3 and lots of small LinkedIn, Recaptcha, Twitter and other misc updates

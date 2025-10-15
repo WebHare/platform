@@ -25,6 +25,7 @@
       </windowopenaction>
       <action name="mailroutes" frameflags="issysop" onexecute="domailroutes" shortcut="ctrl+shift+e" tid=".mailroutes" />
       <action name="webserverusagestats" onexecute="DoExportWebserverUsageStats" tid=".statistics.webserverusagestats" />
+      <action name="apikeys" frameflags="issysop" onexecute="doapikeys" shortcut="ctrl+shift+k" tid="tolliumapps.dashboard.apikeys.apikeys" />
     </actions>
 
     <menus>
@@ -37,6 +38,7 @@
         <item action="remoting" />
         <item action="webdavdata" />
         <item action="mailroutes" />
+        <item action="apikeys" />
         <divider />
         <item action="webserverusagestats" />
         <divider />
