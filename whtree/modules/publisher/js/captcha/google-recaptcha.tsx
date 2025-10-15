@@ -1,5 +1,5 @@
 import * as dompack from '@webhare/dompack';
-import { type CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
+import { type CaptchaProvider, type CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
 
 //recaptcha API: https://developers.google.com/recaptcha/docs/display
 let recaptchaload: PromiseWithResolvers<void> | undefined;
@@ -26,7 +26,7 @@ function makeRecaptchaLoadPromise() {
 
 const captchaDefer = Symbol("captchaDefer");
 
-export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
+export async function runRecaptcha(provider: CaptchaProvider, settings: CaptchaSettings) {
   const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: PromiseWithResolvers<string> };
   if (injectinto[captchaDefer])
     return injectinto[captchaDefer].promise;
@@ -44,11 +44,11 @@ export async function runRecaptcha(sitekey: string, settings: CaptchaSettings) {
         {captchanode}
       </div>);
 
-    if (sitekey === 'mock') {
+    if (provider.apikey === 'mock') {
       captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => defer.resolve('mock') }} />I am a human, beep-bop</label>);
     } else {
       const recaptchaid = window.grecaptcha.render(captchanode, {
-        sitekey, callback: () => {
+        sitekey: provider.apikey, callback: () => {
           const response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
           defer.resolve(response);
         }

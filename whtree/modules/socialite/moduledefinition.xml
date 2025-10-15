@@ -22,16 +22,6 @@
     <task runat="*/5   * * * *" script="scripts/tasks/update_embedded.whscr" tag="update_embedded" description="Update embedded scripts" />
   </servicemanager>
 
-  <services>
-    <webservice name="recaptcha"
-                library="lib/internal/recaptcha-rpc.whlib"
-                prefix="RPC_"
-                primarytrans="none"
-                transports="jsonrpc">
-      <accesscheck />
-    </webservice>
-  </services>
-
   <portal>
     <application name="config"
                  group="system:setup"

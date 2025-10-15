@@ -24,7 +24,7 @@ Request the user to fill in the captcha
 ```javascript
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 
-let sitekey = 'xxx'; //the result of webcontext->GetCaptchaAPIkey()
+let sitekey = 'xxx'; //the result of GetCaptchaProvider()
 let captcharesponse = await getCaptchaResponse(sitekey);
 
 //Submit captcharesponse with the rest of your request
@@ -33,7 +33,7 @@ let captcharesponse = await getCaptchaResponse(sitekey);
 Serverside check:
 ```harescript
 STRING captcharesponse := "xxx"; ///captcha response from RPC/GetWebVariable
-IF(NOT webcontext->VerifyCaptchaResponse(captcharesponse))
+IF(NOT VerifyCaptchaResponse(GetFormRequestURL(), captcharesponse))
   ABORT("Invalid captcha response");
 ```
 

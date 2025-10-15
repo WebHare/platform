@@ -1,5 +1,5 @@
 import * as dompack from '@webhare/dompack';
-import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
+import { getCaptchaResponse, type CaptchaProvider } from "@mod-publisher/js/captcha/api";
 import { type DocEvent, addDocEventListener } from '@webhare/dompack';
 import type { SetFieldErrorData } from '../internal/customvalidation';
 import FormBase from '../formbase';
@@ -34,8 +34,8 @@ export default class CaptchaField {
       return;
 
     //If we get here, we captcha is either invalid or not set yet (and required).
-    const metadata = evt.detail.metadata as { apikey: string };
-    if (!metadata.apikey)
+    const metadata = evt.detail.metadata as { provider: CaptchaProvider };
+    if (!metadata.provider?.apikey)
       throw new Error("No apikey received in captcha error message");
 
     const formel = this.node.closest('form');
@@ -50,7 +50,7 @@ export default class CaptchaField {
       this.captchaHolder = document.createElement('div');
       captchapage.appendChild(this.captchaHolder);
     }
-    const result = await getCaptchaResponse(metadata.apikey, { injectInto: this.captchaHolder });
+    const result = await getCaptchaResponse(metadata.provider, { injectInto: this.captchaHolder });
     this.response = result || '';
   }
 }
