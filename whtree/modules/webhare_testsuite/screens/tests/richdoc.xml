@@ -128,4 +128,10 @@
     </body>
   </screen>
 
+  <screen name="writablewidgets" width="800px" height="600px" allowresize="true" title="Read-only RTD with writable widgets">
+    <body>
+      <richdocument name="rte" height="1pr" readonly="true" />
+    </body>
+  </screen>
+
 </screens>

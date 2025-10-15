@@ -108,6 +108,9 @@
     <application name="mapdemo" screen="tolliumapps/demo/socialite/mapdemo.xml#maps">
       <accesscheck />
     </application>
+    <application name="writablewidgets" screen="screens/tests/richdoc.xml#writablewidgets">
+      <accesscheck />
+    </application>
 
     <notification name="eventservertest"
                   defaultenabled="true"

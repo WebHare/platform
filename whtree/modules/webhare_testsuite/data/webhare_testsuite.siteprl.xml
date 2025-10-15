@@ -328,6 +328,11 @@
     </blockstyles>
   </rtdtype>
 
+  <apply>
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/richdocumentfile" pathmask="/readonly.rtd" />
+    <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
+  </apply>
+
   <applysiteprofile path="webhare_testsuite-next.siteprl.xml" />
 
 </siteprofile>

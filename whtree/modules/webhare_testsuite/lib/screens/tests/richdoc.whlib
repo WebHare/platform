@@ -377,3 +377,34 @@ PUBLIC OBJECTTYPE AllowFormat EXTEND TolliumScreenBase
     }
   }
 >;
+
+PUBLIC OBJECTTYPE WritableWidgets EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^rte->value :=
+        [ htmltext := StringToBlob(`
+            <html><body>
+              <p class="normal">This widget is readonly:</p>
+              <div class="wh-rtd-embeddedobject" data-instanceid="readonly" />
+              <p class="normal">This widget is writable:</p>
+              <div class="wh-rtd-embeddedobject" data-instanceid="writable" />
+            </body></html>`)
+        , instances :=
+          [ [ instanceid := "readonly"
+            , data :=
+              [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/anchor"
+              , name := "readonly-anchor"
+              ]
+            ]
+          , [ instanceid := "writable"
+            , data :=
+              [ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/anchor"
+              , name := "writable-anchor"
+              ]
+            ]
+          ]
+        ];
+    ^rte->editableinstanceids := [ "writable" ];
+  }
+>;
