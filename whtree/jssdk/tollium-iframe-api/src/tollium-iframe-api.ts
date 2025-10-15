@@ -2,6 +2,8 @@ import type { FlagSet } from "@mod-tollium/web/ui/js/types";
 import type { HostMessage, HostInitMessage, GuestMessage, HostRuntimeMessage } from "./host-protocol";
 import { debugFlags } from "@webhare/env";
 
+export { getTheme } from "./styling";
+
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/tollium-iframe-api" {
 }

@@ -1,7 +1,7 @@
 import { Loader } from "@googlemaps/js-api-loader";
 import { type Cluster, MarkerClusterer, type SuperClusterOptions } from "@googlemaps/markerclusterer";
-import { createTolliumImage, requestedBrowserContextMenu, showTolliumContextMenu } from "@webhare/tollium-iframe-api";
-import { theme } from "@webhare/tollium-iframe-api/styling";
+import { createTolliumImage, getTheme, requestedBrowserContextMenu, showTolliumContextMenu } from "@webhare/tollium-iframe-api";
+import "@webhare/tollium-iframe-api/styling/tollium.css";
 import {
   type ButtonEvent,
   defaultShapeColor,
@@ -15,6 +15,8 @@ import {
   NavControlObject,
   type UpdatableMapSettings,
 } from "./support";
+
+const theme = getTheme();
 
 // Note: For the time being, we'll be using the (deprecated) legacy Marker, so we don't have to register a Map ID which is
 //       needed for the new AdvancedMarkerElement.

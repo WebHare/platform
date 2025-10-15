@@ -8,10 +8,10 @@ import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
 import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import type { FlagSet, SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import ObjMenuItem from '../menuitem/menuitem';
+import { getTheme } from "@webhare/tollium-iframe-api";
 import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tollium-iframe-api/src/host-protocol';
 import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
 import { debugFlags } from '@webhare/env';
-import { theme } from "@webhare/tollium-iframe-api/styling";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { getTid } from '@webhare/gettid';
 
@@ -113,6 +113,7 @@ export default class ObjIFrame extends ComponentBase {
     });
 
     // If the theme changed, notify our iframe
+    const theme = getTheme();
     theme.addEventListener("change", () => this.postTypedMessage({ tollium_iframe: "theme", name: theme.name }));
   }
 
