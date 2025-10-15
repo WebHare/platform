@@ -341,7 +341,10 @@
                     webdesign="webhare_testsuite:basetest" />
 
     <customnode name="test" namespace="urn:xyz" />
-    <customnode name="testyaml" namespace="urn:xyz" yamlproperty="testYaml" toyaml="tests/system/whfs/data/hooks.whlib#ParseBlubToYaml"/>
+    <customnode name="testyaml"
+                namespace="urn:xyz"
+                toyaml="tests/system/whfs/data/hooks.whlib#ParseBlubToYaml"
+                yamlproperty="testYaml" />
     <customnode name="blub" namespace="http://www.webhare.net/xmlns/webhare_testsuite/blub" />
 
     <webdesignplugin name="test"

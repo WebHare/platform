@@ -105,7 +105,6 @@
     <xyz:testyaml data="applytest-throughglobal" />
   </apply>
 
-
   <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
               renderobjectname="mod::webhare_testsuite/lib/rte/testcomp.whlib#RTDInstanceTestObj">
     <members>
@@ -239,7 +238,7 @@
       <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
       <textstyle tag="MYCUSTOMSTYLE" title="MyCustomStyle" containertag="div" textstyles="b a-href img sup sub strike" />
       <tablestyle tag="MYTABLE" />
-      <tablestyle tag="OTHERTABLE" allowstyles="NORMAL MYCUSTOMSTYLE"/>
+      <tablestyle tag="OTHERTABLE" allowstyles="NORMAL MYCUSTOMSTYLE" />
       <cellstyle tag="REDPILL" title="Red cell" />
       <cellstyle tag="BLUEPILL" title="Blue cell" />
     </blockstyles>
