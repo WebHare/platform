@@ -329,3 +329,5 @@ PUBLIC CONSTANT STRING ARRAY whconstant_developertypes := STRING[
   "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents",
   "http://www.webhare.net/xmlns/wrd/schemaarchive"
 ];
+
+PUBLIC CONSTANT STRING ARRAY whconstant_apikeys_types := [ "google", "google-recaptcha", "friendly-captcha" ];
