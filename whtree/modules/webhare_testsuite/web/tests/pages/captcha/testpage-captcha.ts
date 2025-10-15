@@ -14,13 +14,13 @@ import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
 async function triggerGoogleRecaptcha(elt: HTMLElement) {
-  const result = await googleRecaptcha.runRecaptchaDialog(elt.dataset.recaptchakey!,
-    { injectInto: null, title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
+  const result = await googleRecaptcha.runRecaptcha(elt.dataset.recaptchakey!,
+    { injectInto: dompack.qR<HTMLElement>("#googlerecaptcha_container"), title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
   dompack.qR<HTMLInputElement>('#googlerecaptcha_result').value = result || '';
 }
 
 async function triggerCaptcha(elt: HTMLElement) {
-  const result = await getCaptchaResponse(elt.dataset.apikey!);
+  const result = await getCaptchaResponse(elt.dataset.apikey!, { injectInto: dompack.qR<HTMLElement>("#webcontextcaptcha_container") });
   dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
 }
 

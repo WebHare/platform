@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 import { type DocEvent, addDocEventListener } from '@webhare/dompack';
 import type { SetFieldErrorData } from '../internal/customvalidation';
@@ -45,30 +43,14 @@ export default class CaptchaField {
     if (!form)
       throw new Error(`Cannot find associated form`);
 
-    const captchapage = form.node.querySelector<HTMLElement>('[data-wh-form-pagerole=captcha]');
-    if (!captchapage) { // Execute old (WH5.3) implementation
-      //ADDME start a modality layer? coordinate with form? make sure this executes only once!
-      const result = await getCaptchaResponse(metadata.apikey);
+    const captchapage = dompack.qR(form.node, '[data-wh-form-pagerole=captcha]');
+    await form.gotoPage(captchapage);
 
-      if (result) {
-        this.response = result;
-        //FIXME: We should make sure the same button (submitter) is pressed again, and we should also submit the original
-        //       extradata... It's probably better to have the captcha field use the same (kind of) confirmation flow as the
-        //       mail confirmation handler. This also has the benefit that the field value is already stored, which would allow
-        //       the result to be confirmed in the backend, if a user is stuck on the captcha.
-        form._doSubmit(null, undefined); //FIXME we're losing the extradata here!
-      }
-      return;
-    }
-
-    form.gotoPage(captchapage);
     if (!this.captchaHolder) {
       this.captchaHolder = document.createElement('div');
       captchapage.appendChild(this.captchaHolder);
     }
-
-    getCaptchaResponse(metadata.apikey, { injectInto: this.captchaHolder }).then(result => {
-      this.response = result || '';
-    });
+    const result = await getCaptchaResponse(metadata.apikey, { injectInto: this.captchaHolder });
+    this.response = result || '';
   }
 }

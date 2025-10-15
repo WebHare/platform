@@ -10,7 +10,6 @@ test.runTests(
       await test.load('/.webhare_testsuite/tests/pages/captcha?wh-debug=nsc');
       test.click('#trigger_googlerecaptcha');
       await test.wait('ui');
-      test.eq(1, test.qSA('.mydialog').length);
       test.click('.wh-captcha__mock input[type="checkbox"]');
       await test.wait('ui');
       test.eq(0, test.qSA('.mydialog').length, 'dialog should be gone after clicking');
@@ -24,7 +23,6 @@ test.runTests(
     async function () {
       test.click('#trigger_webcontextcaptcha');
       await test.wait('ui');
-      test.eq(1, test.qSA('.mydialog').length);
       test.click('.wh-captcha__mock input[type="checkbox"]');
       await test.wait('ui');
       test.eq(0, test.qSA('.mydialog').length, 'dialog should be gone after clicking');
