@@ -1,46 +1,30 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
 
 import './internal/baseforumstyle.css';
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 // @ts-ignore -- .rpc.json imports cannot be checked by TypeScript
 import forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json?proxy";
-import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
-import FormBase from '@mod-publisher/js/forms/formbase';
+import type { FormSubmitEmbeddedResult } from '@mod-publisher/js/forms/formbase';
+import { RPCFormBase } from '../forms';
 
 //TODO perhaps merge with standard formcode... now that basic forms do recaptcha, we shouldn't need to implement it ourselves.. especially as we make it only more complex by overriding submit
-class ForumCommentsForm extends FormBase {
+class ForumCommentsForm extends RPCFormBase {
   commentstool;
 
   constructor(commentstool: ForumCommentsWebtool, node: HTMLFormElement) {
     super(node);
     this.commentstool = commentstool;
   }
-  async submit(extradata?: { captcharesponse: string }) {
-    const result = await this.getFormValue();
+  getFormExtraSubmitData(): object | Promise<object> {
+    return {
+      forum: this.commentstool.node.dataset.whForum //Pre WH5.9 location and takes a republish to update
+        || this.node.dataset.whForum
+    };
+  }
 
-    const lock = dompack.flagUIBusy();
-    try {
-      result.captcharesponse = (extradata ? extradata.captcharesponse : '') || '';
-
-      const response = await forumrpc.postComment(this.commentstool.node.dataset.whForum, location.href, result);
-
-      //ADDME optimize ? we might just as well add the new post ourselves if we had the creationdate
-      if (response.success) {
-        this.commentstool._initComments();
-        this.reset();
-      } else if (response.error === "CAPTCHA") {
-        const timeoutHandler = async () => {
-          const captcharesponse = await getCaptchaResponse(response.apikey);
-          if (captcharesponse) //retry with the response
-            return this.submit({ captcharesponse });
-        };
-
-        setTimeout(() => void timeoutHandler());
-      }
-    } finally {
-      lock.release();
-    }
-    return {};
+  onSubmitSuccess(result: FormSubmitEmbeddedResult<unknown>): void {
+    this.reset();
+    this.commentstool._initComments();
   }
 }
 
@@ -51,6 +35,7 @@ export type ForumCommentsWebtoolOptions = {
 
 export default class ForumCommentsWebtool {
   node;
+  form;
   options: ForumCommentsWebtoolOptions;
 
   constructor(node: HTMLElement, options?: Partial<ForumCommentsWebtoolOptions>) {
@@ -61,7 +46,8 @@ export default class ForumCommentsWebtool {
       ...options
     };
 
-    this._initForm();
+    const formnode = dompack.qR<HTMLFormElement>(this.node, 'form');
+    this.form = new ForumCommentsForm(this, formnode);
     this._initComments();
   }
 
@@ -85,30 +71,21 @@ export default class ForumCommentsWebtool {
     return node;
   }
 
-  _initForm() {
-    const formnode = dompack.qS<HTMLFormElement>(this.node, 'form');
-    if (formnode)
-      new ForumCommentsForm(this, formnode);
-  }
-
   async _initComments() {
     const lock = dompack.flagUIBusy();
 
     try {
-      const state = await forumrpc.getCommentsState(this.node.dataset.whForum, location.href);
+      const state = await forumrpc.getCommentsState(this.form.node.dataset.whForum, location.href);
 
       this.node.classList.add(state.closed ? "wh-forumcomments--closed" : "wh-forumcomments--open");
       this.node.classList.remove("wh-forumcomments--notloaded");
 
       const postsholder = dompack.qS(this.node, '.wh-forumcomments__posts');
       if (postsholder) {
-        dompack.empty(postsholder);
+        postsholder.replaceChildren();
 
         const items = this.options.generateitems(state.entries);
-        if (Array.isArray(items))
-          dompack.append(postsholder, ...items);
-        else
-          dompack.append(postsholder, items);
+        postsholder.append(...items);
       }
 
       dompack.dispatchCustomEvent(this.node, 'wh:forum-commentsloaded', { bubbles: true, cancelable: false });

@@ -205,8 +205,11 @@ export const whconstant_forms_valideditdefaults = [
 //valid editdefaults= values for handlers
 export const whconstant_forms_validhandlereditdefaults = ["condition"];
 
-//valid user-supplied debug tokens
-export const whconstant_whdebug_publicflags = ["apr"];
+/* valid user-supplied debug tokens
+   - apr is currently enabled for practical reasons but ideally we'd have users explicitly activate profiling through Debug or through an invite
+   - nsc needs to be here to allow skipping captchas. we're still doing a dtapstage check at use
+*/
+export const whconstant_whdebug_publicflags = ["apr", "nsc"];
 
 //default compatibility
 export const whconstant_default_compatibility = "es2022,safari16.2";

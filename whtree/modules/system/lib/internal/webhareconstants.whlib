@@ -254,8 +254,11 @@ PUBLIC CONSTANT STRING ARRAY whconstant_forms_valideditdefaults :=
 PUBLIC CONSTANT STRING ARRAY whconstant_forms_validhandlereditdefaults :=
 [ "condition" ];
 
-//valid user-supplied debug tokens
-PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr"];
+/* valid user-supplied debug tokens
+   - apr is currently enabled for practical reasons but ideally we'd have users explicitly activate profiling through Debug or through an invite
+   - nsc needs to be here to allow skipping captchas. we're still doing a dtapstage check at use
+   */
+PUBLIC CONSTANT STRING ARRAY whconstant_whdebug_publicflags := ["apr", "nsc"];
 
 //default compatibility
 PUBLIC CONSTANT STRING whconstant_default_compatibility := "es2022,safari16.2";

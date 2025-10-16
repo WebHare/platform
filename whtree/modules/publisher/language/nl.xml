@@ -1413,9 +1413,9 @@
     <textgroup gid="forum">   <!-- site.forum -->
       <textgroup gid="comments">   <!-- site.forum.comments -->
         <text tid="email">E-mail</text>
-        <text tid="email-placeholder-notshown">email@voorbeeld.nl (niet getoond)</text>
         <text tid="message">Bericht</text>
         <text tid="name">Naam</text>
+        <text tid="notshown">(niet getoond)</text>
         <text tid="respond-button">Reageren</text>
       </textgroup>
       <textgroup gid="email">   <!-- site.forum.email -->

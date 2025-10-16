@@ -86,9 +86,9 @@
     <textgroup gid="forum">   <!-- site.forum -->
       <textgroup gid="comments">   <!-- site.forum.comments -->
         <text tid="email">E-mail</text>
-        <text tid="email-placeholder-notshown">user@example.org (non mostrato)</text>
         <text tid="message">Messaggio</text>
         <text tid="name">Nome</text>
+        <text tid="notshown">(non mostrato)</text>
         <text tid="respond-button">Rispondere</text>
       </textgroup>
       <textgroup gid="email">   <!-- site.forum.email -->
