@@ -992,10 +992,10 @@
         <csp policy="script-src 'self' 'unsafe-inline' www.googletagmanager.com www.google-analytics.com" />
       </webrule>
       <webrule path="/webtools/formcaptcha" match="initial">
-        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com" />  <!-- recaptcha: tests publisher.forms.testformfile-captcha -->
+        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com https://cdn.jsdelivr.net" />  <!-- recaptcha: tests publisher.forms.testformfile-captcha -->
       </webrule>
       <webrule path="/webtools/forumcomments-recaptcha" match="initial">
-        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com" />  <!-- recaptcha: tests publisher.webtools.forum.test_forum_frontend -->
+        <csp policy="script-src 'self' 'unsafe-inline' www.google.com www.gstatic.com https://cdn.jsdelivr.net" />  <!-- recaptcha: tests publisher.webtools.forum.test_forum_frontend -->
       </webrule>
       <webrule path="/portal1/requiresysop/" match="initial" authmode="ipandaccess">
         <accesscheck>

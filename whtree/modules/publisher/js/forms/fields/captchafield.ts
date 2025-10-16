@@ -34,6 +34,11 @@ export default class CaptchaField {
       return;
 
     //If we get here, we captcha is either invalid or not set yet (and required).
+    if (this.response) { //we were already sending a response!
+      console.log("Captcha response was rejected, resetting");
+      this._onReset(); //better restart the control, timeout or duplicat submission
+    }
+
     const metadata = evt.detail.metadata as { provider: CaptchaProvider };
     if (!metadata.provider?.apikey)
       throw new Error("No apikey received in captcha error message");
