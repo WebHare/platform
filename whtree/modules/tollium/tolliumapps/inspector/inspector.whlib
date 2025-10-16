@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "wh::devsupport.whlib";
-LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -27,6 +26,27 @@ PUBLIC STATIC OBJECTTYPE Inspector EXTEND TolliumScreenBase <
     }
   }
 
+  RECORD ARRAY FUNCTION GetScreenNodes(OBJECT frame) {
+    this->compmap := CellInsert(CellDelete(this->compmap, "screen"), "screen", frame->owner);
+    this->compmap := CellInsert(CellDelete(this->compmap, "frame"), "frame", frame);
+    RETURN [
+      CELL[
+        rowkey := "screen",
+        name := frame->owner->tolliumscreenname,
+        type := "screen",
+        title := "",
+        iscomponent := TRUE
+      ], CELL[
+        rowkey := "frame",
+        name := frame->name,
+        type := "frame",
+        title := frame->title,
+        iscomponent := TRUE
+      ],
+      ...this->RecurseNodes(frame)
+    ];
+  }
+
   RECORD ARRAY FUNCTION RecurseNodes(OBJECT parent) {
     RECORD ARRAY list;
     FOREVERY(OBJECT comp FROM parent->GetChildComponents()) {
@@ -45,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE Inspector EXTEND TolliumScreenBase <
     FOREVERY(STRING togroup FROM ["action","menuitem"]) {
       RECORD ARRAY items := SELECT * FROM list WHERE type = togroup;
       IF(Length(items) > 0) {
-        INSERT CELL [ rowkey := "acions_" || __INTERNAL_GETOBJECTID(parent)
+        INSERT CELL [ rowkey := "actions_" || __INTERNAL_GETOBJECTID(parent)
                     , name := togroup || "s"
                     , type := togroup
                     , title := ""
@@ -60,7 +80,7 @@ PUBLIC STATIC OBJECTTYPE Inspector EXTEND TolliumScreenBase <
 
   MACRO RefreshComponents() {
     RECORD ARRAY list;
-    ^components->rows := this->RecurseNodes(this->target);
+    ^components->rows := this->GetScreenNodes(this->target);
   }
 
   MACRO DoInspectComponent() {
@@ -79,6 +99,7 @@ PUBLIC STATIC OBJECTTYPE Inspector EXTEND TolliumScreenBase <
 
     this->currentcomp := __HS_INTERNAL_MakeObjectReferencePrivileged(GetCell(this->compmap, ^components->value));
     RECORD props := __INTERNAL_DescribeObjectStructure (this->currentcomp,TRUE);
+    ^"objecttype"->value := Detokenize(GetObjectExtendNames(this->currentcomp), ", ");
     ^properties->rows := (SELECT rowkey := name
                                , prop := ToLowercase(name)
                                , value := AnyToString(GetMember(this->currentcomp, name),'tree:0')
