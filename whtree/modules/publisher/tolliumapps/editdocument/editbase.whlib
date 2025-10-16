@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -18,7 +19,7 @@ RECORD FUNCTION GetRecycledObjectInfo(OBJECT whuser, INTEGER objectid)
 {
   RECORD res;
 
-  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = 0 AND fs_history.fs_object = objectid ORDER BY when DESC;
+  RECORD historyinfo := SELECT * FROM system.fs_history WHERE fs_history.type = whconstant_historytype_recycled AND fs_history.fs_object = objectid ORDER BY when DESC;
   IF(NOT RecordExists(historyinfo))
     RETURN DEFAULT RECORD;
 

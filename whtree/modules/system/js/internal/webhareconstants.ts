@@ -103,17 +103,18 @@ export const whconstant_whfstype_dynamicfoldercontents = 35;
 /// fs_history.type recycle action
 export const whconstant_historytype_recycled = 0;
 
+/// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
+export const whconstant_historytype_saved = 1;
+
+/// fs_history.type revert action
+export const whconstant_historytype_reverted = 3;
+
 /// fs_history.type created action
 export const whconstant_historytype_created = 4;
 
 /// fs_history.type approved (update public/publish file) action
 export const whconstant_historytype_approved = 5;
 
-/// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
-export const whconstant_historytype_saved = 1;
-
-/// fs_history.type revert action
-export const whconstant_historytype_reverted = 3;
 
 /// publisher.schedule start publish/republish event
 export const whconstant_publisherschedule_publish = 1;
