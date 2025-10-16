@@ -79,7 +79,7 @@ type AddResult = {
 export class ZipArchiveWriter {
   #buffers: StreamsBuffer;
 
-  #dest: WritableStream<Uint8Array>;
+  #dest: WritableStream<Uint8Array<ArrayBuffer>>;
 
   #entries: WriteEntry[] = [];
 
@@ -93,7 +93,7 @@ export class ZipArchiveWriter {
 
   #writePromise: Promise<void> = Promise.resolve();
 
-  stream: ReadableStream<Uint8Array>;
+  stream: ReadableStream<Uint8Array<ArrayBuffer>>;
 
   constructor(options: ZipArchiveWriterOptions = {}) {
     this.#buffers = new FileBasedStreamsBuffer();
@@ -102,7 +102,7 @@ export class ZipArchiveWriter {
 
     // Create an id transform stream to return the generated data
     // FIXME: should we move all logic to within the readablestream creator of createArchive?
-    const transform = new TransformStream<Uint8Array, Uint8Array>({
+    const transform = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
       transform: (chunk, controller) => {
         controller.enqueue(chunk);
       },

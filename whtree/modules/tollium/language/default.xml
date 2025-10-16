@@ -907,10 +907,11 @@
       <text tid="linkexpired">Your edit action has expired. Please reopen this application from its documentation panel</text>
     </textgroup>
     <textgroup gid="inspector">   <!-- tolliumapps.inspector -->
+      <text tid="inspect">Inspect</text>
       <text tid="inspectcomponent">Inspect component</text>
       <text tid="inspector">Tollium screen inspector</text>
-      <text tid="inspectproperty">Inspect propery</text>
       <text tid="name">Name</text>
+      <text tid="objecttype">Object type</text>
       <text tid="prop">Property</text>
       <text tid="title">Title</text>
       <text tid="type">Type</text>

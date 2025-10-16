@@ -14,6 +14,7 @@ import type { WebHareBlob } from "@webhare/services";
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
 import type { } from "wh:ts/whfstypes.ts";
 import { CSPMemberType } from "./siteprofiles";
+import { whfsFinishHandler } from "./finishhandler";
 
 // We keep this internal, we might want cq like to restructure this API in the future
 export interface WHFSTypes {
@@ -96,6 +97,7 @@ export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | Widg
 interface InstanceSetOptions {
   ///How to handle readonly fsobjects. fail (the default), skip or actually update
   ifReadOnly?: "fail" | "skip" | "update";
+  isVisibleEdit?: boolean;
 }
 
 class RecursiveSetter {
@@ -122,7 +124,7 @@ class RecursiveSetter {
         .insertInto("system.fs_settings")
         .values(storer.flattened.slice(pos, pos + updateBlockSize).map(row => ({
           ordering: 0,
-          ...omit(row, ["sub", "parentsetting"]),
+          ...omit(row, ["sub", "checkLink", "parentsetting"]),
           setting: row.setting || '',
           parent: row.parentsetting,
           fs_instance: instanceId
@@ -145,6 +147,10 @@ class RecursiveSetter {
     const todiscard = this.cursettings.filter(row => !reusedSettings.has(row.id)).map(row => row.id);
     if (todiscard.length)
       await db<PlatformDB>().deleteFrom("system.fs_settings").where("id", "in", todiscard).execute();
+
+    const checkedLinks = storer.flattened.filter(_ => _.checkLink).map(_ => _.id!);
+    if (checkedLinks.length)
+      whfsFinishHandler().addLinkCheckSettings(checkedLinks);
   }
 }
 
@@ -152,9 +158,17 @@ class RecursiveSetter {
  */
 class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, ExportFormat extends object> {
   private readonly ns: string;
+  private descr: WHFSTypeInfo | undefined;
 
   constructor(ns: string) {
     this.ns = ns;
+  }
+
+  async describe(): Promise<{ id: number | null }> {
+    this.descr ??= await describeWHFSType(this.ns);
+    return {
+      id: this.descr.id,
+    };
   }
 
   private async getCurrentInstanceId(fsobj: number, type: WHFSTypeBaseInfo) {
@@ -198,19 +212,19 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
   }
 
   private async getBulk(fsObjIds: number[], properties: string[] | null, options?: ExportOptions): Promise<Map<number, unknown>> {
-    const descr = await describeWHFSType(this.ns);
+    this.descr ??= await describeWHFSType(this.ns);
     const instanceIdMapping = await db<PlatformDB>()
       .selectFrom("system.fs_instances")
       .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
       .select(["system.fs_instances.id", "fs_object", "system.fs_objects.creationdate"])
-      .where("fs_type", "=", descr.id)
+      .where("fs_type", "=", this.descr.id)
       .where("fs_object", "in", fsObjIds)
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
-    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, descr, properties || undefined) : [];
+    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, this.descr, properties || undefined) : [];
     const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
-    const getMembers = properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members;
+    const getMembers = properties ? this.descr.members.filter(_ => properties.includes(_.name as string)) : this.descr.members;
 
     const retval = new Map<number, unknown>();
     for (const id of fsObjIds) {
@@ -255,8 +269,8 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
   }
 
   async set(id: number, data: SetFormat, options?: InstanceSetOptions): Promise<void> {
-    const descr = await describeWHFSType(this.ns);
-    if (!descr.id)
+    this.descr ??= await describeWHFSType(this.ns);
+    if (!this.descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
     const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", false, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
     if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
@@ -265,40 +279,36 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
       return;
     }
 
-    let instanceId = await this.getCurrentInstanceId(id, descr);
+    let instanceId = await this.getCurrentInstanceId(id, this.descr);
 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);
-    const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], descr, keysToSet) : [];
+    const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], this.descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
-    appendToArray(setter.toinsert, await setData(descr.members, data));
+    appendToArray(setter.toinsert, await setData(this.descr.members, data));
 
-    if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
-      instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id, workflow: false }).returning("id").executeTakeFirstOrThrow()).id;
+    // Only write when an instance
+    const needInstance = Boolean(setter.toinsert.length);
 
-    await setter.apply(instanceId);
+    if (!needInstance) {
+      if (instanceId) // remove existing settings
+        await setter.apply(instanceId);
 
-    // if (!(await result).any_nondefault) {
-    /* We may be able to delete the instance completely. Check if settings still remain, there may be
-       members RecurseSetInstanceData didn't know about */
-    // IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance LIMIT 1))
-    // {
-    //   DELETE FROM system.fs_instances WHERE id = instance;
-    //   instance:= 0;
-    // }
-    // } else {
-    //FIXME      GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
-    // }
-    /* FIXME
-        IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
-          GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
+      // Delete the instance if it has no settings anymore
+      if (!(await db<PlatformDB>().selectFrom("system.fs_settings").where("fs_instance", "=", instanceId).select("id").limit(1).executeTakeFirst()))
+        await db<PlatformDB>().deleteFrom("system.fs_instances").where("id", "=", instanceId).execute();
+    } else {
+      instanceId ??= (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: this.descr.id, fs_object: id, workflow: false }).returning("id").executeTakeFirstOrThrow()).id;
+      await setter.apply(instanceId);
+    }
 
-        IF (options.isvisibleedit)
-          GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
-        ELSE
-          GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
-    */
+    if (this.descr.namespace === "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+      whfsFinishHandler().checkSiteSettings();
+    if (options?.isVisibleEdit ?? true)
+      whfsFinishHandler().triggerEmptyUpdateOnCommit(id);
+    else
+      whfsFinishHandler().triggerReindexOnCommit(id);
   }
 }
 
@@ -395,9 +405,6 @@ export async function visitResources(callback: VisitCallback, scope: {
         }, reconstructedDescriptor);
 
       if (update) {
-        if (scope?.isVisibleEdit !== false) //for now we'll require setting this flag until we can actually update modificationdates ... and then we should just set it to true
-          throw new Error("Updating resources requires setting isVisibleEdit to false");
-
         //TODO check against parallel modification, if so retry or skip
         await runInWork(async () => {
           // When updating embedded content the filename holds the cid so we shouldn't change it
@@ -406,6 +413,8 @@ export async function visitResources(callback: VisitCallback, scope: {
             set({ blobdata: await uploadBlob(update.resource), setting: await addMissingScanData(update, { fileName }) }).
             where("id", "=", result.id).
             executeTakeFirstOrThrow();
+          if (scope?.isVisibleEdit ?? true)
+            whfsFinishHandler().triggerEmptyUpdateOnCommit(result.fs_object);
         });
       }
     }

@@ -151,7 +151,7 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
 }
 
 class WHFSBaseObject {
-  protected readonly dbrecord: FsObjectRow;
+  protected dbrecord: FsObjectRow;
   private readonly _typens: string;
 
   constructor(dbrecord: FsObjectRow, typens: string) {
@@ -201,6 +201,22 @@ class WHFSBaseObject {
   }
   get modificationDate(): Temporal.Instant {
     return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime());
+  }
+
+  /** Re-read cached data from the database, returns whether the object still exists */
+  async refresh(options: { allowMissing: true }): Promise<boolean>;
+  /** Re-read cached data from the database, throws when the object doesn't exist anymore */
+  async refresh(options?: { allowMissing?: boolean }): Promise<true>;
+
+  async refresh(options?: { allowMissing?: boolean }): Promise<boolean> {
+    const newRecord = await getDBRecord(this.dbrecord.id);
+    if (!newRecord) {
+      if (!options?.allowMissing)
+        throw new Error(`WHFS object #${this.id} has been deleted`);
+      return false;
+    }
+    this.dbrecord = newRecord;
+    return true;
   }
 
   async delete(): Promise<void> {
@@ -292,6 +308,7 @@ class WHFSBaseObject {
             if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
               storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
           } else {
+            // Remove flag PublishedFlag_OncePublished and publish prio/error
             storedata.published = storedata.published - (storedata.published % 200000);
           }
         }
@@ -341,6 +358,11 @@ class WHFSBaseObject {
     const oldData = std.pick(this.dbrecord, ["parentsite", "parent"]);
     Object.assign(this.dbrecord, storedata);
     Object.assign(this.dbrecord, updatedRec);
+
+    if (emitRename && this.id === this.parentSite && this.isFolder) {
+      await db<PlatformDB>().updateTable("system.sites").set({ name: this.dbrecord.name }).where("id", "=", this.id).execute();
+      whfsFinishHandler().checkSiteSettings();
+    }
 
     if (emitMove)
       finishHandler.objectMove(oldData.parentsite, oldData.parent, this.parentSite, this.parent, this.id, this.isFolder);
@@ -855,6 +877,24 @@ function getRootFolderDBRow(): FsObjectRow {
   };
 }
 
+async function getDBRecord(location: number) {
+  if (location === 0)
+    return getRootFolderDBRow();
+  else if (location > 0)
+    return await db<PlatformDB>()
+      .selectFrom("system.fs_objects")
+      .selectAll()
+      .select(selectFSLink().as("link"))
+      .select(selectFSFullPath().as("fullpath"))
+      .select(selectFSWHFSPath().as("whfspath"))
+      .select(selectFSHighestParent().as("parentsite"))
+      .select(selectFSPublish().as("publish"))
+      .where("id", "=", location)
+      .executeTakeFirst();
+  else
+    return null;
+}
+
 export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: true, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile>;
 export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: false, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder>;
 export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: true, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | null>;
@@ -869,25 +909,10 @@ export async function __openWHFSObj(startingpoint: number, path: string | number
   else
     location = path;
 
-  let dbrecord: FsObjectRow | undefined;
-  if (location === 0)
-    if (!allowRoot)
-      throw new Error(`Cannot open root folder unless the 'allowRoot' option is explicitly set`);
-    else
-      dbrecord = getRootFolderDBRow();
-  else if (location > 0) {//FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
-    dbrecord = await db<PlatformDB>()
-      .selectFrom("system.fs_objects")
-      .selectAll()
-      .select(selectFSLink().as("link"))
-      .select(selectFSFullPath().as("fullpath"))
-      .select(selectFSWHFSPath().as("whfspath"))
-      .select(selectFSHighestParent().as("parentsite"))
-      .select(selectFSPublish().as("publish"))
-      .where("id", "=", location)
-      .executeTakeFirst();
-  }
+  if (!location && !allowRoot)
+    throw new Error(`Cannot open root folder unless the 'allowRoot' option is explicitly set`);
 
+  const dbrecord = await getDBRecord(location);
   if (!dbrecord) {
     if (!allowmissing)
       throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);

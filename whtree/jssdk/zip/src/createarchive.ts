@@ -40,9 +40,9 @@ export { type CreateArchiveController, type ValidZipDateTimeSources, type Create
  * });
  * ```
  */
-export function createArchive(source: CreateArchiveSource): ReadableStream {
+export function createArchive(source: CreateArchiveSource): ReadableStream<Uint8Array<ArrayBuffer>> {
   const writer = new ZipArchiveWriter(source.options);
-  const itr: AsyncIterator<Uint8Array> = writer.stream[Symbol.asyncIterator]();
+  const itr = writer.stream[Symbol.asyncIterator]();
 
   return new ReadableStream({
     start(controller) {

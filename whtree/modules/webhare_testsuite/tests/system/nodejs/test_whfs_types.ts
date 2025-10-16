@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { beginWork, commitWork } from "@webhare/whdb";
+import { beginWork, commitWork, db } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
@@ -10,6 +10,7 @@ import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHar
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -564,6 +565,84 @@ async function testInstanceData() {
   }, pick((await testtype.get(testfile.id, { export: true })), ["aTypedRecord", "anInstance", "rich"]));
 
   await commitWork();
+
+  const emptyData = {
+    aDateTime: null,
+    aDay: null,
+    aDoc: null,
+    aFloat: 0,
+    anArray: [],
+    anInstance: null,
+    aRecord: null,
+    aTypedRecord: null,
+    blub: null,
+    blubImg: null,
+    emptyStr: "",
+    int: 0,
+    myLink: null,
+    myWhfsRef: null,
+    myWhfsRefArray: [],
+    price: new Money("0"),
+    rich: null,
+    str: "",
+    strArray: [],
+    url: "",
+    yesNo: false,
+  } satisfies whfs.TypedInstanceData<"webhare_testsuite:global.generic_test_type">;
+
+  const testTypeDescription = await testtype.describe();
+  test.assert(typeof testTypeDescription.id === "number");
+
+  // STORY: resetting instance to default data deletes instance record
+  await beginWork();
+  await testtype.set(testfile.id, emptyData);
+  await commitWork();
+  test.assert((await db<PlatformDB>().selectFrom("system.fs_instances").where("fs_object", "=", testfile.id).where("fs_type", "=", testTypeDescription.id).execute()).length === 0, "Instance should have been removed");
+
+  // STORY: setting instance to default data doesn't create an instance record
+  {
+    await testfile.refresh();
+    const oldModified = testfile.modificationDate;
+
+    await beginWork();
+    await testtype.set(testfile.id, emptyData);
+    await commitWork();
+    test.assert((await db<PlatformDB>().selectFrom("system.fs_instances").where("fs_object", "=", testfile.id).where("fs_type", "=", testTypeDescription.id).execute()).length === 0, "Instance should have been removed");
+    await testfile.refresh();
+    test.assert(Temporal.Instant.compare(oldModified, testfile.modificationDate) < 0, "File should be modified");
+  }
+
+  // STORY: setting URL, intextlink and rich tet document results in 3 indexed links
+  {
+    await beginWork();
+    await testtype.set(testfile.id, {
+      url: "http://www.webhare.net/somepage",
+      myLink: new IntExtLink("http://www.webhare.net/otherpage"),
+      rich: await buildRTD([{ p: ["A link in a rich text document: ", { text: "link", link: "http://www.webhare.net/thirdpage" }] }])
+    });
+    await commitWork();
+    const instanceRec = await db<PlatformDB>().selectFrom("system.fs_instances").select("id").where("fs_object", "=", testfile.id).where("fs_type", "=", testTypeDescription.id).executeTakeFirst();
+    test.assert(instanceRec, "Instance should exist");
+    const settings = (await db<PlatformDB>().selectFrom("system.fs_settings").select("id").where("fs_instance", "=", instanceRec.id).execute()).map(_ => _.id);
+    test.eq(3, settings.length, "There should be 3 settings");
+
+    const checked = (await db<PlatformDB>().selectFrom("consilio.checked_objectlinks").selectAll().where("system_fs_setting", "in", settings).execute());
+    test.eq(3, checked.length, "There should be 3 checked_objectlinks");
+  }
+
+  {
+    await testfile.refresh();
+    const oldModified = testfile.modificationDate;
+    await beginWork();
+    await testtype.set(testfile.id, {
+      url: "http://www.webhare.net/somepage",
+      myLink: new IntExtLink("http://www.webhare.net/otherpage"),
+      rich: await buildRTD([{ p: ["A link in a rich text document: ", { text: "link", link: "http://www.webhare.net/thirdpage" }] }])
+    }, { isVisibleEdit: false });
+    await commitWork();
+    await testfile.refresh();
+    test.assert(Temporal.Instant.compare(oldModified, testfile.modificationDate) === 0, "File should not be modified");
+  }
 
   {
     // Construct an untyped Instance, verify that `switch (true) { case instance.is(...): }` narrows the type correctly
