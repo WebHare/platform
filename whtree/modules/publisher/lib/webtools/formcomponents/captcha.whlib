@@ -15,7 +15,7 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
-    OBJECT captchapage := form->EnsureFormCaptchaPage();
+    OBJECT captchapage := form->__EnsureFormCaptchaPage();
     form->AddFormAttributesCallback(PTR this->GetFormAttributes);
   }
 

@@ -314,6 +314,8 @@ PUBLIC STATIC OBJECTTYPE FormBase
   OBJECT __directhookobject;
   OBJECT __formrenderer;
 
+  OBJECT __captchaquestion;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties and variables
@@ -634,7 +636,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
              FROM ToRecordArray(this->__formpages, "page");
   }
 
-  PUBLIC OBJECT FUNCTION EnsureFormCaptchaPage()
+  PUBLIC OBJECT FUNCTION __EnsureFormCaptchaPage()
   {
     RECORD captchapage := SELECT * FROM this->__formpages WHERE role = "captcha";
     IF(RecordExists(captchapage))
@@ -1116,6 +1118,10 @@ PUBLIC STATIC OBJECTTYPE FormBase
         this->formcheckratelimits := FALSE;
         this->CheckRateLimits();
       }
+
+      //only if nothing else failed will we validate the captcha
+      IF(ObjectExists(this->__captchaquestion) AND NOT workobj->HasFailed())
+        this->__captchaquestion->ValidateCaptcha(workobj);
     }
     CATCH (OBJECT e)
     {
@@ -1349,6 +1355,11 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
     OBJECT handler := InitializeStoreResultsHandler(this, formid);
     RETURN handler->Submit(this, options.extradata, CELL[...options, DELETE extradata]).result.guid;
+  }
+
+  PUBLIC MACRO EnableCaptcha(RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions(CELL[], options);
+    this->__captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
   }
 >;
 

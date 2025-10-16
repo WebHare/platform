@@ -29,8 +29,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
   STRING pvt_resultguid;
   STRING pvt_idfieldvalue;
   BOOLEAN pvt_retrievedguid;
-  OBJECT captchaquestion;
-  RECORD captchasettings;
   BOOLEAN __didpreparehandlers;
   RECORD pvt_formsettings;
   OBJECT pvt_statstype;
@@ -61,7 +59,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
     IF(ObjectExists(this->formcontext)) {
       IF(NOT this->pvt_formsettings.disablecaptcha AND RecordExists(targetformsettings) AND targetformsettings.usecaptcha)
-        this->captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
+        this->EnableCaptcha();
 
       IF(this->pvt_formsettings.unavailable)
         this->unavailabletext := this->pvt_formsettings.unavailabletext ?? [ htmltext := StringToBlob(`<html><body><p>${GetHTMLTid("publisher:site.forms.commonerrors.formunavailable")}</p></body></html>`) ];
@@ -165,9 +163,6 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     OBJECT hookobject := this->__directhookobject;
     IF (ObjectExists(hookobject))
       hookobject->Validate(workobj);
-
-    IF(ObjectExists(this->captchaquestion) AND NOT workobj->HasFailed())
-      this->captchaquestion->ValidateCaptcha(workobj);
   }
 
   //Retrieve GUID but add some boobytraps against incorrect use
@@ -555,7 +550,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     this->formvariables := CELL[...this->formvariables, formsubmittype := this->formsubmittype ];
 
     // The captcha field is not required when the confirmation link is used
-    this->captchaquestion := DEFAULT OBJECT;
+    this->__captchaquestion := DEFAULT OBJECT;
 
     IF(results.status = "pending" AND this->formsubmittype != "pending")
     {
