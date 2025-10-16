@@ -14,7 +14,7 @@ import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
 async function triggerCaptcha(elt: HTMLElement) {
-  const result = await getCaptchaResponse(JSON.parse(elt.dataset.provider!), { injectInto: dompack.qR<HTMLElement>("#webcontextcaptcha_container") });
+  const result = await getCaptchaResponse(JSON.parse(elt.dataset.provider!), dompack.qR("#webcontextcaptcha_container"));
   dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
 }
 

@@ -50,7 +50,7 @@ export default class CaptchaField {
       this.captchaHolder = document.createElement('div');
       captchapage.appendChild(this.captchaHolder);
     }
-    const result = await getCaptchaResponse(metadata.provider, { injectInto: this.captchaHolder });
+    const result = await getCaptchaResponse(metadata.provider, this.captchaHolder);
     this.response = result || '';
   }
 }

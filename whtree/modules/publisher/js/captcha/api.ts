@@ -9,20 +9,18 @@ export interface CaptchaProvider {
 export interface CaptchaSettings {
   title: string;
   explain: string;
-  injectInto: HTMLElement | null;
 }
 
-export const captcharegistry: Record<string, { getResponse: (provider: CaptchaProvider, settings: CaptchaSettings) => Promise<string | null> }> = {};
+export const captcharegistry: Record<string, { getResponse: (provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) => Promise<string | null> }> = {};
 
-export async function getCaptchaResponse(provider: CaptchaProvider, settings: Partial<CaptchaSettings> = {}): Promise<string | null> {
+export async function getCaptchaResponse(provider: CaptchaProvider, injectInto: HTMLElement, settings?: Partial<CaptchaSettings>): Promise<string | null> {
   if (!captcharegistry[provider.name]) //only supported one so far
     throw new Error(`Captcha provider '${provider.name}' not registered`);
 
   const finalsettings: CaptchaSettings = {
     title: settings?.title ?? getTid("publisher:site.captcha.title"),
     explain: settings?.explain ?? getTid("publisher:site.captcha.explain"),
-    injectInto: settings?.injectInto ?? null
   };
 
-  return await captcharegistry[provider.name].getResponse(provider, finalsettings);
+  return await captcharegistry[provider.name].getResponse(provider, injectInto, finalsettings);
 }

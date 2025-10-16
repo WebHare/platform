@@ -24,12 +24,12 @@ function makeRecaptchaLoadPromise() {
   return recaptchaload.promise;
 }
 
-const captchaDefer = Symbol("captchaDefer");
+const captchaResolvers = new WeakMap<HTMLElement, PromiseWithResolvers<string>>();
 
-export async function runRecaptcha(provider: CaptchaProvider, settings: CaptchaSettings) {
-  const injectinto = settings.injectInto as typeof settings.injectInto & { [captchaDefer]?: PromiseWithResolvers<string> };
-  if (injectinto[captchaDefer])
-    return injectinto[captchaDefer].promise;
+export async function runRecaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) {
+  const existingResolver = captchaResolvers.get(injectInto); // Check if a captcha is already being built
+  if (existingResolver)
+    return existingResolver.promise;
 
   const defer = Promise.withResolvers<string>();
   const lock = dompack.flagUIBusy({ modal: true });
@@ -37,7 +37,7 @@ export async function runRecaptcha(provider: CaptchaProvider, settings: CaptchaS
     await (recaptchaload ? recaptchaload.promise : makeRecaptchaLoadPromise());
 
     const captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
-    injectinto.append(
+    injectInto.append(
       <div class="wh-captcha wh-captcha--googlerecaptcha">
         <h2 class="wh-captcha__title">{settings.title}</h2>
         <p class="wh-captcha__explain">{settings.explain}</p>
@@ -58,7 +58,7 @@ export async function runRecaptcha(provider: CaptchaProvider, settings: CaptchaS
     lock.release();
   }
 
-  injectinto[captchaDefer] = defer;
+  captchaResolvers.set(injectInto, defer);
   return defer.promise;
 }
 
