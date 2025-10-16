@@ -1,9 +1,10 @@
 <?wh
 
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
 
-LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::platform/lib/captcha/friendly-captcha.whlib";
+LOADLIB "mod::platform/lib/captcha/google-recaptcha.whlib";
+
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
@@ -22,21 +23,21 @@ PUBLIC RECORD FUNCTION GetCaptchaProvider(STRING url) {
 }
 
 PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING url, STRING response)  {
+  IF(response = "") //Don't send anyone a request if we know it won't pass
+    RETURN FALSE;
+
   IF(IsWHDebugOptionSet("nsc"))
     RETURN response = "mock";
 
   RECORD provider := GetCaptchaProvider(url);
-  RECORD ARRAY postvars := [[ name := "secret", value := provider.privatekey ]
-                           ,[ name := "response", value := response ]
-                           ];
+  RECORD verifyresult;
+  IF(provider.name = "friendly-captcha")
+    verifyresult := VerifyFriendlyCaptchaResponse(provider, response);
+  ELSE IF(provider.name = "google-recaptcha")
+    verifyresult := VerifyGoogleReCaptchaResponse(provider, response);
+  ELSE
+    THROW NEW Exception(`Unsupported captcha provider: ${provider.name}`);
 
-  OBJECT browser := NEW WebBrowser;
-  IF(NOT browser->PostWebPage("https://www.google.com/recaptcha/api/siteverify", postvars, ""))
-  {
-    LogError("socialite:recaptcha", "Unexpected response from siteverify", [ error := "UNEXPECTED-SITEVERIFY-RESPONSE", secret := provider.privatekey, response := response, status := browser->GetHTTPStatus() ]);
-    THROW NEW Exception("Unexpected response from siteverify");
-  }
-  RECORD result := DecodeJSONBlob(browser->content);
   //We need to verify the hostname, otherwise a key not locked to sites can be used elsewhere
-  RETURN result.success AND ToUppercase(result.hostname) = ToUppercase(UnpackURL(url).host);
+  RETURN RecordExists(verifyresult) AND ToUppercase(verifyresult.hostname) = ToUppercase(UnpackURL(url).host);
 }

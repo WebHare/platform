@@ -1,0 +1,52 @@
+<?wh
+
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+PUBLIC RECORD FUNCTION VerifyFriendlyCaptchaResponse(RECORD provider, STRING response)  {
+  //https://developer.friendlycaptcha.com/docs/verification
+  RECORD ARRAY postvars := [[ name := "response", value := response ]
+                           ,[ name := "sitekey", value := provider.apikey ]
+                           ];
+  OBJECT browser := NEW WebBrowser;
+  RECORD req := CreateHTTPUrlencodedRequest(postvars, "utf-8");
+  IF(NOT browser->SendRawRequest("POST", "https://global.frcapi.com/api/v2/captcha/siteverify",
+      RECORD[...req.headers, [ field := "X-API-KEY", value := provider.privatekey ]], req.body, DEFAULT RECORD)) {
+    LogError("platform:friendlycaptcha", "Unexpected response from siteverify", [ error := "UNEXPECTED-SITEVERIFY-RESPONSE", response := response, status := browser->GetHTTPStatus() ]);
+    THROW NEW Exception("Unexpected response from siteverify");
+  }
+
+  /* Example success=true verification:
+      {
+        "success": true,
+        "data": {
+          "challenge": {
+              "timestamp": "2025-03-18T13:01:25Z", // ISO 8601 timestamp when the captcha challenge was completed.
+              "origin": "https://example.com" // Origin where the challenge happened. This can be empty if unknown.
+          }
+        }
+      }
+
+      Example success=false response
+
+      {
+        "success": false,
+        "error": {
+          "error_code": "bad_request", // Error code, see the table below for possible values
+          "detail": "..." // A human readable description of what went wrong.
+        },
+      }
+  */
+  RECORD result := DecodeJSONBlob(browser->content);
+  IF(NOT result.success) {
+    LogError("platform:friendlycaptcha", "Error from siteverify", CELL[ result.error ]);
+    RETURN DEFAULT RECORD;
+  }
+
+  RETURN [ hostname := UnpackURL(result.data.challenge.origin).host
+         ];
+}

@@ -1,0 +1,24 @@
+<?wh
+
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/cluster.whlib";
+
+
+PUBLIC RECORD FUNCTION VerifyGoogleReCaptchaResponse(RECORD provider, STRING response) {
+  RECORD ARRAY postvars := [[ name := "secret", value := provider.privatekey ]
+                           ,[ name := "response", value := response ]
+                           ];
+
+  OBJECT browser := NEW WebBrowser;
+  IF(NOT browser->PostWebPage("https://www.google.com/recaptcha/api/siteverify", postvars, "")) {
+    LogError("socialite:recaptcha", "Unexpected response from siteverify", [ error := "UNEXPECTED-SITEVERIFY-RESPONSE", secret := provider.privatekey, response := response, status := browser->GetHTTPStatus() ]);
+    THROW NEW Exception("Unexpected response from siteverify");
+  }
+
+  RECORD result := DecodeJSONBlob(browser->content);
+  IF(result.success)
+    RETURN CELL [ hostname := result.hostname ];
+
+  RETURN DEFAULT RECORD;
+}
