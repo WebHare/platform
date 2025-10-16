@@ -2,11 +2,11 @@
 /* Manage various API keys.
    Quick link: https://my.webhare.dev/?app=system:dashboard/apikeys
 
-   TODO: a more generic versioun would
+   TODO: a more generic version would
          - use sytem:config wrdschema, and mark the key fields as noncopyable
-         - support full URL masks or at least intial starts, not just domain
+         - support full URL masks or at least initial starts, not just domain
            and perhaps multiple masks *and* fs_object pointers
-         - perhaps use both public/private labels or otherwise explciitly mark the private and public part *and* show what the service labels them
+         - perhaps use both public/private labels or otherwise explicitly mark the private and public part *and* show what the service labels them
            see eg the captchas, google calls the public key the apikey, friendlycaptcha calls the private key the apikey
            an explicit password=true and [ ] show would help a lot to show intended usage
          - offer room for more fields, eg API url.

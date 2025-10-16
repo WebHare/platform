@@ -7,7 +7,6 @@ import forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json?proxy";
 import type { FormSubmitEmbeddedResult } from '@mod-publisher/js/forms/formbase';
 import { RPCFormBase } from '../forms';
 
-//TODO perhaps merge with standard formcode... now that basic forms do recaptcha, we shouldn't need to implement it ourselves.. especially as we make it only more complex by overriding submit
 class ForumCommentsForm extends RPCFormBase {
   commentstool;
 
