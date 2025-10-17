@@ -84,7 +84,7 @@ ASYNC MACRO ObjectProps()
   { //Create a new file. https://gitlab.com/webhare/platform/-/issues/22 reported site= being broken then
 
     AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-    TT("types")->value := "type:" || OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id;
+    TTFillByTitle("types", "Testsuite: pagelists"); //just open something that won't launch a new document editor
     AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
 
     OBJECT betatab := TT(":Beta test tab");
