@@ -2760,21 +2760,15 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     IF(debug_logcontroller)
       LogDebug("tollium:controller", "Finding component for filetransfer request", request);
 
-    FOREVERY(OBJECT win FROM this->windowstack)
-      IF (win->tolliumscreenmanager->frame->instancename = request.window)
-      {
-        OBJECT comp := win->tolliumscreenmanager->GetToddComponentNofail(request.component);
-        IF (NOT ObjectExists(comp))
-        {
-          IF(debug_logcontroller)
-            LogDebug("tollium:controller", "Unable to find target component");
-          RETURN DEFAULT OBJECT;
-        }
+    FOREVERY(OBJECT win FROM this->windowstack) {
+      // GetToddComponentNofail will check both main and subscreens
+      OBJECT comp := win->tolliumscreenmanager->GetToddComponentNofail(request.component);
+      IF (ObjectExists(comp))
         RETURN comp;
-      }
+    }
 
     IF(debug_logcontroller)
-      LogDebug("tollium:controller", "Unable to find target window");
+      LogDebug("tollium:controller", "Unable to find target component or window");
     RETURN DEFAULT OBJECT;
   }
 

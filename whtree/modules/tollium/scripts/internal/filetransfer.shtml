@@ -34,6 +34,7 @@ IF (portid LIKE "*/*")
 IF(debug_logcontroller)
   LogDebug("filetransfer", `Incoming request of type '${type}' for application ${portid}'`);
 
+//Connect to the controller. The request is handled by ExecuteDownloadRequest
 OBJECT ipclink := ConnectToIPCPort("tollium:link." || portid);
 IF(NOT ObjectExists(ipclink))
   ipclink := ConnectToGlobalIPCPort("tollium:link." || portid);
