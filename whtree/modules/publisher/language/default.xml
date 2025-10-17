@@ -1874,10 +1874,12 @@
           <text tid="changes">Changes</text>
           <text tid="changetype">Type</text>
           <text tid="comment">Comment</text>
+          <text tid="dialogtitle">Versions of file '<param p="1"/>'</text>
           <text tid="filename">Filename</text>
           <text tid="filterfrom">Last changed between</text>
           <text tid="filterto">and</text>
           <text tid="fullname">Name</text>
+          <text tid="metadata">Metadata</text>
           <text tid="previewtab">Preview</text>
           <text tid="unknownuser">Unknown user</text>
           <text tid="versionnumber">Version number</text>

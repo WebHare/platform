@@ -946,4 +946,8 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     IF (link = "filelist:showallresults")
       this->RunTheFilter(TRUE, TRUE);
   }
+
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path) {
+    ^mylist->ExecutePathAction(path);
+  }
 >;

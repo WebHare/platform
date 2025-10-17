@@ -61,6 +61,7 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
     @cell(integer) return.snapshot WHFS id of the file with the contents for this history
     @cell(datetime) return.when Modification time
     @cell(datetime) return.isactive Whether this is the current active version
+    @cell(string) return.version Version number. First version is 0.1, first published version is 1.0
 */
 PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
 {
