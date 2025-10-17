@@ -65,10 +65,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   /// Id of edited object, 0 for new or duplicate objects
   INTEGER itemid;
 
-  // Metatabs config as received from describeMetaTabsForHS
-  RECORD metatabsconfig;
-  // Controllers for the metadata. For now we'll rely on compositions
-  PUBLIC RECORD ARRAY metacontrollers;
+  // Metatabs renderer
+  OBJECT renderer;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
   /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
@@ -122,9 +120,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
 
     //TODO generalize further so metadata.ts also managed SEO settings
-    INSERT CELL[ type := ^seosettings->type
-               , fsinstance := ^seosettings
-               ] INTO this->metacontrollers AT END;
+    this->renderer->RegisterMetaController(^seosettings->type, ^seosettings);
   }
 
   RECORD FUNCTION UpdatePinned()
@@ -163,13 +159,14 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     STRING ARRAY workflowtypes := STRING[ "http://www.webhare.net/xmlns/publisher/seosettings",
                                           ...options.workflowtypes
                                         ];
-    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[ objectid, parent, isfolder, type, options.useworkflow ] );
-    this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
+
+    this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, requireworkflow :=options.useworkflow ]);
+    this->contexts->applytester := this->renderer->applytester;
 
     IF(objectid != 0) {
-      IF(options.useworkflow AND RecordExists(this->metatabsconfig)) {
+      IF(options.useworkflow AND RecordExists(this->renderer->metatabsconfig)) {
          //add the metacontroller requested types to the type edit list
-        FOREVERY(RECORD t FROM this->metatabsconfig.types)
+        FOREVERY(RECORD t FROM this->renderer->metatabsconfig.types)
           INSERT t.namespace INTO workflowtypes AT END;
       }
     }
@@ -191,13 +188,12 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO DoInspectMetaTabs() {
-    Reflect(this->metatabsconfig);
+    Reflect(this->renderer->metatabsconfig);
   }
 
   MACRO RefreshMetaTabsReadonly()
   {
-    FOREVERY(RECORD controller FROM this->metacontrollers)
-      controller.fsinstance->enabled := NOT this->readonly;
+    this->renderer->SetControllersEnabled(NOT this->readonly);
 
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
@@ -227,7 +223,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   }
 
   MACRO LoadMetadata(OBJECT sourceobject) {
-    FOREVERY(RECORD controller FROM this->metacontrollers)
+    FOREVERY(RECORD controller FROM this->renderer->metacontrollers)
       controller.fsinstance->value := sourceobject->GetInstanceData(controller.type->namespace);
   }
 
@@ -235,7 +231,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     OBJECT target := ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow ? this->workflowmgr : OpenWHFSObject(targetobject);
 
     //FIXME ensure any specific validation rule *and* all valueConstraints are honored
-    FOREVERY(RECORD controller FROM this->metacontrollers)
+    FOREVERY(RECORD controller FROM this->renderer->metacontrollers)
     {
       //broken fields (eg due to incompatible data/vaueConstraints) should be able to opt out, IsUpdateValue ?
       target->SetInstanceData(controller.type->namespace, controller.fsinstance->GetUpdateValue());
@@ -252,44 +248,101 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   BOOLEAN FUNCTION AddTypesTabs() {
     INTEGER insertpos := 1;
 
-    IF(RecordExists(this->metatabsconfig)) {
-      FOREVERY(RECORD type FROM this->metatabsconfig.types) {
-        OBJECT fsinstance := this->CreateTolliumComponent("record");
-        RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
-        fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
-        INSERT controller INTO this->metacontrollers AT END;
-
-        FOREVERY(RECORD section FROM type.sections) {
-          //TODO restore tab merging - or have metatabsconfig calculate this for us?
-          OBJECT newtab := ^maintabs->InsertTabAt(insertpos, GetTid(section.title));
-          insertpos := insertpos + 1;
-          FOREVERY(RECORD field FROM section.fields) {
-            STRING title := GetTid(field.title);
-            OBJECT newcomp := CreateYamlComponent(this, field.component, [ composition := fsinstance
-                                                                         , cellname := field.name
-                                                                         , dirtylistener := ^dirtylistener
-                                                                         , yamlscope := fsinstance->yamlscope
-                                                                         ]);
-
-            STRING layout := CellExists(field, 'layout') ? field.layout : newcomp->blockelement ? "block" : "inline";
-            IF(title != "" AND layout = "block") { //put it in the H1 above.
-              OBJECT heading := this->CreateTolliumComponent("heading");
-              heading->title := title;
-              newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
-            }
-
-
-            newcomp->title := layout = "inline" ? title : "";
-            newcomp->errorlabel := title;
-            newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
-            newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
-          }
-        }
+    IF(RecordExists(this->renderer->metatabsconfig)) {
+      FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+        RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos);
+        insertpos := insertpos + insertresult.sections;
       }
     }
 
     this->RefreshMetaTabsReadonly();
-    RETURN RecordExists(this->metatabsconfig) AND Length(this->metatabsconfig.types) > 0;
+    RETURN RecordExists(this->renderer->metatabsconfig) AND Length(this->renderer->metatabsconfig.types) > 0;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
+  // Metatabs config as received from describeMetaTabsForHS
+  PUBLIC RECORD metatabsconfig;
+
+  // Applytester for the object
+  PUBLIC OBJECT applytester;
+
+  // Controllers for the metadata. For now we'll rely on compositions
+  PUBLIC RECORD ARRAY metacontrollers;
+
+  MACRO NEW(RECORD config, OBJECT applytester) {
+    this->metatabsconfig := config;
+    this->applytester := applytester;
   }
 
+  PUBLIC MACRO RegisterMetaController(OBJECT type, OBJECT composition) {
+    INSERT CELL[ fsinstance := composition, type ] INTO this->metacontrollers AT END;
+  }
+
+  PUBLIC RECORD FUNCTION RenderTypeIntoTabs(RECORD type, OBJECT maintabs, INTEGER insertpos) {
+    OBJECT fsinstance := maintabs->owner->CreateTolliumComponent("record");
+    RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
+    fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
+    INSERT controller INTO this->metacontrollers AT END;
+
+    FOREVERY(RECORD section FROM type.sections) {
+      //TODO restore tab merging - or have metatabsconfig calculate this for us?
+      OBJECT newtab := maintabs->InsertTabAt(insertpos, GetTid(section.title));
+      insertpos := insertpos + 1;
+      FOREVERY(RECORD field FROM section.fields) {
+        STRING title := GetTid(field.title);
+        OBJECT newcomp := CreateYamlComponent(maintabs->owner, field.component, [
+          composition := fsinstance,
+          cellname := field.name,
+          yamlscope := fsinstance->yamlscope
+        ]);
+
+        STRING layout := CellExists(field, 'layout') ? field.layout : newcomp->blockelement ? "block" : "inline";
+        IF(title != "" AND layout = "block") { //put it in the H1 above.
+          OBJECT heading := maintabs->owner->CreateTolliumComponent("heading");
+          heading->title := title;
+          newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
+        }
+
+        newcomp->title := (layout = "inline" ? title : "") || "X";
+        newcomp->errorlabel := title;
+        newcomp->enabled := FALSE;
+        newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
+        newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
+      }
+    }
+    RETURN [
+      sections := Length(type.sections)
+    ];
+  }
+
+  PUBLIC MACRO SetControllersEnabled(BOOLEAN enabled) {
+    FOREVERY(RECORD controller FROM this->metacontrollers)
+      controller.fsinstance->enabled := enabled;
+  }
 >;
+
+/** Create a metatabs renderer
+    @param objdata Configuration record for the metatabs renderer
+    @cell(integer) objdata.objectid
+    @cell(integer) objdata.parent
+    @cell(integer) objdata.isfolder
+    @cell(integer) objdata.type
+    @cell(boolean) objdata.requireworkflow
+*/
+PUBLIC OBJECT FUNCTION CreateMetatabsRenderer(RECORD objdata) {
+  objdata := ValidateOptions([
+    objectid := 0,
+    parent := 0,
+    isfolder := FALSE,
+    type := -1,
+    requireworkflow := FALSE
+  ], objdata, [
+    required := STRING[ "objectid", "parent", "isfolder", "type", "requireworkflow" ]
+  ]);
+
+  RECORD metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objdata);
+  OBJECT applytester := RecordExists(metatabsconfig) ? GetApplyTesterForHSInfo(metatabsconfig.__hsinfo) : GetApplyTesterForObject(objdata.objectid); //fallback. test-whfs-history-v4 triggers it
+
+  RETURN NEW MetatabsRenderer(metatabsconfig, applytester);
+}
