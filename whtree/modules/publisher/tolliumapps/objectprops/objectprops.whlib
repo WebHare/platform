@@ -1206,30 +1206,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   }
 
 
-  MACRO WriteExtensionData(OBJECT work, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
-  {
+  MACRO WriteExtensionData(OBJECT work, INTEGER objid) {
     //Grab siteprofile stuff
     FOREVERY(RECORD extendprop FROM this->extendprops)
       IF (ObjectExists(extendprop.instance)) // <tabsextention> ??
-        this->WriteInstanceData(work, extendprop.instance, objid, draftid, versioned_contenttypes);
+        OpenWHFSType(extendprop.contenttype)->SetInstanceData(objid, extendprop.instance->GetUpdateValue());
 
     this->SaveMetadata(objid);
-  }
-
-  MACRO WriteInstanceData(OBJECT work, OBJECT instance, INTEGER objid, INTEGER draftid, INTEGER ARRAY versioned_contenttypes)
-  {
-    OBJECT curbaseobject;
-    IF (this->isnew)
-      instance->basefsobject := OpenWHFSOBject(objid);
-    ELSE IF (instance->type->id IN versioned_contenttypes AND draftid != 0)
-    {
-      // Write to explicit draft object
-      curbaseobject := instance->basefsobject;
-      instance->basefsobject := OpenWHFSOBject(draftid);
-    }
-    instance->WriteInstanceToFSObject([ ifreadonly := draftid != 0 ? "update" : "fail"]);
-    IF (instance->type->id IN versioned_contenttypes AND draftid != 0)
-      instance->basefsobject := curbaseobject;
   }
 
   /** Calculate index actions
@@ -1549,7 +1532,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         this->UpdateTasks(objid);
 
       // Write extension data
-      this->WriteExtensionData(work, objid, 0, INTEGER[]);
+      this->WriteExtensionData(work, objid);
       ^maintabs->SubmitExtensions(work);
 
       IF(NOT this->isnew AND this->isfolder AND this->curtype.id = whconstant_whfstype_photoalbum) { //photoalbums?      {
