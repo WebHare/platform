@@ -4,7 +4,7 @@ Import layout:
 
 `@webhare/<package>' - this is the recommended public interface. a 'barrel file' mostly exporting subdependencies. We try to keep the API stable at this level and avoid breaking changes without at minimum setting up JSDOC @deprecation notices. We avoid side effects as much as possible and design the subpackages so treeshaking will work to eliminate sub imports
 
-`@webhare/<package>/styling/xxx.(s)css` - CSS subpackges. These are not exported by the toplevel package as you wouldn't be able to avoid/overwrite them.
+`@webhare/<package>/styling/xxx.(s)css` - CSS subpackages. These are not exported by the toplevel package as you wouldn't be able to avoid/overwrite them.
 
 `@webhare/<package>/<feature>` - if it's impossible to eliminate side effects of an import through tree shaking, we may split off a separate subpackage. `@webhare/deps/temporal-polyfill` is the prime example of this as a polyfill by nature has unavoidable side effects.
 
