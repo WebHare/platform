@@ -1656,5 +1656,6 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   reset() {
     this.node.reset();
+    this.gotoPage(0);
   }
 }

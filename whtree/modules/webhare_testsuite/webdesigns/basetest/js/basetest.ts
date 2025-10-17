@@ -91,6 +91,7 @@ import * as gtm from '@mod-publisher/js/analytics/gtm';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
 import { setupDataLayerTags, setupFormAnalyticsForGTM } from '@webhare/frontend';
+import { setupFriendlyCaptcha } from '@webhare/forms';
 
 window.revokeConsent = function () { consenthandler.setConsent([]); };
 
@@ -157,3 +158,5 @@ if (urlparams.has("gtmFormEvents"))
 
 if (urlparams.has("setupdatalayertags"))
   setupDataLayerTags();
+
+setupFriendlyCaptcha();

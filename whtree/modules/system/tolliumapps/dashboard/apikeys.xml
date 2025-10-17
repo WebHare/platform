@@ -1,9 +1,9 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:s="http://www.webhare.net/xmlns/system/components"
-         gid="sysmgmt.googleapikeys"
-         library="/lib/screens/sysmgmt.whlib">
+         gid="tolliumapps.dashboard.apikeys"
+         library="apikeys.whlib">
 
-  <screen name="googleapikeys" width="130x" height="25x" allowresize="true" footerbuttons="ok cancel">
+  <screen name="apikeys" width="130x" height="25x" allowresize="true" footerbuttons="ok cancel">
     <compositions>
       <s:registrynode name="maps" node="socialite.maps" />
     </compositions>
@@ -57,11 +57,12 @@
               cellname="keytype"
               name="keytype"
               type="radio"
-              flags="isgoogle isgooglerecapcta"
+              flags="isgoogle isgooglerecapcta isfriendlycaptcha"
               onchange="ontypechange"
               rowkeytype="integer">
         <option rowkey="0" flags="isgoogle" tid=".keytype-google" />
         <option rowkey="1" flags="isgooglerecaptcha" tid=".keytype-google-recaptcha" />
+        <option rowkey="2" flags="isfriendlycaptcha" tid=".keytype-friendly-captcha" />
       </select>
       <select composition="apikey" cellname="scopetype" type="radio" onchange="ontypechange" rowkeytype="integer">
         <option rowkey="0" tid=".scopetype-any" />

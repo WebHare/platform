@@ -3,6 +3,9 @@
     @topic forms/standardcomponents
 */
 
+LOADLIB "mod::platform/lib/captcha/captchamgmt.whlib";
+
+LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -15,7 +18,7 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
-    OBJECT captchapage := form->EnsureFormCaptchaPage();
+    OBJECT captchapage := form->__EnsureFormCaptchaPage();
     form->AddFormAttributesCallback(PTR this->GetFormAttributes);
   }
 
@@ -26,7 +29,7 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
 
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
-    this->value := this->form->formcontext->VerifyCaptchaResponse(jsdata);
+    this->value := VerifyCaptchaResponse(GetFormRequestURL(), jsdata);
   }
 
   STRING FUNCTION GetFormAttributes()
@@ -41,13 +44,12 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   {
   }
 
-  PUBLIC MACRO ValidateCaptcha(OBJECT work)
-  {
+  PUBLIC MACRO ValidateCaptcha(OBJECT work)  {
     IF(NOT this->IsSet() //we're only set if the captcha challenge succeeded
        AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
     {
-      STRING apikey := this->form->formcontext->GetCaptchaAPIKey();
-      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ apikey ]]);
+      RECORD provider := GetCaptchaProvider(GetFormRequestURL());
+      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ provider ]]);
     }
   }
 >;

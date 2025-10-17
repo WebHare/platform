@@ -1,9 +1,0 @@
-<?wh
-LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
-LOADLIB "mod::system/lib/database.whlib";
-
-PUBLIC RECORD FUNCTION RPC_GetApiKey(STRING url)
-{
-  OpenPrimary();
-  RETURN [ apikey := GetRecaptchaPublicKey(url) ];
-}

@@ -47,9 +47,9 @@
     <textgroup gid="forum">   <!-- site.forum -->
       <textgroup gid="comments">   <!-- site.forum.comments -->
         <text tid="email">электронное письмо</text>
-        <text tid="email-placeholder-notshown">user@example.org (не показан)</text>
         <text tid="message">Отправить сообщение</text>
         <text tid="name">имя</text>
+        <text tid="notshown">(не показан)</text>
         <text tid="respond-button">послать</text>
       </textgroup>
     </textgroup>

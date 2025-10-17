@@ -15,11 +15,12 @@ async function runForumTests(withrecaptcha) {
   test.fill("#wh-forumcomments-name", "Pietje");
   test.fill("#wh-forumcomments-email", "pietje@beta.webhare.net");
   test.fill("#wh-forumcomments-message", "De eerste posting");
-  test.click(".wh-forumcomments__respondbutton");
+  test.click("button[type=submit]");
 
   if (withrecaptcha) {
     await test.wait('ui');
     test.click('.wh-captcha__mock input[type="checkbox"]');
+    test.click("button[type=submit]");
   }
 
   await test.wait('ui');
@@ -32,11 +33,12 @@ async function runForumTests(withrecaptcha) {
   test.fill("#wh-forumcomments-name", "Jantje");
   test.fill("#wh-forumcomments-email", "Jantje@beta.webhare.net");
   test.fill("#wh-forumcomments-message", "het\ntweede\nbericht");
-  test.click(".wh-forumcomments__respondbutton");
+  test.click("button[type=submit]");
 
   if (withrecaptcha) {
     await test.wait('ui');
     test.click('.wh-captcha__mock input[type="checkbox"]');
+    test.click("button[type=submit]");
   }
 
   await test.wait('ui');
@@ -50,6 +52,7 @@ async function runForumTests(withrecaptcha) {
 test.runTests(
   [
     async function () {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       const result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib#setupTestForum');
       baseurl = result.baseurl;
     },

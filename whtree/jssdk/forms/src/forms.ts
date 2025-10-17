@@ -32,6 +32,7 @@ export type { AddressValidationResult, AddressChecks, FormFileValue, FormAnalyti
 export { DateField, TimeField } from "@mod-publisher/js/forms/fields/datetime";
 export { registerHandler } from "./registration";
 export { setupGoogleRecaptcha } from "@mod-publisher/js/captcha/google-recaptcha";
+export { setupFriendlyCaptcha } from "./friendly-captcha";
 export { setupValidator } from "@mod-publisher/js/forms/internal/customvalidation";
 
 export type FormHandlerFactory = (form: HTMLFormElement) => FormBase;

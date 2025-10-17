@@ -1,0 +1,22 @@
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+
+  <form name="addcomment"
+        gid="publisher:site.forum.comments"
+        jshandler="publisher:forumcommentsform"
+        library="forumplugin.whlib"
+        objectname="AddCommentForm"
+        submitlabeltid=".respond-button">
+    <page>
+      <textedit name="name" maxlength="60" required="1" tid=".name" />
+      <textedit name="email"
+                maxlength="60"
+                placeholdertid="tollium:common.examples.email"
+                required="1"
+                tid=".email"
+                suffixtid=".notshown"
+                validationchecks="email" />
+      <textarea name="message" required="1" tid=".message" />
+    </page>
+  </form>
+
+</formdefinitions>

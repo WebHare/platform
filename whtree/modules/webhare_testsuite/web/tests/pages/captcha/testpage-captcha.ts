@@ -9,23 +9,16 @@ import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
-//activate google recaptcha
+//activate google recaptcha (if that happens to be the one activated by the page)
 import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
-async function triggerGoogleRecaptcha(elt: HTMLElement) {
-  const result = await googleRecaptcha.runRecaptchaDialog(elt.dataset.recaptchakey!,
-    { injectInto: null, title: "Google Recaptcha", explain: "Please click the checkbox below to prove you're not a robot" });
-  dompack.qR<HTMLInputElement>('#googlerecaptcha_result').value = result || '';
-}
-
 async function triggerCaptcha(elt: HTMLElement) {
-  const result = await getCaptchaResponse(elt.dataset.apikey!);
+  const result = await getCaptchaResponse(JSON.parse(elt.dataset.provider!), dompack.qR("#webcontextcaptcha_container"));
   dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
 }
 
 function init() {
-  dompack.qR('#trigger_googlerecaptcha').addEventListener("click", (evt) => void triggerGoogleRecaptcha(evt.currentTarget as HTMLElement));
   dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", (evt) => void triggerCaptcha(evt.currentTarget as HTMLElement));
 }
 dompack.onDomReady(init);

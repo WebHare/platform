@@ -1,18 +1,32 @@
 <?wh
+/* Manage various API keys.
+   Quick link: https://my.webhare.dev/?app=system:dashboard/apikeys
+
+   TODO: a more generic version would
+         - use sytem:config wrdschema, and mark the key fields as noncopyable
+         - support full URL masks or at least initial starts, not just domain
+           and perhaps multiple masks *and* fs_object pointers
+         - perhaps use both public/private labels or otherwise explicitly mark the private and public part *and* show what the service labels them
+           see eg the captchas, google calls the public key the apikey, friendlycaptcha calls the private key the apikey
+           an explicit password=true and [ ] show would help a lot to show intended usage
+         - offer room for more fields, eg API url.
+         - lock entries to prod/accept/test (for easier cloning)
+         - or generalize even further, just offer two JSON fields, one which is copyable/syncable and once which isn't
+*/
 
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::socialite/lib/database.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC STATIC OBJECTTYPE GoogleApiKeys EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase
 <
   STRING ARRAY keytypes;
   STRING ARRAY scopetypes;
 
   MACRO Init(RECORD data)
   {
-    this->keytypes   := STRING[ this->GetTid(".keytype-google"), this->GetTid(".keytype-google-recaptcha") ];
+    this->keytypes := STRING[ this->GetTid(".keytype-google"), this->GetTid(".keytype-google-recaptcha"), this->GetTid(".keytype-friendly-captcha")];
     this->scopetypes := STRING[ this->GetTid(".scopetype-any"), this->GetTid(".scopetype-client"), this->GetTid(".scopetype-server") ];
 
     ^maps->ReadFromRegistry();
@@ -34,7 +48,7 @@ PUBLIC STATIC OBJECTTYPE GoogleApiKeys EXTEND TolliumScreenBase
                 , scopetype := scopetype >= 0 AND scopetype < Length(this->scopetypes) ? this->scopetypes[scopetype] : ""
                 , comment
              FROM socialite.google_apikeys
-            WHERE keytype IN [0,1];
+            WHERE keytype IN [0,1,2];
   }
 
   MACRO EditApiKey(RECORD row)
@@ -72,9 +86,11 @@ PUBLIC STATIC OBJECTTYPE EditApiKey EXTEND TolliumScreenBase
 
   MACRO OnTypeChange()
   {
-    ^apikey->^privatekey->visible := ^apikey->^keytype->value = 1; //google recaptcha
+    ^apikey->^privatekey->visible := ^apikey->^keytype->value IN [1,2]; //google recaptcha
     ^apikey->^privatekey->required := ^apikey->^privatekey->visible;
     ^apikey->^scopetype->visible := ^apikey->^keytype->value = 0;
+    ^apikey->^apikey->title := ^apikey->^keytype->value = 2 ? this->GetTid(".sitekey") : this->GetTid(".apikey");
+    ^apikey->^privatekey->title := ^apikey->^keytype->value = 2 ? this->GetTid(".apikey") : this->GetTid(".privatekey");
   }
 
   BOOLEAN FUNCTION Submit()
@@ -91,4 +107,3 @@ PUBLIC STATIC OBJECTTYPE EditApiKey EXTEND TolliumScreenBase
     RETURN work->Finish();
   }
 >;
-

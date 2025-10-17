@@ -7,8 +7,12 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/internal/forum/rpc.whlib";
+
 
 PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
 <
@@ -39,9 +43,6 @@ PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
 
     RETURN CELL[ imagedisplaymethod
                , type := node->GetAttribute("type")
-               , replies := ParseXSBoolean(node->GetAttribute("replies"))
-               , subjects := ParseXSBoolean(node->GetAttribute("subjects"))
-               , captcha := node->GetAttribute("captcha")
                , maximages := ToInteger(node->GetAttribute("maximages"),0)
                , postsperpage := ToInteger(node->GetAttribute("postsperpage"),10)
                , newestfirst := ParseXSBoolean(node->GetAttribute("newestfirst"))
@@ -56,36 +57,6 @@ PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
     this->pvt_config := config;
   }
 
-  MACRO GenerateRespondFields()
-  {
-    OBJECT renderer := this->webdesign->GetFormRenderer();
-
-    renderer->RenderField( [ firstid := "wh-forumcomments-name"
-                           , type := "textedit"
-                           , name := "name"
-                           , htmltitle := GetTid("publisher:site.forum.comments.name")
-                           , required := TRUE
-                           , maxlength := 60
-                           ]);
-
-    renderer->RenderField( [ firstid := "wh-forumcomments-email"
-                           , type := "textedit"
-                           , name := "email"
-                           , htmltitle := GetTid("publisher:site.forum.comments.email")
-                           , placeholder := GetTid("publisher:site.forum.comments.email-placeholder-notshown")
-                           , required := TRUE
-                           , maxlength := 60
-                           , validationchecks := ["email"]
-                           ]);
-
-    renderer->RenderField( [ firstid := "wh-forumcomments-message"
-                           , type := "textarea"
-                           , name := "message"
-                           , htmltitle := GetTid("publisher:site.forum.comments.message")
-                           , required := TRUE
-                           ]);
-  }
-
   PUBLIC RECORD FUNCTION GetCommentsWittyData(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions( [ forfile := this->webdesign->targetobject->id ], options);
@@ -96,8 +67,11 @@ PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
     ELSE
       cd := SELECT AS DATETIME creationdate FROM system.fs_objects WHERE fs_objects.id = options.forfile;
 
-    RETURN [ filetoken := EncryptForThisServer("publisher:commentsplugin", [ id := options.forfile, cd := cd ])
-           , respondfields := PTR this->GenerateRespondFields()
+    OBJECT form := this->webdesign->OpenForm("publisher:webtoolform#addcomment");
+    INSERT CELL "wh-forum" := EncryptForThisServer("publisher:commentsplugin", [ id := options.forfile, cd := cd ])
+           INTO form->formdataset;
+
+    RETURN [ form := form->GetWittyData()
            ];
   }
 
@@ -115,5 +89,41 @@ PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
   {
     IF(objectprops->targetid != 0 AND objectprops->applytester->IsTypeNeedsTemplate())
       objectprops->AddTabsExtension("mod::publisher/tolliumapps/forum/managecomments.xml#commentstab", "", [ id := objectprops->targetid ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AddCommentForm EXTEND FormBase <
+  MACRO NEW() {
+    this->formidprefix := "wh-forumcomments-";
+
+    OBJECT plugin := this->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "forumplugin");
+    IF(plugin->config.usecaptcha) {
+      this->EnableCaptcha();
+    }
+  }
+
+  //TODO share work
+  MACRO SubmitPost() {
+
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    OBJECT work := this->BeginWork([ database := FALSE ]); //as forum wants to self manage work
+
+    IF(work->Hasfailed()) { //eg. captcha failure. TODO bit of a waste to open a db transaction here just to close it again
+      work->Finish();
+      RETURN DEFAULT RECORD;
+    }
+
+    OBJECT forumobj := OpenForumByToken(extradata.forum);
+    forumobj->AddPost([ name := ^name->value
+                      , email := ^email->value
+                      , message := ^message->value
+                      , messagetype := "text/plain"
+                      , source := GetClientRemoteIp() || ":" || GetClientRemotePort()
+                      , sourceurl := GetFormRequestURL()
+                      , posteruid := ""
+                      ]);
+    RETURN work->Finish() ? [ success := TRUE ] : DEFAULT RECORD;
   }
 >;

@@ -45,9 +45,9 @@
     <textgroup gid="forum">   <!-- site.forum -->
       <textgroup gid="comments">   <!-- site.forum.comments -->
         <text tid="email">电子邮件</text>
-        <text tid="email-placeholder-notshown">user@example.org (未显示)</text>
         <text tid="message">发送消息</text>
         <text tid="name">名称</text>
+        <text tid="notshown">(未显示)</text>
         <text tid="respond-button">发送</text>
       </textgroup>
     </textgroup>

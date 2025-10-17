@@ -13,8 +13,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
-LOADLIB "mod::socialite/lib/google/recaptcha.whlib";
-
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
@@ -295,19 +293,6 @@ PUBLIC STATIC OBJECTTYPE WebContext <
     RETURN url;
   }
 
-  PUBLIC STRING FUNCTION GetCaptchaAPIKey()
-  {
-    STRING url := this->__GetCaptchaURL();
-    RETURN GetRecaptchaPublicKey(url);
-  }
-  PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING response)
-  {
-    IF(response = "")
-      RETURN FALSE;
-
-    STRING url := this->__GetCaptchaURL();
-    RETURN VerifyRecaptchaResponse(url, response);
-  }
   PUBLIC BOOLEAN FUNCTION AllowToSkipCaptchaCheck()
   {
     OBJECT captchaplugin := this->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "captchaintegration");
