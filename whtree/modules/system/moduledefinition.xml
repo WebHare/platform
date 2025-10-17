@@ -53,7 +53,7 @@
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
-    <managedtask type="installmodule" objectname="mod::system/lib/internal/moduleimexport.whlib#installmoduletask" />
+    <managedtask type="installmodule" objectname="mod::system/lib/internal/moduleimexport.whlib#installmoduletask" allowifrestore="true" priority="updateinteractive"/>
   </servicemanager>
 
   <portal>
