@@ -4,21 +4,23 @@
          library="versions.whlib">
 
   <screen name="history"
-          width="120x"
+          width="150x"
           height="40x"
           minwidth="70x"
           allowresize="true"
           flags="issupervisor issysop"
           footerbuttons="close"
           gid=".dialog"
+          savestate="size"
           title="">
     <actions>
       <action name="createcopy" ellipsis="true" tid="~copyto">
         <enableon source="versions" min="1" max="1" onexecute="DoCopy" />
       </action>
-      <action name="inspect" tid="~inspect" frameflags="issupervisor">
+      <action name="inspect" frameflags="issupervisor" tid="~inspect">
         <enableon source="versions" min="1" max="1" onexecute="DoInspect" />
       </action>
+
       <!--
       <action name="restorecontent" onexecute="dorestorecontent" tid=".restore">
         <enableon source="versionevents" min="1" max="1" />
@@ -29,9 +31,10 @@
     <menus>
       <menu name="context">
         <item action="createcopy" />
-        <!--        <item action="restorecontent" />        -->
+
+        <!-- <item action="restorecontent" /> -->
         <divider />
-        <item action="inspect"/>
+        <item action="inspect" />
       </menu>
     </menus>
 
@@ -101,10 +104,9 @@
               </row>
             </rowlayout>
           </list>
-
-          <panel layout="right" borders="left right bottom" backgroundcolor="#e5e5e5" spacers="right">
+          <panel backgroundcolor="#e5e5e5" borders="left right bottom" layout="right" spacers="right">
             <line>
-<!--              <button action="restorecontent" /> -->
+<!-- <button action="restorecontent" /> -->
               <button action="createcopy" />
             </line>
           </panel>
@@ -127,6 +129,37 @@
             </tab>
             <tab spacers="none" tid=".previewtab">
               <publisher:previewbrowser name="previewbrowser" urlbarvisible="false" />
+            </tab>
+            <tab name="metadata" width="1pr" vscroll="true">
+              <tabs name="templatetabs" type="stacked" height="1pr" visible="false">
+                <tab name="maintab" tid="tolliumapps.objectprops.objectprops.maintab">
+                  <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
+                  <textedit name="name" width="1pr" maxlength="256" enabled="false" tid="~name" />
+                  <textedit name="title" width="1pr" maxlength="256" enabled="false" tid="~title" />
+
+                  <!--
+                  <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!- - doclink="publisher:objectprops/seo" - ->
+                  <textedit composition="seosettings"
+                            cellname="seotitle"
+                            name="seotitle"
+                            width="1pr"
+                            maxlength="256"
+                            enabled="false"
+                            placeholdertid="tolliumapps.objectprops.objectprops.meta-title-placeholder"
+                            showcounter="true"
+                            tid="tolliumapps.objectprops.objectprops.meta-title" />
+                  -->
+                  <textarea name="description"
+                            height="3gr"
+                            enabled="false"
+                            maxlength="2048"
+                            placeholdertid="tolliumapps.objectprops.objectprops.description-placeholder"
+                            showcounter="true"
+                            tid="~description" />
+                  <textarea name="keywords" height="1gr" enabled="false" maxlength="1024" showcounter="true" tid="~keywords" />
+                  <checkbox name="pinobject" enabled="false" title="" visible="false" />
+                </tab>
+              </tabs>
             </tab>
           </tabs>
         </part>
