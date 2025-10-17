@@ -186,6 +186,8 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         requireworkflow := FALSE
       ]);
 
+      renderer->RegisterMetaController(^seosettings->type, ^seosettings);
+
       RECORD ARRAY instances := ListInstances(sel.snapshot);
 
       RECORD ARRAY metacontrollers;
@@ -209,6 +211,10 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
       // Disable all metacontrollers so the fields are disabled too
       renderer->SetControllersEnabled(FALSE);
+
+      // Load the data
+      FOREVERY (RECORD controller FROM renderer->metacontrollers)
+        controller.fsinstance->value := controller.type->GetInstanceData(sel.snapshot);
 
       this->maintabs->RunExtensionsPostInit();
     }

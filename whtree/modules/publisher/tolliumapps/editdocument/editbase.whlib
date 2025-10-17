@@ -250,7 +250,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
     IF(RecordExists(this->renderer->metatabsconfig)) {
       FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
-        RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos);
+        RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
         insertpos := insertpos + insertresult.sections;
       }
     }
@@ -279,7 +279,10 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
     INSERT CELL[ fsinstance := composition, type ] INTO this->metacontrollers AT END;
   }
 
-  PUBLIC RECORD FUNCTION RenderTypeIntoTabs(RECORD type, OBJECT maintabs, INTEGER insertpos) {
+  PUBLIC RECORD FUNCTION RenderTypeIntoTabs(RECORD type, OBJECT maintabs, INTEGER insertpos, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions([
+      dirtylistener := DEFAULT OBJECT
+    ], options);
     OBJECT fsinstance := maintabs->owner->CreateTolliumComponent("record");
     RECORD controller := CELL [ fsinstance, type := OpenWHFSType(type.namespace) ];
     fsinstance->yamlscope := NEW FieldScope(fsinstance, controller);
@@ -294,6 +297,7 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
         OBJECT newcomp := CreateYamlComponent(maintabs->owner, field.component, [
           composition := fsinstance,
           cellname := field.name,
+          dirtylistener := options.dirtylistener,
           yamlscope := fsinstance->yamlscope
         ]);
 
@@ -304,9 +308,8 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
           newtab->InsertComponentAfter(heading, DEFAULT OBJECT, TRUE);
         }
 
-        newcomp->title := (layout = "inline" ? title : "") || "X";
+        newcomp->title := (layout = "inline" ? title : "");
         newcomp->errorlabel := title;
-        newcomp->enabled := FALSE;
         newtab->layout := layout = "inline" ? "form" : "left";  //update tab's layout as that's what new lines will use
         newtab->InsertComponentAfter(newcomp, DEFAULT OBJECT, TRUE);
       }
