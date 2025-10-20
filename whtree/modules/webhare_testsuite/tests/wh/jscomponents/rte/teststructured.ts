@@ -1050,13 +1050,13 @@ test.runTests(
         topaste = dompack.create("div", { innerHTML: '<br><br> ' }); // Need space after last <br>, or it will be ignored
         //console.log(topaste, topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><p class="normal">' + blockfill + '</p><p class="normal">"(*0*)(*1*)ing"</p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"<br>"(*0*)(*1*)ing"</p>');
 
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<br><br> ' }); // Need space after last <br>, or it will be ignored
         //console.log(topaste, topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"</p><p class="normal">(*0*)(*1*)' + blockfill + '</p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"test"<br>(*0*)(*1*)<br data-wh-rte="bogus"></p>');
 
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)"</p>');
         topaste = dompack.create("div", { innerHTML: '<img class="wh-rtd__img" height="50" src="/tests/webhare.png" width="50" align="left">' });
@@ -1084,12 +1084,12 @@ test.runTests(
         locators = rtetest.setStructuredContent(win, '<ul class="unordered"><li><i>"a(*0*)(*1*)"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: 'woord<br>woord2' }); // Need space after last <br>, or it will be ignored
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li><i>"a"</i>"woord"</li><li>"woord2(*0*)(*1*)"</li></ul>');
+        rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li><i>"a"</i>"woord"<br>"woord2(*0*)(*1*)"</li></ul>');
 
         locators = rtetest.setStructuredContent(win, '<ul class="unordered"><li><i>"(*0*)(*1*)a"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: 'woord<br>woord2' }); // Need space after last <br>, or it will be ignored
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li>"woord"</li><li>"woord2(*0*)(*1*)"</li><li><i>"a"</i></li></ul>');
+        rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li>"woord"<br>"woord2(*0*)(*1*)"<i>"a"</i></li></ul>');
 
         locators = rtetest.setStructuredContent(win, '<ul class="unordered"><li><i>"a(*0*)(*1*)"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: '<p class="normal">1</p><p class="normal">2</p><p class="normal"><br data-wh-rte="bogus"></p>' });
@@ -1105,10 +1105,17 @@ test.runTests(
 
         // Paste root textstyle with 'display: block'
         locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)ing"</p>');
-        topaste = dompack.create("div", { innerHTML: 'a<br><i style="display: block">b</i>' });
+        topaste = dompack.create("div", { innerHTML: 'a<br><i style="display: inline">b</i>' });
         //console.log(topaste, topaste.innerHTML);
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"testa"</p><p class="normal"><i>"b(*0*)(*1*)"</i></p><p class="normal">"ing"</p>');
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"testa"<br><i>"b(*0*)(*1*)"</i>"ing"</p>');
+
+        // Paste root textstyle with 'display: block' - no preceding br
+        locators = rtetest.setStructuredContent(win, '<p class="normal">"test(*0*)ing"</p>');
+        topaste = dompack.create("div", { innerHTML: 'a<i style="display: block">b</i>' });
+        //console.log(topaste, topaste.innerHTML);
+        await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
+        rtetest.testEqSelHTMLEx(win, '<p class="normal">"testa"<br><i>"b(*0*)(*1*)"</i>"ing"</p>');
 
         // Paste forbidden inline styles
         locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"test(*0*)ing"</h1>');
