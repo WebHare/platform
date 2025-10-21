@@ -1,6 +1,6 @@
 import { toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { type GuestProtocol, Host, runSimpleScreen, setupGuest, type HostContext } from "@webhare/tollium-iframe-api";
-import "@webhare/tollium-iframe-api/styling";
+import "@webhare/tollium-iframe-api/styling/tollium.css";
 import { GoogleMap } from "./googlemap";
 import { LeafletMap } from "./leaflet";
 import type { LatLngBounds, MapHostProtocol, MapObject, MapSettings, MapProviders, UpdatableMapSettings } from "./support";

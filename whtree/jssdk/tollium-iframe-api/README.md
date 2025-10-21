@@ -14,7 +14,7 @@ Add an iframe component to a screen:
 The iframe component can receive and send messages:
 
 ```harescript
-MACRO OnClientMessage(STRING message, RECORD data)
+MACRO OnFrameMessage(STRING message, RECORD data)
 {
   // Do something with the message
   this->RunSimpleScreen("info", `Got message of type ${message}`);
@@ -36,9 +36,7 @@ interface OurHostProtocol {
 const host = new Host<OurHostProtocol>();
 ```
 
-You can then send messages to the host using `host.post(...)`
-
-And define endpoints for messages it will receive from the host:
+You can then send messages to the host using `host.post(...)` and define endpoints for messages it will receive from the host:
 
 ```typescript
 async function init(context: HostContext, initData: { my_init_info: string }) {
@@ -54,10 +52,9 @@ const myEndpoints: GuestProtocol = {
 setupGuest(init, myEndpoints);
 ```
 
-The iframe guest code *must* invoke setupGuest before messages are actually sent and received. They
-will be queued until the `init` callback, if any, has succesfully completed. If needed you should
-verify the origin of the host loading your iframe inside this callback.
-
+The iframe guest code *must* invoke setupGuest before messages are actually sent and received. They will be queued until the
+`init` callback, if any, has successfully completed. If needed you should verify the origin of the host loading your iframe
+inside this callback.
 
 ```typescript
 import { postTolliumMessage } from "@webhare/tollium-iframe-api";
@@ -75,24 +72,17 @@ postTolliumMessage({ msg: "This is a message" });
 
 ### Tollium styling
 
-This package can be used in iframes loaded within Tollium's 'iframe' component to more seamlessly blend in within the Tollium
-interface. In the future, this package will be used to centralize all Tollium styling and skinning.
+The `tollium.css` stylesheet can be used in iframes loaded within Tollium's 'iframe' component to more seamlessly blend in
+with the Tollium interface. In the future, this package will be used to centralize all Tollium styling and skinning.
 
-Just import the styling package to activate some basic styling:
-
-```typescript
-import "@webhare/tollium-iframe-api/styling";
-```
-
-This module sets some default font, color and border styling on the html element (to show borders, set the `border-width` to
-`var(--tollium-border-width)`) and loads the Roboto font used by Tollium. It also exposes some CSS variables and TypeScript
-constants for usage in your iframe.
+Just import the stylesheet to activate some basic styling:
 
 ```typescript
-import { theme } from "@webhare/tollium-iframe-api/styling";
-
-document.getElementById("mydiv").style.outline = `2px solid ${theme.colorAccent}`;
+import "@webhare/tollium-iframe-api/styling/tollium.css";
 ```
+
+This stylesheet sets some default font, color and border styling on the html element (to show borders, set the `border-width`
+to `var(--tollium-border-width)`) and loads the Roboto font used by Tollium. It also exposes some CSS variables.
 
 ```css
 #mydiv
@@ -101,13 +91,24 @@ document.getElementById("mydiv").style.outline = `2px solid ${theme.colorAccent}
 }
 ```
 
+To use style elements (colors etc.) from TypeScript or listen to theme changes, use `getTheme` to get the `theme` object,
+which exposes properties for the Tollium style properties.
+
+```typescript
+import { getTheme } from "@webhare/tollium-iframe-api";
+
+const theme = getTheme();
+document.getElementById("mydiv").style.outline = `2px solid ${theme.colorAccent}`;
+```
+
 The currenly active theme is added to the html element's class list as `tollium-theme-<name>`, which is used to automatically
 update the CSS variables when the theme changes. If you need to more explicitly handle theme changes, you can listen for the
 `change` event on the `theme` object:
 
 ```typescript
-import { theme } from "@webhare/tollium-iframe-api/styling";
+import { getTheme } from "@webhare/tollium-iframe-api";
 
+const theme = getTheme();
 theme.on("change", () => console.info("The theme is now", theme.name));
 ```
 
@@ -147,6 +148,7 @@ createTolliumImage("tollium:objects/webhare", 16, 16, "c").then(image => {
 ```
 
 ## Security considerations
+
 The iframe should use a `Content-Security-Policy: frame-ancestors...` header to ensure it's not loaded by an unexpected host.
 If it's not possible to protect the guest page this way we recommend verifying the origin in the init callback to ensure it
 has the expected value.

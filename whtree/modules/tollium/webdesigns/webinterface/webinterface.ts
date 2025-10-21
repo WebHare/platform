@@ -1,6 +1,6 @@
 import { frontendConfig, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
-import "@webhare/tollium-iframe-api/styling";
+import "@webhare/tollium-iframe-api/styling/tollium.css";
 import './css/webinterface.scss';
 import './pages/forms';
 import './pages/harescripterror';

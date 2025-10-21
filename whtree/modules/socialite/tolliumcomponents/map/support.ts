@@ -1,10 +1,10 @@
 import * as dompack from "@webhare/dompack";
 import { getTid } from "@webhare/gettid";
-import { createTolliumImage, runSimpleScreen, tolliumActionEnabler, type Host } from "@webhare/tollium-iframe-api";
-import { theme } from "@webhare/tollium-iframe-api/styling";
+import { createTolliumImage, getTheme, runSimpleScreen, tolliumActionEnabler, type Host } from "@webhare/tollium-iframe-api";
+import "@webhare/tollium-iframe-api/styling/tollium.css";
 
 // The default line color for shapes added to the map
-export const defaultShapeColor = theme.colorAccent;
+export const defaultShapeColor = getTheme().colorAccent;
 
 // A few basic lat/lng types
 export type LatLng = { lat: number; lng: number };
