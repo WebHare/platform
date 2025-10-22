@@ -535,7 +535,9 @@
       </textgroup>
       <textgroup gid="boostwordsoverview">   <!-- filemanager.main.boostwordsoverview -->
         <text tid="boostwordsoverview">Overzicht aanvullende sleutelwoorden</text>
+        <text tid="filter">Filter sleutelwoorden</text>
         <text tid="noboostwords">Er zijn geen bestanden met aanvullende sleutelwoorden</text>
+        <text tid="nomatchingboostwords">Er zijn geen sleutelwoorden die voldoen aan het filter</text>
         <text tid="path">Pad</text>
         <text tid="words">Aanvullende sleutelwoorden</text>
       </textgroup>
