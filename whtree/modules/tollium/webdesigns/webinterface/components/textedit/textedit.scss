@@ -39,6 +39,10 @@ t-textedit {
     flex: 1 0 0;
 
     button {
+      background: none;
+      box-shadow: none;
+      border:none;
+      color:inherit; /* a lighter color is used inside tab-space */
       flex: 0 0 16px;
       height: auto; //button.scss sets height:23px, we need to undo that
       margin: 3px 0 0 4px;
