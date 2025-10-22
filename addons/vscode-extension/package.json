@@ -236,6 +236,7 @@
 		"test": "sh ./scripts/run-extension-tests.sh"
 	},
 	"dependencies": {
+		"@webhare/lsp-types": "file:../../whtree/jssdk/lsp-types",
 		"vscode-languageclient": "^9.0.1",
 		"vscode-languageserver-types": "^3.17.5"
 	},
