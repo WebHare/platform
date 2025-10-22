@@ -13,6 +13,7 @@ import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
+import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -375,6 +376,10 @@ class WHFSBaseObject {
     if (emitReordering)
       finishHandler.objectReordered(this.parentSite, this.parent, this.id, this.isFolder);
     finishHandler.objectUpdate(this.parentSite, this.parent, this.id, this.isFolder);
+  }
+
+  async listInstances(options?: ListInstancesOptions): Promise<ListInstancesResult> {
+    return await listInstances(this.id, options);
   }
 }
 

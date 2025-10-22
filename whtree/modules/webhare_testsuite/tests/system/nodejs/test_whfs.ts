@@ -415,6 +415,24 @@ async function testLookup() {
   test.eq(null, lookupresult.file);
 
   await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
+  await whfs.whfsType("platform:web.config").set(root.id, { comments: "comment" });
+  test.eq([
+    {
+      fsObject: root.id,
+      namespace: "http://www.webhare.net/xmlns/publisher/sitesettings",
+      scopedType: "platform:web.sitesettings",
+      clone: "onCopy",
+      workflow: false,
+      orphan: false,
+    }, {
+      fsObject: root.id,
+      namespace: "platform:web.config",
+      scopedType: "platform:web.config",
+      clone: "onArchive",
+      workflow: false,
+      orphan: false,
+    }
+  ], await whfs.listInstances([root.id]));
 
   lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/testfolder/"));
   test.eq(null, lookupresult.site);
