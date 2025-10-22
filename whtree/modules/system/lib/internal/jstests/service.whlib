@@ -53,6 +53,14 @@ PUBLIC RECORD FUNCTION RPC_ReportJSError(RECORD details)
       INSERT CELL testscript := scriptpath INTO details;
     }
   }
+  IF (CellExists(details, "trace")) {
+    details.trace := EnforceStructure([ [ functionname := "", func := "" ] ], details.trace);
+    details.trace :=
+        SELECT *
+             , functionname := functionname ?? func
+             , DELETE func
+          FROM details.trace;
+  }
 
   LogNoticeScriptErrorFromRecord("system:jstests", details);
   RETURN [ success := TRUE ];

@@ -65,13 +65,18 @@ let reportPromise: Promise<unknown> | null = null;
 export async function translateTrace(error: Error): Promise<StackTraceItem[]> {
   // Must specify a sourceCache to avoid duplicate requests
   const parsedStackFrames = await StackTrace.fromError(error, { sourceCache });
-  return parsedStackFrames.map(frame => (
-    {
+  return parsedStackFrames.map(frame => {
+    let fileName = frame.fileName;
+    const matchRes = fileName?.match(/\.wh\/ea\/[^/]*\/[^/]*\/(.*)$/);
+    if (matchRes)
+      fileName = matchRes[1];
+    return {
       line: frame.lineNumber || 0,
       func: frame.functionName || "unknown",
-      filename: (frame.fileName || "unknown").replace("/@whpath/", ""),
+      filename: (fileName || "unknown").replace("/@whpath/", ""),
       col: frame.columnNumber || 0
-    }));
+    };
+  });
 }
 
 /** Send an exception

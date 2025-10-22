@@ -148,6 +148,9 @@ export async function doStackTraceRequest(lastguid: string | null): Promise<Stac
       } else if (stack.filename.match(/.*::.*/)) { //resource path?
         stack.filename = mapHareScriptPath(stack.filename) ?? stack.filename;
         stack.editorpath = stack.filename;
+      } else if (stack.filename.startsWith("@webhare/")) {
+        stack.filename = backendConfig.installationRoot + "jssdk/" + stack.filename.substring(9);
+        stack.editorpath = stack.filename;
       }
 
   return response;
