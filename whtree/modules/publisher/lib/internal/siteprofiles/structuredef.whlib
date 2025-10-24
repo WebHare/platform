@@ -812,9 +812,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         {
           this->AddItemToBlockNodes(block, CELL[ type := "br", textstyles := RECORD[] ]);
 
-          // Treats BR's at top-level as paragraph breaks - force new block at next content
-          IF (block->surrogate)
-            block := DEFAULT OBJECT;
+          // Don't converts BR's at root level to paragraphs, disabled for utwente/utwente_base#2029 (and complaints from Herman)
         }
         CASE "blockstyle"
         {

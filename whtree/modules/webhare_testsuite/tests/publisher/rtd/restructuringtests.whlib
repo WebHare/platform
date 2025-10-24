@@ -158,22 +158,18 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       , expect :=         `<html><body><p class="normal">p</p></body></html>`
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
-      , title :=          "extra br to force parapgraph visibility"
-      , input :=          `<b>Leerdoelen</b><br/>Aan het einde van deze cursus kunt u zich in het Italiaans voorstellen en een kort gesprek voeren, en bent u in staat om qua leesvaardigheid korte teksten te begrijpen. Wat schrijfvaardigheid betreft kunt u korte teksten schrijven, bijvoorbeeld over uw familie en uzelf. U kunt mondeling en schriftelijk de volgende grammaticale onderwerpen toepassen: lidwoorden, regelmatige werkwoorden, enkele onregelmatige werkwoorden, zelfstandige naamwoorden in enkel-/meervoud, bijvoeglijke naamwoorden (enkel-/meervoud), bezittelijke voornaamwoorden en een aantal voorzetsels.<br/><br/><b>Inhoud cursus</b><br/>Deze cursus bereidt deelnemers voor die bijvoorbeeld op vakantie naar Itali&#235; gaan of die voor hun studie enkele maanden in Itali&#235; zullen verblijven. Alle vaardigheden komen aan bod, maar de cursus focust vooral op communicatieve handelingen zoals winkelen, iets te eten/drinken bestellen, de weg vragen, de trein nemen, etc. Tijdens Italiaans 1 behandelt de docent de hoofdstukken 1 tot en met 3 van Con Piacere 1.<br/><br/><b>Werkvormen</b><br/>De docent behandelt plenair grammatica en lessen uit het boek, er wordt vaak in tweetallen gewerkt.<br/><br/><b>Aantal zelfstudie uren</b><br/>ca. 2 uur per week<b>Voertaal</b><br/>Zoveel mogelijk Italiaans, maar tijdens de eerste lessen zal de docent ook uitleg in het Nederlands geven`
+      , title :=          "inline pastes are kept inline"
+      , input :=          `<b>Regel 1</b><br>Regel2`
       , expect :=         `<html><body>`||
-                            `<p class="normal"><b>Leerdoelen</b></p>`||
-                            `<p class="normal">Aan het einde van deze cursus kunt u zich in het Italiaans voorstellen en een kort gesprek voeren, en bent u in staat om qua leesvaardigheid korte teksten te begrijpen. Wat schrijfvaardigheid betreft kunt u korte teksten schrijven, bijvoorbeeld over uw familie en uzelf. U kunt mondeling en schriftelijk de volgende grammaticale onderwerpen toepassen: lidwoorden, regelmatige werkwoorden, enkele onregelmatige werkwoorden, zelfstandige naamwoorden in enkel-/meervoud, bijvoeglijke naamwoorden (enkel-/meervoud), bezittelijke voornaamwoorden en een aantal voorzetsels.</p>`||
+                            `<p class="normal"><b>Regel 1</b><br>Regel2</p>`||
+                           `</body></html>`
+      ]
+    , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
+      , title :=          "extra br to force parapgraph visibility"
+      , input :=          `<p>  </p>`
+      , expect :=         `<html><body>`||
                             `<p class="normal"><br data-wh-rte="bogus"></p>`||
-                            `<p class="normal"><b>Inhoud cursus</b></p>`||
-                            `<p class="normal">Deze cursus bereidt deelnemers voor die bijvoorbeeld op vakantie naar Italië gaan of die voor hun studie enkele maanden in Italië zullen verblijven. Alle vaardigheden komen aan bod, maar de cursus focust vooral op communicatieve handelingen zoals winkelen, iets te eten/drinken bestellen, de weg vragen, de trein nemen, etc. Tijdens Italiaans 1 behandelt de docent de hoofdstukken 1 tot en met 3 van Con Piacere 1.</p>`||
-                            `<p class="normal"><br data-wh-rte="bogus"></p>`||
-                            `<p class="normal"><b>Werkvormen</b></p>`||
-                            `<p class="normal">De docent behandelt plenair grammatica en lessen uit het boek, er wordt vaak in tweetallen gewerkt.</p>`||
-                            `<p class="normal"><br data-wh-rte="bogus"></p>`||
-                            `<p class="normal"><b>Aantal zelfstudie uren</b></p>`||
-                            `<p class="normal">ca. 2 uur per week<b>Voertaal</b></p>`||
-                            `<p class="normal">Zoveel mogelijk Italiaans, maar tijdens de eerste lessen zal de docent ook uitleg in het Nederlands geven</p>`||
-                          `</body></html>`
+                           `</body></html>`
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "don't eat brs at end of parapgraph"
@@ -183,7 +179,7 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "br in links"
       , input :=          `<a href="http://example.com">a<br>a<a><p><a href="http://example.com">a<br>a<a></p>`
-      , expect :=         `<p class="normal"><a href="http://example.com">a</a></p><p class="normal"><a href="http://example.com">a</a></p><p class="normal"><a href="http://example.com">a</a><br><a href="http://example.com">a</a></p>`
+      , expect :=         `<p class="normal"><a href="http://example.com">a</a><br><a href="http://example.com">a</a></p><p class="normal"><a href="http://example.com">a</a><br><a href="http://example.com">a</a></p>`
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/edudex"
       , title :=          "don't eat brs at end of parapgraph 2"

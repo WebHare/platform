@@ -200,6 +200,11 @@ div.wh-rtd--margins-active //active = either -compact or -wide (or other future 
       margin: 0px 9px;
       padding: 2*$body-verticalmargin $body-standardmargin;
     }
+
+    &:has(.wh-rtd-embeddedobject--selected)
+    {
+      caret-color: transparent;
+    }
   }
 }
 
