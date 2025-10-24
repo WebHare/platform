@@ -261,7 +261,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
 
   OBJECT wrdschema;
   RECORD wrdauthconfig;
-  STRING targeturl;
+  RECORD __WRDAuthPluginSettings_HS;
 
   BOOLEAN did_wrdauthjs_check;
 
@@ -276,8 +276,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   // Constructor
   //
 
-  MACRO NEW(OBJECT wrdschema, RECORD wrdauthconfig, STRING targeturl) {
-    this->targeturl := targeturl;
+  MACRO NEW(OBJECT wrdschema, RECORD wrdauthconfig, RECORD __WRDAuthPluginSettings_HS) {
+    this->__WRDAuthPluginSettings_HS := __WRDAuthPluginSettings_HS;
     this->wrdschema := wrdschema;
     this->wrdauthconfig := wrdauthconfig;
 
@@ -345,7 +345,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
       //Delegating this to JS now
       //FIXME how to get the proper target url when eg being invoked by a RPC service ?
       this->loggedinentity := userid; //shortcircuit attempts to parse the internal cookies immediately after login
-      RETURN CallJS("@webhare/auth/src/identity.ts#prepareLoginCookies", this->targeturl, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.setcreationdate ?? GetCurrentDatetime());
+      RETURN CallJS("@mod-platform/js/auth/harescript.ts#prepareLoginCookies", this->__WRDAuthPluginSettings_HS, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.setcreationdate ?? GetCurrentDatetime());
     }
 
     //TODO _e / external cookies still need quite some revision, ideally a self-contained JWT
