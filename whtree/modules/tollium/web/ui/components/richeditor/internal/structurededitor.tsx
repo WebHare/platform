@@ -1409,20 +1409,20 @@ export default class StructuredEditor extends EditorBase {
         case 'unknown':
           {
             let displayblockblock;
-            if (type.displayblock && block && block.nodes.length && block.nodes[block.nodes.length - 1].type !== 'br') {
+            if (type.displayblock && block && block.nodes.length && block.nodes[block.nodes.length - 1].type !== 'br' && !block.deferredbr) {
               displayblockblock = block;
               this._addItemToBlockNodes(block, { type: 'br' });
             }
 
             block = this.parseContainerContentsRecursive(child, block, topblocklist, textstyles, null, options);
 
-            if (displayblockblock && displayblockblock === block && block.nodes[block.nodes.length - 1].type !== 'br')
+            if (displayblockblock && displayblockblock === block && block.nodes[block.nodes.length - 1].type !== 'br' && !block.deferredbr)
               this._addItemToBlockNodes(block, { type: 'br' });
           } break;
         case 'textstyle':
           {
             let displayblockblock;
-            if (type.displayblock && block.nodes.length && block.nodes[block.nodes.length - 1].type !== 'br') {
+            if (type.displayblock && block.nodes.length && block.nodes[block.nodes.length - 1].type !== 'br' && !block.deferredbr) {
               displayblockblock = block;
               this._addItemToBlockNodes(block, { type: 'br' });
             }
@@ -1433,7 +1433,7 @@ export default class StructuredEditor extends EditorBase {
 
             block = this.parseContainerContentsRecursive(child, block, topblocklist, subtextstyles, null, options);
 
-            if (displayblockblock && displayblockblock === block && block.nodes[block.nodes.length - 1].type !== 'br')
+            if (displayblockblock && displayblockblock === block && block.nodes[block.nodes.length - 1].type !== 'br' && !block.deferredbr)
               this._addItemToBlockNodes(block, { type: 'br' });
           } break;
         case 'text':
@@ -1473,9 +1473,7 @@ export default class StructuredEditor extends EditorBase {
             if (!type.isinterchange || !child.nextSibling || child.nextSibling.nodeName.toLowerCase() !== "br") {
               this._addItemToBlockNodes(block, { type: type.type, value: this.getTextStyleRecordFromNode(child) });
 
-              // Treats BR's at top-level as paragraph breaks - force new block at next content
-              if (block.surrogate && (!options || options.externalcontent))
-                block = null;
+              // Don't converts BR's at root level to paragraphs, disabled for utwente/utwente_base#2029 (and complaints from Herman)
             }
           } break;
         case 'embeddedobject':
