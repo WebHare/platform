@@ -680,12 +680,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       IF(options.logincontrol != "") {
         RECORD instr := this->__DoProcessControlToken(options.logincontrol);
         IF(RecordExists(instr))
-          RETURN [ success := TRUE, submitinstruction := instr ];
+          RETURN [ success := TRUE, submitinstruction := instr, code := "" ];
       }
     }
 
     IF(CellExists(result,'navigateto'))
-      RETURN [ success := result.loggedin, submitinstruction := result.navigateto ];
+      RETURN [ success := result.loggedin, submitinstruction := result.navigateto, code := "" ];
 
     RETURN CELL [result.code, result.error ];
   }
