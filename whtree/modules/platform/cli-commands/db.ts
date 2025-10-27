@@ -111,11 +111,11 @@ run({
         const start = Date.now();
         const result = spawnSync(toFSPath("mod::platform/cli-commands/lib/dump-restore-database.sh"),
           [...opts.dryRun ? "--dry-run" : [], "--set-version", expectVersion.toString()], { stdio: "inherit" });
-        console.log(result.status);
+
         if (result.status === 0) {
           console.log("Total time: " + ((Date.now() - start) / 1000).toFixed(3) + " seconds");
         } else {
-          console.error(opts.dryRun ? "Upgrade failed" : "Upgrade failed - you may need to restart WebHare to exit read-only mode! (wh service relaunch");
+          console.error(opts.dryRun ? "Upgrade failed" : "Upgrade failed - you may need to restart WebHare to exit read-only mode! (wh service relaunch)");
           process.exit(result.status || 1);
         }
       }

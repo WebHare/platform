@@ -9,6 +9,9 @@ export async function bootstrapPostgresWHDB(pg: Connection) {
   await ensureSettings(pg);
   await ensureBlobTable(pg);
   await ensureStoredProcedures(pg);
+  if (await tableExists(pg, "pg_catalog", "pg_pltemplate")) //PG < 12, we need to remove a grant that breaks upgrading
+    await pg.query(`REVOKE SELECT ON TABLE "pg_catalog"."pg_pltemplate" FROM "root";`);
+
   await pg.query("COMMIT");
 }
 
