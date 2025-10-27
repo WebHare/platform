@@ -39,21 +39,22 @@
 </html>
 [/component]
 
-[rawcomponent swaggerui_initscript]
+[component swaggerui_initscript]
   <script>
     const ui = SwaggerUIBundle({
         url: document.documentElement.dataset.speclink,
         dom_id: '#swagger-ui',
         deepLinking: true,
-        presets: [
+        presets: [[
           SwaggerUIBundle.presets.apis,
           SwaggerUIStandalonePreset
         ],
-        plugins: [
+        plugins: [[
           SwaggerUIBundle.plugins.DownloadUrl
         ],
         layout: "StandaloneLayout",
-        validatorUrl: null //prevent footer badge which can't access internal APIs anyway
+        validatorUrl: null, //prevent footer badge which can't access internal APIs anyway
+        ...[options:json],
       });
   </script>
-[/rawcomponent]
+[/component]

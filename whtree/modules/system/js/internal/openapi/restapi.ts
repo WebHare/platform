@@ -153,15 +153,17 @@ export class RestAPI {
   crossdomainOrigins: string[] = [];
   handlerInitHook: string | null = null;
   defaultErrorMapper: string | null = null;
+  swaggerOptions: object = {};
 
   constructor(public bundled: WebHareOpenAPIDocument) {
   }
 
-  async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string }) {
+  async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook, swaggerOptions }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string; swaggerOptions: object }) {
     this.serviceName = name;
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
     this.handlerInitHook = handlerInitHook ?? null;
+    this.swaggerOptions = swaggerOptions;
     if (crossdomainOrigins)
       this.crossdomainOrigins = crossdomainOrigins;
 

@@ -4,7 +4,7 @@ import * as services from "@webhare/services";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services";
 import { LogInfo, RestAPI, type OpenAPIInitHookFunction } from "./restapi";
-import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, type WebHareOpenAPIDocument } from "@webhare/router";
+import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, type WebHareOpenAPIDocument, type OpenAPIServiceInitializationContext } from "@webhare/router";
 import type { WebRequestInfo, WebResponseInfo } from "../types";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
@@ -88,7 +88,8 @@ export class RestService extends services.BackendServiceConnection {
     const apidata = {
       apibaseurl: apibaseurl,
       speclink: apibaseurl + relurl_spec,
-      swaggeruilink: apibaseurl + relurl_swaggerui
+      swaggeruilink: apibaseurl + relurl_swaggerui,
+      options: this.restapi.swaggerOptions,
     };
 
     if (relurl === "" || relurl === relurl_swaggerui) { //webpage
@@ -178,7 +179,8 @@ export async function describeService(servicename: string) {
   // Read and parse the OpenAPI Yaml definition
   const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
   const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
-  const options = { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]) };
+  const swaggerOptions: object = {};
+  const options = { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]), swaggerOptions };
 
   // Bundle all external files into one document
   const bundled = await SwaggerParser.bundle(apispec_fs, def as WebHareOpenAPIDocument, {}) as WebHareOpenAPIDocument;
@@ -193,8 +195,18 @@ export async function describeService(servicename: string) {
     const tocall = await services.importJSFunction<OpenAPIInitHookFunction>(options.initHook);
     whenAborted(importChangeSignal, abort);
     whenAborted(importChangeSignal, () => console.log(`Import change signal for ${options.initHook} aborted, script uuid: ${localScriptUuid}`));
-    const retval = await context.run(() => tocall({ name: servicename, spec: bundled, signal }));
-    // Invalidate the whole description if initHook's returned signal has abortedR
+    const hookContext: OpenAPIServiceInitializationContext = {
+      name: servicename,
+      spec: bundled,
+      signal,
+      swaggerOptions,
+    };
+    const retval = await context.run(() => tocall(hookContext));
+
+    // Copy over any changes the hook made to the swagger options
+    options.swaggerOptions = hookContext.swaggerOptions;
+
+    // Invalidate the whole description if initHook's returned signal has aborted
     if (retval?.signal)
       whenAborted(retval.signal, abort);
   }
