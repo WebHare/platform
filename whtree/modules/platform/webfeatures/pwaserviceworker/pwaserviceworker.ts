@@ -9,6 +9,11 @@ import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 import { generateRandomId, throwError } from "@webhare/std";
 import type { IDBPDatabase } from 'idb';
 
+export type PWACheckVersionResponse = {
+  needsupdate: boolean;
+  forcerefresh: boolean;
+};
+
 const serviceworkerurl = new URL(location.href);
 const appname: string = serviceworkerurl.searchParams.get('app') ?? throwError("Unknown app name");
 
@@ -303,7 +308,7 @@ async function ourFetch(event: FetchEvent) {
 
 self.addEventListener('fetch', onFetch);
 
-async function checkVersion(clientversioninfo: ClientVersionInfo) {
+async function checkVersion(clientversioninfo: ClientVersionInfo): Promise<PWACheckVersionResponse> {
   const pwasettings = await getSwStoreValue("pwasettings");
   if (!pwasettings)
     throw new Error("No PWASettings found in the store");
@@ -317,7 +322,7 @@ async function checkVersion(clientversioninfo: ClientVersionInfo) {
   return {
     needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid !== versioninfo.pwauid)
       || versioninfo.updatetok !== currentversion?.updatetok,
-    forcerefresh: forcerefresh && new Date(versioninfo.forcerefresh) > forcerefresh
+    forcerefresh: Boolean(forcerefresh && new Date(versioninfo.forcerefresh) > forcerefresh)
   };
 }
 
