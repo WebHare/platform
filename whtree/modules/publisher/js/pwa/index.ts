@@ -25,8 +25,6 @@ function getAppName() {
   return module + ':' + webdesign;
 }
 
-settings.setAppName(getAppName());
-
 function sendSWRequestTo(sw: ServiceWorker, type: string, data?: object) {
   return new Promise((resolve, reject) => {
     const msg_chan = new MessageChannel();
@@ -164,5 +162,10 @@ function onServiceWorkerMessage(event: MessageEvent) {
   }
   console.error("onServiceWorkerMessage", event.data);
 }
-navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
-void precheckExistingWorkers();
+
+if (whintegration.config.obj.pwasettings) { //only activate if pwasettings are present - avoid sideeffects
+  settings.setAppName(getAppName());
+
+  navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
+  void precheckExistingWorkers();
+}
