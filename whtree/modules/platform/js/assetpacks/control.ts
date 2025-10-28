@@ -358,7 +358,10 @@ class AssetPackControlClient extends BackendServiceConnection {
   }
 }
 
-export async function createAssetPackManager() {
+export async function createAssetPackManager(options?: { debug?: boolean }): Promise<AssetPackController> {
+  if (options?.debug)
+    debugFlags.assetpacks = true;
+
   return new AssetPackController(await loadAssetPacksConfig());
 }
 
