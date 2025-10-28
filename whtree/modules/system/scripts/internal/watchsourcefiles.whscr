@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
@@ -195,7 +196,7 @@ STRING ARRAY npmlinkroots :=
       FROM ToRecordArray(Tokenize(ReadRegistryKey("system.backend.development.npmlinkroots"), ","), "PATH")
      WHERE TrimWhitespace(path) != "";
 
-watchdirs := watchdirs CONCAT extradirs CONCAT npmlinkroots;
+watchdirs := GetSortedSet(watchdirs CONCAT extradirs CONCAT npmlinkroots);
 
 // Omit dirs that have another dir as prefix
 FOR (INTEGER i := 1; i < LENGTH(watchdirs);)

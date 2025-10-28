@@ -2205,6 +2205,9 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
 
 PUBLIC STATIC OBJECTTYPE BoostWordsOverview EXTEND TolliumScreenBase
 <
+  RECORD ARRAY boostwords;
+  RECORD ARRAY boostwordindex;
+
   MACRO Init(RECORD data)
   {
     // Find all folders (data.ids is a foldertree folder id or a list of filelist file and folder ids)
@@ -2244,12 +2247,32 @@ PUBLIC STATIC OBJECTTYPE BoostWordsOverview EXTEND TolliumScreenBase
           FROM system.sites
          WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT parentsite FROM files);
     files := JoinArrays(files, "parentsite", sites, CELL[ sitename := "" ], [ rightouterjoin := TRUE ]);
-    ^boostwords->rows :=
+    this->boostwords :=
         SELECT *
              , rowkey := id
              , path := sitename != "" ? sitename || ":" || fullpath : whfspath
              , words := Detokenize(GetSortedSet(words), "; ")
+             , _words := words
           FROM files;
+    // Create an inverse index to quickly search for individual boost words
+    FOREVERY (RECORD entry FROM this->boostwords)
+    {
+      FOREVERY (STRING word FROM entry._words)
+      {
+        RECORD pos := RecordLowerBound(this->boostwordindex, [ word := ToLowercase(word) ], [ "word" ]);
+        IF (NOT pos.found)
+          INSERT [ word := ToLowercase(word), files := INTEGER[ entry.id ] ] INTO this->boostwordindex AT pos.position;
+        ELSE
+          INSERT entry.id INTO this->boostwordindex[pos.position].files AT END;
+      }
+    }
+    ^filter->options := SELECT title := word FROM this->boostwordindex;
+    this->OnFilterChange();
+  }
+
+  MACRO DoClearFilter()
+  {
+    ^filter->value := "";
   }
 
   MACRO DoProperties()
@@ -2260,5 +2283,21 @@ PUBLIC STATIC OBJECTTYPE BoostWordsOverview EXTEND TolliumScreenBase
   MACRO DoOpenInPublisher()
   {
     RunPublisherFileManager(this, ^boostwords->value, [ infilelist := TRUE ]);
+  }
+
+  MACRO OnFilterChange()
+  {
+    RECORD ARRAY boostwords := this->boostwords;
+    IF (^filter->value != "")
+    {
+      STRING mask := `*${Detokenize(Tokenize(ToLowercase(^filter->value), ""), "*")}*`;
+      INTEGER ARRAY files;
+      FOREVERY (RECORD entry FROM SELECT * FROM this->boostwordindex WHERE word LIKE mask)
+        files := files CONCAT entry.files;
+      boostwords := SELECT * FROM boostwords WHERE id IN GetSortedSet(files);
+    }
+    ^boostwords->rows := boostwords;
+    ^clearfilter->enabled := ^filter->value != "";
+    ^boostwords->empty := ^filter->value != "" ? this->GetTid(".nomatchingboostwords") : this->GetTid(".noboostwords");
   }
 >;

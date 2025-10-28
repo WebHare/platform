@@ -535,7 +535,9 @@
       </textgroup>
       <textgroup gid="boostwordsoverview">   <!-- filemanager.main.boostwordsoverview -->
         <text tid="boostwordsoverview">Additional keywords overview</text>
+        <text tid="filter">Filter keywords</text>
         <text tid="noboostwords">There are no files with additional keywords</text>
+        <text tid="nomatchingboostwords">There are no keywords matching the filter</text>
         <text tid="path">Path</text>
         <text tid="words">Additional keywords</text>
       </textgroup>
