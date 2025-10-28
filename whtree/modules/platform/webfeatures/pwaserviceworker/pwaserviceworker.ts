@@ -158,7 +158,9 @@ async function downloadApplication() {
   const mainpagetext = await mainpage.text();
   const whconfig = getWHConfig(mainpagetext);
   const moreassets = whconfig.obj.pwasettings.addurls;
+  await cache.put(`${assetbasedir}apmanifest.json`, (await manifestfetch).clone());
   const manifest = await (await manifestfetch).json() as AssetPackManifest;
+
   const currentassets = new Set([...baseassets, ...moreassets]);
   const getassets = manifest.assets.filter(el => !el.compressed && !el.sourcemap).
     map(el => ({ ...el, path: assetbasedir + el.subpath })).
@@ -266,6 +268,7 @@ function onFetch(event: FetchEvent) {
     || urlpath.startsWith('/.wh/devkit/')
     || urlpath.startsWith('/.dev/debug.js')
     || urlpath.startsWith(getAssetPackBase("dev:devtools"))
+    || urlpath.startsWith(getAssetPackBase("platform:authormode"))
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith('/.wh/ea/config/') //TODO the publisher shouldn't fetch this for PWAs but publisher integration doesn't know about PWAs yet
     || urlpath.startsWith("/.px/") //old pxl url. new url introduced with WH5.7
@@ -313,17 +316,33 @@ async function checkVersion(clientversioninfo: ClientVersionInfo): Promise<PWACh
   if (!pwasettings)
     throw new Error("No PWASettings found in the store");
   const checkurl = "/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(pwasettings.apptoken);
-  const versionresponse = await fetch(checkurl); //FIXME ensure we avoid caches
+  const versionresponse = await fetch(checkurl, { cache: "reload" });
   const versioninfo = await versionresponse.json() as ServerVersionInfo;
 
   const currentversion = await getSwStoreValue("currentversion");
-  const forcerefresh = await getSwStoreValue("forcerefresh");
+  const forcerefreshDate = await getSwStoreValue("forcerefresh");
   console.log(`${logprefix}checkversion`, { currentversion, clientversioninfo });
-  return {
-    needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid !== versioninfo.pwauid)
-      || versioninfo.updatetok !== currentversion?.updatetok,
-    forcerefresh: Boolean(forcerefresh && new Date(versioninfo.forcerefresh) > forcerefresh)
-  };
+
+  const forcerefresh = Boolean(forcerefreshDate && new Date(versioninfo.forcerefresh) > forcerefreshDate);
+  let needsupdate = forcerefresh || (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid !== versioninfo.pwauid)
+    || versioninfo.updatetok !== currentversion?.updatetok;
+
+  if (!needsupdate) { //check asssets
+    const cache = await caches.open("pwacache-" + appname);
+    for (const manifest of (await cache.keys()).filter(_ => new URL(_.url).pathname.match(/^\/\.wh\/ea\/ap\/.*\/apmanifest.json$/))) {
+      const live = await fetch(manifest, { cache: "reload" });
+      const cached = await cache.match(manifest);
+      const liveText = await live.text();
+      const cachedText = cached ? await cached.text() : null;
+      if (liveText !== cachedText) {
+        console.log(`${logprefix}Manifest ${manifest.url} changed, need update`, { liveText, cachedText });
+        needsupdate = true;
+        break;
+      }
+    }
+  }
+
+  return { needsupdate, forcerefresh };
 }
 
 async function downloadUpdate() {
