@@ -30,7 +30,9 @@ LOADLIB "mod::system/lib/whfs.whlib";
    - can embed into the actual published file, so we have a non-racing way to figure out what code we just loaded
    - request separately based on the published file.
 
-   And that's how we end up with parsing html[data-wh-pwa-uid]
+   And that's how we end up with parsing html[data-wh-pwa-uid] for static files
+
+   For dynamic files we have something usable that should be in sync always, the files' modification date
 */
 
 STRING FUNCTION GetFSObjectDiskOutputPath(INTEGER res)
@@ -75,13 +77,19 @@ RECORD FUNCTION GetFileinfo(RECORD appinfo)
            , ttl := 60 * 1000
            , eventmasks := OpenWHFSObject(appinfo.id)->GetEventMasks()
            ];
+
   IF(diskprops.type = 1)
     diskpath := MergePath(diskpath,'index.html');
 
   STRING pwauid;
-  OBJECT source := MakeXMLDocumentFromHTML(GetDiskResource(diskpath));
-  IF(ObjectExists(source->documentelement))
-    pwauid := source->documentelement->GetAttribute("data-wh-pwa-uid");
+  BLOB diskresourcedata := GetDiskResource(diskpath, [ allowmissing := TRUE ]);
+  IF(Length(diskresourcedata) > 0) {
+    OBJECT source := MakeXMLDocumentFromHTML(diskresourcedata);
+    IF(ObjectExists(source->documentelement))
+      pwauid := source->documentelement->GetAttribute("data-wh-pwa-uid");
+  } ELSE { //no index.html so it's dynamic
+    pwauid := FormatISO8601Datetime(targetfile->modificationdate, [ extended := FALSE ]);
+  }
 
   RECORD pwasettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pwasettings")->GetInstanceData(appinfo.id);
   RETURN CELL [ value := CELL[ pwasettings
