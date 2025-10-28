@@ -170,7 +170,7 @@ function failLogin(message: string, response: { code: LoginErrorCode; data: stri
 
 /** Retrieve userinfo if set by onFrontendUserInfo in your WRDAuth customizer */
 export function getUserInfo<T extends object = object>(): T | null {
-  return getAuthLocalData()?.userInfo as T | null;
+  return isLoggedIn() ? getAuthLocalData()?.userInfo as T | null : null;
 }
 
 function getLoginTweaks(): LoginTweaks {
