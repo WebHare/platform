@@ -484,10 +484,31 @@ test.runTests(
       test.fill("[name=strayfield]", "wedontlikeyou@block.beta.webhare.net");
 
       //submit it
+      const prepareSubmitEvent = new Promise(resolve => formnode.addEventListener("wh:form-preparesubmit", resolve, { once: true }));
+      const responseEvent = new Promise(resolve => formnode.addEventListener("wh:form-response", resolve, { once: true }));
+      const submittedEvent = new Promise(resolve => formnode.addEventListener("wh:form-response", resolve, { once: true }));
+
       test.eq("", test.qR('#coreformsubmitresponse').textContent, "expected no submission");
       test.click('#submitbutton');
 
       await test.wait('ui');
+
+      //Can't say i'm too thrilled with how these events have turned out, but code relies on it so for now...
+      test.eq({ extrasubmit: { proof: 42 } }, ((await prepareSubmitEvent) as any).detail);
+      test.eqPartial({
+        result: {
+          email: "pietje",
+          extradata: { proof: 42 },
+          form: { email: "pietje@example.com" }
+        }
+      }, ((await responseEvent) as any).detail);
+      test.eqPartial({
+        result: {
+          email: "pietje",
+          extradata: { proof: 42 },
+          form: { email: "pietje@example.com" }
+        }
+      }, ((await submittedEvent) as any).detail);
     },
     {
       test: async function () {
