@@ -1,11 +1,13 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
@@ -46,7 +48,8 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     this->apptoken := EncryptForThisServer("publisher:pwaapptoken", [ id := webdesign->targetobject->id]);
-    INSERT CELL "wh-pwa-uid" := GenerateUFS128BitId() INTO this->webdesign->htmldata;
+    INSERT CELL "wh-pwa-uid" := IsRequest() ? FormatISO8601Datetime(webdesign->targetobject->modificationdate, [ extended := FALSE ])
+                                            : GenerateUFS128BitId() INTO this->webdesign->htmldata;
     INSERT CELL "wh-pwa-fileid" := ToString(webdesign->targetobject->id) INTO this->webdesign->htmldata;
     this->UpdatePWASettings();
 
