@@ -9,6 +9,7 @@ declare module "@webhare/forms" {
 }
 
 import FormBase from '@mod-publisher/js/forms/rpc';
+import { default as LocalFormBase } from "@mod-publisher/js/forms/formbase"; //'FormBase', the RPC-ing one, is the one you want 99% of the time. LocalFormBase is for pure local handling (eg a PWA Config screen)
 import { verifyAddress, type AddressValidationResult, type AddressChecks } from './address';
 import { FileUploadFormElement as FileEditElement } from "@mod-publisher/js/forms/fields/upload";
 import { ImgEditElement } from "@mod-publisher/js/forms/fields/imgedit";
@@ -28,14 +29,18 @@ import { registerHandlers } from './registration';
 import "@mod-publisher/js/forms/internal/form.lang.json";
 
 export { FormBase, verifyAddress, ImgEditElement, FileEditElement, JSFormElement, getFormHandler, getFormData };
+export type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
+export { buildRPCFormSubmission as buildFormSubmission, submitRPCForm as submitForm } from "@mod-publisher/js/forms/rpc";
+export type { RPCFormSubmission as FormSubmission } from "./types";
 export type { AddressValidationResult, AddressChecks, FormFileValue, FormAnalyticsEvent };
 export { DateField, TimeField } from "@mod-publisher/js/forms/fields/datetime";
 export { registerHandler } from "./registration";
 export { setupGoogleRecaptcha } from "@mod-publisher/js/captcha/google-recaptcha";
 export { setupFriendlyCaptcha } from "./friendly-captcha";
 export { setupValidator } from "@mod-publisher/js/forms/internal/customvalidation";
+export { LocalFormBase };
 
-export type FormHandlerFactory = (form: HTMLFormElement) => FormBase;
+export type FormHandlerFactory = (form: HTMLFormElement) => LocalFormBase;
 
 export type FormSetupOptions = {
   handlers: Record<string, FormHandlerFactory>;
