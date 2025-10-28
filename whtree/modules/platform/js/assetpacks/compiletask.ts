@@ -71,13 +71,19 @@ export class CaptureLoadPlugin {
 }
 
 /** generate entrypoint.js. */
-function generateEntryPoint(paths: string[]): string {
+function generateEntryPoint(name: string, start: Date, paths: string[]): string {
   let prologue = "";
   prologue += `import "@webhare/frontend/src/init";`; //it's side effects will initialize @webhare/env dtapstage
 
   //TODO escape quotes and backslashes..
   const imports = paths.map(_ => `import "${_}";`);
-  return prologue + imports.join("\n");
+  prologue += imports.join("\n");
+
+  //Inject assetpack status/list. Give us a timestamp so we can figure out if the loaded assetpack matches the one on disk.
+  //User code should not access whAssetPacks until they're sure all code has loaded (and even then there can be dynamic loads of course)
+  prologue += `const aps = globalThis.whAssetPacks ||= {}; aps[${JSON.stringify(name)}]=${JSON.stringify(start)};`;
+
+  return prologue;
 }
 
 function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplugin: CaptureLoadPlugin) { //setup function
@@ -206,9 +212,10 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     userPlugins.push(await func(...plugin.pluginOptions));
   }
 
+  const start = new Date;
   let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     stdin: {
-      contents: generateEntryPoint(rootfiles),
+      contents: generateEntryPoint(data.bundle.config.name, start, rootfiles),
       loader: 'js',
       sourcefile: "/entrypoint.js",
       resolveDir: "/"
@@ -270,7 +277,6 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
-  const start = new Date;
   const verbose = ["verbose", "debug"].includes(esbuild_configuration.logLevel || '');
 
   try {
@@ -353,6 +359,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
+    start: assetPackState.start.toISOString(),
     assets: []
   };
 
