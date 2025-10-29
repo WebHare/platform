@@ -1,4 +1,4 @@
-import { Money } from '@webhare/std';
+import { isTemporalInstant, isTemporalZonedDateTime, Money } from '@webhare/std';
 import { type DataMappingOptions, type DataType, DataTypeOIDs, type SmartBuffer, parseDateTime } from './../vendor/postgrejs/src/index';
 import { numberBytesToString } from './../vendor/postgrejs/src/data-types/numeric-type';
 import { defaultDateTime, maxDateTime } from '@webhare/hscompat/src/datetime';
@@ -223,4 +223,63 @@ export const ArrayWHTimestampType: DataType = {
   name: "_timestamp",
   oid: DataTypeOIDs._timestamp,
   elementsOID: DataTypeOIDs.timestamp,
+};
+
+export const WHTimestampTzType: DataType = {
+  name: "timestamptz",
+  oid: DataTypeOIDs.timestamptz,
+  jsType: "Temporal.Instant", // could also be +Infinity / -Infinity, but we won't represent those as such in JS
+
+  parseBinary(v: Buffer, options: DataMappingOptions): Temporal.Instant | string | number {
+    const fetchAsString = options.fetchAsString && options.fetchAsString.includes(DataTypeOIDs.timestamptz);
+    const hi = v.readInt32BE();
+    const lo = v.readUInt32BE(4);
+    if (lo === 0xffffffff && hi === 0x7fffffff) return fetchAsString ? "infinity" : Infinity;
+    if (lo === 0x00000000 && hi === -0x80000000) return fetchAsString ? "-infinity" : -Infinity;
+
+    // Shift from 2000 to 1970
+    const retval = Temporal.Instant.fromEpochMilliseconds((lo + hi * timeMul) / 1000 + timeShift);
+    return fetchAsString ? retval.toString() : retval;
+  },
+
+  encodeBinary(buf: SmartBuffer, v: Temporal.Instant | Temporal.ZonedDateTime | number | string, options: DataMappingOptions): void {
+    if (v === Infinity || v === "infinity") {
+      buf.writeInt32BE(0x7fffffff); // hi
+      buf.writeUInt32BE(0xffffffff); // lo
+      return;
+    }
+    if (v === -Infinity || v === "-infinity") {
+      buf.writeInt32BE(-0x80000000); // hi
+      buf.writeUInt32BE(0x00000000); // lo
+      return;
+    }
+    if (typeof v === "number")
+      v = Temporal.Instant.fromEpochMilliseconds(v);
+    else if (typeof v === "string") {
+      v = Temporal.ZonedDateTime.from(v).toInstant();
+    }
+    let n = v.epochMilliseconds;
+    n = (n - timeShift) * 1000;
+    const hi = Math.floor(n / timeMul);
+    const lo = n - hi * timeMul;
+    buf.writeInt32BE(hi);
+    buf.writeUInt32BE(lo);
+  },
+
+  parseText(v: string, options: DataMappingOptions): Temporal.Instant | number | string {
+    if (options.fetchAsString && options.fetchAsString.includes(DataTypeOIDs.timestamp)) return v;
+    const retval = parseDateTime(v, true, false, options.utcDates);
+    return typeof retval === "object" ? retval.toTemporalInstant() : retval;
+  },
+
+  isType(v: unknown): boolean {
+    return isTemporalInstant(v) || isTemporalZonedDateTime(v);
+  }
+};
+
+export const ArrayWHTimestampTzType: DataType = {
+  ...WHTimestampTzType,
+  name: "_timestamptz",
+  oid: DataTypeOIDs._timestamptz,
+  elementsOID: DataTypeOIDs.timestamptz,
 };

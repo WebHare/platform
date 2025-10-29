@@ -10,7 +10,7 @@ import type {
 import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgrejs/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
-import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";
+import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, ArrayWHTimestampTzType, Float8Type, MoneyType, TidType, WHTimestampType, WHTimestampTzType } from "./types";
 import { getIntlConnection } from '../vendor/postgrejs/src/connection/intl-connection';
 import { ArrayVarcharType, VarcharType } from '../vendor/postgrejs/src/data-types/varchar-type';
 import { ArrayBoolType, BoolType } from '../vendor/postgrejs/src/data-types/bool-type';
@@ -23,6 +23,7 @@ import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgrejs/src/dat
 import { ArrayCharType, CharType } from '../vendor/postgrejs/src/data-types/char-type';
 import { getPGType } from './metadata';
 import bridge from '@mod-system/js/internal/whmanager/bridge';
+import { ArrayUuidType, UuidType } from '../vendor/postgrejs/src/data-types/uuid-type';
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
@@ -81,6 +82,7 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
     whdbTypeMap.register([Int4Type, ArrayInt4Type]);
     whdbTypeMap.register([Int8Type, ArrayInt8Type]);
 
+    whdbTypeMap.register([UuidType, ArrayUuidType]);
     whdbTypeMap.register([ByteaType, ArrayByteaType]);
     whdbTypeMap.register([Int2VectorType, ArrayInt2VectorType]);//needed to read PG catalogs
     whdbTypeMap.register({ ...VarcharType, name: "name", oid: DataTypeOIDs.name }); //needed to read PG catalogs
@@ -90,6 +92,7 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
 
     whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
     whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
+    whdbTypeMap.register([WHTimestampTzType, ArrayWHTimestampTzType]);
 
     const bloboidquery = await getPGType(pg, "webhare_internal", "webhare_blob");
     if (bloboidquery) {
@@ -216,4 +219,13 @@ export class WHDBPgClient {
     await this.pgclient?.close();
     this.pgclient = undefined;
   }
+}
+
+const bindables = {
+  uuid: DataTypeOIDs.uuid,
+  timestamptz: DataTypeOIDs.timestamptz,
+} as const;
+
+export function pgBindParam(value: unknown, type: keyof typeof bindables): BindParam {
+  return new BindParam(bindables[type], value);
 }

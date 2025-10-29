@@ -112,6 +112,7 @@ enum class OID : int32_t
         ANYARRAY = 2277,
         RECORD = 2249,
         RECORDARRAY = 2287,
+        UUID = 2950,
 };
 
 struct PostgresqlTid
@@ -1345,6 +1346,30 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                 if (len > 0) // negative len is NULL
                                    data += len;
+                        }
+                } break;
+                case OID::UUID:
+                {
+                        if (len == 16)
+                        {
+                                char uuidstr[37];
+                                char *ptr = uuidstr;
+                                ptr = Blex::EncodeBase16(data, data + 4, ptr);
+                                *ptr++ = '-';
+                                ptr = Blex::EncodeBase16(data + 4, data + 6, ptr);
+                                *ptr++ = '-';
+                                ptr = Blex::EncodeBase16(data + 6, data + 8, ptr);
+                                *ptr++ = '-';
+                                ptr = Blex::EncodeBase16(data + 8, data + 10, ptr);
+                                *ptr++ = '-';
+                                ptr = Blex::EncodeBase16(data + 10, data + 16, ptr);
+                                *ptr = 0;
+                                Blex::ToLowercase(uuidstr, uuidstr + 36);
+                                stackm.SetSTLString(id_set, std::string_view(uuidstr, 36));
+                        }
+                        else
+                        {
+                                stackm.SetSTLString(id_set, "");
                         }
                 } break;
                 default:
