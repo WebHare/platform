@@ -369,6 +369,7 @@ async function testPlugins() {
   ], packs);
 
   {
+    const start = Date.now();
     const result = await compileAdhocTestBundle({ ...packs[0], entryPoint: __dirname + "/data/useplugin/useplugin.ts" }, true);
     console.log(result.errors);
     test.assert(result.errors.length === 0);
@@ -383,7 +384,8 @@ async function testPlugins() {
     const parsedResult = JSON.parse(spawnResult.stdout.toString());
     test.eqPartial({
       h1: 'Test,one,begins,now,,Steps,unfold,with,steady,grace,,Truth,in,numbers,speaks,',
-      h4: 'ThisIsAPrefix:Test,four,looms,ahead,,Quiet,minds,seek,hidden,truths,,Answers,soon,revealed.,'
+      h4: 'ThisIsAPrefix:Test,four,looms,ahead,,Quiet,minds,seek,hidden,truths,,Answers,soon,revealed.,',
+      assetpacks: { "webhare_testsuite:dummy": (d: string) => Date.parse(d) >= start }
     }, parsedResult);
 
     const h7 = await (await fetch(backendConfig.backendURL + parsedResult.loadpath)).text();

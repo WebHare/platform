@@ -7,6 +7,7 @@ import './internal/debugmenu';
 import * as settings from './internal/settings';
 import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 import { navigateTo } from "@webhare/env";
+import type { PWACheckVersionResponse } from "@mod-platform/webfeatures/pwaserviceworker/pwaserviceworker";
 
 const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
 let didinit = false;
@@ -23,8 +24,6 @@ function getAppName() {
   const webdesign = settings2[2];
   return module + ':' + webdesign;
 }
-
-settings.setAppName(getAppName());
 
 function sendSWRequestTo(sw: ServiceWorker, type: string, data?: object) {
   return new Promise((resolve, reject) => {
@@ -51,11 +50,11 @@ async function sendSWRequest(type: string, data?: object) {
   return sendSWRequestTo(swregistration.active, type, data);
 }
 
-export async function checkForUpdate() {
+export async function checkForUpdate(): Promise<PWACheckVersionResponse> {
   return await sendSWRequest("checkversion", {
     pwauid: document.documentElement.dataset.whPwaUid,
     pwafileid: document.documentElement.dataset.whPwaFileid
-  });
+  }) as PWACheckVersionResponse;
 }
 export async function downloadUpdate() {
   return await sendSWRequest("downloadupdate");
@@ -163,5 +162,10 @@ function onServiceWorkerMessage(event: MessageEvent) {
   }
   console.error("onServiceWorkerMessage", event.data);
 }
-navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
-void precheckExistingWorkers();
+
+if (whintegration.config.obj.pwasettings) { //only activate if pwasettings are present - avoid sideeffects
+  settings.setAppName(getAppName());
+
+  navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
+  void precheckExistingWorkers();
+}

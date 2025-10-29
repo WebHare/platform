@@ -4,7 +4,7 @@ import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
 import FormBase, { type FormResultValue, type FormSubmitEmbeddedResult, type FormSubmitMessage, type FormSubmitResult } from './formbase';
-import { getFormService, getTSFormService } from "@webhare/forms/src/formservice";
+import { getFormService, getTSFormService, type PublisherFormService } from "@webhare/forms/src/formservice";
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from "@webhare/env";
@@ -13,6 +13,7 @@ import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
 import { getFieldName } from '@webhare/forms/src/domsupport';
+import { createClient } from '@webhare/jsonrpc-client';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
@@ -29,16 +30,23 @@ interface FormSubmitDetails<DataShape extends object = Record<string, unknown>> 
 
 type UploadCache = WeakMap<Blob, UploadResult>;
 
+function buildTarget(target: string): RPCFormTarget {
+  return { target, url: location.href.split('/').slice(3).join('/') };
+}
+
 class FormSubmitter {
   private readonly target;
   private readonly cache: UploadCache;
 
-  constructor(target: RPCFormTarget, cache?: UploadCache) {
-    this.target = target;
+  constructor(target: string, cache: UploadCache | null, private readonly offline: boolean) {
+    this.target = buildTarget(target);
     this.cache = cache || new WeakMap();
   }
 
   private async uploadFile(file: Blob) {
+    if (this.offline)
+      throw new Error("Cannot upload files in offline mode"); //TODO convert to dataurl and test it
+
     //TODO what if the server discarded the token? we should negotiate with the server which files it (still) wants
     const completed = this.cache.get(file);
     if (completed)
@@ -72,26 +80,50 @@ class FormSubmitter {
     return formvalue;
   }
 
-  async getSubmittable(formvalue: FormResultValue): Promise<FormResultValue> {
+  async getSubmittable(formvalue: object): Promise<FormResultValue> {
     return await this.convertSubmittable(formvalue) as FormResultValue;
   }
 }
 
 /** Directly submit a RPC form to WebHare
  *  @param target - Formtarget as obtained from
+ * @deprecated Switch to \@webhare/forms submitForm and buildFormSubmission
  */
 export async function submitForm(target: string, formvalue: FormResultValue, options?: { extrasubmit: unknown }): Promise<FormSubmitResult> {
-  const formTarget: RPCFormTarget = { target, url: location.href.split('/').slice(3).join('/') };
-  const submitter = new FormSubmitter(formTarget);
+  const submitparameters = await buildRPCFormSubmission(target, formvalue, { extraSubmit: options?.extrasubmit || null, });
+  return await submitRPCForm(submitparameters);
+}
 
-  const vals = await submitter.getSubmittable(formvalue);
+/** Return a value safe for RPC submission or typed serialization */
+export async function buildRPCFormSubmission<DataShape extends object = Record<string, unknown>>(target: string, formValue: DataShape, options?:
+  {
+    extraSubmit?: unknown;
+    offline?: boolean;
+    uploadCache?: WeakMap<Blob, UploadResult>;
+    __setupEvent?: FormSubmitDetails<DataShape>;
+  }): Promise<RPCFormSubmission> {
+  const submitter = new FormSubmitter(target, options?.uploadCache || null, options?.offline || false);
+
+  const vals = await submitter.getSubmittable(formValue);
+
+  if (options?.__setupEvent) {
+    const eventdetail = options.__setupEvent;
+    eventdetail.extrasubmitdata = options.extraSubmit || null;
+    eventdetail.submitted = vals;
+  }
+
   const submitparameters: RPCFormSubmission = {
-    ...formTarget,
+    ...buildTarget(target),
     vals: unpackObject(vals),
-    extrasubmit: options?.extrasubmit || null
+    extrasubmit: options?.extraSubmit || null
   };
+  return submitparameters;
+}
 
-  return await getFormService().formSubmit(submitparameters);
+export async function submitRPCForm(submission: RPCFormSubmission): Promise<FormSubmitResult> {
+  // TODO switch over to typed rpc, allow rpc options that make sense to be specified as options to submitRPCForm
+  const client = createClient<PublisherFormService>("publisher:forms");
+  return await client.formSubmit(submission);
 }
 
 export default class RPCFormBase<DataShape extends object = Record<string, unknown>> extends FormBase<DataShape> {
@@ -127,15 +159,12 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
   }
 
   getRPCFormIdentifier(): RPCFormTarget { //submitinfo as required by some RPCs
-    return {
-      url: location.href.split('/').slice(3).join('/'),
-      target: this.__formhandler.target
-    };
+    return buildTarget(this.__formhandler.target);
   }
 
   async #getSubmitVals(): Promise<FormResultValue> {
     const formvalue = await this.getFormValue();
-    const submitter = new FormSubmitter(this.getRPCFormIdentifier(), this.#completedUploads);
+    const submitter = new FormSubmitter(this.__formhandler.target, this.#completedUploads, false);
     return await submitter.getSubmittable(formvalue);
   }
 
@@ -258,6 +287,35 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     });
   };
 
+  async buildFormSubmission(extradata?: object, options?: { __setupEvent?: FormSubmitDetails<DataShape> }): Promise<RPCFormSubmission> {
+    //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
+    const extraSubmitAwaitable = this.getFormExtraSubmitData();
+    //FIXME we want getFormValue to be sync (and just use 'this.data' here) - who is still sending promises our way? too much to sort out for a backport
+    const formvalue = await this.getFormValue() as DataShape;
+    const extraSubmit = await extraSubmitAwaitable;
+
+    const submitparameters = await buildRPCFormSubmission<DataShape>(this.__formhandler.target, formvalue, {
+      extraSubmit: { ...extradata, ...extraSubmit },
+      offline: false,
+      uploadCache: this.#completedUploads,
+      //hack because we need to record the 'vars' value before unpackObject flattens it for safe HareScript RPC
+      __setupEvent: options?.__setupEvent
+    });
+
+    await this._flushPendingRPCs();
+    dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", {
+      bubbles: true, cancelable: false, detail: {
+        extrasubmit: extraSubmit
+      }
+    });
+
+    return submitparameters;
+  }
+
+  async submitForm(parameters: RPCFormSubmission): Promise<FormSubmitResult> {
+    return await submitRPCForm(parameters);
+  }
+
   async submit(extradata?: object): Promise<{ result?: FormSubmitEmbeddedResult }> {
     //ADDME timeout and free the form after some time
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
@@ -274,37 +332,17 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
       errors: [],
       result: null
     };
-    await this._flushPendingRPCs();
+
     try {
       this.__formhandler.submitting = true;
 
-      //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
-      const extraSubmitAwaitable = this.getFormExtraSubmitData();
-      const valsAwaitable = this.#getSubmitVals();
-
-      const extrasubmit = { ...extradata, ...await extraSubmitAwaitable };
-      const vals = await valsAwaitable;
-
-      eventdetail.extrasubmitdata = extrasubmit;
-      eventdetail.submitted = vals;
-
-      /* make sure no getFormValue RPCs are still pending, assuming they went through us, eg if an address validation is
-         still running (and could update)
-         TODO probably wiser to have validators take and hold a submission preventing lock in such a case, but this most closely matches original formservice behavior
-      */
-      await this._flushPendingRPCs();
-      dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", { bubbles: true, cancelable: false, detail: { extrasubmit: extrasubmit } });
-      const submitparameters: RPCFormSubmission = {
-        ...this.getRPCFormIdentifier(),
-        vals: unpackObject(vals),
-        extrasubmit: extrasubmit
-      };
+      const submitparameters = await this.buildFormSubmission(extradata, { __setupEvent: eventdetail });
 
       if (debugFlags.fhv)
         console.log('[fhv] start submission', submitparameters);
 
       insubmitrpc = true; //so we can easily determine exception source
-      const result = await getFormService().formSubmit(submitparameters);
+      const result = await this.submitForm(submitparameters);
       insubmitrpc = false;
 
       if (debugFlags.fhv)
