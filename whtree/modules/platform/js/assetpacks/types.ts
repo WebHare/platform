@@ -18,6 +18,7 @@ export interface AssetPackState {
 /** Structure of the manifest.json file */
 export interface AssetPackManifest {
   version: number;
+  start: string;
   assets: Array<{
     subpath: string;
     compressed: boolean;

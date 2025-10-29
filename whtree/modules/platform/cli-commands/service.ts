@@ -29,7 +29,7 @@ async function runBackendServiceInDebug(service: string, serviceinfo: BackendSer
   const nodeservices = await openBackendService(servicename);
 
   await nodeservices.suppress(service);
-  void launchService(serviceinfo);
+  void launchService(serviceinfo, { debug: true });
 }
 
 async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition) {

@@ -5,7 +5,7 @@ import { broadcast } from "@webhare/services/src/backendevents";
 import { setLink } from "./symbols";
 import { parseTyped, stringify } from "@webhare/std";
 
-export type ServiceControllerFactoryFunction = () => Promise<BackendServiceController> | BackendServiceController;
+export type ServiceControllerFactoryFunction = (options?: { debug?: boolean }) => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
 export type ServiceClientFactoryFunction = (...args: any[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
 
