@@ -5,6 +5,7 @@ import {
   sql,
   Kysely,
   PostgresDialect,
+  type Expression,
   type PostgresPool,
   type PostgresPoolClient,
   type PostgresCursor,
@@ -22,7 +23,7 @@ import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
-import { WHDBPgClient } from './connection';
+import { pgBindParam, WHDBPgClient } from './connection';
 import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
@@ -700,3 +701,17 @@ db<PlatformDB>().insertInto("wrd.entities").values(values).execute();
 ```
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;
+
+type Bindables = {
+  uuid: [string, string];
+  timestamptz: [Temporal.Instant | Temporal.ZonedDateTime | number, Temporal.Instant];
+};
+
+/** Overrides the type of a value (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
+ * @param value - Value
+ * @param type - 'Real' type of the value (to send to PostgreSQL)
+ * @returns An expression that can be used in SQL queries
+*/
+export function overrideValueType<T extends keyof Bindables>(value: Bindables[T][0], type: T): Expression<Bindables[T][1]> {
+  return sql`${pgBindParam(value, type)}`;
+}

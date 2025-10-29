@@ -12,7 +12,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
-import { isDatabaseError } from "@webhare/whdb/src/impl";
+import { isDatabaseError, overrideValueType } from "@webhare/whdb/src/impl";
 import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 
 async function cleanup() {
@@ -799,6 +799,70 @@ async function testDeadlockDetection() {
   }
 }
 
+async function testOtherTypes() {
+  /* Test some types that are not commonly used to ensure our type conversions are working correctly */
+
+  await beginWork();
+  await query(`DROP TABLE IF EXISTS webhare_testsuite.exotic_types_test CASCADE`);
+  await query(`
+    CREATE TABLE webhare_testsuite.exotic_types_test (
+      id SERIAL PRIMARY KEY,
+      uuid UUID,
+      timestamp_tz TIMESTAMPTZ
+  )`);
+
+  const testuuid = `550e8400-e29b-41d4-a716-446655440000`;
+  const testtimestamp = new Date("2023-01-02T15:04:05.678Z").toTemporalInstant();
+
+  type ExoticTypesDB = {
+    "webhare_testsuite.exotic_types_test": {
+      id: number;
+      uuid: string;
+      timestamp_tz: Temporal.Instant | number; // +Infinity and -Infinity don't have literals
+    };
+  };
+
+  await db<ExoticTypesDB>().insertInto("webhare_testsuite.exotic_types_test").values([
+    {
+      id: 1,
+      uuid: overrideValueType(testuuid, "uuid"),
+      timestamp_tz: testtimestamp,
+    }, {
+      id: 2,
+      uuid: overrideValueType(testuuid, "uuid"),
+      timestamp_tz: overrideValueType(Infinity, "timestamptz"),
+    }, {
+      id: 3,
+      uuid: overrideValueType(testuuid, "uuid"),
+      timestamp_tz: overrideValueType(-Infinity, "timestamptz"),
+    }
+  ]).execute();
+
+  await commitWork();
+
+  const rows = await db<ExoticTypesDB>()
+    .selectFrom("webhare_testsuite.exotic_types_test")
+    .selectAll()
+    .orderBy("id")
+    .execute();
+  test.eq([
+    {
+      id: 1,
+      uuid: testuuid,
+      timestamp_tz: testtimestamp,
+    },
+    {
+      id: 2,
+      uuid: testuuid,
+      timestamp_tz: Infinity,
+    }, {
+      id: 3,
+      uuid: testuuid,
+      timestamp_tz: -Infinity,
+    }
+  ], rows);
+}
+
 test.runTests([
   cleanup,
   testWork,
@@ -817,4 +881,5 @@ test.runTests([
   testClosedConnectionHandling,
   testSeparatePrimaryLeak,
   testDeadlockDetection,
+  testOtherTypes,
 ]);
