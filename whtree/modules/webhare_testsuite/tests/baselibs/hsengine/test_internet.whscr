@@ -544,7 +544,7 @@ PUBLIC MACRO IPtesT()
   CloseTest("TestInternet: IP addresses");
 }
 
-RECORD FUNCTION CreateSocketPair(BOOLEAN ipv6)
+RECORD FUNCTION CreateSocketPair(BOOLEAN ipv6, BOOLEAN unix)
 {
   //let's first get a socket on which we'll accept a connection
   INTEGER accepting_socket := CreateTCPSocket();
@@ -556,24 +556,31 @@ RECORD FUNCTION CreateSocketPair(BOOLEAN ipv6)
   IF (connecting_socket<=0)
     ABORT("CreateTCPSocket connecter failure: returned " || connecting_socket);
 
+  STRING listenon := unix ? GenerateTemporaryPathnameFromBasepath("/tmp/socket") : ipv6 ? "::0" : "";
+  STRING connectto := unix ? listenon : ipv6 ? "::1" : "127.0.0.1";
+
   //bind the socket to a local port (we don't care which)
-  TestEq(TRUE, BindSocket(accepting_socket, ipv6 ? "::0" : "", 0));
+  TestEq(TRUE, BindSocket(accepting_socket, listenon, 0));
   //get the port on which we're listing
-  INTEGER accepting_port := GetLocalSocketPort(accepting_socket);
-  IF (accepting_port<1024 OR accepting_port>65535)
-    ABORT("Illegal port returned by GetLocalPort: " || accepting_port);
+  INTEGER accepting_port;
+  IF(NOT unix)
+  {
+    accepting_port := GetLocalSocketPort(accepting_socket);
+    IF (accepting_port<1024 OR accepting_port>65535)
+      ABORT("Illegal port returned by GetLocalPort: " || accepting_port);
+  }
 
   //put the accept socket in listening mode
   TestEq(TRUE, ListenOnTCPSocket(accepting_socket));
 
   //try to connect our connecting socket to the local port (should succeed now)
-  IF (NOT ConnectSocket(connecting_socket, ipv6 ? "::1" : "127.0.0.1", accepting_port))
+  IF (NOT ConnectSocket(connecting_socket, connectto, accepting_port))
   {
     INTEGER i:=0;
     FOR(; i<10; i:=i+1)
     {
       Sleep(100);
-      IF(ConnectSocket(connecting_socket, ipv6 ? "::1" : "127.0.0.1", accepting_port))
+      IF(ConnectSocket(connecting_socket, connectto, accepting_port))
         BREAK;
     }
     TestEq(TRUE,i<10);
@@ -610,7 +617,7 @@ MACRO SocketTCPTest()
 
   CloseSocket(testsocket);
 
-  RECORD pair := CreateSocketPair(FALSE);
+  RECORD pair := CreateSocketPair(FALSE, FALSE);
 
   //test timing out
   SetSocketTimeout(pair.connecting_socket,1);
@@ -652,6 +659,60 @@ MACRO SocketTCPTest()
   connectingsocket2->Close();
 
   CloseTest("TestInternet: Socket TCP test");
+}
+
+MACRO SocketUnixTest()
+{
+  OpenTest("TestInternet: Socket Unix test");
+
+  INTEGER testsocket := CreateTCPSocket();
+  TestEq(FALSE, ConnectSocket(testsocket,  GenerateTemporaryPathnameFromBasepath("/tmp/socket"), 0));
+  TestEq(-8, GetLastSocketError(testsocket)); //connection refused
+
+  CloseSocket(testsocket);
+
+  RECORD pair := CreateSocketPair(FALSE, TRUE);
+
+  //test timing out
+  SetSocketTimeout(pair.connecting_socket,1);
+  TestEq("", ReadFromSocket(pair.connecting_socket));
+  TestEq(-9, GetLastSocketError(pair.connecting_socket));
+
+  //timeouts shouldn't kill sockets
+  SetSocketTimeout(pair.connecting_socket,15);
+  PrintTo(pair.connecting_socket,"test\r\n");
+  TestEq("test\r\n", ReadFromSocket(pair.incoming_socket));
+
+  ShutdownSocket(pair.connecting_socket, FALSE, TRUE);
+  TestEq("", ReadFromSocket(pair.incoming_socket));
+  TestEq(0, GetLastSocketError(pair.connecting_socket));
+
+  CloseSocket(pair.connecting_socket);
+  CloseSocket(pair.incoming_socket);
+
+  //test connect to 0
+  INTEGER acceptsocket := CreateTCpSocket();
+  INTEGER connectingsocket := CreateTCPSocket();
+  TestEq(TRUE, BindSocket(acceptsocket, "", 0));
+  TestEQ(TRUE, ListenOnTCPSocket(acceptsocket));
+  TestEq(TRUE, ConnectSocket(connectingsocket, "0.0.0.0", GetLocalSocketPort(acceptsocket)));
+  CloseSocket(connectingsocket);
+  CloseSocket(acceptsocket);
+
+  OBJECT acceptsocket2 := CreateSocket("TCP");
+  OBJECT connectingsocket2 := CreateSocket("TCP");
+  TestEQ(TRUE, acceptsocket2->Bind("", 0));
+  TestEQ(TRUE, acceptsocket2->Listen());
+  OBJECT promise := connectingsocket2->AsyncConnect("0.0.0.0", acceptsocket2->localport);
+  TestEQ(TRUE, WaitForPromise(promise));
+  OBJECT incomingsocket := acceptsocket2->Accept();
+  TestEQ(TRUE, ObjectExists(incomingsocket));
+
+  acceptsocket2->Close();
+  incomingsocket->Close();
+  connectingsocket2->Close();
+
+  CloseTest("TestInternet: Socket Unix test");
 }
 
 MACRO SocketUDPTest()
@@ -761,7 +822,7 @@ MACRO SocketChunksTest()
 {
   OpenTest("TestInternet: SocketChunksTest");
 
-  RECORD pair := CreateSocketPair(FALSE);
+  RECORD pair := CreateSocketPair(FALSE, FALSE);
 
   PrintTo(pair.connecting_socket, "5\nbytes0\n");
   TestEq("5", ReadLineFrom(pair.incoming_socket,10,TRUE));
@@ -806,7 +867,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
 
   RECORD sockets;
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
   TestEq("Dit is een test", ReadLineFrom(sockets.incoming_socket,1024,TRUE));
@@ -816,7 +877,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
   TestEq("Dit is een test\r\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
@@ -826,7 +887,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
   TestEq("Dit is", ReadLineFrom(sockets.incoming_socket,6,FALSE));
@@ -836,7 +897,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   ShutdownSocket(sockets.connecting_socket, TRUE, TRUE);
   TestEq("Dit is", ReadLineFrom(sockets.incoming_socket,6,TRUE));
@@ -846,7 +907,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   SetSocketTimeout(sockets.incoming_socket, 1000);
   TestEq("Dit is een test\r\n", ReadLineFrom(sockets.incoming_socket,1024,FALSE));
@@ -858,7 +919,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, testsrcdata);
   TestEq("Dit", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
   TestEq(" is een test\r\n", ReadLineFrom(sockets.incoming_socket,-16,FALSE));
@@ -867,7 +928,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
   CloseSocket(sockets.connecting_socket);
   CloseSocket(sockets.incoming_socket);
 
-  sockets := CreateSocketPair(ipv6);
+  sockets := CreateSocketPair(ipv6, FALSE);
   PrintTo(sockets.connecting_socket, "\r");
 //  TestThrowsLike("*", PTR ReadLineFrom(sockets.incoming_socket,-3,TRUE)); // FIXME: not implemented yet
   TestEq("\r", ReadLineFrom(sockets.incoming_socket,-3,FALSE));
@@ -1475,6 +1536,7 @@ TestDataURL();
 InternetTest();
 IPTest();
 SocketTCPTest();
+SocketUnixTest();
 SocketUDPTest();
 SocketChunksTest();
 TestEmailAddresses();
