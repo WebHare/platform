@@ -130,6 +130,10 @@ struct BLEXLIB_PUBLIC SocketAddress
         {
                 return addr.ss_family == AF_INET6;
         }
+        bool IsPath() const
+        {
+                return addr.ss_family == AF_UNIX;
+        }
 
         bool IsAnyAddress() const
         {
@@ -341,7 +345,7 @@ class BLEXLIB_PUBLIC Socket : public Blex::Stream
         int RawSend (void const *buf, unsigned buflen);
         int RawReceive (void *buf, unsigned buflen);
 
-        SocketError::Errors RestoreSocket(bool ipv6);
+        SocketError::Errors RestoreSocket(SocketAddress const &address);
 
         ///Do something, anything. Return >0 if there was forward progress
         int SSLDoSomething();

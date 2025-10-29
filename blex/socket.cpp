@@ -104,6 +104,7 @@ SocketError::Errors ConvertSocketError(int errorcode)
         {
         case 0:
                 return SocketError::NoError;
+        case ENOENT:
         case ECONNREFUSED:
                 return SocketError::Refused;
         case EINPROGRESS:
@@ -502,6 +503,13 @@ Myinet_pton6(const char *src, u_char *dst)
 
 SocketAddress::SocketAddress(std::string const &socketaddress)
 {
+        if(!socketaddress.empty() && socketaddress[0] == '/')
+        {
+                if(!SetIPAddress(socketaddress))
+                        throw std::invalid_argument("Invalid path for SocketAddress");
+                return; //no dealing with ports
+        }
+
         std::string::const_iterator port_expected_at;
         if(!socketaddress.empty() && socketaddress[0]=='[') //IPv6
         {
@@ -633,6 +641,9 @@ bool SocketAddress::IsIPV4AnyAddress() const
 }
 unsigned SocketAddress::GetLength() const
 {
+        if(IsPath())
+                return sizeof(struct sockaddr_un);
+
         return IsIPV6() ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
 }
 
@@ -774,6 +785,11 @@ void SocketAddress::AppendIPAddress(Blex::PodVector< char > *dest) const
                 if(Myinet_ntop(AF_INET, &GetIP4SockAddr().sin_addr, buf, sizeof(buf)))
                     dest->insert(dest->end(), buf, buf + strlen(buf));
         }
+        else if(addr.ss_family == AF_UNIX)
+        {
+                struct sockaddr_un const &un_addr = *(struct sockaddr_un const*)&addr;
+                dest->insert(dest->end(), un_addr.sun_path, un_addr.sun_path + strnlen(un_addr.sun_path, sizeof(un_addr.sun_path)));
+        }
 }
 
 bool SocketAddress::SetIPAddress(std::string const &ip)
@@ -784,6 +800,23 @@ bool SocketAddress::SetIPAddress(std::string const &ip)
                 return true;
         }*/
         memset(&addr,0,sizeof(addr));
+
+        if(!ip.empty() && ip[0]=='/') //unix socket
+        {
+                addr.ss_family = AF_UNIX;
+                struct sockaddr_un &un_addr = *(struct sockaddr_un*)&addr;
+                if(ip.size() >= sizeof(un_addr.sun_path)-1)
+                {
+                        SOCKETERRORDEBUGPRINT("SetIPAddress: " << ip << " is too long for a unix socket");
+                        addr.ss_family=0;
+                        return false;
+                }
+                strncpy(un_addr.sun_path, ip.c_str(), sizeof(un_addr.sun_path)-1);
+                un_addr.sun_path[sizeof(un_addr.sun_path)-1]=0;
+
+                SOCKETERRORDEBUGPRINT("SetIPAddress: " << ip << " is unix socket and translated to " << *this);
+                return true;
+        }
 
         bool is_ipv4_as_ipv6 = Blex::StrCaseLike(ip,"::ffff:*");
 
@@ -941,7 +974,7 @@ std::pair<SocketError::Errors, int32_t> Socket::TimedReceive(void *receivebuffer
         }
 }
 
-SocketError::Errors Socket::RestoreSocket(bool ipv6)
+SocketError::Errors Socket::RestoreSocket(SocketAddress const &address)
 {
         //Restore a socket to a usable state after a SClosed
         if(sockstate==SFree)
@@ -949,7 +982,7 @@ SocketError::Errors Socket::RestoreSocket(bool ipv6)
         if(sockstate!=SClosed)
             return SocketError::InvalidArgument;
 
-        sock = socket_closeonexec(ipv6 ? AF_INET6 : AF_INET, protocol==Stream ? SOCK_STREAM : SOCK_DGRAM,0);
+        sock = socket_closeonexec(address.IsPath() ? AF_UNIX : address.IsIPV6() ? AF_INET6 : AF_INET, protocol==Stream ? SOCK_STREAM : SOCK_DGRAM,0);
         if (sock == INVALID_SOCKET)
         {
                 if(errno == EAFNOSUPPORT)
@@ -957,7 +990,7 @@ SocketError::Errors Socket::RestoreSocket(bool ipv6)
                 throw std::runtime_error("Cannot restore socket for reuse");
         }
 
-        SOCKETERRORDEBUGPRINT("<S:" << sock << "> created " << (ipv6?"ipv6":"ipv4") << " socket");
+        SOCKETERRORDEBUGPRINT("<S:" << sock << "> created socket for " << address);
 
         sockstate = SFree;
 
@@ -1014,15 +1047,15 @@ SocketError::Errors Socket::TimedConnect(SocketAddress const &_remoteaddress, Bl
 
 SocketError::Errors Socket::Bind(SocketAddress const &newlocaladdress)
 {
-        if (!newlocaladdress.IsIPV4() && !newlocaladdress.IsIPV6())
+        if (!newlocaladdress.IsIPV4() && !newlocaladdress.IsIPV6() && !newlocaladdress.IsPath())
         {
-                DEBUGPRINT("Bind: the specified address " << newlocaladdress << " is neither ipv4 nor ipv6");
+                DEBUGPRINT("Bind: the specified address " << newlocaladdress << " is unrecognized");
                 return SocketError::InvalidArgument;
         }
         if(sockstate == SClosed)
         {
                 bindlocaladdress = SocketAddress();
-                SocketError::Errors retval = RestoreSocket(newlocaladdress.IsIPV6());
+                SocketError::Errors retval = RestoreSocket(newlocaladdress);
                 if(retval!=SocketError::NoError)
                     return retval;
         }
@@ -1133,7 +1166,7 @@ SocketError::Errors Socket::Connect(SocketAddress const &_remoteaddress)
 {
         if (sockstate == SClosed)
         {
-                SocketError::Errors retval = RestoreSocket(_remoteaddress.IsIPV6());
+                SocketError::Errors retval = RestoreSocket(_remoteaddress);
                 if(retval!=SocketError::NoError)
                     return retval;
         }
@@ -1316,12 +1349,21 @@ SocketError::Errors Socket::Accept(Socket *newsock) const //in seconds
         if(newsock->sock != INVALID_SOCKET)
             close(newsock->sock);
 
-        int len=sizeof(newsock->remoteaddress);
+        socklen_t len=sizeof(newsock->remoteaddress);
 #ifdef PLATFORM_LINUX
-        newsock->sock = accept4(sock,(struct sockaddr*)&newsock->remoteaddress, (socklen_t*)&len, SOCK_CLOEXEC);
+        newsock->sock = accept4(sock,reinterpret_cast<struct sockaddr*>(&newsock->remoteaddress.addr), (socklen_t*)&len, SOCK_CLOEXEC);
 #else
-        newsock->sock = accept(sock,(struct sockaddr*)&newsock->remoteaddress, (socklen_t*)&len);
+        newsock->sock = accept(sock,reinterpret_cast<struct sockaddr*>(&newsock->remoteaddress.addr), (socklen_t*)&len);
 #endif
+        // Ensure that the socket path is null terminated (important for unix sockets)
+        if (newsock->remoteaddress.addr.ss_family == AF_UNIX && len >= offsetof(struct sockaddr_un, sun_path))   //sanity check
+        {
+                struct sockaddr_un* peer = reinterpret_cast<struct sockaddr_un*>(&newsock->remoteaddress.addr);
+                size_t path_len = len - offsetof(struct sockaddr_un, sun_path);
+                if (path_len < sizeof(peer->sun_path))
+                        peer->sun_path[path_len] = '\0';
+        }
+
         if (newsock->sock==INVALID_SOCKET)
             return GetLastSocketError();
 
