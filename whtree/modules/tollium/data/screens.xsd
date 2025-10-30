@@ -2847,15 +2847,6 @@ To change a <xs:attribute /> for adding descriptions
             </xs:appinfo>
           </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="onplaceholderopen" type="Name" />
-        <xs:attribute name="onbuttonclick" type="tc:Handler">
-          <xs:annotation>
-            <xs:appinfo>
-              <tai:callbacksignature arguments="string" />
-            </xs:appinfo>
-          </xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="offercustomhyperlink" type="xs:boolean" />  <!-- FIXME obsolete -->
         <xs:attribute name="htmlclass" type="xs:string" />
         <xs:attribute name="bodyclass" type="xs:string" />
         <xs:attribute name="allowformatting" default="all">

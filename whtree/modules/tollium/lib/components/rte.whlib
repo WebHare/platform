@@ -132,11 +132,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   PUBLIC STRING contentareawidth;
   PUBLIC STRING ARRAY allowformatting;
 
-  PUBLIC MACRO PTR onplaceholderopen;
-  PUBLIC MACRO PTR onbuttonclick;
-
-  PUBLIC BOOLEAN offercustomhyperlink;
-
   /** Type of text the RTE handles. Possible values:
       - html: entire html document
       - html-block: only html inline and block tags
@@ -809,11 +804,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     {
       CASE "hyperlink"
       {
-        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink"
-                                              ,[ rte := this
-                                               , data := data
-                                               , offercustomhyperlink := this->offercustomhyperlink
-                                               ]);
+        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink", CELL[ rte := this, data ]);
 
         IF(scr->RunModal()="ok")
           RETURN scr->GetData();
@@ -822,10 +813,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       CASE "cell", "table"
       {
-        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#tableproperties"
-                                              ,[ rte := this
-                                               , data := data
-                                               ]);
+        OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#tableproperties", CELL[ rte := this, data ]);
 
         SWITCH (scr->RunModal())
         {
@@ -847,13 +835,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
           RETURN DEFAULT RECORD;
         }
 
-        RETURN this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#imageproperties"
-                                      ,[ rte := this
-                                       , data := data
-                                       , originalimg := originalimg
-                                       , offercustomhyperlink := this->offercustomhyperlink
-                                       ]);
-
+        RETURN this->owner->RunScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#imageproperties", CELL[ rte := this, data, originalimg ]);
       }
       DEFAULT
       {
@@ -870,11 +852,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   PUBLIC MACRO HandleInsertHyperlink()
   {
-    OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink"
-                                         ,[ rte := this
-                                          , data := DEFAULT RECORD
-                                          , offercustomhyperlink := this->offercustomhyperlink
-                                          ]);
+    OBJECT scr := this->owner->LoadScreen("mod::tollium/tolliumcomponents/rtedialogs.xml#hyperlink", CELL[ rte := this, data := DEFAULT RECORD ]);
 
     IF(scr->RunModal() = "ok")
     {
@@ -1020,10 +998,8 @@ PUBLIC OBJECTTYPE TolliumRTE EXTEND RTEBase
     RTEBase::StaticInit(def);
 
     this->allowformatting := def.allowformatting;
-    this->onbuttonclick := def.onbuttonclick;
     //this->oninserthyperlink := def.oninserthyperlink;
     this->tagfilter := def.tagfilter;
-    this->offercustomhyperlink := def.offercustomhyperlink;
     this->htmlclass := def.htmlclass;
     this->bodyclass := def.bodyclass;
     this->css := def.css;
