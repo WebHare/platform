@@ -1,4 +1,4 @@
-import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen, overrideQueryArgType } from "@webhare/whdb";
 import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
@@ -9,7 +9,6 @@ import type { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import type { HareScriptVM, HSVM_VariableId, HSVM_VariableType } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import type { Money } from "@webhare/std";
-import { BindParam } from "@webhare/whdb/vendor/postgrejs/src";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 
 enum Fases {
@@ -559,7 +558,7 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
     else if (type === VariableType.StringArray && asBinary)
       args.push(hsarg.arrayContents().map(s => s.getStringAsBuffer()));
     else if (type === VariableType.Float)
-      args.push(new BindParam(OID.FLOAT8, hsarg.getFloat()));
+      args.push(overrideQueryArgType(hsarg.getFloat(), "float8"));
     else {
       const val = hsarg.getJSValue();
       if (WebHareBlob.isWebHareBlob(val))

@@ -725,13 +725,24 @@ export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> =
 type Bindables = {
   uuid: [string, string];
   timestamptz: [Temporal.Instant | Temporal.ZonedDateTime | number, Temporal.Instant];
+  float8: [number, number];
 };
 
-/** Overrides the type of a value (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
+/** Overrides the type of a value for use in Kysely expressions (not all types are auto-detected, like UUID's
+ * or (+/-)Infinity for timestamps)
  * @param value - Value
  * @param type - 'Real' type of the value (to send to PostgreSQL)
  * @returns An expression that can be used in SQL queries
 */
 export function overrideValueType<T extends keyof Bindables>(value: Bindables[T][0], type: T): Expression<Bindables[T][1]> {
   return sql`${pgBindParam(value, type)}`;
+}
+
+/** Overrides the type of a value for arguments of query() (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
+ * @param value - Value
+ * @param type - 'Real' type of the value (to send to PostgreSQL)
+ * @returns The value wrapped in an objects that forces the encoding of that value to the specified type when used as argument to  query().
+*/
+export function overrideQueryArgType<T extends keyof Bindables>(value: Bindables[T][0], type: T): unknown {
+  return pgBindParam(value, type);
 }
