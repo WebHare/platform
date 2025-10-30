@@ -504,7 +504,7 @@ class MessageParser {
       case "t": {
         return {
           type: "ParameterDescription",
-          oids: rangeItr(0, data.readInt32BE(0), 4).map(i => data.readInt32BE(i)).toArray()
+          oids: rangeItr(2, data.readInt16BE(0), 4).map(i => data.readInt32BE(i)).toArray()
         };
       }
       case "S": {
