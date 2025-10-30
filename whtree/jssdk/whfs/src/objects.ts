@@ -680,6 +680,12 @@ export class WHFSFolder extends WHFSBaseObject {
     return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
   }
 
+  async openFileOrFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | WHFSFolder | null>;
+  async openFileOrFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile | WHFSFolder>;
+  async openFileOrFolder(path: string, options?: OpenWHFSObjectOptions) {
+    return __openWHFSObj(this.id, path, undefined, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
+  }
+
   /** Generate a unique name for a new object in this folder
    * @param suggestion - Suggested name for the new object. If this name is already taken, a counter will be appended to the name
    * @param options - Options for generating the name
