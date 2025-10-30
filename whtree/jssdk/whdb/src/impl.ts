@@ -572,16 +572,19 @@ export function hasMutex(mutex: string) {
   return getConnection().hasMutex(mutex);
 }
 
-/** Get the next primary key value for a specific table
+/** Get the next primary key value for a specific column
+ * @param column - Column to get the next value for, in the format `<schema>.<table>.<column>`
 */
-export function nextVal(table: string) {
-  return getConnection().nextVal(table);
+export function nextVal(column: string) {
+  return getConnection().nextVal(column);
 }
 
-/** Get multiple primary key values for a specific table
+/** Get multiple primary key values for a specific column
+ * @param column - Column to get the next values for, in the format `<schema>.<table>.<column>`
+ * @param howMany - How many values to get
 */
-export function nextVals(table: string, howMany: number) {
-  return getConnection().nextVals(table, howMany);
+export function nextVals(column: string, howMany: number) {
+  return getConnection().nextVals(column, howMany);
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress
