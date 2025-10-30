@@ -58,7 +58,7 @@ interface ListableFsObjectRow {
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
   keywords: string;
   /// The date and time  when this file was first published
-  firstPublishDate: Temporal.Instant;
+  firstPublishDate: Temporal.Instant | null;
   /// The date and time  when this file was last published
   // lastPublishDate: Temporal.Instant;
   /// The size of the item since its last publication
@@ -72,7 +72,7 @@ interface ListableFsObjectRow {
   /// The date and time when any file (meta)data was last modified
   modificationDate: Temporal.Instant;
   /// The date and time when this file's content was last modified
-  contentModificationDate: Temporal.Instant;
+  contentModificationDate: Temporal.Instant | null;
   /// The name for this file, which must be unique inside its parent folder
   name: string;
   /// Relative ordering of this file
@@ -104,11 +104,12 @@ export interface CreateFSObjectMetadata {
 }
 
 export interface CreateFileMetadata extends CreateFSObjectMetadata {
-  keywords?: string;
   data?: ResourceDescriptor | null;
+  fileLink?: number | null;
+  keywords?: string;
   publish?: boolean;
-  firstPublishDate?: Temporal.Instant;
-  contentModificationDate?: Temporal.Instant;
+  firstPublishDate?: Temporal.Instant | null;
+  contentModificationDate?: Temporal.Instant | null;
 }
 
 export interface CreateFolderMetadata extends CreateFSObjectMetadata {
@@ -169,6 +170,9 @@ class WHFSBaseObject {
   get title(): string {
     return this.dbrecord.title;
   }
+  get description(): string {
+    return this.dbrecord.description;
+  }
   get parent(): number | null {
     return this.dbrecord.parent;
   }
@@ -189,7 +193,6 @@ class WHFSBaseObject {
   }
   get whfsPath(): string {
     return this.dbrecord.whfspath;
-
   }
   get parentSite(): number | null {
     return this.dbrecord.parentsite;
@@ -291,10 +294,14 @@ class WHFSBaseObject {
       storedata.published = this.dbrecord.published;
       const fileMetadata = metadata as UpdateFileMetadata;
 
-      if (fileMetadata.firstPublishDate)
-        storedata.firstpublishdate = new Date(fileMetadata.firstPublishDate.epochMilliseconds);
-      if (fileMetadata.contentModificationDate)
-        storedata.contentmodificationdate = new Date(fileMetadata.contentModificationDate.epochMilliseconds);
+      if (fileMetadata.firstPublishDate !== undefined)
+        storedata.firstpublishdate = fileMetadata.firstPublishDate ? new Date(fileMetadata.firstPublishDate.epochMilliseconds) : defaultDateTime;
+      if (fileMetadata.contentModificationDate !== undefined)
+        storedata.contentmodificationdate = fileMetadata.contentModificationDate ? new Date(fileMetadata.contentModificationDate.epochMilliseconds) : defaultDateTime;
+      if (fileMetadata.keywords !== undefined)
+        storedata.keywords = fileMetadata.keywords;
+      if (fileMetadata.fileLink !== undefined)
+        storedata.filelink = fileMetadata.fileLink;
 
       storedata.published = setFlagInPublished(storedata.published, PublishedFlag_StripExtension, await isStripExtension(storedata.type ?? this.dbrecord.type ?? 0, storedata.name ?? this.dbrecord.name));
 
@@ -387,7 +394,13 @@ export class WHFSFile extends WHFSBaseObject {
   get isFile(): true { return true; }
   get isFolder(): false { return false; }
 
-  get publish() {
+  get fileLink(): number | null {
+    return this.dbrecord.filelink;
+  }
+  get keywords(): string {
+    return this.dbrecord.keywords;
+  }
+  get publish(): boolean {
     return isPublish(this.dbrecord.published);
   }
   get firstPublishDate(): Temporal.Instant | null {
