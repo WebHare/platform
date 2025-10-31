@@ -112,7 +112,6 @@
           <line layout="left">
             <checkbox composition="security" cellname="autodenyipv6" labeltid=".autodenyipv6" title="" />  <!-- "Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" / -->
           </line>
-          <textedit name="checkipallowmask" width="1pr" />
           <line>
             <textedit composition="security" cellname="fullaccessips" tid=".fullaccessips" />  <!-- title="List of IP addresses that bypass access rule login requirements, comma-separated" / -->
             <text title="" valuetid=".commaexplain" />

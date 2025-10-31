@@ -1440,11 +1440,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         <string name="installumask" description="Umask to apply to installed module files" initialval="0755" />
       </node>
       <node name="backend">
-        <node name="check">
-          <string name="ipallowmask"
-                  description="Space separated list of IP addresses/masks allowed to use the check page"
-                  initialval="127.0.0.1" />
-        </node>
+        <obsoletenode name="check" />
         <node name="features">
           <boolean name="feedback" />
         </node>

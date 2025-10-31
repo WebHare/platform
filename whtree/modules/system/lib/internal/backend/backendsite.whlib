@@ -50,28 +50,17 @@ PUBLIC MACRO UpdateSystemBackendSite()
   //create a testportal file for external CI tests. notice that even if published, this file will be not work on non-development dtap stages
   target->EnsureFile( [ name := "testportal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := GetDtapStage() = "development" ]);
 
+  /* The /webhare/ folder was there to support 'old' urls and redirected back to /.
+     The /webhare/check/ folder was used to extract some logs/health info and should be done through the WH API
+    */
   OBJECT webharefolder := target->EnsureFolder( [ name := "webhare" ]);
-  OBJECT checkfolder := webharefolder->EnsureFolder( [ name := "check" ]);
+  IF(ObjectExists(webharefolder))
+    webharefolder->RecycleSelf();
+
   //the 'testoutput' folder is reserved for CI tests
   OBJECT testfwfolder := backendsite->rootobject->EnsureFolder([ name := "testoutput", type := 1 ]);
   //the 'documentation' folder is reserved as a common point for documentation subsites. they should preferably be one extra level deeper in this folder
   backendsite->rootobject->EnsureFolder([ name := "documentation", type := 1 ]);
-
-  //TODO Stop injecting code directly into WHFS. But we should probably replace this with an official oauth-ed WebHare REST API anyway
-  OBJECT webhareindex := webharefolder->EnsureFile(
-    [ name := "index.shtml"
-    , type := whconstant_whfstype_shtmlfile
-    , data := StringToBlob('<?wh LOADLIB "wh::internet/urls.whlib";LOADLIB "mod::system/lib/webserver.whlib"; Redirect(UpdateURLVariables("../", [ app := GetWebVariable("app") ] ));')
-    , publish := TRUE
-    ]);
-  webharefolder->UpdateMetadata([indexdoc := webhareindex->id]);
-  OBJECT checkindex := checkfolder->EnsureFile(
-    [ name := "index.shtml"
-    , type := whconstant_whfstype_shtmlfile
-    , data := StringToBlob('<?wh LOADLIB "mod::tollium/webdesigns/webinterface/pages/check/check.whlib" EXPORT RunDynamicPage;')
-    , publish := TRUE
-    ]);
-  checkfolder->UpdateMetadata([indexdoc := checkindex->id]);
 
   UPDATE system.sites
      SET name := "WebHare backend"

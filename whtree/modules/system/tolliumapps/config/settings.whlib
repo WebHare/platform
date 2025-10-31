@@ -37,7 +37,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^servername->value := GetServerName();
     ^servertype->value := GetDTAPStage();
     ^displayname->value := ReadRegistryKey("system.backend.layout.title");
-    ^checkipallowmask->value := ReadRegistryKey("system.backend.check.ipallowmask");
     ^defaultimageformat->SetValueIfValid(ReadRegistryKey("platform.cache.defaultimageformat"));
 
     OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
@@ -95,7 +94,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.global.servertype",^servertype->value);
     IF(^servername->enabled)
       WriteRegistryKey("system.global.servername", ^servername->value);
-    WriteRegistryKey("system.backend.check.ipallowmask", ^checkipallowmask->value);
     WriteRegistryKey("system.backend.layout.title", ^displayname->value);
 
     IF(NOT work->HasFailed())

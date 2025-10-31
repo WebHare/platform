@@ -1302,7 +1302,6 @@
         <text tid="branding">Branding</text>
         <text tid="cachesecret">Image cache key</text>
         <text tid="caching">Caching</text>
-        <text tid="checkipallowmask">IPs allowed to /webhare/check/</text>
         <text tid="commaexplain">(comma separated)</text>
         <text tid="cookiesecret">Cookie encryption key</text>
         <text tid="dashboardbackground">Background</text>
