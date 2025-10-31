@@ -527,8 +527,12 @@ function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
   id_set.setBoolean(isWorkOpen());
 }
 
-async function cbDoBeginWork(vm: HareScriptVM) {
-  await beginWork();
+function cbHasMutex(vm: HareScriptVM, id_set: HSVMVar) {
+  id_set.setBoolean(isWorkOpen());
+}
+
+async function cbDoBeginWork(vm: HareScriptVM, locks: HSVMVar) {
+  await beginWork({ mutex: locks.getJSValue() as string[], __skipNameCheck: true });
 }
 
 //this needs to go through a syscall so we can WaitForPromise the commit. otherwise whdb.ts cannot invoke finish handlers in this VM
@@ -705,5 +709,6 @@ export function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTESQL::RA:SR", cbExecuteSQL);
   wasmmodule.registerExternalFunction("__WASMPG_ISWORKOPEN::B:", cbIsWorkOpen);
-  wasmmodule.registerAsyncExternalMacro("__WASMPG_BEGINWORK:::", cbDoBeginWork);
+  wasmmodule.registerExternalFunction("__WASMPG_HASMUTEX::B:S", cbHasMutex);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_BEGINWORK:::SA", cbDoBeginWork);
 }

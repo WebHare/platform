@@ -5,7 +5,7 @@ LOADLIB "wh::dbase/loopback.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
-LOADLIB "wh::internal/lockingtransbase.whlib";
+LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -17,8 +17,9 @@ MACRO __WASMPG_UPDATERECORD(RECORD query, RECORD rowdata, RECORD newfields) __AT
 MACRO __WASMPG_DELETERECORD(RECORD query, RECORD rowdata) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 RECORD FUNCTION __WASMPG_EXECUTEQUERY(RECORD query) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 RECORD ARRAY FUNCTION __WASMPG_EXECUTESQL(STRING query, RECORD options) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-MACRO __WASMPG_BEGINWORK() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+MACRO __WASMPG_BEGINWORK(STRING ARRAY mutexes) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 BOOLEAN FUNCTION __WASMPG_ISWORKOPEN() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+BOOLEAN FUNCTION __WASMPG_HASMUTEX(STRING mutex) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 CONSTANT INTEGER OID_BOOL := 16;
 CONSTANT INTEGER OID_BYTEA := 17;
@@ -106,7 +107,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
 >;
 
-STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase <
+STATIC OBJECTTYPE EMTransaction EXTEND BuiltinTransactionBase <
   INTEGER pushlevel;
   PUBLIC INTEGER forwardtransid;
 
@@ -136,19 +137,21 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase <
 
     TRY
     {
+      STRING ARRAY mutexes;
       IF(options.mutex != "")
-        INSERT this->__DoLockMutex(options.mutex) INTO this->pvt_worklocks AT END;
-
-      FOREVERY(STRING mutex FROM options.mutexes)
-        INSERT this->__DoLockMutex(mutex) INTO this->pvt_worklocks AT END;
-
-      __WASMPG_BEGINWORK();
+        INSERT options.mutex INTO mutexes AT END;
+      mutexes := mutexes CONCAT options.mutexes;
+      __WASMPG_BEGINWORK(mutexes);
     }
     CATCH(OBJECT e)
     {
       this->ReleaseAllLocks();
       THROW;
     }
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname) {
+    RETURN __WASMPG_HASMUTEX(mutexname);
   }
 
   /** Returns TRUE when there is nested work open
@@ -204,6 +207,10 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase <
     this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a rollback on their side will not revoke the locks
   }
 
+  PUBLIC MACRO __SyscallRolledBack() { //invoked when WASM has rolled us back
+    this->pushlevel := 0;
+  }
+
   UPDATE PUBLIC MACRO Rollback()
   {
     THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
@@ -223,7 +230,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase <
     }
 
     //we never open anything in WASM, so we don't have to close anything either
-    LockingTransactionBase::Close();
+    BuiltinTransactionBase::Close();
   }
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
@@ -619,6 +626,10 @@ OBJECTTYPE ExtraForwards
   PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     RETURN this->__forwardto->__ExecSQL(query, options);
+  }
+
+  PUBLIC MACRO __SyscallRolledBack() {
+    this->__forwardto->__SyscallRolledBack();
   }
 >;
 

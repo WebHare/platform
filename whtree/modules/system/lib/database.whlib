@@ -475,10 +475,12 @@ PUBLIC VARIANT FUNCTION RunInSeparatePrimary(FUNCTION PTR func, RECORD options D
   }
   FINALLY
   {
+    IF(ObjectExists(mytrans))
+      mytrans->Close();
+
     IF(IsWASM())
-      EM_Syscall("stopSeparatePrimary"); //Implicitly rolls back on the TS side so just skip our Rollback/Close()
-    ELSE IF(HavePrimaryTransaction())
-      GetPrimary()->Close();
+      EM_Syscall("stopSeparatePrimary"); //syncs up TS
+
     IF(ObjectExists(savetrans))
       SetPrimaryWebhareTransaction(savetrans->id);
   }

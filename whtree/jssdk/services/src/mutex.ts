@@ -40,16 +40,16 @@ export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
 
 class Mutex {
   private link: MutexManagerLink | null = null;
-  private readonly mutexname;
+  public readonly name;
 
   constructor(mutexmgr: MutexManagerLink, mutexname: string) {
     this.link = mutexmgr;
-    this.mutexname = mutexname;
+    this.name = mutexname;
   }
   release(): void {
     // Send an unlock request, don't care about the result (it is ignored by our dorequests)
     if (this.link) {
-      this.link.send({ task: "unlock", mutexname: this.mutexname });
+      this.link.send({ task: "unlock", mutexname: this.name });
       this.link.close();
     }
     this.link = null;
@@ -85,6 +85,7 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
 
 export async function lockMutex(name: string): Promise<Mutex>;
 export async function lockMutex(name: string, options: { timeout: std.WaitPeriod; __skipNameCheck?: boolean }): Promise<Mutex | null>;
+export async function lockMutex(name: string, options: { __skipNameCheck?: boolean }): Promise<Mutex>;
 
 /** Lock the requested mutex
  * @param name - The name of the mutex to lock

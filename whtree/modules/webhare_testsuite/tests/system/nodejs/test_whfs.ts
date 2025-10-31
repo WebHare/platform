@@ -539,11 +539,11 @@ async function testLookup() {
   //Test through preview link
   const previewlink = await loadlib("mod::publisher/lib/internal/tollium-helpers.whlib").createPreviewLink(maxDateTime, "", lookupresult.file, lookupresult.file);
   lookupresult = await whfs.lookupURL(new URL(previewlink));
-  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
+  test.eq(testfile.id, lookupresult.file, "whfs.lookupURL did not crack the preview link");
   lookupresult = await whfs.lookupURL(new URL(previewlink + "&bladiebla"));
-  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
+  test.eq(testfile.id, lookupresult.file, "whfs.lookupURL did not crack the preview link");
   lookupresult = await whfs.lookupURL(new URL(previewlink + "#bladiebla"));
-  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
+  test.eq(testfile.id, lookupresult.file, "whfs.lookupURL did not crack the preview link");
 
   await whfs.openType("http://www.webhare.net/xmlns/beta/test").set(testfile.id, {
     arraytest: [
