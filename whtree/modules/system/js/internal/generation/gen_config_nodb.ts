@@ -2,11 +2,12 @@
  */
 
 import * as fs from "node:fs";
-import { omit, pick } from "@webhare/std";
+import { omit, pick, throwError } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
 import { isValidModuleName } from "@webhare/services/src/naming";
+import { join } from "node:path";
 
 export function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
@@ -16,10 +17,40 @@ export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
   return ["production", "acceptance", "test", "development"].includes(dtapstage);
 }
 
-type NoDBConfig = Pick<ConfigFile, "modulescandirs"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "buildinfo" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
+type NoDBConfig = Pick<ConfigFile, "modulescandirs"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
 
 type ModuleScanData = ModuleData & { creationdate: Date };
 type ModuleScanMap = Map<string, ModuleScanData>;
+
+export function getBuildInfo() {
+  //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
+  const buildinfo = {
+    committag: "",
+    version: "",
+    branch: "",
+    origin: "",
+    builddatetime: "",
+  };
+
+  try {
+    const buildinfo_lines = fs.readFileSync(join(process.env.WEBHARE_DIR ?? throwError("WEBHARE_DIR not set"), "modules/platform/generated/buildinfo")).toString().split("\n");
+    for (const line of buildinfo_lines) {
+      const eqpos = line.indexOf("=");
+      if (eqpos !== -1) {
+        const key = line.substring(0, eqpos).trim();
+        let value = line.substring(eqpos + 1).trim();
+        if (key in buildinfo) {
+          if (value.startsWith('"'))
+            value = JSON.parse(value);
+          buildinfo[key as keyof typeof buildinfo] = value;
+        }
+      }
+    }
+  } catch (e) {
+    // ignore non-existing buildinfo
+  }
+  return buildinfo;
+}
 
 export function generateNoDBConfig(): NoDBConfig {
   const dataRoot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
@@ -38,35 +69,6 @@ export function generateNoDBConfig(): NoDBConfig {
       modulescandirs.push(appendSlashWhenMissing(path));
   }
 
-  const buildinfo: BackendConfiguration["buildinfo"] = {
-    committag: "",
-    version: "",
-    branch: "",
-    origin: "",
-    builddatetime: "",
-  };
-
-  //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
-  const buildinfo_keys = (["committag", "version", "branch", "origin", "builddatetime"]) satisfies Array<keyof typeof buildinfo>;
-
-  try {
-    const buildinfo_lines = fs.readFileSync(installationRoot + "modules/platform/generated/buildinfo").toString().split("\n");
-    for (const line of buildinfo_lines) {
-      const eqpos = line.indexOf("=");
-      if (eqpos !== -1) {
-        const key = line.substring(0, eqpos).trim() as keyof typeof buildinfo;
-        let value = line.substring(eqpos + 1).trim();
-        if (buildinfo_keys.includes(key)) {
-          if (value.startsWith('"'))
-            value = JSON.parse(value);
-          buildinfo[key] = value;
-        }
-      }
-    }
-  } catch (e) {
-    // ignore non-existing buildinfo
-  }
-
   const scanmap: ModuleScanMap = new Map;
   for (const moduledir of modulescandirs)
     scanModuleFolder(scanmap, moduledir, true, false);
@@ -79,10 +81,9 @@ export function generateNoDBConfig(): NoDBConfig {
       dataRoot: dataRoot,
       installationRoot: installationRoot,
       module,
-      whVersion: buildinfo.version,
+      whVersion: getBuildInfo().version,
 
       //legacy/obsolete data:
-      buildinfo,
       dataroot: dataRoot,
       installationroot: installationRoot,
     }

@@ -1,36 +1,57 @@
 import { type LoggableRecord, formatLogObject } from '@webhare/services/src/logmessages';
 import * as fs from 'node:fs';
 
+export type RotatingLogFileOptions = {
+  /** Log to stdout too? */
+  stdout?: boolean;
+  /** Callback when a new log file is opened after having already logged some entries */
+  onNextFile?: (logfile: RotatingLogFile) => void;
+  /** Callback when a log file is closed, use to clarify that the log was not truncated */
+  onCloseFile?: (logfile: RotatingLogFile) => void;
+};
+
 export class RotatingLogFile {
-  readonly basepath;
+  readonly basepath: string | null;
   private lastdate = '';
   private logfd = 0;
   private readonly stdout;
+  private onNextFile;
+  private onCloseFile;
 
-  constructor(basepath: string | null, { stdout }: { stdout?: boolean } = {}) {
+  constructor(basepath: string | null, options?: RotatingLogFileOptions) {
     this.basepath = basepath;
-    this.stdout = stdout || false;
+    this.stdout = options?.stdout || false;
+    this.onNextFile = options?.onNextFile;
+    this.onCloseFile = options?.onCloseFile;
   }
 
   log(line: string, data?: LoggableRecord) {
     //TODO escape any control characters in 'line
     const date = (new Date).toISOString();
+
+    if (this.basepath) {
+      const day = date.substring(0, 10); //YYYY-MM-DD
+      // const day = date.substring(0, 19).replaceAll(':', '-'); //for testing - rotary every second
+
+      if (this.lastdate !== day || !this.logfd) {
+        const alreadylogged = Boolean(this.logfd);
+
+        this.lastdate = day; //update to prevent jumping straight back into the logrotation code
+        if (this.logfd) {
+          this.onCloseFile?.(this); //any log entries generated will still go to the current file
+          fs.close(this.logfd, () => { });
+        }
+
+        this.logfd = fs.openSync(`${this.basepath}.${day.replaceAll('-', '')}.log`, 'a');
+        if (alreadylogged)
+          this.onNextFile?.(this);
+      }
+    }
+
     if (this.stdout)
       console.log(`[${date}] ${line}`);
 
-    if (!this.basepath)
-      return; //not atually logging to a file
-
-    const day = date.substring(0, 10); //YYYY-MM-DD
-
-    if (this.lastdate !== day || !this.logfd) {
-      if (this.logfd)
-        fs.close(this.logfd, () => { });
-
-      this.logfd = fs.openSync(`${this.basepath}.${day.replaceAll('-', '')}.log`, 'a');
-      this.lastdate = day;
-    }
-
-    fs.writeFile(this.logfd, formatLogObject(date, { message: line, ...data }) + '\n', () => { });
+    if (this.basepath)
+      fs.writeFile(this.logfd, formatLogObject(date, { message: line, ...data }) + '\n', () => { });
   }
 }

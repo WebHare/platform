@@ -13,14 +13,6 @@ export interface ModuleData {
 export type ModuleMap = { [name: string]: ModuleData };
 
 export type BackendConfiguration = {
-  /** @deprecated buildinfo will be removed. use whVersion to get the semantic-version of the current WebHare (eg 5.7.1) */
-  buildinfo: {
-    committag: string;
-    version: string;
-    branch: string;
-    origin: string;
-    builddatetime: string;
-  };
   /** The data path, ending with a slash. Usually /opt/whdata/. */
   dataRoot: string;
   dtapstage: DTAPStage;
@@ -30,7 +22,7 @@ export type BackendConfiguration = {
   /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
   backendURL: string;
   serverName: string;
-  /** WebHare version number */
+  /** WebHare version number (the semantic-version of the current WebHare (eg 5.7.1) */
   whVersion: string;
 
   /** @deprecated Switch the camel-cased version `dataRoot` in WH 5.7+ */
