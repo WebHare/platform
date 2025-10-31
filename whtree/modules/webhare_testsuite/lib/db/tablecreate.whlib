@@ -57,14 +57,14 @@ PUBLIC MACRO ApplyTempDatabaseSchema(STRING s)
   RECORD cmd := GenerateDependentSQLCommands([ parsed ], GetPrimary());
 
   testfw->BeginWork();
-  ExecuteSQLUpdates(GetPrimary(), cmd.commands);
+  ExecuteSQLUpdates(cmd.commands);
   testfw->CommitWork();
 
   // And now the postupdate commands
   cmd := GeneratePostupdateSQLCommands([ parsed ], GetPrimary());
 
   testfw->BeginWork();
-  ExecuteSQLUpdates(GetPrimary(), cmd.commands);
+  ExecuteSQLUpdates(cmd.commands);
   testfw->CommitWork();
 
   // no updates should be necessary afterwards

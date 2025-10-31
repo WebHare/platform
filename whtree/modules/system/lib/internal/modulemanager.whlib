@@ -66,7 +66,7 @@ PUBLIC RECORD FUNCTION InitModuleIndependents(RECORD ARRAY modules, BOOLEAN list
 
     result.commands := result.commands CONCAT SELECT *, module:=module.name FROM cmds.commands;
   }
-  ExecuteSQLUpdates(GetPrimary(), result.commands);
+  ExecuteSQLUpdates(result.commands);
 
   //ADDME: Blame them to specific modules
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();
@@ -117,7 +117,7 @@ PUBLIC RECORD FUNCTION InitModuleTables(RECORD module)
   result.commands := SELECT *, module := module.name FROM cmds.commands;
   TRY
   {
-    ExecuteSQLUpdates(GetPrimary(), result.commands);
+    ExecuteSQLUpdates(result.commands);
   }
   CATCH(OBJECT e) //explicitly catching as we don't have errordelay currently... get at least ONE error
   {
@@ -161,7 +161,7 @@ PUBLIC RECORD FUNCTION InitModuleRights(RECORD ARRAY modules, BOOLEAN update_mod
   }
 
   result.commands := SELECT *, module := "system_rights" FROM right_cmds.commands;
-  ExecuteSQLUpdates(GetPrimary(), result.commands);
+  ExecuteSQLUpdates(result.commands);
 
   //ADDME: Blame them to specific modules
   result.commitmessages := result.commitmessages CONCAT CheckedCommitWork();

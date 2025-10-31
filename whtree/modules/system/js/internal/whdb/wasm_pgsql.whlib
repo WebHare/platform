@@ -106,8 +106,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
 >;
 
-STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
-<
+STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase <
   INTEGER pushlevel;
   PUBLIC INTEGER forwardtransid;
 
@@ -117,7 +116,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
   }
   UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD query, STRING type)
   {
-//    DumpValue(CELL[ query, type ], "tree");
+    //    DumpValue(CELL[ query, type ], "tree");
     RETURN NEW EMTransactionCursor(PRIVATE this, CELL[ ...query, type ]);
   }
 
@@ -203,6 +202,28 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 
     WaitForPromise(EM_Syscall("finishWork", [commit := FALSE]));
     this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a rollback on their side will not revoke the locks
+  }
+
+  UPDATE PUBLIC MACRO Rollback()
+  {
+    THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
+  {
+    THROW NEW Exception("Commit cannot be used on auto transactions, use CommitWork");
+  }
+
+  UPDATE PUBLIC MACRO Close()
+  {
+    IF (this->IsWorkOpen())
+    {
+      this->pvt_numworks := 1;
+      this->RollbackWork();
+    }
+
+    //we never open anything in WASM, so we don't have to close anything either
+    LockingTransactionBase::Close();
   }
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
@@ -541,6 +562,11 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
   UPDATE PUBLIC INTEGER FUNCTION MakeAutoNumber(STRING schemaname, STRING tablename, STRING columnname)
   {
     RETURN this->MakeAutoNumbers(schemaname, tablename, columnname, 1)[0];
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
+  {
+    RETURN TRUE;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()

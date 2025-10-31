@@ -108,7 +108,7 @@ IF (NOT (trans->ColumnExists("consilio", "catalogs", "id") OR NOT trans->ColumnE
 
   // Update the database
   RECORD result := GeneratePostgreSQLDependentSQLCommands([ dbschema ],trans);
-  ExecuteSQLUpdates(trans, result.commands);
+  ExecuteSQLUpdates(result.commands);
 
   // Link to the index' index manager, if any
   FOREVERY (RECORD indexrec FROM SELECT * FROM consilio.catalogs)
@@ -136,4 +136,3 @@ IF (trans->ColumnExists("consilio", "contentsources", "id"))
 }
 
 trans->CommitWork();
-

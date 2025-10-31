@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -64,23 +65,32 @@ MACRO TestWorkLocks()
 {
   OBJECT trans := OpenPrimary();
   trans->BeginLockedWork("webhare_testsuite:worklock");
-  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  IF(IsWasm()) //WASM doesn't (yet?) support duplicate lock detection as TS doesn't (and it doesn't bind the mutexes to a codecontext - you still wouldn't want to auto-unlock but tracing issues is useful)
+    TestEq(DEFAULT OBJECT, OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  ELSE
+    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  TestEq(TRUE, trans->HasMutex("webhare_testsuite:worklock"));
   trans->RollbackWork();
+  TestEq(FALSE, trans->HasMutex("webhare_testsuite:worklock"));
 
   OBJECT lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
   TestEq(TRUE, ObjectExists(lock));
   lock->Close();
 
-  trans->BeginLockedWork("webhare_testsuite:worklock");
-  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
-  trans->CommitWork();
+  iF(NOT IsWasm()) {
+    trans->BeginLockedWork("webhare_testsuite:worklock");
+    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+    trans->CommitWork();
+  }
 
   lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
   TestEq(TRUE, ObjectExists(lock));
   lock->Close();
 
-  trans->BeginLockedWork("webhare_testsuite:worklock");
-  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  iF(NOT IsWasm()) {
+    trans->BeginLockedWork("webhare_testsuite:worklock");
+    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  }
   trans->Close();
 
   lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
@@ -90,6 +100,9 @@ MACRO TestWorkLocks()
 
 MACRO TestCommitErrors()
 {
+  IF(IsWasm())
+    RETURN; //unsupported, see also our comments at the end of test_work.whscr
+
   TABLE <INTEGER id, INTEGER int2> beta_tableA;
 
   OBJECT trans := OpenPrimary();
