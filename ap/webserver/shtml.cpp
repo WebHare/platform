@@ -170,12 +170,14 @@ static const char MagicSignature[MagicSignatureLen+1] = "WBHRWS::v0dmzc5chW4Axhb
 
 struct MagicHeader
 {
-        MagicHeader() : iswhfsexecute(false), fileid(0)
+        MagicHeader() : iswhfsexecute(false), isredirect(false), fileid(0)
         {
         }
 
         bool iswhfsexecute;
+        bool isredirect;
         int32_t fileid;
+        std::string link;
 };
 
 MagicHeader ReadMagicHeader(std::string const &path)
@@ -196,7 +198,7 @@ MagicHeader ReadMagicHeader(std::string const &path)
         }
 
         // Read the header (TODO webserver could consider passing us an open handle, so we don't race to open. even better if the webserver did the reading for us and allowed us to peek)
-        char fileheader[1024];
+        char fileheader[4096]; //4K should be sufficient to contain redirects
         std::size_t bytesread = infile->Read(fileheader, sizeof fileheader);
         if(bytesread < MagicSignatureLen || memcmp(fileheader, MagicSignature, MagicSignatureLen) != 0)
             return retval; //no header
@@ -221,10 +223,18 @@ MagicHeader ReadMagicHeader(std::string const &path)
                 return retval;
         }
 
-        if(indoc.IsObject() && indoc.HasMember("whfsexecute") && indoc["whfsexecute"].IsInt())
+        if(indoc.IsObject())
         {
-                retval.iswhfsexecute = true;
-                retval.fileid = indoc["whfsexecute"].GetInt();
+                if(indoc.HasMember("whfsexecute") && indoc["whfsexecute"].IsInt())
+                {
+                        retval.iswhfsexecute = true;
+                        retval.fileid = indoc["whfsexecute"].GetInt();
+                }
+                else if(indoc.HasMember("redirect") && indoc["redirect"].IsString())
+                {
+                        retval.isredirect = true;
+                        retval.link = indoc["redirect"].GetString();
+                }
         }
         return retval;
 }
@@ -297,6 +307,11 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         if(magicinfo.iswhfsexecute)
         {
                 runpath = "mod::system/scripts/internal/webserver/whfsexecute.whscr";
+        }
+        else if(magicinfo.isredirect)
+        {
+                webcon->RedirectRequest(magicinfo.link, WebServer::StatusSeeOther); //303
+                return true;
         }
         else
         {
