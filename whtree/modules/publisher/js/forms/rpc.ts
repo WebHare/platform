@@ -19,7 +19,7 @@ function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
 }
 
-interface FormSubmitDetails<DataShape extends object = Record<string, unknown>> {
+export interface FormSubmitDetails<DataShape extends object = Record<string, unknown>> {
   form: HTMLElement;
   rpchandler: RPCFormBase<DataShape>;
   extrasubmitdata?: unknown;
@@ -292,21 +292,21 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     const extraSubmitAwaitable = this.getFormExtraSubmitData();
     //FIXME we want getFormValue to be sync (and just use 'this.data' here) - who is still sending promises our way? too much to sort out for a backport
     const formvalue = await this.getFormValue() as DataShape;
-    const extraSubmit = await extraSubmitAwaitable;
-
-    const submitparameters = await buildRPCFormSubmission<DataShape>(this.__formhandler.target, formvalue, {
-      extraSubmit: { ...extradata, ...extraSubmit },
-      offline: false,
-      uploadCache: this.#completedUploads,
-      //hack because we need to record the 'vars' value before unpackObject flattens it for safe HareScript RPC
-      __setupEvent: options?.__setupEvent
-    });
+    const extraSubmit = { ...extradata, ...(await extraSubmitAwaitable as Record<string, unknown>) };
 
     await this._flushPendingRPCs();
     dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", {
       bubbles: true, cancelable: false, detail: {
         extrasubmit: extraSubmit
       }
+    });
+
+    const submitparameters = await buildRPCFormSubmission<DataShape>(this.__formhandler.target, formvalue, {
+      extraSubmit,
+      offline: false,
+      uploadCache: this.#completedUploads,
+      //hack because we need to record the 'vars' value before unpackObject flattens it for safe HareScript RPC
+      __setupEvent: options?.__setupEvent
     });
 
     return submitparameters;
@@ -378,7 +378,7 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
 
       if (result.success) {
         this.sendFormEvent({ event: 'submitted' });
-        if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
+        if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail as FormSubmitDetails<Record<string, unknown>> })) {
           removeEventListener("pagehide", this.#onUnload);
           merge.run(this.node, { form: await this.getFormValue() });
 
