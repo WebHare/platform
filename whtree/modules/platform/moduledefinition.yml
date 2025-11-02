@@ -2,6 +2,21 @@ managedServices:
   apprunner:
     script: mod::system/scripts/internal/apprunner.whscr
     run: always
+  executetasks:
+    script: mod::system/scripts/internal/executetasks.whscr
+    run: always
+  managedqueue:
+    script: mod::system/scripts/internal/managedqueuemgr.whscr
+    run: always
+  watchsourcefiles:
+    script: mod::system/scripts/internal/watchsourcefiles.whscr
+    run: always
+  chromeheadlessrunner:
+    script: mod::system/scripts/internal/chromeheadlessrunner.whscr
+    run: always
+  precalc:
+    script: mod::system/lib/internal/precalc/service.whscr
+    run: always
   tollium-wasm-runner:
     script: mod::tollium/scripts/internal/applicationstarter.whscr
     run: on-demand
@@ -15,6 +30,12 @@ managedServices:
     # When stress-testing/debugging, lower restartInterval to 1sec in imgcache.ts and enable these below:
     # minRunTime: 1
     # maxThrottleMsecs: 5
+  consiliohandler:
+    script: mod::publisher/scripts/internal/consiliohandler.whscr
+    run: always
+  consilio-queuemanager:
+    script: mod::consilio/scripts/queuemanager.whscr
+    run: always
 
 backendServices:
   openapiservice:

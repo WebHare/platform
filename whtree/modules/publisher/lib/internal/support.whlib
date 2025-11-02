@@ -148,17 +148,6 @@ PUBLIC RECORD FUNCTION GetFileStatusFromPublished(INTEGER published, BOOLEAN can
       ];
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetPublisherAppRunnerConfig()
-{
-  RECORD ARRAY apps :=
-    [ [ name :=       "publisher:consiliohandler"
-      , cmdline :=    "runscript mod::publisher/scripts/internal/consiliohandler.whscr"
-      ]
-    ];
-
-  RETURN apps;
-}
-
 PUBLIC RECORD FUNCTION __FindFile(INTEGER fileid)
 {
   RETURN SELECT *

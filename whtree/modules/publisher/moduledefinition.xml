@@ -765,8 +765,6 @@
                 primarytrans="none"
                 transports="jsonrpc" />
 
-    <apprunnerconfig configfunction="lib/internal/support.whlib#getpublisherapprunnerconfig" />
-
     <check objectname="lib/internal/checks.whlib#SiteprofileCheck" />
   </services>
 

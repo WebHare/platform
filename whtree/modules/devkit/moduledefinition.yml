@@ -5,7 +5,7 @@ managedServices:
 
 backendServices:
   lspservice:
-    controllerFactory: js/language-service/whservice.ts#createLSPController
+    controllerFactory: js/language-server/whservice.ts#createLSPController
 
 selfChecks:
   - checker: js/validation/checks.ts#checkModules
