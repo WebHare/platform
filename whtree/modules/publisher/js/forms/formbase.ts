@@ -14,6 +14,7 @@ import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue, RPCFormMessage } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 import { submitselector, type SubmitSelectorType } from '@webhare/dompack/src/browser';
+import type { FormSubmitDetails } from './rpc';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -56,6 +57,9 @@ declare global {
       currentPage: number;
       */
     }>;
+    "wh:form-preparesubmit": CustomEvent<{ extrasubmit: Record<string, unknown> }>;
+    "wh:form-response": CustomEvent<FormSubmitResult>;
+    "wh:form-submitted": CustomEvent<FormSubmitDetails>;
   }
 }
 
