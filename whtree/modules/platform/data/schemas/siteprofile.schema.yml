@@ -488,6 +488,8 @@ $defs:
         $ref: "#/$defs/ApplySetObjectEditor"
       forms:
         $ref: "#/$defs/ApplyForms"
+      captcha:
+        $ref: "#/$defs/ApplyCaptcha"
       fileTypes:
         $ref: "#/$defs/ApplyTypes"
       folderTypes:
@@ -932,6 +934,13 @@ $defs:
           type: string
           description: "- references: Interpret the republish instruction from the point of view of any references to this file (internal links, content links and contenttype whfsrefs)"
           const: references
+
+  ApplyCaptcha:
+    type: object
+    additionalProperties: false
+    properties:
+      skipFunction:
+        type: string
 
   ApplyFolderSettings:
     type: object

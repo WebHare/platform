@@ -127,3 +127,10 @@ PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
 
   RETURN formintegration;
 }
+
+PUBLIC RECORD FUNCTION GetCaptchaIntegrationAsYaml(OBJECT node) {
+  RECORD captchaintegration := CELL[];
+  IF(node->HasAttribute("skipfunction"))
+    captchaintegration := CELL[ ...captchaintegration, skip_function := node->GetAttribute("skipfunction") ];
+  RETURN captchaintegration;
+}

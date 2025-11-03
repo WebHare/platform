@@ -562,7 +562,9 @@
                      />
     <webdesignplugin name="captchaintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-                     objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin" />
+                     objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"
+                     yamlproperty="captcha"
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetCaptchaIntegrationAsYaml" />
     <webdesignplugin name="forumplugin"
                      hooksfeatures="objectprops"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"

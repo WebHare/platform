@@ -138,3 +138,12 @@ apply:
             layout: [anyField, numberField, folksonomy, whUser]
           - tid: .tab2
             layout: [anyField, rtd,  checkIt]
+
+  - to:
+      whfsPath: "*formcaptcha*"
+    forms:
+      captcha: true
+      matchSubmitType: true
+      pageHooks: "../basetest/lib/basetest.whlib#CaptchaFormHooks"
+    captcha:
+      skipFunction: "../basetest/lib/basetest.whlib#SkipCaptcha"
