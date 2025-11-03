@@ -1,65 +1,100 @@
 import * as dompack from '@webhare/dompack';
 import { initializeCaptcha, type CaptchaProvider } from "@mod-publisher/js/captcha/api";
-import { type DocEvent, addDocEventListener } from '@webhare/dompack';
-import type { SetFieldErrorData } from '../internal/customvalidation';
-import FormBase from '../formbase';
+import { setFieldError, type SetFieldErrorData } from '../internal/customvalidation';
 
-export default class CaptchaField {
-  node;
-  captchaHolder: HTMLElement | null = null;
-  response = '';
+import "../../captcha/__captcha.lang.json"; //TODO or have forms send this tid (so it can also be overridden there)
+import { JSFormElement } from '@webhare/forms';
+import { getTid } from '@webhare/gettid';
+import type RPCFormBase from '../rpc';
 
-  constructor(node: HTMLElement) {
-    this.node = node;
-    addDocEventListener(this.node, 'wh:form-getvalue', evt => this._getValue(evt));
-    addDocEventListener(this.node, 'wh:form-setfielderror', evt => this._setFieldError(evt));
+declare global {
+  interface HTMLElementTagNameMap {
+    "wh-captcha": CaptchaField;
+  }
+}
 
-    const form = this.node.closest('form');
+export default class CaptchaField extends JSFormElement<string> {
+  value = '';
+  provider: CaptchaProvider | null = null;
+
+  constructor() {
+    super();
+    this.addEventListener('wh:form-setfielderror', evt => void this._setFieldError(evt));
+    this.whFormsApiChecker = () => this.check();
+
+    const form = this.closest('form');
     if (form)
-      addDocEventListener(form, 'reset', () => this._onReset());
-  }
-  _getValue(evt: DocEvent<CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>>) {
-    dompack.stop(evt);
-    evt.detail.deferred.resolve(this.response);
-  }
-  _onReset() {
-    this.response = '';
-    this.captchaHolder?.remove();
-    this.captchaHolder = null;
+      form.addEventListener('reset', () => this.onReset());
   }
 
-  async _setFieldError(evt: DocEvent<CustomEvent<SetFieldErrorData>>) {
+  check(): void {
+    if (!this.value)
+      setFieldError(this, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
+    else
+      setFieldError(this, "", { reportimmediately: false });
+  }
+
+  private async setup() {
+    if (this.provider) {
+      await initializeCaptcha(this.provider, this, {
+        onResponse: (result: string) => { this.value = result; }
+      });
+    }
+  }
+
+  private onReset() {
+    this.value = '';
+    this.replaceChildren();
+    void this.setup();
+  }
+
+  async _setFieldError(evt: CustomEvent<SetFieldErrorData>) {
+    const serverMetadata = evt.detail.metadata as { provider: CaptchaProvider } | undefined;
+    if (serverMetadata?.provider) { //the first time an error is triggered it should be the server telling us which provider to use
+      this.provider = serverMetadata.provider;
+      await this.setup();
+    }
+
     dompack.stop(evt);
     if (!evt.detail.error) //error cleared
       return;
 
     //If we get here, we captcha is either invalid or not set yet (and required).
-    if (this.response) { //we were already sending a response!
+    if (this.value) { //we were already sending a response!
       console.log("Captcha response was rejected, resetting");
-      this._onReset(); //better restart the control, timeout or duplicat submission
+      this.onReset(); //better restart the control, timeout or duplicat submission
     }
-
-    const metadata = evt.detail.metadata as { provider: CaptchaProvider };
-    if (!metadata.provider?.apikey)
-      throw new Error("No apikey received in captcha error message");
-
-    const formel = this.node.closest('form');
-    const form = formel ? FormBase.getForNode(formel) : null;
-    if (!form)
-      throw new Error(`Cannot find associated form`);
-
-    const captchapage = dompack.qR(form.node, '[data-wh-form-pagerole=captcha]');
-    await form.gotoPage(captchapage);
-
-    if (!this.captchaHolder) {
-      this.captchaHolder = document.createElement('div');
-      captchapage.appendChild(this.captchaHolder);
-    }
-
-    await initializeCaptcha(metadata.provider, this.captchaHolder, {
-      onResponse: (result: string) => {
-        this.response = result;
-      }
-    });
   }
 }
+
+export function setupCaptchaFieldGroup(form: RPCFormBase<object>): CaptchaField {
+  /* Setup a page-less holder for the captcha field
+
+    <div class="wh-form__page wh-form__page--visible">
+      <div class="wh-form__fieldgroup" data-wh-form-group-for="__form_captcha">
+        ...
+    */
+
+  const captchaControl = dompack.create("wh-captcha", { class: "wh-form__captcha", dataset: { whFormName: "__form_captcha", whFormRequired: "true" } });
+
+  const virtualCaptchaPage = dompack.create("div", { class: "wh-form__captchapage" }, [
+    dompack.create("div", { class: "wh-form__fieldgroup", dataset: { whFormGroupFor: "__form_captcha" } }, [
+      dompack.create("label", { class: "wh-form__label" }, [getTid("publisher:site.captcha.title")]),
+      dompack.create("div", { class: "wh-form__fields" },
+        [dompack.create("div", { class: "wh-form__fieldline" }, [captchaControl])]
+      )
+    ])
+  ]);
+
+  //Position it before the navbuttons, but if they are missing for whatever reason, just add to the end of the form
+  const buttonarea = dompack.qS(form.node, ".wh-form__navbuttons");
+  if (buttonarea)
+    buttonarea.before(virtualCaptchaPage);
+  else
+    form.node.appendChild(virtualCaptchaPage);
+
+  return captchaControl;
+}
+
+
+customElements.define("wh-captcha", CaptchaField);

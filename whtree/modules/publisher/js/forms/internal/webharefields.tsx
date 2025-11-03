@@ -2,7 +2,6 @@ import * as dompack from 'dompack';
 import { qSA } from 'dompack';
 import * as datetime from 'dompack/types/datetime';
 import AddressField from '@mod-publisher/js/forms/fields/addressfield';
-import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
 import { setupValidator } from './customvalidation';
 
 import { getTid } from "@webhare/gettid";
@@ -140,12 +139,4 @@ export function setup(form: HTMLElement) {
   // Setup address field validation
   for (const addresscontrol of qSA(form, ".wh-form__fieldgroup--addressfield"))
     new AddressField(addresscontrol);
-
-  // Setup on-demand captcha
-  if (form.dataset.whFormCaptcha) {
-    //TODO add something like virtualfields to forms but that is too much for a backport.
-    const captchanode = <wh-form-captcha data-wh-form-name={form.dataset.whFormCaptcha} />;
-    form.appendChild(captchanode);
-    new CaptchaField(captchanode);
-  }
 }

@@ -14,6 +14,7 @@ import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webha
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
 import { getFieldName } from '@webhare/forms/src/domsupport';
 import { createClient } from '@webhare/jsonrpc-client';
+import { setupCaptchaFieldGroup } from './fields/captchafield';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
@@ -364,10 +365,14 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
           continue;
         }
 
-        const failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
+        let failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
         if (!failednode) {
-          console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
-          continue;
+          if (error.name === "__form_captcha") { //created on demand
+            failednode = setupCaptchaFieldGroup(this);
+          } else {
+            console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
+            continue;
+          }
         }
         if (!didfirstfocus) {
           dompack.focus(failednode);

@@ -778,6 +778,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private _getDestinationPage(pagestate: PageState, direction: number) {
     let pagenum = pagestate.curpage + direction;
+    //TODO "captcha" should no longer exist since WH5.9 - unless there are still some static published forms around, so keep skipping them for a while
     while (pagenum >= 0 && pagenum < pagestate.pages.length && (pagestate.pages[pagenum].propWhFormCurrentVisible === false || pagestate.pages[pagenum].dataset.whFormPagerole === "captcha"))
       pagenum = pagenum + direction;
     if (pagenum < 0 || pagenum >= pagestate.pages.length)

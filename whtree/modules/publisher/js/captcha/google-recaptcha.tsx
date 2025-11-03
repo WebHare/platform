@@ -30,12 +30,7 @@ export async function runRecaptcha(provider: CaptchaProvider, injectInto: HTMLEl
     await (recaptchaload ? recaptchaload.promise : makeRecaptchaLoadPromise());
 
     const captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
-    injectInto.append(
-      <div class="wh-captcha wh-captcha--googlerecaptcha">
-        <h2 class="wh-captcha__title">{settings.title}</h2>
-        <p class="wh-captcha__explain">{settings.explain}</p>
-        {captchanode}
-      </div>);
+    injectInto.append(captchanode);
 
     if (provider.apikey === 'mock') {
       captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => settings.onResponse('mock') }} />I am a human, beep-bop</label>);
