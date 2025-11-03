@@ -105,7 +105,7 @@ function onNextSmLog(log: RotatingLogFile) {
   const upSecs = uptime.seconds % 60;
   const uptimeText = `up ${upDays ? `${upDays}d ` : ""}${upHours}h ${upMins}m ${upSecs}s`;
 
-  log.log(`${getWHTextVersion()} started ${startService.toString()}, ${uptimeText} `, { buildinfo, startService, uptime });
+  log.log(`${getWHTextVersion()} started ${startService.toString()}, ${uptimeText}`, { buildinfo, startService, uptime });
 }
 
 function onCloseSmLog(log: RotatingLogFile) {
@@ -628,7 +628,7 @@ class ServiceManagerManager {
       }
     });
 
-    smLog(`Starting ${getWHTextVersion()} in ${backendConfig.dataRoot} at ${getRescueOrigin()} `, { buildinfo });
+    smLog(`Starting ${getWHTextVersion()} in ${backendConfig.dataRoot} at ${getRescueOrigin()}`, { buildinfo });
 
     if (!this.secondary) {
       // Update configuration, clear debug settings

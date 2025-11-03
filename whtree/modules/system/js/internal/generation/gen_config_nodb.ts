@@ -23,7 +23,6 @@ type ModuleScanData = ModuleData & { creationdate: Date };
 type ModuleScanMap = Map<string, ModuleScanData>;
 
 export function getBuildInfo() {
-  //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
   const buildinfo = {
     committag: "",
     version: "",
