@@ -2,22 +2,15 @@ import * as dompack from '@webhare/dompack';
 import { type CaptchaProvider, type CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
 
 //friendly captcha API: https://developer.friendlycaptcha.com/docs/v2/sdk/configuration
-const captchaResolvers = new WeakMap<HTMLElement, PromiseWithResolvers<string>>();
 let script = "https://cdn.jsdelivr.net/npm/@friendlycaptcha/sdk@0.1.31/site.min.js";
 let isLoaded = false;
 
-export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) {
-  const existingResolver = captchaResolvers.get(injectInto); // Check if a captcha is already being built
-  if (existingResolver)
-    return existingResolver.promise;
-
-  const defer = Promise.withResolvers<string>();
-
+export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings): Promise<void> {
   const captcha = document.createElement('div');
   captcha.className = "frc-captcha";
   captcha.dataset.sitekey = provider.apikey;
   captcha.dataset.apiEndpoint = "eu"; //https://developer.friendlycaptcha.com/docs/v2/sdk/configuration#data-api-endpoint
-  captcha.addEventListener("frc:widget.complete", ((evt: CustomEvent<{ response: string }>) => defer.resolve(evt.detail.response)) as EventListener);
+  captcha.addEventListener("frc:widget.complete", ((evt: CustomEvent<{ response: string }>) => settings.onResponse(evt.detail.response)) as EventListener);
 
   injectInto.append(captcha);
 
@@ -31,9 +24,6 @@ export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: 
     await dompack.loadScript(script, { module: true });
     isLoaded = true;
   }
-
-  captchaResolvers.set(injectInto, defer);
-  return defer.promise;
 }
 
 export function setupFriendlyCaptcha(options?: { script: string }) {
@@ -43,5 +33,5 @@ export function setupFriendlyCaptcha(options?: { script: string }) {
   if (options?.script)
     script = options.script;
 
-  captcharegistry["friendly-captcha"] = { getResponse: runFriendlyCaptcha };
+  captcharegistry["friendly-captcha"] = { initialize: runFriendlyCaptcha };
 }

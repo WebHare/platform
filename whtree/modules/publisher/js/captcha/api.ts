@@ -9,18 +9,22 @@ export interface CaptchaProvider {
 export interface CaptchaSettings {
   title: string;
   explain: string;
+  onResponse: (response: string) => void;
 }
 
-export const captcharegistry: Record<string, { getResponse: (provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) => Promise<string | null> }> = {};
+export const captcharegistry: Record<string, { initialize: (provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) => Promise<void> }> = {};
 
-export async function getCaptchaResponse(provider: CaptchaProvider, injectInto: HTMLElement, settings?: Partial<CaptchaSettings>): Promise<string | null> {
+export async function initializeCaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings?: Partial<CaptchaSettings>): Promise<void> {
   if (!captcharegistry[provider.name]) //only supported one so far
     throw new Error(`Captcha provider '${provider.name}' not registered`);
+  if (!settings?.onResponse)
+    throw new Error("onResponse callback is required");
 
   const finalsettings: CaptchaSettings = {
     title: settings?.title ?? getTid("publisher:site.captcha.title"),
     explain: settings?.explain ?? getTid("publisher:site.captcha.explain"),
+    onResponse: settings?.onResponse ?? (() => { }),
   };
 
-  return await captcharegistry[provider.name].getResponse(provider, injectInto, finalsettings);
+  return await captcharegistry[provider.name].initialize(provider, injectInto, finalsettings);
 }

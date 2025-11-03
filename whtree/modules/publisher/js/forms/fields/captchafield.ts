@@ -1,5 +1,5 @@
 import * as dompack from '@webhare/dompack';
-import { getCaptchaResponse, type CaptchaProvider } from "@mod-publisher/js/captcha/api";
+import { initializeCaptcha, type CaptchaProvider } from "@mod-publisher/js/captcha/api";
 import { type DocEvent, addDocEventListener } from '@webhare/dompack';
 import type { SetFieldErrorData } from '../internal/customvalidation';
 import FormBase from '../formbase';
@@ -55,7 +55,11 @@ export default class CaptchaField {
       this.captchaHolder = document.createElement('div');
       captchapage.appendChild(this.captchaHolder);
     }
-    const result = await getCaptchaResponse(metadata.provider, this.captchaHolder);
-    this.response = result || '';
+
+    await initializeCaptcha(metadata.provider, this.captchaHolder, {
+      onResponse: (result: string) => {
+        this.response = result;
+      }
+    });
   }
 }

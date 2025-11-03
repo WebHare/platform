@@ -17,7 +17,7 @@ PUBLIC RECORD FUNCTION VerifyFriendlyCaptchaResponse(RECORD provider, STRING res
   IF(NOT browser->SendRawRequest("POST", "https://global.frcapi.com/api/v2/captcha/siteverify",
       RECORD[...req.headers, [ field := "X-API-KEY", value := provider.privatekey ]], req.body, DEFAULT RECORD)) {
     LogError("platform:friendlycaptcha", "Unexpected response from siteverify", [ error := "UNEXPECTED-SITEVERIFY-RESPONSE", response := response, status := browser->GetHTTPStatus() ]);
-    THROW NEW Exception("Unexpected response from siteverify");
+    RETURN DEFAULT RECORD; //let user retry
   }
 
   /* Example success=true verification:
