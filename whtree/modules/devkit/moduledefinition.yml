@@ -3,5 +3,9 @@ managedServices:
     script: scripts/sourceindexservice.whscr
     run: always
 
+backendServices:
+  lspservice:
+    controllerFactory: js/language-server/whservice.ts#createLSPController
+
 selfChecks:
   - checker: js/validation/checks.ts#checkModules

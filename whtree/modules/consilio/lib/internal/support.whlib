@@ -138,11 +138,7 @@ PUBLIC RECORD FUNCTION ParseIndexmanagerConfiguration(STRING configuration)
 PUBLIC RECORD ARRAY FUNCTION GetConsilioAppRunnerConfig()
 {
   OpenPrimary();
-  RECORD ARRAY apps := [ [ name :=       "consilio:queuemanager"
-                         , args :=       STRING["runscript","mod::consilio/scripts/queuemanager.whscr"]
-                         , databasemodes := [ "online" ]
-                         ]
-                       ];
+  RECORD ARRAY apps;
 
   RECORD builtin_opensearch := SELECT id
                                     , config := ParseIndexmanagerConfiguration(configuration)

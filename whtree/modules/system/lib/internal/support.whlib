@@ -212,26 +212,9 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
 {
   OBJECT trans := OpenPrimary();
   RECORD ARRAY apps :=
-      [ [ name :=     "system:watchsourcefiles"
-        , cmdline :=  "wh run --workerthreads 3 mod::system/scripts/internal/watchsourcefiles.whscr"
-        ]
-      , [ name :=     "system:managedqueue"
-        , cmdline :=  "wh run mod::system/scripts/internal/managedqueuemgr.whscr"
-        ]
-      , [ name :=     "system:executetasks"
-        , cmdline :=  "wh run mod::system/scripts/internal/executetasks.whscr"
-        , databasemodes := [ "online" ]
-        ]
-      , [ name :=     "system:poststart"
+      [ [ name :=     "system:poststart"
         , cmdline :=  "wh run mod::system/scripts/internal/post-start.whscr"
         , runatsoftreset := TRUE
-        ]
-      , [ name :=     "system:precalc"
-        , cmdline :=  `wh run --workerthreads ${ReadRegistryKey("system.precalc.maxjobs") + 2} mod::system/lib/internal/precalc/service.whscr`
-        , databasemodes := [ "online" ]
-        ]
-      , [ name :=     "system:chromeheadlessrunner"
-        , cmdline :=  "wh run mod::system/scripts/internal/chromeheadlessrunner.whscr"
         ]
       ];
 

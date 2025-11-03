@@ -15,7 +15,7 @@ import * as services from "./service";
 import type * as lspTypes from "@webhare/lsp-types";
 import { backendConfig, openBackendService } from "@webhare/services";
 import { mapHareScriptPath } from "@webhare/harescript/src/wasm-support";
-import type { LSPClient, ShowResourceParams } from "./whservice";
+import type { ShowResourceParams } from "./whservice";
 import { sleep } from "@webhare/std";
 import * as util from "node:util";
 
@@ -43,7 +43,7 @@ function wrapCheck<T extends (...args: any[]) => any>(cb: T): T {
 
 async function runLspServiceCpnnection(clientName: string, signal: AbortSignal) {
   //TODO have openBackendService integrate abort signals
-  const whClient = await openBackendService<LSPClient>("dev:lspservice", undefined, { linger: true, timeout: 5000 });
+  const whClient = await openBackendService("devkit:lspservice", undefined, { linger: true, timeout: 5000 });
   const closed = new Promise<void>(resolve => whClient.addEventListener("close", () => resolve()));
   onConnectionMessage((_) => void whClient.ping());
 

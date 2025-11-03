@@ -11,6 +11,13 @@ type ShowResourceParams = {
   col?: number;
 };
 
+/** Describes HareScript-based services */
+declare module "@webhare/services" {
+  interface BackendServices {
+    "devkit:lspservice": LSPClient;
+  }
+}
+
 type ClientConfig = {
   workspaceFolders: WorkspaceFolder[] | null;
   clientName?: string;

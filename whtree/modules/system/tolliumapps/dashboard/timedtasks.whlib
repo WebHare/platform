@@ -11,8 +11,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
 
-PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
-<
+PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase <
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     ^tasks->Invalidate();
@@ -63,16 +62,13 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
     RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
   }
 
-  RECORD ARRAY FUNCTION OnGetRunningTasks()
-  {
+  RECORD ARRAY FUNCTION OnGetRunningTasks() {
     RECORD ARRAY newlist;
 
     OBJECT link := ConnectToGlobalIPCPort("system:executetasks");
-    IF (link->SendMessage([ task := "listprocesses" ]).status = "ok")
-    {
+    IF (ObjectExists(link) AND link->SendMessage([ task := "listprocesses" ]).status = "ok") {
       RECORD retval := link->ReceiveMessage(AddTimeToDate(250, GetCurrentDateTime()));
-      IF (retval.status = "ok" AND retval.msg.status = "ok")
-      {
+      IF (retval.status = "ok" AND retval.msg.status = "ok") {
         newlist :=
             SELECT rowkey :=    procid
                  , procid
@@ -83,12 +79,13 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
                  , killtime
               FROM retval.msg.processes;
         ^runningtasks->empty := this->GetTid(".notasksrunning");
-      }
-      ELSE
+      } ELSE
         ^runningtasks->empty := this->GetTid(".notavailable");
-    }
-    ELSE
+    } ELSE
       ^runningtasks->empty := this->GetTid(".notavailable");
+
+    IF(ObjectExists(link))
+      link->Close();
 
     RETURN newlist;
   }
