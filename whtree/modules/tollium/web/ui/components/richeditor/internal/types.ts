@@ -55,6 +55,7 @@ export interface RTEWidget {
   embedtype: "inline" | "block";
   htmltext: string;
   canedit: boolean;
+  canwrite: boolean; // canwrite: can edit even if the rtd is readonly
   wide: boolean;
   instanceref: string;
   typetext: string;

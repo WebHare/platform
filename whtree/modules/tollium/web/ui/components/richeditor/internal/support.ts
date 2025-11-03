@@ -102,6 +102,7 @@ export function parseEmbeddedObjectNode(node: HTMLElement): RTEWidget & { type: 
     htmltext: htmltext,
     typetext: node.getAttribute("data-widget-typetext") || '',
     canedit: node.classList.contains("wh-rtd-embeddedobject--editable"),
+    canwrite: node.hasAttribute("data-writable"),
     embedtype: node.nodeName === 'SPAN' ? 'inline' : 'block',
     wide: node.hasAttribute("data-widget-wide")
   };
@@ -116,6 +117,7 @@ export function buildEmbeddedObjectNode(data: RTEWidget, config: Pick<RTESetting
   const node = document.createElement(basenode); //the basenode is also used to show selection status
   node.className = "wh-rtd-embeddedobject"
     + (data.canedit ? " wh-rtd-embeddedobject--editable" : "")
+    + (data.canwrite ? " wh-rtd-embeddedobject--writable" : "")
     + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
     + (isinline ? " wh-rtd-embeddedobject--inline" : " wh-rtd-embeddedobject--block")
     + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "");

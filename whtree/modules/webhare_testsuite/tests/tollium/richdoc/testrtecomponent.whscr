@@ -396,6 +396,24 @@ ASYNC MACRO TestRichDocument()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestWritableWidgets()
+{
+  // Open rich document editor
+  testfw->SetTestUser("mysysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:writablewidgets", [ calltype := "direct", target := DEFAULT RECORD ]));
+
+  OBJECT rtedom := MakeXMLDocumentFromHTML(StringToBlob(TT("rte")->GetRenderValue()));
+  OBJECT ARRAY widgets := rtedom->GetElements("div.wh-rtd-embeddedobject");
+  TestEq(2, Length(widgets));
+  TestEq(FALSE, widgets[0]->HasAttribute("data-writable"));
+  TestEq(TRUE, widgets[1]->HasAttribute("data-writable"));
+
+  //FIXME: Can we actually test that only the second widget is editable (and not deletable), while the rest of the RTE is readonly?
+
+  // Close rich document editor
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
+}
+
 RunTestFramework( [ PTR TestRequired
                   , PTR TestCounters
                   , PTR RTEDocumentTypes
@@ -405,6 +423,7 @@ RunTestFramework( [ PTR TestRequired
                   , PTR TagFilterKeepBR
                   , PTR TagFilterKeepNewLines
                   , PTR TestRichDocument
+                  , PTR TestWritableWidgets
                   ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

@@ -322,7 +322,7 @@ div.wh-rtd--margins-wide
   border: 1px dotted #999999;
 }
 
-.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-objectbuttons
+.wh-rtd__stylescope:not(.wh-rtd--enabled) .wh-rtd-embeddedobject:not(.wh-rtd-embeddedobject--writable) .wh-rtd-objectbuttons
 {
   display:none;
 }

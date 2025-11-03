@@ -111,7 +111,7 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
   UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
   {
     RETURN CELL[ ...this->GetBaseRenderData()
-               , value := this->rtdeditor->GetHTMLForClientRTE(TRUE)
+               , value := this->rtdeditor->GetHTMLForClientRTE([ innerbody := TRUE ])
                , rtdoptions := [ structure := this->rtdeditor->GetWHRTEStructure() ]
                , type := "rtd"
                ];
@@ -131,7 +131,7 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
   MACRO SetValue(RECORD value)
   {
     this->rtdeditor->ImportFromRecord(value);
-    this->form->__SendFormMessage(this->field.name, 'value', this->rtdeditor->GetHTMLForClientRTE(TRUE));
+    this->form->__SendFormMessage(this->field.name, 'value', this->rtdeditor->GetHTMLForClientRTE([ innerbody := TRUE ]));
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetResultColumns(RECORD exportoptions)
