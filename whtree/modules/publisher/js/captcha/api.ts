@@ -15,7 +15,7 @@ export interface CaptchaSettings {
 export const captcharegistry: Record<string, { initialize: (provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings) => Promise<void> }> = {};
 
 export async function initializeCaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings?: Partial<CaptchaSettings>): Promise<void> {
-  if (!captcharegistry[provider.name]) //only supported one so far
+  if (!captcharegistry[provider.name])
     throw new Error(`Captcha provider '${provider.name}' not registered`);
   if (!settings?.onResponse)
     throw new Error("onResponse callback is required");

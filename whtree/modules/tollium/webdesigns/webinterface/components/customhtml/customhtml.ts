@@ -26,14 +26,15 @@ export default class ObjCustomHTML extends ToddCompBase<CustomHTMLAttributes> {
         "position": "relative",
         "overflow": "hidden"
       }
-    });
-    this.contentdiv = dompack.create("div", {
-      "style": {
-        "width": "100%",
-        "height": "100%"
-      }
-    });
-    this.node.appendChild(this.contentdiv);
+    }, [
+      this.contentdiv = dompack.create("div", {
+        "style": {
+          "width": "100%",
+          "height": "100%"
+        }
+      })
+    ]);
+
     this.node.propTodd = this;
   }
 

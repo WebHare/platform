@@ -139,11 +139,14 @@ function createElement(elementname: string, attributes?: CreateAttributes, toatt
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
-export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes?: CreateAttributes): HTMLElementTagNameMap[K];
-export function create(elementname: string, attributes?: CreateAttributes): HTMLElement;
+export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes?: CreateAttributes, children?: Array<HTMLElement | string>): HTMLElementTagNameMap[K];
+export function create(elementname: string, attributes?: CreateAttributes, children?: Array<HTMLElement | string>): HTMLElement;
 
-export function create(elementname: string, attributes?: CreateAttributes) {
-  return createElement(elementname, attributes, false);
+export function create(elementname: string, attributes?: CreateAttributes, children?: Array<HTMLElement | string>) {
+  const el = createElement(elementname, attributes, false);
+  if (children?.length)
+    el.append(...children);
+  return el;
 }
 
 /** Function to create for jsx, create elements directly (instead of virtual dom nodes).

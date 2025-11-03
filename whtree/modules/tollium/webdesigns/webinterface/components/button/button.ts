@@ -73,7 +73,7 @@ export default class ObjButton extends ActionableComponent<ButtonAttributes> {
     if (this.isToolbarButton()) {
       this.iconnode = icons.createImage(this.icon, toolbarbutton.width, toolbarbutton.height, 'w', { className: "button__img" });
       this.node.appendChild(this.iconnode);
-      this.textnode = <span>{this.title}</span>;
+      this.textnode = dompack.create("span", {}, [this.title]);
       this.node.appendChild(this.textnode);
     } else {
       if (this.icon) {
@@ -84,7 +84,7 @@ export default class ObjButton extends ActionableComponent<ButtonAttributes> {
 
         this.node.appendChild(this.iconnode);
       } else {
-        this.textnode = <span>{this.title}</span>;
+        this.textnode = dompack.create("span", {}, [this.title]);
         this.node.appendChild(this.textnode);
       }
     }

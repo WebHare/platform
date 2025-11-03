@@ -5,7 +5,7 @@ import './testpage-captcha.scss';
 import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog';
 
-import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
+import { initializeCaptcha } from "@mod-publisher/js/captcha/api";
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
@@ -13,12 +13,13 @@ dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
-async function triggerCaptcha(elt: HTMLElement) {
-  const result = await getCaptchaResponse(JSON.parse(elt.dataset.provider!), dompack.qR("#webcontextcaptcha_container"));
-  dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result || '';
+function triggerCaptcha(elt: HTMLElement) {
+  void initializeCaptcha(JSON.parse(elt.dataset.provider!), dompack.qR("#webcontextcaptcha_container"), {
+    onResponse: (result: string) => dompack.qR<HTMLInputElement>('#webcontextcaptcha_result').value = result
+  });
 }
 
 function init() {
-  dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", (evt) => void triggerCaptcha(evt.currentTarget as HTMLElement));
+  dompack.qR('#trigger_webcontextcaptcha').addEventListener("click", (evt) => triggerCaptcha(evt.currentTarget as HTMLElement));
 }
 dompack.onDomReady(init);

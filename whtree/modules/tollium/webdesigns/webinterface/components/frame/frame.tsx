@@ -197,21 +197,17 @@ export class ObjFrame extends ToddCompBase {
     this.node = this.nodes.root =
       dompack.create("form", {
         className: "t-screen",
-        tabIndex: -1,
-        childNodes:
-          [
-            this.nodes.windowheader = dompack.create("div", {
-              className: "windowheader",
-              childNodes:
-                [
-                  this.nodes.title = <span class="title" />,
-                  this.nodes.closewindow = <div class="closewindow" />
-                ]
-            }),
-            this.nodes.contentnode = dompack.create("div", { className: "contentnode" }),
-            dompack.create("div", { className: "modallayer" })
-          ]
-      });
+        tabIndex: -1
+      }, [
+        this.nodes.windowheader = dompack.create("div", {
+          className: "windowheader"
+        }, [
+          this.nodes.title = <span class="title" />,
+          this.nodes.closewindow = <div class="closewindow" />
+        ]),
+        this.nodes.contentnode = dompack.create("div", { className: "contentnode" }),
+        dompack.create("div", { className: "modallayer" })
+      ]);
 
     this.nodes.windowheader.addEventListener("dompack:movestart", evt => this.onWindowMoveStart(evt));
     this.nodes.windowheader.addEventListener("dompack:move", evt => this.onWindowMove(evt));
