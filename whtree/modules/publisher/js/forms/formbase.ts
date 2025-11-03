@@ -574,8 +574,10 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   async _submit(evt: SubmitEvent | null, extradata: ExtraData) {
-    if (this.node.classList.contains('wh-form--submitting') || this.inSubmit) //already submitting
+    if (this.node.classList.contains('wh-form--submitting') || this.inSubmit) { //already submitting
+      evt?.preventDefault(); //avoid 'No RPC handler installed' noise during 429 errors
       return;
+    }
 
     //A form element's default button is the first submit button in tree order whose form owner is that form element.
     const submitter = this._submitter || this.node.querySelector(submitselector);
@@ -1277,7 +1279,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private ensureLegacyWarning(field: HTMLElement) {
     if (!this.didLegacyWarning && !isLive)
-      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to RegisteredFieldBase in WebHare 5.6+`);
+      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to JSFormElement`);
 
     this.didLegacyWarning = true;
   }
@@ -1301,7 +1303,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     if (!isFormFieldLike(field)) {
       /* Can't fail on these, weird embeddings do weird things. Eg google's recaptcha v2 triggers this because it assigns a random name=
          to the iframe it injects and then we pick that up.. (may need to move this error behind a debugflag if that's the only likely cause) */
-      console.error(`Cannot get value on non-FormControl`, field);
+      if (debugFlags.fhv)
+        console.log(`[fhv] Cannot get value on non-FormControl`, field);
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
@@ -1416,16 +1419,15 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   /** Return a promise resolving to the submittable form value */
-  getFormValue(): Promise<FormResultValue> {
-    return new Promise<FormResultValue>((resolve, reject) => {
-      const outdata = {};
-      const fieldpromises = new Array<Promise<void>>;
+  async getFormValue(): Promise<FormResultValue> {
+    const outdata: FormResultValue = {};
+    const fieldpromises = new Array<Promise<void>>;
 
-      for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
-        this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
+    for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
+      this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
 
-      Promise.all(fieldpromises).then(() => resolve(outdata)).catch(e => reject(e as Error));
-    });
+    await Promise.all(fieldpromises);
+    return outdata;
   }
 
   _isNowSettable(node: HTMLElement) {
