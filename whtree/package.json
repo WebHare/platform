@@ -51,6 +51,7 @@
     "idb": "^8.0.0",
     "json-schema-to-typescript": "^13.1.1",
     "jsonwebtoken": "^9.0.2",
+    "jwa": "^1.4.2",
     "kysely": "^0.27.5",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
