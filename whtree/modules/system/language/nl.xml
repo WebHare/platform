@@ -1116,7 +1116,6 @@
         <text tid="branding">Huisstijl</text>
         <text tid="cachesecret">Afbeeldingscache sleutel</text>
         <text tid="caching">Caching</text>
-        <text tid="checkipallowmask">IPs voor /webhare/check</text>
         <text tid="commaexplain">(kommagescheiden)</text>
         <text tid="cookiesecret">Cookie encryptie sleutel</text>
         <text tid="dashboardbackground">Achtergrond</text>
