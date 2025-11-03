@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -101,11 +102,14 @@ MACRO TestAutoTransaction()
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
   trans->SetFinishHandler("x", NEW CommitHandlerObj);
   trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
-  INSERT [ parent := -100 ] INTO webhare_testsuite.rights_tree;
-  TRY
-    trans->CommitWork();
-  CATCH;
-  TestEQ([ "h-precommit", "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
+
+  IF(NOT IsWasm()) { //we're currently not bothering fixing this for WASM, it only works for HS anyway because it does a commit immediately after a failling statement (doing a select would also crash things)
+    INSERT [ parent := -100 ] INTO webhare_testsuite.rights_tree;
+    TRY
+      trans->CommitWork();
+    CATCH;
+    TestEQ([ "h-precommit", "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
+  }
 
   UnregisterCallback(cb);
 }

@@ -28,6 +28,7 @@ import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from './
 import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService, type WebHareVersionFile } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { kill } from "node:process";
+import { getBuildInfo } from "@mod-system/js/internal/generation/gen_config_nodb";
 
 
 export let currentstage = Stage.Bootup;
@@ -43,6 +44,8 @@ const serviceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomI
 
 const setProcessTitles = os.platform() === "linux";
 const setTerminalTitles = os.platform() === "darwin";
+const buildinfo = getBuildInfo();
+const startService = Temporal.Now.instant();
 
 let logfile: RotatingLogFile | undefined;
 
@@ -90,6 +93,25 @@ function smLog(text: string, data?: LoggableRecord) {
   logfile.log(text, data);
 }
 
+function getWHTextVersion() {
+  return `WebHare ${buildinfo.version} (${buildinfo.committag.substring(0, 8)})`;
+}
+
+function onNextSmLog(log: RotatingLogFile) {
+  const uptime = Temporal.Now.instant().since(startService, { smallestUnit: "second", largestUnit: "hour" });
+  const upDays = Math.floor(uptime.hours / 24);
+  const upHours = uptime.hours % 24;
+  const upMins = uptime.minutes % 60;
+  const upSecs = uptime.seconds % 60;
+  const uptimeText = `up ${upDays ? `${upDays}d ` : ""}${upHours}h ${upMins}m ${upSecs}s`;
+
+  log.log(`${getWHTextVersion()} started ${startService.toString()}, ${uptimeText}`, { buildinfo, startService, uptime });
+}
+
+function onCloseSmLog(log: RotatingLogFile) {
+  log.log(`Closing logfile for rotation`);
+}
+
 function updateTitle(title: string) {
   if (setProcessTitles)
     process.title = title || "";
@@ -98,7 +120,7 @@ function updateTitle(title: string) {
 }
 
 function updateVisibleState() {
-  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.serverName}`);
+  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.serverName} `);
 }
 
 class ProcessManager {
@@ -130,7 +152,7 @@ class ProcessManager {
   log(text: string, data?: LoggableRecord) {
     this.lastLogText = text;
     const at = this.started ? Date.now() - this.started : null;
-    smLog(`${this.displayName}: ${text}`, { message: text, service: this.name, at, ...data });
+    smLog(`${this.displayName}: ${text} `, { message: text, service: this.name, at, ...data });
   }
 
   start() {
@@ -139,7 +161,7 @@ class ProcessManager {
     this.started = Date.now();
     this.startDelayTimer = null;
     if (verbose)
-      this.log(`Starting service with command: ${spawnsettings.cmd} ${spawnsettings.args.join(" ")}`, spawnsettings);
+      this.log(`Starting service with command: ${spawnsettings.cmd} ${spawnsettings.args.join(" ")} `, spawnsettings);
     else if (this.startDelay) //because we logged 'Throttling' we should log when we start it again
       this.log(`Restarting service after throttling for ${this.startDelay / 1000} seconds`);
 
@@ -182,7 +204,7 @@ class ProcessManager {
     if (!this.running) //an error before processStarted.
       this.processExit(null, null, e);
     else
-      this.log(`Process error: ${e}`, { error: String(e) });
+      this.log(`Process error: ${e} `, { error: String(e) });
   }
 
   processExit(exitCode: number | null, signal: string | null, error: Error | null) {
@@ -197,15 +219,15 @@ class ProcessManager {
 
     this.running = false;
     if (error)
-      this.log(`Failed to start: ${error.message}`, { error: error.message, stack: error.stack });
+      this.log(`Failed to start: ${error.message} `, { error: error.message, stack: error.stack });
     if (signal) {
       // Ignore SIGTERM when shutting down
       if (!this.toldToStop || signal !== "SIGTERM")
-        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+        this.log(`Exited with signal ${signal} `, { exitSignal: signal });
     } else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) { //report on error, if it's an always-running service, or if debugging
       // Ignore exit code 207 (used when handling a SIGTERM within the WH signal handler) when shutting down
       if (!this.toldToStop || exitCode !== 207)
-        this.log(`Exited with error code ${exitCode}`, { exitCode: exitCode });
+        this.log(`Exited with error code ${exitCode} `, { exitCode: exitCode });
     }
 
     const exitreason = signal ?? exitCode ?? "unknown";
@@ -362,7 +384,7 @@ async function startBackendService(name: string) {
       await runBackendService(name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
       break;
     } catch (e) {
-      smLog(`Service manager backend service failed with error: ${e}`);
+      smLog(`Service manager backend service failed with error: ${e} `);
       await sleep(1000);
     }
   }
@@ -413,11 +435,11 @@ class ServiceManager {
       this.expectedServices.delete(service);
 
     if (source)
-      smLog(`Updated servicelist for ${source}: added ${[...addedServices].join(", ") || "(none)"}, removed ${[...removeServices].join(", ") || "(none)"}`);
+      smLog(`Updated servicelist for ${source}: added ${[...addedServices].join(", ") || "(none)"}, removed ${[...removeServices].join(", ") || "(none)"} `);
   }
 
   shutdownSignal = (signal: NodeJS.Signals) => {
-    smLog(`Received signal '${signal}'${this.shuttingDown ? ' but already shutting down' : ', shutting down'}`, { signal, wasShuttingDown: this.shuttingDown });
+    smLog(`Received signal '${signal}'${this.shuttingDown ? ' but already shutting down' : ', shutting down'} `, { signal, wasShuttingDown: this.shuttingDown });
     this.shutdown();
   };
 
@@ -466,13 +488,13 @@ class ServiceManager {
   }
 
   checkShutdownProgress() {
-    smLog(`Shutting down, still running: ${this.processes.getAllRunning().map(_ => `${_.name} (${_.process?.pid || ""})`).join(", ")}`);
+    smLog(`Shutting down, still running: ${this.processes.getAllRunning().map(_ => `${_.name} (${_.process?.pid || ""})`).join(", ")} `);
   }
 
   /// Move to a new stage
   async startStage(stage: Stage): Promise<void> {
     if (verbose)
-      smLog(`Entering stage: ${stagetitles[stage]}`, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
+      smLog(`Entering stage: ${stagetitles[stage]} `, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
     currentstage = stage;
     return await this.updateForCurrentStage();
   }
@@ -559,8 +581,8 @@ async function verifyStrayProcesses() {
   const strayprocs = await getServiceManagerChildPids();
   if (strayprocs.length) {
     console.error("There are still processes running from a previous WebHare instance.");
-    console.error("You can try to terminate them using `wh service force-terminate-all` or force it with `wh service force-terminate-all --kill`");
-    console.error(`PIDs: ${strayprocs.join(", ")}`);
+    console.error("You can try to terminate them using `wh service force - terminate - all` or force it with `wh service force - terminate - all--kill`");
+    console.error(`PIDs: ${strayprocs.join(", ")} `);
     process.exit(1);
   }
 }
@@ -569,7 +591,7 @@ async function setConfigAndVersion() {
   await updateWebHareConfigFile({ debugSettings: null, nodb: true });
   const fullconfig = getFullConfigFile();
   const versionInfo: WebHareVersionFile = {
-    ...backendConfig.buildinfo,
+    ...buildinfo,
     basedataroot: backendConfig.dataRoot,
     installationroot: backendConfig.installationRoot,
     moduledirs: fullconfig.modulescandirs,
@@ -606,7 +628,7 @@ class ServiceManagerManager {
       }
     });
 
-    smLog(`Starting WebHare ${backendConfig.whVersion} in ${backendConfig.dataRoot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
+    smLog(`Starting ${getWHTextVersion()} in ${backendConfig.dataRoot} at ${getRescueOrigin()}`, { buildinfo });
 
     if (!this.secondary) {
       // Update configuration, clear debug settings
@@ -685,7 +707,11 @@ run({
 
     //Setting up logs must be one of the first things we do so log() works and even verifyUpgrade can write there
     await fs.mkdir(backendConfig.dataRoot + "log", { recursive: true });
-    logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataRoot + "log/servicemanager", { stdout: true });
+    logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataRoot + "log/servicemanager", {
+      stdout: true,
+      onNextFile: onNextSmLog,
+      onCloseFile: onCloseSmLog
+    });
 
     if (!opts.secondary) { //verify we're allowed to run
       await verifyStrayProcesses();

@@ -40,6 +40,8 @@ export interface WorkOptions {
   mutex?: string | string[];
   /// PG Isolation level. "read committed" is the default
   isolationLevel?: typeof PGIsolationLevels[number];
+
+  __skipNameCheck?: boolean; //to allow HS mutex names
 }
 
 // A finish handler is invoked when a transaction is committed or rolled back.
@@ -211,6 +213,10 @@ class Work implements WorkObject {
     }
   }
 
+  hasMutex(m: string) {
+    return this.locks.some(lock => lock.name === m);
+  }
+
   addMutex(m: Mutex) {
     this.locks.push(m);
   }
@@ -360,6 +366,10 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
     return this.openwork?.open || false;
   }
 
+  hasMutex(mutex: string) {
+    return this.openwork?.hasMutex(mutex) || false;
+  }
+
   private checkState(expectwork: true): Work; //guaranteed to return a work object or throw
   private checkState(expectwork: false): null; //guaranteed to return null or throw
   private checkState(expectwork: undefined): Work | null;
@@ -388,7 +398,7 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
     try {
       if (options?.mutex)
         for (const name of Array.isArray(options.mutex) ? options.mutex : [options.mutex])
-          mutexes.push(await lockMutex(name));
+          mutexes.push(await lockMutex(name, { __skipNameCheck: options.__skipNameCheck }));
       if (debugFlags["db-readonly"])
         throw new DBReadonlyError();
 
@@ -452,7 +462,7 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
@@ -553,6 +563,13 @@ export async function runInSeparateWork<T>(func: () => T | Promise<T>, options?:
 */
 export function isWorkOpen() {
   return getConnection().isWorkOpen();
+}
+
+/** Is the specified mutex locked by the current work?
+    @returns `true` if the mutex is locked
+*/
+export function hasMutex(mutex: string) {
+  return getConnection().hasMutex(mutex);
 }
 
 /** Get the next primary key value for a specific table

@@ -560,7 +560,7 @@ void HS_TCPIP_Connect(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
         int socketid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
         std::string hostname = vm->GetStackMachine().GetString(HSVM_Arg(3)).stl_str();
 
-        if(!dest.SetIPAddress(HSVM_StringGetSTD(*vm, HSVM_Arg(1))) || !dest.SetPort(portnumber) /*|| dest.IsAnyAddress() || dest.IsIPV4AnyAddress()*/ || dest.GetPort()==0)
+        if(!dest.SetIPAddress(HSVM_StringGetSTD(*vm, HSVM_Arg(1))) || (!dest.IsPath() && (!dest.SetPort(portnumber) /*|| dest.IsAnyAddress() || dest.IsIPV4AnyAddress()*/ || dest.GetPort()==0)))
         {
                 context->tcpip.SetLastError(socketid, Blex::SocketError::Errors::UnableToResolveHostname);
                 HSVM_IntegerSet(*vm, id_set, -1);

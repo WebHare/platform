@@ -627,6 +627,55 @@ BLEX_TEST_FUNCTION(SocketTCPTest)
         BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, connecting_socket_2.TimedConnect(accepting_socket.GetLocalAddress(), Blex::DateTime::Max()));
 }
 
+BLEX_TEST_FUNCTION(SocketUNIXTest)
+{
+        Blex::DebugSocket accepting_socket(Blex::Socket::Stream), connecting_socket(Blex::Socket::Stream), connecting_socket_2(Blex::Socket::Stream);
+#ifdef WHBUILD_DEBUG
+        accepting_socket.SetDebugMode(Blex::DebugSocket::Calls);
+        connecting_socket.SetDebugMode(Blex::DebugSocket::Calls);
+        connecting_socket_2.SetDebugMode(Blex::DebugSocket::Calls);
+#endif
+
+//          TestEqualBoolean(1, TRUE, BindSocket(accepting_socket, "", 0));
+//should fail, socket not yet open
+        std::string socketpath = Blex::CreateTempName("/tmp/socket");
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::Refused, connecting_socket.Connect(Blex::SocketAddress(socketpath)));
+
+        //bind the socket to a local port (we don't care which)
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, accepting_socket.Bind(Blex::SocketAddress(socketpath)));
+#ifndef __APPLE__ /* On apple, connecting to a bound non-listening socket hangs */
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::Refused, connecting_socket.Connect(accepting_socket.GetLocalAddress()));
+#endif
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::SocketIsBlocking, connecting_socket.TimedConnect(accepting_socket.GetLocalAddress(), Blex::DateTime::Max()));
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, connecting_socket.SetBlocking(false));
+#ifndef __APPLE__ /* On apple, connecting to a bound non-listening socket hangs */
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::Refused, connecting_socket.TimedConnect(accepting_socket.GetLocalAddress(), Blex::DateTime::Max()));
+#endif
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, connecting_socket.SetBlocking(true));
+
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, accepting_socket.Listen());
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, connecting_socket.Connect(accepting_socket.GetLocalAddress()));
+
+        Blex::Socket incomingsocket(Blex::Socket::Stream);
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, accepting_socket.Accept(&incomingsocket));
+
+        char writebuf[] = "Test Unix Data";
+        char readbuf[sizeof writebuf];
+
+        BLEX_TEST_CHECKEQUAL(sizeof writebuf,incomingsocket.Send(writebuf,sizeof writebuf));
+        BLEX_TEST_CHECKEQUAL(1,connecting_socket.Receive(readbuf,1));
+        BLEX_TEST_CHECKEQUAL((sizeof writebuf) - 1,connecting_socket.Receive(readbuf + 1,(sizeof writebuf) - 1));
+        BLEX_TEST_CHECK(std::equal(writebuf,writebuf+sizeof writebuf,readbuf));
+
+        BLEX_TEST_CHECKEQUAL(socketpath, incomingsocket.GetLocalAddress().GetIPAddress());
+        BLEX_TEST_CHECKEQUAL(socketpath, connecting_socket.GetRemoteAddress().GetIPAddress());
+
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::SocketIsBlocking, connecting_socket_2.TimedConnect(accepting_socket.GetLocalAddress(), Blex::DateTime::Max()));
+        connecting_socket_2.SetBlocking(false);
+        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, connecting_socket_2.TimedConnect(accepting_socket.GetLocalAddress(), Blex::DateTime::Max()));
+}
+
+
 BLEX_TEST_FUNCTION(GetLocalIPsTest)
 {
          std::vector<Blex::SocketAddress> ips;

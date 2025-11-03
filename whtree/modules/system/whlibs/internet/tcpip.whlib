@@ -439,19 +439,18 @@ PUBLIC STRING FUNCTION GetSocketErrorText(INTEGER errorcode) __ATTRIBUTES__(EXTE
     @return True on a succesful bind, false on failure
     @see GetLastSocketError
 */
-PUBLIC BOOLEAN FUNCTION BindSocket(INTEGER connectionid, STRING host, INTEGER port)
-{
-  IF (host!="" AND NOT IsValidIPAddress(host))
-  {
-    host := ResolveHostname(host);
-    IF (host="")
-    {
-      __HS_TCPIP_SETLASTERROR(connectionid,256);
-      RETURN FALSE;
+PUBLIC BOOLEAN FUNCTION BindSocket(INTEGER connectionid, STRING host, INTEGER port) {
+  IF(host NOT LIKE "/*") { //not a unix path
+    IF (host != "" AND NOT IsValidIPAddress(host)) {
+      host := ResolveHostname(host);
+      IF (host = "") {
+        __HS_TCPIP_SETLASTERROR(connectionid,256);
+        RETURN FALSE;
+      }
     }
+    IF(host = "") //backwards compatibility, this is ipv4 bind-any
+      host := "0.0.0.0";
   }
-  IF(host="") //backwards compatibility, this is ipv4 bind-any
-    host := "0.0.0.0";
   RETURN __HS_TCPIP_Bind(connectionid, host, port);
 }
 
@@ -509,7 +508,7 @@ PUBLIC OBJECT FUNCTION AsyncConnectSocket(INTEGER connectionid, STRING host, INT
 
 OBJECT FUNCTION* ConnectSocketInternal(INTEGER connectionid, STRING host, INTEGER port, BOOLEAN isasync)
 {
-  STRING ARRAY tryhosts := GetConnectIPsForHost(host, port);
+  STRING ARRAY tryhosts := host LIKE "/*" ? [ host ] : GetConnectIPsForHost(host, port);
   IF (LENGTH(tryhosts) = 0)
   {
     __HS_TCPIP_SETLASTERROR(connectionid,-16/*unable to resolve*/);

@@ -12,7 +12,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
-import { isDatabaseError, overrideValueType } from "@webhare/whdb/src/impl";
+import { hasMutex, isDatabaseError, overrideValueType } from "@webhare/whdb/src/impl";
 import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 
 async function cleanup() {
@@ -294,10 +294,17 @@ async function testHSWorkSync() {
 
   await context1.run(async () => await beginWork({ mutex: "webhare_testsuite:context1" }));
   test.assert(context1.run(isWorkOpen));
+  test.eq(false, hasMutex("webhare_testsuite:context1"));
+  test.eq(true, context1.run(() => hasMutex("webhare_testsuite:context1")));
+  test.eq(false, await primary.hasMutex("webhare_testsuite:context1"));
   await context1.close();
 
   //ensure the mutex is released by locking it ourselves
   (await lockMutex("webhare_testsuite:context1")).release();
+
+  await beginWork({ mutex: "webhare_testsuite:context1" });
+  test.eq(true, await primary.hasMutex("webhare_testsuite:context1"));
+  await rollbackWork();
 }
 
 async function testTypesWithHS() {

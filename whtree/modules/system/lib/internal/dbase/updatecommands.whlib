@@ -170,7 +170,7 @@ PUBLIC RECORD FUNCTION GetSchemaModuleDefinition(OBJECT trans, STRING schemaname
   RETURN GetPostgreSQLDatabaseSchemaDef(trans, schemaname, options);
 }
 
-PUBLIC MACRO ExecuteSQLUpdates(OBJECT trans, RECORD ARRAY cmds)
+PUBLIC MACRO ExecuteSQLUpdates(RECORD ARRAY cmds)
 {
   FOREVERY(RECORD cmd FROM cmds)
   {
@@ -214,6 +214,5 @@ PUBLIC MACRO __LegacyCreateTable(OBJECT trans, STRING schemaname, STRING tablena
   IF (LENGTH(cmd.errors) > 0)
     THROW NEW Exception(cmd.errors[0]);
 
-  ExecuteSQLUpdates(trans, cmd.commands);
+  ExecuteSQLUpdates(cmd.commands);
 }
-

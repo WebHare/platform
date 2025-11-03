@@ -21,5 +21,7 @@
   <group name="wasm" engine="wasm">
     <test script="primitivevalues.whscr" />
     <test script="test_dynquery.whscr" />
+    <test script="test_work.whscr" />
+    <test script="test_whtrans.whscr" />
   </group>
 </group>
