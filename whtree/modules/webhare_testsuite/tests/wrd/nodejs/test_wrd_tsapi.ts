@@ -393,11 +393,11 @@ async function testNewAPI() {
   const hsPersonType = await hsWrdSchema.GetType("WRD_PERSON") as HSVMObject;
   const hsPersonFields = await hsPersonType.GetEntityFields(firstperson, ["test_json", "test_json_required"]);
   test.eq({
-    test_json: { mixed_case: [5], date: new Date("2025-01-21T14:35:00Z") },
+    test_json: { mixed_case: [5], date: new Date("2025-11-04T12:03:01Z") },
     test_json_required: { mixed_case: [1, 'yes!'] }
   }, hsPersonFields);
 
-  await hsPersonType.UpdateEntityFields(firstperson, { test_json: { mixed_case: ["AAA", 42] } });
+  await hsPersonType.UpdateEntity(firstperson, { test_json: { mixed_case: ["AAA", 42] } });
   test.eq({ testJson: { mixedCase: ["AAA", 42] } }, await schema.getFields("wrdPerson", firstperson, ["testJson"]));
   await whdb.rollbackWork();
 

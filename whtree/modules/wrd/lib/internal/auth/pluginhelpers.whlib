@@ -111,15 +111,15 @@ PUBLIC DATETIME FUNCTION CalculateWRDSessionExpiry(RECORD wrdauthconfig, DATETIM
 
   DATETIME expiry := AddTimeToDate(expirytime, now);
 
-  IF(wrdauthconfig.round_longlogins_to >= 0) //rounding is enabled (this is the default)
+  IF(wrdauthconfig.round_long_logins_to >= 0) //rounding is enabled (this is the default)
   {
-    DATETIME roundedexpiry := AddTimeToDate(wrdauthconfig.round_minduration, expiry);
-    roundedexpiry := UTCToLocal(roundedexpiry, wrdauthconfig.round_longlogins_tz);
-    BOOLEAN wasnextday := GetMsecondCount(roundedexpiry) < wrdauthconfig.round_longlogins_to;
+    DATETIME roundedexpiry := AddTimeToDate(wrdauthconfig.round_min_duration, expiry);
+    roundedexpiry := UTCToLocal(roundedexpiry, wrdauthconfig.round_long_logins_t_z);
+    BOOLEAN wasnextday := GetMsecondCount(roundedexpiry) < wrdauthconfig.round_long_logins_to;
 
     //then we round it down
-    roundedexpiry := MakeDateFromParts(GetDaycount(roundedexpiry) - (wasnextday ? 1 : 0), wrdauthconfig.round_longlogins_to);
-    roundedexpiry := LocalToUTC(roundedexpiry, wrdauthconfig.round_longlogins_tz);
+    roundedexpiry := MakeDateFromParts(GetDaycount(roundedexpiry) - (wasnextday ? 1 : 0), wrdauthconfig.round_long_logins_to);
+    roundedexpiry := LocalToUTC(roundedexpiry, wrdauthconfig.round_long_logins_t_z);
     IF(roundedexpiry > now) //don't round past starting time
       expiry := roundedexpiry;
   }

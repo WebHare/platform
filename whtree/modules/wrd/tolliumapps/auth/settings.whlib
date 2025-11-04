@@ -141,14 +141,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     //get settings, coerce them to the proper types
     RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, GetWRDSetting(this->contexts->wrdschema, "login_settings"));
     SetTimeUnit(^expire_login, ^expire_login_unit, settings.expire_login);
-    SetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit, settings.expire_persistentlogin);
+    SetTimeUnit(^expire_persistent_login, ^expire_persistentlogin_unit, settings.expire_persistent_login);
 
-    IF(settings.round_longlogins_to >= 0) {
+    IF(settings.round_long_logins_to >= 0) {
       ^roundlogins->value := TRUE;
-      ^round_longlogins_to->value := settings.round_longlogins_to;
+      ^round_long_logins_to->value := settings.round_long_logins_to;
     }
-    ^round_longlogins_tz->value := settings.round_longlogins_tz;
-    SetTimeUnit(^round_minduration, ^round_minduration_unit, settings.round_minduration);
+    ^round_long_logins_t_z->value := settings.round_long_logins_t_z;
+    SetTimeUnit(^round_min_duration, ^round_min_duration_unit, settings.round_min_duration);
     this->OnRoundLoginsChange();
 
     ^passwordchecks->value := GetWRDSetting(this->contexts->wrdschema, "password_validation_checks");
@@ -156,8 +156,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
   }
 
   MACRO OnRoundLoginsChange() {
-    ^round_longlogins_to->enabled := ^roundlogins->value;
-    ^round_longlogins_tz->enabled := ^roundlogins->value;
+    ^round_long_logins_to->enabled := ^roundlogins->value;
+    ^round_long_logins_t_z->enabled := ^roundlogins->value;
   }
 
   BOOLEAN FUNCTION Submit() {
@@ -168,10 +168,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     SetWRDSetting(this->contexts->wrdschema, "login_settings",
       CELL[ ...GetWRDSetting(this->contexts->wrdschema, "login_settings")
           , expire_login := GetTimeUnit(^expire_login, ^expire_login_unit)
-          , expire_persistentlogin := GetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit)
-          , round_minduration := GetTimeUnit(^round_minduration, ^round_minduration_unit)
-          , round_longlogins_to := ^roundlogins->value ? ^round_longlogins_to->value : -1
-          , round_longlogins_tz := ^round_longlogins_tz->value
+          , expire_persistent_login := GetTimeUnit(^expire_persistent_login, ^expire_persistentlogin_unit)
+          , round_min_duration := GetTimeUnit(^round_min_duration, ^round_min_duration_unit)
+          , round_long_logins_to := ^roundlogins->value ? ^round_long_logins_to->value : -1
+          , round_long_logins_t_z := ^round_long_logins_t_z->value
           ]);
 
     RETURN work->Finish();

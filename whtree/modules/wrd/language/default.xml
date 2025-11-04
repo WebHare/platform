@@ -1039,15 +1039,15 @@
         <text tid="defaults">Default text:</text>
         <text tid="emailchange-done-email"><html:i>[email address]</html:i></text>
         <text tid="expire_login">Expire login after</text>
-        <text tid="expire_persistentlogin">"Remember me" expires after</text>
+        <text tid="expire_persistent_login">"Remember me" expires after</text>
         <text tid="expiry">Expiry settings</text>
         <text tid="language">Language</text>
         <text tid="login-intro-default"><html:i>When logging in using email address</html:i>: <param p="1"/><br/><html:i>When logging in using user name</html:i>: <param p="2"/></text>
         <text tid="password_totp_issuer">TOTP issuer label</text>
         <text tid="passwordrestrictions">Password restrictions</text>
-        <text tid="round_longlogins_to">Round to</text>
-        <text tid="round_longlogins_tz">In timezone</text>
-        <text tid="round_minduration">Minimum duration</text>
+        <text tid="round_long_logins_to">Round to</text>
+        <text tid="round_long_logins_t_z">In timezone</text>
+        <text tid="round_min_duration">Minimum duration</text>
         <text tid="roundlogins">Round login expiry to a specific time</text>
         <text tid="tag">Text</text>
         <text tid="wrdauthsettings">Authentication and login settings</text>
