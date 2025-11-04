@@ -280,6 +280,7 @@ $defs:
           - url
           - hson
           - record
+          - json
           # LEGACY values - drop soon (should be few users pre WH5.9)
           - whfsref
           - whfsrefarray

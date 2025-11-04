@@ -46,6 +46,8 @@ types:
             type: richdocument
           intMember:
             type: integer
+      anUntypedRecord:
+        type: json
       anArray:
         type: array
         members:

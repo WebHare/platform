@@ -17,7 +17,7 @@ import type { WHFSTypes } from "@webhare/whfs/src/contenttypes";
 
 //positioned list to convert database ids:
 export const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "instant", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richTextDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", null, "record", null, "plainDate"];
+  [null, null, "string", null, "instant", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richTextDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", null, "record", null, "plainDate", "json"];
 
 export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;

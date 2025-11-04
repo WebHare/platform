@@ -95,6 +95,7 @@ import type { RTDSource, Instance, RTDExport } from "@webhare/services/src/richd
 import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
 import type { ComposedDocument } from "@webhare/services/src/composeddocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
+import type { TypedStringifyable } from "@webhare/whfs/src/codecs";
 
 declare module "@webhare/whfs/src/contenttypes" {
   interface WHFSTypes {

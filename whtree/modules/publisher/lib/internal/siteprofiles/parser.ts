@@ -133,6 +133,9 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "record": {
     dbtype: CSPMemberType.Record
   },
+  "json": {
+    dbtype: CSPMemberType.JSON
+  },
 
   //repeating for 'legacy' values until old names are retired:
   date: {

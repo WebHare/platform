@@ -1,7 +1,7 @@
 import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { uploadBlob } from "@webhare/whdb";
-import { appendToArray, isPromise, isTruthy, Money, omit, throwError } from "@webhare/std";
+import { appendToArray, isPromise, isTruthy, Money, omit, parseTyped, stringify, throwError } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/src/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.ts";
 import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument.ts";
@@ -20,6 +20,10 @@ import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/s
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
 
+// can't declare this in @webhare/std until Temporal is part of core TS
+export type TypedStringifyable = Money | Date | bigint | Temporal.Instant | Temporal.PlainDate | Temporal.PlainDateTime | Temporal.ZonedDateTime | string | number | boolean | null | TypedStringifyable[] | undefined | { [key: string]: TypedStringifyable };
+
+//NOTE this is the *supported* subset of TypeMember (siteprofiles.ts)
 export type MemberType = "string" // 2
   | "instant" //4
   | "file" //5
@@ -39,6 +43,7 @@ export type MemberType = "string" // 2
   | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
   | "plainDate" //25
+  | "json" // 26
   ;
 
 export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
@@ -428,6 +433,34 @@ export const codecs = {
       if (typeof value === "string")
         return decodeHSON(value) as Record<string, unknown>;
       return value;
+    },
+  },
+  "json": { //fs_member type 26(json)
+    getType: "TypedStringifyable",
+
+    encoder: (value: TypedStringifyable) => {
+      if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
+        throw new Error(`Incorrect type. Wanted an object, got a '${describeType(value)}'`);
+      if (!value) //null!
+        return null; //nothing to store
+
+      if (Object.getPrototypeOf(value).constructor.name !== "Object")
+        throw new Error(`Incorrect type. Wanted a plain object but got a '${Object.getPrototypeOf(value).constructor.name}'`);
+
+      const asjson = stringify(value, { typed: true });
+      if (Buffer.byteLength(asjson) > 4096) { //upload, requires async completion
+        return (async (): EncoderAsyncReturnValue => {
+          return { blobdata: await uploadBlob(WebHareBlob.from(asjson)) };
+        })();
+      }
+      return { setting: asjson };
+    },
+    decoder: (settings: FSSettingsRow[]): MaybePromise<TypedStringifyable | null> => {
+      if (settings[0]?.setting)
+        return parseTyped(settings[0].setting) as TypedStringifyable;
+      else if (settings[0]?.blobdata)
+        return settings[0]?.blobdata.text().then(text => parseTyped(text) as TypedStringifyable);
+      return null;
     },
   },
   "stringArray": {
@@ -875,7 +908,8 @@ export type CodecGetMemberType =
   ResourceDescriptor |
   RichTextDocument |
   Temporal.Instant |
-  Temporal.PlainDate;
+  Temporal.PlainDate |
+  TypedStringifyable;
 
 // Possible member types that can be returned by exportData
 export type CodecExportMemberType =
@@ -892,7 +926,8 @@ export type CodecExportMemberType =
   RTDExport |
   ExportedResource |
   InstanceExport |
-  ExportedIntExtLink;
+  ExportedIntExtLink |
+  TypedStringifyable;
 
 // Possible member types that are accepted by setData/importData
 export type CodecImportMemberType =
@@ -918,4 +953,5 @@ export type CodecImportMemberType =
   RichTextDocument |
   RTDSource |
   Temporal.Instant |
-  Temporal.PlainDate;
+  Temporal.PlainDate |
+  TypedStringifyable;
