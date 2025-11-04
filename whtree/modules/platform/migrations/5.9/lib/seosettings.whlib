@@ -1,0 +1,32 @@
+<?wh
+LOADLIB "mod::system/lib/whfs.whlib";
+
+PUBLIC BOOLEAN FUNCTION SafeToMigrateSeoSettings() {
+  OBJECT webconfig := OpenWHFSType("platform:web.config");
+  OBJECT webmetadata := OpenWHFSType("platform:web.metadata");
+  RETURN Length(webconfig->ListAllInstances()) = 0 AND Length(webmetadata->ListAllInstances()) = 0;
+}
+
+PUBLIC MACRO MigrateSeoSettings() {
+  OBJECT webconfig := OpenWHFSType("platform:web.config");
+  OBJECT webmetadata := OpenWHFSType("platform:web.metadata");
+  OBJECT seosettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings");
+  RECORD ARRAY towrite := seosettings->Enrich(seosettings->ListAllInstances(), "fsobject", ["noindex","nofollow","noarchive","customrobots","canonical","comments","seotitle"]);
+
+  FOREVERY(RECORD instance FROM towrite) {
+    webconfig->SetInstanceData(instance.fsobject, CELL[
+      comments := instance.comments,
+      no_index := instance.noindex,
+      no_follow := instance.nofollow,
+      no_archive := instance.noarchive,
+      custom_robots := instance.customrobots,
+      canonical := instance.canonical
+    ], CELL[ isvisibleedit := FALSE, ifreadonly := "update" ]);
+
+    webmetadata->SetInstanceData(instance.fsobject, CELL[
+      seo_title := instance.seotitle
+    ], CELL[ isvisibleedit := FALSE, ifreadonly := "update" ]);
+
+    seosettings->SetInstanceData(instance.fsobject, seosettings->defaultinstance, CELL[ isvisibleedit := FALSE, ifreadonly := "update" ]);
+  }
+}

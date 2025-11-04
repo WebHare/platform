@@ -12,6 +12,7 @@
     <task runat="15  * * * *" runtz="maintenance" script="scripts/tasks/updatepxllog.ts" tag="updatepxllog" />
 
     <runonce script="migrations/5.9/scripts/fix-snakecase-settings.ts" tag="fix_snakecase_settings_5_9" />
+    <runonce script="migrations/5.9/scripts/migrate-seosettings.whscr" tag="migrate_seosettings_5_9" />
   </servicemanager>
 
   <backend>

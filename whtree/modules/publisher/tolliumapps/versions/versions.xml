@@ -40,7 +40,7 @@
 
     <compositions>
       <eventlistener name="listener" onevents="GotEvents" />
-      <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+      <publisher:whfsinstance name="webmetadata" typedef="platform:web.metadata" />
     </compositions>
 
     <body spacers="none">
@@ -138,15 +138,13 @@
                   <textedit name="name" width="1pr" maxlength="256" enabled="false" tid="~name" />
                   <textedit name="title" width="1pr" maxlength="256" enabled="false" tid="~title" />
                   <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
-                  <textedit composition="seosettings"
-                            cellname="seotitle"
+                  <textedit composition="webmetadata"
+                            cellname="seo_title"
                             name="seotitle"
                             width="1pr"
                             maxlength="256"
                             enabled="false"
-                            placeholdertid="tolliumapps.objectprops.objectprops.meta-title-placeholder"
-                            showcounter="true"
-                            tid="tolliumapps.objectprops.objectprops.meta-title" />
+                            tid="platform:siteprofiles.types.web.metadata.seo_title" />
                   <textarea name="description"
                             height="3gr"
                             enabled="false"

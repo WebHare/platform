@@ -120,7 +120,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
 
     //TODO generalize further so metadata.ts also managed SEO settings
-    this->renderer->RegisterMetaController(^seosettings->type, ^seosettings);
+    this->renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);
   }
 
   RECORD FUNCTION UpdatePinned()
@@ -156,9 +156,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
        - and then we can setup a workflow manager
        */
 
-    STRING ARRAY workflowtypes := STRING[ "http://www.webhare.net/xmlns/publisher/seosettings",
-                                          ...options.workflowtypes
-                                        ];
+    STRING ARRAY workflowtypes := STRING[ "platform:web.config", "platform:web.metadata", ...options.workflowtypes ];
 
     this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, requireworkflow :=options.useworkflow ]);
     this->contexts->applytester := this->renderer->applytester;

@@ -24,7 +24,8 @@
     </actions>
 
     <compositions>
-      <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+      <publisher:whfsinstance name="webmetadata" typedef="platform:web.metadata" />
+      <publisher:whfsinstance name="webconfig" typedef="platform:web.config" />
       <dirtylistener name="dirtylistener" />  <!-- added for editapi compatibility, not used yet -->
     </compositions>
 
@@ -38,12 +39,13 @@
           <!-- general fields -->
           <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
           <textedit name="title" width="1pr" maxlength="256" tid="~title" />
-          <textedit composition="seosettings"
-                    cellname="seotitle"
+          <textedit composition="webmetadata"
+                    cellname="seo_title"
                     name="seotitle"
                     width="1pr"
                     maxlength="256"
-                    tid="common.seosettings.seotitle" />
+                    placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
+                    tid="platform:siteprofiles.types.web.metadata.seo_title" />
           <textarea name="description" height="3gr" maxlength="2048" showcounter="true" tid="~description" />
           <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
           <spacer name="insertpoint_generalsettings" visible="false" />
@@ -88,27 +90,39 @@
           </panel>
         </tab>
         <tab name="seotab" title="">
-          <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
-          <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
-          <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
-          <textedit composition="seosettings"
-                    cellname="customrobots"
+          <checkbox composition="webconfig"
+                    cellname="no_index"
+                    name="no_index"
+                    labeltid="platform:siteprofiles.types.web.config.no_index"
+                    tid=".robottags" />
+          <checkbox composition="webconfig"
+                    cellname="no_follow"
+                    name="no_follow"
+                    labeltid="platform:siteprofiles.types.web.config.no_follow"
+                    title="" />
+          <checkbox composition="webconfig"
+                    cellname="no_archive"
+                    name="no_archive"
+                    labeltid="platform:siteprofiles.types.web.config.no_archive"
+                    title="" />
+          <textedit composition="webconfig"
+                    cellname="custom_robots"
                     name="customrobots"
                     width="1pr"
-                    placeholdertid="common.seosettings.customrobots-placeholder"
-                    tid="common.seosettings.customrobots" />
-          <publisher:browseforobject composition="seosettings"
+                    placeholdertid="platform:siteprofiles.types.web.config.custom_robots-placeholder"
+                    tid="platform:siteprofiles.types.web.config.custom_robots" />
+          <publisher:browseforobject composition="webconfig"
                                      cellname="canonical"
                                      name="canonical"
                                      width="1pr"
                                      acceptfolders="false"
-                                     tid="common.seosettings.canonical" />
-          <textarea composition="seosettings"
+                                     tid="platform:siteprofiles.types.web.config.canonical" />
+          <textarea composition="webconfig"
                     cellname="comments"
                     width="1pr"
                     height="3gr"
-                    placeholdertid=".comments-placeholder"
-                    tid="~comments" />
+                    placeholdertid="platform:siteprofiles.types.web.config.comments-placeholder"
+                    tid="platform:siteprofiles.types.web.config.comments" />
           <spacer name="seotabinsertpoint" visible="false" />  <!-- this is just an insertion point -->
         </tab>
         <tab name="tasksettings" height="1pr">

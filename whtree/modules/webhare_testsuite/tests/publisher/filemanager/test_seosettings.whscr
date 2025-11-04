@@ -39,20 +39,20 @@ ASYNC MACRO TestSeoSettings()
   OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
 
   OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
-  noindexfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [noindex := TRUE]);
+  noindexfolder->SetInstanceData("platform:web.config", [no_index := TRUE]);
   OBJECT noindexsubfolder := noindexfolder->CreateFolder([name := "noindexsub"]);
   OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := rtdtype->id, publish := TRUE ]);
   OBJECT noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
 
   //we were ignoring settings on index documents as they weren't in the path used for breadcrumbs and we were sharing that. fixing that
   OBJECT noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := rtdtype->id, publish := TRUE ], [ setindex := TRUE ]);
-  noindexsubfolderindex->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ noarchive := TRUE]);
+  noindexsubfolderindex->SetInstanceData("platform:web.config", [ no_archive := TRUE]);
 
   OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
-  nofollowfolder->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [nofollow := TRUE]);
+  nofollowfolder->SetInstanceData("platform:web.config", [no_follow := TRUE]);
   OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
   OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := rtdtype->id, publish := TRUE ]);
-  nofollowsubfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ canonical := noindexsubfile->id ]);
+  nofollowsubfile->SetInstanceData("platform:web.config", [ canonical := noindexsubfile->id ]);
 
   OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := rtdtype->id, publish := TRUE ]);
   OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := rtdtype->id, publish := TRUE ]);
@@ -109,10 +109,10 @@ ASYNC MACRO TestSeoSettings()
   TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should appear!");
   TestEq("SEO", TT("maintabs")->pages[1]->title);
 
-  TestEq(TRUE, TT("noindex")->value);
-  TestEq(TRUE, TT("noindex")->enabled);
-  TestEq(FALSE, TT("nofollow")->value);
-  TestEq(TRUE, TT("nofollow")->enabled);
+  TestEq(TRUE, TT("no_index")->value);
+  TestEq(TRUE, TT("no_index")->enabled);
+  TestEq(FALSE, TT("no_follow")->value);
+  TestEq(TRUE, TT("no_follow")->enabled);
   TestEq(FALSE, TT("canonical", [ findinvisible := TRUE ])->visible,"Should not be visible on a folder");
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
@@ -121,26 +121,26 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexsubfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(TRUE, ObjectExists(TT("noindex")));
-  TestEq(TRUE, TT("noindex")->value);
-  TestEq(FALSE, TT("noindex")->enabled);
-  TestEq(FALSE, TT("nofollow")->value);
-  TestEq(TRUE, TT("nofollow")->enabled);
+  TestEq(TRUE, ObjectExists(TT("no_index")));
+  TestEq(TRUE, TT("no_index")->value);
+  TestEq(FALSE, TT("no_index")->enabled);
+  TestEq(FALSE, TT("no_follow")->value);
+  TestEq(TRUE, TT("no_follow")->enabled);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 
   //Should not have modified the noindex setting
-  TestEq(FALSE, noindexsubfolder->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings").noindex);
+  TestEq(FALSE, noindexsubfolder->GetInstanceData("platform:web.config").no_index);
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(TRUE, ObjectExists(TT("noindex")));
-  TestEq(FALSE, TT("noindex")->value);
-  TestEq(TRUE, TT("noindex")->enabled);
-  TestEq(TRUE, TT("nofollow")->value);
-  TestEq(FALSE, TT("nofollow")->enabled);
+  TestEq(TRUE, ObjectExists(TT("no_index")));
+  TestEq(FALSE, TT("no_index")->value);
+  TestEq(TRUE, TT("no_index")->enabled);
+  TestEq(TRUE, TT("no_follow")->value);
+  TestEq(FALSE, TT("no_follow")->enabled);
 
   TestEq(FALSE, TT("customrobots", [ findinvisible := TRUE ])->visible);
 
@@ -198,10 +198,10 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ forced_noindex_nofollow_yesfollow_file->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(TRUE, TT("noindex")->value);
-  TestEq(FALSE, TT("noindex")->enabled);
-  TestEq(FALSE, TT("nofollow")->value);
-  TestEq(TRUE, TT("nofollow")->enabled);
+  TestEq(TRUE, TT("no_index")->value);
+  TestEq(FALSE, TT("no_index")->enabled);
+  TestEq(FALSE, TT("no_follow")->value);
+  TestEq(TRUE, TT("no_follow")->enabled);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 

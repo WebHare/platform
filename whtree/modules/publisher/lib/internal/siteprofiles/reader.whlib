@@ -1919,9 +1919,8 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
   RETURN [ siteprofileids := INTEGER[], roottype := 0, sitedesign := "" ];
 }
 
-PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
-{
-  RETURN applytester->GetCachedProperty("baseproperties",
+PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester) {
+  RECORD baseprops := applytester->GetCachedProperty("baseproperties",
     CELL[ title := TRUE
         , description := TRUE
         , keywords := NOT applytester->objisfolder
@@ -1933,4 +1932,13 @@ PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
         , seotabrequireright := ""
         , seotitle := FALSE
     ]);
+  RETURN CELL [
+    ...baseprops,
+    no_index := baseprops.noindex,
+    no_follow := baseprops.nofollow,
+    no_archive := baseprops.noarchive,
+    DELETE noindex,
+    DELETE nofollow,
+    DELETE noarchive
+  ];
 }

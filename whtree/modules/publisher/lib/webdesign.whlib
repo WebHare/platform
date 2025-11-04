@@ -257,11 +257,14 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       IF(NOT ObjectExists(this->pvt_targetsite))
         THROW NEW Exception("A webdesign requires a target site, but target object " || this->pvt_targetobject->whfspath || " is outside any site");
 
-      this->_seosettings := this->pvt_targetobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings");
+      this->_seosettings := CELL[
+        ...this->GetInstanceData("platform:web.config"),
+        ...this->GetInstanceData("platform:web.metadata")
+      ];
       this->navigationtitle := this->metadata.title ?? this->pvt_targetfolder->title;
       IF(NOT this->pvt_targetobject->isfolder)
       {
-        this->pagetitle := this->_seosettings.seotitle ?? this->navigationtitle;
+        this->pagetitle := this->_seosettings.seo_title ?? this->navigationtitle;
       }
       ELSE //SEO settings are only offered for files, so don't even read them for folders to avoid confusion
       {
@@ -333,23 +336,23 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   {
     this->_robotstag := initialrobotstag;
 
-    CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
     INTEGER ARRAY parents := this->_targetobject_fulltree;
     IF(ObjectExists(this->targetobject))
       DELETE FROM parents AT END - 1;
 
-    RECORD ARRAY seoitems := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(parents, "ID"), "ID", STRING[ ...lockablefields, "customrobots", "canonical"]);
-    IF(ObjectExists(this->targetobject))
+    RECORD ARRAY seoitems := OpenWHFSType("platform:web.config")->Enrich(ToRecordArray(parents, "ID"), "ID", STRING[ "no_index", "no_follow", "no_archive", "custom_robots", "canonical"]);
+    IF(RecordExists(this->_seosettings))  //the last item is the target object itself
       INSERT this->_seosettings INTO seoitems AT END;
 
-    FOREVERY(RECORD seoitem FROM seoitems)
-    {
-      FOREVERY(STRING field FROM lockablefields)
-        IF(GetCell(seoitem, field))
-          this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
-
-      IF(seoitem.customrobots != "")
-        this->_robotstag.custom := seoitem.customrobots;
+    FOREVERY(RECORD seoitem FROM seoitems) {
+      IF(seoitem.no_index)
+        this->_robotstag.noindex := TRUE;
+      IF(seoitem.no_follow)
+        this->_robotstag.nofollow := TRUE;
+      IF(seoitem.no_archive)
+        this->_robotstag.noarchive := TRUE;
+      IF(seoitem.custom_robots != "")
+        this->_robotstag.custom := seoitem.custom_robots;
 
       IF(ObjectExists(this->targetobject) AND #seoitem = Length(seoitems) - 1 AND seoitem.canonical != 0)
       {
@@ -360,9 +363,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     }
 
     RECORD baseprops := GetBaseProperties(this->targetapplytester);
-    FOREVERY(STRING field FROM lockablefields)
-      IF(GetCell(baseprops, field))
-        this->_robotstag := CellUpdate(this->_robotstag, field, TRUE);
+    IF(baseprops.no_index)
+      this->_robotstag.noindex := TRUE;
+    IF(baseprops.no_follow)
+      this->_robotstag.nofollow := TRUE;
+    IF(baseprops.no_archive)
+      this->_robotstag.noarchive := TRUE;
   }
 
   // ---------------------------------------------------------------------------

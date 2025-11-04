@@ -33,7 +33,7 @@ LOADLIB "mod::tollium/lib/internal/support.whlib";
 /* ADDME: andere types om te wijzigen
    ADDME: toevoegen/verwijderen van rijen */
 
-CONSTANT STRING ARRAY lockablefields := [ "noindex", "nofollow", "noarchive" ];
+CONSTANT STRING ARRAY lockablefields := [ "no_index", "no_follow", "no_archive" ];
 
 OBJECTTYPE ObjectPropsAPI
 < // ---------------------------------------------------------------------------
@@ -486,6 +486,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     //configure settings that depend on the applytester
     this->SetupBaseSettings();
+    this->renderer->RegisterMetaController(^webconfig->type, ^webconfig);
   }
 
   // ---------------------------------------------------------------------------
@@ -1652,9 +1653,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
       ^seocustomization->visible := this->basesettings.seotab;
       ^canonical->visible := this->basesettings.seotab;
-      ^noindex->visible := this->basesettings.seotab;
-      ^nofollow->visible := this->basesettings.seotab;
-      ^noarchive->visible := this->basesettings.seotab;
+      ^no_index->visible := this->basesettings.seotab;
+      ^no_follow->visible := this->basesettings.seotab;
+      ^no_archive->visible := this->basesettings.seotab;
       ^customrobots->visible := this->basesettings.seotab;
     }
 
@@ -1663,15 +1664,15 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       //we are contained in a site, and need to check parents for forced noindex/nofollow
       INTEGER ARRAY tree := this->contexts->objectpropsapi->targetfolder->GetFullTree();
 
-      RECORD ARRAY curseosettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings")->Enrich(ToRecordArray(tree,"ID"), "ID", STRING[...lockablefields, "customrobots" ]);
+      RECORD ARRAY curseosettings := OpenWHFSType("platform:web.config")->Enrich(ToRecordArray(tree,"ID"), "ID", STRING[...lockablefields, "custom_robots" ]);
       FOREVERY(RECORD setting FROM curseosettings)
       {
         this->ApplyAnyLocks(setting);
 
-        IF(setting.customrobots != "")
-          ^customrobots->placeholder := setting.customrobots;
+        IF(setting.custom_robots != "")
+          ^customrobots->placeholder := setting.custom_robots;
       }
-    }
+      }
 
     IF(NOT this->contexts->user->HasRight("system:supervisor"))
       ^customrobots->visible := FALSE;
