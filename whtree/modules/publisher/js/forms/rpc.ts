@@ -12,9 +12,10 @@ import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
-import { getFieldName } from '@webhare/forms/src/domsupport';
 import { createClient } from '@webhare/jsonrpc-client';
 import { setupCaptchaFieldGroup } from './fields/captchafield';
+import { getFormConfiguration } from '@webhare/forms/src/registration';
+import type { CaptchaProvider } from '../captcha/api';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
@@ -137,7 +138,9 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     submitting: false
   };
 
+  #hadFocus = false;
   #completedUploads = new WeakMap<Blob, UploadResult>;
+  #settingUpCaptcha = false;
 
   pendingrpcs = new Array<Promise<unknown>>;
 
@@ -146,6 +149,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     this.__formhandler.formid = formnode.dataset.whFormId || ''; //needed for 'old' __formwidget: stuff
     this.__formhandler.url = location.href.split('/').slice(3).join('/');
     this.__formhandler.target = formnode.dataset.whFormTarget || '';
+    window.addEventListener("wh:form-configure", () => this.checkCaptcha());
+    this.node.addEventListener("focusin", this.#onFirstFocus, true);
 
     if (!this.__formhandler.target) {
       if (this.__formhandler.formid) {
@@ -156,6 +161,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
         throw new Error("Form does not appear to be a WebHare form");
       }
     }
+
+    this.checkCaptcha();
   }
 
   getRPCFormIdentifier(): RPCFormTarget { //submitinfo as required by some RPCs
@@ -290,6 +297,25 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     return submitparameters;
   }
 
+  #onFirstFocus = () => {
+    this.#hadFocus = true;
+    this.checkCaptcha();
+  };
+
+  private checkCaptcha() {
+    //Checks whether to show captcha based on configuration. Note that even if *we* think it's not needed, form submission may still require a captcha
+    const config = getFormConfiguration();
+    const shouldShow = config?.captcha === "onLoad" || (config?.captcha === "onActivate" && this.#hadFocus);
+    if (shouldShow && !this.#settingUpCaptcha && !this.getElementByName("__form_captcha")) {
+      this.#settingUpCaptcha = true;
+      void getFormService().getCaptchaConfiguration(this.getRPCFormIdentifier()).then(captchaConfig => {
+        if (captchaConfig) {
+          setupCaptchaFieldGroup(this, captchaConfig);
+        }
+      });
+    }
+  }
+
   async submitForm(parameters: RPCFormSubmission): Promise<FormSubmitResult> {
     return await submitRPCForm(parameters);
   }
@@ -345,7 +371,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
         let failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
         if (!failednode) {
           if (error.name === "__form_captcha") { //created on demand
-            failednode = setupCaptchaFieldGroup(this);
+            const serverMetadata = error.metadata as { provider: CaptchaProvider };
+            failednode = setupCaptchaFieldGroup(this, serverMetadata.provider);
           } else {
             console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
             continue;

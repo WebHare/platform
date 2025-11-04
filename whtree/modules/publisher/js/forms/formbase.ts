@@ -15,6 +15,7 @@ import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, For
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 import { submitselector, type SubmitSelectorType } from '@webhare/dompack/src/browser';
 import type { FormSubmitDetails } from './rpc';
+import type { FormConfiguration } from '@webhare/forms';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -50,6 +51,7 @@ declare global {
     "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
+    "wh:form-configure": CustomEvent<FormConfiguration>;
     "wh:form-pagechange": CustomEvent<{
       formHandler: FormBase<object>;
       /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't want either numPages or currentPage to count that one)

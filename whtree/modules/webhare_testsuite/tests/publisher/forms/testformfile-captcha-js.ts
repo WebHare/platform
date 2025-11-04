@@ -1,7 +1,7 @@
 // like testformfile-catpcha.ts but against basetestjs site
 import * as test from '@mod-system/js/wh/testframework';
 
-let setupdata;
+let setupdata: { url: string };
 const rand = Math.floor(100000000 * Math.random());
 const testemail = rand + "-testformfile-online+jstest@beta.webhare.net";
 
@@ -44,6 +44,31 @@ test.runTests(
       await test.waitUI();
       test.assert(test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "should see a thankyou!");
       test.assert(!test.canClick('wh-captcha')); //captcha should be gone
+    },
+
+    "immediate activations",
+    async function () {
+      //test loading immediately
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=onLoad');
+      await test.waitForElement("wh-captcha");
+
+      //test loading onactivate
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=onActivate');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
+      test.focus('input[name="firstname"]');
+      await test.waitForElement("wh-captcha");
+
+      //test loading immediately but skipcaptcha
+      await test.load(setupdata.url + '?wh-debug=nsc&skipcaptcha=1&captcha=onLoad');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
+
+      //test loading onactivate but skipcaptcha
+      await test.load(setupdata.url + '?wh-debug=nsc&skipcaptcha=1&captcha=onActivate');
+      test.focus('input[name="firstname"]');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
     },
 
     async function () {

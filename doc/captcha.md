@@ -15,3 +15,15 @@ Pre-WH5.8:
     IF(ObjectExists(this->__captchaquestion) AND NOT workobj->HasFailed())
       this->__captchaquestion->ValidateCaptcha(workobj);
     ```
+
+NEW: Start captchas earlier but keep SkipCaptcha support:
+- Support loading captcha code
+  - if the page has a form (onLoad)
+  - or once the form is activated (onActivate)
+    - which is one step before 'formstarted' which only response to actually typing
+  - or because the server said so at submission (the WH5.8 approach)
+- setupForms gets { captcha: "onLoad" | "onActivate" }
+- captcha will check with the server if captcha is required
+  - if so, it will provide an element to the form to include
+- form will show captcha holder, injecting if necessary, and load that element
+- on submit, the captcha field will validate the captcha if present

@@ -11,7 +11,10 @@ import './forms.scss';
 const urlconfig = new URLSearchParams(location.search);
 
 //Enable publisher forms (also registers the default RPC handlers)
-forms.setupForms();
+forms.setupForms({
+  captcha: (urlconfig.get("captcha") !== "default" && urlconfig.get("captcha") as forms.FormSetupOptions["captcha"]) || undefined
+});
+
 if (urlconfig.has("captcha")) {
   forms.setupGoogleRecaptcha();
   forms.setupFriendlyCaptcha();

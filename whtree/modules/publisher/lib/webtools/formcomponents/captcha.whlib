@@ -18,7 +18,6 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
-    form->AddFormAttributesCallback(PTR this->GetFormAttributes);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsSet()
@@ -29,14 +28,6 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
     this->value := VerifyCaptchaResponse(GetFormRequestURL(), jsdata);
-  }
-
-  STRING FUNCTION GetFormAttributes()
-  {
-    IF(NOT this->IsFrontendVisible())
-      RETURN "";
-
-    RETURN `data-wh-form-captcha="${EncodeValue(this->field.name)}"`;
   }
 
   UPDATE PUBLIC MACRO RenderField()

@@ -4,6 +4,7 @@ import type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission, RPCFormMessage } from "./types";
 import type { FormService } from "@mod-publisher/lib/internal/forms/service";
 import type { AddressValue } from "@webhare/address";
+import type { CaptchaProvider } from "@mod-publisher/js/captcha/api";
 
 
 /// HareScript uses 'nr_detail' instead of 'houseNumber'
@@ -50,6 +51,9 @@ export interface PublisherFormService {
   }>;
 
   requestBuiltinForm(submitinfo: RPCFormTarget, filename: string, formname: string): Promise<{ html: string }>;
+
+  /** Get captcha configuration. This is needed when the form will preactivate captchas (if form submission requests a captcha it will transmit provider setting in the error metadata) */
+  getCaptchaConfiguration(submitinfo: RPCFormTarget): Promise<CaptchaProvider | null>;
 }
 
 let hsformservice: GetClientInterface<PublisherFormService> | undefined;

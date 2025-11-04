@@ -34,32 +34,31 @@ export default class CaptchaField extends JSFormElement<string> {
       setFieldError(this, "", { reportimmediately: false });
   }
 
-  private async setup() {
-    if (this.provider) {
-      await initializeCaptcha(this.provider, this, {
-        onResponse: (result: string) => { this.value = result; }
-      });
-    }
+  setup(provider: CaptchaProvider) {
+    if (this.provider)
+      throw new Error("CaptchaField is already setup");
+
+    this.provider = provider;
+    this.initialize();
+  }
+
+  private initialize() {
+    this.value = '';
+    this.replaceChildren();
+    void initializeCaptcha(this.provider!, this, {
+      onResponse: (result: string) => { this.value = result; }
+    });
   }
 
   private onReset() {
-    this.value = '';
-    this.replaceChildren();
-    void this.setup();
+    void this.initialize();
   }
 
   async _setFieldError(evt: CustomEvent<SetFieldErrorData>) {
-    const serverMetadata = evt.detail.metadata as { provider: CaptchaProvider } | undefined;
-    if (serverMetadata?.provider) { //the first time an error is triggered it should be the server telling us which provider to use
-      this.provider = serverMetadata.provider;
-      await this.setup();
-    }
-
     dompack.stop(evt);
     if (!evt.detail.error) //error cleared
       return;
 
-    //If we get here, we captcha is either invalid or not set yet (and required).
     if (this.value) { //we were already sending a response!
       console.log("Captcha response was rejected, resetting");
       this.onReset(); //better restart the control, timeout or duplicat submission
@@ -67,7 +66,7 @@ export default class CaptchaField extends JSFormElement<string> {
   }
 }
 
-export function setupCaptchaFieldGroup(form: RPCFormBase<object>): CaptchaField {
+export function setupCaptchaFieldGroup(form: RPCFormBase<object>, provider: CaptchaProvider): CaptchaField {
   /* Setup a page-less holder for the captcha field
 
     <div class="wh-form__page wh-form__page--visible">
@@ -92,6 +91,8 @@ export function setupCaptchaFieldGroup(form: RPCFormBase<object>): CaptchaField 
     buttonarea.before(virtualCaptchaPage);
   else
     form.node.appendChild(virtualCaptchaPage);
+
+  void captchaControl.setup(provider);
 
   return captchaControl;
 }

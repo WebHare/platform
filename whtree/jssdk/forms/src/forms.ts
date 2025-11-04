@@ -16,7 +16,7 @@ import { ImgEditElement } from "@mod-publisher/js/forms/fields/imgedit";
 import { JSFormElement } from './jsformelement';
 import type { FormFileValue, FormAnalyticsEvent } from './types';
 import { getFormHandler, getFormData } from './domsupport';
-import { registerHandlers } from './registration';
+import { configureForms, registerHandlers } from './registration';
 
 /* TODO / NOTES
   - we cannot move this file into jssdk namespace, the lang.json compiler doesn't accept paths that cannot be translated to a WH resource
@@ -27,6 +27,7 @@ import { registerHandlers } from './registration';
     to some sort of /.wh/generated/builtin-language-texts system where we load the common builtin texts per language on demand
 */
 import "@mod-publisher/js/forms/internal/form.lang.json";
+import { omit } from '@webhare/std';
 
 export { FormBase, verifyAddress, ImgEditElement, FileEditElement, JSFormElement, getFormHandler, getFormData };
 export type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
@@ -42,11 +43,17 @@ export { LocalFormBase };
 
 export type FormHandlerFactory = (form: HTMLFormElement) => LocalFormBase;
 
-export type FormSetupOptions = {
+export type FormConfiguration = {
+  captcha?: "onLoad" | "onActivate";
+};
+
+export type FormSetupOptions = FormConfiguration & {
   handlers: Record<string, FormHandlerFactory>;
 };
 
 /// Initialize all forms we already have the handler for
-export function setupForms(options?: FormSetupOptions) {
+export function setupForms(options?: Partial<FormSetupOptions>) {
   registerHandlers(options?.handlers ?? {});
+  if (options)
+    configureForms(omit(options, ["handlers"]));
 }
