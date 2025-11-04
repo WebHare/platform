@@ -14,6 +14,7 @@
 
   <servicemanager>
     <runonce script="scripts/runonce/migrate-postings.whscr" tag="migrate_postings" when="poststart" />
+    <runonce script="scripts/runonce/republish-links.whscr" tag="republish_links" when="poststart" />
 
     <task runat="53  3 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="maintenance_task" description="Publisher maintenance task" />
     <task runat="33  3 * * *" runtz="maintenance" script="scripts/tasks/cleanupwebtoolresults.whscr" tag="cleanup_webtool_results" description="Cleanup outdated Webtools form results" />

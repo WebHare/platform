@@ -1,0 +1,23 @@
+brew "autoconf"
+brew "automake"
+brew "ccache"
+brew "freetype"
+brew "fswatch"
+brew "giflib"
+brew "icu4c"
+brew "jq"
+brew "libmaxminddb"
+brew "libpng"
+brew "libtiff"
+brew "libtool"
+brew "make"
+brew "node@#{ENV["HOMEBREW_WEBHARE_NODE_MAJOR"]}", link: false
+brew "opensearch"
+brew "openssl"
+brew "pixman"
+brew "pkg-config"
+brew "postgresql@13", link: false # The one shipped for 4.35 up to 5.6. Default for new Homebrew WebHare source installs until 5.7
+brew "postgresql@16", link: false # Newly added in 5.6. Default since 5.7
+brew "postgresql@17", link: false # Prepared for WH5.8/5.9 masters, might be in use
+brew "postgresql@#{ENV["HOMEBREW_POSTGRES_MAJOR"]}", link: false # See etc/platform.conf (eg 17)
+brew "rapidjson"

@@ -44,56 +44,6 @@ reportVersions() {
   set -e # restore fail on error
 }
 
-generateFormula()
-{
-  POSTGRES_MAJOR="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
-
-  cat << HERE
-# typed: false
-# frozen_string_literal: true
-
-# This is a dummy formula that is used to install the dependencies for WebHare
-class WebhareDeps < Formula
-  desc "WebHare dependency descriptions"
-  homepage "https://www.webhare.dev/"
-
-  # dummy.tar.gz is an empty tar.gz, but we need to provide brew with *something*
-  url "file://${BASH_SOURCE%/*}/../addons/darwin/dummy.tar.gz"
-  version "1"
-  sha256 "6d888e48bcda88870b318feee151d42ace8054fb5cd9a10df56786348cc61628"
-
-  depends_on "libtool"
-  depends_on "autoconf"
-  depends_on "automake"
-  depends_on "ccache"
-  depends_on "freetype"
-  depends_on "fswatch"
-  depends_on "giflib"
-  depends_on "icu4c"
-  depends_on "jq"
-  depends_on "libmaxminddb"
-  depends_on "libpng"
-  depends_on "libtiff"
-  depends_on "make"
-  depends_on "node@$WEBHARE_NODE_MAJOR"
-  depends_on "openssl"
-  depends_on "pixman"
-  depends_on "pkg-config"
-  depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6. Default for new Homebrew WebHare source installs until 5.7
-  depends_on "postgresql@16" # Newly added in 5.6. Default since 5.7
-  depends_on "postgresql@17" # Prepared for WH5.8/5.9 masters, might be in use
-  depends_on "postgresql@$POSTGRES_MAJOR" # See etc/platform.conf (eg 17)
-  depends_on "rapidjson"
-  depends_on "opensearch"
-
-  def install
-    # Note that we can't have the file have any of the usual meta filenames eg. README
-    prefix.install "dummy.txt"
-  end
-end
-HERE
-}
-
 # Setup the build system
 getwebhareversion
 
@@ -106,26 +56,20 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
   fi
 
   if [ -z "$NOBREW" ]; then
-    # Only (re)install homebrew if webhare-deps.rb changed
-    DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
+    # Cleanup legacy pre-wh5.9 approach
+    rm -rf "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb" "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb.ok"
 
-    # Since we regenerate the depsfile every time we run, we don't need a separate checkfile anymore (removed in WH5.7)
-    rm "$WEBHARE_BUILDDIR/last-brew-install" 2>/dev/null || true
+    # Get versions the Brewfile needs
+    POSTGRES_MAJOR="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
 
-    # Also reinstall if important apps are missing which may point to a partial/failed brew installation
-    # Set up a marker so we don't simply ignore brew errors on the next attempt
-    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$DEPSFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$DEPSFILE" ] || [ "$DEPSFILE" -nt "$DEPSFILE.ok" ] || ! hash gmake 2>/dev/null || ! [ -x "$WEBHARE_NODE_BINARY" ]; then
-      generateFormula > "$DEPSFILE"
-      echo "Ensuring Brew definitions are uptodate"
-      brew update
-      echo "Installing our dependencies using Brew: $DEPSFILE"
-      HOMEBREW_DEVELOPER=1 brew reinstall --formula "$DEPSFILE"; retval="$?"
-      if [ "$retval" != "0" ]; then
-        echo "*** brew failed with errorcode $retval"
-        exit 1
-      fi
-      wh_getnodeconfig # reload config, brew may have been updated
-      touch "$DEPSFILE.ok"
+    export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR"
+    export HOMEBREW_POSTGRES_MAJOR="$POSTGRES_MAJOR"
+
+    # Update if needed
+    if ! brew bundle --quiet --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" check ; then
+      echo "Installing required Homebrew packages..."
+      brew bundle --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" install
+      wh_getnodeconfig # reload config, brew may have updated node
     fi
   fi
 

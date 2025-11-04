@@ -17,8 +17,8 @@ dompack.register(".wh-wrdauth-login__forgotpasswordlink", node => {
     }, { capture: true });
 });
 
-// Links inside forms (probably other places in tollium?) should open in new windows
-dompack.register<HTMLAnchorElement>(".wh-form a[href]", node => {
+// Links inside form texts should open in new windows, but not eg. password reset links
+dompack.register<HTMLAnchorElement>(".wh-form .wh-form__richtext a[href]", node => {
   node.setAttribute("target", "_blank");
   node.setAttribute("rel", "noopener noreferrer");
 });

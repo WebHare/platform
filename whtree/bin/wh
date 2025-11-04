@@ -547,8 +547,6 @@ HERE
     # Tell submodules to update - this is a common reason for builds to break (updating WebHare non-recursively)
     [ -d "${WEBHARE_CHECKEDOUT_TO}/.git" ] && git -C "$WEBHARE_CHECKEDOUT_TO" submodule update --init --recursive
 
-    # Force brew to update
-    touch "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
     # Force emsdk to update
     rm -f "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version"
 

@@ -1,7 +1,8 @@
 <?wh
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::publisher/lib/template-v2.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 
 IF (file.type=19) //internal link
@@ -18,23 +19,6 @@ STRING url := MakeRelativeLinkFromURL(GetCurrentPageUrl(), file.url);
 IF(url = "")
   __PUBLISHER_EXCEPTION(3003, "Cannot find linked file");
 
-STRING header := '<!-- <?wh LOADLIB "mod::system/lib/webserver.whlib"; Redirect("' || EncodeJava(url) || '"); ?> -->';
-OpenFile(1);
-
-?><!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"><?wh PrintTrustedCode(header); ?>
-<html>
-<head>
-  <title>
-    <?wh PRINT(GetWebhareVersion()); ?> link
-  </title>
-  <meta http-equiv="refresh" content="0; url=<?wh PRINT(EncodeValue(url)); ?>">
-  <script type="text/javascript" language="javascript">
-    location.href = '<?wh print(EncodeJava(url)); ?>';
-  </script>
-</head>
-<body>
-  Please refer to <a href="<?wh print(EncodeValue(url)); ?>"><?wh print(EncodeHTML(url)); ?></a> for the requested page (your browser should have redirected you automatically).
-</body>
-</html>
-<?wh
-CloseFile();
+INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
+PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([redirect := url])}\r\n`);
+PUBLISHER_CloseOutput(redirectoutputid);
