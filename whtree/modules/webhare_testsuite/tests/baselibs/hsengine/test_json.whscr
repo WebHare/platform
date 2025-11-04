@@ -449,6 +449,9 @@ MACRO TestCamelSnakeCasing()
   TestJSONEnDeCode(`{"a_B":1}`, [ a__b := 1 ], DEFAULT RECORD, options);
   TestJSONEnDeCode(`{"a__B":1}`, [ a___b := 1 ], DEFAULT RECORD, options);
 
+  RECORD typed_options := [ encode := [ camelcase := TRUE, typed := TRUE ], decode := [ camelcase := TRUE, typed := TRUE ] ];
+  TestJSONEnDeCode(`{"aDate":{"$stdType":"Date","date":"2020-01-01T00:00:00.000Z"}}`, [a_date := MakeDate(2020, 1, 1)], DEFAULT RECORD, typed_options);
+
   TestEQ(`{"xA":1,"xB":2,"xC":3}`, EncodeJSON([ c := 3, x_b := 2, x_a := 1 ], [c := "xC" ], [ camelcase := TRUE ]));
 }
 
