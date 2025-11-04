@@ -253,6 +253,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   private inSubmit = false;
   /** Where should the exitButton navigate to? */
   private exitButtonNavigateTo?: NavigateInstruction;
+  /** Name of last focused element */
+  #lastFocused = "";
 
   readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
 
@@ -288,6 +290,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     addDocEventListener(this.node, "focusout", handleFocusOutEvent, { capture: true });
     addDocEventListener(this.node, "input", handleValidateAfterEvent, { capture: true });
     addDocEventListener(this.node, "change", handleValidateAfterEvent, { capture: true });
+    addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
     this.node.noValidate = true;
 
     this._rewriteEnableOn();
@@ -314,11 +317,29 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
   }
 
-  protected __formStarted() { //we can remove this once we merge formbase + rpc
+  #recordLastFocus = (evt: dompack.DocEvent<FocusEvent>) => {
+    if (this.node.contains(evt.target)) {
+      const name = getFieldName(evt.target) || evt.target.dataset.whFormGroupFor;
+      if (name)
+        this.#lastFocused = name;
+    }
+  };
+
+  #onUnload = () => {
+    this.sendFormEvent({
+      event: 'abandoned',
+      lastfocused: this.#lastFocused,
+      pagenum: this.getCurrentPageNumber()
+    });
+  };
+
+  protected __formStarted() {
   }
 
   protected sendFormEvent(event?: FormAnalyticsSubEvents) {
     const now = Date.now();
+    if (event?.event === 'submitted')
+      removeEventListener("pagehide", this.#onUnload);
 
     if (!this._firstinteraction) {   //The user hasn't interacted with the form yet
       if (!this.isInteractive) { //ignore events triggered by code, eg a form prefill
@@ -330,7 +351,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       //The user has interacted, start the clock!
       this._firstinteraction = now; //set for calculation base *and* to prevent endless loops
       this.sendFormEvent({ event: "started" });
-      this.__formStarted();
+      addEventListener("pagehide", this.#onUnload);
     }
 
     if (!event)

@@ -146,7 +146,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     this.__formhandler.formid = formnode.dataset.whFormId || ''; //needed for 'old' __formwidget: stuff
     this.__formhandler.url = location.href.split('/').slice(3).join('/');
     this.__formhandler.target = formnode.dataset.whFormTarget || '';
-    dompack.addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
 
     if (!this.__formhandler.target) {
       if (this.__formhandler.formid) {
@@ -266,28 +265,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     }
   }
 
-  protected __formStarted() { //we can remove this once we merge formbase + rpc
-    addEventListener("pagehide", this.#onUnload);
-  }
-
-  #lastFocused = "";
-
-  #recordLastFocus = (evt: dompack.DocEvent<FocusEvent>) => {
-    if (this.node.contains(evt.target)) {
-      const name = getFieldName(evt.target) || evt.target.dataset.whFormGroupFor;
-      if (name)
-        this.#lastFocused = name;
-    }
-  };
-
-  #onUnload = () => {
-    this.sendFormEvent({
-      event: 'abandoned',
-      lastfocused: this.#lastFocused,
-      pagenum: this.getCurrentPageNumber()
-    });
-  };
-
   async buildFormSubmission(extradata?: object, options?: { __setupEvent?: FormSubmitDetails<DataShape> }): Promise<RPCFormSubmission> {
     //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
     const extraSubmitAwaitable = this.getFormExtraSubmitData();
@@ -384,7 +361,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
       if (result.success) {
         this.sendFormEvent({ event: 'submitted' });
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail as FormSubmitDetails<Record<string, unknown>> })) {
-          removeEventListener("pagehide", this.#onUnload);
           merge.run(this.node, { form: await this.getFormValue() });
 
           //FIXME why is going to 'thank you' not in the formbase?
