@@ -18,7 +18,7 @@ export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: 
     //@ts-expect-error -- undocumented but this seems to properly refresh the unit
     window.frcaptcha.attach();
   } else { //Now initialize it
-    using lock = dompack.flagUIBusy({ modal: true });
+    using lock = dompack.flagUIBusy();
     void (lock);
     //TODO listen for widget.statechange - https://developer.friendlycaptcha.com/docs/v2/sdk/events#frcwidgetstatechange before releasing the lock
     await dompack.loadScript(script, { module: true });
