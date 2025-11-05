@@ -285,7 +285,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
              , title :=         name
              , name
              , path
-          FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().ephemeralroot, "profiles"), "*")
+          FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().basedataroot, "caches/platform/hs-profiles"), "*")
          WHERE type = 1
       ORDER BY name;
 
@@ -293,7 +293,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
         [ rowkey :=     `session:default`
         , title :=      "default"
         , name :=       "default"
-        , path :=       MergePath(GetWebhareConfiguration().ephemeralroot, "profiles/default")
+        , path :=       MergePath(GetWebhareConfiguration().basedataroot, "caches/platform/hs-profiles/default")
         ];
 
     RECORD pos := RecordLowerBound(sessions, defaultsession, [ "NAME" ]);

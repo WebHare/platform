@@ -315,26 +315,6 @@ STATIC OBJECTTYPE WebConfigBuilder <
         pathsofar := pathsofar || "/";
       RETURN pathsofar;
     }
-    IF(ToUppercase(data) LIKE "EPHEMERAL:*")
-    {
-      STRING pathsofar := GetWebHareConfiguration().ephemeralroot || module || "." || CollapsePath(Substring(data, 10));
-      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
-        pathsofar := pathsofar || "/";
-      RETURN pathsofar;
-    }
-    IF(ToUppercase(data) LIKE "MODULEWEB:*")
-    {
-      data := Substring(data, 10);
-      STRING modulename := Left(data, SearchSubstring(data, '/'));
-      STRING modpath := GetModuleInstallationRoot(modulename);
-      IF(modpath="")
-        RETURN "";
-
-      STRING pathsofar := MergePath(modpath || "web", Substring(data, Length(modulename)+1));
-      IF(data LIKE "*/" AND pathsofar NOT LIKE "*/")
-        pathsofar := pathsofar || "/";
-      RETURN pathsofar;
-    }
     IF(ToUppercase(data) LIKE "MOD::*")
     {
       RETURN GetWebHareResourceDiskPath(data);

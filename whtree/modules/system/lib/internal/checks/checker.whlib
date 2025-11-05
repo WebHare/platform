@@ -122,7 +122,7 @@ RECORD ARRAY FUNCTION GetHotFixCheckResult()
 {
   RECORD ARRAY messages;
 
-  STRING hotfixfile := GetWebHareConfiguration().ephemeralroot || "hotfixstate.json";
+  STRING hotfixfile := GetWebHareConfiguration().basedataroot || "caches/platform/run/hotfixstate.json";
   RECORD data := DecodeJSONBlob(GetDiskResource(hotfixfile, [ allowmissing := TRUE ]));
   IF (RecordExists(data))
   {

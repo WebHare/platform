@@ -208,7 +208,7 @@ MACRO SaveProfileFile(STRING type, STRING ext, VARIANT profiledata)
   STRING timestamp := Substitute(SubString(EncodeHSON(GetCurrentDatetime()), 7, 19), ".", "");
   STRING filename := timestamp || "-" || GetCurrentGroupId() || ext;
 
-  STRING outputdir := __SYSTEM_WHCOREPARAMETERS().ephemeralroot || "profiles/" || profilingsession;
+  STRING outputdir := __SYSTEM_WHCOREPARAMETERS().basedataroot || "caches/platform/hs-profiles/" || profilingsession;
 
   CreateDiskDirectoryRecursive(outputdir, TRUE);
   INTEGER out := __HS_OpenDiskFile(MergePath(outputdir, filename), TRUE, TRUE, TRUE, TRUE);
