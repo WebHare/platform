@@ -61,7 +61,7 @@ export default class CaptchaField extends JSFormElement<string> {
 
     if (this.value) { //we were already sending a response!
       console.log("Captcha response was rejected, resetting");
-      this.onReset(); //better restart the control, timeout or duplicat submission
+      this.onReset(); //better restart the control, timeout or duplicate submission
     }
   }
 }
