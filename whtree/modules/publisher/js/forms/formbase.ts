@@ -15,6 +15,7 @@ import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, For
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 import { submitselector, type SubmitSelectorType } from '@webhare/dompack/src/browser';
 import type { FormSubmitDetails } from './rpc';
+import type { FormConfiguration } from '@webhare/forms';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -50,6 +51,7 @@ declare global {
     "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
+    "wh:form-configure": CustomEvent<FormConfiguration>;
     "wh:form-pagechange": CustomEvent<{
       formHandler: FormBase<object>;
       /** TODO Add numPages and currentPage, but we'd need to figure out how to properly account for Captcha pages (you don't want either numPages or currentPage to count that one)
@@ -253,6 +255,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   private inSubmit = false;
   /** Where should the exitButton navigate to? */
   private exitButtonNavigateTo?: NavigateInstruction;
+  /** Name of last focused element */
+  #lastFocused = "";
 
   readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
 
@@ -288,6 +292,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     addDocEventListener(this.node, "focusout", handleFocusOutEvent, { capture: true });
     addDocEventListener(this.node, "input", handleValidateAfterEvent, { capture: true });
     addDocEventListener(this.node, "change", handleValidateAfterEvent, { capture: true });
+    addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
     this.node.noValidate = true;
 
     this._rewriteEnableOn();
@@ -314,11 +319,29 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
   }
 
-  protected __formStarted() { //we can remove this once we merge formbase + rpc
+  #recordLastFocus = (evt: dompack.DocEvent<FocusEvent>) => {
+    if (this.node.contains(evt.target)) {
+      const name = getFieldName(evt.target) || evt.target.dataset.whFormGroupFor;
+      if (name)
+        this.#lastFocused = name;
+    }
+  };
+
+  #onUnload = () => {
+    this.sendFormEvent({
+      event: 'abandoned',
+      lastfocused: this.#lastFocused,
+      pagenum: this.getCurrentPageNumber()
+    });
+  };
+
+  protected __formStarted() {
   }
 
   protected sendFormEvent(event?: FormAnalyticsSubEvents) {
     const now = Date.now();
+    if (event?.event === 'submitted')
+      removeEventListener("pagehide", this.#onUnload);
 
     if (!this._firstinteraction) {   //The user hasn't interacted with the form yet
       if (!this.isInteractive) { //ignore events triggered by code, eg a form prefill
@@ -330,7 +353,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       //The user has interacted, start the clock!
       this._firstinteraction = now; //set for calculation base *and* to prevent endless loops
       this.sendFormEvent({ event: "started" });
-      this.__formStarted();
+      addEventListener("pagehide", this.#onUnload);
     }
 
     if (!event)
@@ -574,8 +597,10 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   async _submit(evt: SubmitEvent | null, extradata: ExtraData) {
-    if (this.node.classList.contains('wh-form--submitting') || this.inSubmit) //already submitting
+    if (this.node.classList.contains('wh-form--submitting') || this.inSubmit) { //already submitting
+      evt?.preventDefault(); //avoid 'No RPC handler installed' noise during 429 errors
       return;
+    }
 
     //A form element's default button is the first submit button in tree order whose form owner is that form element.
     const submitter = this._submitter || this.node.querySelector(submitselector);
@@ -778,6 +803,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private _getDestinationPage(pagestate: PageState, direction: number) {
     let pagenum = pagestate.curpage + direction;
+    //TODO "captcha" should no longer exist since WH5.9 - unless there are still some static published forms around, so keep skipping them for a while
     while (pagenum >= 0 && pagenum < pagestate.pages.length && (pagestate.pages[pagenum].propWhFormCurrentVisible === false || pagestate.pages[pagenum].dataset.whFormPagerole === "captcha"))
       pagenum = pagenum + direction;
     if (pagenum < 0 || pagenum >= pagestate.pages.length)
@@ -1276,7 +1302,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   private ensureLegacyWarning(field: HTMLElement) {
     if (!this.didLegacyWarning && !isLive)
-      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to RegisteredFieldBase in WebHare 5.6+`);
+      console.warn(`[form] ${getFieldDisplayName(field)} is using wh:form-getvalue/wh:form-setvalue events. It should switch to JSFormElement`);
 
     this.didLegacyWarning = true;
   }
@@ -1300,7 +1326,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     if (!isFormFieldLike(field)) {
       /* Can't fail on these, weird embeddings do weird things. Eg google's recaptcha v2 triggers this because it assigns a random name=
          to the iframe it injects and then we pick that up.. (may need to move this error behind a debugflag if that's the only likely cause) */
-      console.error(`Cannot get value on non-FormControl`, field);
+      if (debugFlags.fhv)
+        console.log(`[fhv] Cannot get value on non-FormControl`, field);
       return undefined; //TODO throw? but wasn't currently fatal
     }
 
@@ -1415,16 +1442,15 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   /** Return a promise resolving to the submittable form value */
-  getFormValue(): Promise<FormResultValue> {
-    return new Promise<FormResultValue>((resolve, reject) => {
-      const outdata = {};
-      const fieldpromises = new Array<Promise<void>>;
+  async getFormValue(): Promise<FormResultValue> {
+    const outdata: FormResultValue = {};
+    const fieldpromises = new Array<Promise<void>>;
 
-      for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
-        this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
+    for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
+      this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
 
-      Promise.all(fieldpromises).then(() => resolve(outdata)).catch(e => reject(e as Error));
-    });
+    await Promise.all(fieldpromises);
+    return outdata;
   }
 
   _isNowSettable(node: HTMLElement) {

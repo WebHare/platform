@@ -152,7 +152,7 @@
         <addheader header="X-Content-Type-Options" value="nosniff"/>
         <addheader header="Referrer-Policy" value="strict-origin-when-cross-origin"/>
         <addheader header="Feature-Policy" value="geolocation 'none'; camera 'none'; payment 'none'; microphone 'none'"/>
-        <csp policy="script-src 'self'; frame-ancestors 'self' [webhare]" />
+        <csp policy="script-src 'self' www.google.com www.gstatic.com; frame-ancestors 'self' [webhare]" />
       </webrule>
       <openapi path="/testsuiteportal/.wh/api/v1/" service="platform:api" />
      <webrule path="/testpages/wrdauthtest-router-protected/accessruleprotected"

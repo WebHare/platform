@@ -1,22 +1,26 @@
+// like testformfile-catpcha.ts but against basetestjs site
 import * as test from '@mod-system/js/wh/testframework';
 
-let setupdata;
+let setupdata: { url: string };
 const rand = Math.floor(100000000 * Math.random());
 const testemail = rand + "-testformfile-online+jstest@beta.webhare.net";
 
 test.runTests(
   [
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha" });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', {
+        filename: "formcaptcha",
+        js: true
+      });
 
-      await test.load(setupdata.url + '?skipcaptcha=1');
+      await test.load(setupdata.url + '?skipcaptcha=1&captcha=default');
 
       test.click('.wh-form__button--submit');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
       await test.wait('ui');
       test.assert(test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have succeeded");
 
-      await test.load(setupdata.url + '?wh-debug=nsc');
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=default');
 
       //A server side error should not trigger a recatpcha (but it did errors coming from Submit handlers. Trigger one by messing with the name field
       test.fill(`[name=firstname]`, "reject");
@@ -27,7 +31,7 @@ test.runTests(
       test.eq(0, test.qSA('.mydialog').length);
 
       //trigger it!
-      await test.load(setupdata.url + '?wh-debug=nsc');
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=default');
 
       test.click('.wh-form__button--submit');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
@@ -42,11 +46,40 @@ test.runTests(
       test.assert(!test.canClick('wh-captcha')); //captcha should be gone
     },
 
+    "immediate activations",
+    async function () {
+      //test loading immediately
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=onLoad');
+      await test.waitForElement("wh-captcha");
+
+      //test loading onactivate
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=onActivate');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
+      test.focus('input[name="firstname"]');
+      await test.waitForElement("wh-captcha");
+
+      //test loading immediately but skipcaptcha
+      await test.load(setupdata.url + '?wh-debug=nsc&skipcaptcha=1&captcha=onLoad');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
+
+      //test loading onactivate but skipcaptcha
+      await test.load(setupdata.url + '?wh-debug=nsc&skipcaptcha=1&captcha=onActivate');
+      test.focus('input[name="firstname"]');
+      await test.wait(200);
+      test.assert(!test.findElement("wh-captcha"));
+    },
+
     async function () {
       //Note using formcaptcha2 because we saw us racing and sometimes showing a recyclebin version of the previous file instead of the one we're creating
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha2", mailconfirmation: true });
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', {
+        filename: "formcaptcha2",
+        mailconfirmation: true,
+        js: true
+      });
 
-      await test.load(setupdata.url + '?wh-debug=nsc');
+      await test.load(setupdata.url + '?wh-debug=nsc&captcha=default');
 
       test.fill(test.qSA("input[type=email]")[0], testemail);
 
@@ -64,7 +97,7 @@ test.runTests(
       test.assert(test.qR('[data-wh-form-group-for="thankyou_confirmed"]').classList.contains('wh-form__fieldgroup--hidden'));
 
       const testemail_guid = test.qR("form[data-wh-form-resultguid]").dataset.whFormResultguid;
-      const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "captcha2", allowpending: true });
+      const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "captcha2", allowpending: true, js: true });
       test.assert(formresult.response);
       test.eq("new", formresult.submittype);
       test.eq("pending", formresult.status);

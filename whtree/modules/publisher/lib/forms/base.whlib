@@ -15,6 +15,7 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
+LOADLIB "mod::platform/lib/captcha/captchamgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
@@ -285,8 +286,8 @@ STATIC OBJECTTYPE FormPage
 
 /** @short Form base object
 */
-PUBLIC STATIC OBJECTTYPE FormBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE FormBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -636,30 +637,6 @@ PUBLIC STATIC OBJECTTYPE FormBase
              FROM ToRecordArray(this->__formpages, "page");
   }
 
-  PUBLIC OBJECT FUNCTION __EnsureFormCaptchaPage()
-  {
-    RECORD captchapage := SELECT * FROM this->__formpages WHERE role = "captcha";
-    IF(RecordExists(captchapage))
-      RETURN captchapage.obj;
-
-
-    OBJECT pageobj := NEW FormPage(PRIVATE this, CELL[
-      title := "",
-      visiblecondition := DEFAULT RECORD,
-      fieldsrenderer := "",
-      fields := RECORD[],
-      name := "",
-      role := "captcha",
-      redirect := "",
-      redirectdelay := -1
-    ]);
-
-    //insert before thankyou page. if not found, insert at end
-    INTEGER thankyoupageidx := (SELECT AS INTEGER #__formpages + 1 FROM this->__formpages WHERE role = "thankyou") ?? Length(this->__formpages) + 1;
-    INSERT [ role := "captcha", obj := pageobj ] INTO this->__formpages AT thankyoupageidx - 1;
-    RETURN pageobj;
-  }
-
   PUBLIC OBJECT FUNCTION __GetPageContainingField(OBJECT field)
   {
     FOREVERY(RECORD page FROM this->__formpages)
@@ -680,8 +657,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
       @cell vals.value Value to set
       @cell(boolean) options.rpcjs Set to TRUE if the value are coming from the RPC JS API (and thus need UpdateFromJS)
       @cell(boolean) options.ignorenonexisting Ignore non-existing fields (by default an exception is thrown) */
-  PUBLIC MACRO SetFormValues(RECORD ARRAY vals, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO SetFormValues(RECORD ARRAY vals, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions( [ rpcjs := FALSE
                                 , ignorenonexisting := FALSE
                                 ], options);
@@ -1359,7 +1335,8 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   PUBLIC MACRO EnableCaptcha(RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions(CELL[], options);
-    this->__captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
+    //NOTE is not actually added to any page, just created to receive form responses
+    this->__captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__form_captcha");
   }
 >;
 

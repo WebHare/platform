@@ -12,8 +12,10 @@ import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
-import { getFieldName } from '@webhare/forms/src/domsupport';
 import { createClient } from '@webhare/jsonrpc-client';
+import { setupCaptchaFieldGroup } from './fields/captchafield';
+import { getFormConfiguration } from '@webhare/forms/src/registration';
+import type { CaptchaProvider } from '../captcha/api';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
@@ -136,7 +138,9 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     submitting: false
   };
 
+  #hadFocus = false;
   #completedUploads = new WeakMap<Blob, UploadResult>;
+  #settingUpCaptcha = false;
 
   pendingrpcs = new Array<Promise<unknown>>;
 
@@ -145,7 +149,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     this.__formhandler.formid = formnode.dataset.whFormId || ''; //needed for 'old' __formwidget: stuff
     this.__formhandler.url = location.href.split('/').slice(3).join('/');
     this.__formhandler.target = formnode.dataset.whFormTarget || '';
-    dompack.addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
+    window.addEventListener("wh:form-configure", () => this.checkCaptcha());
+    this.node.addEventListener("focusin", this.#onFirstFocus, true);
 
     if (!this.__formhandler.target) {
       if (this.__formhandler.formid) {
@@ -156,6 +161,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
         throw new Error("Form does not appear to be a WebHare form");
       }
     }
+
+    this.checkCaptcha();
   }
 
   getRPCFormIdentifier(): RPCFormTarget { //submitinfo as required by some RPCs
@@ -265,28 +272,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     }
   }
 
-  protected __formStarted() { //we can remove this once we merge formbase + rpc
-    addEventListener("pagehide", this.#onUnload);
-  }
-
-  #lastFocused = "";
-
-  #recordLastFocus = (evt: dompack.DocEvent<FocusEvent>) => {
-    if (this.node.contains(evt.target)) {
-      const name = getFieldName(evt.target) || evt.target.dataset.whFormGroupFor;
-      if (name)
-        this.#lastFocused = name;
-    }
-  };
-
-  #onUnload = () => {
-    this.sendFormEvent({
-      event: 'abandoned',
-      lastfocused: this.#lastFocused,
-      pagenum: this.getCurrentPageNumber()
-    });
-  };
-
   async buildFormSubmission(extradata?: object, options?: { __setupEvent?: FormSubmitDetails<DataShape> }): Promise<RPCFormSubmission> {
     //Request extrasubmit first, so that if it returns a promise, it can execute in parallel with getFormValue
     const extraSubmitAwaitable = this.getFormExtraSubmitData();
@@ -310,6 +295,25 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     });
 
     return submitparameters;
+  }
+
+  #onFirstFocus = () => {
+    this.#hadFocus = true;
+    this.checkCaptcha();
+  };
+
+  private checkCaptcha() {
+    //Checks whether to show captcha based on configuration. Note that even if *we* think it's not needed, form submission may still require a captcha
+    const config = getFormConfiguration();
+    const shouldShow = config?.captcha === "onLoad" || (config?.captcha === "onActivate" && this.#hadFocus);
+    if (shouldShow && !this.#settingUpCaptcha && !this.getElementByName("__form_captcha")) {
+      this.#settingUpCaptcha = true;
+      void getFormService().getCaptchaConfiguration(this.getRPCFormIdentifier()).then(captchaConfig => {
+        if (captchaConfig) {
+          setupCaptchaFieldGroup(this, captchaConfig);
+        }
+      });
+    }
   }
 
   async submitForm(parameters: RPCFormSubmission): Promise<FormSubmitResult> {
@@ -364,10 +368,15 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
           continue;
         }
 
-        const failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
+        let failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
         if (!failednode) {
-          console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
-          continue;
+          if (error.name === "__form_captcha") { //created on demand
+            const serverMetadata = error.metadata as { provider: CaptchaProvider };
+            failednode = setupCaptchaFieldGroup(this, serverMetadata.provider);
+          } else {
+            console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
+            continue;
+          }
         }
         if (!didfirstfocus) {
           dompack.focus(failednode);
@@ -379,7 +388,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
       if (result.success) {
         this.sendFormEvent({ event: 'submitted' });
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail as FormSubmitDetails<Record<string, unknown>> })) {
-          removeEventListener("pagehide", this.#onUnload);
           merge.run(this.node, { form: await this.getFormValue() });
 
           //FIXME why is going to 'thank you' not in the formbase?

@@ -1299,7 +1299,7 @@ PUBLIC RECORD FUNCTION Testinvoke_BuildWebtoolForm(RECORD options DEFAULTSTO DEF
 }
 PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ which := "", allowpending := FALSE ], options);
+  options := ValidateOptions([ which := "", allowpending := FALSE, js := FALSE ], options);
 
   OpenPrimary();
   STRING lookup := options.which = "wrdauth" ? "testpages/wrdauthtest-form"
@@ -1308,7 +1308,7 @@ PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD optio
                  : options.which = "captcha2" ? "webtools/formcaptcha2"
                  : "webtools/form";
 
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath(lookup);
+  OBJECT formfile := (options.js ? OpenTestsuiteJSSite() : OpenTestsuiteSite())->OpenByPath(lookup);
   IF(NOT ObjectExists(formfile))
     THROW NEW Exception(`Cannot find '${lookup}'`);
 

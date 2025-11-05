@@ -4,6 +4,9 @@ LOADLIB "wh::internal/any.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::platform/lib/captcha/captchamgmt.whlib";
+
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
@@ -105,6 +108,7 @@ PUBLIC STRING FUNCTION RPC_GetImgFromRemoteURL(STRING uploadurl)
 
   RETURN GetCachedFSImageURL("", CreateTempUploadedFile(wrapped)->id, [method := "none", fixorientation := TRUE]);
 }
+
 PUBLIC RECORD FUNCTION RPC_RequestBuiltinForm(RECORD submitinfo, STRING filename, STRING formname)
 {
   OpenPrimary();
@@ -113,6 +117,19 @@ PUBLIC RECORD FUNCTION RPC_RequestBuiltinForm(RECORD submitinfo, STRING filename
   OBJECT form := GetWebdesign(objid)->OpenForm("__builtin:" || filename || ":" || formname);
   RETURN [ html := BlobToString(GetPrintedAsBlob(PTR form->RenderForm))
          ];
+}
+
+PUBLIC RECORD FUNCTION RPC_GetCaptchaConfiguration(RECORD submitinfo) {
+  STRING url := GetWebOriginURL(submitinfo.url);
+  originalformrequesturl := url; //Allows GetFormVariable to work in RPCs
+
+  OpenPrimary();
+  OBJECT wc := GetWebContextForURL(url, [ clientwebserver := GetClientWebserver() ] );
+  IF(wc->AllowToSkipCaptchaCheck())
+    RETURN DEFAULT RECORD;
+
+  RECORD provider := GetCaptchaProvider(url);
+  RETURN RecordExists(provider) ? PickCells(provider, ["apikey","name"]) : DEFAULT RECORD;
 }
 
 //TODO should probably be in a RTE service and not formservice lib...

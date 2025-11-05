@@ -38,7 +38,7 @@
   <jstest file="testformfile-online-widget.ts" />
   <jstest file="testformfile-custom-online.ts" />
   <jstest file="testformfile-conditions.ts" />
-  <jstest file="testformfile-captcha.ts" />
+  <jstest file="testformfile-captcha.ts" tags="forms captcha" />
   <jstest file="testformfile-datalayer.ts" />
   <jstest file="testredirect.ts" />
   <jstest file="testarrays.ts" />
@@ -57,5 +57,6 @@
     </jstest>
     <jstest file="testcustomelements.ts" />
     <jstest file="testformfile-online-widget.ts" />
+    <jstest file="testformfile-captcha-js.ts" tags="forms captcha" />
   </group>
 </group>
