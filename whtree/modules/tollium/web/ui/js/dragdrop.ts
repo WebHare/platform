@@ -326,3 +326,13 @@ export function tryStartDrag(comp, items, event) {
 
   return true;
 }
+
+
+function overrideDropEffect(e: DragEvent) {
+  if (e.dataTransfer)
+    e.dataTransfer.dropEffect = getDefaultDropEffect(e, e.dataTransfer.effectAllowed);
+  // console.log(`cap ${e.type} dropEffect override to ${e.dataTransfer ? e.dataTransfer.dropEffect : 'n/a'}, ${e.dataTransfer?.effectAllowed}`);
+}
+
+window.addEventListener("dragover", overrideDropEffect, true);
+window.addEventListener("dragenter", overrideDropEffect, true);
