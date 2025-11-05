@@ -287,7 +287,7 @@ PUBLIC RECORD FUNCTION PollWHServiceState(STRING waitfor)
   INTEGER file;
   TRY
   {
-    file := OpenDiskFile(`${__SYSTEM_WHCOREPARAMETERS().basedataroot}caches/run/servicestate.${waitfor}.json`, FALSE);
+    file := OpenDiskFile(`${__SYSTEM_WHCOREPARAMETERS().basedataroot}caches/platform/run/servicestate.${waitfor}.json`, FALSE);
     IF(file > 0)
     {
       STRING data := ReadFrom(file, 16384);
@@ -328,7 +328,7 @@ PUBLIC MACRO SetWHServiceState(STRING waitingfor, RECORD state)
   IF(waitingfor NOT IN servicestates)
     THROW NEW Exception(`Unknown service state '${waitingfor}'`);
 
-  StoreDiskFile(`${__SYSTEM_WHCOREPARAMETERS().basedataroot}caches/run/servicestate.${waitingfor}.json`, StringToBlob(EncodeJSON(state) || "\n"), [ overwrite := TRUE ]);
+  StoreDiskFile(`${__SYSTEM_WHCOREPARAMETERS().basedataroot}caches/platform/run/servicestate.${waitingfor}.json`, StringToBlob(EncodeJSON(state) || "\n"), [ overwrite := TRUE ]);
   BroadcastEvent("system:internal.servicestate." || waitingfor, state);
 }
 

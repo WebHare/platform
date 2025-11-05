@@ -286,7 +286,7 @@ class ProcessManager {
 
 async function unlinkServicestateFiles() {
   try {
-    const servicestatepath = backendConfig.dataRoot + "caches/run/";
+    const servicestatepath = backendConfig.dataRoot + "caches/platform/run/";
     await fs.mkdir(servicestatepath, { recursive: true });
     for (const file of await listDirectory(servicestatepath, { mask: "servicestate.*" }))
       await fs.rm(file.fullPath);
