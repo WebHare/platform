@@ -19,20 +19,20 @@
             <select name="expire_login_unit" type="pulldown" title="" />
           </line>
           <line>
-            <textedit name="expire_persistentlogin" maxlength="12" required="true" valuetype="integer64" />
+            <textedit name="expire_persistent_login" maxlength="12" required="true" valuetype="integer64" />
             <select name="expire_persistentlogin_unit" type="pulldown" title="" />
           </line>
 
-          <!-- FIXME broken: enablecomponents="round_longlogins_to round_longlogins_tz round_minduration round_minduration_unit" /> -->
+          <!-- FIXME broken: enablecomponents="round_long_logins_to round_long_logins_t_z round_min_duration round_min_duration_unit" /> -->
           <heading name="roundlogins"
                    checkbox="true"
-                   enablecomponents="round_minduration round_minduration_unit"
+                   enablecomponents="round_min_duration round_min_duration_unit"
                    onchange="onroundloginschange" />
-          <time name="round_longlogins_to" required="true" />
-          <webapis:timezoneedit name="round_longlogins_tz" />
+          <time name="round_long_logins_to" required="true" />
+          <webapis:timezoneedit name="round_long_logins_t_z" />
           <line>
-            <textedit name="round_minduration" maxlength="12" valuetype="integer64" />
-            <select name="round_minduration_unit" type="pulldown" title="" />
+            <textedit name="round_min_duration" maxlength="12" valuetype="integer64" />
+            <select name="round_min_duration_unit" type="pulldown" title="" />
           </line>
         </tab>
       </tabs>

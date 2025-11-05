@@ -3637,8 +3637,7 @@ STATIC OBJECTTYPE WRDDBRecordValue EXTEND WRDDBIncomparableValue
   }
 >;
 
-STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
-<
+STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue <
   BOOLEAN wrapobjects;
   BOOLEAN jsmode;
   BOOLEAN jsonstrings;
@@ -3661,8 +3660,7 @@ STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
     RETURN DEFAULT RECORD;
   }
 
-  PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
-  {
+  PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit) {
     IF(settings_start = settings_limit)
       RETURN this->GetDefaultValue();
 
@@ -3672,8 +3670,8 @@ STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
     IF(this->jsmode)
       RETURN CELL[ "^$wrdtype" := "json", json := entity_settings[settings_start].rawdata ?? BlobToString(entity_settings[settings_start].blobdata) ];
 
-    VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata, CELL[], [ wrapobjects := this->wrapobjects, typed := TRUE ])
-                                                                  : DecodeJSONBlob(entity_settings[settings_start].blobdata, CELL[], [ wrapobjects := this->wrapobjects, typed := TRUE ]);
+    VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata, CELL[], [ wrapobjects := this->wrapobjects, typed := TRUE, camelcase := TRUE ])
+                                                                  : DecodeJSONBlob(entity_settings[settings_start].blobdata, CELL[], [ wrapobjects := this->wrapobjects, typed := TRUE, camelcase := TRUE ]);
     IF(TypeID(data) = TypeID(OBJECT))
     {
       IF(NOT (data EXTENDSFROM JSONObject))

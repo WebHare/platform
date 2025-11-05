@@ -165,6 +165,22 @@
         </textgroup>
       </textgroup>
       <textgroup gid="web">   <!-- siteprofiles.types.web -->
+        <textgroup gid="config">   <!-- siteprofiles.types.web.config -->
+          <text tid="canonical">Canonieke URL</text>
+          <text tid="comments">Interne opmerkingen</text>
+          <text tid="comments-placeholder">Interne opmerkingen over de instellingen voor dit object. Deze worden niet gepubliceerd.</text>
+          <text tid="config">Web configuratie</text>
+          <text tid="custom_robots">Aanvullende robot-tags</text>
+          <text tid="custom_robots-placeholder">Bijvoorbeeld "nosnippet, notranslate" (kommagescheiden).</text>
+          <text tid="no_archive">Niet archiveren/cachen (noarchive</text>
+          <text tid="no_follow">Volg geen links (nofollow)</text>
+          <text tid="no_index">Niet opslaan in index (noindex)</text>
+        </textgroup>
+        <textgroup gid="metadata">   <!-- siteprofiles.types.web.metadata -->
+          <text tid="metadata">Web/SEO metadata</text>
+          <text tid="seo_title">Meta titel</text>
+          <text tid="seo_title-placeholder">Overschrijf de titel zoals gebruikt in zoekresultaten/browser title</text>
+        </textgroup>
         <textgroup gid="sitesettings">   <!-- siteprofiles.types.web.sitesettings -->
           <text tid="productionurl">Productie-URL</text>
           <text tid="sitedesign">Sitedesign</text>

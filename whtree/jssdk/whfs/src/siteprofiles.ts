@@ -26,6 +26,7 @@ export enum CSPMemberType {
   HSON = 21,
   Record = 23,
   PlainDate = 25, //like Date, but signal truncation of the millisecond part
+  JSON = 26
 }
 
 export interface YamlComponentDefinition {

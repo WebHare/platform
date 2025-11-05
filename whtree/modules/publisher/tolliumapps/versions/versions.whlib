@@ -186,7 +186,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         requireworkflow := FALSE
       ]);
 
-      renderer->RegisterMetaController(^seosettings->type, ^seosettings);
+      renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);
 
       RECORD ARRAY instances := ListInstances(sel.snapshot);
 

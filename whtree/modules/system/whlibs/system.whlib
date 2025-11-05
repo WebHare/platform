@@ -3852,13 +3852,14 @@ PUBLIC VARIANT FUNCTION __DecodeJSONStdType(VARIANT value)
   // in wrapobjects mode, value is a RECORD ARRAY with entries
   IF (TypeID(value) = TypeID(RECORD ARRAY))
     value := RepackRecord(value);
-  SWITCH (value."$stdType")
+  STRING type := CellExists(value, "$stdType") ? value."$stdType" : value."$std_type"; //support camelcase := TRUE too
+  SWITCH (type)
   {
     CASE "Date" { RETURN MakeDateFromText(value.date); }
     CASE "Money" { RETURN ToMoney(value."money", 0m); }
     CASE "BigInt" { RETURN ToInteger64(value.bigint, 0i64); }
     CASE "Instant" {  RETURN MakeDateFromText(value.instant); }
-    DEFAULT { THROW NEW Exception(`Unsupported $stdType ${EncodeJSON(value."$stdType")}`); }
+    DEFAULT { THROW NEW Exception(`Unsupported $stdType ${EncodeJSON(type)}`); }
   }
 }
 

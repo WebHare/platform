@@ -9,7 +9,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
-import { registerRelyingParty, initializeIssuer } from "@webhare/auth";
+import { registerRelyingParty, initializeIssuer, type WRDAuthLoginSettings } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
@@ -117,10 +117,10 @@ async function setupOIDC() {
     await updateSchemaSettings(schemaSP, {
       loginSettings: {
         ...defaultWRDAuthLoginSettings,
-        expire_thirdpartylogin: 2 * 86400 * 1000,
-        expire_login: 4 * 86400 * 1000,
-        round_longlogins_to: -1 //disabling rounding, it'll cause CI issues when testing around midnight
-      }
+        expireLogin: 4 * 86400 * 1000,
+        expireThirdPartyLogin: 2 * 86400 * 1000,
+        roundLongLoginsTo: -1 //disabling rounding, it'll cause CI issues when testing around midnight
+      } satisfies WRDAuthLoginSettings
     });
   });
 

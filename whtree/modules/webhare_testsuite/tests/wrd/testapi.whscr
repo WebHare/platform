@@ -491,7 +491,7 @@ MACRO TestJSONAttr()
 
   //test preserving case
   testperson->UpdateEntity([ jsondata := DecodeJSON(`{"myJSONValue":43}`,CELL[], [ wrapobjects := TRUE ])]);
-  TestEq([ jsondata := [ myjsonvalue := 43 ] ], testperson->GetFields(["jsondata"]));
+  TestEq([ jsondata := [ my_j_s_o_n_value := 43 ] ], testperson->GetFields(["jsondata"]));
   TestEq(43, testperson->GetField("jsondata", [ wrapobjects := TRUE ])->GetProp("myJSONValue"));
   TestEq([ jsondata := `{"myJSONValue":43}` ], testperson->GetFields(["jsondata"], [ jsonstrings := TRUE ]));
 

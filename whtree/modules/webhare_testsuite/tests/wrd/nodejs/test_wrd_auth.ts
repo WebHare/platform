@@ -82,11 +82,12 @@ async function testExpiryCalculation() {
     calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 60 * 60_000), //1 hour
     "Logging in at 17:00:00 CET with 1 hour expiry should give a session until 18:00:00 CET (17:00:00 UTC)");
 
+  //TODO this test has no use, the default rouding is already 4*3600*100 - what was it doing?
   test.eq(Temporal.Instant.from("2021-07-12T09:30:00Z"),
-    calculateWRDSessionExpiry({ ...defaultWRDAuthLoginSettings, round_longlogins_to: 4 * 3600 * 1000 },
+    calculateWRDSessionExpiry({ ...defaultWRDAuthLoginSettings, roundLongLoginsTo: 4 * 3600 * 1000 },
       Temporal.Instant.from("2021-07-12T09:15:00Z"),
       15 * 60 * 1000), // 15 minutes
-    "Killing round_longlogins_to should stop any rounding up/down");
+    "Killing roundLongLoginsTo should stop any rounding up/down");
 
   test.eq(Temporal.Instant.from("2021-07-12T16:15:00Z"),
     calculateWRDSessionExpiry(defaultWRDAuthLoginSettings,
@@ -299,9 +300,9 @@ async function testAuthAPI() {
     loginSettings: {
       ...defaultWRDAuthLoginSettings,
       ...loginSettings,
-      expire_thirdpartylogin: 2 * 86400 * 1000,
-      expire_login: 4 * 86400 * 1000,
-      round_longlogins_to: -1 //disabling rounding, it'll cause CI issues when testing around midnight
+      expireThirdPartyLogin: 2 * 86400 * 1000,
+      expireLogin: 4 * 86400 * 1000,
+      roundLongLoginsTo: -1 //disabling rounding, it'll cause CI issues when testing around midnight
     }
   });
 

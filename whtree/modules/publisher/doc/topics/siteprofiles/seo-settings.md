@@ -21,7 +21,7 @@ To enable, add or update your siteprofile's baseproperties: `<baseproperties seo
 
 ### Migrating custom fields to these titles
 You'll need to write a conversion script that sets the `seotitle` in the
-`http://www.webhare.net/xmlns/publisher/seosettings` instance. Keep in mind that these fields are only available on files,
+`web.metadata` instance. Keep in mind that these fields are only available on files,
 if you did something meaningful with them at the folder level you'll still need to implement that yourself.
 
 After that, ensure `<baseproperties seotitle="true" />` is set and update your webdesign code as needed.

@@ -165,6 +165,22 @@
         </textgroup>
       </textgroup>
       <textgroup gid="web">   <!-- siteprofiles.types.web -->
+        <textgroup gid="config">   <!-- siteprofiles.types.web.config -->
+          <text tid="canonical">Canonical URL</text>
+          <text tid="comments">Internal comments</text>
+          <text tid="comments-placeholder">Leave your internal comments about the settings for this object. These will not be published.</text>
+          <text tid="config">Web configuration</text>
+          <text tid="custom_robots">Additional robot tags</text>
+          <text tid="custom_robots-placeholder">Example: "nosnippet, notranslate" (comma separated).</text>
+          <text tid="no_archive">Do not archive/cache (noarchive)</text>
+          <text tid="no_follow">Don't follow links (nofollow)</text>
+          <text tid="no_index">Don't store in index (noindex)</text>
+        </textgroup>
+        <textgroup gid="metadata">   <!-- siteprofiles.types.web.metadata -->
+          <text tid="metadata">Web/SEO metadata</text>
+          <text tid="seo_title">Meta title</text>
+          <text tid="seo_title-placeholder">Overwrite title used in search results/browser title</text>
+        </textgroup>
         <textgroup gid="sitesettings">   <!-- siteprofiles.types.web.sitesettings -->
           <text tid="productionurl">Production URL</text>
           <text tid="sitedesign">Site design</text>

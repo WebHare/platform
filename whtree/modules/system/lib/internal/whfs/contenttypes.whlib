@@ -544,6 +544,11 @@ STATIC OBJECTTYPE WHFSType <
           IF (Length(curset) > 0)
             newval := curset[0].setting NOT IN ["","FC1"] ? DecodeHSON(curset[0].setting) : DecodeHSONBlob(curset[0].blobdata);
         }
+        CASE 26 { //JSON
+          IF (Length(curset) > 0)
+            newval := curset[0].setting != "" ? DecodeJSON(curset[0].setting, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
+                                              : DecodeJSONBlob(curset[0].blobdata, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ]);
+        }
         DEFAULT
         {
           newval := Length(curset)>=1 ? curset[0].setting : "";
@@ -1070,6 +1075,29 @@ STATIC OBJECTTYPE WHFSType <
             }
             ELSE
             {
+              killsettings := killsettings CONCAT current_member_settings;
+
+              INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+              INSERT INTO system.fs_settings(id, fs_instance, fs_member, setting, blobdata, parent)
+                     VALUES(newid, instanceid, memberrec.id, newset.setting, newset.blobdata, cursetting);
+            }
+          }
+        }
+        CASE 26 { //JSON
+          IF (NOT RecordExists(newval)) {
+            killsettings := killsettings CONCAT current_member_settings;
+          } ELSE {
+            STRING data := EncodeJSON(newval, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ]);
+            RECORD newset;
+
+            IF (Length(data) <= 4096)
+              newset := [ setting := data, blobdata := DEFAULT BLOB ];
+            ELSE
+              newset := [ setting := "", blobdata := StringToBlob(data) ];
+
+            IF (Length(current_member_settings) = 1) {
+              UPDATE system.fs_settings SET setting := newset.setting, blobdata := newset.blobdata WHERE id = current_member_settings[0].id;
+            } ELSE {
               killsettings := killsettings CONCAT current_member_settings;
 
               INTEGER newid := MakeAutoNumber(system.fs_settings, "id");

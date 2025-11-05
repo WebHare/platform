@@ -465,7 +465,7 @@ case $INSTR in
 
   "activity")
     getlog LOGFILE access
-    cut -d' ' -f4 -- "$LOGFILE" | cut -d':' -f2,3 | sort | uniq -c
+    <"$LOGFILE" jq -r '."@timestamp"' |cut -b1-16 | sort | uniq -c
     ;;
 
   "dumplog")

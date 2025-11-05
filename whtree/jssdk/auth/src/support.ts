@@ -13,26 +13,26 @@ import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webh
 //TODO Export from @webhare/auth? but camelcase first
 export type WRDAuthLoginSettings = {
   /** Expire normal login after this time (milliseconds) */
-  expire_login: number;
+  expireLogin: number;
   /** Expire persistent login after this time (milliseconds) */
-  expire_persistentlogin: number;
+  expirePersistentLogin: number;
   /** Expire third party login after this time (milliseconds) */
-  expire_thirdpartylogin: number;
+  expireThirdPartyLogin: number;
   /** Round long logins to this time of the day (milliseconds) */
-  round_longlogins_to: number;
+  roundLongLoginsTo: number;
   /** Round long logins in this timezone */
-  round_longlogins_tz: string;
+  roundLongLoginsTZ: string;
   /** Minimum duration of sessions when rounding (milliseconds) */
-  round_minduration: number;
+  roundMinDuration: number;
 };
 
 export const defaultWRDAuthLoginSettings: WRDAuthLoginSettings = {
-  expire_login: 86400 * 1000, // 1 day
-  expire_persistentlogin: 30 * 86400 * 1000, //30 days
-  expire_thirdpartylogin: 86400 * 1000, // 1 day
-  round_longlogins_to: 4 * 3600 * 1000, // 4 am (set to -1 to disable rounding)
-  round_longlogins_tz: "Europe/Amsterdam", // default timezone for rounding
-  round_minduration: 3 * 3600 * 1000, // sessions last at least 3 hours
+  expireLogin: 86400 * 1000, // 1 day
+  expirePersistentLogin: 30 * 86400 * 1000, //30 days
+  expireThirdPartyLogin: 86400 * 1000, // 1 day
+  roundLongLoginsTo: 4 * 3600 * 1000, // 4 am (set to -1 to disable rounding)
+  roundLongLoginsTZ: "Europe/Amsterdam", // default timezone for rounding
+  roundMinDuration: 3 * 3600 * 1000, // sessions last at least 3 hours
 };
 
 export type PrepAuthResult = {
@@ -153,7 +153,7 @@ export function calculateWRDSessionExpiry(loginSettings: WRDAuthLoginSettings, n
 
   //First we add the requested expiryTime to the base time
   const expiry = now.add({ milliseconds: expiryTime });
-  if (!(loginSettings.round_longlogins_to >= 0))
+  if (!(loginSettings.roundLongLoginsTo >= 0))
     return expiry;
 
   /* Rounding is enabled - this is the default!
@@ -166,11 +166,11 @@ export function calculateWRDSessionExpiry(loginSettings: WRDAuthLoginSettings, n
 
      This does mean that a session can actually last *longer* than the expiry time as we would now round *up* towards the login time
      one day later */
-  const toRound = expiry.add({ milliseconds: loginSettings.round_minduration });
-  const localizedToRound = toRound.toZonedDateTimeISO(loginSettings.round_longlogins_tz);
-  const wasNextDay = (localizedToRound.epochMilliseconds - localizedToRound.startOfDay().epochMilliseconds) < loginSettings.round_longlogins_to;
+  const toRound = expiry.add({ milliseconds: loginSettings.roundMinDuration });
+  const localizedToRound = toRound.toZonedDateTimeISO(loginSettings.roundLongLoginsTZ);
+  const wasNextDay = (localizedToRound.epochMilliseconds - localizedToRound.startOfDay().epochMilliseconds) < loginSettings.roundLongLoginsTo;
 
-  const nightlyTarget = localizedToRound.startOfDay().subtract({ days: wasNextDay ? 1 : 0 }).add({ milliseconds: loginSettings.round_longlogins_to });
+  const nightlyTarget = localizedToRound.startOfDay().subtract({ days: wasNextDay ? 1 : 0 }).add({ milliseconds: loginSettings.roundLongLoginsTo });
 
   return nightlyTarget.epochMilliseconds > now.epochMilliseconds ? nightlyTarget.toInstant() : expiry;
 }

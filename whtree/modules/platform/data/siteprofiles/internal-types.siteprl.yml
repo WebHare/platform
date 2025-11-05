@@ -149,30 +149,23 @@ types:
         comment: When to delete this file. PERMANENT!
 
   publisher.seosettings: #we're splitting these over the web.* types
+    comment: legacy version for publisher seo settings, now migrated to web.config and web.metadata
     namespace: http://www.webhare.net/xmlns/publisher/seosettings
-    workflow: true # We need this to be able to set seoTitle
     members:
       noindex:
         type: boolean
-        comment: Set 'noindex', preventing search engines from indexing this page or folder, recursively
       nofollow:
         type: boolean
-        comment: Set 'nofollow', preventing search engines from following links on this page or folder, recursively
       noarchive:
         type: boolean
-        comment: Set 'noarchive', preventing search engines from storing a cached copy of this page or folder
       customrobots:
         type: string
-        comment: Custom robots meta tag content
       canonical:
         type: whfsRef
-        comment: Points to the canonical URL of this page
       comments:
         type: string
-        comment: Comments for editors/administrators to explain the SEO choices, not shown on the site
       seotitle:
         type: string
-        comment: Override the <title> tag to use in the HTML head
 
   publisher.sharedblocks:
     namespace: http://www.webhare.net/xmlns/publisher/sharedblocks

@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "mod::platform/migrations/5.9/lib/seosettings.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+OpenPrimary();
+IF(NOT SafeToMigrateSeoSettings())
+  ABORT("Cannot migrate SEO settings while instances are present.");
+
+GetPrimary()->BeginWork();
+MigrateSeoSettings();
+GetPrimary()->CommitWork();

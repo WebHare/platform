@@ -24,7 +24,8 @@
     </actions>
 
     <compositions>
-      <publisher:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+      <publisher:whfsinstance name="webmetadata" typedef="platform:web.metadata" />
+      <publisher:whfsinstance name="webconfig" typedef="platform:web.config" />
       <dirtylistener name="dirtylistener" />  <!-- added for editapi compatibility, not used yet -->
     </compositions>
 
@@ -48,14 +49,14 @@
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <textedit name="title" width="1pr" maxlength="256" tid="~title" />
               <heading name="seotab_heading" doclink="publisher:objectprops/seo" />
-              <textedit composition="seosettings"
-                        cellname="seotitle"
+              <textedit composition="webmetadata"
+                        cellname="seo_title"
                         name="seotitle"
                         width="1pr"
                         maxlength="256"
-                        placeholdertid=".meta-title-placeholder"
+                        placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
                         showcounter="true"
-                        tid=".meta-title" />
+                        tid="platform:siteprofiles.types.web.metadata.seo_title" />
               <textarea name="description"
                         height="3gr"
                         maxlength="2048"
@@ -143,32 +144,44 @@
                 <text name="objectpinned" title="" visible="false" />
               </line>
               <heading name="seocustomization" doclink="publisher:objectprops/seocustomization" tid=".seocustomization" />
-              <publisher:browseforobject composition="seosettings"
+              <publisher:browseforobject composition="webconfig"
                                          cellname="canonical"
                                          name="canonical"
                                          width="1pr"
                                          acceptfolders="false"
-                                         tid="common.seosettings.canonical" />
-              <checkbox composition="seosettings" cellname="noindex" name="noindex" labeltid=".noindex" tid=".robottags" />
-              <checkbox composition="seosettings" cellname="nofollow" name="nofollow" labeltid=".nofollow" title="" />
-              <checkbox composition="seosettings" cellname="noarchive" name="noarchive" labeltid=".noarchive" title="" />
-              <textedit composition="seosettings"
-                        cellname="customrobots"
+                                         tid="platform:siteprofiles.types.web.config.canonical" />
+              <checkbox composition="webconfig"
+                        cellname="no_index"
+                        name="no_index"
+                        labeltid="platform:siteprofiles.types.web.config.no_index"
+                        tid=".robottags" />
+              <checkbox composition="webconfig"
+                        cellname="no_follow"
+                        name="no_follow"
+                        labeltid="platform:siteprofiles.types.web.config.no_follow"
+                        title="" />
+              <checkbox composition="webconfig"
+                        cellname="no_archive"
+                        name="no_archive"
+                        labeltid="platform:siteprofiles.types.web.config.no_archive"
+                        title="" />
+              <textedit composition="webconfig"
+                        cellname="custom_robots"
                         name="customrobots"
                         width="1pr"
-                        placeholdertid="common.seosettings.customrobots-placeholder"
-                        tid="common.seosettings.customrobots" />
+                        placeholdertid="platform:siteprofiles.types.web.config.custom_robots-placeholder"
+                        tid="platform:siteprofiles.types.web.config.custom_robots" />
               <spacer name="insertpoint_advancedsettings" visible="false" />
-              <heading doclink="publisher:objectprops/comments" tid=".comments" />
+              <heading doclink="publisher:objectprops/comments" tid="platform:siteprofiles.types.web.config.comments" />
               <line layout="left">
-                <textarea composition="seosettings"
+                <textarea composition="webconfig"
                           cellname="comments"
                           width="1pr"
                           height="1pr"
                           minheight="3gr"
                           errorlabeltid="~comments"
                           maxlength="4096"
-                          placeholdertid=".comments-placeholder"
+                          placeholdertid="platform:siteprofiles.types.web.config.comments-placeholder"
                           showcounter="true"
                           title="" />
               </line>

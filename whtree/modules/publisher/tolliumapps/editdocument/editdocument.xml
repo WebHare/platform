@@ -87,7 +87,7 @@
     <compositions>
       <eventlistener name="publicationlistener" onevents="gotfolderchangeevents" />
       <dirtylistener name="dirtylistener" makeappdirty="true" ondirty="gotdirty" />
-      <p:whfsinstance name="seosettings" typedef="http://www.webhare.net/xmlns/publisher/seosettings" />
+      <p:whfsinstance name="webmetadata" typedef="platform:web.metadata" />
     </compositions>
 
     <toolbar name="toolbar">
@@ -123,15 +123,15 @@
                             required="true" />
                   <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
                   <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
-                  <textedit composition="seosettings"
-                            cellname="seotitle"
+                  <textedit composition="webmetadata"
+                            cellname="seo_title"
                             name="seotitle"
                             width="1pr"
                             maxlength="256"
                             dirtylistener="dirtylistener"
-                            placeholdertid="tolliumapps.objectprops.objectprops.meta-title-placeholder"
+                            placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
                             showcounter="true"
-                            tid="tolliumapps.objectprops.objectprops.meta-title" />
+                            tid="platform:siteprofiles.types.web.metadata.seo_title" />
                   <textarea name="description"
                             height="3gr"
                             dirtylistener="dirtylistener"

@@ -360,8 +360,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
 
     DATETIME now := GetCurrentDatetime();
     DATETIME creationdate := options.setcreationdate ?? now;
-    INTEGER64 expirytime := cookietype = cookietype_thirdparty ? INTEGER64(this->wrdauthconfig.expire_thirdpartylogin)
-                            : cookietype = cookietype_persistent ? INTEGER64(this->wrdauthconfig.expire_persistentlogin)
+    INTEGER64 expirytime := cookietype = cookietype_thirdparty ? INTEGER64(this->wrdauthconfig.expire_third_party_login)
+                            : cookietype = cookietype_persistent ? INTEGER64(this->wrdauthconfig.expire_persistent_login)
                             : INTEGER64(this->wrdauthconfig.expire_login);
     IF(expirytime <= 0)
       THROW NEW Exception(`Invalid expiry time configured`);

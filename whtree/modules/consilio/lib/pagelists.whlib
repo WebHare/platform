@@ -116,7 +116,7 @@ PUBLIC STRING FUNCTION __GetSubpageBaseUrl(RECORD typeinfo, RECORD fileinfo)
 RECORD ARRAY FUNCTION GenerateSitemapCandidates(RECORD basefolder, INTEGER ARRAY limitobjects, RECORD context)
 {
   IF(NOT ObjectExists(seosettingstype))
-    seosettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings");
+    seosettingstype := OpenWHFSType("web.config");
 
   RECORD ARRAY allfiles := SELECT id, name, title, type, link, objecturl, published, modificationdate
                                 , isindex := id = basefolder.indexdoc
@@ -133,8 +133,8 @@ RECORD ARRAY FUNCTION GenerateSitemapCandidates(RECORD basefolder, INTEGER ARRAY
                                     AND isfolder
                                     AND (context.skipfolderswithoutindex ? link != "" : TRUE);
 
-  RECORD ARRAY seosettings := SELECT * FROM seosettingstype->Enrich(allfiles CONCAT subfolders, "ID", ["NOINDEX"]) WHERE noindex;
-  INTEGER ARRAY removefromindex := SELECT AS INTEGER ARRAY id FROM seosettings WHERE noindex;
+  RECORD ARRAY seosettings := SELECT * FROM seosettingstype->Enrich(allfiles CONCAT subfolders, "ID", ["NO_INDEX"]) WHERE no_index;
+  INTEGER ARRAY removefromindex := SELECT AS INTEGER ARRAY id FROM seosettings;
   IF(Length(removefromindex) > 0)
   {
     DELETE FROM allfiles WHERE id IN removefromindex;
@@ -164,7 +164,7 @@ PUBLIC OBJECT FUNCTION __MakePagelistProvider(STRING objtype, RECORD typeinfo)
 RECORD ARRAY FUNCTION GatherPages(INTEGER startfolder, INTEGER ARRAY limitobjects, RECORD context)
 {
   IF(NOT ObjectExists(seosettingstype) AND context.forsitemap)
-    seosettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/seosettings");
+    seosettingstype := OpenWHFSType("platform:web.config");
 
   RECORD basefolder := SELECT id, indexdoc
                          FROM system.fs_objects
@@ -177,8 +177,8 @@ RECORD ARRAY FUNCTION GatherPages(INTEGER startfolder, INTEGER ARRAY limitobject
   {
     //Validate whether parents and this folder aren't NOINDEX-ed
     INTEGER ARRAY path := OpenWHFSObject(basefolder.id)->GetWHFSTree();
-    RECORD ARRAY pathitems := seosettingstype->Enrich(ToRecordArray(path,"ID"), "ID", ["NOINDEX"]);
-    IF(RecordExists(SELECT FROM pathitems WHERE noindex))
+    RECORD ARRAY pathitems := seosettingstype->Enrich(ToRecordArray(path,"ID"), "ID", ["NO_INDEX"]);
+    IF(RecordExists(SELECT FROM pathitems WHERE no_index))
       RETURN RECORD[];
   }
 

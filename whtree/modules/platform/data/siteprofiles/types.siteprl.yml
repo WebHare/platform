@@ -302,6 +302,42 @@ types:
         tid: ~comments
       productionurl:
         type: string
+
+  ## SEO and other extended metadata used when publishing to the web
+  web.metadata:
+    workflow: true
+    clone: onCopy
+    comment: Extended metadata for web publishing. eg. seotitle, schema.org, ..
+    # TODO we still need to design and add schema.org support but it would appear here. likewise og:data things could appear here
+    members:
+      seoTitle:
+        type: string
+        comment: Override the <title> tag to use in the HTML head
+
+  web.config:
+    workflow: false
+    clone: onArchive
+    comment: Web configuration for a file or folder. Managed outside workflow
+    members:
+      comments:
+        type: string
+        comment: Comments for editors/administrators to explain the SEO choices, not shown on the site
+      noIndex:
+        type: boolean
+        comment: Set 'noindex', preventing search engines from indexing this page or folder, recursively
+      noFollow:
+        type: boolean
+        comment: Set 'nofollow', preventing search engines from following links on this page or folder, recursively
+      noArchive:
+        type: boolean
+        comment: Set 'noarchive', preventing search engines from storing a cached copy of this page or folder
+      customRobots:
+        type: string
+        comment: Custom robots meta tag content
+      canonical:
+        type: whfsRef
+        comment: Points to the canonical URL of this page. No defined effect yet on folders
+
   # FIXME obsolete type:  http://www.webhare.net/xmlns/publisher/version - redundant with fs_history table
 
 apply:

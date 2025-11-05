@@ -26,10 +26,10 @@ RECORD ARRAY FUNCTION GetRTEInstructions()
 }
 
 INTEGER round;
-ASYNC FUNCTION TestMetaFields(BOOLEAN readonly, BOOLEAN isprops) //shared MetaTabs and ObjectProps stuff
+ASYNC FUNCTION TestMetaFields(BOOLEAN readonly) //shared MetaTabs and ObjectProps stuff
 {
   //naming is inconsistent here
-  STRING metatitletitle := isprops ? ":SEO Title" : ":Meta title";
+  STRING metatitletitle := ":Meta title";
   TestEq(TRUE,  TTIsVisible(metatitletitle));
 
   // TestEq(FALSE,  TTIsVisible(":Description")); //FIXME TTISVISIBLE doesn't work? But if I don't make it invisible, it does find it.
@@ -105,7 +105,7 @@ ASYNC MACRO TestMetaTab()
       wh_user := testfw->GetUserObject("sysop")->entity->guid,
       multi_field := [ num1 := 10, num2 := 20 ]
       ]);
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/seosettings", [ seotitle := "Se-o, se-e-e-e-o!" ]);
+  testfile->SetInstanceData("platform:web.metadata", [ seo_title := "Se-o, se-e-e-e-o!" ]);
 
   testfw->CommitWork();
 
@@ -121,7 +121,7 @@ ASYNC MACRO TestMetaTab()
   RTE()->TolliumWeb_FormUpdate('<p class="normal">autosaved text</p>');
   RTE()->__debug_simulatedirty();
 
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
 
   TestEq(TRUE, topscreen->frame->flags.isdirty, "Verifies dirtylisteners are connected");
   TestEq(TRUE, topscreen->frame->flags.canpublish, "Should be allowed to publish now");
@@ -136,14 +136,14 @@ ASYNC MACRO TestMetaTab()
   //Verify the autosave is visible
   TestEq("testmetatab1.rtd", TT(":Name")->value);
   TestEq("My autosaved document", TT(":Title")->value);
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
   TestEQLike("*autosaved text*", BlobToString(RTE()->value.htmltext), "Original text should have returned");
 
   AWAIT ExpectAndAnswerMessageBox("yes", DEFAULT MACRO PTR , [ messagemask := "You have unsaved changes*" ]); //confirm restore
   TestEq("testmetatab1.rtd", TT(":Name")->value);
   TestEq("My autosaved document", TT(":Title")->value);
 
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
 
   TT(":Name")->value := "testmetatab2.rtd";
   TT(":Title")->value := "My updated document";
@@ -161,7 +161,7 @@ ASYNC MACRO TestMetaTab()
   TestEq([ name := "testmetatab2.rtd", title := "My updated document", keywords := "", description := "", data := DEFAULT BLOB ], OpenWHFSDraft(autosaves[0].id)->GetMetadata());
 
   //Make a change, not saving or publishing but checking through My changes
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
   { //click mychanges and test whether the change is there
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
@@ -172,7 +172,7 @@ ASYNC MACRO TestMetaTab()
   }
 
   //Make a second change, not saving or publishing but checking through My changes
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
   { //click mychanges and test whether the change is there
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
@@ -190,7 +190,7 @@ ASYNC MACRO TestMetaTab()
 
   TestEq("testmetatab2.rtd", TT(":Name")->value);
   TestEq("My updated document", TT(":Title")->value);
-  AWAIT TestMetaFields(FALSE, FALSE); //verifies the fields but also increases number_Field again
+  AWAIT TestMetaFields(FALSE); //verifies the fields but also increases number_Field again
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
@@ -200,7 +200,7 @@ ASYNC MACRO TestMetaTab()
   TestEqMembers([ number_field := 48 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   //Make yet ANOTHER change
-  AWAIT TestMetaFields(FALSE, FALSE);
+  AWAIT TestMetaFields(FALSE);
 
   { //click mychanges and test whether the change is there
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
@@ -216,7 +216,7 @@ ASYNC MACRO TestMetaTab()
 
   //Verify that objectprops works (not really out of scope - in the future objectprops will have to cooperate with the RTD drafts)
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), testfile->id));
-  AWAIT TestMetaFields(FALSE, TRUE);
+  AWAIT TestMetaFields(FALSE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEqMembers([ number_field := 50 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
@@ -316,7 +316,7 @@ ASYNC MACRO TestReopenDeletedFile()
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
-  AWAIT TestMetaFields(TRUE, FALSE);
+  AWAIT TestMetaFields(TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object

@@ -35,7 +35,7 @@ ASYNC MACRO ObjectProps()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab isn't enabled in propstest so shouldn't appear");
-  TestEq(FALSE, ObjectExists(topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/publisher/seosettings", "noindex")));
+  TestEq(FALSE, ObjectExists(topscreen->GetExtendedComponent("platform:web.config", "no_index")));
 
   { //test editing the existing file
     OBJECT betatab := TT(":Beta test tab");

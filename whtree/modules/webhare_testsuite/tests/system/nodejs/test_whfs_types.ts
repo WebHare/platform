@@ -150,12 +150,13 @@ async function testInstanceData() {
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
+    anUntypedRecord: { anyMember: 123, myMoney: Money.fromNumber(4.5) },
     myWhfsRef: testfile.id,
     myLink: new IntExtLink(testfile.id),
     myWhfsRefArray: fileids
   });
 
-  let expectNumSettings = 16;
+  let expectNumSettings = 17;
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
   await testtype.set(testfile.id, {
@@ -175,6 +176,7 @@ async function testInstanceData() {
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
+    anUntypedRecord: { anyMember: 123, myMoney: Money.fromNumber(4.5) },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids,
     myLink: test.expectIntExtLink(testfile.id),
@@ -314,6 +316,7 @@ async function testInstanceData() {
     myWhfsRef: null,
     myWhfsRefArray: [],
     myLink: null,
+    anUntypedRecord: null
   }, (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data);
 
   // Export of default values should result in only the whfsType property (default values should be omitted)
@@ -387,8 +390,12 @@ async function testInstanceData() {
     a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
     my_whfs_ref: testfile.id,
     my_whfs_ref_array: fileids,
-    my_link: { internallink: testfile.id }
+    my_link: { internallink: testfile.id },
+    an_untyped_record: { any_member: 123, my_money: Money.fromNumber(4.5) },
   }, val);
+
+  await hs_generictype.setInstanceData(testfile.id, { an_untyped_record: { any_member: 456, my_money: Money.fromNumber(7.5) } });
+  test.eqPartial({ anUntypedRecord: { anyMember: 456, myMoney: Money.fromNumber(7.5) } }, await testtype.get(testfile.id));
 
   test.eq(returnedGoldfish?.mediaType, val.blub.mimetype);
   test.eq(returnedGoldfish?.hash, val.blub.hash);
@@ -588,6 +595,7 @@ async function testInstanceData() {
     strArray: [],
     url: "",
     yesNo: false,
+    anUntypedRecord: null
   } satisfies whfs.TypedInstanceData<"webhare_testsuite:global.generic_test_type">;
 
   const testTypeDescription = await testtype.describe();

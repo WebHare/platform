@@ -19,6 +19,7 @@ import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
 import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { buildInstance } from "@webhare/services/src/richdocument";
+import type { HSVMObject } from "@webhare/harescript";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -384,6 +385,21 @@ async function testNewAPI() {
   ], selectres);
 
   test.eq({ testJsonRequired: { mixedCase: [randomData] } }, await schema.getFields("wrdPerson", secondperson, ["testJsonRequired"]));
+
+  //Test json field in HS
+  await whdb.beginWork();
+  await schema.update("wrdPerson", firstperson, { testJson: { mixedCase: [5], date: new Date("2025-11-04T12:03:01Z") } });
+  const hsWrdSchema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(testSchemaTag) as HSVMObject;
+  const hsPersonType = await hsWrdSchema.GetType("WRD_PERSON") as HSVMObject;
+  const hsPersonFields = await hsPersonType.GetEntityFields(firstperson, ["test_json", "test_json_required"]);
+  test.eq({
+    test_json: { mixed_case: [5], date: new Date("2025-11-04T12:03:01Z") },
+    test_json_required: { mixed_case: [1, 'yes!'] }
+  }, hsPersonFields);
+
+  await hsPersonType.UpdateEntity(firstperson, { test_json: { mixed_case: ["AAA", 42] } });
+  test.eq({ testJson: { mixedCase: ["AAA", 42] } }, await schema.getFields("wrdPerson", firstperson, ["testJson"]));
+  await whdb.rollbackWork();
 
   // wait until schemaById also knows testJsonRequired
   await test.wait(async () => {
