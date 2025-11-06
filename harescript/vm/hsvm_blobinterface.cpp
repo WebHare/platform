@@ -80,6 +80,67 @@ Blex::FileOffset BlobBase::GetLength()
         return cachedlength;
 }
 
+std::string BlobBase::GetDiskPath()
+{
+        return std::string();
+}
+
+//---------------------------------------------------------------------------
+//
+// DiskBlob
+//
+//---------------------------------------------------------------------------
+
+DiskBlob::DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength)
+: BlobBase(vm, filelength)
+, path(_path)
+{
+}
+
+DiskBlob::~DiskBlob()
+{
+}
+
+DiskBlob::MyOpenedBlob::MyOpenedBlob(DiskBlob &blob)
+: OpenedBlobBase< DiskBlob >(blob)
+{
+        stream.reset(Blex::FileStream::OpenRead(blob.path));
+}
+
+DiskBlob::MyOpenedBlob::~MyOpenedBlob()
+{
+}
+
+std::size_t DiskBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
+{
+        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
+}
+
+std::unique_ptr< OpenedBlob > DiskBlob::OpenBlob()
+{
+        return std::make_unique< MyOpenedBlob >(*this);
+}
+
+Blex::DateTime DiskBlob::GetModTime()
+{
+        return Blex::DateTime::Invalid();
+}
+
+Blex::FileOffset DiskBlob::GetCacheableLength()
+{
+        throw std::runtime_error("DiskBlob::GetCacheableLength should never be invoked");
+}
+
+std::string DiskBlob::GetDescription()
+{
+        return "DiskBlob (" + path + ")";
+}
+
+std::string DiskBlob::GetDiskPath()
+{
+        return path;
+}
+
 //---------------------------------------------------------------------------
 //
 // GlobalBlobManager

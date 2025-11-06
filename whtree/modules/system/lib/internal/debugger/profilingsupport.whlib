@@ -1212,7 +1212,11 @@ PUBLIC STATIC OBJECTTYPE DisplayedAdhocCacheList EXTEND DisplayedProfile
     RETURN
         SELECT rowkey :=        `${#items+1}`
              , name :=          library
-             , totalsize :=     datasize + blobsize
+             , datasize
+             , blobsize
+             , diskblobsize
+             , objects
+             , totalsize :=     datasize + diskblobsize + blobsize
              , namesortkey :=   `${library}\n`
              , stacktrace
              , creationdate
@@ -1237,6 +1241,30 @@ PUBLIC STATIC OBJECTTYPE DisplayedAdhocCacheList EXTEND DisplayedProfile
             , precision := "milliseconds"
             , width :=    "22x"
             , storeutc := TRUE
+            ]
+          , [ name :=     "datasize"
+            , title :=    GetTid("system:debugger.profiles.datasize")
+            , type :=     "integer64"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "blobsize"
+            , title :=    GetTid("system:debugger.profiles.blobsize")
+            , type :=     "integer64"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "diskblobsize"
+            , title :=    GetTid("system:debugger.profiles.diskblobsize")
+            , type :=     "integer64"
+            , width :=    "12x"
+            , align :=    "right"
+            ]
+          , [ name :=     "objects"
+            , title :=    GetTid("system:debugger.profiles.objects")
+            , type :=     "integer64"
+            , width :=    "12x"
+            , align :=    "right"
             ]
           , [ name :=     "totalsize"
             , title :=    GetTid("system:debugger.profiles.totalsize")
