@@ -244,10 +244,11 @@ MarshalPacket::SizeData MarshalPacket::GetSize() const
 // Marshaller
 //
 
-Marshaller::Marshaller(VirtualMachine *_vm, MarshalMode::Type _mode)
+Marshaller::Marshaller(VirtualMachine *_vm, MarshalMode::Type _mode, bool _diskblobs_by_reference)
 : vm(_vm)
 , stackm(vm->GetStackMachine())
 , mode(_mode)
+, diskblobs_by_reference(_diskblobs_by_reference)
 , data_size(0)
 , use_library_column_list(false)
 , col_marshaldata(0)
@@ -262,6 +263,7 @@ Marshaller::Marshaller(StackMachine &_stackm, MarshalMode::Type _mode)
 : vm(0)
 , stackm(_stackm)
 , mode(_mode)
+, diskblobs_by_reference(false)
 , data_size(0)
 , blobcount(0)
 , largeblobs(false)
@@ -651,7 +653,7 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                 if (blobptr)
                                     diskpath = blobptr->GetDiskPath();
                                 clone->length = length;
-                                if (diskpath.empty())
+                                if (diskpath.empty() || !diskblobs_by_reference)
                                 {
                                         clone->type = BlobDataType::Blob;
                                         clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
