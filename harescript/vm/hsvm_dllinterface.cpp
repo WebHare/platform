@@ -2479,7 +2479,7 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         START_CATCH_VMEXCEPTIONS
         try
         {
-                size = VM.var_marshaller.Analyze(var);
+                size = VM.cache_marshaller.Analyze(var);
         }
         catch (HareScript::VMRuntimeError &e)
         {
@@ -2489,17 +2489,24 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         return size;
 }
 
-void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit)
+void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit, uint8_t *statsbuffer)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Write(var, ptr, limit);
+        MarshalStats stats;
+        VM.cache_marshaller.Write(var, ptr, limit, &stats);
+        if(statsbuffer)
+        {
+                Blex::PutLsb<uint64_t>(statsbuffer + 0, stats.diskblobsize);
+                Blex::PutLsb<uint64_t>(statsbuffer + 8, stats.blobsize);
+                Blex::PutLsb<uint64_t>(statsbuffer + 16, stats.datasize);
+        }
         END_CATCH_VMEXCEPTIONS
 }
 
 void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr, uint8_t const *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Read(var, ptr, limit);
+        VM.cache_marshaller.Read(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 

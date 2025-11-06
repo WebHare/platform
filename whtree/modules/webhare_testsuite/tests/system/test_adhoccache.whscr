@@ -418,7 +418,7 @@ MACRO DiskBlobTest() {
     VARIANT x := GetAdhocCached([ type := "diskpath" ], PTR ReturnCacheableValue(resource, [ ttl := 2 * 60 * 60 * 1000 ]));
     RECORD ARRAY items := __SYSTEM_GetAdhocCacheItemMetadata().items;
     TestEQ(1, LENGTH(items), "Expecting exactly one item in the adhoccache");
-    DATETIME onehourfromnow := AddTimeToDate(1 * 60 * 60 * 1000, GetCurrentDatetime());
+    DATETIME onehourfromnow := AddTimeToDate(1 * 60 * 60 * 1000 + 1000, GetCurrentDatetime()); //1 extra second, give some tolerance for TS/HS/thread? time differences
     BOOLEAN isdiskbased := #resource != 0;
     TestEQ(isdiskbased, items[0].expires <= onehourfromnow, "Expecting expiry to be within 1 hours when containing a diskpath blob");
   }

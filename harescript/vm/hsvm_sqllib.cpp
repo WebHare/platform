@@ -1510,7 +1510,7 @@ void HS_SQL_RegisterTableTypeInfo(VarId id_set, VirtualMachine *vm)
                 {
                         unsigned size = marshaller.Analyze(var_nulldefault);
                         col.null_default.resize(size);
-                        marshaller.Write(var_nulldefault, &col.null_default[0], (&col.null_default[0]) + size);
+                        marshaller.Write(var_nulldefault, &col.null_default[0], (&col.null_default[0]) + size, nullptr);
                         col.flags |= ColumnFlags::TranslateNulls;
                 }
                 else
