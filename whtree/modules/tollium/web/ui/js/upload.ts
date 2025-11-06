@@ -5,7 +5,6 @@ import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRe
 import type { CurrentDragData } from './dragdrop';
 import { isTruthy } from '@webhare/std';
 import { flagUIBusy } from '@webhare/dompack';
-import type { FlatRowKey } from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("../common.lang.json");
@@ -141,7 +140,7 @@ export type DropMessage = {
   items: unknown[];
   dropeffect: 'copy' | 'move' | 'link' | 'none' | '';
   droplocation?: string;
-  target?: FlatRowKey;
+  target?: string;
 };
 
 /** Given an accepted drop, upload files to a component (with progress dialog), call callback when done (successfully)

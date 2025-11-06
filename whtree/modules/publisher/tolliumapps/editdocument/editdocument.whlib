@@ -180,7 +180,15 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->RefreshState();
 
+    IF(NOT this->readonly AND this->workflowmgr->HaveDraftOrAutosavedChanged())
+      this->CatchupWithChanges();
+
     RegisterTimedCallback(AddTimeToDate(1, GetCurrentDatetime()), PTR this->CalculateInitialDirty);
+  }
+
+  MACRO CatchupWithChanges() {
+    //FIXME compare previous and current published versions for title/description - update or warn if these differ from the draft
+    // dumpvalue(ListObjectHistory(this->itemid), 'boxed');
   }
 
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
@@ -422,7 +430,16 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenHWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
 
     IF (NOT work->HasFailed()) {
-      this->workflowmgr->Save(withpublish);
+      //As we can't apply external changes yet (CatchupWithChanges) just don't apply changes to fields that aren't controlled xurrently
+      STRING ARRAY updatemetadatafields;
+      IF(^title->visible AND ^metapart->visible)
+        INSERT "title" INTO updatemetadatafields AT END;
+      IF(^description->visible AND ^metapart->visible)
+        INSERT "description" INTO updatemetadatafields AT END;
+      IF(^keywords->visible AND ^metapart->visible)
+        INSERT "keywords" INTO updatemetadatafields AT END;
+
+      this->workflowmgr->Save(withpublish, CELL[updatemetadatafields]);
 
       IF (withpublish) {
         //Warn if publishing to an unpublished site (but not if publishing outside a site)

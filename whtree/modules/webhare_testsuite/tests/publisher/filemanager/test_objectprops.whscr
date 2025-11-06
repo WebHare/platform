@@ -100,6 +100,35 @@ ASYNC MACRO ObjectProps()
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new file
   }
 
+  { // STORY: Verifying that title changes in Publisher (objectprops) are not reverted by the RTD
+    // - Create RTD
+    AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+    TTFillByTitle("types", "Rich text document");
+    AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
+    TT("name")->value := "rtdtitletest";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); // close it
+
+    // - Have it save a draft
+    RECORD newfile := TT("filelist")->selection;
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(newfile.id) ], target := DEFAULT RECORD ]));
+    TT("doceditor")->contents->rte->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
+    TT("doceditor")->contents->rte->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
+    TTClick(":Save");
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+    // TT("richtexteditor")->value := "<p>Some content</p>";
+    AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+    // - Change title in props
+    TT(":Title")->value := "New RTD Title";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(newfile.id) ], target := DEFAULT RECORD ]));
+    AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publish"));
+    AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+    TestEq("New RTD Title", SELECT AS STRING title FROM system.fs_objects WHERE id = newfile.id, "The RTD title change was not preserved after publish");
+  }
+
   AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
 

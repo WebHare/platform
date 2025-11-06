@@ -248,16 +248,16 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN ObjectExists(this->currentautosave ?? this->currentdraft);
   }
 
-  PUBLIC MACRO Save(BOOLEAN withpublish) {
+  PUBLIC MACRO Save(BOOLEAN withpublish, RECORD options DEFAULTSTO DEFAULT RECORD) {
     this->LoadDrafts();
 
     IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
-      this->currentautosave->SaveAsNewPublicDraft(this->options.user);
+      this->currentautosave->SaveAsNewPublicDraft(this->options.user, options);
     } ELSE { // commit or publish
       OBJECT source := this->currentautosave ?? this->currentdraft;
       IF (ObjectExists(source)) {
         // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
-        source->SaveAsFinal(this->options.user);
+        source->SaveAsFinal(this->options.user, options);
       }
     }
     this->LoadDrafts();
