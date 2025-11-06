@@ -135,6 +135,7 @@ class TransitionLock {
       }
     }
   }
+  [Symbol.dispose]() { this.close(); }
 }
 
 function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
@@ -657,6 +658,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
       let wasfunction = false;
       let stackptr = 0;
 
+      using transitionLock = debugFlags.async ? this.startTransition(true, functionref) : undefined; void transitionLock;
       if (objectid) {
         const colid = this.getColumnId(functionref);
         stackptr = this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);

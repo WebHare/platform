@@ -224,6 +224,7 @@ export class WHDBPgClient {
 const bindables = {
   uuid: DataTypeOIDs.uuid,
   timestamptz: DataTypeOIDs.timestamptz,
+  float8: DataTypeOIDs.float8,
 } as const;
 
 export function pgBindParam(value: unknown, type: keyof typeof bindables): BindParam {

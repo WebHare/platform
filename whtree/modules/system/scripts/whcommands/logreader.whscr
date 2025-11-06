@@ -101,7 +101,7 @@ STRING FUNCTION FormatJavascriptErrorCause(RECORD error)
     retval := `Cause: ${error.cause.error}\n`;
     FOREVERY (RECORD t FROM error.cause.trace)
     {
-      STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+      STRING func := CellExists(t, "FUNCTION") AND t."function" != "" ? t."function" : CellExists(t, "FUNC") ? t.func : "";
       retval := retval || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : CellExists(t, "COLUMN") ? t."column" : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
     }
     retval := retval || FormatJavascriptErrorCause(error.cause);
@@ -347,7 +347,7 @@ WHILE(TRUE)
             STRING file := CellExists(t, "FILENAME") ? t.filename : CellExists(t, "FILE") ? t.file : "";
             INTEGER linenum := CellExists(t, "LINENUM") ? t.linenum : CellExists(t, "LINE") ? t.line : 1;
             INTEGER col := CellExists(t, "COLNUM") ? t.colnum : CellExists(t, "COL") ? t.col : CellExists(t, "COLUMN") ? t."column" : 1;
-            STRING func := CellExists(t, "FUNCTIONNAME") ? t."functionname" : CellExists(t, "FUNC") ? t.func : "";
+            STRING func := CellExists(t, "FUNCTIONNAME") AND t."FUNCTIONNAME" != "" ? t."FUNCTIONNAME" : CellExists(t, "FUNC") ? t.func : "";
             lastlines[END-1] := lastlines[END-1] || "At " || file || "(" || linenum || "," || col || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
           }
         }
@@ -359,7 +359,7 @@ WHILE(TRUE)
 
         FOREVERY (RECORD t FROM line.trace)
         {
-          STRING func := CellExists(t, "FUNCTIONNAME") ? t."FUNCTIONNAME" : CellExists(t, "FUNC") ? t.func : "";
+          STRING func := CellExists(t, "FUNCTIONNAME") AND t."FUNCTIONNAME" != "" ? t."FUNCTIONNAME" : CellExists(t, "FUNC") ? t.func : "";
           lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : CellExists(t, "COLUMN") ? t."column" : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
         }
 

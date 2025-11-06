@@ -3,6 +3,7 @@ declare module "@webhare/whfs" {
 }
 
 export { openType, visitResources, whfsType } from "./contenttypes";
+export { listInstances } from "./listinstances";
 export type {
   VisitedResourceContext,
   VisitCallback,

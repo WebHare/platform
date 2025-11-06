@@ -18,12 +18,14 @@ LOADLIB "mod::devkit/lib/lsp/harescriptfile.whlib";
 */
 RECORD ARRAY showpriority :=
   [ [ mask := "*",                                      priority := 0 ]
+  , [ mask := "mod::platform/*",                        priority := 1 ]
   , [ mask := "mod::consilio/*",                        priority := 1 ]
   , [ mask := "mod::system/*",                          priority := 1 ]
   , [ mask := "mod::publisher/*",                       priority := 1 ]
   , [ mask := "mod::tollium/*",                         priority := 1 ]
   , [ mask := "mod::wrd/*",                             priority := 1 ]
   , [ mask := "mod::webhare_testuite/*",                priority := 1 ]
+  , [ mask := "*/modules/platform/*",                   priority := 1 ]
   , [ mask := "*/modules/consilio/*",                   priority := 1 ]
   , [ mask := "*/modules/system/*",                     priority := 1 ]
   , [ mask := "*/modules/publisher/*",                  priority := 1 ]
@@ -88,6 +90,9 @@ PUBLIC RECORD FUNCTION LSP_StackTraceRequest(RECORD textdocument, STRING lastgui
             item.filename := entry.requesturl;
         }
 
+        IF (item.functionname = "" AND CellExists(item, "FUNC"))
+          item.functionname := item.func;
+
         //TODO: Convert col to UTF-16 codepoint
         IF (LENGTH(stack) != 0
             AND stack[END-1].filename = item.filename
@@ -107,6 +112,9 @@ PUBLIC RECORD FUNCTION LSP_StackTraceRequest(RECORD textdocument, STRING lastgui
           {
             IF (#item = 0)
               item.functionname := "Cause: " || cause.message || ": " || item.functionname;
+
+            IF ((NOT CellExists(item, "FUNCTIONNAME") OR item.functionname = "") AND CellExists(item, "FUNC"))
+              item := CELL[ ...item, functionname := item.func ];
 
             IF (#item != 0
                 AND LENGTH(stack) != 0

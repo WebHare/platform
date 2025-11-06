@@ -572,16 +572,19 @@ export function hasMutex(mutex: string) {
   return getConnection().hasMutex(mutex);
 }
 
-/** Get the next primary key value for a specific table
+/** Get the next primary key value for a specific column
+ * @param column - Column to get the next value for, in the format `<schema>.<table>.<column>`
 */
-export function nextVal(table: string) {
-  return getConnection().nextVal(table);
+export function nextVal(column: string) {
+  return getConnection().nextVal(column);
 }
 
-/** Get multiple primary key values for a specific table
+/** Get multiple primary key values for a specific column
+ * @param column - Column to get the next values for, in the format `<schema>.<table>.<column>`
+ * @param howMany - How many values to get
 */
-export function nextVals(table: string, howMany: number) {
-  return getConnection().nextVals(table, howMany);
+export function nextVals(column: string, howMany: number) {
+  return getConnection().nextVals(column, howMany);
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress
@@ -722,13 +725,24 @@ export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> =
 type Bindables = {
   uuid: [string, string];
   timestamptz: [Temporal.Instant | Temporal.ZonedDateTime | number, Temporal.Instant];
+  float8: [number, number];
 };
 
-/** Overrides the type of a value (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
+/** Overrides the type of a value for use in Kysely expressions (not all types are auto-detected, like UUID's
+ * or (+/-)Infinity for timestamps)
  * @param value - Value
  * @param type - 'Real' type of the value (to send to PostgreSQL)
  * @returns An expression that can be used in SQL queries
 */
 export function overrideValueType<T extends keyof Bindables>(value: Bindables[T][0], type: T): Expression<Bindables[T][1]> {
   return sql`${pgBindParam(value, type)}`;
+}
+
+/** Overrides the type of a value for arguments of query() (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
+ * @param value - Value
+ * @param type - 'Real' type of the value (to send to PostgreSQL)
+ * @returns The value wrapped in an objects that forces the encoding of that value to the specified type when used as argument to  query().
+*/
+export function overrideQueryArgType<T extends keyof Bindables>(value: Bindables[T][0], type: T): unknown {
+  return pgBindParam(value, type);
 }
