@@ -46,8 +46,8 @@ PUBLIC STATIC OBJECTTYPE TolliumAutoSuggestBase
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumComponentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumComponentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -708,7 +708,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
 
     IF (ObjectExists(this->parent)) //parents deal with visibility, not the components themselves
       this->parent->ChildVisibilityChanged(this);
-/*
+    /*
     FOREVERY (RECORD subcomp FROM this->pvt_subcomponents)
     {
       IF (subcomp.comp EXTENDSFROM TolliumSpecialComponent)
@@ -1323,8 +1323,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       @cell dropdata.items
       @cell dropdata.dropeffect
   */
-  PUBLIC RECORD FUNCTION VerifyDrop(RECORD acceptdrops, RECORD dropdata, RECORD target, STRING ARRAY alltargetflags)
-  {
+  PUBLIC RECORD FUNCTION VerifyDrop(RECORD acceptdrops, RECORD dropdata, RECORD target, STRING ARRAY alltargetflags) {
     IF(dropdata.dropeffect NOT IN ["copy","move","link"])
       THROW NEW Exception(`Incorrect drop effect '${dropdata.dropeffect}'`);
     IF(dropdata.droplocation NOT IN ["ontarget","appendchild","insertbefore","oncell"])
@@ -1357,8 +1356,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     }
     ELSE
     {
-      IF (__debugdragdrop) PRINT(`- Unrecognized dropdata source ${dropdata.source}\n`);
-      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+      IF (__debugdragdrop)
+        PRINT(`- Unrecognized dropdata source ${dropdata.source}\n`);
+      ELSE IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
         this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
       RETURN DEFAULT RECORD;
     }
@@ -1380,7 +1380,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         IF ((dropdata.droplocation = "ontarget" AND "ontarget" NOT IN type.locations)
             OR (dropdata.droplocation IN [ "appendchild", "insertbefore" ] AND "position" NOT IN type.locations))
         {
-          IF (__debugdragdrop) PRINT(`- - - drop location ${dropdata.droplocation} not allowed (allowed: ${Detokenize(type.locations, ", ")}\n`);
+          IF (__debugdragdrop) PRINT(`- - - drop location ${dropdata.droplocation} not allowed (allowed: ${Detokenize(type.locations, ", ")})\n`);
           CONTINUE;
         }
 
@@ -1447,8 +1447,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase
       }
       IF (NOT found)
       {
-        IF (__debugdragdrop) PRINT(`- - item not accepted, failing drop\n`);
-        IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+        IF (__debugdragdrop)
+          PRINT(`- - item not accepted, failing drop\n`);
+        ELSE IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
           this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
         RETURN DEFAULT RECORD;
       }
@@ -1459,17 +1460,18 @@ PUBLIC OBJECTTYPE TolliumComponentBase
         AND LENGTH(check_noloops) != 0
         AND this->IsAnyAncestorOf(check_noloops, target))
     {
-      IF (__debugdragdrop) PRINT(`- fails noloops test\n`);
-//      LogDebug("verifydrop", " fails noloops test");
-      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+      IF (__debugdragdrop)
+        PRINT(`- fails noloops test\n`);
+      ELSE IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
         this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
       RETURN DEFAULT RECORD;
     }
 
     IF (IsDefaultValue(acceptdrops.ondrop))
     {
-      IF (__debugdragdrop) PRINT(`- no drop handler found\n`);
-      IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
+      IF (__debugdragdrop)
+        PRINT(`- no drop handler found\n`);
+      ELSE IF (IsValueSet(this->owner->tolliumcontroller->__onnodrophandlerfound))
         this->owner->tolliumcontroller->__onnodrophandlerfound(PRIVATE this, CELL[ acceptdrops, dropdata, target, alltargetflags ]);
     }
 
