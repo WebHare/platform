@@ -83,6 +83,9 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         /// Context keeper
         Blex::ContextKeeper keeper;
 
+        // Returns the disk path for this blob (empty if not applicable)
+        virtual std::string GetDiskPath();
+
 #ifdef __EMSCRIPTEN__
         std::string jstag; //only available in esmcripten so we don't need to worry about thread safety
 #endif
@@ -92,6 +95,36 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
 
         friend class BlobRefPtr;
         friend class VarMemory;
+};
+
+/* WebHare disk blob */
+class DiskBlob : public BlobBase
+{
+    private:
+        std::string path;
+
+        class MyOpenedBlob: public OpenedBlobBase< DiskBlob >
+        {
+            private:
+                std::unique_ptr< Blex::FileStream > stream;
+
+            public:
+                MyOpenedBlob(DiskBlob &blob);
+                ~MyOpenedBlob();
+
+                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
+        };
+
+    public:
+        /** Constructor */
+        DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength);
+        ~DiskBlob();
+
+        std::unique_ptr< OpenedBlob > OpenBlob();
+        Blex::FileOffset GetCacheableLength();
+        Blex::DateTime GetModTime();
+        std::string GetDescription();
+        std::string GetDiskPath();
 };
 
 /** Reference counting pointer for blob objects. A BlobRefPtr is only

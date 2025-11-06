@@ -47,6 +47,16 @@ void MarshalPacket::Reset()
         data.clear();
 }
 
+bool MarshalPacket::AnyDiskPathBlobs() const
+{
+        for (auto &itr: blobs)
+        {
+                if (itr->type == BlobDataType::DiskPath)
+                    return true;
+        }
+        return false;
+}
+
 bool MarshalPacket::TryClone(std::unique_ptr< MarshalPacket > *_copy) const
 {
         // Can all objects be cloned?
@@ -219,8 +229,12 @@ MarshalPacket::SizeData MarshalPacket::GetSize() const
         SizeData retval;
         retval.datasize = data.size() + columndata.size();
         retval.blobsize = 0;
+        retval.diskblobsize = 0;
         for (auto &itr: blobs)
-            retval.blobsize += itr->length;
+            if (itr->type == BlobDataType::Blob)
+                retval.blobsize += itr->length;
+            else if (itr->type == BlobDataType::DiskPath)
+                retval.diskblobsize += itr->length;
         retval.objects = objects.size();
         return retval;
 }
@@ -631,8 +645,22 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
 #endif
                                 std::shared_ptr< MarshalPacket::BlobData > clone;
                                 clone.reset(new MarshalPacket::BlobData);
+                                auto blob = stackm.GetBlob(var);
+                                auto blobptr = blob.GetPtr();
+                                std::string diskpath;
+                                if (blobptr)
+                                    diskpath = blobptr->GetDiskPath();
                                 clone->length = length;
-                                clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
+                                if (diskpath.empty())
+                                {
+                                        clone->type = BlobDataType::Blob;
+                                        clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
+                                }
+                                else
+                                {
+                                        clone->type = BlobDataType::DiskPath;
+                                        clone->diskpath = diskpath;
+                                }
 
                                 packet->blobs.push_back(clone);
                                 Blex::PutLsb< int32_t >(ptr, packet->blobs.size());
@@ -1053,7 +1081,16 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                                 }
                                 else
                                 {
-                                        stackm.SetBlob(var, vm->GetBlobManager().BuildBlobFromGlobalBlob(vm, packet->blobs[blobnr - 1]->blob));
+                                        auto const &blobdata = packet->blobs[blobnr - 1];
+                                        if (blobdata->type == BlobDataType::DiskPath)
+                                        {
+                                                stackm.SetBlob(var, BlobRefPtr(new DiskBlob(vm, blobdata->diskpath, blobdata->length)));
+                                        }
+                                        else
+                                        {
+                                                stackm.SetBlob(var, vm->GetBlobManager().BuildBlobFromGlobalBlob(vm, blobdata->blob));
+                                        }
+
                                 }
 
                                 return ptr + 4;

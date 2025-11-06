@@ -120,6 +120,7 @@
       <text tid="apptitle">Profiles</text>
       <text tid="avg_selftime">Selftime (avg)</text>
       <text tid="avg_totaltime">Totaltime (avg)</text>
+      <text tid="blobsize">Blob size (internalized)</text>
       <text tid="button-clearallcaches">Clear caches</text>
       <text tid="caches">Caches</text>
       <text tid="callcount">Call count</text>
@@ -132,8 +133,10 @@
       <text tid="ct_children">Children</text>
       <text tid="ct_parents">Parents</text>
       <text tid="ct_trace">Stack trace</text>
+      <text tid="datasize">Data size</text>
       <text tid="depth">Depth</text>
       <text tid="description">Description</text>
+      <text tid="diskblobsize">Blob size (disk files)</text>
       <text tid="editsource">Edit source</text>
       <text tid="functionname">Function</text>
       <text tid="handle">Handle</text>
@@ -143,6 +146,7 @@
       <text tid="live">Live profiling (apr)</text>
       <text tid="name">Name</text>
       <text tid="nostacktraceavailable">No stack trace available</text>
+      <text tid="objects">Objects</text>
       <text tid="ownelements">Own elements</text>
       <text tid="ownsize">Own size</text>
       <text tid="parentopen">Open parent</text>

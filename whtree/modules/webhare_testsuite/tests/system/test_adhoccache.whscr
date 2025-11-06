@@ -10,6 +10,7 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_basic.whlib";
@@ -17,9 +18,9 @@ LOADLIB "mod::webhare_testsuite/lib/system/adhoccache_alternate.whlib";
 
 INTEGER clone_ctr;
 
-VARIANT FUNCTION ReturnCacheableValue(VARIANT data)
+RECORD FUNCTION ReturnCacheableValue(VARIANT data, RECORD overrides DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN [ ttl := 60000, value := data ];
+  RETURN CELL[ ttl := 60000, value := data, ...overrides ];
 }
 
 VARIANT FUNCTION ThrowNotCached()
@@ -404,6 +405,24 @@ MACRO NonExclusiveTest()
   TestEQ(1, GetAdhocCached([ type := "nonexclusive-1" ], PTR GetCacheableStuff(1)));
 }
 
+RECORD FUNCTION __SYSTEM_GetAdhocCacheItemMetadata() __ATTRIBUTES__(EXTERNAL);
+
+MACRO DiskBlobTest() {
+  STRING diskpath := `${GetWebHareConfiguration().basedataroot}config/platform.json`;
+  BLOB diskresource := GetDiskResource(diskpath);
+  // first blob is 'normal', the other are disk-based (GetWebhareResource only when using with direct::)
+  BLOB ARRAY resources := [ StringToBlob(BlobToString(diskresource)), GetWebhareResource(`direct::${diskpath}`), GetDiskResource(diskpath) ];
+
+  FOREVERY (BLOB resource FROM resources) {
+    InvalidateAdhocCache();
+    VARIANT x := GetAdhocCached([ type := "diskpath" ], PTR ReturnCacheableValue(resource, [ ttl := 2 * 60 * 60 * 1000 ]));
+    RECORD ARRAY items := __SYSTEM_GetAdhocCacheItemMetadata().items;
+    TestEQ(1, LENGTH(items), "Expecting exactly one item in the adhoccache");
+    DATETIME onehourfromnow := AddTimeToDate(1 * 60 * 60 * 1000, GetCurrentDatetime());
+    BOOLEAN isdiskbased := #resource != 0;
+    TestEQ(isdiskbased, items[0].expires <= onehourfromnow, "Expecting expiry to be within 1 hours when containing a diskpath blob");
+  }
+}
 
 RunTestframework([ PTR AdHocCacheTest
                  , PTR AdHocTestMarshalledObjects
@@ -416,4 +435,5 @@ RunTestframework([ PTR AdHocCacheTest
                  , PTR ReplaceTest
                  , PTR ErrorDetectTest
                  , PTR NonExclusiveTest
+                 , PTR DiskBlobTest
                  ]);

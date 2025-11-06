@@ -64,6 +64,11 @@ struct ObjectMarshalData
         ObjectMarshalData& operator=(ObjectMarshalData const &) = delete;
 };
 
+enum class BlobDataType {
+    Blob,
+    DiskPath,
+};
+
 class Marshaller;
 
 /** Class for extended marshalling (marshalling with blobs and objects)
@@ -76,8 +81,11 @@ class BLEXLIB_PUBLIC MarshalPacket
         /// Returns whether any objects are present
         bool AnyObjects()  const{ return !objects.empty(); }
 
-        /// Returns whether any objects are present
+        /// Returns whether any blobs are present
         bool AnyBlobs() const { return !blobs.empty(); }
+
+        /// Return whether any disk-based blobs are present
+        bool AnyDiskPathBlobs() const;
 
         /** Tries to clone the packet (fails when any objects are present)
             @param copy Filled with new clone
@@ -99,6 +107,7 @@ class BLEXLIB_PUBLIC MarshalPacket
         {
                 uint64_t datasize;
                 uint64_t blobsize;
+                uint64_t diskblobsize;
                 uint64_t objects;
         };
 
@@ -118,7 +127,9 @@ class BLEXLIB_PUBLIC MarshalPacket
 
             public:
                 BlobData() = default;
+                BlobDataType type = BlobDataType::Blob;
                 std::shared_ptr< GlobalBlob > blob;
+                std::string diskpath;
                 Blex::FileOffset length;
         };
 
