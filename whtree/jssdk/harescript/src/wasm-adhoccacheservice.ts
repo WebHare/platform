@@ -1,10 +1,9 @@
 import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
-import { emplace, SortedMultiSet } from "@webhare/std/collections";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { regExpFromWildcards } from "@webhare/std/strings";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { compareProperties } from "@webhare/std";
+import { emplace, SortedMultiSet, regExpFromWildcards, compareProperties } from "@webhare/std";
+import { defaultDateTime } from "@webhare/hscompat";
 
 /* The adhoc cache service is hosted by a local service together with the mainbridge of a
    process.
@@ -23,9 +22,11 @@ export async function openAdhocCacheService(link: WebHareServiceIPCLinkType["Acc
 type Item = {
   libraryModDate: bigint;
   value: unknown;
+  created: Date;
   expires: Date | null;
   eventMasks: string[];
   eventMaskRegExp: RegExp | null;
+  stats: AdhocCacheItemStats;
 };
 
 class LibraryData {
@@ -87,13 +88,15 @@ class AdhocCacheData {
     this.expiries.delete({ expires: item.expires, libraryUri, hash });
   }
 
-  setCachedData(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown) {
+  setCachedData(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown, stats: AdhocCacheItemStats) {
     const newEntry: Item = {
       libraryModDate,
+      created: new Date,
       value,
       expires,
       eventMasks,
       eventMaskRegExp: eventMasks.length === 0 ? null : regExpFromWildcards(eventMasks),
+      stats
     };
     //Get the library to add the item to
     const items = emplace(this.libraries, libraryUri, { insert: () => new LibraryData }).items;
@@ -180,9 +183,36 @@ class AdhocCacheData {
       requests: this.requests,
     };
   }
+
+  getItems() {
+    const items = [];
+    for (const [library, lib] of this.libraries.entries()) {
+      for (const item of lib.items.values()) {
+        items.push({
+          library,
+          datasize: item.stats.dataSize,
+          blobsize: item.stats.blobSize,
+          diskblobsize: item.stats.diskBlobSize,
+          objects: 0,
+          hits: 0, //TODO count these at item level
+          expires: item.expires ?? defaultDateTime,
+          eventmasks: item.eventMasks,
+          stacktrace: [],
+          creationdate: item.created
+        });
+      }
+    }
+    return items;
+  }
 }
 
 let globalAdhocCacheData: AdhocCacheData | undefined;
+
+export interface AdhocCacheItemStats {
+  diskBlobSize: number;
+  blobSize: number;
+  dataSize: number;
+}
 
 export class AdhocCacheService extends LocalService {
   adhocCacheData: AdhocCacheData;
@@ -198,8 +228,8 @@ export class AdhocCacheService extends LocalService {
     return this.adhocCacheData.getCachedData(libraryUri, libraryModDate, hash);
   }
 
-  setItem(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown): void {
-    this.adhocCacheData.setCachedData(libraryUri, libraryModDate, hash, expires, eventMasks, value);
+  setItem(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown, stats: AdhocCacheItemStats): void {
+    this.adhocCacheData.setCachedData(libraryUri, libraryModDate, hash, expires, eventMasks, value, stats);
   }
 
   clearCache(): void {
@@ -208,5 +238,8 @@ export class AdhocCacheService extends LocalService {
 
   getStats(): { cachesize: number; hits: number; requests: number } {
     return this.adhocCacheData.getStats();
+  }
+  getItems() {
+    return this.adhocCacheData.getItems();
   }
 }
