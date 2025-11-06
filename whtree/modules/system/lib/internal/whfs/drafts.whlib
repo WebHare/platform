@@ -24,6 +24,9 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
                                     , "approved"   //5 whconstant_historytype_approved
                                     ];
 
+RECORD FUNCTION ValidateSaveOptions(RECORD options) {
+  RETURN ValidateOptions(CELL[ updatemetadatafields := STRING["title", "description", "keywords"] ], options);
+}
 
 RECORD FUNCTION StringVersionToParts(STRING stringversion)
 {
@@ -268,7 +271,7 @@ STATIC OBJECTTYPE WHFSDraft <
   /** @short Save this draft to a new public draft
       @return The public draft into which this draft was merged */
   PUBLIC MACRO SaveAsNewPublicDraft(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
-    options := ValidateOptions(CELL[], options);
+    options := ValidateSaveOptions(options);
 
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
@@ -332,7 +335,7 @@ STATIC OBJECTTYPE WHFSDraft <
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
 
-    options := ValidateOptions(CELL[], options);
+    options := ValidateSaveOptions(options);
 
     DATETIME now := GetCurrentDatetime();
     //Move the draft and any older public drafts to snapshots for safe keeping
@@ -362,7 +365,7 @@ STATIC OBJECTTYPE WHFSDraft <
 
     //And reapply managed fields
     RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->id;
-    RECORD updates := PickCells(sourcedata, workflow_controlled_fields);
+    RECORD updates := PickCells(sourcedata, STRING["data", ...options.updatemetadatafields]);
     OpenWHFSObject(this->source)->UpdateMetadata(CELL[...updates, modificationdate := now ]);
 
     RefreshDraftStatus(this->source);
