@@ -120,7 +120,7 @@ VirtualMachine::VirtualMachine(VMGroup *group, Environment &librarian, Blex::Con
 , var_marshaller(this, MarshalMode::DataOnly)
 , param_marshaller(this, MarshalMode::DataOnly)
 , ipc_marshaller(this, MarshalMode::All)
-, cache_marshaller(this, MarshalMode::AllClonable)
+, cache_marshaller(this, MarshalMode::AllClonable, true)
 , authrec_marshaller(this, MarshalMode::DataOnly)
 , event_marshaller(this, MarshalMode::SimpleOnly)
 , sqlsupport(this)

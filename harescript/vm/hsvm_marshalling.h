@@ -175,6 +175,9 @@ class BLEXLIB_PUBLIC Marshaller
         /// Marshalling mode
         MarshalMode::Type mode;
 
+        /// Send diskblobs by reference (filepath) instead of copying data
+        bool diskblobs_by_reference;
+
         Blex::FileOffset data_size;
         unsigned blobcount;
         bool largeblobs;
@@ -195,7 +198,7 @@ class BLEXLIB_PUBLIC Marshaller
         std::map<VarId, VarId> objectmarshaldata;
 
     public:
-        Marshaller(VirtualMachine *vm, MarshalMode::Type mode);
+        Marshaller(VirtualMachine *vm, MarshalMode::Type mode, bool diskblobs_by_reference = false);
         Marshaller(StackMachine &stackm, MarshalMode::Type mode);
         ~Marshaller();
 
