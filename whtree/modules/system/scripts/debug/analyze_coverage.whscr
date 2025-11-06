@@ -27,7 +27,7 @@ args.session := args.session ?? (RecordExists(__debugconfig) ? __debugconfig.out
 IF (args.session LIKE "/*")
   path := args.session;
 ELSE
-  path := GetWebHareConfiguration().ephemeralroot || "profiles/" || args.session;
+  path := GetWebhareConfiguration().basedataroot || "caches/platform/hs-profiles/" || args.session;
 
 IF (args.deleteprofiles)
 {

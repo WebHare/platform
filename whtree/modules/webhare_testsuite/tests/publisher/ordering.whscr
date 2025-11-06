@@ -29,8 +29,9 @@ ASYNC MACRO FolderOrdering()
   TestEq([ "a", "b", "c", "d" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
 
   // Create a new file and test if the filtering is reset and the file is displayed
+  // We don't really care for http://www.webhare.net/xmlns/webhare_testsuite/pagelist - we just need something without a doceditor
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" AND template=0;
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
   TT("name")->value := "e";
   TT("title")->value := "Echo";
@@ -76,7 +77,7 @@ ASYNC MACRO FolderOrdering()
 
   // Test behaviour when recycling and restoring ordered files:
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" AND template=0;
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
   TT("name")->value := "recycle1";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -103,7 +104,7 @@ ASYNC MACRO FolderOrdering()
   TestEq([ "1", "2", "3", "4", "5", "a", "b", "c", "d", "e", "f" ], (SELECT AS STRING ARRAY name FROM TT("filelist")->rows), "Ordering was not properly displayed by the filelist after recycling an ordered file");
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/publisher/richdocumentfile" AND template=0;
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" AND template=0;
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
   TT("name")->value := "recycle2";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());

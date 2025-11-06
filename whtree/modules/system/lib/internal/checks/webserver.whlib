@@ -226,7 +226,6 @@ RECORD ARRAY FUNCTION CheckWebServerConfig()
     {
       RETURN
           SELECT msg :=   source != "" ? `:${source}: ${message}` : `:${message}`
-               , ...(CellExists(message, "jumpto") ? CELL[ jumpto ] : CELL[])
             FROM config.messages
            WHERE type = "error";
     }

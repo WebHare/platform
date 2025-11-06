@@ -70,7 +70,8 @@ OBJECT ASYNC FUNCTION NewFileProps()
   //we test that the embeddedobject with a rtd doesn't crash in newfile (eg because it tries to find the object id)
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := [ GetTestsuiteTempFolder()->whfspath || "rtdtype/" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Rich text document";
+  //we use pagelist as it doesn't trigger a document editor. we don't need a RTD file here, we just need the RTD editor inside the objectprops
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE contenttype="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" AND template=0;
   TestEq(TRUE, RecordExists(TT("types")->selection));
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
 

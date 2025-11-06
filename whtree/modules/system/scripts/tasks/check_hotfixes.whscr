@@ -73,7 +73,7 @@ FOREVERY (STRING module FROM GetSortedSet(GetInstalledModulenames()))
 IF (LENGTH(hotfixstate.modules) != 0)
   PRINT(`The following modules have problems: ${Detokenize((SELECT AS STRING ARRAY module FROM hotfixstate.modules), ", ")}\n`);
 
-STRING hotfixfile := GetWebHareConfiguration().ephemeralroot || "hotfixstate.json";
+STRING hotfixfile := GetWebHareConfiguration().basedataroot || "caches/platform/run/hotfixstate.json";
 
 // Log audit events for every change + hotfixes present at audit log file switch
 RECORD ARRAY curmodules;
