@@ -450,6 +450,9 @@ class WHFileSystem::DirectFile : public HareScript::FileSystem::File
         virtual void GetClibData(std::unique_ptr< Blex::RandomStream > *str, Blex::DateTime *modtime);
 
         /** Returns the path of the clib file */
+        virtual std::string GetSourceResourcePath();
+
+        /** Returns the path of the clib file */
         virtual std::string GetClibPath();
 
         /// Removes the compiled library file
@@ -1236,6 +1239,11 @@ void WHFileSystem::DirectFile::GetClibData(std::unique_ptr< Blex::RandomStream >
                 *str = std::move(stream);
 
         }
+}
+
+std::string WHFileSystem::DirectFile::GetSourceResourcePath()
+{
+        return sourcefile;
 }
 
 std::string WHFileSystem::DirectFile::GetClibPath()

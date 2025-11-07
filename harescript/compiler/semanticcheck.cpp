@@ -286,7 +286,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
                                     {
                                             unsigned size = context.marshaller->Analyze(c->var);
                                             it->null_default.resize(size);
-                                            context.marshaller->Write(c->var, &it->null_default[0], (&it->null_default[0]) + size);
+                                            context.marshaller->Write(c->var, &it->null_default[0], (&it->null_default[0]) + size, nullptr);
                                     }
                             }
                             else
@@ -318,7 +318,7 @@ void SemanticChecker::CheckTableDef(SymbolDefs::TableDef &td)
                                 {
                                         unsigned size = context.marshaller->Analyze(c->var);
                                         it->view_value.resize(size);
-                                        context.marshaller->Write(c->var, &it->view_value[0], (&it->view_value[0]) + size);
+                                        context.marshaller->Write(c->var, &it->view_value[0], (&it->view_value[0]) + size, nullptr);
                                 }
                         }
                         else

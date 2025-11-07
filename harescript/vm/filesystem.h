@@ -63,6 +63,9 @@ class BLEXLIB_PUBLIC FileSystem
                     @param modtime Modification time stamp of the source file, DateTime::Invalid if it didn't exist */
                 virtual void GetClibData(std::unique_ptr< Blex::RandomStream > *str, Blex::DateTime *modtime) = 0;
 
+                /** Returns the resource path of the file */
+                virtual std::string GetSourceResourcePath() = 0;
+
                 /** Returns the path of the clib file */
                 virtual std::string GetClibPath() = 0;
 

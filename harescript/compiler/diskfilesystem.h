@@ -23,6 +23,7 @@ class BLEXLIB_PUBLIC DiskFileSystem : public FileSystem
                 virtual void GetSourceData(std::unique_ptr< Blex::RandomStream > *str, Blex::DateTime *modtime);
                 virtual void GetClibData(std::unique_ptr< Blex::RandomStream > *str, Blex::DateTime *modtime);
                 virtual std::string GetClibPath();
+                virtual std::string GetSourceResourcePath();
                 virtual void RemoveClib();
                 virtual bool CreateClib(Blex::RandomStream &str);
                 virtual std::string GetDescription();
@@ -81,4 +82,3 @@ class BLEXLIB_PUBLIC DiskFileSystem : public FileSystem
 } // End of namespace HareScript
 
 #endif // Sentry
-
