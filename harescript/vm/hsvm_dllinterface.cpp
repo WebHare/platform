@@ -1113,80 +1113,6 @@ int TempFileWriter(void *opaque_ptr, int numbytes, void const *data, int /*allow
         return 0;
 }
 
-/* WebHare disk blob */
-class DiskBlob : public BlobBase
-{
-    private:
-        std::string path;
-
-        class MyOpenedBlob: public OpenedBlobBase< DiskBlob >
-        {
-            private:
-                std::unique_ptr< Blex::FileStream > stream;
-
-            public:
-                MyOpenedBlob(DiskBlob &blob);
-                ~MyOpenedBlob();
-
-                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
-        };
-
-    public:
-        /** Constructor */
-        DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength);
-        ~DiskBlob();
-
-        std::unique_ptr< OpenedBlob > OpenBlob();
-        Blex::FileOffset GetCacheableLength();
-        Blex::DateTime GetModTime();
-        std::string GetDescription();
-};
-
-DiskBlob::DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength)
-: BlobBase(vm, filelength)
-, path(_path)
-{
-}
-
-DiskBlob::~DiskBlob()
-{
-}
-
-DiskBlob::MyOpenedBlob::MyOpenedBlob(DiskBlob &blob)
-: OpenedBlobBase< DiskBlob >(blob)
-{
-        stream.reset(Blex::FileStream::OpenRead(blob.path));
-}
-
-DiskBlob::MyOpenedBlob::~MyOpenedBlob()
-{
-}
-
-std::size_t DiskBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
-{
-        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
-}
-
-std::unique_ptr< OpenedBlob > DiskBlob::OpenBlob()
-{
-        return std::make_unique< MyOpenedBlob >(*this);
-}
-
-Blex::DateTime DiskBlob::GetModTime()
-{
-        return Blex::DateTime::Invalid();
-}
-
-Blex::FileOffset DiskBlob::GetCacheableLength()
-{
-        throw std::runtime_error("DiskBlob::GetCacheableLength should never be invoked");
-}
-
-std::string DiskBlob::GetDescription()
-{
-        return "DiskBlob (" + path + ")";
-}
-
 /* WebHare filesystem blob */
 class FileSystemBlob : public BlobBase
 {
@@ -1218,6 +1144,7 @@ class FileSystemBlob : public BlobBase
         Blex::FileOffset GetCacheableLength();
         Blex::DateTime GetModTime();
         std::string GetDescription();
+        std::string GetDiskPath();
 };
 
 FileSystemBlob::FileSystemBlob(VirtualMachine *vm, HareScript::FilePtr &&_file)
@@ -1270,6 +1197,13 @@ std::string FileSystemBlob::GetDescription()
         return file->GetDescription();
 }
 
+std::string FileSystemBlob::GetDiskPath()
+{
+        auto path = file->GetSourceResourcePath();
+        if (path.substr(0, 8) == "direct::")
+            return path.substr(8);
+        return path;
+}
 
 int HSVM_CreateStream (HSVM *vm)
 {
@@ -2545,7 +2479,7 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         START_CATCH_VMEXCEPTIONS
         try
         {
-                size = VM.var_marshaller.Analyze(var);
+                size = VM.cache_marshaller.Analyze(var);
         }
         catch (HareScript::VMRuntimeError &e)
         {
@@ -2555,17 +2489,24 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         return size;
 }
 
-void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit)
+void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit, uint8_t *statsbuffer)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Write(var, ptr, limit);
+        MarshalStats stats;
+        VM.cache_marshaller.Write(var, ptr, limit, &stats);
+        if(statsbuffer)
+        {
+                Blex::PutLsb<uint64_t>(statsbuffer + 0, stats.diskblobsize);
+                Blex::PutLsb<uint64_t>(statsbuffer + 8, stats.blobsize);
+                Blex::PutLsb<uint64_t>(statsbuffer + 16, stats.datasize);
+        }
         END_CATCH_VMEXCEPTIONS
 }
 
 void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr, uint8_t const *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Read(var, ptr, limit);
+        VM.cache_marshaller.Read(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 

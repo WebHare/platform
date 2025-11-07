@@ -243,6 +243,14 @@ void AdhocCache::SetEntry(HareScript::VirtualMachine *vm, HSVM_VariableId cachet
 
         std::shared_ptr< HareScript::MarshalPacket const > packet;
         packet.reset(marshaller.WriteToNewPacket(data));
+        if (packet->AnyDiskPathBlobs())
+        {
+                // Limit expiry to 1 hour from now
+                Blex::DateTime maxExpires = Blex::DateTime::Now() + Blex::DateTime::Hours(1);
+                ADHOCPRINT("Adhoc: Limit expiry of " << EncodeHash(hash) << " for library " << library << " from " << expiry.ToString() << " to " << maxExpires.ToString() << " due to disk-based blobs");
+                if (expiry > maxExpires)
+                    expiry = maxExpires;
+        }
 
         HareScript::OutputObject *collector = eventcollector != 0 ? vm->GetOutputObject(eventcollector, false) : nullptr;
 
@@ -340,6 +348,7 @@ void AdhocCache::ListAllItems(std::vector< StatItem > *output)
                         auto sizedata = itemitr->second.data->GetSize();
                         item.datasize = sizedata.datasize;
                         item.blobsize = sizedata.blobsize;
+                        item.diskblobsize = sizedata.diskblobsize;
                         item.objects = sizedata.objects;
                         item.expires = itemitr->second.expires;
                         item.hits = itemitr->second.hits;
@@ -764,6 +773,7 @@ void ListAdhocCacheItems(HSVM *vm, HSVM_VariableId id_set)
         HSVM_ColumnId col_library = HSVM_GetColumnId(vm, "LIBRARY");
         HSVM_ColumnId col_datasize = HSVM_GetColumnId(vm, "DATASIZE");
         HSVM_ColumnId col_blobsize = HSVM_GetColumnId(vm, "BLOBSIZE");
+        HSVM_ColumnId col_diskblobsize = HSVM_GetColumnId(vm, "DISKBLOBSIZE");
         HSVM_ColumnId col_objects = HSVM_GetColumnId(vm, "OBJECTS");
         HSVM_ColumnId col_hits = HSVM_GetColumnId(vm, "HITS");
         HSVM_ColumnId col_expires = HSVM_GetColumnId(vm, "EXPIRES");
@@ -781,6 +791,7 @@ void ListAdhocCacheItems(HSVM *vm, HSVM_VariableId id_set)
                 HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, elt, col_library), itr.library);
                 HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_datasize), itr.datasize);
                 HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_blobsize), itr.blobsize);
+                HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_diskblobsize), itr.diskblobsize);
                 HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_objects), itr.objects);
                 HSVM_Integer64Set(vm, HSVM_RecordCreate(vm, elt, col_hits), itr.hits);
                 HSVM_DateTimeSetBlex(vm, HSVM_RecordCreate(vm, elt, col_expires), itr.expires);

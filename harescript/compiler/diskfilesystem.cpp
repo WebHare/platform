@@ -69,6 +69,11 @@ void DiskFileSystem::DiskFile::GetClibData(std::unique_ptr< Blex::RandomStream >
         str->reset(file.release());
 }
 
+std::string DiskFileSystem::DiskFile::GetSourceResourcePath()
+{
+        return path;
+}
+
 std::string DiskFileSystem::DiskFile::GetClibPath()
 {
         return cpath;

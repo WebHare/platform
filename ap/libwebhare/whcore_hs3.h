@@ -91,6 +91,7 @@ class AdhocCache : public Blex::NotificationEventReceiver
                 std::string key;
                 uint64_t datasize;
                 uint64_t blobsize;
+                uint64_t diskblobsize;
                 uint64_t objects;
                 ExpireDate expires;
                 uint32_t hits;

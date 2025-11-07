@@ -1291,7 +1291,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (eventcollector && vm.wasmmodule._GetEventCollectorSignalled(vm.hsvm, eventcollector))
       return;
 
-    const returndata = vm.wasmmodule._malloc(16);
+    const returndata = vm.wasmmodule._malloc(24);
     let dataPtr = 0;
     let libraryUri: string | undefined;
     try {
@@ -1310,14 +1310,23 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
           throw new Error(`Data is not marshallable`);
 
         dataPtr = vm.wasmmodule._malloc(len);
-        vm.wasmmodule._HSVM_MarshalWrite(vm.hsvm, var_data.id, dataPtr, dataPtr + len);
+        vm.wasmmodule._HSVM_MarshalWrite(vm.hsvm, var_data.id, dataPtr, dataPtr + len, returndata);
         const dataView = vm.wasmmodule.HEAPU8.slice(dataPtr, dataPtr + len);
+        const diskBlobSize = Number(vm.wasmmodule.HEAP64[returndata >> 3]);
+        const blobSize = Number(vm.wasmmodule.HEAP64[returndata + 8 >> 3]);
+        const dataSize = Number(vm.wasmmodule.HEAP64[returndata + 16 >> 3]);
 
         const sharedBuffer = new SharedArrayBuffer(len);
         const sharedBufferView = new Uint8Array(sharedBuffer);
         sharedBufferView.set(dataView);
 
-        await service.setItem(libraryUri, libraryModDate, hash, var_expires.getDateTime(), var_eventmasks.getJSValue() as string[], sharedBuffer);
+        let expires = var_expires.getDateTime();
+        if (diskBlobSize > 0) { //clamp to 1 hour if we reference files on disk, safer given eg. DB blob cleanups
+          const maxExpires = new Date(Date.now() + 60 * 60 * 1000);
+          if (expires > maxExpires)
+            expires = maxExpires;
+        }
+        await service.setItem(libraryUri, libraryModDate, hash, expires, var_eventmasks.getJSValue() as string[], sharedBuffer, { diskBlobSize, blobSize, dataSize });
       } catch (e) {
         if (debugFlags.ahc)
           console.error(`Setting adhoccache item from ${JSON.stringify(libraryUri ?? "unknown library")} failed:`, (e as Error).message);
@@ -1340,6 +1349,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
 
     id_set.setJSValue(await service.getStats());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__SYSTEM_GETADHOCCACHEITEMMETADATA::R:", async (vm, id_set) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+    id_set.setJSValue({ items: await service.getItems() });
   });
 
   wasmmodule.registerAsyncExternalFunction("__GETGEOIPCITYBYIP:SYSTEM_GEOIP:R:S", async (vm, id_set, var_ip) => {
