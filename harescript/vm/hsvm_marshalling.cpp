@@ -1155,19 +1155,24 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                                 else if(diskblobs_by_reference)
                                 {
                                         //We are allowed to contain paths
-                                        uint8_t type = *ptr++;
                                         EatBytes(remainingsize, 1);
+                                        uint8_t type = *ptr++;
                                         if(type == 1) //it's a path!
                                         {
+                                                EatBytes(remainingsize, 4);
                                                 uint32_t pathsize = Blex::GetLsb< uint32_t >(ptr);
-                                                std::string path = std::string(reinterpret_cast<const char*>(ptr + 4), pathsize);
+                                                ptr += 4;
+
+                                                EatBytes(remainingsize, pathsize);
+                                                std::string path = std::string(reinterpret_cast<const char*>(ptr), pathsize);
                                                 stackm.SetBlob(var, BlobRefPtr(new DiskBlob(vm, path, size)));
-                                                EatBytes(remainingsize, 4 + pathsize);
+                                                ptr += pathsize;
                                         }
                                         else if(type == 2) //it's an embedded blob
                                         {
                                                 EatBytes(remainingsize, size);
                                                 HSVM_MakeBlobFromMemory(*vm, var, size, ptr);
+                                                ptr += size;
                                         }
                                         else
                                                 ThrowInternalError("Corrupt marshal packet: unknown blob type indicator");
@@ -1176,9 +1181,9 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                                 {
                                         EatBytes(remainingsize, size);
                                         HSVM_MakeBlobFromMemory(*vm, var, size, ptr);
+                                        ptr += size;
                                 }
 
-                                ptr += size;
                                 return ptr;
                         }
                 }
