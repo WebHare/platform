@@ -1,8 +1,10 @@
 export type TidParam = string | number | null | undefined;
 
+export type TidAllowedHTMLTags = "a" | "b" | "br" | "i" | "u";
+
 export interface Tag {
   t: "tag";
-  tag: string;
+  tag: TidAllowedHTMLTags;
   subs: string | LanguagePart[]; // These subs are parsed by DecodeLanguageText, which may return a single string
 }
 

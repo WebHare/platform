@@ -1,5 +1,5 @@
 import { decodeString, encodeString } from '@webhare/std';
-import type { CompiledLanguageFile, GetTidHooks, LanguagePart, LanguageText, RecursiveLanguageTexts, TidParam } from './types';
+import type { CompiledLanguageFile, GetTidHooks, LanguagePart, LanguageText, RecursiveLanguageTexts, TidAllowedHTMLTags, TidParam } from './types';
 import { getGetTidHooks } from './hooks';
 import { debugFlags, dtapStage } from '@webhare/env';
 
@@ -57,7 +57,7 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for generics
-export type GetTidRenderFunc<Result extends object = object> = ((tag: keyof HTMLElementTagNameMap, props: { children?: any[]; href?: string }, ...childNodes: any[]) => Result);
+export type GetTidRenderFunc<Result extends object = object> = ((tag: TidAllowedHTMLTags, props: { children?: any[]; href?: string }, ...childNodes: any[]) => Result);
 export type GetTidOptions = { langCode?: string; render?: GetTidRenderFunc | "fragment" };
 
 type GetTidArgumentTypes = [GetTidOptions?] | [TidParam[], GetTidOptions?] | [TidParam?, TidParam?, TidParam?, TidParam?];
@@ -264,7 +264,7 @@ function executeCompiledTidText(text: string | LanguagePart[], params: string[],
     } else if (tok.t === "tag") {
       const sub = executeCompiledTidText(tok.subs, params, rich, render);
       if (rich && render)
-        parts.push(render(tok.tag as keyof HTMLElementTagNameMap, { children: sub }));
+        parts.push(render(tok.tag, { children: sub }));
       else
         parts.push(...(rich ? [`<${tok.tag}>`, ...sub, `</${tok.tag}>`] : sub));
     } else if (tok.t === "ifparam") {
