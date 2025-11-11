@@ -1,0 +1,24 @@
+html
+{
+  font: 18px Helvetica, Arial, sans-serif;
+  background:#3b3b3b;
+  color:#ffffff;
+}
+.text
+{
+  position:absolute;
+  left:30%;
+  top:45%;
+  width:40%;
+  text-align:center;
+}
+.dot
+{
+  visibility: hidden;
+}
+html.dots1 .firstdot
+, html.dots2 .firstdot + .dot
+, html.dots3 .firstdot + .dot + .dot
+{
+  visibility: visible;
+}
