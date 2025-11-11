@@ -378,11 +378,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
     RETURN initialinstructions;
   }
 
-  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
-  {
-    IF(this->subpath != "")
-      AbortWithHTTPError(404);
-
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()   {
     // Handle logincontrol when already logged in
     STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
     IF (logincontrol != "")
@@ -858,10 +854,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 >;
 
 PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
-  RECORD urlinfo := GetDynamicPageParameters();
-  IF(urlinfo.subpath != "")
-    AbortWithHTTPError(404);
-
   IF (GetWebVariable("proxy_test") != "") {
     IF (GetWebVariable("proxy_test") = ReadRegistryKey("system.webserver.global.proxyservers.verificationcode"))
       SendWebFile(StringToBlob("ok"));
