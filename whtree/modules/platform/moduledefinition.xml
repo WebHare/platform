@@ -49,6 +49,8 @@
     </webrule>
     <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after">
       <addheader header="Service-Worker-Allowed" value="/" />
+      <!-- Avoids limiting service workers connection ability (for them the CSP of the mjs file is considered) -->
+      <csp policy="" />
     </webrule>
 
     <!-- configuration, limited cachability. used to inform sites about active interface webservers (TODO and perhaps public keys for password encryption in the future?) -->

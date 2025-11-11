@@ -43,7 +43,6 @@
 
   <apply comment="on dev servers, open up a /testportal" maxservertype="development">
     <to type="file" pathmask="/testportal" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-testportal"
@@ -53,21 +52,32 @@
   <applysiteprofile path="pages/manual/manual.siteprl.xml" />
 
   <!-- on test and above, /testportal just blocks -->
-  <sitesettings>
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <sitesettings sitename="WebHare backend"> <!-- limit to our backend, others use webinterface webdesign too and they'll have to bring their own rules-->
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" >
       <webrule path="/" match="initial">
-        <!-- <addheader header="X-Frame-Options" value="DENY"/>  applicationportal.whlib controls this currently -->
         <addheader header="X-XSS-Protection" value="1; mode=block" />
         <addheader header="X-Content-Type-Options" value="nosniff" />
         <addheader header="Referrer-Policy" value="no-referrer" />
+        <!-- note: the applicationportal will overwrite the CSP and X-Frame-Options so this policy only applies to the wrdauth (login) pages -->
+        <addheader header="X-Frame-Options" value="DENY"/>
+        <csp policy="default-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'" />
       </webrule>
-      <openapi path="/.wh/api/v1/" service="platform:api" />
 
       <!-- protect the testportal page from being accessed on non-development servers -->
-      <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
-      <webrule path="/" match="initial" maxservertype="development">
-        <csp policy="script-src 'self' maps.googleapis.com" />
+      <webrule path="/testportal" match="initial" allowips="" minservertype="test">
       </webrule>
+
+      <!-- allow testportal and testoutput to be framed -->
+      <webrule path="/testportal/" match="initial" maxservertype="development">
+        <addheader header="X-Frame-Options" value=""/>
+        <csp policy="frame-ancestors 'self'" />
+      </webrule>
+      <webrule path="/testoutput/" match="initial" maxservertype="development">
+        <addheader header="X-Frame-Options" value=""/>
+        <csp policy="frame-ancestors 'self'" />
+      </webrule>
+
+      <openapi path="/.wh/api/v1/" service="platform:api" />
     </webruleset>
   </sitesettings>
 

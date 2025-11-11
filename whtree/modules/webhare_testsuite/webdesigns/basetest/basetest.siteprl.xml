@@ -619,7 +619,7 @@
   <apply>
     <to type="all" pathmask="/portal1/*" />
     <to type="all" pathmask="/staticlogin/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-testsuite-portal1"
@@ -648,7 +648,7 @@
   <apply>
     <to type="all" pathmask="/portal1-domainless/*" />
     <to type="all" pathmask="/staticlogin-domainless/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              lastloginfield="LASTLOGIN"
@@ -670,7 +670,7 @@
 
   <apply>
     <to type="all" pathmask="/portal2/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:backend2"
              cookiename="webharelogin-testsuite-portal2"
@@ -679,12 +679,12 @@
 
   <apply>
     <to type="all" pathmask="/testsuiteportal/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
   </apply>
 
   <apply>
     <to type="all" pathmask="/test-saml/portal-idp/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:saml-idp"
              cookiename="webharelogin-testsuite-saml-idp"
@@ -693,7 +693,7 @@
 
   <apply>
     <to type="all" pathmask="/test-saml/portal-idp-formlogin/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:saml-idp-formlogin"
              cookiename="webharelogin-testsuite-saml-idp"
@@ -720,7 +720,7 @@
 
   <apply>
     <to type="all" pathmask="/test-saml/portal-sp/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true">
+    <portal xmlns="http://www.webhare.net/xmlns/tollium">
       <loginmethod type="password" />
       <loginmethod type="saml" autologin="false" icon="tollium:tollium/webhare" tag="test-sp" title="SAML login" />
     </portal>
@@ -984,7 +984,9 @@
 
   <sitesettings>
     <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
-      <webrule path="/" match="initial" applyruleset="system:webdav" wrdschema="wrd:testschema" />
+      <webrule path="/" match="initial" applyruleset="system:webdav" wrdschema="wrd:testschema">
+        <addheader header="X-Frame-Options" value="" />
+      </webrule>
       <webrule path="/testpages/dynamicpage" match="initial">
         <!-- GA integration tests, eg socialite.test_gtmintegration, requires freedom to load analytics
              we cannot set https:// for google-analytics.com, as GTM (or GA itself) will load ecomerce.js over http

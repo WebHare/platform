@@ -128,7 +128,7 @@
   <!-- Use a separate schema for the OIDC authenticated portal -->
   <apply>
     <to type="all" pathmask="/portal1-oidc/*" />
-    <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
+    <portal xmlns="http://www.webhare.net/xmlns/tollium"/>
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="webhare_testsuite:oidc-sp"
              loginpage="currentsite::/portal1-oidc/"

@@ -83,8 +83,7 @@ RECORD FUNCTION GetCacheableUIFilesKey()
 PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT applytester)
 {
   RECORD config := CELL
-    [ allowinframe := FALSE
-    , dashboard := TRUE
+    [ dashboard := TRUE
 
     , personalsettingsapp := "system:personalsettings"
     ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
@@ -103,8 +102,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
   FOREVERY(RECORD setting FROM applytester->GetCustomSettings("http://www.webhare.net/xmlns/tollium", "portal"))
   {
     STRING resourcename := setting.siteprofile->name;
-    IF(setting.node->HasAttribute("allowinframe"))
-      config.allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
     IF(setting.node->HasAttribute("dashboard"))
       config.dashboard := ParseXSBoolean(setting.node->GetAttribute("dashboard"));
     IF(setting.node->HasAttribute("usewrdauthloginpage"))
@@ -261,7 +258,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
       , memoryprofiling  := this->memoryprofiling
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
-      , this->config.allowinframe
       , jsversion        := this->jsversion
       ];
 
@@ -431,13 +427,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 
     INSERT "wh-shell" INTO this->webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface (TODO should indyshell apply it after succesful startup, and should that hide the 'webhare starting' root witty?)
 
-    //do not allow us to be embedded into iframes
-    IF(NOT this->config.allowinframe)
-    {
-      AddHTTPHeader("X-Frame-Options", "DENY", FALSE);
-      AddHTTPHeader("X-WebharePreview-Frame-Options", "DENY", FALSE);
-    }
-
     /* Google Maps: Content Security Policy Guide
        https://developers.google.com/maps/documentation/javascript/content-security-policy
     */
@@ -459,6 +448,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
         , "font-src" := "*"
         // *.googleapis.com and *.gstatic.com are needed for Google Maps
         , "script-src" := "'self' https://*.googleapis.com"
+        // base-uri isn't used so lock it down
+        , "base-uri" := "none"
         ];
     // This was a bug in Safari before 16 (https://bugs.webkit.org/show_bug.cgi?id=235873), but Firefox (which should support
     // this: https://bugzilla.mozilla.org/show_bug.cgi?id=1345615) now gives an error connecting to wss when it's not

@@ -187,11 +187,16 @@
   </rights>
 
   <backend>
+    <webrule path="root:/tollium_todd.res/webhare_testsuite/" match="initial">
+      <csp policy="frame-ancestors 'self'" />
+    </webrule>
     <webrule path="root:/.webhare_testsuite/tests/"
              match="initial"
              allowallmethods="true"
              redirecttodir="web:/tests/"
-             maxservertype="development" />
+             maxservertype="development">
+      <csp policy="frame-ancestors 'self'" />
+    </webrule>
     <webrule path="root:/.webhare_testsuite/tests/js/"
              match="initial"
              allowallmethods="true"
