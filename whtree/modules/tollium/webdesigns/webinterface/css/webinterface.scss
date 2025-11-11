@@ -51,9 +51,8 @@ body
 
   background-color: #000000;
 }
-.wh-backend__main:not(:has(.hserror__body)) /* until we nicely format errorpages inside wrdauth , keep the background white */
+.wh-backend__main
 {
-  background: var(--main-background);
   grid-column: desktop;
   grid-row: desktop;
 }
