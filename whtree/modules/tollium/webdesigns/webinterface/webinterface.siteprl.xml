@@ -61,6 +61,9 @@
         <!-- note: the applicationportal will overwrite the CSP and X-Frame-Options so this policy only applies to the wrdauth (login) pages -->
         <addheader header="X-Frame-Options" value="DENY"/>
         <csp policy="default-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'" />
+
+        <tryfolder path="siteoutput::[sitename]/" />
+        <tryfolder path="mod::platform/web/backend/" />
       </webrule>
 
       <!-- protect the testportal page from being accessed on non-development servers -->
