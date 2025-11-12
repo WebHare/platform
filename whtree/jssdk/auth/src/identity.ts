@@ -24,6 +24,7 @@ import { AuthenticationSettings, describeEntity } from "@webhare/wrd";
 import { getGuidForEntity } from "@webhare/wrd/src/accessors";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
+const defaultClockTolerance = 5; // seconds of tolerance in verification + setting nbf this much seconds before iat
 
 /** Token creation options. DO NOT EXPOSE FROM \@webhare/auth . */
 export interface AuthTokenOptions {
@@ -276,7 +277,7 @@ function preparePayload(subject: string, created: Temporal.Instant | null, valid
   const payload: JwtPayload = { jti: generateRandomId() };
   if (created) {
     payload.iat = Math.floor(created.epochMilliseconds / 1_000);
-    payload.nbf = payload.iat;
+    payload.nbf = payload.iat - defaultClockTolerance;
   }
 
   // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
@@ -321,7 +322,7 @@ export function decodeJWT(token: string): JwtPayload {
 
 export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
   const jwk = createPublicKey({ key: key, format: 'jwk' });
-  const verifyoptions: VerifyOptions = { issuer };
+  const verifyoptions: VerifyOptions = { issuer, clockTolerance: defaultClockTolerance };
   if (options?.audience)
     verifyoptions.audience = options.audience;
 
