@@ -14,6 +14,7 @@ export type {
   TypedInstanceData,
   TypedInstanceExport,
   TypedInstanceSource,
+  WHFSTypeMember,
 } from "./contenttypes";
 export { describeWHFSType } from "./describe";
 export { openTagManager } from "./tagmanager";

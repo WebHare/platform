@@ -164,10 +164,11 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     this.ns = ns;
   }
 
-  async describe(): Promise<{ id: number | null }> {
+  async describe(): Promise<{ id: number | null; members: WHFSTypeMember[] }> {
     this.descr ??= await describeWHFSType(this.ns);
     return {
       id: this.descr.id,
+      members: this.descr.members,
     };
   }
 
