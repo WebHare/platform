@@ -7,3 +7,7 @@
 [submodule "vendor/emsdk"]
 	path = vendor/emsdk
 	url = https://github.com/emscripten-core/emsdk.git
+[submodule "whtree/modules/platform/js/certbot/vendor/acme"]
+	path = whtree/modules/platform/js/certbot/vendor/acme
+	url = https://github.com/WebHare/acme.git
+	branch = feature/node-import

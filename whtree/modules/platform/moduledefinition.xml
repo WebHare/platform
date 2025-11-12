@@ -3,6 +3,14 @@
   <meta>
     <description>WebHare platform core functionality</description>
     <validation options="nowarnings">
+      <exclude mask="js/certbot/vendor/acme/*.deno.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/*.test.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/test_deps.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/e2e/*" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/examples/*" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/integration/*"
+               why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/scripts/*" why="unused external code not compatible with our node environment" />
       <format excludemasks="generated/*" masks="*.ts *.tsx" />
     </validation>
   </meta>

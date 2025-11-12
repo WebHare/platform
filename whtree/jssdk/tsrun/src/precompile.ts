@@ -10,6 +10,17 @@ async function main() {
         !entry.parentPath.substring(dir.length).includes("node_modules") &&
         //only care for files
         entry.isFile() &&
+        //exclude the vendored 'acme' package, which is not installed, but included as a submodule
+        //we do want to include acme's 'src' directory (which contains the ts files we're importing), but skip over *.test.ts
+        //and *.deno.ts files
+        (
+          !entry.parentPath.substring(dir.length).includes("vendor/acme") ||
+          (
+            entry.parentPath.substring(dir.length).includes("vendor/acme/src") &&
+            !entry.name.endsWith(".test.ts") &&
+            !entry.name.endsWith(".deno.ts")
+          )
+        ) &&
         //with a transpilable extension
         [".ts", ".tsx"].includes(path.extname(entry.name)));
 
