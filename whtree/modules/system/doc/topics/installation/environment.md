@@ -171,7 +171,7 @@ This variable can be setup as eg a [GitLab CI/CD environment variable](https://g
 Please make sure you protect it !
 
 ### TESTFW_TWOHARES
-If set, two separate WebHares are running. This enables some additional tests
+If set the CI framework will launch a second WebHare (used for test_peerserver)
 
 ### WEBHARE_CI
 The `WEBHARE_CI` variable is set by testcontainer/testmodule to indicate that the current installation is started by CI
