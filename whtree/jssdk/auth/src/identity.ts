@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
 import { type AnyWRDSchema, type SchemaTypeDefinition, WRDSchema } from "@webhare/wrd/src/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
-import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
+import { compareProperties, convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
@@ -1029,7 +1029,7 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
     scopes: token.scopes ? token.scopes.split(" ") : [],
     title: token.title || '',
     client: token.client
-  }));
+  })).toSorted(compareProperties(["created", "id"]));
 }
 
 export async function getToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<ListedToken | null> {

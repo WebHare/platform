@@ -5,7 +5,7 @@ import type { Temporal } from "temporal-polyfill";
 /// Returns T or a promise resolving to T
 export type MaybePromise<T> = Promise<T> | T;
 
-export type ComparableType = number | null | bigint | string | Date | Money | boolean | Uint8Array;
+export type ComparableType = number | null | bigint | string | Date | Money | boolean | Uint8Array | Temporal.Instant | Temporal.PlainDate | Temporal.ZonedDateTime;
 
 type CamelCase<S extends string> = S extends `${infer P1}_${infer P2}${infer P3}`
   ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
@@ -170,6 +170,16 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
             return left[i] < right[i] ? -1 : 1;
         }
         return left.length !== right.length ? left.length < right.length ? -1 : 1 : 0;
+      } else if (isTemporalInstant(left) && isTemporalInstant(right)) {
+        const left_value = left.epochMilliseconds;
+        const right_value = right.epochMilliseconds;
+        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+      } else if (isTemporalPlainDate(left) && isTemporalPlainDate(right)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we're not loading Temporal types when packaging @webhare/std separately
+        return (globalThis as any).Temporal.PlainDate.compare(left, right);
+      } else if (isTemporalZonedDateTime(left) && isTemporalZonedDateTime(right)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we're not loading Temporal types when packaging @webhare/std separately
+        return (globalThis as any).Temporal.ZonedDateTime.compare(left, right);
       }
     } break;
   }
