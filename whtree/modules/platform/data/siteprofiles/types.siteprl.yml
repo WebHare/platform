@@ -58,7 +58,7 @@ types:
     icon: tollium:files/image
     metaType: upload
     requiresContent: true
-    browserPreview: /.publisher/backend/preview/image.shtml
+    browserPreview: /.wh/common/preview/image.shtml
   filetypes.internallink:
     namespace: http://www.webhare.net/xmlns/publisher/internallink
     icon: tollium:files/application_x-webhare-internallink
@@ -132,7 +132,7 @@ types:
     metaType: upload
     requiresContent: true
     extension: .pdf
-    browserPreview: /.publisher/backend/preview/direct.shtml
+    browserPreview: /.wh/common/preview/direct.shtml
     searchContentProvider: publisher:contentblob
   filetypes.plaintext:
     namespace: http://www.webhare.net/xmlns/publisher/plaintextfile

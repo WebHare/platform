@@ -119,7 +119,7 @@ ASYNC MACRO WalkTheTree() {
   {
     // The preview url should be empty and the secure vs unsecure message should be shown, as the headless controller is secure
     // and the test site is not
-    TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+    TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
     TestEq(TRUE, pvs.showingmessages);
     TestEqLike(`*The site is unsecure*<a *`, pvs.messages);
   }
@@ -167,7 +167,7 @@ ASYNC MACRO WalkTheTree() {
   pvs := TT("previewbrowser")->GetPreviewState();
 
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/unknownfile", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEq(TRUE, testfw->browser->GotoWebPage(pvs.browserurl));
 
@@ -178,7 +178,7 @@ ASYNC MACRO WalkTheTree() {
   //Check the previewed url
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(FALSE, pvs.showingmessages);
 
   //Find a simple file that should be published
@@ -207,7 +207,7 @@ ASYNC MACRO WalkTheTree() {
   //Go to the indexless folder
   TT("foldertree")->selection := SELECT * FROM TT("foldertree")->rows WHERE name = "tmp";
   pvs := TT("previewbrowser")->GetPreviewState();
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(OpenTestsuiteSite()->webroot || "tmp/", pvs.displayurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`The selected folder 'tmp' does not have an index document.`, pvs.messages);
@@ -217,7 +217,7 @@ ASYNC MACRO WalkTheTree() {
 
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(OpenTestsuiteSite()->webroot || "tmp/crash/", pvs.displayurl);
-  // TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl); //we now simply attempt to show what the output would show
+  // TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl); //we now simply attempt to show what the output would show
   TestEqLike(OpenTestsuiteSite()->webroot || "tmp/crash/*__whpub_clock_=*", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike('*<a *errors*', pvs.messages);
@@ -234,7 +234,7 @@ ASYNC MACRO WalkTheTree() {
   TestEq(1, Length(TT("filelist")->value));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEqLike("*/invalidfiletype", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
 
   // Select the internal link to the errored file
@@ -284,7 +284,7 @@ ASYNC MACRO WalkTheTree() {
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="externallink";
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("https://www.webhare.dev/", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`This external link links to URL 'https://www.webhare.dev/'. <a href="preview:showexternallink">Click here to open this link.</a>`, pvs.messages);
 
@@ -294,7 +294,7 @@ ASYNC MACRO WalkTheTree() {
   TestEq(TRUE, RecordExists(TT("filelist")->selection));
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq("", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
   TestEq(TRUE, pvs.showingmessages);
   TestEqLike(`This external link does not seem to be linked to an existing file.<br />Errors have occurred during publication. <a href="preview:showerrors">Click here to view the errors.</a>`, pvs.messages);
 
@@ -391,7 +391,7 @@ ASYNC MACRO WalkTheTreeSysop() {
   pvs := TT("previewbrowser")->GetPreviewState();
   TestEq(FALSE, pvs.showingmessages);// Files of this type should be published as .shtml, but this one has the extension .html
   TestEq("", pvs.displayurl);
-  TestEq(GetPrimaryWebhareInterfaceURL() || ".publisher/backend/preview/nopreview.html", pvs.browserurl);
+  TestEq(GetPrimaryWebhareInterfaceURL() || ".wh/common/preview/nopreview.html", pvs.browserurl);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
