@@ -15,6 +15,18 @@
     </attributes>
   </domain>
 
+  <object tag="certificate_provider">
+    <attributes>
+      <enum tag="issuer_domain" allowedvalues="letsencrypt.org harica.gr" required="true" />
+      <free tag="acme_directory" />
+      <file tag="account_privatekey" />
+      <free tag="eab_kid" />
+      <free tag="eab_hmackey" />
+      <email tag="email" />
+      <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks -->
+    </attributes>
+  </object>
+
   <object tag="taskcluster" keephistorydays="2600">
     <!-- overrides for module task clusters -->
     <attributes>

@@ -8,6 +8,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 
+// also called by renewcertbot.ts!
 PUBLIC RECORD ARRAY FUNCTION ListCertificates()
 {
   RECORD ARRAY certificates;

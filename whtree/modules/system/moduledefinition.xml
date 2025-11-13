@@ -53,7 +53,10 @@
 
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
-    <managedtask type="installmodule" objectname="mod::system/lib/internal/moduleimexport.whlib#installmoduletask" allowifrestore="true" priority="updateinteractive"/>
+    <managedtask type="installmodule"
+                 allowifrestore="true"
+                 objectname="mod::system/lib/internal/moduleimexport.whlib#installmoduletask"
+                 priority="updateinteractive" />
   </servicemanager>
 
   <portal>
@@ -401,7 +404,7 @@
     <!-- TODO: should there be a way to disable this builtin redirect? -->
     <webrule path="allroots:/.well-known/acme-challenge/"
              match="initial"
-             handlebyscript="web/global/acme.shtml"
+             handlebydir="whdata::caches/platform/acme/"
              priority="after" />
     <webrule path="allroots:/.webhare/direct/" match="initial" handlebydir="web/global/direct/" priority="after" />
 
