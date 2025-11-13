@@ -48,7 +48,7 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     this->apptoken := EncryptForThisServer("publisher:pwaapptoken", [ id := webdesign->targetobject->id]);
-    INSERT CELL "wh-pwa-uid" := IsRequest() ? FormatISO8601Datetime(webdesign->targetobject->modificationdate, [ extended := FALSE ])
+    INSERT CELL "wh-pwa-uid" := IsRequest() ? FormatISO8601Datetime(webdesign->targetobject->modificationdate, [ extended := FALSE, timeformat := "milliseconds" ])
                                             : GenerateUFS128BitId() INTO this->webdesign->htmldata;
     INSERT CELL "wh-pwa-fileid" := ToString(webdesign->targetobject->id) INTO this->webdesign->htmldata;
     this->UpdatePWASettings();
