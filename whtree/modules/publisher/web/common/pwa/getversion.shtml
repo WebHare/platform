@@ -88,7 +88,7 @@ RECORD FUNCTION GetFileinfo(RECORD appinfo)
     IF(ObjectExists(source->documentelement))
       pwauid := source->documentelement->GetAttribute("data-wh-pwa-uid");
   } ELSE { //no index.html so it's dynamic
-    pwauid := FormatISO8601Datetime(targetfile->modificationdate, [ extended := FALSE ]);
+    pwauid := FormatISO8601Datetime(targetfile->modificationdate, [ extended := FALSE, timeformat := "milliseconds" ]);
   }
 
   RECORD pwasettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/pwasettings")->GetInstanceData(appinfo.id);
