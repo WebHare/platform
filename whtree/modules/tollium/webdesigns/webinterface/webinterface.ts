@@ -1,5 +1,5 @@
 import { frontendConfig, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
-import { isHTMLElement } from "@webhare/dompack";
+import { isHTMLElement, register } from "@webhare/dompack";
 import "@webhare/tollium-iframe-api/styling/tollium.css";
 import './css/webinterface.scss';
 import './pages/forms';
@@ -37,3 +37,6 @@ if (document.documentElement.classList.contains('wh-shell')) {
     }
   });
 }
+
+//until we nicely format errorpages inside wrdauth, keep the background white
+register("main.wh-backend__main[data-main-background]:not(:has(.hserror__body))", el => el.style.background = el.dataset.mainBackground!);

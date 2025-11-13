@@ -8,6 +8,7 @@ import type { KeyboardModifierOptions } from "dompack/testframework/keyboard";
 import { originalPositionFor, TraceMap } from "@jridgewell/trace-mapping";
 import { readFileSync } from "node:fs";
 import { getBundleOutputPath } from "../assetpacks/support";
+import { debugFlags } from "@webhare/env";
 
 let puppeteer: Puppeteer.Browser | null = null;
 
@@ -65,7 +66,6 @@ type LogEntry = {
 };
 
 let debug = false;
-let keepopen = false;
 let alwayslog = false;
 
 async function remapLocation(loc: Puppeteer.ConsoleMessageLocation): Promise<Puppeteer.ConsoleMessageLocation> {
@@ -126,10 +126,14 @@ export async function init(options: {
 }) {
 
   debug = Boolean(options.debug);
-  keepopen = Boolean(options.keepopen);
+  if (options.keepopen)
+    debugFlags["test-keepopen"] = true;
+  if (options.showbrowser)
+    debugFlags["test-showbrowser"] = true;
+
   alwayslog = Boolean(options.alwayslog);
   puppeteer = await launchPuppeteer({
-    headless: !(options.showbrowser || options.keepopen),
+    headless: !debugFlags["test-keepopen"] && !debugFlags["test-browser"],
     defaultViewport: { height: 1024, width: 1280, deviceScaleFactor: 1 }
   });
 }
@@ -213,14 +217,14 @@ export async function runTest(test: Test) {
     return { status: "fail" };
   } finally {
     // Cleanup
-    if (!keepopen)
+    if (!debugFlags["test-keepopen"])
       await page?.close();
     await events[Symbol.dispose]();
   }
 }
 
 export async function close() {
-  if (!keepopen)
+  if (!debugFlags["test-keepopen"])
     await puppeteer?.close();
   puppeteer = null;
 }

@@ -1013,6 +1013,10 @@ function testCompare() {
   test.eq(0, std.compare(new Uint8Array([1, 2]), new Uint8Array([1, 2])));
   test.eq(1, std.compare(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2])));
 
+  test.eq(-1, std.compare(Temporal.Instant.from("2025-02-02T12:00:00Z"), Temporal.Instant.from("2025-02-02T14:00:00Z")));
+  test.eq(-1, std.compare(Temporal.PlainDate.from("2025-02-02"), Temporal.PlainDate.from("2025-02-03")));
+  test.eq(-1, std.compare(Temporal.ZonedDateTime.from("2025-02-02T12:00:00[Europe/Amsterdam]"), Temporal.ZonedDateTime.from("2025-02-02T14:00:00Z[Europe/Amsterdam]")));
+
   if (typeof Buffer !== "undefined") { //looks like nodejs
     test.eq(-1, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x02\x01")));
     test.eq(0, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x01\x02")));

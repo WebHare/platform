@@ -12,7 +12,7 @@
 [component htmlbody]
   [if banner]<div class="wh-backend__banner">[banner]</div>[/if]
   <div class="wh-backend__topbar"></div>
-  <main class="wh-backend__main" [if mainbackgroundcss]style="--main-background: [mainbackgroundcss];"[/if]>
+  <main class="wh-backend__main" [if mainbackgroundcss]data-main-background="[mainbackgroundcss]"[/if]>
   <div class="wh-backend__appbar">
     <div class="wh-backend__appbar__logo">
       <img width="48" height="48" src="[imgroot]webhare-white.svg" alt="" />

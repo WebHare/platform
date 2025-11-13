@@ -594,8 +594,8 @@ MACRO PrintSyntax()
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
   Print("  --param=x=y      Set a test parameters\n");
   Print("  --timeout=...    Set timeout in msecs. Defaults to 15 minutes\n");
-  Print("  -b/--showbrowser Show brwoser during tests pages\n");
-  Print("  -k/--keepopen    Do not close browser page when test fails\n");
+  Print("  -b/--showbrowser Show brwoser during tests pages (or: WEBHARE_DEBUG=test-showbrowser)\n");
+  Print("  -k/--keepopen    Do not close browser page when test fails (or: WEBHARE_DEBUG=test-keepopen)\n");
   Print("  --alwayslog      Always store logs and end result of a test, even if succesful\n");
   Print("  --wasm           Default to the wasm engine for tests that do not declare their engine\n");
   Print("  all              Run the group 'all' in all known tests\n");

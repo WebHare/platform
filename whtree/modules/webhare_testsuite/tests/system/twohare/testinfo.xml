@@ -1,3 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="prepare-server2.whscr" skipautotests="true">
-  <jstest file="test_peerserver.ts" ifenvironset="TESTFW_TWOHARES"/>
+  <jstest file="test_peerserver.ts"/>
 </group>
