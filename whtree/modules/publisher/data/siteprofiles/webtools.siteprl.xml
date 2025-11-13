@@ -253,4 +253,15 @@
     <formdefinitions name="publisher:webtoolform" path="mod::publisher/lib/internal/forum/forum.formdef.xml" />
   </apply>
 
+  <!-- Sitemap files -->
+  <filetype namespace="platform:filetypes.sitemap"
+            blobiscontent="false"
+            extensions=".xml"
+            isacceptableindex="true"
+            ispublishable="true"
+            title="Sitemap"
+            tolliumicon="tollium:files/text_xml">
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishsitemap.whscr" />
+  </filetype>
+
 </siteprofile>
