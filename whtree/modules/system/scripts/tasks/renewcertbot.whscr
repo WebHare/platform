@@ -22,7 +22,7 @@ IF (NOT RecordExists(args))
 BOOLEAN debug := args.debug;
 OBJECT trans := OpenPrimary();
 
-RECORD ARRAY allcerts := ListCertficates();
+RECORD ARRAY allcerts := ListCertificates();
 STRING ARRAY allhostnames := GetCertifiableHostnames();
 
 FOREVERY (RECORD cert FROM allcerts)

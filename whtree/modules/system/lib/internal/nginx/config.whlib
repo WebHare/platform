@@ -8,7 +8,7 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 
-PUBLIC RECORD ARRAY FUNCTION ListCertficates()
+PUBLIC RECORD ARRAY FUNCTION ListCertificates()
 {
   RECORD ARRAY certificates;
   FOREVERY (RECORD keypair_rec FROM ListKeyPairs())
@@ -120,7 +120,7 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
       ];
 
   // Get all the usable certificates on the system
-  RECORD ARRAY certificates := ListCertficates();
+  RECORD ARRAY certificates := ListCertificates();
 
   //PRINT("Reading all certificates\n");
 
