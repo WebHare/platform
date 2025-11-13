@@ -1053,7 +1053,7 @@ MACRO TestWebBrowser()
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4" ]);
   TestEQ(FALSE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv6" ]);
-  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""));
+  TestEQ(TRUE, browser->PostWebPage("http://localhost:" || res.msg.accepting_port, RECORD[], ""), "A failure on this test might indicate no ipv6 support enabled in container");
 
   browser->__checkconnectipport := PTR CheckIPPort("allow", #1, #2, #3);
   res := job->ipclink->DoRequest([ type := "socket-servedata", data := "HTTP/1.1 200 OK\nContent-Length: 10\n\n2345678901", ip := "ipv4"  ]);
