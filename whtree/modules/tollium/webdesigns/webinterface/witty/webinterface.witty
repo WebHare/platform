@@ -28,38 +28,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <style>
-      html
-      {
-        font: 18px Helvetica, Arial, sans-serif;
-        background:#3b3b3b;
-        color:#ffffff;
-      }
-      .text
-      {
-        position:absolute;
-        left:30%;
-        top:45%;
-        width:40%;
-        text-align:center;
-      }
-      .dot
-      {
-        visibility: hidden;
-      }
-      html.dots1 .firstdot
-      , html.dots2 .firstdot + .dot
-      , html.dots3 .firstdot + .dot + .dot
-      {
-        visibility: visible;
-      }
-    </style>
+    <link rel="stylesheet" type="text/css" href="/.wh/ea/p/backend/rootfailure.css" />
   </head>
   <body>
     <div class="text">
       WebHare is initializing, please wait<span class="firstdot dot">.</span><span class="dot">.</span><span class="dot">.</span>
     </div>
-    <script src="/.tollium/ui/direct/applicationportal.js" ></script>
+    <script src="/.wh/ea/p/backend/rootfailure.js" ></script>
   </body>
 </html>
 [/component]

@@ -968,7 +968,7 @@ success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platf
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/etc/platform.conf \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
-	$(PREFIX)/bin/wh finalize-webhare
+	WHBUILD_DISALLOW_INTERRUPT=1 $(PREFIX)/bin/wh finalize-webhare
 	touch $@
 
 endif #WEBHARE_IN_DOCKER

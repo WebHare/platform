@@ -49,6 +49,9 @@ while [[ $1 =~ ^-.* ]]; do
   elif [ "$1" == "-i" -o "$1" == "--ignore-running" ]; then
     export WEBHARE_IGNORE_RUNNING=1
     shift
+  elif [ "$1" == "-x" ]; then
+    set -x
+    shift
   else
     die "Illegal option $1"
   fi
