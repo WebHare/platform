@@ -84,7 +84,7 @@ SWITCH (type)
     AddHTTPHeader("Content-Type", data.mimetype,false);
     AddHTTPHeader("Content-Disposition", data.disposition,FALSE);
 
-    //as this is used specifically for embedding nad we assume we have to trust our own tollium apps, strip WebHare's normal policy
+    //as this is used specifically for embedding and we assume we have to trust our own tollium apps, strip WebHare's normal policy
     //TODO consider verifying the login cookies? that would prevent using this URL for rehosting
     AddHTTPHeader("Content-Security-Policy", "", FALSE);
     AddHTTPHeader("X-Frame-Options", "", FALSE);
