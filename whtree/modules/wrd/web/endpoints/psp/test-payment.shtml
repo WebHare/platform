@@ -91,4 +91,6 @@ PUBLIC STATIC OBJECTTYPE PSPTestPage EXTEND DynamicPageBase
 >;
 
 OpenPrimary();
+AddHTTPHeader("Content-Security-Policy", "", FALSE);
+AddHTTPHeader("X-Frame-Options", "", FALSE);
 NEW PSPTestPage->RunPageForWHFSId(whconstant_whfsid_webharebackend);

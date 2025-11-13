@@ -587,6 +587,9 @@ class BLEXLIB_PUBLIC Connection : public Blex::Dispatcher::Connection
         /** Execute any path rewrites */
         void DoDiskPathRewrites(std::string const &path, WebSite const *forwebsite, bool fixcase);
 
+        /** Try a specific rewrite rule */
+        bool TryDiskPathRewrite(Request::AccessRuleHitInfo *hit, std::string const &path, bool fixcase, std::vector< std::string > *tested_paths);
+
         /** Check if file exists on disk storage, fixing case, expanding default pages, removing extensions */
         int DoDiskStorageFileCheck(bool fixcase, bool allow_rewrites, std::string const &testpath);
 
@@ -640,6 +643,9 @@ class BLEXLIB_PUBLIC Connection : public Blex::Dispatcher::Connection
 
         ///Path to the file that needs to be sent (after mapping vhost and rewriters)
         std::string disk_file_path;
+
+        ///Path to capturing index folder (to which we'll fall back if we find no explicit match)
+        std::string capturing_index_folder;
 
         /** Base path, if set we're allowed to look for directory handling markers from here
             Is always a prefix of disk_file_path, ends with a '/' if set

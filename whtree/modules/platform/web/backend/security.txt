@@ -1,0 +1,4 @@
+# This is the fallback security.txt for the WebHare Backend
+Contact: mailto:security@webhare.nl
+Expires: 2028-12-31T11:00:00.000Z
+Preferred-Languages: en,nl

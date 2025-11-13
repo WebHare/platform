@@ -228,4 +228,7 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
   }
 }
 
+//TODO or copy the actual targets CSP ?
+AddHTTPHeader("Content-Security-Policy", "", FALSE);
+AddHTTPHeader("X-Frame-Options", "", FALSE);
 RunPublisherPreview(targetobject, contentobject, ispublicobject);

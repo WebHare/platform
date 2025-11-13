@@ -218,7 +218,7 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
                 }
         }
 
-        if (!base_file_path.empty())
+        if (!base_file_path.empty() && capturing_index_folder.empty())
         {
                 if (!Blex::StrStartsWith(disk_file_path, base_file_path.c_str()))
                 {
@@ -228,7 +228,6 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
 
                 std::string testpath = base_file_path; //start at webserver root
                 std::string::iterator itr = disk_file_path.begin() + base_file_path.size();
-                std::string capturing_index_folder;
                 for (unsigned i = 0; i < 15; ++i) // test max 15 path components
                 {
                         if (request->header_debugging)
@@ -236,7 +235,7 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
 
                         Blex::PathStatus marker(testpath + "^^useindex");
                         if(marker.Exists())
-                                capturing_index_folder = testpath;
+                            capturing_index_folder = testpath;
 
                         std::string::iterator compend = std::find(itr, disk_file_path.end(), '/');
                         if (compend == disk_file_path.end())
@@ -245,11 +244,6 @@ bool Connection::RedirectAlternativePath(std::string const &inpath)
                         ++compend;
                         std::copy(itr, compend, std::back_inserter(testpath));
                         itr = compend;
-                }
-                if(!capturing_index_folder.empty())
-                {
-                        disk_file_path = capturing_index_folder;
-                        return ExpandDefaultPages();
                 }
         }
         return false;
@@ -370,6 +364,7 @@ void Connection::ProcessRequestHeader()
 
         //Clear the output disk_file_path, so we can detect when an Access rule has already updated it
         disk_file_path.clear();
+        capturing_index_folder.clear();
         base_file_path.clear();
         //Clear the content type, so we can detect when an Access rule has already updated it
         contenttype = NULL;

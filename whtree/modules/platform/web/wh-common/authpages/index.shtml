@@ -4,6 +4,7 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
@@ -23,6 +24,13 @@ OpenPrimary();
 
 STRING pathname := GetWebVariable("pathname");
 STRING url := UnpackURL(GetRequestURL()).origin || "/" || pathname;
+
+IF(GetDtapStage() = "development" AND GetWebVariable("pathname") LIKE "testoutput/*") {
+  //CI tests need framing protection removed from authpages
+  AddHTTPHeader("Content-Security-Policy", "", FALSE);
+  AddHTTPHeader("X-Frame-Options", "", FALSE);
+}
+
 OBJECT webdesign := GetWebDesignForURL(url);
 OBJECT authpage := GetWRDAuthPages(webdesign, [ isglobalpage := TRUE ]);
 IF(NOT ObjectExists(authpage))

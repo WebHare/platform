@@ -1,0 +1,19 @@
+<?wh
+/* We're a fallback for the webhare interface if the WebHare backend site hasn't been published yet */
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD FUNCTION GetRootInterfaceDetails() {
+  RECORD root := SELECT indexdoc FROM system.fs_objects WHERE id = VAR whconstant_whfsid_webharebackend;
+  RETURN CELL[value := root, ttl := 1000];
+}
+
+RECORD root := GetAdhocCached(CELL["GetRootInterfaceDetails"], PTR RunInSeparatePrimary(PTR GetRootInterfaceDetails));
+
+IF(RecordExists(root) AND root.indexdoc != 0) {
+  SetAuthenticationRecord(CELL[...GetAuthenticationRecord(), whfsexecute := root.indexdoc ]);
+  MakeFunctionPtr("mod::system/scripts/internal/webserver/whfsexecute.whscr#__Dummy")();
+  RETURN;
+}

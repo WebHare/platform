@@ -215,43 +215,48 @@ unsigned Connection::PathMatchesRule(AccessRule const &rule, std::string const &
 void Connection::DoDiskPathRewrites(std::string const &testpath, WebSite const *forwebsite, bool fixcase)
 {
         DISKRES_PRINT("DoDiskPathRewrites enter");
-        auto ruleitr = request->rules_hit.rbegin();
-
         std::vector< std::string > tested_paths;
 
         // Find last matching access rule with datastorage rules
-        for (; ruleitr != request->rules_hit.rend(); ++ruleitr)
+        for (auto ruleitr = request->rules_hit.rbegin(); ruleitr != request->rules_hit.rend(); ++ruleitr)
         {
                 DISKRES_PRINT(" DoDiskPathRewrites match rule " << ruleitr->rule->id << " have_dsl: " << !ruleitr->rule->datastorage.empty() << " path " << ruleitr->rule->path);
                 if (!ruleitr->rule->datastorage.empty())
                 {
                         DISKRES_PRINT("  has disk storage locations");
-                        break;
+                        if(TryDiskPathRewrite(&*ruleitr, testpath, fixcase, &tested_paths))
+                                return;
                 }
         }
 
         // No storage location overrides?
-        if (ruleitr == request->rules_hit.rend())
-        {
-                DISKRES_PRINT(" No disk location rules found, using default");
-                if (forwebsite && !forwebsite->documentroot.empty()) //Access rules have no answer, so get document root for this webserver
-                {
-                        //DEBUGONLY(Debug::Msg("Url: %s  persistent: %s",url,persistent?"true":"false"));
-                        assert(forwebsite->documentroot[request->website->documentroot.size()-1]=='/');
-                        disk_file_path = forwebsite->documentroot;
-                        base_file_path = disk_file_path;
-                        disk_file_path.insert(disk_file_path.end(), requested_path.begin()+1, requested_path.end());
+        DISKRES_PRINT(" No disk location rules found, using default");
+        if (!forwebsite || forwebsite->documentroot.empty())
+                return; //if we didn't match a website just ignore. whcompile relies on this not triggering a failure status
 
-                        tested_paths.push_back(disk_file_path);
-                        if (DoDiskStorageFileCheck(fixcase, true, testpath) != 0)
-                            FailDiskPathResolve(tested_paths);
-                }
+        //Access rules have no answer, so get document root for this webserver
+        //DEBUGONLY(Debug::Msg("Url: %s  persistent: %s",url,persistent?"true":"false"));
+        assert(forwebsite->documentroot[request->website->documentroot.size()-1]=='/');
+        disk_file_path = forwebsite->documentroot;
+        base_file_path = disk_file_path;
+        disk_file_path.insert(disk_file_path.end(), requested_path.begin()+1, requested_path.end());
 
+        tested_paths.push_back(disk_file_path);
+        if (DoDiskStorageFileCheck(fixcase, true, testpath) == 0)
                 return;
+
+        if(!capturing_index_folder.empty()) { //now that we've tried all direct paths, use the first ^^useindex folder if any
+                disk_file_path = capturing_index_folder;
+                if(ExpandDefaultPages())
+                        return;
         }
 
-        AccessRule const &rule = *ruleitr->rule;
+        FailDiskPathResolve(tested_paths);
+}
 
+bool Connection::TryDiskPathRewrite(Request::AccessRuleHitInfo *ruleitr, std::string const &testpath, bool fixcase, std::vector< std::string > *tested_paths)
+{
+        AccessRule const &rule = *ruleitr->rule;
         std::string sha256b16hash;
         std::string sha256b16hash_directory;
         bool have_subpath = testpath.size() >= rule.path.size() && rule.matchtype != AccessRule::MatchGlob;
@@ -268,7 +273,6 @@ void Connection::DoDiskPathRewrites(std::string const &testpath, WebSite const *
 
         DISKRES_PRINT(" Subpath: '" << std::string(subpath_start, testpath.end()) << "', have_subpath: " << have_subpath);
 
-        bool have_match = false;
         ruleitr->datastoragerule = -1; // should be true already
         for (auto const &entry: rule.datastorage)
         {
@@ -366,17 +370,14 @@ void Connection::DoDiskPathRewrites(std::string const &testpath, WebSite const *
                         } break;
                 }
 
-                tested_paths.push_back(disk_file_path);
+                tested_paths->push_back(disk_file_path);
                 if (DoDiskStorageFileCheck(fixcase, expand_to_defaultpage, testpath) == 0) // file match?
                 {
                         DISKRES_PRINT("  Match found: " << disk_file_path);
-                        have_match = true;
-                        break;
+                        return true;
                 }
         }
-        DISKRES_PRINT("DoDiskPathRewrites done, final path: " << disk_file_path);
-        if (!have_match)
-            FailDiskPathResolve(tested_paths);
+        return false;
 }
 
 int Connection::DoDiskStorageFileCheck(bool fixcase, bool allow_rewrites, std::string const &testpath)

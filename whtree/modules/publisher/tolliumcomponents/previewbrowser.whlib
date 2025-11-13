@@ -295,7 +295,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
   {
     STRING src;
     IF(this->suppressrendering != "")
-      src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+      src := this->contexts->controller->baseurl || ".wh/common/preview/nopreview.html";
     ELSE IF(IsAbsoluteURL(this->currenturl))
       src := this->currenturl;
 
@@ -316,7 +316,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
     ^previewmessage->htmlvalue := this->lastsethtmlvalue;
     ^info->visible := Length(this->previewmessages) > 0;
 
-    STRING src := this->suppressrendering != ""? this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html"
+    STRING src := this->suppressrendering != ""? this->contexts->controller->baseurl || ".wh/common/preview/nopreview.html"
                 : UpdateURLVariables(this->currenturl,
                       [ "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
