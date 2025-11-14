@@ -994,8 +994,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
         // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
         const selectnode = option.closest<HTMLSelectElement>("select");
-        if (selectnode && option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
-          if (selectnode.options[0].dataset.whPlaceholder !== undefined) { //we have a placeholder...
+        if (selectnode && option.selected && (!option_enabled || option_hidden) && option.dataset.placeholder === undefined) {
+          if (selectnode.options[0].dataset.placeholder !== undefined) { //we have a placeholder...
             selectnode.selectedIndex = 0;
           } else {
             selectnode.selectedIndex = -1;
