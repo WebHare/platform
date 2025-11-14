@@ -1,5 +1,3 @@
-///x @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import { isHTMLElement, isMultiSelectKey, type UIBusyLock } from '@webhare/dompack';
 import * as movable from 'dompack/browserfix/movable';
@@ -189,6 +187,7 @@ export interface DataColumn {
   title: string;
   tree: boolean;
   type: string;
+  sortable: boolean;
   width: string;
   render: ListColumnBase<unknown>;
   rowspan: number;
@@ -468,14 +467,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.availableRowLayouts = data.layouts;
 
     this.initColumns(data.columns);
-    // this.setRowLayout(this.availableRowLayouts[0]);
 
     this.sortable = data.sortable;
     this.setSortSetting(data.sortcolumn === "<ordered>" ? null : { colName: data.sortcolumn, ascending: data.sortascending });
 
-
-    //console.log(data.rows.length > 0 ? data.rows[0][0].rowkey : "EMPTY");
-    //console.log(this.flatrows);
 
     this.initRows(data.rows);
 
@@ -2895,7 +2890,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
           h: 1,
           headernode: null,
           minwidth: colminwidth,
-          resizable: true
+          resizable: true,
         });
 
       this.dragdatacolumns.push(
@@ -3226,7 +3221,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   onHeaderClick(colidx: number) {
     const hdr = this.lv_cols[colidx].header;
     const col = this.lv_datacolumns[hdr];
-    if (!col || !this.sortable)
+    if (!col || !col.src.sortable)
       return;
 
     //ascending unless we're clicking the same column that is already sorted ascending
