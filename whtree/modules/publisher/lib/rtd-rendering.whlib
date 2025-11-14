@@ -11,7 +11,7 @@ LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
    - Suitable parameter to RenderRTDBlock
 */
 
-PUBLIC OBJECTTYPE RTDRenderer <
+PUBLIC STATIC OBJECTTYPE RTDRenderer <
   PUBLIC MACRO RenderRTDBlocks(RECORD context, RECORD ARRAY blocks) {
     FOREVERY(RECORD block FROM blocks)
       this->RenderRTDBlock(context, block);
