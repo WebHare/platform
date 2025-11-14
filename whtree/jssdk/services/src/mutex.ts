@@ -3,6 +3,7 @@ import type { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
 import * as std from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat/src/datetime.ts";
 import { checkModuleScopedName } from "./naming";
+import { getCodeContext } from "./codecontexts";
 
 interface InitTask {
   task: "init";
@@ -41,12 +42,15 @@ export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
 class Mutex {
   private link: MutexManagerLink | null = null;
   public readonly name;
+  private context = getCodeContext();
 
   constructor(mutexmgr: MutexManagerLink, mutexname: string) {
     this.link = mutexmgr;
     this.name = mutexname;
+    this.context.mutexes.add(mutexname);
   }
   release(): void {
+    this.context.mutexes.delete(this.name);
     // Send an unlock request, don't care about the result (it is ignored by our dorequests)
     if (this.link) {
       this.link.send({ task: "unlock", mutexname: this.name });
@@ -115,13 +119,18 @@ export async function lockMutex(name: string, options?: { timeout?: std.WaitPeri
     const lockresult = await lockrequest;
     if (lockresult.status === "timeout" || lockresult.status === "no")
       return null;
-    if (lockresult.status === "ok")
-      return new Mutex(mutexmanager!, name);
+    if (lockresult.status === "ok") {
+      return new Mutex(mutexmanager, name);
+    }
 
     throw new Error(`Unexpected status '${lockresult.status}' from mutexmanager locking '${name}'`);
   } finally {
     mutexmanager.dropReference();
   }
+}
+
+export function hasMutex(name: string): boolean {
+  return getCodeContext().mutexes.has(name);
 }
 
 export type { Mutex };

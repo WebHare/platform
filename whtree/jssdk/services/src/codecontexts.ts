@@ -70,6 +70,7 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   private closed = false;
   readonly consoleLog: ConsoleLogItem[] = [];
   readonly allPromises = new Map<number, PromiseAdminData>;
+  readonly mutexes: Set<string> = new Set;
   debugFlagsOverrides: DebugFlags[] = [{}];
 
   constructor(title: string, metadata: CodeContextMetadata = {}) {

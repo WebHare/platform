@@ -13,4 +13,7 @@
   <jstest name="websockets" file="websockets.ts" />
   <jstest file="accessrules.ts" tags="wrdauth" />
   <test name="remoting" path="remoting/" />
+  <group name="wasm" engine="wasm">
+    <test script="mutexes.whscr" />
+  </group>
 </group>

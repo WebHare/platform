@@ -21,7 +21,7 @@ export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export type { LoggableRecord } from "./logmessages";
 
 export { ResourceDescriptor } from "./descriptor";
-export { lockMutex, type Mutex } from "./mutex";
+export { lockMutex, hasMutex, type Mutex } from "./mutex";
 
 export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";
 export type { TaskFunction, TaskResponse } from "./tasks";
