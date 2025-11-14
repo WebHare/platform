@@ -1,0 +1,18 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::publisher/lib/template-v2.whlib";
+
+OpenFile(1);
+RECORD consilioresult := RunConsilioSearch(GetConsilioPublisherCatalog(site.id), CQAll(), [ count := -1, summary_length := -1 ]);
+
+RECORD wittydata :=
+  [ pagelinks := (SELECT link := objectid
+                       , modificationdate := FormatDateTime('%Y-%m-%d', (CellExists(results,"date_whmodification") ? date_whmodification : modificationdate), 'en')
+                    FROM consilioresult.results
+                   WHERE filetype = "html")
+  ];
+
+LoadWittyLibrary(Resolve("./publishsitemap.witty"), "XML")->Run(wittydata);
