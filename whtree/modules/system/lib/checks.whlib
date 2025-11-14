@@ -18,8 +18,8 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   //Some issues cannot be reported through the WRD mechanisms
   RECORD ARRAY issues;
   CONSTANT RECORD baseissue :=
-    [ ismanageable := FALSE
-    , iscritical := FALSE
+    [ is_manageable := FALSE //a check has to come from the database to be manageable
+    , is_critical := FALSE
     , message_tid := DEFAULT RECORD
     , snoozed := FALSE
     , scopes := STRING[]
@@ -81,7 +81,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
     DATETIME now := GetCurrentDatetime();
     dbissues := SELECT ...baseissue
                      , rowkey := wrd_id
-                     , ismanageable := TRUE
+                     , is_manageable := TRUE
                      , *
                      , snoozed := snoozed_until > now
                      , stopped := stopped = MAX_DATETIME ? DEFAULT DATETIME : stopped

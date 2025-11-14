@@ -44,7 +44,7 @@
                 defaultbutton="detailsbutton"
                 emptytid=".noerrors"
                 flags="canjumpto cansnooze canunsnooze canrecheck"
-                icons="tollium:status/warning tollium:status/schedule"
+                icons="tollium:status/warning tollium:status/schedule tollium:status/error"
                 ongetrows="ongeterrors"
                 openaction="details"
                 rowiconname="rowicon"
@@ -54,7 +54,7 @@
                 sortcolumn="message">
             <column name="since" type="datetime" width="18x" storeutc="true" />
             <column name="stopped" type="datetime" width="18x" storeutc="true" />
-            <column name="message" type="text" width="2pr" />
+            <column name="message" type="text" width="2pr" sortkeyname="sortmessage"/>
             <column name="snoozed_until" type="datetime" width="18x" storeutc="true" />
           </list>
         </cell>
