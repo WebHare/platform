@@ -87,11 +87,10 @@ export async function requestCertificateTask(req: TaskRequest<{
   if (provider.accountPrivatekey)
     keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
 
-  const wildcard = false;//FIXME: We'll only use http-01 challenges for now
+  let wildcard = false;
   for (const domain of req.taskdata.domains) {
     if (domain.includes("*")) {
-      //FIXME: We'll only use http-01 challenges for now
-      //wildcard = true;
+      wildcard = true;
     } else {
       //FIXME: Check if DNS for domains points to this server?
     }
@@ -100,6 +99,15 @@ export async function requestCertificateTask(req: TaskRequest<{
   try {
     using mutex = await lockMutex(`platform:certbot`);
     void(mutex);
+
+    // For DNS challenges, we need the PortalAPI client from the webharebv_policy module
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we cannot import the type from webharebv_policy
+    let getPolicyPortalAPIClient: any = null;
+    if ("webharebv_policy" in backendConfig.module)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
+        ({ getPolicyPortalAPIClient } = require("@mod-webharebv_policy/js/apis"));
+      } catch(e) {}
 
     if (req.taskdata.debug)
       logDebug("platform:certbot", {
@@ -116,7 +124,7 @@ export async function requestCertificateTask(req: TaskRequest<{
       keyPair,
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
-      updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, req.taskdata.debug ?? false) : undefined,
+      updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, getPolicyPortalAPIClient, req.taskdata.debug ?? false) : undefined,
       updateHttpResources: !wildcard && provider.issuerDomain !== "harica.gr" ? updateHttpResources.bind(null, req.taskdata.debug ?? false) : undefined,
       cleanup: cleanup.bind(null, req.taskdata.debug ?? false),
     });
@@ -154,8 +162,18 @@ export async function requestCertificateTask(req: TaskRequest<{
   }
 }
 
-async function updateDnsRecords(_debug: boolean, _dnsRecord: acme.DnsTxtRecord[]) {
-  throw new Error("dns-01 challenge not yet supported");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we cannot import the type from webharebv_policy
+async function updateDnsRecords(getPolicyPortalAPIClient: any, debug: boolean, dnsRecord: acme.DnsTxtRecord[]) {
+  if (!getPolicyPortalAPIClient)
+    throw new Error("Module webharebv_policy not installed, dns-01 challenges unavailable!");
+
+  const client = await getPolicyPortalAPIClient();
+  if (debug)
+    logDebug("platform:certbot", { "#what": "portalapi client", client: await client.getMe() });
+  await client.prepareACMEDNSChallenge(dnsRecord.map(_ => ({ domain: _.domain, token: _.content })));
+
+  if (debug)
+    logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])) });
 }
 
 async function updateHttpResources(debug: boolean, httpResource: acme.HttpResource[]) {
@@ -198,6 +216,7 @@ async function cleanup(debug: boolean, challenge: {
       }
     }
   }
+  // No cleanup for DNS records
 }
 
 export async function cleanupOutdatedHttpResources(debug?: boolean) {
