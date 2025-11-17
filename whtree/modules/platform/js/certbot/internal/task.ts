@@ -11,7 +11,8 @@ import {
   type TaskResponse,
   WebHareBlob,
 } from "@webhare/services";
-import { pick, regExpFromWildcards } from "@webhare/std";
+import { addDuration, pick, regExpFromWildcards } from "@webhare/std";
+import { listDirectory } from "@webhare/system-tools";
 import { beginWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
 import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
@@ -197,4 +198,21 @@ async function cleanup(debug: boolean, challenge: {
       }
     }
   }
+}
+
+export async function cleanupOutdatedHttpResources(debug?: boolean) {
+  const cacheFiles = await listDirectory(`${backendConfig.dataRoot}caches/platform/acme/`);
+  // Delete http challenge resources older than one hour
+  const threshold = addDuration(new Date(), { hours: -1 });
+  const httpResources: string[] = [];
+  for (const file of cacheFiles) {
+    if (file.name.startsWith("."))
+      continue;
+    if ((await stat(file.fullPath)).mtime < threshold) {
+      httpResources.push(file.name);
+      await unlink(file.fullPath);
+    }
+  }
+  if (debug)
+    logDebug("platform:certbot", { "#what": "cleaned up outdated http resources", httpResources });
 }

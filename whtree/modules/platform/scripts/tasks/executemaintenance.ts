@@ -1,6 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support";
 import { runAuthMaintenance } from "@mod-platform/js/auth/support";
+import { cleanupOutdatedHttpResources } from "@mod-platform/js/certbot/internal/task";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
@@ -71,6 +72,7 @@ async function runMaintenance() {
   await cleanupOldUploads();
   await cleanupFetchResourceCacheCleanups();
   await removeObsoleteCacheFolders();
+  await cleanupOutdatedHttpResources();
 
   await expireOldUsers();
   await rotateLogs();
