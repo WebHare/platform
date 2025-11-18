@@ -49,7 +49,8 @@ function isCertificateForHostname(cert: WebserverCertificate, hostname: string) 
 
 run({
   flags: {
-    staging: { default: false },
+    staging: { default: false, description: "use the staging server, if available for the certificate provider" },
+    force: { default: false, description: "force a certificate update, even if it's not yet up for renewal" },
     debug: { default: false },
   },
   main: async ({ opts: options }) => {
@@ -61,10 +62,15 @@ run({
       // In scope? Do we care?
       if (!cert.name.startsWith("certbot-"))
         continue;
-      if (cert.validUntil > checkDate)
-        continue;
-
-      if (options.debug)
+      if (cert.validUntil > checkDate) {
+        if (!options.force) {
+          if (options.debug)
+            console.log(`Certbot certificate '${cert.name}' is not yet up for renewal: ${cert.validUntil.toISOString().split("T")[0]} > ${checkDate.toISOString().split("T")[0]}`);
+          continue;
+        }
+        if (options.debug)
+          console.log(`Forcing renewal of certbot certificate '${cert.name}'`);
+      } else if (options.debug)
         console.log(`Certbot certificate '${cert.name}' is up for renewal`);
 
       // Which names do we still need to certify?
