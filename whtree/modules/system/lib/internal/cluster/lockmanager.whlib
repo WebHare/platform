@@ -364,6 +364,9 @@ OBJECTTYPE LockManager
   */
   PUBLIC BOOLEAN FUNCTION HasLockedMutex(STRING mutexname)
   {
+    IF(IsWasm())
+      RETURN WaitForPromise(EM_Syscall("hasMutex", CELL[mutexname]));
+
     RETURN LowerBound(this->pvt_lockedmutexes, mutexname).found;
   }
 

@@ -149,7 +149,10 @@ async function testMutex() {
     sleep(50).then(() => "No lock"),
     lock2promise.then(() => "We have a lock!")
   ]), "Give the second lock some time to block, ensure we had to wait");
+
+  test.eq(true, services.hasMutex("test:mutex1"));
   lock1.release();
+  test.eq(false, services.hasMutex("test:mutex1"));
 
   const lock2 = await lock2promise;
   test.assert(lock2);

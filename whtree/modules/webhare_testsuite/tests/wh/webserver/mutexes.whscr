@@ -1,10 +1,8 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::internet/http.whlib";
-LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -19,16 +17,9 @@ MACRO WebserverMutexes()
 {
   RECORD port := testfw->GetLocalhostWebinterface();
   STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
-
-  RECORD unp_resbaseurl := UnpackUrL(resbaseurl || testfile);
-  INTEGER http := OpenHTTPServer(unp_resbaseurl.host, unp_resbaseurl.port);
-  RECORD req;
-
-  TestEq(TRUE, http>0);
-
-  req := SendHTTPRequest(http, unp_resbaseurl.urlpath, "GET", DEFAULT RECORD ARRAY, DEFAULT BLOB);
-  TestEq(200, req.code);
-  TestEq("DONE", BlobToString(req.content,-1));
+  OBJECT res := FetchSync(resbaseurl || testfile);
+  TestEq(200, res->status);
+  TestEq("DONE", res->text());
 }
 
 MACRO RunscriptMutexes()
@@ -88,7 +79,7 @@ MACRO RunscriptInterlockingMutexes()
 
 
 
-RunTestframework([ PTR RunscriptInterlockingMutexes
-                 , PTR RunscriptMutexes
+RunTestframework([ PTR RunscriptMutexes
+                 , PTR RunscriptInterlockingMutexes
                  , PTR WebserverMutexes
                  ]);

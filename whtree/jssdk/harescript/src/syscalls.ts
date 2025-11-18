@@ -1,15 +1,15 @@
 import { backendConfig } from "@webhare/services/src/config.ts";
 import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
-import { lockMutex as servicesLockMutex } from '@webhare/services/src/mutex.ts';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { importJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
+import * as services from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -23,7 +23,10 @@ export function init() {
 }
 
 export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string; wait_until: Date }) {
-  const mutex = await servicesLockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
+  if (hsvm.mutexes.some(_ => _?.name === params.mutexname)) //JS is allowed to overlap mutexes in a context due to its async nature, but HS wasn't designed to support it so block it
+    throw new Error(`Mutex '${params.mutexname}' has already been locked by this Harescript VM`);
+
+  const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
   if (!mutex)
     return { status: "timeout" };
 
@@ -35,6 +38,10 @@ export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number 
   hsvm.mutexes[params.mutexid - 1]?.release();
   hsvm.mutexes[params.mutexid - 1] = null;
   return null;
+}
+
+export async function hasMutex(_hsvm: HareScriptVM, params: { mutexname: string }) {
+  return services.hasMutex(params.mutexname);
 }
 
 export function webHareConfig() {
