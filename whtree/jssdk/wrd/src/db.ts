@@ -205,6 +205,10 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.rootAttrMap.set(attr.tag, attr);
         type.attrRootAttrMap.set(attr.id, attr);
         type.attrHSNameMap.set(attr.id, tagToHS(attr.tag));
+        if (attr.id && type.attrByFullTagMap.has(attr.fullTag)) { //check for conflicts for DB stored attributes (eg wrdLeftEntity is okay to conflict)
+          //It's too risky to access this schema, or at least types, with duplicate attribute tags. Need an adult to sort it out
+          throw new Error(`Cannot open schema ${tag} - duplicate attribute ${attr.fullTag} in type ${type.tag} with id #${attr.id}`);
+        }
         type.attrByFullTagMap.set(attr.fullTag, attr);
       }
       if (attr.isunique)
