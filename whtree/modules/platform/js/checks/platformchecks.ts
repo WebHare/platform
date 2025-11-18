@@ -14,6 +14,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
   if (maxidage >= 500_000_000) { //500 million is a good indication something is wrong
     issues.push({
       type: "system:checker.pg.toomanytransactionids",
+      isCritical: true,
       messageText: `PostgreSQL reports ${maxidage} transaction ids in range, it may not be properly vacuuming`,
     });
   }
@@ -22,6 +23,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
   if (collation !== "C") {
     issues.push({
       type: "system:checker.pg.collation",
+      isCritical: true,
       messageText: `PostgreSQL reports it's in the '${collation}' collation, you need to 'wh dump-restore-database' as soon as possible`,
     });
   }
@@ -37,7 +39,14 @@ async function checkPostgres(): Promise<CheckResult[]> {
 
   const curVersion = (await getCurrentPGVersion()).major;
   const expectVersion = parseInt((await readPlatformConf())["postgres_recommended_major"]);
-  if (curVersion < expectVersion) {
+  if (curVersion <= 13 && process.platform === "darwin") { //then we assume you're using brew which has hard EOLed PG13: ' postgresql@13 has been deprecated! It will be disabled on 2026-03-01.'
+    issues.push({
+      type: "system:checker.pg.oldversion.brew",
+      messageText: `You are running PostgreSQL ${curVersion} but versions <= 13 will be removed from Homebrew on 2026-03-01, you must upgrade ASAP`,
+      isCritical: true,
+      moreInfoLink: upgradingPostgresLink
+    });
+  } else if (curVersion < expectVersion) {
     issues.push({
       type: "system:checker.pg.oldversion",
       messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion} is recommended, you should upgrade soon`,

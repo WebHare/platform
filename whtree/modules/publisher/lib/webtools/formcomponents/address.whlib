@@ -26,7 +26,7 @@ RECORD ARRAY countryregions :=
       ]
     , [ name := "eu"
       , countries :=
-          [ "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IT", "LU", "LV"
+          [ "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV"
           , "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK"
           ]
       ]
@@ -108,6 +108,11 @@ STRING ARRAY FUNCTION CheckCountryList(STRING ARRAY countries, OBJECT allcountri
     countrylist := countrylist CONCAT toadd;
   }
 
+  WHILE(Length(countrylist) > 0 AND countrylist[0] = "-")
+    DELETE FROM countrylist AT 0;
+  WHILE(Length(countrylist) > 0 AND countrylist[END-1] = "-")
+    DELETE FROM countrylist AT END-1;
+
   RETURN countrylist;
 }
 
@@ -124,14 +129,12 @@ PUBLIC STATIC OBJECTTYPE Address EXTEND FormComponentExtensionBase
     this->RefreshCountries();
   }
 
-  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
-  {
-    IF (Length(this->countrylist) = 0)
-      work->AddError(GetTid("tollium:common.errors.field_required", ^countries->errorlabel ?? ^countries->title));
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work) {
     IF (NOT work->HasFailed())
-    {
-      this->node->SetAttribute("countrylist", Detokenize(this->countrylist, " "));
-    }
+      IF(Length(this->countrylist) > 0  )
+        this->node->SetAttribute("countrylist", Detokenize(this->countrylist, " "));
+      ELSE
+        this->node->RemoveAttribute("countrylist");
   }
 
   MACRO DoEditCountries()
@@ -148,15 +151,13 @@ PUBLIC STATIC OBJECTTYPE Address EXTEND FormComponentExtensionBase
 
   MACRO RefreshCountries()
   {
-    ^countries->value := Detokenize((
-        SELECT AS STRING ARRAY this->allcountries->Has(code) ? this->allcountries->Lookup(code) : code
-          FROM ToRecordArray(this->countrylist, "code")
-         WHERE code != "-"), ", ");
+    STRING ARRAY vals := SELECT AS STRING ARRAY code = "-" ? "-" : code FROM ToRecordArray(this->countrylist, "code");
+    ^countries->value := Detokenize(vals, " ");
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE EditCountries EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE EditCountries EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //

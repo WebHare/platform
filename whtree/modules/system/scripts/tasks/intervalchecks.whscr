@@ -23,6 +23,7 @@ RECORD ARRAY checkresults :=
        , jump_to := CellExists(checks,'jumpto') ? checks.jumpto : DEFAULT RECORD
        , more_info_link := CellExists(checks,'more_info_link') ? checks.more_info_link : ""
        , scopes := checktypes
+       , is_critical := CellExists(checks,'is_critical') AND checks.is_critical
     FROM checks;
 
 

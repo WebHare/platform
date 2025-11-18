@@ -103,13 +103,15 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
   RECORD ARRAY FUNCTION OnGetErrors()
   {
     RECORD ARRAY messages :=
-         SELECT *
+         SELECT TEMPORARY rowicon := snoozed ? 2 : stopped = DEFAULT DATETIME ? is_critical ? 3 : 1 : 0
+              , *
               , message :=      message_text
+              , sortmessage :=  (rowicon = 3 ? "0" : "1") || ToLowercase(message_text) //sort critical issues first, reusing rowicon's evaluation
               , canjumpto :=    RecordExists(jump_to)
-              , cansnooze :=    ismanageable AND NOT snoozed
-              , canunsnooze :=  ismanageable AND snoozed
-              , canrecheck :=   ismanageable AND CellExists(row, "CHECK_TASK") AND row.check_task != ""
-              , rowicon :=      snoozed ? 2 : stopped = DEFAULT DATETIME ? 1 : 0
+              , cansnooze :=    is_manageable AND NOT snoozed
+              , canunsnooze :=  is_manageable AND snoozed
+              , canrecheck :=   is_manageable AND CellExists(row, "CHECK_TASK") AND row.check_task != ""
+              , rowicon :=      rowicon
            FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]) AS row;
 
     RETURN messages;

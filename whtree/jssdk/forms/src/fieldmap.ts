@@ -84,7 +84,7 @@ class HTMLFormFieldHandler implements FormField {
 
     if (this.field.tagName === "SELECT") {
       const selectedrow = (this.field as HTMLSelectElement).selectedOptions[0];
-      if (!selectedrow || selectedrow.dataset.whPlaceholder !== undefined)
+      if (!selectedrow || selectedrow.dataset.placeholder !== undefined)
         return null; //didn't select a 'real' option
 
       return this.valuetype ? mapValue(this.valuetype, selectedrow.value) : selectedrow.value;
@@ -106,7 +106,7 @@ class HTMLFormFieldHandler implements FormField {
         return;
       (this.field as HTMLInputElement).valueAsDate = newvalue as Date;
     } else if (this.field.tagName === "SELECT" && newvalue === null) { //'null' resets the select to 'no value', so figure out if there's a placeholder row
-      const setvalue = (this.field as HTMLSelectElement).options[0]?.dataset.whPlaceholder !== undefined ? 0 : -1;
+      const setvalue = (this.field as HTMLSelectElement).options[0]?.dataset.placeholder !== undefined ? 0 : -1;
       if ((this.field as HTMLSelectElement).selectedIndex === setvalue)
         return;
       (this.field as HTMLSelectElement).selectedIndex = setvalue;

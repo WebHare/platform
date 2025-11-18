@@ -16,6 +16,8 @@ export interface CheckResult {
     tid: string;
     params: string[];
   };
+  /** Is this a critical message? */
+  isCritical?: boolean;
   jumpTo?: object | null;
   scopes?: CheckScopes[];
   moreInfoLink?: string;
