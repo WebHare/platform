@@ -45,7 +45,8 @@ class DashboardApp {
     this.app.requiresScreen = false; //we don't need a screen to be 'active'
     this.shell = this.app.shell;
 
-    this.dashboardappsnode = <div className="dashboard__apps" tabindex="0">
+    //mousedown prevent focus loss, essential if you've done a keyboard search in the dashboard menu and attempt to click a reuslts
+    this.dashboardappsnode = <div className="dashboard__apps" tabindex="0" on={{ mousedown: event => event.preventDefault() }}>
       <nav className="dasbhoard__menuitems" />
       <div className="dasboard__noapps">
         {this.dashboardnoappstextnode = <span />}
@@ -63,9 +64,7 @@ class DashboardApp {
     this.findasyoutype = new FindAsYouType(this.dashboardappsnode, { onsearch: text => this._onFindAsYouTypeSearch(text) });
 
     this.node =
-      <div id="dashboard" className="dashboard"
-        on={{ mousedown: event => event.preventDefault() }}  //prevent focus loss on MSIE. other browsers don't seem to need this? ADDME fix for IE too?
-      >
+      <div id="dashboard" className="dashboard">
         {this.dashboardappsnode}
         <div className="dashboard__footer" childNodes={this.createDashboardFooter()} />
         <div id="dashboard-bg" />
