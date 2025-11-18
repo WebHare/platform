@@ -494,7 +494,7 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
           //TODO keep hints too?
           const linkid = linkmapping.get(linkitem.link) || generateRandomId();
           links.set(linkid, linkitem.link.internalLink);
-          url = `x-richdoclink:${linkid}${linkitem.link.append}`;
+          url = `x-richdoclink:${linkid}${linkitem.link.append ?? ""}`;
         } else {
           url = linkitem.link.externalLink || '';
         }
