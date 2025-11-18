@@ -40,7 +40,7 @@ test.runTests(
 
       const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
       test.eq(0, select_with_placeholder.selectedIndex, "Placeholder should remain selected");
-      test.assert(select_with_placeholder.options[0].hasAttribute("data-wh-placeholder"), "Placeholder option should be marked as such");
+      test.eq("true", select_with_placeholder.options[0].getAttribute("data-placeholder"), "Placeholder option should be marked as such");
 
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
