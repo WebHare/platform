@@ -172,6 +172,11 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     };
   }
 
+  async defaultInstance(): Promise<GetFormat> {
+    this.descr ??= await describeWHFSType(this.ns);
+    return await getData(this.descr.members, null, { allsettings: [], cc: 0 }) as GetFormat;
+  }
+
   private async getCurrentInstanceId(fsobj: number, type: WHFSTypeBaseInfo) {
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;

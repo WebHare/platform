@@ -319,6 +319,10 @@ async function testInstanceData() {
     anUntypedRecord: null
   }, (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data);
 
+  test.eq(
+    (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data,
+    await whfsType("webhare_testsuite:global.generic_test_type").defaultInstance());
+
   // Export of default values should result in only the whfsType property (default values should be omitted)
   test.eq({
     whfsType: "webhare_testsuite:global.generic_test_type",
