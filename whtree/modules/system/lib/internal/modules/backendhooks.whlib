@@ -15,7 +15,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 RECORD FUNCTION LoadScreenDefs(STRING mod)
 {
   STRING resname := `mod::${mod}/modulescreens.yml`;
-  RECORD data := DecodeYAML(BlobToString(GetWebHareResource(resname)));
+  RECORD data := DecodeYAML(BlobToString(GetWebHareResource(resname)), [tosnakecase := TRUE]);
   RETURN [ value := data, ttl := 30 * 60 * 1000, eventmasks := GetResourceEventMasks([resname]) ];
 }
 
@@ -32,15 +32,15 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
   IF(RecordExists(screendef))
   {
     screendef := EnforceStructure(
-      [ extendtabs := [ component := ""
-                      , insertpoints := STRING[]
-                      , extendcomponents := STRING[]
-                      ]
-      , actioncategories := DEFAULT RECORD
+      [ extend_tabs := [ component := ""
+                       , insert_points := STRING[]
+                       , extend_components := STRING[]
+                       ]
+      , action_categories := DEFAULT RECORD
       ], screendef);
 
-    IF(RecordExists(screendef.actioncategories))
-      screendef.actioncategories := RepackRecord(SELECT COLUMN name, value := EnforceStructure(CELL[ insertmenus := STRING[] ], value) FROM UnpackRecord(screendef.actioncategories));
+    IF(RecordExists(screendef.action_categories))
+      screendef.action_categories := RepackRecord(SELECT COLUMN name, value := EnforceStructure(CELL[ insert_into := STRING[] ], value) FROM UnpackRecord(screendef.action_categories));
   }
   RETURN screendef;
 }
@@ -100,16 +100,16 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
   STRING ARRAY errors;
 
   RECORD screendef := GetScreenDef(options.screenname); //made an option, we might at some point just derive the screenname straight from builtinscreens
-  IF(RecordExists(screendef.extendtabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
+  IF(RecordExists(screendef.extend_tabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
   {
-    OBJECT tabcomp := GetMember(screen, "^" || screendef.extendtabs.component);
-    FOREVERY(STRING insertpoint FROM screendef.extendtabs.insertpoints)
+    OBJECT tabcomp := GetMember(screen, "^" || screendef.extend_tabs.component);
+    FOREVERY(STRING insertpoint FROM screendef.extend_tabs.insert_points)
     {
       IF(NOT MemberExists(screen, "^" || insertpoint))
         THROW NEW Exception(`Insert point '${insertpoint}' not found in screen '${options.screenname}' - fix the screen or its modulescreens.yml definition`);
       INSERT [ name := insertpoint, component := GetMember(screen, "^" || insertpoint) ] INTO tabcomp->insertpoints AT END;
     }
-    FOREVERY(STRING extendcomponent FROM screendef.extendtabs.extendcomponents)
+    FOREVERY(STRING extendcomponent FROM screendef.extend_tabs.extend_components)
     {
       IF(NOT MemberExists(screen, "^" || extendcomponent))
         THROW NEW Exception(`Extend component '${extendcomponent}' not found in screen '${options.screenname}' - fix the screen or its modulescreens.yml definition`);
@@ -131,12 +131,12 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
         tabcomp->LoadTabsExtension(hook.tabsextension);
   }
 
-  IF(RecordExists(screendef.actioncategories) AND RecordExists(SELECT FROM hooks WHERE Length(addactions) > 0))
+  IF(RecordExists(screendef.action_categories) AND RecordExists(SELECT FROM hooks WHERE Length(addactions) > 0))
   {
-    FOREVERY(RECORD category FROM UnpackRecord(screendef.actioncategories))
+    FOREVERY(RECORD category FROM UnpackRecord(screendef.action_categories))
     {
       OBJECT ARRAY insertmenus;
-      FOREVERY(STRING insertmenu FROM category.value.insertinto)
+      FOREVERY(STRING insertmenu FROM category.value.insert_into)
         INSERT GetMember(screen, "^" || insertmenu) INTO insertmenus AT END;
 
       FOREVERY(RECORD hook FROM hooks)

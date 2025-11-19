@@ -1,9 +1,4 @@
-# Old array version as expected by 5.3, uncomment if you need to test backendhook conversion
-# backendhooks: # Where this extension hooks into the backend
-#- tag: testsitehook
-#  screen: "platform:siteproperties"
-#  tabsextension: tests/publisher/tollium/data/backendhooks.xml#extrasitefields
-
+# tested by test-backend-hooks.whscr
 backendHooks: # Where this extension hooks into the backend
   testsitehook:
     screen: "platform:siteproperties"
