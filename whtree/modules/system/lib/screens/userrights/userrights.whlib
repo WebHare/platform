@@ -18,8 +18,8 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
-PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -57,17 +57,17 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:userrights" ]);
     this->RefreshApp();
 
-    this->unittree->onselect := PTR this->OnUnitSelectHandler;
-    this->unitcontents->onselect := PTR this->OnUserRoleSelectHandler;
-    this->objecttree->onselect := PTR this->OnObjectListSelect;
-    this->userrolesearch->onshow := PTR this->OnShowSearchResult;
+    ^unittree->onselect := PTR this->OnUnitSelectHandler;
+    ^unitcontents->onselect := PTR this->OnUserRoleSelectHandler;
+    ^objecttree->onselect := PTR this->OnObjectListSelect;
+    ^userrolesearch->onshow := PTR this->OnShowSearchResult;
 
     // Correct borders
-    this->unittree->borders.right := FALSE;
-    this->unitcontents->borders.left := FALSE;
-    this->unitcontents->borders.bottom := FALSE;
-    this->objecttree->borders.right:= FALSE;
-    this->objectrightslist->borders.left := FALSE;
+    ^unittree->borders.right := FALSE;
+    ^unitcontents->borders.left := FALSE;
+    ^unitcontents->borders.bottom := FALSE;
+    ^objecttree->borders.right:= FALSE;
+    ^objectrightslist->borders.left := FALSE;
 
     this->SetupUsermgrExtensions();
 
@@ -154,11 +154,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
        AND CellExists(searchablefields, "UNIT") AND Length(searchablefields.unit) > 0
       )
     {
-      this->togglesearchbarbutton->pressed := this->tolliumuser->GetRegistryKey("system.userrights.showsearchbar", FALSE);
-      this->searchbar->visible := this->togglesearchbarbutton->pressed;
+      ^togglesearchbarbutton->pressed := this->tolliumuser->GetRegistryKey("system.userrights.showsearchbar", FALSE);
+      ^searchbar->visible := ^togglesearchbarbutton->pressed;
     }
     ELSE
-      this->togglesearchbarbutton->enabled := FALSE;
+      ^togglesearchbarbutton->enabled := FALSE;
   }
 
   // ---------------------------------------------------------------------------
@@ -178,9 +178,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         IF(NOT ^objectstab->visible)
           RETURN;
 
-        this->viewmode->selectedtab := this->objectstab;
+        ^viewmode->selectedtab := ^objectstab;
 
-        this->objecttree->value :=
+        ^objecttree->value :=
             [ rightsgroup :=      CellExists(message, "RIGHTSGROUP") ? message.rightsgroup : ""
             , objecttypename :=   CellExists(message, "OBJECTTYPENAME") ? message.objecttypename : ""
             , objectid :=         CellExists(message, "OBJECTID") ? message.objectid : 0
@@ -195,41 +195,41 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnUnitSelectHandler()
   {
-    this->unitcontents->unit := this->unittree->value;
+    ^unitcontents->unit := ^unittree->value;
   }
 
   MACRO OnUserRoleSelectHandler()
   {
     OBJECT wrdauthobject;
-    IF (LENGTH(this->unitcontents->value) = 1)
-      wrdauthobject := this->unitcontents->value[0];
+    IF (LENGTH(^unitcontents->value) = 1)
+      wrdauthobject := ^unitcontents->value[0];
 
-    this->userrolerightslist->wrdauthobject := wrdauthobject;
+    ^userrolerightslist->wrdauthobject := wrdauthobject;
   }
 
   MACRO OnObjectListSelect()
   {
-    RECORD val := this->objecttree->value;
+    RECORD val := ^objecttree->value;
 
     IF (NOT RecordExists(val))
-      this->objectrightslist->UnselectObject();
+      ^objectrightslist->UnselectObject();
     ELSE
     {
       IF (val.rightsgroup != "")
-        this->objectrightslist->SelectRightsGroup(val.rightsgroup);
+        ^objectrightslist->SelectRightsGroup(val.rightsgroup);
       ELSE
-        this->objectrightslist->SelectObject(val.objecttypename, val.objectid);
+        ^objectrightslist->SelectObject(val.objecttypename, val.objectid);
     }
   }
 
   MACRO OnShowSearchResult()
   {
     // Make sure we're looking at the correct tab:
-    IF(this->viewmode->selectedtab->name != "unitstab")
-      this->viewmode->selectedtab := this->unitstab;
+    IF(^viewmode->selectedtab->name != "unitstab")
+      ^viewmode->selectedtab := ^unitstab;
 
     // Get the selection and try to select the unit:
-    RECORD toselect := this->userrolesearch->selection;
+    RECORD toselect := ^userrolesearch->selection;
     OBJECT selunit := this->contexts->userapi->GetUnit(toselect.unit);
 
     /// Is there still a unit associated with this user?
@@ -268,7 +268,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         RETURN;/// No unit, no point doing anything
     }
     // Actually select the unit
-    this->unittree->value := selunit;
+    ^unittree->value := selunit;
     this->OnUnitSelectHandler();
 
     IF(toselect.type = 2)
@@ -276,10 +276,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     // Select the relevant user or role
     OBJECT retval := toselect.type = 1 ? this->contexts->userapi->GetUser(toselect.wrd_id) : this->contexts->userapi->GetRole(toselect.wrd_id);
-    IF(this->unitcontents->selectmode = "single")
-      this->unitcontents->value := retval;
+    IF(^unitcontents->selectmode = "single")
+      ^unitcontents->value := retval;
     ELSE
-      this->unitcontents->value := [ retval ];
+      ^unitcontents->value := [ retval ];
 
     this->OnUserRoleSelectHandler();
   }
@@ -331,9 +331,9 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoToggleSearchButton()
   {
-    this->searchbar->visible := NOT this->searchbar->visible;
-    this->togglesearchbarbutton->pressed := this->searchbar->visible;
-    this->tolliumuser->SetRegistryKey("system.userrights.showsearchbar", this->searchbar->visible);
+    ^searchbar->visible := NOT ^searchbar->visible;
+    ^togglesearchbarbutton->pressed := ^searchbar->visible;
+    this->tolliumuser->SetRegistryKey("system.userrights.showsearchbar", ^searchbar->visible);
   }
 
   MACRO DoCopyPermissions()
@@ -344,7 +344,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (Length(target) = 0)
       RETURN;
 
-    OBJECT copy_from := this->unitcontents->value[0];
+    OBJECT copy_from := ^unitcontents->value[0];
     OBJECT copy_to := target[0].type = "role" ? this->contexts->userapi->GetRole(target[0].entityid) : this->contexts->userapi->GetUser(target[0].entityid);
 
     RECORD ARRAY add_roles :=

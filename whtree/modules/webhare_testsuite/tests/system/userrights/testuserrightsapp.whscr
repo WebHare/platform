@@ -64,7 +64,7 @@ ASYNC MACRO Setup()
   //Select the new user
   TestEq(TRUE, RecordExists(SELECT FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net"));
   TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE email="bart@example.net";
-  AWAIT ExpectScreenChange(+1, PTR topscreen->unitcontents->move->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR topscreen->^unitcontents->move->TolliumClick);
 
   TT("unittree->unitlist")->selection := SELECT * FROM TT("unittree->unitlist")->rows WHERE title="Lisa's unit";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));

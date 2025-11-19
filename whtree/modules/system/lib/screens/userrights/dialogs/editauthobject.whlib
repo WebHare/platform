@@ -9,12 +9,10 @@ LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase <
   INTEGER parent;
 
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
     SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:unitproperties" ]);
 
     ^unitentity->Load(data.unit);
