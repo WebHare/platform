@@ -45,6 +45,9 @@ export type ExportOptions = {
   export?: boolean;
 };
 
+export type ImportOptions = {
+};
+
 export type LinkMethod = {
   allowAnyExtension?: boolean;
   embed?: boolean;
@@ -294,7 +297,7 @@ export async function mapExternalWHFSRef(inId: number, options?: ExportOptions):
 }
 
 /** Import a site:: or whfs:: path*/
-export async function unmapExternalWHFSRef(inId: string): Promise<number | null> {
+export async function unmapExternalWHFSRef(inId: string, options?: ImportOptions): Promise<number | null> {
   if (inId.startsWith("site::") || inId.startsWith("whfs::")) {
     const target = await lookupWHFSObject(0, inId);
     return target > 0 ? target : null;
@@ -310,14 +313,14 @@ export function exportIntExtLink(value: IntExtLink | null, options: ExportOption
   return null;
 }
 
-export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> {
+export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink, options?: ImportOptions): MaybePromise<IntExtLink | null> {
   if (!value || isIntExtLink(value))
     return value;
 
   if ("externalLink" in value)
     return new IntExtLink(value.externalLink);
 
-  return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
+  return unmapExternalWHFSRef(value.internalLink, options).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
@@ -927,7 +930,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
   }
 
-  static async import(resource: ExportedResource): Promise<ResourceDescriptor> {
+  static async import(resource: ExportedResource, options?: ImportOptions): Promise<ResourceDescriptor> {
     let blob;
     if (resource.data.base64) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
