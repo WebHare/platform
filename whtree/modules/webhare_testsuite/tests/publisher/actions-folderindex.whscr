@@ -1,8 +1,10 @@
 <?wh
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
+LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
@@ -33,4 +35,22 @@ MACRO TestFolderIndex()
   testfw->RollbackWork();
 }
 
-RunTestFramework ([ PTR TestFolderindex ]);
+MACRO TestTypeChanges() {
+  OBJECT work := NEW FeedbackObjectBase(GetPrimary(),"");
+
+  OBJECT basefolder := GetTestsuiteTempFolder()->CreateFolder([name := "newfile" ]);
+  OBJECT folder := basefolder->CreateFolder([name := "normalfolder" ]);
+  AddDefaultIndexToFolder(folder->id);
+
+  TestEq(TRUE, ObjectExists(folder->OpenByName("index")));
+
+  UpdateFSObjTypes(work, INTEGER[folder->id], OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder")->id);
+  TestEq(TRUE, ObjectExists(folder->OpenByName("index")));
+
+  testfw->RollbackWork();
+}
+
+RunTestFramework ([
+  PTR TestFolderIndex,
+  PTR TestTypeChanges
+]);

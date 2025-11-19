@@ -228,35 +228,8 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase <
     IF (this->isnew) // Only selecting a file/folder type
       RETURN RecordExists(^types->selection);
 
-    INTEGER newtype := ^types->selection.type;
-
     OBJECT work := this->BeginUnvalidatedWork();
-
-    // See which ones we actually need to modify
-    INTEGER ARRAY modify_ids :=
-        SELECT AS INTEGER ARRAY id
-          FROM system.fs_objects
-         WHERE id IN this->fsobjectids
-           AND type != newtype;
-
-    RECORD ARRAY toupdate :=
-        SELECT id
-             , isfolder
-             , indexdoc
-             , type
-          FROM system.fs_objects
-         WHERE id IN modify_ids
-      ORDER BY parent;
-
-    FOREVERY (RECORD rec FROM toupdate) {
-      OBJECT fsobject := OpenWHFSObject(rec.id);
-
-      // Update the object type
-      fsobject->UpdateMetadata([ type := newtype ]);;
-
-      ApplyTypeChangeSideEffects(work, fsobject, rec.type);
-    }
-
+    UpdateFSObjTypes(work, this->fsobjectids, ^types->selection.type);
     RETURN work->Finish();
   }
 
