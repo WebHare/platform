@@ -257,6 +257,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       throw new Error(`No such WRD schema '${this.tag}'`);
   }
 
+  /*private*/ __clearCache() {
+    this.schemaData = undefined;
+    setScopedResource(this.coVMSchemaCacheSymbol, undefined);
+  }
+
   /*private*/ async __ensureSchemaData({ refresh = false } = {}): Promise<SchemaData> {
     if (!refresh && this.schemaData) {
       return this.schemaData;
@@ -265,10 +270,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     using invalidationCollector = new SchemaDataInvalidationCollector(schemaUpdateListener);
     const data = getSchemaData(this.tag);
     this.schemaData = data;
-    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => {
-      this.schemaData = undefined;
-      setScopedResource(this.coVMSchemaCacheSymbol, undefined);
-    });
+    schemaUpdateListener.addSchema(this, await data, invalidationCollector.invalidations, () => this.__clearCache());
     return data;
   }
 
