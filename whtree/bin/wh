@@ -438,12 +438,18 @@ case $INSTR in
     ;;
 
   "run")
-    WORKERHTREADS=()
-    if [ "$1" == "--workerthreads" ]; then
-      shift
-      WORKERHTREADS+=("--workerthreads" "$1")
-      shift
-    fi
+    STARTUPOPTIONS=()
+    # while $1 starts with a dash
+    while [[ "$1" == -* ]]; do
+      if [ "$1" == "--workerthreads" ]; then
+        shift
+        STARTUPOPTIONS+=("--workerthreads" "$1")
+        shift
+      else
+        STARTUPOPTIONS+=("$1")
+        shift
+      fi
+    done
 
     SCRIPT="$1"
     if [ -z "$SCRIPT" ]; then
@@ -454,9 +460,9 @@ case $INSTR in
     # This should match the whconstant_javascript_extensions:
     if [ "${SCRIPT: -3}" == ".es" ] || [ "${SCRIPT: -3}" == ".js" ] || [ "${SCRIPT: -3}" == ".ts" ] || [ "${SCRIPT: -4}" == ".tsx" ] || [ "${SCRIPT: -4}" == ".mjs" ]; then
       resolveresourcepath RESOLVEDPATH "$SCRIPT"
-      exec_wh_runjs "$RESOLVEDPATH"  "$@"
+      exec_wh_runjs "${STARTUPOPTIONS[@]}" "$RESOLVEDPATH"  "$@"
     else
-      exec_wh_runwhscr "${WORKERHTREADS[@]}" "$SCRIPT" "$@"
+      exec_wh_runwhscr "${STARTUPOPTIONS[@]}" "$SCRIPT" "$@"
     fi
     ;;
 
