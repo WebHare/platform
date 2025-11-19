@@ -101,6 +101,7 @@ export interface CreateFSObjectMetadata {
   title?: string;
   description?: string;
   isPinned?: boolean;
+  ordering?: number;
 }
 
 export interface CreateFileMetadata extends CreateFSObjectMetadata {
@@ -188,6 +189,9 @@ class WHFSBaseObject {
   get link(): string | null {
     return this.dbrecord.link || null;
   }
+  get ordering(): number {
+    return this.dbrecord.ordering;
+  }
   get sitePath(): string | null {
     return this.dbrecord.fullpath || null;
   }
@@ -244,7 +248,7 @@ class WHFSBaseObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name", "ordering"]);
     const moddate = Temporal.Now.instant();
     const finishHandler = whfsFinishHandler();
 
@@ -404,10 +408,12 @@ export class WHFSFile extends WHFSBaseObject {
     return isPublish(this.dbrecord.published);
   }
   get firstPublishDate(): Temporal.Instant | null {
-    return this.dbrecord.firstpublishdate === defaultDateTime ? null : Temporal.Instant.fromEpochMilliseconds(this.dbrecord.firstpublishdate.getTime());
+    const time = this.dbrecord.firstpublishdate.getTime();
+    return time <= defaultDateTime.getTime() ? null : Temporal.Instant.fromEpochMilliseconds(time);
   }
   get contentModificationDate(): Temporal.Instant | null {
-    return this.dbrecord.contentmodificationdate === defaultDateTime ? null : Temporal.Instant.fromEpochMilliseconds(this.dbrecord.contentmodificationdate.getTime());
+    const time = this.dbrecord.contentmodificationdate.getTime();
+    return time <= defaultDateTime.getTime() ? null : Temporal.Instant.fromEpochMilliseconds(time);
   }
   get data(): ResourceDescriptor {
     const meta: ResourceMetaDataInit = {
@@ -596,7 +602,7 @@ export class WHFSFolder extends WHFSBaseObject {
         lastpublishsize: 0,
         lastpublishtime: 0,
         scandata,
-        ordering: 0,
+        ordering: metadata?.ordering ?? 0,
         published,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
