@@ -2,7 +2,7 @@
 
 LOADLIB "wh::ipc.whlib";
 
-LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
+LOADLIB "mod::tollium/lib/backendhooks.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 

@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/modules/appextensions.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
-LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
+LOADLIB "mod::tollium/lib/backendhooks.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 

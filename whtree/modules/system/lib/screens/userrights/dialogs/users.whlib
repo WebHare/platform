@@ -12,7 +12,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
-LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
+LOADLIB "mod::tollium/lib/backendhooks.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
