@@ -272,10 +272,10 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     this.descr ??= await describeWHFSType(this.ns);
     if (!this.descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
-    const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", false, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
+    const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", true, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
     if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
       if (options?.ifReadOnly !== 'skip') //ie "fail"
-        throw new Error(`Attempting to update instance data on non existing file #${id} `);
+        throw new Error(`Attempting to update instance data on recycled or historic object #${id} `);
       return;
     }
 

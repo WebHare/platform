@@ -20,7 +20,7 @@ while [[ $1 =~ -.* ]]; do
   elif [ "$1" == "--nocompile" ]; then
     NOCOMPILE=1
     shift
-  elif [ "$1" == "--dryrun" ]; then
+  elif [ "$1" == "--dryrun" ] || [ "$1" == "--dry-run" ]; then
     DRYRUNPREFIX="echo"
     shift
   elif [ "$1" == "--" ]; then
@@ -62,6 +62,9 @@ for MODULENAME in "${MODULESLIST[@]}"; do
           echo NPM FAILED with errorcode $RETVAL
           FAILED=1
         fi
+      elif [ -d node_modules ]; then
+        echo "Found node_modules in $Q but no package.json, removing node_modules"
+        $DRYRUNPREFIX rm -rf "$Q/node_modules"
       fi
     fi
   done

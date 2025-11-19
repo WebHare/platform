@@ -752,11 +752,36 @@ async function testXMLInstanceData() {
   await commitWork();
 }
 
+async function testRecycle() {
+  //test updating recycled objects
+  await beginWork();
+  const tmpfolder = await test.getTestSiteHSTemp();
+  const testfile: WHFSFile = await tmpfolder.openFile("testfile.txt");
+  await testfile.recycle();
+  await test.throws(/recycled or historic/, () => whfsType("webhare_testsuite:global.generic_test_type").set(testfile.id, {
+    url: "http://www.webhare.net/"
+  }));
+
+  await whfsType("webhare_testsuite:global.generic_test_type").set(testfile.id, {
+    url: "http://www.webhare.net/2/"
+  }, { ifReadOnly: "skip" });
+  test.eqPartial({ url: "http://www.webhare.net/somepage" }, await whfsType("webhare_testsuite:global.generic_test_type").get(testfile.id));
+
+  await whfsType("webhare_testsuite:global.generic_test_type").set(testfile.id, {
+    url: "http://www.webhare.net/3/"
+  }, { ifReadOnly: "update" });
+  test.eqPartial({ url: "http://www.webhare.net/3/" }, await whfsType("webhare_testsuite:global.generic_test_type").get(testfile.id));
+
+  await commitWork();
+}
+
+
 test.runTests([
   test.reset,
   testCodecs,
   testMockedTypes,
   testInstanceData,
   testXMLInstanceData,
-  testVisitor
+  testVisitor,
+  testRecycle
 ]);
