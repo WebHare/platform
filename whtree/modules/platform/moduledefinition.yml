@@ -101,10 +101,13 @@ webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
 
-moduleFileTypes:
+moduleFileTypes: #adding new types may require an update to addons/vscode-extension/src/yaml.ts
   - tsType: ModuleDefinition
     schema: data/schemas/moduledefinition.schema.yml
     resourceMask: ^mod::[^/]+/moduledefinition\.yml$
+  - tsType: ModuleScreens
+    schema: data/schemas/modulescreens.schema.yml
+    resourceMask: ^mod::[^/]+/modulescreens\.yml$
   - tsType: SiteProfile
     schema: data/schemas/siteprofile.schema.yml
     resourceMask: siteprl\.yml$

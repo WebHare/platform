@@ -6,6 +6,8 @@ const SCHEMA = "webhare";
 function onRequestSchemaURI(resource: string): string | undefined {
 	if (resource.endsWith('/moduledefinition.yml'))
 		return `${SCHEMA}:///platform/data/schemas/moduledefinition.schema.yml`;
+	if (resource.endsWith('/modulescreens.yml'))
+		return `${SCHEMA}:///platform/data/schemas/modulescreens.schema.yml`;
 	if (resource.endsWith('.siteprl.yml'))
 		return `${SCHEMA}:///platform/data/schemas/siteprofile.schema.yml`;
 
@@ -22,7 +24,6 @@ async function onRequestSchemaContent(schemaUri: string): Promise<string | undef
 	if (parsedUri.scheme !== SCHEMA) {
 		return undefined;
 	}
-	// debugger;
 
 	try {
 		const resource = "mod::" + parsedUri.path.substring(1);

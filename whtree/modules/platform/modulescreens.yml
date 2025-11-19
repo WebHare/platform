@@ -1,10 +1,10 @@
 # This file serves as the hypothetical 'platform' module's list of built in screens. We might need deeper namespacing than '<module>:<single name level>' ?
 siteproperties:            # describes platform:siteproperties
-  extendtabs:              # if this exists, you can add a tabsextension to a backendhook (moduledefinition.yml) targeting this screen
+  extendTabs:              # if this exists, you can add a tabsextension to a backendhook (moduledefinition.yml) targeting this screen
     component: "maintabs"  # The component to extend
-    insertpoints:          # Insert points to offer
+    insertPoints:          # Insert points to offer
     - extensionpoint
-    extendcomponents:      # The extend components. I can see this becoming an object[] which also explains which interface to expect the components to implement (eg wrd:entity for which wrdtype?)
+    extendComponents:      # The extend components. I can see this becoming an object[] which also explains which interface to expect the components to implement (eg wrd:entity for which wrdtype?)
     - siteroot             # An fsobject representing the site root folder
 
 userrights:                # describes the system userrights app
@@ -14,18 +14,18 @@ userrights:                # describes the system userrights app
       - export_insertion_point   # a component name
 
 unitproperties:            # describes the system userrights unit properties dialog
-  extendtabs:              # TODO shouldn't this be extendTabs ?
+  extendTabs:
     component: maintabs
-    insertpoints:          # .. and insertPoints ?
+    insertPoints:
     - extensionpoint
-    extendcomponents:      # .. and extendComponents ?
+    extendComponents:
     - unitentity           # a wrd:entity representing the unit
 
 userproperties:            # describes the system userrights user properties dialog
-  extendtabs:
+  extendTabs:
     component: screentabs
-    insertpoints:          # .. and insertPoints ?
+    insertPoints:
     - account
     - advanced
-    extendcomponents:      # .. and extendComponents ?
+    extendComponents:
     - userobj              # a wrd:entity representing the unit

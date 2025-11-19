@@ -1,0 +1,17 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/backendhooks.whlib";
+
+/* Testurl examples:
+
+http://my.webhare.dev/?app=webhare_testsuite:runscreen(tests/extendablescreen.xml)&wh-debug=col
+*/
+
+PUBLIC STATIC OBJECTTYPE ExtendableScreen EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data) {
+    SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "webhare_testsuite:extendablescreen" ]);
+  }
+>;

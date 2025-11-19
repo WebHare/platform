@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
-LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
+LOADLIB "mod::tollium/lib/backendhooks.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -89,8 +89,7 @@ RECORD ARRAY FUNCTION GetFreeOutputUrls(INTEGER cursite, INTEGER currentoutputwe
 // Site settings dialog
 //
 
-PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase <
   OBJECT curitem;
 
   OBJECT parentfolder;

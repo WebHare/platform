@@ -5,7 +5,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 /* Testurl examples:
 
-http://sites.moe.sf.b-lex.com/b-lex-selftest-tolliumbackend/testsuiteportal/?app=webhare_testsuite:runscreen(tests/fragments.testenableonlinks)&wh-debug=col
+http://my.webhare.dev/?app=webhare_testsuite:runscreen(tests/fragments.testenableonlinks)&wh-debug=col
 */
 
 PUBLIC STRING ARRAY initorder;

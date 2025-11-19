@@ -1,6 +1,11 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components">
 
+  <tabsextension name="addedtab">
+    <newtab name="insertedtab1" title="Inserted tab 1" />
+    <newtab name="insertedtab2" title="Inserted tab 2" />
+  </tabsextension>
+
   <tabsextension name="extrasitefields">
     <compositions>
       <p:whfsinstance name="sitesettings" fsobject="siteroot" typedef="http://www.webhare.net/xmlns/beta/test2" />

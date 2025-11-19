@@ -1,0 +1,15 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
+         lib="screens/tests/extendablescreen.whlib">
+
+  <screen name="extendablescreen" footerbuttons="ok" title="extendablescreen" allowresize="true">
+    <body>
+      <tabs name="extend_these_tabs">
+        <tab name="tab1" title="Tab 1"></tab>
+        <tab name="tab2" title="Tab 2"></tab>
+        <tab name="tab3" title="Tab 3"></tab>
+      </tabs>
+    </body>
+  </screen>
+
+</screens>

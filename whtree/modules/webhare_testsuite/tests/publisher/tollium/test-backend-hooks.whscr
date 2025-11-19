@@ -4,6 +4,12 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+ASYNC MACRO TestHookBasics() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:runscreen", [ params := ["tests/extendablescreen.xml"]]));
+  TestEq(["Tab 1", "Inserted tab 1", "Inserted tab 2", "Tab 2", "Tab 3"], SELECT AS STRING ARRAY tab->title FROM ToRecordArray(TT("extend_these_tabs")->pages,"tab"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestCreateSiteDialog()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfw->GetWHFSTestRoot()->whfspath ]]));
@@ -32,7 +38,8 @@ ASYNC MACRO TestFilteredHooks()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-RunTestframework([ PTR TestCreateSiteDialog
+RunTestframework([ PTR TestHookBasics
+                 , PTR TestCreateSiteDialog
                  , PTR TestFilteredHooks
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);
