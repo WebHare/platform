@@ -234,7 +234,6 @@ async function testInstanceData() {
     width: 385,
     height: 236,
     dominantColor: /^#.*/,
-    sourceFile: null
   }, (await testtype.get(testfile.id, { export: true })).blub);
 
   test.eq(`site::${testsitejs.name}/TestPages/imgeditfile.jpeg`, (await testtype.get(testfile.id, { export: true })).blubImg?.sourceFile);
@@ -461,12 +460,14 @@ async function testInstanceData() {
           { subIntMember: 40, subRichMember: null }
         ],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       },
       {
         aSubArray: [],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       },
       {
         aSubArray: [
@@ -475,7 +476,8 @@ async function testInstanceData() {
           (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"
         ],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       }
     ], (await testtype.get(testfile.id)).anArray);
 

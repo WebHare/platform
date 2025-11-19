@@ -46,6 +46,8 @@ types:
             type: richdocument
           intMember:
             type: integer
+          aWhfsRef:
+            type: whfsref
       anUntypedRecord:
         type: json
       anArray:
@@ -55,6 +57,8 @@ types:
             type: richdocument
           intMember:
             type: integer
+          aWhfsRef:
+            type: whfsref
           aSubArray:
             type: array
             members:

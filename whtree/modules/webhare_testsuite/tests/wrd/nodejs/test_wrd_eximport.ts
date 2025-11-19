@@ -108,7 +108,6 @@ async function testExport() { //  tests
       mediaType: "application/msword",
       extension: '.doc',
       hash: "BhcncANlYsAInWd-DRO8_w94hPCpUzmgfKCwqOSBoAY",
-      sourceFile: null
     } satisfies ExportedResource,
     testImage: {
       data: {
