@@ -17,6 +17,12 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
+BOOLEAN FUNCTION IsSafeDefaultIndex(STRING ns) {
+  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/contentlisting",
+                "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents",
+                "platform:filetypes.contentlisting",
+                "platform:filetypes.dynamicfoldercontents" ];
+}
 
 MACRO DoRecurseUpdatePublish(OBJECT repubstate, RECORD site, INTEGER folderid, BOOLEAN setpublish, BOOLEAN toplevel, INTEGER ARRAY acceptabletypes, OBJECT handler)
 {
@@ -477,9 +483,8 @@ PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
   RETURN retval;
 }
 
-
 // Called after type change on fsobject, in same work
-PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype) {
+MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype) {
   BOOLEAN addnewindex;
   BOOLEAN replaceoldindex;
   BOOLEAN oldprotectindex;
@@ -504,7 +509,7 @@ PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER ol
          WHERE id = fsobject->indexdoc
            AND isactive);
 
-    IF (RecordExists(newtypeindex) AND newtypeindex.indexfile = "newfile") { // is folder with contentlisting or dynamic folder
+    IF (RecordExists(newtypeindex) AND newtypeindex.indexfile = "newfile" AND IsSafeDefaultIndex(newtypeindex.newfiletype)) { //is folder with contentlisting or dynamic folder
       IF (RecordExists(oldindex)) {
         IF (oldindex.type IN [ 24, 35 ]) // contentlisting or dynamicfolderindex
         {
@@ -585,7 +590,6 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
   IF (NOT RecordExists(folderindex))
     RETURN;
 
-  // When a site versioning policy is active, the default page may not be published
   INTEGER new_published := PubPrio_DirectEdit;
 
   OBJECT parentfolderobj := OpenWHFSObject(parentfolderid);
@@ -662,5 +666,32 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
                                  , published := new_published
                                  , ispinned := folderindex.protectindexfile
                                  ], [ setindex := TRUE ]);
+  }
+}
+
+PUBLIC MACRO UpdateFSObjTypes(OBJECT work, INTEGER ARRAY objs, INTEGER newtype) {
+  // See which ones we actually need to modify
+  INTEGER ARRAY modify_ids :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_objects
+        WHERE id IN VAR objs
+          AND type != newtype;
+
+  RECORD ARRAY toupdate :=
+      SELECT id
+            , isfolder
+            , indexdoc
+            , type
+        FROM system.fs_objects
+        WHERE id IN modify_ids
+    ORDER BY parent;
+
+  FOREVERY (RECORD rec FROM toupdate) {
+    OBJECT fsobject := OpenWHFSObject(rec.id);
+
+    // Update the object type
+    fsobject->UpdateMetadata([ type := newtype ]);
+
+    ApplyTypeChangeSideEffects(work, fsobject, rec.type);
   }
 }
