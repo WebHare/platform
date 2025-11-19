@@ -1076,8 +1076,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
     IF(this->pvt_useragent!="")
       INSERT INTO headers(field,value) VALUES("User-Agent", this->pvt_useragent) AT END;
-    IF(NOT RecordExists(SELECT FROM headers WHERE ToUppercase(field)="ACCEPT-CHARSET"))
-      INSERT INTO headers(field,value) VALUES("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.7") AT END;
 
     IF(Length(this->pvt_cookies)>0)
     {
