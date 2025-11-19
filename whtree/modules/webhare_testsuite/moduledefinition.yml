@@ -3,6 +3,9 @@ backendHooks: # Where this extension hooks into the backend
   testsitehook:
     screen: "platform:siteproperties"
     tabsExtension: tests/publisher/tollium/data/backendhooks.xml#extrasitefields
+  testextensions:
+    screen: "webhare_testsuite:extendablescreen"
+    tabsExtension: tests/publisher/tollium/data/backendhooks.xml#addedtab
   adduserrights1:
     screen: "platform:userrights"
     addActions:

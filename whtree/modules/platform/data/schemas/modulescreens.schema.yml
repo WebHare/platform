@@ -18,6 +18,9 @@ patternProperties:
           component:
             type: string
             description: The main component to extend
+          insertBefore:
+            type: string
+            description: The tab before which to insert new tabs
           insertPoints:
             type: array
             items:

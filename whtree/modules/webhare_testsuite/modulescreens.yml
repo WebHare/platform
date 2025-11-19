@@ -1,0 +1,4 @@
+extendablescreen:          # describes webhare_testsuitse:extendablescreen
+  extendTabs:              # if this exists, you can add a tabsextension to a backendhook (moduledefinition.yml) targeting this screen
+    component: "extend_these_tabs"
+    insertBefore: tab2

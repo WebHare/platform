@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
 
@@ -35,6 +36,7 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
       [ extend_tabs := [ component := ""
                        , insert_points := STRING[]
                        , extend_components := STRING[]
+                       , insert_before := ""
                        ]
       , action_categories := DEFAULT RECORD
       ], screendef);
@@ -99,6 +101,9 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
 
   STRING ARRAY errors;
 
+  IF(NOT __INTERNAL_GetIsObjectTypeStatic(screen))
+    THROW NEW Exception(`SetupBackendScreenHooks requires your screen to be a STATIC OBJECTTYPE`);
+
   RECORD screendef := GetScreenDef(options.screenname); //made an option, we might at some point just derive the screenname straight from builtinscreens
   IF(RecordExists(screendef.extend_tabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
   {
@@ -116,15 +121,16 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
       INSERT [ name := extendcomponent, component := GetMember(screen, "^" || extendcomponent) ] INTO tabcomp->extendcomponents AT END;
     }
 
-    /* TODO
-    IF(config.insertbefore != DEFAULT OBJECT)
-    {
-      INTEGER pos := SearchElement(tabs->pages, config.insertbefore);
-      IF(pos = -1)
-        THROW NEW Exception(`insertbefore tab is not a page of the tab`);
+    IF(screendef.extend_tabs.insert_before != "") {
+      IF(NOT MemberExists(screen, "^" || screendef.extend_tabs.insert_before))
+        THROW NEW Exception(`Tab '${screendef.extend_tabs.insert_before}' not found in screen '${options.screenname}' - fix the screen or its modulescreens.yml definition`);
 
-      tabs->extendposition := pos;
-    }*/
+      INTEGER pos := SearchElement(tabcomp->pages, GetMember(screen, "^" || screendef.extend_tabs.insert_before));
+      IF(pos = -1)
+        THROW NEW Exception(`insertbefore tab '${screendef.extend_tabs.insert_before}' is not a page of the tab`);
+
+      tabcomp->extendposition := pos;
+    }
 
     FOREVERY(RECORD hook FROM hooks)
       IF(hook.tabsextension != "")

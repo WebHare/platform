@@ -8,7 +8,7 @@ PUBLIC MACRO RunScreen(OBJECT controller, RECORD data)
   controller->user->timezone := "CET";
   STRING screenpath := data.params[0];
   IF(NOT IsAbsoluteResourcePath(screenpath))
-    screenpath := "webhare_testsuite:" || screenpath;
+    screenpath := screenpath LIKE "*.xml" ? "mod::webhare_testsuite/screens/" || screenpath : "webhare_testsuite:" || screenpath;
   controller->LoadScreen(screenpath, [ params := ArraySlice(data.params, 1) ])->RunModal();
 }
 
