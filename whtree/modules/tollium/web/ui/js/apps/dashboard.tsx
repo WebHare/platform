@@ -45,7 +45,7 @@ class DashboardApp {
     this.app.requiresScreen = false; //we don't need a screen to be 'active'
     this.shell = this.app.shell;
 
-    //mousedown prevent focus loss, essential if you've done a keyboard search in the dashboard menu and attempt to click a reuslts
+    //mousedown prevent focus loss, essential if you've done a keyboard search in the dashboard menu and attempt to click a result
     this.dashboardappsnode = <div className="dashboard__apps" tabindex="0" on={{ mousedown: event => event.preventDefault() }}>
       <nav className="dasbhoard__menuitems" />
       <div className="dasboard__noapps">
