@@ -1636,6 +1636,10 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
     UPDATE system.fs_objects
        SET ordering := SearchElement(all_other_objects, id) + 1
      WHERE id IN all_other_objects;
+
+    OBJECT whfs_commithandler := GetWHFSCommithandler();
+    FOREVERY (INTEGER id FROM all_other_objects)
+      whfs_commithandler->ObjectReordered(this->parentsite, this->id, id);
   }
 
   /** Ensures that ordering is set for every child of this folder
@@ -1652,9 +1656,12 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
     IF(NOT force_ordering AND NOT RecordExists(SELECT FROM select_objects WHERE ordering != 0))
       RETURN;
 
+    OBJECT whfs_commithandler := GetWHFSCommithandler();
     FOREVERY(RECORD obj FROM select_objects)
     {
       UPDATE system.fs_objects SET ordering := #obj + 1 WHERE id = obj.id;
+      IF (obj.ordering != #obj + 1)
+        whfs_commithandler->ObjectReordered(this->parentsite, this->id, obj.id);
     }
   }
 
