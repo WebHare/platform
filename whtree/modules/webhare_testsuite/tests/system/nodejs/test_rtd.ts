@@ -324,7 +324,7 @@ async function testBuilder() {
           {
             alt: "Goudvis",
             height: 120,
-            image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            image: (ex: ExportedResource) => Boolean("base64" in ex.data && ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
             width: 240
           }
         ],
@@ -337,7 +337,7 @@ async function testBuilder() {
             float: "left",
             height: 120,
             width: 240,
-            image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            image: (ex: ExportedResource) => Boolean("base64" in ex.data && ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
             link: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
           }
         ]

@@ -5,7 +5,7 @@ import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
 import { getData, setData, type CodecExportMemberType, type CodecGetMemberType, type CodecImportMemberType, type EncodedFSSetting, type MemberType } from "./codecs";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
@@ -94,7 +94,7 @@ export interface FolderTypeInfo extends WHFSTypeBaseInfo {
 /** A type representing all possible WHFS Type interfaces */
 export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
 
-interface InstanceSetOptions {
+interface InstanceSetOptions extends ImportOptions {
   ///How to handle readonly fsobjects. fail (the default), skip or actually update
   ifReadOnly?: "fail" | "skip" | "update";
   isVisibleEdit?: boolean;
@@ -164,11 +164,17 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     this.ns = ns;
   }
 
-  async describe(): Promise<{ id: number | null }> {
+  async describe(): Promise<{ id: number | null; members: WHFSTypeMember[] }> {
     this.descr ??= await describeWHFSType(this.ns);
     return {
       id: this.descr.id,
+      members: this.descr.members,
     };
+  }
+
+  async defaultInstance(): Promise<GetFormat> {
+    this.descr ??= await describeWHFSType(this.ns);
+    return await getData(this.descr.members, null, { allsettings: [], cc: 0 }) as GetFormat;
   }
 
   private async getCurrentInstanceId(fsobj: number, type: WHFSTypeBaseInfo) {
@@ -286,7 +292,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], this.descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
-    appendToArray(setter.toinsert, await setData(this.descr.members, data));
+    appendToArray(setter.toinsert, await setData(this.descr.members, data, options));
 
     // Only write when an instance
     const needInstance = Boolean(setter.toinsert.length);

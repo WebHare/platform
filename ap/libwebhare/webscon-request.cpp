@@ -284,7 +284,7 @@ bool Connection::TryDiskPathRewrite(Request::AccessRuleHitInfo *ruleitr, std::st
                 if (disk_file_path.empty())
                     continue;
 
-                if (!entry.tag.empty() && std::find(request->header_debugtags.begin(), request->header_debugtags.end(), entry.tag) != request->header_debugtags.end())
+                if (!entry.tag.empty() && request->header_debugging && std::find(request->header_debugtags.begin(), request->header_debugtags.end(), entry.tag) != request->header_debugtags.end())
                 {
                         DISKRES_PRINT("  Skipped by debug tag");
                         continue;

@@ -95,8 +95,7 @@ const extractsCache = new Map<string, {
 }>();
 
 function deepFreeze(object: Record<string | symbol, unknown>) {
-  for (const name of Reflect.ownKeys(object)) {
-    const value = object[name];
+  for (const value of Object.values(object)) {
     if (value && typeof value === "object")
       deepFreeze(value as Record<string | symbol, unknown>);
   }

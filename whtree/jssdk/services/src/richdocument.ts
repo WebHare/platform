@@ -1,11 +1,11 @@
-import { omit, throwError, typedEntries } from "@webhare/std";
+import { omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { InstanceExport, InstanceSource, TypedInstanceData, TypedInstanceExport, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
-import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions } from "./descriptor";
+import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions, type ImportOptions } from "./descriptor";
 import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
 import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools/src/utility-types";
 
@@ -307,8 +307,15 @@ function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Pr
   return isPromise(value) ? value.then(t => cb(t)) : cb(value);
 }
 
+type DistributedKeys<T extends object> = T extends object ? keyof T : never;
+type OmitDefaults<T extends object, K extends DistributedKeys<T>> = T extends object ? Omit<T, K> & Partial<Pick<T, K>> : never;
+function omitFalsy<T extends object, K extends DistributedKeys<T>>(obj: T, keys: K[]): OmitDefaults<T, K> {
+  return typedFromEntries(typedEntries(obj).filter(([k, v]) => !keys.includes(k as K) || v)) as unknown as OmitDefaults<T, K>;
+}
+
 /** @deprecated use Instance instead */
 type WidgetInterface = { whfsType: string; data: InstanceData; export(): Promise<InstanceExport> };
+
 
 /** A Rich Text Document (RTD) */
 
@@ -333,17 +340,16 @@ export class RichTextDocument {
     return this.#blocks.length === 0;
   }
 
-  private async fixLink<T>(item: T & RTDBaseLink<"build">): Promise<T & RTDBaseLink<"inMemory">> {
+  private async fixLink<T>(item: T & RTDBaseLink<"build">, options: ImportOptions): Promise<T & RTDBaseLink<"inMemory">> {
     if (typeof item.link === "string")  // convert to IntExtLink
-      item.link = new IntExtLink(item.link);
-
-    if (item.link && ("internalLink" in item.link || "externalLink" in item.link))
-      item.link = await importIntExtLink(item.link) || undefined;
+      item = { ...item, link: new IntExtLink(item.link) };
+    else if (item.link && ("internalLink" in item.link || "externalLink" in item.link))
+      item = { ...item, link: await importIntExtLink(item.link, options) || undefined };
 
     return item as T & { link?: IntExtLink };
   }
 
-  async #buildParagraphItems(blockitems: RTDSourceInlineItems | string): Promise<RTDInlineItems> {
+  async #buildParagraphItems(blockitems: RTDSourceInlineItems | string, options: ImportOptions): Promise<RTDInlineItems> {
     if (typeof blockitems === 'string')
       blockitems = [{ text: blockitems }];
 
@@ -353,22 +359,22 @@ export class RichTextDocument {
         outitems.push({ text: item });
         continue;
       }
-
-      if ("text" in item) {
-        outitems.push(await this.fixLink(item));
-      } else if ("image" in item || "externalImage" in item) {
-        outitems.push({ ...await this.fixLink(item), ...await this.addImage(item) });
-      } else if ("inlineWidget" in item) {
-        outitems.push({ ...await this.fixLink(item), inlineWidget: await this.addWidget(item.inlineWidget) });
-      } else if ("widget" in item) {
+      const linkFixed = await this.fixLink(item, options);
+      if ("text" in linkFixed) {
+        outitems.push(linkFixed);
+      } else if ("image" in linkFixed || "externalImage" in linkFixed) {
+        outitems.push(await this.addImage(linkFixed, options));
+      } else if ("inlineWidget" in linkFixed) {
+        outitems.push({ ...linkFixed, inlineWidget: await this.addWidget(linkFixed.inlineWidget, options) });
+      } else if ("widget" in linkFixed) {
         throw new Error(`Toplevel widgets not allowed in paragraphs, use 'inlineWidget' instead`);
       } else
-        throw new Error(`Invalid paragraph item ${JSON.stringify(item)}`);
+        throw new Error(`Invalid paragraph item ${JSON.stringify(linkFixed)}`);
     }
     return outitems;
   }
 
-  async #buildListItemItems(listItemItems: RTDBaseListItemItems<"build">): Promise<RTDBaseListItemItems<"inMemory">> {
+  async #buildListItemItems(listItemItems: RTDBaseListItemItems<"build">, options: ImportOptions): Promise<RTDBaseListItemItems<"inMemory">> {
     let anonymousParagraph: RTDBaseAnonymousParagraph<"inMemory"> | undefined;
     const outitems: RTDBaseListItemItems<"inMemory"> = [];
 
@@ -378,21 +384,21 @@ export class RichTextDocument {
         if (!item.tag) {
           if (anonymousParagraph || outitems.length)
             throw new Error(`Anonymous paragraphs can only be the first item in a list item`);
-          anonymousParagraph = { items: await this.#buildParagraphItems(item.items) };
+          anonymousParagraph = { items: await this.#buildParagraphItems(item.items, options) };
         } else {
           if (anonymousParagraph)
             throw new Error(`Cannot mix anonymous paragraphs with named paragraphs in a list item`);
           // paragraph
           outitems.push({
             ...item,
-            items: await this.#buildParagraphItems(item.items)
+            items: await this.#buildParagraphItems(item.items, options)
           });
         }
       } else if ("listItems" in item) {
         // list
         outitems.push({
           ...item,
-          listItems: await this.#buildListItems(item.listItems)
+          listItems: await this.#buildListItems(item.listItems, options)
         });
       } else {
         // handle build shortcuts
@@ -402,7 +408,7 @@ export class RichTextDocument {
               throw new Error(`Cannot mix anonymous paragraphs with named paragraphs in a list item`);
             outitems.push({
               ...splitBuildTag(entry[0]),
-              items: await this.#buildParagraphItems(entry[1])
+              items: await this.#buildParagraphItems(entry[1], options)
             });
             continue itemloop;
           }
@@ -419,46 +425,46 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async #buildListItems(listItems: RTDSourceListItems): Promise<RTDListItems> {
+  async #buildListItems(listItems: RTDSourceListItems, options: ImportOptions): Promise<RTDListItems> {
     const outitems: RTDListItems = [];
 
     for (const item of listItems) {
-      outitems.push({ li: await this.#buildListItemItems(item.li) });
+      outitems.push({ li: await this.#buildListItemItems(item.li, options) });
     }
     return outitems;
   }
 
-  async addBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems) {
+  async addBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems, options?: ImportOptions) {
     validateTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
     if (!isValidRTDClassName(useclass))
       throw new Error(`Invalid class name '${className}'`);
 
-    const newblock: RTDBlock = { tag, items: items?.length ? await this.#buildParagraphItems(items) : [] };
+    const newblock: RTDBlock = { tag, items: items?.length ? await this.#buildParagraphItems(items, options || {}) : [] };
     if (useclass !== rtdBlockDefaultClass[tag]) {
       newblock.className = useclass;
     }
     this.#blocks.push(newblock);
   }
 
-  private async addImage(node: RTDBaseInlineItem<"build"> & RTDBaseInlineImageItem<"build">): Promise<RTDBaseInlineItem<"inMemory">> {
+  private async addImage(node: RTDBaseInlineItem<"build"> & object & RTDBaseInlineImageItem<"build">, options?: ImportOptions): Promise<RTDBaseInlineItem<"inMemory">> {
     if (node && "image" in node && !isResourceDescriptor(node.image))
-      node.image = await ResourceDescriptor.import(node.image);
+      node = { ...node, image: await ResourceDescriptor.import(node.image, options) };
     return node as RTDBaseInlineItem<"inMemory">;
   }
 
-  private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
+  private async addWidget(widget: RTDBaseWidget<"build">, options?: ImportOptions): Promise<RTDBaseWidget<"inMemory">> {
     if (isInstance(widget)) //we just keep the widget as is
       return widget;
 
     if ("whfsType" in widget)
-      return await buildInstance(widget);
+      return await buildInstance(widget, options);
 
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
 
-  async addList(tag: string, className: string | undefined, listItems: RTDSourceListItems) {
+  async addList(tag: string, className: string | undefined, listItems: RTDSourceListItems, options?: ImportOptions) {
     validateListTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -466,21 +472,21 @@ export class RichTextDocument {
       throw new Error(`Invalid class name '${className}'`);
 
 
-    const newblock: RTDBlock = { tag, listItems: await this.#buildListItems(listItems) };
+    const newblock: RTDBlock = { tag, listItems: await this.#buildListItems(listItems, options || {}) };
     if (useclass !== rtdBlockDefaultClass[tag]) {
       newblock.className = useclass;
     }
     this.#blocks.push(newblock);
   }
 
-  async addBlocks(blocks: RTDSourceBlock[]): Promise<void> {
+  async addBlocks(blocks: RTDSourceBlock[], options?: ImportOptions): Promise<void> {
     //TODO validate, import disk objects etc
     for (const block of blocks) {
       if ("items" in block) {
-        await this.addBlock(block.tag, block.className, block.items);
+        await this.addBlock(block.tag, block.className, block.items, options);
         continue;
       } else if ("listItems" in block) {
-        await this.addList(block.tag, block.className, block.listItems);
+        await this.addList(block.tag, block.className, block.listItems, options);
         continue;
       }
 
@@ -492,14 +498,14 @@ export class RichTextDocument {
       const entry = entries[0];
 
       if (entry[0] === 'widget') {
-        this.#blocks.push({ widget: await this.addWidget(entry[1]) });
+        this.#blocks.push({ widget: await this.addWidget(entry[1], options) });
         continue;
       }
 
       if (isTagEntry(entry, rtdParagraphTypes)) {
         this.#blocks.push({
           ...splitBuildTag(entry[0]),
-          items: await this.#buildParagraphItems(entry[1])
+          items: await this.#buildParagraphItems(entry[1], options || {})
         });
         continue;
       }
@@ -519,9 +525,10 @@ export class RichTextDocument {
     return getArrayPromise(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
-        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies InstanceExport } as RTDBaseInlineItem<"export">;
-      if ("image" in item)
-        return { ...item, image: await item.image.export() satisfies ExportedResource } as RTDBaseInlineItem<"export">;
+        return { ...item, inlineWidget: await item.inlineWidget.export(options) satisfies InstanceExport } as RTDBaseInlineItem<"export">;
+      if ("image" in item) {
+        return { ...omitFalsy(item, ["alt", "width", "height", "float"]), image: await item.image.export(options) satisfies ExportedResource } as RTDBaseInlineItem<"export">;
+      }
       return item as RTDBaseInlineItem<"export">;
     }));
   }
@@ -598,10 +605,10 @@ export class RichTextDocument {
   }
 }
 
-export async function buildRTD(source: RTDSource): Promise<RichTextDocument> {
+export async function buildRTD(source: RTDSource, options?: ImportOptions): Promise<RichTextDocument> {
   //TODO validate, import disk objects etc
   const outdoc = new RichTextDocument;
-  await outdoc.addBlocks(source);
+  await outdoc.addBlocks(source, options);
   return outdoc;
 }
 
@@ -623,12 +630,13 @@ export async function buildInstance<
       data?: ([NoInfer<Type>] extends [WHFSTypeName] ?
         DisallowExtraPropsRecursive<Data, WHFSTypes[NoInfer<Type>]["SetFormat"]> :
         InstanceSource["data"]);
-    }))): Promise<[NoInfer<Type>] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance> {
+    })),
+  options?: ImportOptions): Promise<[NoInfer<Type>] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
   for (const key of (Object.keys(data)))
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true })) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */

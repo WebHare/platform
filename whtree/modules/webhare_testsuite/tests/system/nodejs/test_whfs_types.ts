@@ -234,7 +234,6 @@ async function testInstanceData() {
     width: 385,
     height: 236,
     dominantColor: /^#.*/,
-    sourceFile: null
   }, (await testtype.get(testfile.id, { export: true })).blub);
 
   test.eq(`site::${testsitejs.name}/TestPages/imgeditfile.jpeg`, (await testtype.get(testfile.id, { export: true })).blubImg?.sourceFile);
@@ -318,6 +317,10 @@ async function testInstanceData() {
     myLink: null,
     anUntypedRecord: null
   }, (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data);
+
+  test.eq(
+    (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).data,
+    await whfsType("webhare_testsuite:global.generic_test_type").defaultInstance());
 
   // Export of default values should result in only the whfsType property (default values should be omitted)
   test.eq({
@@ -457,12 +460,14 @@ async function testInstanceData() {
           { subIntMember: 40, subRichMember: null }
         ],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       },
       {
         aSubArray: [],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       },
       {
         aSubArray: [
@@ -471,7 +476,8 @@ async function testInstanceData() {
           (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"
         ],
         intMember: 0,
-        richMember: null
+        richMember: null,
+        aWhfsRef: null
       }
     ], (await testtype.get(testfile.id)).anArray);
 

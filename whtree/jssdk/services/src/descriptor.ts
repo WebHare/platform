@@ -43,6 +43,19 @@ export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type ExportOptions = {
   export?: boolean;
+  mapWhfsLink?: (data: {
+    id: number;
+    whfsPath: string;
+    isFolder: boolean;
+    parentSite: number | null;
+    parentSiteName: string | null;
+    sitePath: string;
+    defaultMapping: string;
+  }) => string | null | Promise<string | null>;
+};
+
+export type ImportOptions = {
+  unmapWhfsLink?: (mappedPath: string) => number | null | undefined | Promise<number | null | undefined>;
 };
 
 export type LinkMethod = {
@@ -278,6 +291,7 @@ export async function mapExternalWHFSRef(inId: number, options?: ExportOptions):
   //should this be in WHFS or some shared 'simple low level WHFS library' shared between the various export/importers ?
   //TODO return 'null' for objects in hidden /webhare-private/ folders?
   const objinfo = await db<PlatformDB>().selectFrom("system.fs_objects").where("id", "=", inId).
+    select("isfolder").
     select(selectFSHighestParent().as("parentsite")).
     select(selectFSWHFSPath().as("whfspath")).
     select(selectFSFullPath().as("fullpath")).
@@ -285,39 +299,60 @@ export async function mapExternalWHFSRef(inId: number, options?: ExportOptions):
 
   if (!objinfo)
     return null;
-  if (objinfo.parentsite) {
-    const site = await db<PlatformDB>().selectFrom("system.sites").select(["name"]).where("id", "=", objinfo.parentsite).executeTakeFirst();
-    if (site)
-      return `site::${site.name}${objinfo.fullpath}`;
+
+  const parentSiteName = (objinfo.parentsite ? (await db<PlatformDB>().selectFrom("system.sites").select(["name"]).where("id", "=", objinfo.parentsite).executeTakeFirst())?.name : null) ?? null;
+  let mapped = parentSiteName ? `site::${parentSiteName}${objinfo.fullpath}` : isHistoricWHFSSpace(objinfo.whfspath) ? null : `whfs::${objinfo.whfspath}`;
+
+  if (mapped && options?.mapWhfsLink) {
+    mapped = await options.mapWhfsLink({
+      id: inId,
+      whfsPath: objinfo.whfspath,
+      isFolder: objinfo.isfolder,
+      parentSite: objinfo.parentsite,
+      parentSiteName,
+      sitePath: objinfo.fullpath,
+      defaultMapping: mapped,
+    });
+    if (mapped && !mapped.startsWith("site::") && !mapped.startsWith("whfs::") && !mapped?.startsWith("relative::") && !mapped.startsWith("x-custom::"))
+      throw new Error(`mapWhfsLink returned invalid mapped path '${mapped}', should start with site::, whfs::, relative:: or x-custom::`);
   }
-  return isHistoricWHFSSpace(objinfo.whfspath) ? null : `whfs::${objinfo.whfspath}`;
+  return mapped;
 }
 
 /** Import a site:: or whfs:: path*/
-export async function unmapExternalWHFSRef(inId: string): Promise<number | null> {
-  if (inId.startsWith("site::") || inId.startsWith("whfs::")) {
-    const target = await lookupWHFSObject(0, inId);
-    return target > 0 ? target : null;
+export async function unmapExternalWHFSRef(inId: string, options?: ImportOptions): Promise<number | null> {
+  if (options?.unmapWhfsLink) {
+    const unmapped = await options.unmapWhfsLink(inId);
+    if (unmapped !== undefined)
+      return unmapped;
   }
-  return null;
+
+  if (!inId.startsWith("site::") && !inId.startsWith("whfs::"))
+    throw new Error(`WHFS link unmapper is required for WHFS paths that are not site:: or whfs:: (prefix: ${/^([^:]*)::?/.exec(inId)?.[1] || "unknown"})`);
+
+  const target = await lookupWHFSObject(0, inId);
+  return target > 0 ? target : null;
 }
 
 export function exportIntExtLink(value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> {
   if (value?.internalLink)
-    return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
+    return mapExternalWHFSRef(value.internalLink, options).then(id => id ? {
+      internalLink: id,
+      ...(value.append ? { append: value.append } : {})
+    } : null);
   if (value?.externalLink)
     return { externalLink: value.externalLink };
   return null;
 }
 
-export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> {
+export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink, options?: ImportOptions): MaybePromise<IntExtLink | null> {
   if (!value || isIntExtLink(value))
     return value;
 
   if ("externalLink" in value)
     return new IntExtLink(value.externalLink);
 
-  return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
+  return unmapExternalWHFSRef(value.internalLink, options).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
@@ -927,9 +962,9 @@ export class ResourceDescriptor implements ResourceMetaData {
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
   }
 
-  static async import(resource: ExportedResource): Promise<ResourceDescriptor> {
+  static async import(resource: ExportedResource, options?: ImportOptions): Promise<ResourceDescriptor> {
     let blob;
-    if (resource.data.base64) {
+    if ("base64" in resource.data && resource.data.base64 !== undefined) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
     } else if (WebHareBlob.isWebHareBlob(resource.data)) {
       //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
@@ -940,7 +975,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 
     const importData: ResourceMetaDataInit = {
       ...resource,
-      sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile) : null,
+      sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile, options) : null,
       mediaType: resource.mediaType || "application/octet-stream"
     };
     if (importData.width && (typeof importData.mirrored !== "boolean" || typeof importData.rotation !== "number")) {
@@ -1016,7 +1051,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     //TODO Serialization methods other than data: will be requestable through ExportOptions
     return {
       data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
-      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile, options) : null,
+      ...(this.sourceFile ? { sourceFile: await mapExternalWHFSRef(this.sourceFile, options) } : {}),
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };
   }
