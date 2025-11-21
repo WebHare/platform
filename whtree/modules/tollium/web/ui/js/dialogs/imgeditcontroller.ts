@@ -4,13 +4,15 @@
 import * as whintegration from '@mod-system/js/wh/integration';
 import { getTid } from "@webhare/gettid";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import { ImageEditor, resizeMethodApplied, type ImageEditorOptions, type RefPoint, type Size } from "../../components/imageeditor";
 
 import "../../common.lang.json";
 import "../../components/imageeditor/imageeditor.lang.json";
 import type { ImageSurfaceSettings } from "../../components/imageeditor/surface";
+import type { ToolbarPanel } from '../../components/toolbar/toolbars';
+import type { UIBusyLock } from '@webhare/dompack';
 
 export { type RefPoint } from "../../components/imageeditor";
 
@@ -46,18 +48,16 @@ class ImgeditDialogController {
     settings: { refPoint: RefPoint } | null;
     editcallback: () => void;
   }>();
-  screen: Frame;
-  busylock: Disposable | null = null;
+  screen: ObjFrame;
+  busylock: UIBusyLock | null = null;
   editor: ImageEditor | null = null;
-  dialog: Frame | null;
+  dialog: ObjFrame | null = null;
+  activetool: ToolbarPanel | null = null;
   options;
+  editorsize;
 
-  constructor(screen: Frame, options?) {
+  constructor(screen: ObjFrame, options?) {
     this.screen = screen;
-    this.dialog = null;
-    this.imageurl = null;
-    this.editorsize = null;
-    this.activetool = null;
     this.options =
     {
       imgsize: null,
@@ -112,7 +112,7 @@ class ImgeditDialogController {
     }
   }
 
-  _readImageFile(file: Blob, settings: ImageSettings) {
+  _readImageFile(file: Blob, settings: ImageSettings & { orgblob: Blob }) {
     const reader = new FileReader();
 
     // Read the image as ArrayBuffer, so we can read its EXIF data
