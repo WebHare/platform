@@ -77,10 +77,12 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
   }
 
   RECORD FUNCTION GetCacheRawData(RECORD data) {
+    BOOLEAN skipcache := IsDebugTagEnabled("wst=platform:unifiedcache");
+
     //Get the path for this image
     STRING path := this->GetDiskPath(data);
     BLOB diskfile;
-    IF (NOT this->force)
+    IF (NOT this->force AND NOT skipcache)
     {
       TRY
       {
