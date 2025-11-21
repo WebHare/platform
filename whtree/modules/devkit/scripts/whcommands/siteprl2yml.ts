@@ -118,9 +118,9 @@ function importRTDType(ctxt: ImportContext, rt: CSPContentType): RTDType {
         inherit: _.inherit === true,
       }))
     } : {},
-    ...rt.linkhandlers ? { linkHandlers: rt.linkhandlers.map(lh => lh.namespaceuri + '#' + lh.localname) } : {},
-    ...rt.structure.tag_b ? { b: rt.structure.tag_b as "b" | "strong" } : {},
-    ...rt.structure.tag_i ? { i: rt.structure.tag_i as "i" | "em" } : {},
+    ...rt.linkhandlers?.length ? { linkHandlers: rt.linkhandlers.map(lh => lh.namespaceuri + '#' + lh.localname) } : {},
+    ...rt.structure.tag_b === "strong" ? { b: "strong" } : {},
+    ...rt.structure.tag_i === "em" ? { i: "em" } : {},
   };
 }
 

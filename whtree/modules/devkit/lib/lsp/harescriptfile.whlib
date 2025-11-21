@@ -6,10 +6,8 @@ LOADLIB "mod::devkit/lib/lsp/webharesourcefile.whlib";
 LOADLIB "mod::devkit/lib/lsp/loadlibs.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE HareScriptFile EXTEND WebHareSourceFile
-<
-  PUBLIC RECORD FUNCTION AddMissingLoadlib(STRING identifier)
-  {
+PUBLIC STATIC OBJECTTYPE HareScriptFile EXTEND WebHareSourceFile <
+  PUBLIC RECORD FUNCTION AddMissingLoadlib(STRING identifier) {
     RECORD suggest := GetLoadLibSuggestions(identifier, [ filename := this->resource ]);
     IF(CellExists(suggest,'error'))
       RETURN  suggest;
@@ -32,8 +30,7 @@ PUBLIC STATIC OBJECTTYPE HareScriptFile EXTEND WebHareSourceFile
       RETURN [ error := `Unable to add loadlib: ` || suggest.results[0].path ];
   }
 
-  PUBLIC RECORD FUNCTION RemoveUnusedLoadlib(STRING lib)
-  {
+  PUBLIC RECORD FUNCTION RemoveUnusedLoadlib(STRING lib) {
     RECORD result := GetLoadlibRemoveInstructions(this->text, lib);
     IF (result.success)
     {

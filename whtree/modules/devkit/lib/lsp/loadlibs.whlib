@@ -527,8 +527,7 @@ PUBLIC RECORD FUNCTION RemoveLoadlibStatement(STRING infile, STRING tokill, RECO
     @cell data String to insert (only when success is true)
     @cell message Message Error/success message
 */
-PUBLIC RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ verbose := FALSE, reorder := TRUE ], options);
 
   RECORD ARRAY messages := ValidateHarescriptSource(path, StringToBlob(infile), [ nomissingtids := TRUE ]).messages;
@@ -601,7 +600,7 @@ PUBLIC RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path
           IF (replaced.success)
           {
             RECORD res2 := ValidateHarescriptSource(path, StringToBlob(replaced.data), [ nomissingtids := TRUE ]);
-            RECORD error2 := SELECT * FROM res2.messages WHERE iserror;
+            RECORD error2 := SELECT * FROM res2.messages WHERE type = "error";
             IF (NOT RecordExists(error2))
             {
               IF (options.verbose)
