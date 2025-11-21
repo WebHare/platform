@@ -22,7 +22,7 @@ export type ImageSettings = {
 };
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
-function dataURItoBlob(dataURI) {
+function dataURItoBlob(dataURI: string) {
   // convert base64 to raw binary data held in a string
   // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
   const byteString = atob(dataURI.split(',')[1]);
@@ -86,7 +86,7 @@ class ImgeditDialogController {
     this._readImageFile(blob, settings);
   }
 
-  loadImageSrc(src, settings: ImageSettings) {
+  loadImageSrc(src: string, settings: ImageSettings) {
     if ("refpoint" in settings)
       throw new Error("refpoint? should be refPoint"); //TODO remove once imageedit typings are complete
     if (this.busylock)
@@ -104,7 +104,7 @@ class ImgeditDialogController {
       request.onload = () => {
         //console.log("Received image file as Blob");
         const mimeType = request.getResponseHeader("Content-Type");
-        const blob = new Blob([request.response], { type: mimeType });
+        const blob = new Blob([request.response], mimeType ? { type: mimeType } : {});
         this._readImageFile(blob, settings);
       };
       request.open("GET", src, true);
@@ -131,7 +131,7 @@ class ImgeditDialogController {
 
       const objecturl = URL.createObjectURL(file);
       const options = {
-        orientation: exifdata && exifdata.tags.Orientation,
+        orientation: exifdata && exifdata.tags.Orientation, //FIXME do we need this
         mimetype: file.type,
         filename: "",
         ...settings
@@ -143,8 +143,9 @@ class ImgeditDialogController {
     reader.readAsArrayBuffer(file);
   }
 
-  _loadImageUrl(url, options: ImageSurfaceSettings) {
+  _loadImageUrl(url: string, options: ImageSurfaceSettings & { orgblob: Blob | null; mimetype: string; }) {
     const img = new Image(); //FIXME error handler
+    // debugger;
     img.addEventListener("load", () => {
       URL.revokeObjectURL(url);
 
@@ -156,7 +157,7 @@ class ImgeditDialogController {
         // If this is an uploaded image which would not be changed by the image resize method, upload it directly
         if (this._skipEditor(img.width, img.height, options.mimetype)) {
           //console.log("Fire 'done' event to upload the blob");
-          this._closeImageEditor(options.orgblob, null);
+          this._closeImageEditor(options.orgblob || null);
         } else {
           //console.log("Create image editor dialog with object URL");
           this._createDialog();
@@ -322,7 +323,7 @@ class ImgeditDialogController {
   // sendblob true: retrieve image from editor
   // sendblob not null: send sendblob
   // sendblob null: don't send blob
-  _closeImageEditor(sendblob, callback?) {
+  _closeImageEditor(sendblob: Blob | true | null, callback?: () => void) {
     if (sendblob === true) {
       // Retrieve the image from the editor and close the dialog
       this.busylock = this.screen.lockScreen();
@@ -389,7 +390,7 @@ class ImgeditDialogController {
       this.activetool.apply();
       callback();
     } else {
-      this._closeImageEditor(true, callback, null);
+      this._closeImageEditor(true, callback);
     }
   }
 
@@ -410,7 +411,7 @@ class ImgeditDialogController {
         callback();
 
         if (await dialog === 'yes')
-          this._closeImageEditor();
+          this._closeImageEditor(null);
 
         return;
       }
@@ -438,7 +439,7 @@ class ImgeditDialogController {
         if (await dialog === 'yes')
           this._closeImageEditor(true);
         else if (await dialog === 'no')
-          this._closeImageEditor();
+          this._closeImageEditor(null);
 
         return;
       }

@@ -3,7 +3,7 @@ import ImgeditDialogController, { type ImageSettings, type RefPoint } from './di
 import type { ToddCompBase } from './componentbase';
 import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRequestOptions } from '@webhare/upload';
 import type { CurrentDragData } from './dragdrop';
-import { isTruthy } from '@webhare/std';
+import { isTruthy, throwError } from '@webhare/std';
 import { flagUIBusy } from '@webhare/dompack';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -105,7 +105,7 @@ export async function handleImageUpload(component: ToddCompBase, file: File | { 
   if ("lastModified" in file) //ugly way to dfiferentiate a real 'uploaded' File from EditImage.file
     imageeditdialog.loadImageBlob(file, settings);
   else
-    imageeditdialog.loadImageSrc(file.url, settings);
+    imageeditdialog.loadImageSrc(file.url ?? throwError("No file url received"), settings);
 
   const done = await imageeditdialog.defer.promise;
   // Note: settings is null when the image wasn't edited after upload
