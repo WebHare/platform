@@ -501,7 +501,7 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     line: 0,
     workflow: false,
     scopedtype: "",
-    namespace: ns,
+    namespace: isValidScopedType(ns) ? `${context.module}:${ns}` : ns,
     isrtdtype: true,
     orphan: false,
     previewcomponent: "",
