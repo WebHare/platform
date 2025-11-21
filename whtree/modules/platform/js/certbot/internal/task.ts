@@ -43,6 +43,7 @@ export async function requestCertificateTask(req: TaskRequest<{
   certificate: number;
   domains: string[];
   staging?: boolean;
+  returnFullChain?: boolean;
   debug?: boolean;
 }>): Promise<TaskResponse> {
   await beginWork();
@@ -129,7 +130,7 @@ export async function requestCertificateTask(req: TaskRequest<{
 
     // Add Let's Encrypt root certificate
     let certificate = result.certificate;
-    if (provider.issuerDomain === "letsencrypt.org")
+    if (provider.issuerDomain === "letsencrypt.org" && req.taskdata.returnFullChain)
       certificate += letsencryptRootCertificate;
 
     const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
