@@ -1,6 +1,5 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, requestACMECertificate } from "@mod-platform/js/certbot/certbot";
-import { type HSVMObject, loadlib } from "@webhare/harescript";
 import {
   backendConfig,
   lockMutex,
@@ -9,7 +8,6 @@ import {
   ResourceDescriptor,
   type TaskRequest,
   type TaskResponse,
-  WebHareBlob,
 } from "@webhare/services";
 import { addDuration, pick, regExpFromWildcards } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
@@ -148,7 +146,6 @@ export async function requestCertificateTask(req: TaskRequest<{
     }
 
     // Store the certificate and its key pair
-    const whfswhlib = loadlib("mod::system/lib/whfs.whlib");
     let certFolder = await openFolder(req.taskdata.certificate, { allowMissing: true });
     if (!certFolder) {
       // Create the certificate folder
@@ -156,11 +153,9 @@ export async function requestCertificateTask(req: TaskRequest<{
       certFolder = await keystore.createFolder(`certbot-${req.taskdata.domains[0]}`.replaceAll("*", "_wildcard") + "-" + new Date().toISOString().slice(0, -5).replaceAll(/[-:]/g, "").replace("T", "-"));
     }
     const certFile = await certFolder.ensureFile("certificatechain.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
-    const certWHFSObj = await whfswhlib.OpenWHFSObject(certFile) as HSVMObject;
-    await certWHFSObj.UpdateData(WebHareBlob.from(certificate));
+    await certFile.update({ data: await ResourceDescriptor.from(certificate) });
     const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
-    const certKeyPairWHFSObj = await whfswhlib.OpenWHFSObject(certKeyPairFile) as HSVMObject;
-    await certKeyPairWHFSObj.UpdateData(WebHareBlob.from(certKeyPair.privateKey));
+    await certKeyPairFile.update({ data: await ResourceDescriptor.from(certKeyPair.privateKey) });
 
     // Store the account key pair if new or updated
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
