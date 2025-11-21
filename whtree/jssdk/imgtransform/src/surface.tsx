@@ -21,6 +21,7 @@ export type ImageSurfaceOptions = {
 
 export type ImageSurfaceSettings = {
   refPoint: Size;
+  //TODO support for orientation can probably be removed from imgtansform
   orientation: number;
 };
 

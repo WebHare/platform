@@ -1,8 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import ExifParser from "exif-parser";
-
 import * as whintegration from '@mod-system/js/wh/integration';
 import { getTid } from "@webhare/gettid";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
@@ -116,22 +114,11 @@ class ImgeditDialogController {
 
   _readImageFile(file: Blob, settings: ImageSettings) {
     const reader = new FileReader();
-    const fixorientation = this.editor ? this.editor.fixorientation : this.options.imgsize ? this.options.imgsize.fixorientation : true;
 
     // Read the image as ArrayBuffer, so we can read its EXIF data
     reader.onload = () => {
-      let exifdata;
-      try {
-        if (fixorientation) {
-          const parser = ExifParser.create(reader.result);
-          exifdata = parser.parse();
-        }
-      } catch (e) { }
-      //console.log("Parsed EXIF data", exifdata);
-
       const objecturl = URL.createObjectURL(file);
       const options = {
-        orientation: exifdata && exifdata.tags.Orientation, //FIXME do we need this
         mimetype: file.type,
         filename: "",
         ...settings
