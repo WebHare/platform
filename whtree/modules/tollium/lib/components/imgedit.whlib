@@ -7,7 +7,6 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -385,7 +384,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
     IF (CellExists(newphoto, "extradata") AND CellExists(newphoto.extradata, "imageeditor"))
     {
       RECORD extradata := newphoto.extradata.imageeditor;
-      IF (CellExists(extradata, "SOURCE_FSOBJECT"))
+      IF (CellExists(extradata, "SOURCE_FSOBJECT")) //FIXME shouldn't be trusting IDs from the client
       {
         // Check if the supplied object actually/still exists
         INSERT CELL source_fsobject := (SELECT AS INTEGER id
@@ -578,11 +577,11 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
 
       IF (RecordExists(this->imgsize))
       {
-        RECORD method := CELL[ format := "", ...this->imgsize];
+        RECORD method := this->imgsize; //invokes FixImgSize which will set format to "" if unset.
+        IF(method.format IN ["image/webp","image/avif"]) //We can throw, you're explicitly setting an unsupported format (we could support it but would have to involve TS/Sharp)
+          THROW NEW Exception(`Unsupported image format '${method.format}' in imageedit property`);
         IF(method.format = "")
-          method.format := GetDefaultImageOutputFormat();
-        IF(method.format IN ["image/webp","image/avif"]) //TODO also support these formats here
-          method.format := "image/jpeg";
+          method.format := "keep";
 
         IF ((method.setwidth > 0 AND value.width > method.setwidth)
             OR (method.setheight > 0 AND value.height > method.setheight)
