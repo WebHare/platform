@@ -134,6 +134,19 @@ export async function requestCertificateTask(req: TaskRequest<{
     if (provider.issuerDomain === "letsencrypt.org")
       certificate += letsencryptRootCertificate;
 
+    const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
+    const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
+
+    if (req.taskdata.staging) {
+      // When using the staging server, don't actually update the certificate and private keys, but return them in the task
+      // result for inspection
+      return req.resolveByCompletion({
+        certificate,
+        privatekey: certKeyPair.privateKey,
+        accountkey: accountKeyPair.privateKey,
+      });
+    }
+
     // Store the certificate and its key pair
     const whfswhlib = loadlib("mod::system/lib/whfs.whlib");
     let certFolder = await openFolder(req.taskdata.certificate, { allowMissing: true });
@@ -147,11 +160,9 @@ export async function requestCertificateTask(req: TaskRequest<{
     await certWHFSObj.UpdateData(WebHareBlob.from(certificate));
     const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
     const certKeyPairWHFSObj = await whfswhlib.OpenWHFSObject(certKeyPairFile) as HSVMObject;
-    const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
     await certKeyPairWHFSObj.UpdateData(WebHareBlob.from(certKeyPair.privateKey));
 
     // Store the account key pair if new or updated
-    const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
     if (!provider.accountPrivatekey || provider.accountPrivatekey.hash !== resource.hash)
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
