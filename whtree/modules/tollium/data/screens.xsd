@@ -2753,7 +2753,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:sequence>
           <xs:element name="allowwidgettype" type="sc:AllowWidgetType" minOccurs="0" maxOccurs="unbounded" />
         </xs:sequence>
-        <xs:attribute name="rtdtype" type="xs:anyURI">
+        <xs:attribute name="rtdtype">
           <xs:annotation>
             <xs:documentation>Namespace of rtdtype which defines allowed styling and widgets</xs:documentation>
           </xs:annotation>
