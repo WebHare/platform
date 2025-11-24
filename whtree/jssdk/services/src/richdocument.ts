@@ -195,7 +195,7 @@ export type RTDExport = RTDExportBlock[];
 
 
 export function isValidRTDClassName(className: string): boolean {
-  return className === "" || /^[a-z0-9]+$/.test(className);
+  return className === "" || /^[a-z][-a-z0-9]*$/.test(className);
 }
 
 function validateTagName(tag: string): asserts tag is RTDParagraphType {

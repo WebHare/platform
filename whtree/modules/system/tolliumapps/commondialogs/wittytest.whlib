@@ -25,9 +25,10 @@ RECORD FUNCTION LookupRelativeResource(STRING basepath, STRING inpath)
   RETURN RetrieveWebHareResource(MakeAbsoluteResourcePath(basepath,inpath), [ allowmissing := TRUE ]);
 }
 
-PUBLIC RECORD FUNCTION __AsyncGeneratePDF(STRING wittypath, STRING htmldata, BLOB background)
+PUBLIC RECORD FUNCTION __AsyncGeneratePDF(STRING wittypath, STRING htmldata, BLOB background, RECORD pdfoptions)
 {
-  RECORD result := GeneratePDF( [ contents := htmldata ], [ filename := wittypath
+  RECORD result := GeneratePDF( [ contents := htmldata ], [ ...pdfoptions
+                                                          , filename := wittypath
                                                           , wittypath := "inline::[contents:none]"
                                                           , printbackground := Length(background) = 0
                                                           , lookupresource := PTR LookupRelativeResource(wittypath, #1)
@@ -181,7 +182,7 @@ PUBLIC STATIC OBJECTTYPE WittyTest EXTEND TolliumScreenBase
   {
     TRY
     {
-      RECORD file := AWAIT AsyncCallFunctionFromJob(Resolve("#__AsyncGeneratePDF"), ^wittypath->value, finalversion, this->options.pdfbackground);
+      RECORD file := AWAIT AsyncCallFunctionFromJob(Resolve("#__AsyncGeneratePDF"), ^wittypath->value, finalversion, this->options.pdfbackground, this->options.pdfoptions);
       ^pdfframe->SetFile(file);
       ^pdflog->value := "";
     }
