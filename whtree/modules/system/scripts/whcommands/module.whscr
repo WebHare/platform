@@ -46,7 +46,7 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
 {
   CASE "create"
   {
-    TerminateScriptWithError("`wh module create` is no longer supported - use wh dev:createmodule");
+    TerminateScriptWithError("`wh module create` is no longer supported - use wh devkit:createmodule");
   }
   CASE "createwebdesign"
   {
