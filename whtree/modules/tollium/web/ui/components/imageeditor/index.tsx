@@ -144,7 +144,7 @@ export class ImageEditor {
   setImg(img: HTMLImageElement, options: ImageSurfaceSettings & {
     mimetype: string;
     filename: string;
-    orgblob: null;
+    orgblob: Blob | null;
   }) {
     this.mimeType = options.mimetype;
     this.fileName = options.filename;

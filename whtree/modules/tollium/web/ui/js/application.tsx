@@ -41,6 +41,10 @@ let appesqnr = 1; //to generate simple local IDs
 //ADDME: Move these to SessionManager? A SessionManager would manage one user's session in a browser; the CommHandler
 //       would manage one or more SessionManagers.
 
+type ApplicationOptions = {
+  container?: HTMLElement | null;
+}
+
 export class ApplicationBase {
   // ---------------------------------------------------------------------------
   //
@@ -100,12 +104,14 @@ export class ApplicationBase {
   ///Unique identifier for this browser load
   readonly localId;
 
-  constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?) {
+  container: HTMLElement | null = null;
+
+  appicon = '';
+
+  constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?: ApplicationOptions) {
     this.localId = "app#" + appesqnr++;
-    this.container = null;
     /// Name of  app
     this.appname = appname;
-    this.appicon = '';
     /// Target
     this.apptarget = {};
 
