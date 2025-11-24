@@ -135,7 +135,7 @@ export class WHDBPgClient {
   }
 
   private onDebug(evt: PGConnectionDebugEvent) {
-    console.log(evt.location, evt.sql ?? evt.args);
+    console.log(evt.location, evt.message);
   }
 
   query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
