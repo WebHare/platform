@@ -24,6 +24,8 @@ LOADLIB "mod::system/lib/internal/whfs/export.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
 CONSTANT RECORD createoptions :=
   CELL[ instances := RECORD[]
       , createdby := DEFAULT OBJECT
@@ -1201,18 +1203,27 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       }
     }
 
+    INTEGER type := CellExists(metadata,"type") ? metadata.type : 0;
+    IF(type = whconstant_whfstype_contentlink AND CellExists(metadata,'filelink')) //content link, resolve the true type
+      type := SELECT AS INTEGER fs_objects.type FROM system.fs_objects WHERE id=metadata.filelink;
+
     IF(NOT this->pvt_exists)
       THROW NEW WHFSException("OTHER","The parent object is already deleted");
-    IF(NOT CellExists(metadata,"name"))
-      THROW NEW WHFSException("OTHER","Missing cell 'name' for new object");
+    IF(NOT CellExists(metadata,"name")) {
+      IF(CellExists(metadata,'title') AND metadata.title != "") {
+        //NOTE DescribeContentTypeById is dangerous, it crashes during WH bootstrap if siteprofiles have never been compiled yet
+        RECORD typeinfo := DescribeContentTypeById(type, CELL[isfolder,mockifmissing := TRUE]);
+        STRING suggestname := SuggestSeoNameFromTitle(metadata.title, [ parentfolder := this->id,
+        extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions) ]); //TODO also set the extension?
+        metadata := CELL[ ...metadata, name := suggestname ];
+      } ELSE {
+        THROW NEW WHFSException("OTHER","Missing cell 'name' for new object and no title was set. Use implicit_name if you need to set up a temporary name for an upcoming draft");
+      }
+    }
     IF(NOT IsValidWHFSName(metadata.name, FALSE))
       THROW NEW WHFSException("INVALIDNAME","Invalid name '" || metadata.name || "' for new object");
     IF(RecordExists(SELECT FROM system.fs_objects WHERE parent = this->id AND ToUppercase(name) = ToUppercase(metadata.name)))
       THROW NEW WHFSException("OTHER",`An object '${metadata.name}' already exists in folder '${this->whfspath}'`);
-
-    INTEGER type := CellExists(metadata,"type") ? metadata.type : 0;
-    IF(type=20 AND CellExists(metadata,'filelink')) //content link, resolve the true type
-      type := SELECT AS INTEGER fs_objects.type FROM system.fs_objects WHERE id=metadata.filelink;
 
     INTEGER published := CellExists(metadata, "published") ? metadata.published : 0;
     published := SetFlagsInPublished(published, PublishedFlag_StripExtension, isfolder = FALSE AND IsStripExtension(type, metadata.name));

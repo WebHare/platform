@@ -30,8 +30,7 @@ MACRO Prep()
   TestEq(testfolderobj2->creationdate, testfolderobj2->modificationdate);
 
   OBJECT newfile := testfolderobj2->CreateFile(
-    [ name :="test.html"
-    , title :="A new title"
+    [ title := "Test!"
     , keywords := "my new keywords"
     , description := "d"
     , data := StringToBlob("I'm a jolly good file")
@@ -42,6 +41,7 @@ MACRO Prep()
     );
 
   TestEq(newfile->creationdate, newfile->modificationdate);
+  TestEq("test.html", newfile->name);
   newfile->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "created_0_1"]);
   newfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "created_0_1"]);
   newfile->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "created_0_1"]);
@@ -88,12 +88,12 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ name := "test.html", title := "A new title", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
+  TestEq([ name := "test.html", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
 
   testfw->CommitWork();
 
   TestEqMembers([
-    title := "A new title",
+    title := "Test!",
     with_workflow_string := "created_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -120,7 +120,7 @@ MACRO DraftingTest() {
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   TestEqMembers([
-    title := "A new title",
+    title := "Test!",
     with_workflow_string := "created_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -187,7 +187,7 @@ MACRO DraftingTest() {
   TestEq([ clone_only_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
   TestEq("I'm a jolly good file", BlobToString(OpenWHFSObject(testfile->id)->data), "Testfile is still untouched");
   TestEq("test.html", testfile->name);
-  TestEq("A new title", testfile->title);
+  TestEq("Test!", testfile->title);
   TestEq("my new keywords", testfile->keywords);
   TestEq("d", testfile->description);
 
