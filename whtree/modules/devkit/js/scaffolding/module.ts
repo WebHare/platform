@@ -75,7 +75,8 @@ export async function createModule(subpath: string, modulename: string, options:
   if (options.initGit) {
     //RECORD gitresult := ExecuteGitCommand([ 'init', '--initial-branch=main', destpath ]); //2.28.0 supports this... but Ubuntu 20.04 doesn't have that one yet.
     await simpleGit({ baseDir: destpath }).init();
-    await simpleGit({ baseDir: destpath }).checkout(['-b', 'main']);
+    if ((await simpleGit({ baseDir: destpath }).branch()).all.length === 0)
+      await simpleGit({ baseDir: destpath }).checkout(['-b', 'main']);
   }
 
   await instantiateTemplateFolder(backendConfig.module["devkit"].root + "data/moduletemplate/", destpath + "/", retval);
