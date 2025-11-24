@@ -538,6 +538,17 @@ async function testBuildingRTDsWithInstances() {
             thumbnail: goldfish
           }
         })
+      }, {
+        "widget": await buildInstance({
+          whfsType: "webhare_testsuite:global.generic_test_type",
+          data: {
+            aFloat: 2.5,
+            aDateTime: new Date("2024-01-01T12:34:56Z"),
+            aDay: new Date("2024-01-02"),
+            myWhfsRef: imgEditFile.id,
+            myWhfsRefArray: []
+          }
+        })
       }
     ]);
 
@@ -558,6 +569,10 @@ async function testBuildingRTDsWithInstances() {
       }, {
         widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedvideo", {
           thumbnail: (eGR) => isResourceDescriptor(eGR) && eGR.sourceFile === imgEditFile.id && eGR.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY" && eGR.width === 385
+        }, { partial: true })
+      }, {
+        widget: test.expectInstance("webhare_testsuite:global.generic_test_type", {
+          aFloat: 2.5
         }, { partial: true })
       }
     ], doc.blocks);
@@ -602,6 +617,13 @@ async function testBuildingRTDsWithInstances() {
               hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
               width: 385
             }
+          }
+        }, w))
+      }, {
+        widget: w => Boolean(test.eqPartial({
+          whfsType: "webhare_testsuite:global.generic_test_type",
+          data: {
+            aFloat: 2.5
           }
         }, w))
       }

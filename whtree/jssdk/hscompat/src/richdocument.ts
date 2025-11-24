@@ -1,6 +1,6 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
 import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
-import { encodeString, generateRandomId, isTruthy, throwError } from "@webhare/std";
+import { encodeString, generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
@@ -338,7 +338,8 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
 async function expandRTDValues(data: Record<string, unknown>) {
   const newobj: Record<string, unknown> = {};
 
-  for (const [key, value] of Object.entries(data)) {
+  for (let [key, value] of Object.entries(data)) {
+    key = nameToSnakeCase(key);
     if (value instanceof RichTextDocument) {
       newobj[key] = await exportAsHareScriptRTD(value);
     } else if (Array.isArray(value)) {
@@ -347,7 +348,7 @@ async function expandRTDValues(data: Record<string, unknown>) {
         if (item instanceof RichTextDocument) {
           (newobj[key] as unknown[]).push(await exportAsHareScriptRTD(item));
         } else {
-          (newobj[key] as unknown[]).push(item);
+          (newobj[key] as unknown[]).push(toSnakeCase(item));
         }
       }
     } else {
@@ -405,7 +406,7 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
     const instanceid = instancemapping.get(widget) || generateRandomId();
 
     if (instances.has(instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
-      throw new Error(`internal erro0- duplicate instanceid ${instanceid}`);
+      throw new Error(`internal error - duplicate instanceid ${instanceid}`);
 
     instances.set(instanceid, widget as Instance);
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;

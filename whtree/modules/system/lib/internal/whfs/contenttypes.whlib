@@ -645,7 +645,7 @@ STATIC OBJECTTYPE WHFSType <
         }
         CASE 13 //WHFSREFARRAY
         {
-          IF(TYPEID(newval) != (ObjectExists(remapper) ? TYPEID(STRING ARRAY) : TYPEID(INTEGER ARRAY)))
+          IF(TYPEID(newval) != TYPEID(VARIANT ARRAY) AND TYPEID(newval) != (ObjectExists(remapper) ? TYPEID(STRING ARRAY) : TYPEID(INTEGER ARRAY)))
             THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace);
 
           //ADDME: Avoid database rewrites
