@@ -115,6 +115,8 @@ export const whconstant_historytype_created = 4;
 /// fs_history.type approved (update public/publish file) action
 export const whconstant_historytype_approved = 5;
 
+/// fs_history.type autosave
+export const whconstant_historytype_autosave = 6;
 
 /// publisher.schedule start publish/republish event
 export const whconstant_publisherschedule_publish = 1;

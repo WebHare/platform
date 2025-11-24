@@ -22,6 +22,7 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
                                     , "reverted"   //3 whconstant_historytype_reverted
                                     , "created"    //4 whconstant_historytype_created
                                     , "approved"   //5 whconstant_historytype_approved
+                                    , "autosave"   //6 whconstant_historytype_autosave
                                     ];
 
 RECORD FUNCTION ValidateSaveOptions(RECORD options) {

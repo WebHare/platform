@@ -133,6 +133,8 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_created := 4;
 /// fs_history.type approved (update public/publish file) action
 PUBLIC CONSTANT INTEGER whconstant_historytype_approved := 5;
 
+/// fs_history.type autosave
+PUBLIC CONSTANT INTEGER whconstant_historytype_autosave := 6;
 
 /// publisher.schedule start publish/republish event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;
