@@ -324,6 +324,25 @@ apply:
 
   // Test input constraint merging
   test.eqPartial({
+    rtdtypes: [
+      {
+        namespace: 'webhare_testsuite:my.type'
+      }
+    ]
+  }, await parseSP(`---
+rtdTypes:
+  my.type:
+    defaultBlockStyle: normal
+    blockStyles:
+      normal:
+        containerTag: p
+        textStyles: [b,i,u]
+`));
+
+
+
+  // Test input constraint merging
+  test.eqPartial({
     contenttypes: [
       {
         scopedtype: 'webhare_testsuite:my_types.test_type',

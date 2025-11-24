@@ -684,7 +684,7 @@
       </xs:appinfo>
     </xs:annotation>
     <xs:attributeGroup ref="BaseAttributes" />
-    <xs:attribute name="rtdtype" type="xs:anyURI" />
+    <xs:attribute name="rtdtype" />
   </xs:complexType>
 
   <xs:element name="rtdedit" type="forms:RtdEdit" />
