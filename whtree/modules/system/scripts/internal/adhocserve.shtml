@@ -28,5 +28,5 @@ IF (CellExists(response.msg, "status"))
 FOREVERY (RECORD header FROM response.msg.headers)
   AddHTTPHeader(header.field, header.value, FALSE);
 
-AddHTTPHeader("Content-Security-Policy", "", FALSE); //to ensure adhocserve isn't broken by CSP rules on its parent
+AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE); //to ensure adhocserve isn't broken by CSP rules on its parent
 SendWebFile(response.msg.data);
