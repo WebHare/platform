@@ -40,13 +40,16 @@ export type InstanceExport = {
   data?: { [key in string]?: CodecExportMemberType };
 };
 
-/** The type of the 'data' property of an instance of a specific type */
+/** The result of a .get() operation on an instance of a specific type
+  * @example let webdesigns: TypedInstanceData<"platform:web.sitesettings">["webfeatures"] = …;
+*/
 export type TypedInstanceData<Type extends WHFSTypeName> = WHFSTypes[Type]["GetFormat"];
 
 /** The result of a .export() operation on an instance of a specific type */
 export type TypedInstanceExport<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
 
-/** The input of buildInstance for an instance of a specific type */
+/** The input of buildInstance for an instance of a specific type, usable for set()
+*/
 export type TypedInstanceSource<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["SetFormat"] } : never;
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
