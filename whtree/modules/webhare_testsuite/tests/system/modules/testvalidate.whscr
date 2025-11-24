@@ -461,6 +461,8 @@ MACRO TestValidateWitty()
 [embed ../whlibs/tests/testsuite.witty#simpleembed]
 [embed ../whlibs/tests/testsuite.witty#nosuchcomponent]
 [embed nosuch.witty:nosuchcomponent]
+[embed ../whlibs/tests/testsuite.witty:] [! referring to the root component is fine !]
+[embed ../whlibs/tests/testsuite.witty#]
 `);
 
   RECORD res := ValidateSingleFile("mod::system/lib/dummy.witty", [ overridedata := witty_nosuchcomponent ]);

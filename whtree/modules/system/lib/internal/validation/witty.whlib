@@ -30,7 +30,7 @@ PUBLIC STRING FUNCTION VerifyWittyComponentExistence(STRING basepath, STRING com
   TRY
   {
     STRING ARRAY components := GetAdhocCached(CELL[resource], PTR GetCacheableComponentsList(resource)); //this also tests resource existence
-    IF(ToUppercase(component) NOT IN components)
+    IF(component != "" AND ToUppercase(component) NOT IN components) //empty component refers to the root .. witty supports it but validation doesn't
       RETURN `No such component '${component}' in '${resource}'`;
     RETURN "";
   }
