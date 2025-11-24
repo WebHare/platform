@@ -17,6 +17,7 @@ PUBLIC MACRO RunWittyTestDialog(OBJECT parent, RECORD data, RECORD options DEFAU
   options := ValidateOptions([ pdf := FALSE
                              , pdfengine := "chrome"
                              , pdfbackground := DEFAULT BLOB
+                             , pdfoptions := DEFAULT RECORD
                              , wittypath := ""
                              ], options);
 
