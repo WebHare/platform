@@ -46,6 +46,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   OBJECT testfile := siteroot->CreateFile(
       [ name :=   "readonly.rtd"
       , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
+      , title :=  "Readonly"
       ]);
   testfw->CommitWork();
 
@@ -127,6 +128,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*confirmsaveandpublish*" ]);
 
   testfile := OpenWHFSObject(testfile->id);
+  TestEq(TRUE, testfile->publish);
   TestAssert(DEFAULT DATETIME != testfile->firstpublishdate);
   TestEq(testfile->firstpublishdate, testfile->contentmodificationdate);
 
