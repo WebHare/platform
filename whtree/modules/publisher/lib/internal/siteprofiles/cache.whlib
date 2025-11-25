@@ -133,6 +133,7 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , browserpreview := RecordExists(type.filetype) ? type.filetype.browserpreview : ""
          , line := ismissing ? 0 : type.line
          , iswidgettype := RecordExists(type.filetype) AND type.filetype.generatepreview
+         , ispublishedassubdir := RecordExists(type.filetype) AND type.filetype.ispublishedassubdir
          ];
 }
 PUBLIC RECORD FUNCTION LookupContentTypeById(INTEGER id)

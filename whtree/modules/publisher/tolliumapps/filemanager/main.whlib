@@ -2163,7 +2163,7 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
     IF(RecordExists(data.target))
     {
       fileid := data.target.id;
-      IF(data.target.appoptions != "")
+      IF(CellExists(data.target, 'appoptions') AND data.target.appoptions != "")
       {
         RECORD appoptions := DecryptForThisServer("publisher:runfsobjecteditapplication", data.target.appoptions);
         OBJECT target := OpenWHFSObject(fileid);

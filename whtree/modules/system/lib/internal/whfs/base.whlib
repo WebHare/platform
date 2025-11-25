@@ -2,6 +2,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -181,6 +182,21 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
     ELSE
       counter := counter + 1;
   }
+}
+
+/** Suggest a SEO friendly name. Allows us to centralize any needed tuning (eg the limitutf8bytes line) */
+PUBLIC STRING FUNCTION SuggestSeoNameFromTitle(STRING title, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([
+    parentfolder := 0,
+    ignoreobject := 0,
+    extension := ""
+  ], options);
+
+  STRING suggestedname := GetSafeName(LimitUTF8Bytes(title,200)) || options.extension;
+  IF(options.parentfolder != 0)
+    suggestedname := GenerateUniqueName(options.parentfolder, suggestedname, CELL[ options.ignoreobject]);
+
+  RETURN suggestedname;
 }
 
 PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path)
