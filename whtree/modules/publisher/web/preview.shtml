@@ -5,6 +5,7 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
@@ -187,7 +188,7 @@ IF(topreview.validuntil > GetCurrentDatetime()) { //still valid
     RETURN;
   }
 
-  targetobject := SELECT id, whfspath, filelink, parent, creationdate, type FROM system.fs_objects WHERE id = topreview.id AND creationdate = topreview.creationdate;
+  targetobject := SELECT id, whfspath, filelink, parent, creationdate, type, publish FROM system.fs_objects WHERE id = topreview.id AND creationdate = topreview.creationdate;
 }
 
 IF(NOT RecordExists(targetobject)) {
@@ -216,6 +217,14 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
 } ELSE IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/*") {
   //Recyclebin or other custom stuff we didn't consider?
   THROW NEW Exception(`Unsupported path: ${targetobject.whfspath}`);
+} ELSE IF(NOT targetobject.publish) {
+  /* The target isn't published, and we'd normally see a "is not published" warning in the preview.
+    However, previewing it would show the initial content (often an empty page) but the draft that is about to be published is much more useful */
+
+ //TODO more efficient direct selection needed
+  RECORD lastdraft := SELECT * FROM ListObjectHistory(targetobject.id) WHERE type="saved" ORDER BY when DESC;
+  IF(RecordExists(lastdraft))
+    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = lastdraft.snapshot;
 } ELSE {
   //It seems not to be in offline space
   ispublicobject := topreview.password = "";
