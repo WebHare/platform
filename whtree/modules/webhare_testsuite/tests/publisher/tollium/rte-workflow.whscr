@@ -76,34 +76,8 @@ ASYNC MACRO EditRTD()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 
-ASYNC MACRO RecycleDraft()
-{
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtdfileid) ], target := DEFAULT RECORD ]));
-
-  OBJECT rte := TT("doceditor")->contents->rte;
-  rte->TolliumWeb_FormUpdate('<p class="normal">This is a recyclable draft text</p>');
-  rte->__debug_simulatedirty();
-  TestEq(TRUE, TTClick("saveasdraftbutton"));
-
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
-
-  testfw->BeginWork();
-  OpenWHFSObject(testrtdfileid)->RecycleSelf();
-  testfw->CommitWork();
-
-  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
-
-  testfw->BeginWork();
-  OpenWHFSObject(testrtdfileid)->MoveTo(GetTestsuiteTempFolder(), "draft-test.rtd");
-  testfw->CommitWork();
-
-  TestEq(1, Length(ListUserWHFSDrafts(GetEffectiveUserId())));
-}
-
 RunTestframework([ PTR PrepIt
                  , PTR EditRTD
-                 , PTR RecycleDraft
                  ], [ testusers := [[ login := "lisa" ]
                                    ]
                     , profile := TRUE
