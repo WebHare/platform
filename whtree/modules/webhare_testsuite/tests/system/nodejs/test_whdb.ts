@@ -820,6 +820,7 @@ async function testOtherTypes() {
 
   const testuuid = `550e8400-e29b-41d4-a716-446655440000`;
   const testtimestamp = new Date("2023-01-02T15:04:05.678Z").toTemporalInstant();
+  const testtimestamp2 = Temporal.Instant.from("2023-01-02T15:04:05.678902Z"); // Number can't represent 2023-01-02T15:04:05.678901Z exactly
 
   type ExoticTypesDB = {
     "webhare_testsuite.exotic_types_test": {
@@ -842,6 +843,14 @@ async function testOtherTypes() {
       id: 3,
       uuid: overrideValueType(testuuid, "uuid"),
       timestamp_tz: overrideValueType(-Infinity, "timestamptz"),
+    }, {
+      id: 4,
+      uuid: overrideValueType(testuuid, "uuid"),
+      timestamp_tz: testtimestamp2,
+    }, {
+      id: 5,
+      uuid: overrideValueType(testuuid, "uuid"),
+      timestamp_tz: overrideValueType(Number(testtimestamp2.epochNanoseconds) / 1000000, "timestamptz"),
     }
   ]).execute();
 
@@ -866,6 +875,14 @@ async function testOtherTypes() {
       id: 3,
       uuid: testuuid,
       timestamp_tz: -Infinity,
+    }, {
+      id: 4,
+      uuid: testuuid,
+      timestamp_tz: testtimestamp2,
+    }, {
+      id: 5,
+      uuid: testuuid,
+      timestamp_tz: testtimestamp2,
     }
   ], rows);
 }

@@ -136,7 +136,7 @@ export const ArrayTidType: DataType = {
 //We patch the TimestampType to map -Inf and +Inf to defaultDateTime and maxDateTime
 //TODO Only do this for existing and marked datefields, allow more native semantics for future JS-only used datetime fields  (and probably use the proper TIMESTAMP type)
 
-const timeShift = 946684800000;
+const timeShiftMs = 946684800000;
 const timeMul = 4294967296;
 
 export const WHTimestampType: DataType = {
@@ -152,7 +152,7 @@ export const WHTimestampType: DataType = {
     if (lo === 0x00000000 && hi === -0x80000000) return fetchAsString ? "-infinity" : defaultDateTime;
 
     // Shift from 2000 to 1970
-    let d = new Date((lo + hi * timeMul) / 1000 + timeShift);
+    let d = new Date((lo + hi * timeMul) / 1000 + timeShiftMs);
     if (fetchAsString || !options.utcDates)
       d = new Date(
         d.getUTCFullYear(),
@@ -181,7 +181,7 @@ export const WHTimestampType: DataType = {
     if (!(v instanceof Date)) v = new Date(v);
     // Postgresql ignores timezone data so we are
     let n = options.utcDates ? v.getTime() : v.getTime() - v.getTimezoneOffset() * 60 * 1000;
-    n = (n - timeShift) * 1000;
+    n = (n - timeShiftMs) * 1000;
     const hi = Math.floor(n / timeMul);
     const lo = n - hi * timeMul;
     buf.writeInt32BE(hi);
@@ -225,6 +225,10 @@ export const ArrayWHTimestampType: DataType = {
   elementsOID: DataTypeOIDs.timestamp,
 };
 
+const timeShiftNs = 946_684_800_000_000_000n;
+const minInt64 = -9223372036854775808n;
+const maxInt64 = 9223372036854775807n;
+
 export const WHTimestampTzType: DataType = {
   name: "timestamptz",
   oid: DataTypeOIDs.timestamptz,
@@ -232,13 +236,12 @@ export const WHTimestampTzType: DataType = {
 
   parseBinary(v: Buffer, options: DataMappingOptions): Temporal.Instant | string | number {
     const fetchAsString = options.fetchAsString && options.fetchAsString.includes(DataTypeOIDs.timestamptz);
-    const hi = v.readInt32BE();
-    const lo = v.readUInt32BE(4);
-    if (lo === 0xffffffff && hi === 0x7fffffff) return fetchAsString ? "infinity" : Infinity;
-    if (lo === 0x00000000 && hi === -0x80000000) return fetchAsString ? "-infinity" : -Infinity;
+    const microSeconds = v.readBigInt64BE(0);
+    if (microSeconds === maxInt64) return fetchAsString ? "infinity" : Infinity;
+    if (microSeconds === minInt64) return fetchAsString ? "-infinity" : -Infinity;
 
     // Shift from 2000 to 1970
-    const retval = Temporal.Instant.fromEpochMilliseconds((lo + hi * timeMul) / 1000 + timeShift);
+    const retval = Temporal.Instant.fromEpochNanoseconds(microSeconds * 1000n + timeShiftNs);
     return fetchAsString ? retval.toString() : retval;
   },
 
@@ -253,17 +256,15 @@ export const WHTimestampTzType: DataType = {
       buf.writeUInt32BE(0x00000000); // lo
       return;
     }
-    if (typeof v === "number")
-      v = Temporal.Instant.fromEpochMilliseconds(v);
-    else if (typeof v === "string") {
-      v = Temporal.ZonedDateTime.from(v).toInstant();
-    }
-    let n = v.epochMilliseconds;
-    n = (n - timeShift) * 1000;
-    const hi = Math.floor(n / timeMul);
-    const lo = n - hi * timeMul;
-    buf.writeInt32BE(hi);
-    buf.writeUInt32BE(lo);
+    let val: bigint;
+    if (typeof v === "number") {
+      val = BigInt(v * 1_000_000);
+    } else if (typeof v === "string") {
+      val = Temporal.ZonedDateTime.from(v).epochNanoseconds;
+    } else
+      val = v.epochNanoseconds;
+    val = (val - timeShiftNs) / 1000n;
+    buf.writeBigInt64BE(val);
   },
 
   parseText(v: string, options: DataMappingOptions): Temporal.Instant | number | string {
