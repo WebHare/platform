@@ -147,10 +147,17 @@ fi
 
 # downgrade node if we meet a broken version
 # 24.10.x ships with broken npm 11.6.1 not installing dependencies properly, missing ajv/dist/core - https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1183
-if [[ $(node -v) =~ ^v24.10. ]]; then
- apt-get install -y --allow-downgrades nodejs=24.9.0-1nodesource1
-fi
 
+# keeping downgrade code for reference
+#if [[ $(node -v) =~ ^v24.10. ]]; then
+# apt-get install -y --allow-downgrades nodejs=24.9.0-1nodesource1
+#fi
+
+# upgrade broken NPMs. 11.6.1 shipped with nodejs 24.10.x
+if [[ "$(npm -v)" =~ ^11.6.[12]$ ]]; then
+  echo "Upgrading NPM to 11.6.3 (npm -g i npm@11.6.3)"
+  npm -g i npm@11.6.3
+fi
 
 if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
   echo "$(node -v) is broken, ensure you pick up a newer version" 1>&2
