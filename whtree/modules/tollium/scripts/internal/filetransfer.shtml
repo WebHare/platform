@@ -9,6 +9,8 @@ MACRO SendDownloadFile(BLOB data, STRING filename, STRING contenttype)
 {
   AddHTTPHeader("Content-Type", contenttype, FALSE);
   AddHTTPHeader("Content-Disposition", "attachment; filename=\"" || EncodeJava(Filename) || "\"", FALSE);
+  //Explicitly set frame-ancenstors to 'self' to allow downloads in Safari
+  AddHTTPHeader("Content-Security-Policy", "default-src none; frame-ancestors 'self'", FALSE);
 
   STRING uploadid := GetWebVariable("wh-download");
   IF(uploadid!="")
