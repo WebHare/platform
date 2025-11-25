@@ -40,7 +40,7 @@ getwebhareversion
 if [[ "$(npm -v)" =~ ^11.6.[12]$ ]]; then
   echo "Buggy version of npm installed! Buggy versions are 11.6.1 and 11.6.2, current version: $(npm -v)"
   if [ -z "$WEBHARE_IN_DOCKER" ]; then
-    echo "Please downgrade to 11.6.0 (npm -g i npm@11.6.0)"
+    echo "Please upgrade to 11.6.3 (npm -g i npm@11.6.3)"
   fi
   die "Buggy npm version installed"
 fi
