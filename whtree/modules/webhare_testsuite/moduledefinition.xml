@@ -34,12 +34,12 @@
 
   <servicemanager>
     <runonce script="scripts/runonce/typescript-runonce.ts" tag="typescript_runonce" when="poststart" />
+    <runonce script="scripts/whcommands/reset.whscr" tag="setuptestsites" when="poststart" ifenvironset="WEBHARE_CI"  />
 
     <task script="scripts/tasks/singleshottest.ts" tag="singleshottest" description="Test singleshot tasks">
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
     </task>
-    <task script="scripts/whcommands/reset.whscr" tag="setuptestsite" runatstartup="true" ifenvironset="WEBHARE_CI" />
 
     <taskcluster harescriptworkers="2" tag="testcluster" />
 
