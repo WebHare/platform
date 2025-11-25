@@ -6,6 +6,7 @@ LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::os.whlib";
 
@@ -491,6 +492,20 @@ PUBLIC MACRO TestEqual(INTEGER testno, VARIANT expected, VARIANT actual) __ATTRI
 
 MACRO InnerTestEqual(VARIANT expected, VARIANT actual, STRING path, STRING ARRAY members, STRING annotation) __ATTRIBUTES__(SKIPTRACE)
 {
+  IF(TypeId(actual) = TypeId(STRING) AND TypeId(expected) = TypeId(OBJECT) AND expected EXTENDSFROM RegEx) {
+    IF(expected->Test(actual))
+      RETURN;
+
+    IF(annotation != "")
+      Print("\nAnnotation: " || annotation || "\n");
+
+    Print("Expected:\n/" || expected->source || "/\n");
+    Print("Actual:\n" || EncodeJava(actual));
+    IF (path != "")
+      PRINT("Path: " || path || "\n");
+    ReportError("Expected: " || expected->source || ", actual: " || EncodeJava(actual) || (path!=""?" at " || path:""), DEFAULT RECORD ARRAY, annotation);
+  }
+
   IF (TypeId(expected) != TypeId(actual))
   {
     IF(annotation != "")
