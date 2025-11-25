@@ -604,9 +604,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     RETURN autosave ? this->workflowmgr->__GetAutosavedObject() : this->workflowmgr->__GetDraftObject();
   }
 
-  PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave) {
+  PUBLIC STRING FUNCTION __CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave, STRING share) {
     this->UpdateAutosave();
-    RETURN GetPreviewLink(this->GetPreviewObject(autosave)->id, CELL[validuntil, password]);
+    RETURN GetPreviewLink(this->GetPreviewObject(autosave)->id, CELL[validuntil, password, share ]);
   }
 
   MACRO DoPreviewCurrentContent(OBJECT openhandler)
@@ -729,14 +729,16 @@ PUBLIC STATIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase <
     work->Validate(^sharepage);
     IF(^validuntil->value < GetCurrentDatetime())
       work->AddErrorFor(^validuntil, this->GetTid(".validinthepast"));
+    ELSE IF(^validuntil->value > AddDaysToDate(31,GetCurrentDatetime()))
+      work->AddErrorFor(^validuntil, this->GetTid(".validtoolong")); //the error is about 30 days, but we give you 1 day of tolerance
 
     RETURN work->Finish();
   }
   MACRO InitFinishPage(RECORD data) {
-    IF (this->contexts->editdocumentapi->onpreviewlink != DEFAULT MACRO PTR)
+    IF (this->contexts->editdocumentapi->onpreviewlink != DEFAULT MACRO PTR) //FIXME we can't pass the 'share' value to the custom previewlink. reconsider API as its very specific to RTD too, can't user work through central preview API
       ^link->value := this->contexts->editdocumentapi->onpreviewlink(this->tolliumparent->GetPreviewObject(FALSE), ^validuntil->value, ^passwordprotect->value ? ^password->value : "");
     ELSE
-      ^link->value := this->tolliumparent->CreatePreviewLink(^validuntil->value, ^passwordprotect->value ? ^password->value : "", FALSE);
+      ^link->value := this->tolliumparent->__CreatePreviewLink(^validuntil->value, ^passwordprotect->value ? ^password->value : "", FALSE, ^share->value);
 
     STRING mailbody := this->GetTid(".mailbodypreview") || "\n\n" || ^link->value || "\n\n" || this->GetTid(".mailbodypreview2");
     STRING mailsubject := this->GetTid(".mailbodysubject");

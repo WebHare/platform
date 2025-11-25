@@ -201,7 +201,9 @@ IF(NOT RecordExists(targetobject)) {
 
 RECORD contentobject := targetobject;
 BOOLEAN ispublicobject;
+BOOLEAN getmostrecentversion := topreview.share = "mostrecentversion";
 
+// abort(targetobject);
 IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*"
    OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*"
    OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*") {
@@ -209,6 +211,7 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
   targetobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = contentobject.filelink;
   IF(NOT RecordExists(targetobject))
     THROW NEW Exception(`The target object for this preview (${contentobject.filelink}) does not exist`);
+
 } ELSE IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*/*") {
   //This is the recycle bin!
   INTEGER deletionid := ToInteger(Tokenize(targetobject.whfspath,'/')[4],0);
@@ -220,11 +223,7 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
 } ELSE IF(NOT targetobject.publish) {
   /* The target isn't published, and we'd normally see a "is not published" warning in the preview.
     However, previewing it would show the initial content (often an empty page) but the draft that is about to be published is much more useful */
-
- //TODO more efficient direct selection needed
-  RECORD lastdraft := SELECT * FROM ListObjectHistory(targetobject.id) WHERE type="saved" ORDER BY when DESC;
-  IF(RecordExists(lastdraft))
-    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = lastdraft.snapshot;
+  getmostrecentversion := TRUE;
 } ELSE {
   //It seems not to be in offline space
   ispublicobject := topreview.password = "";
@@ -235,6 +234,13 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
     IF(NOT RecordExists(contentobject))
       THROW NEW Exception(`The content object for this preview (${targetobject.filelink}) does not exist`);
   }
+}
+
+IF(getmostrecentversion) {
+ //TODO more efficient direct selection needed
+  RECORD lastdraft := SELECT * FROM ListObjectHistory(targetobject.id) WHERE type="saved" ORDER BY when DESC;
+  IF(RecordExists(lastdraft))
+    contentobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = lastdraft.snapshot;
 }
 
 //TODO or copy the actual targets CSP ?
