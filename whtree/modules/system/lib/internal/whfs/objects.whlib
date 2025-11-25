@@ -1213,8 +1213,10 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       IF(CellExists(metadata,'title') AND metadata.title != "") {
         //NOTE DescribeContentTypeById is dangerous, it crashes during WH bootstrap if siteprofiles have never been compiled yet
         RECORD typeinfo := DescribeContentTypeById(type, CELL[isfolder,mockifmissing := TRUE]);
-        STRING suggestname := SuggestSeoNameFromTitle(metadata.title, [ parentfolder := this->id,
-        extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions) ]); //TODO also set the extension?
+        STRING suggestname := SuggestSeoNameFromTitle(metadata.title,
+            [ parentfolder := this->id
+            , extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions)
+            ]);
         metadata := CELL[ ...metadata, name := suggestname ];
       } ELSE {
         THROW NEW WHFSException("OTHER","Missing cell 'name' for new object and no title was set. Use implicit_name if you need to set up a temporary name for an upcoming draft");
