@@ -15,6 +15,8 @@ type RequestACMECertificateOptions = {
   emails?: string[];
   /** Key pair to use for logging in, if not given, a new account is created */
   keyPair?: CryptoKeyPair;
+  /** The key pair algorithm to use signing the certificate, defaults to "ec" */
+  keyPairAlgorithm?: "ec" | "rsa";
   /** If both kid and hmacKey are set, use these for external account binding */
   kid?: string;
   /** Base64url encoded HMAC key */
@@ -51,7 +53,8 @@ export async function requestACMECertificate(directory: string, domains: string[
   if (options?.keyPair) {
     try {
       acmeAccount = await acmeClient.login({
-        keyPair: options.keyPair
+        keyPair: options.keyPair,
+        keyPairAlgorithm: options?.keyPairAlgorithm,
       });
     } catch (e) {
       logError(e as Error);
@@ -62,6 +65,7 @@ export async function requestACMECertificate(directory: string, domains: string[
     acmeAccount = await acmeClient.createAccount({
       emails,
       externalAccountBinding: options?.kid && options.hmacKey ? { kid: options.kid, hmacKey: options.hmacKey } : undefined,
+      keyPairAlgorithm: options?.keyPairAlgorithm,
     });
 
   const updateHandler = new UpdateHandler(

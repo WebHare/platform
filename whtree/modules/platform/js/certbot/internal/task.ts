@@ -121,6 +121,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     const result = await requestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
       keyPair,
+      keyPairAlgorithm: "rsa",
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
       updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, getPolicyPortalAPIClient, req.taskdata.debug ?? false) : undefined,
@@ -146,7 +147,7 @@ export async function requestCertificateTask(req: TaskRequest<{
       });
     }
 
-    // Store the certificate and its key pair
+    // Store the certificate and its private key
     let certFolder = await openFolder(req.taskdata.certificate, { allowMissing: true });
     if (!certFolder) {
       // Create the certificate folder
@@ -158,13 +159,14 @@ export async function requestCertificateTask(req: TaskRequest<{
     const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
     await certKeyPairFile.update({ data: await ResourceDescriptor.from(certKeyPair.privateKey) });
 
-    // Store the account key pair if new or updated
+    // Store the account private key if new or updated
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
     if (!provider.accountPrivatekey || provider.accountPrivatekey.hash !== resource.hash)
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
 
     return req.resolveByCompletion();
   } catch(e) {
+    logError(e as Error);
     return req.resolveByPermanentFailure((e as Error).message);
   }
 }
