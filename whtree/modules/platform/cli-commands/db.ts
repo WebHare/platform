@@ -110,7 +110,7 @@ run({
 
         const start = Date.now();
         const result = spawnSync(toFSPath("mod::platform/cli-commands/lib/dump-restore-database.sh"),
-          [...opts.dryRun ? "--dry-run" : [], "--set-version", expectVersion.toString()], { stdio: "inherit" });
+          [...opts.dryRun ? ["--dry-run"] : [], "--set-version", expectVersion.toString()], { stdio: "inherit" });
 
         if (result.status === 0) {
           console.log("Total time: " + ((Date.now() - start) / 1000).toFixed(3) + " seconds");
