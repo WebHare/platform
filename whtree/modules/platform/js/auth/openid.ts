@@ -376,7 +376,8 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
         with a value of "no-cache" */
       return createJSONResponse(200, response.body, {
         headers: {
-          "cache-control": "no-store",
+          "cache-control": "no-cache, no-store",
+          "expires": "0",
           "pragma": "no-cache",
         }
       });
