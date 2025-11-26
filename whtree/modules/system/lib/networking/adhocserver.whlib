@@ -177,7 +177,7 @@ PUBLIC STATIC OBJECTTYPE AdHocServer
 
   STRING FUNCTION GetBaseURL()
   {
-    RETURN ResolveToAbsoluteURL(this->interfaceurl, "/.adhocserve/" || this->id);
+    RETURN ResolveToAbsoluteURL(this->interfaceurl, "/.wh/adhocserve/" || this->id);
   }
 
   // Add 'charset=utf-8' to 'text' content types if no other charset was explicitly set
