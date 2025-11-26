@@ -490,7 +490,9 @@ MACRO TestAuthScripts()
 
   //verify that the static resources which we explicitly marked as uncacheable too, are
   TestEq(TRUE, browser->GotoWebPage(authbaseurl || "static.html"));
-  TestEq("no-cache", browser->GetResponseHeader("Cache-Control"));
+  TestEq("no-cache, no-store", browser->GetResponseHeader("Cache-Control"));
+  TestEq("0", browser->GetResponseHeader("Expires"));
+  TestEq("no-cache", browser->GetResponseHeader("Pragma"));
 
   //forget our cookie, should be denied access
   browser->DeleteCookie("webharelogin");
@@ -557,7 +559,9 @@ MACRO Status404()
                                                      ], "multipart/form-data"));
   TestEq(401, browser->GetHTTPStatus().code);
   //Cache-Control must be no-chace, this was a dynamic SHTML request
-  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq("no-cache, no-store", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEQ("0", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Expires"));
+  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Pragma"));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "deepererrors/bestaatniet.html"));
   TestEq("A different 404!", TrimWhitespace(BlobToString(browser->content,1000)));
@@ -751,7 +755,9 @@ MACRO TestFlushWebResponse()
   //We expect the POST to fail
   TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "flushwebresponse" ]
                                                      ], "multipart/form-data"));
-  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq("no-cache, no-store", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq("0", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Expires"));
+  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Pragma"));
   TestEq(200, browser->GetHTTPStatus().code); //even though we expect an abort, it's too late to intercept the response
   TestEq("First test flush web responseSecond test flush web response", BlobToString(browser->content,59));
   //we no longer append the error response
