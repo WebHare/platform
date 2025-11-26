@@ -25,7 +25,8 @@ PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTST
 {
   options := ValidateOptions( [ validuntil := DEFAULT DATETIME
                               , password := ""
-                              ], options);
+                              , share := "thisversion"
+                              ], options, [ enums := [ share := ["thisversion","mostrecentversion"]]]);
 
   IF(options.validuntil = DEFAULT DATETIME)
     options.validuntil := AddDaysToDate(1, GetCurrentDatetime());
@@ -33,6 +34,9 @@ PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTST
   STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = fsobject;
 
   RECORD viewdata := [ id := fsobject, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = fsobject), v := options.validuntil, p := options.password ];
+  IF(options.share = "mostrecentversion")
+    INSERT CELL s := 1 INTO viewdata;
+
   STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
   //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
   RETURN ResolveToAbsoluteURL(baseurl ?? GetPrimaryWebhareInterfaceURL(), "/.publisher/preview/" || urldata || "/");
@@ -102,5 +106,6 @@ PUBLIC RECORD FUNCTION ParsePreviewURL(STRING url)
          , creationdate := data.c
          , validuntil := data.v
          , password := data.p
+         , share := CellExists(data,'s') AND data.s = 1 ? "mostrecentversion" : "thisversion"
          ];
 }

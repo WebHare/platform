@@ -1676,7 +1676,11 @@
         <text tid="password">Wachtwoord</text>
         <text tid="passwordprotect">Bescherm de voorbeeldlink met een wachtwoord:</text>
         <text tid="screentitle">Voorbeeldlink delen</text>
+        <text tid="share">Deel</text>
+        <text tid="share-mostrecentversion">De nieuwste versie</text>
+        <text tid="share-thisversion">Deze specifieke versie</text>
         <text tid="validinthepast">Het 'geldig tot' veld moet in de toekomst liggen.</text>
+        <text tid="validtoolong">Het 'geldig tot' veld mag maximaal 30 dagen in de toekomst liggen.</text>
         <text tid="validuntil">Geldig tot</text>
       </textgroup>
     </textgroup>

@@ -71,7 +71,7 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
 {
   RECORD ARRAY historyitems :=
      SELECT id
-          , type := type >= 0 AND type <= 5 ? eventnames[type] : "#" || type
+          , type := type >= 0 AND type < Length(eventnames) ? eventnames[type] : "#" || type
           , user
           , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
           , when

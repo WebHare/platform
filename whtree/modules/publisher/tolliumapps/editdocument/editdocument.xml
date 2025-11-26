@@ -160,7 +160,11 @@
     <body spacers="none">
       <wizard name="wizard">
         <page name="sharepage" onnext="onsharenext" spacers="bottom">
-          <datetime name="validuntil" type="datetime" precision="minutes" storeutc="true" />
+          <datetime name="validuntil" type="datetime" precision="minutes" storeutc="true" required="true"/>
+          <select name="share" type="radio" required="true">
+            <option rowkey="thisversion" />
+            <option rowkey="mostrecentversion" />
+          </select>
           <line layout="left">
             <checkbox name="passwordprotect" enablecomponents="password" labeltid=".passwordprotect" title="" />
             <textedit name="password" errorlabeltid=".password" password="true" required="true" title="" />

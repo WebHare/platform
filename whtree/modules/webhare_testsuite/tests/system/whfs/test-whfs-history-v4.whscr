@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -40,6 +41,7 @@ MACRO Prep()
       ]
     );
 
+  TestEq(FALSE, newfile->publish);
   TestEq(newfile->creationdate, newfile->modificationdate);
   TestEq("test.html", newfile->name);
   newfile->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "created_0_1"]);
@@ -53,17 +55,22 @@ MACRO Prep()
   testfw->CommitWork();
 }
 
-RECORD FUNCTION AnalyzePreview(INTEGER objid) {
-  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(objid)));
+RECORD FUNCTION AnalyzeURL(STRING url) {
+  TestEq(TRUE, testfw->browser->GotoWebPage(url));
 
   RETURN [ title := testfw->browser->QS("title")->textcontent
          , no_clone_string := ObjectExists(testfw->browser->QS("#no_clone_string")) ? testfw->browser->QS("#no_clone_string")->textcontent : ""
          , with_workflow_string := ObjectExists(testfw->browser->QS("#with_workflow_string")) ? testfw->browser->QS("#with_workflow_string")->textcontent : ""
          , clone_only_string := ObjectExists(testfw->browser->QS("#clone_only_string")) ? testfw->browser->QS("#clone_only_string")->textcontent : ""
+         , textcontent := testfw->browser->QS("body")->textcontent
         //TODO test file level metadata
         //  , keywords := testfw->browser->QS("meta[name='keywords']")->GetAttribute("content")
         //  , description := testfw->browser->QS("meta[name='description']")->GetAttribute("content")
          ];
+}
+
+RECORD FUNCTION AnalyzePreview(INTEGER objid) {
+  RETURN AnalyzeURL(GetPreviewLink(objid));
 }
 
 MACRO DraftingTest() {
@@ -201,6 +208,23 @@ MACRO DraftingTest() {
   TestEq(rawsnapshot->modificationdate, history[1].when);
   TestEq("This just went into a temporary draft", BlobToString(OpenWHFSObject(history[1].snapshot)->data), "Content of autosave is still updated");
 
+  testfw->CommitWork();
+
+  // Grab a previewlink to the saved draft
+  STRING thisversionlink := GetPreviewLink(history[1].snapshot);
+  STRING mostrecentversionlink := GetPreviewLink(history[1].snapshot, [ share := "mostrecentversion" ]);
+  RECORD expect_analyze_thisversion := [
+    title := "An even newer title",
+    with_workflow_string := "draft_0_1",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1",
+    //Ensure we get the *new* textcontent (ie: that you can see your draft when previewing an unpublished file)
+    textcontent := NEW Regex("This just went into a temporary draft","i")
+  ];
+
+  TestEqMembers(expect_analyze_thisversion, AnalyzePreview(testfile->id), "*");
+
+  testfw->BeginWork();
   //Verify the autosaves were cleaned up
   RECORD ARRAY drafts := GetDrafts(testfile->id);
   TestEqMembers([
@@ -289,8 +313,19 @@ MACRO DraftingTest() {
   TestEq(TRUE, drafts[0].mine);
   TestEq(history[2].snapshot, drafts[0].id);
 
+  testfw->CommitWork();
+  TestEqMembers(expect_analyze_thisversion, AnalyzeURL(thisversionlink), "*", "Locked to its draft");
+  TestEqMembers([
+    title := "An even newer title",
+    with_workflow_string := "yet-another-draft",
+    no_clone_string := "created_0_1",
+    clone_only_string := "created_0_1",
+    textcontent := NEW Regex("I'm a jolly good file with some data added by Homer","i")
+  ], AnalyzeURL(mostrecentversionlink), "*", "Autofollow to the most recent draft");
+
   ///////////////////
   // STORY: We will now actually publish the final draft. This adds version 1.0 to the history
+  testfw->BeginWork();
   DATETIME oldmoddate := testfile->modificationdate;
   testfw->SetTestUser("marge");
   workflowmgr := NEW WorkflowManager(testfile->id,
@@ -457,8 +492,10 @@ MACRO DraftingTest() {
                 , [ type := "approved", version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "approved", version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
+  //FIXME verify we can to 'thisversion' links to both 1.0 and 2.0
 
   testfw->CommitWork();
+
 }
 
 ASYNC MACRO UnpublishedSavesTest()
