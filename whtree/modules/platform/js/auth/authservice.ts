@@ -15,7 +15,8 @@ import { db, runInWork } from "@webhare/whdb";
 
 export function doPublicAuthDataCookie(cookieName: string, cookieSettings: ServersideCookieOptions, authData: PublicAuthData, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
-  hdrs.set("cache-control", "no-store");
+  hdrs.set("cache-control", "no-cache, no-store");
+  hdrs.set("expires", "0");
   hdrs.set("pragma", "no-cache");
 
   const cookieExpiry = authData.persistent ? new Date(authData.expiresMs) : null;
@@ -71,7 +72,8 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
   hdrs.append("Set-Cookie", buildCookieHeader(prepped.cookies.cookieName + PublicCookieSuffix, '', { ...cookieSettings, httpOnly: false }));
 
   /* You don't want either cookie update (login or logout) to be cached */
-  hdrs.set("cache-control", "no-store");
+  hdrs.set("cache-control", "no-cache, no-store");
+  hdrs.set("expires", "0");
   hdrs.set("pragma", "no-cache");
 }
 

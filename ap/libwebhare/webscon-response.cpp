@@ -143,9 +143,11 @@ void Connection::SetupFinalHeaders()
         if (!IsHeaderSet("Last-Modified", 13) && !IsHeaderSet("Expires", 7) && !IsHeaderSet("Cache-Control",13)) //looks like it's dynamic but no cache headers yet...
         {
                 if (GetRequestParser().GetProtocolMajor() > 1 || GetRequestParser().GetProtocolMinor() >= 1)
-                    AddHeader("Cache-Control",13,"no-cache",8,false);
-                else
-                    AddHeader("Pragma",6,"no-cache",8,false);
+                {
+                        AddHeader("Cache-Control",13,"no-cache, no-store",18,false);
+                        AddHeader("Expires",7,"0",1,false);
+                }
+                AddHeader("Pragma",6,"no-cache",8,false);
         }
 
         if (!IsHeaderSet("Date",4))
