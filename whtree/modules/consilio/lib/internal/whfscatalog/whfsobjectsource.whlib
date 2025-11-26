@@ -413,8 +413,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objectid)
   {
     CASE "hasdraft"
     {
-      RECORD ARRAY drafts := objectid != 0 ? GetDrafts(objectid) : RECORD[];
-      RETURN RecordExists(SELECT FROM drafts WHERE ispublic) ? "1" : "";
+      RETURN TestFlagFromPublished(SELECT AS INTEGER published FROM system.fs_objects WHERE id=objectid, PublishedFlag_HasPublicDraft) ? "1" : "";
     }
 
     CASE "formfields"
