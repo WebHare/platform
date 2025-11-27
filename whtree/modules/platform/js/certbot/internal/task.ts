@@ -64,12 +64,12 @@ export async function requestCertificateTask(req: TaskRequest<{
       .split(" ").filter(_ => _) // split into separate masks
       .sort((a, b) => b.length - a.length) // sort by longest mask first
       .map(_ => regExpFromWildcards(_)), // convert to regexp
-  }));
+  })).sort((a, b) => (b.allowlist[0]?.source.length ?? 0) - (a.allowlist[0]?.source.length ?? 0)); // sort providers by longest mask first
   // Find the first matching provider
   let provider: typeof providersWithMasks[0] | null = null;
   for (const prov of providersWithMasks) {
-    // Every requested host must match one of the allowlist masks
-    if (req.taskdata.domains.every(host => prov.allowlist.some(regexp => regexp.test(host)))) {
+    // If this provider has an allowlist, every requested host must match one of the allowlist masks
+    if (!prov.allowlist.length || req.taskdata.domains.every(host => prov.allowlist.some(regexp => regexp.test(host)))) {
       provider = prov;
       break;
     }
@@ -79,7 +79,7 @@ export async function requestCertificateTask(req: TaskRequest<{
 
   let directory = provider.acmeDirectory;
   if (!directory) {
-    if (provider.issuerDomain === "letsencrypt.org") {
+    if (provider.issuerDomain === "letsencrypt") {
       directory = req.taskdata.staging ? acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT_STAGING : acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT;
     }
   }
@@ -110,8 +110,8 @@ export async function requestCertificateTask(req: TaskRequest<{
         domains: req.taskdata.domains,
         provider: provider.issuerDomain,
         // For wildcard certificates, use dns-01, otherwise use http-01 challenges, for harica.gr no challenge is needed
-        dnsChallenge: wildcard && provider.issuerDomain !== "harica.gr" ? true : false,
-        httpChallenge: !wildcard && provider.issuerDomain !== "harica.gr" ? true : false,
+        dnsChallenge: wildcard && provider.issuerDomain !== "harica" ? true : false,
+        httpChallenge: !wildcard && provider.issuerDomain !== "harica" ? true : false,
       });
     const result = await requestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
@@ -119,14 +119,14 @@ export async function requestCertificateTask(req: TaskRequest<{
       keyPairAlgorithm: "rsa",
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
-      updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
-      updateHttpResources: !wildcard && provider.issuerDomain !== "harica.gr" ? updateHttpResources.bind(null, req.taskdata.debug ?? false) : undefined,
+      updateDnsRecords: wildcard && provider.issuerDomain !== "harica" ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
+      updateHttpResources: !wildcard && provider.issuerDomain !== "harica" ? updateHttpResources.bind(null, req.taskdata.debug ?? false) : undefined,
       cleanup: cleanup.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false),
     });
 
     // Add Let's Encrypt root certificate
     let certificate = result.certificate;
-    if (provider.issuerDomain === "letsencrypt.org" && req.taskdata.returnFullChain)
+    if (provider.issuerDomain === "letsencrypt" && req.taskdata.returnFullChain)
       certificate += letsencryptRootCertificate;
 
     const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
