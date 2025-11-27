@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import type { Configuration } from "@mod-system/js/internal/webserver/webconfig";
-import * as webserver from "@mod-system/js/internal/webserver/webserver";
+import type { Configuration } from "@mod-platform/js/webserver/webconfig";
+import * as webserver from "@mod-platform/js/webserver/webserver";
 import * as net from "node:net";
 import * as undici from "undici";
 import { loadlib } from "@webhare/harescript";

@@ -41,7 +41,7 @@ backendServices:
   openapiservice:
     clientFactory: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
   jsrouterservice:
-    clientFactory: "mod::system/js/internal/webserver/jsrouterservice.ts#getJSRouter"
+    clientFactory: "mod::platform/js/webserver/jsrouterservice.ts#getJSRouter"
   fetchpool:
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:

@@ -1,4 +1,4 @@
-import type { WebRequestInfo, WebResponseInfo } from "../types";
+import type { WebRequestInfo, WebResponseInfo } from "../../../system/js/internal/types";
 import { newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
 import { type WebHareRouter, createWebResponse } from "@webhare/router/src/router";
 import { importJSFunction } from "@webhare/services";

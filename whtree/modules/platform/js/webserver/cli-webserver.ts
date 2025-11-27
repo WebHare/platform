@@ -1,6 +1,6 @@
 /* To use this webserver as the main webserver, start WebHare with WEBHARE_WEBSERVER=node
    To test it (with only the interface) start it with --rescue=[ip:]<portnumber>
-   eg wh run mod::system/js/internal/webserver/cli-webserver.ts --rescueport 8888
+   eg wh run mod::platform/js/webserver/cli-webserver.ts --rescueport 8888
 */
 
 import * as webserver from "./webserver";
