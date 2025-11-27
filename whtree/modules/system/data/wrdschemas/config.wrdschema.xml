@@ -17,7 +17,7 @@
 
   <object tag="certificate_provider">
     <attributes>
-      <enum tag="issuer_domain" allowedvalues="letsencrypt harica" required="true" />
+      <free tag="issuer_domain" required="true" />
       <free tag="acme_directory" />
       <file tag="account_privatekey" />
       <free tag="eab_kid" />

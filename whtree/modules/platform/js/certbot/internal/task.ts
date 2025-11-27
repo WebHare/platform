@@ -54,7 +54,7 @@ export async function requestCertificateTask(req: TaskRequest<{
 
   let directory = provider.acmeDirectory;
   if (!directory) {
-    if (provider.issuerDomain === "letsencrypt") {
+    if (provider.issuerDomain === "letsencrypt.org") {
       directory = req.taskdata.staging ? acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT_STAGING : acme.ACME_DIRECTORY_URLS.LETS_ENCRYPT;
     }
   }
