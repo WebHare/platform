@@ -26,12 +26,19 @@ export class RotatingLogFile {
   }
 
   log(line: string, data?: LoggableRecord) {
-    //TODO escape any control characters in 'line
+    this.__log(line, data);
+  }
+
+  logStructured(data: LoggableRecord) {
+    this.__log(null, data);
+  }
+
+  __log(line: null | string, data?: LoggableRecord) {
     const date = (new Date).toISOString();
 
     if (this.basepath) {
       const day = date.substring(0, 10); //YYYY-MM-DD
-      // const day = date.substring(0, 19).replaceAll(':', '-'); //for testing - rotary every second
+      // const day = date.substring(0, 19).replaceAll(':', '-'); //for testing - rotate every second
 
       if (this.lastdate !== day || !this.logfd) {
         const alreadylogged = Boolean(this.logfd);
@@ -49,9 +56,12 @@ export class RotatingLogFile {
     }
 
     if (this.stdout)
-      console.log(`[${date}] ${line}`);
+      console.log(`[${date}] ${line ?? formatLogObject(null, data || {})}`);
+
+    if (line !== null)
+      data = { message: line, ...data };
 
     if (this.basepath)
-      fs.writeFile(this.logfd, formatLogObject(date, { message: line, ...data }) + '\n', () => { });
+      fs.writeFile(this.logfd, formatLogObject(date, data || {}) + '\n', () => { });
   }
 }

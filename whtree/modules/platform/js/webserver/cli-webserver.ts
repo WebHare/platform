@@ -3,6 +3,7 @@
    eg wh run mod::platform/js/webserver/cli-webserver.ts --rescueport 8888
 */
 
+import { WebServerConsoleLogger, WebServerFileLogger } from "./logger";
 import * as webserver from "./webserver";
 import { run } from "@webhare/cli";
 
@@ -31,7 +32,8 @@ run({
 
     new webserver.WebServer("platform:webserver", {
       rescuePort: rescuePort || undefined,
-      rescueIp
+      rescueIp,
+      logger: rescuePort ? new WebServerConsoleLogger : new WebServerFileLogger
     });
   }
 });

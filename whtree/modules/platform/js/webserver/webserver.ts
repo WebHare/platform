@@ -9,6 +9,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { BackendServiceConnection, runBackendService } from '@webhare/services';
 import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { loadlib } from '@webhare/harescript';
+import type { WebServerLogger } from './logger';
 
 class WebServerPort {
   server: http.Server | https.Server;
@@ -16,7 +17,7 @@ class WebServerPort {
   overrideHost: string | undefined;
   readonly port: Port;
 
-  constructor(port: Port, fixedHost: Host | undefined) {
+  constructor(public webserver: WebServer, port: Port, fixedHost: Host | undefined) {
     this.port = port;
     this.fixedHost = fixedHost;
     if (fixedHost)
@@ -56,7 +57,6 @@ class WebServerPort {
       if (!req.method || !req.url)
         throw new Error("Incomplete request?");
 
-      console.log(`${req.method} ${req.headers.host} ${req.url}`);
       //TODO timeout for receiving 'end' event or something else that discards too long requests
       const bodyParts = new Array<Buffer>;
       let bodyLength = 0;
@@ -91,6 +91,10 @@ class WebServerPort {
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
       res.write(new Uint8Array(await response.arrayBuffer()));
       res.end();
+
+      //TODO once clustering we need a two stage log where we inform our parent of start & end of request processing, and the parent actually writes the log and can still log something useful if we crash
+      this.webserver.logger?.logRequest(webreq);
+
     } catch (e) {
       this.handleException(e, req, res);
     }
@@ -175,12 +179,14 @@ export class WebServer {
   rescueIp;
   forceConfig;
   activeConfig: Configuration | null = null;
+  logger: WebServerLogger | null = null;
 
-  constructor(servicename: string, options?: { rescuePort?: number; rescueIp?: string; forceConfig?: Configuration }) {
+  constructor(servicename: string, options?: { rescuePort?: number; rescueIp?: string; forceConfig?: Configuration; logger?: WebServerLogger }) {
     this.config = initialconfig;
     this.forceConfig = options?.forceConfig;
     this.rescuePort = options?.rescuePort;
     this.rescueIp = options?.rescueIp;
+    this.logger = options?.logger || null;
     void runBackendService(servicename, () => new WebServerClient(this), { autoRestart: false, dropListenerReference: true }).then(s => this.service = s);
 
     if (this.forceConfig)
@@ -216,7 +222,7 @@ export class WebServer {
 
     for (const port of config.ports) {
       const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port === port.id) : undefined;
-      this.ports.add(new WebServerPort(port, fixedhost));
+      this.ports.add(new WebServerPort(this, port, fixedhost));
     }
   }
 
