@@ -66,7 +66,10 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
         newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
     }
 
-  return createWebResponse(body, { status: result.statusCode, headers: newheaders });
+  //A null body status is a status that is 101, 103, 204, 205, or 304.
+  //We may not send a body with those
+  const nullStatuses = [101, 103, 204, 205, 304];
+  return createWebResponse(nullStatuses.includes(result.statusCode) ? undefined : body, { status: result.statusCode, headers: newheaders });
 }
 
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk
