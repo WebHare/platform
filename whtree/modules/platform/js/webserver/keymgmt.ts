@@ -8,19 +8,25 @@ function createWebHareDNHash(readableName: string): string {
   return hash;
 }
 
-export async function lookupKey(subject: string) {
-  const bundle = readFileSync(toFSPath("mod::platform/data/facts/mozilla_ca_bundle.pem"), 'utf8');
+export function splitPEMCertificateBundle(bundle: string): string[] {
+  const certs: string[] = [];
   const keyTrailer = "-----END CERTIFICATE-----";
   for (const key of bundle.split(keyTrailer)) {
     if (!key.trim())
       continue;
 
-    const cert = key + keyTrailer;
-    // console.log(cert);
-    const parsed = new X509Certificate(cert);
+    certs.push(key + keyTrailer);
+  }
+  return certs;
+}
+
+export async function lookupKey(subject: string) {
+  const bundle = readFileSync(toFSPath("mod::platform/data/facts/mozilla_ca_bundle.pem"), 'utf8');
+  for (const key of splitPEMCertificateBundle(bundle)) {
+    const parsed = new X509Certificate(key);
     const certSubject = parsed.subject.split("\n").join(", ");
     if (certSubject === subject) {
-      return cert;
+      return key;
     }
   }
 
