@@ -32,7 +32,7 @@
     <task runat=" 3  2 * * *" runtz="maintenance" script="scripts/tasks/cleanversions.whscr" tag="system_cleanversions" />
     <task runat=" 6  2 * * *" runtz="maintenance" script="scripts/tasks/cleanfsdata.whscr" tag="system_cleanfsdata" />
     <task runat="11  3 * * *" runtz="maintenance" script="scripts/tasks/fix_whfs.whscr" tag="system_fix_whfs" />
-    <task runat="19  4 * * *" runtz="maintenance" script="scripts/tasks/renewcertbot.whscr" tag="renewcertbot" description="Renew certbot certificates" />
+    <task runat="19  4 * * *" runtz="maintenance" script="scripts/tasks/renewcertbot.ts" tag="renewcertbot" description="Renew certbot certificates" />
     <task runat="39  5 * * *" runtz="maintenance" script="scripts/tasks/updatefallbackcertificate.whscr" tag="updatefallbackcertificate" description="Renew the fallback certificate" runatstartup="true" />
 
     <!-- update proxy configurations. we now do this async so it doesn't block, and it should be safe on restored servers since the proxy won't contact us anyway if we use old settings -->
