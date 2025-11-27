@@ -3,6 +3,14 @@
   <meta>
     <description>WebHare platform core functionality</description>
     <validation options="nowarnings">
+      <exclude mask="js/certbot/vendor/acme/*.deno.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/*.test.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/test_deps.ts" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/e2e/*" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/examples/*" why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/integration/*"
+               why="unused external code not compatible with our node environment" />
+      <exclude mask="js/certbot/vendor/acme/scripts/*" why="unused external code not compatible with our node environment" />
       <format excludemasks="generated/*" masks="*.ts *.tsx" />
     </validation>
   </meta>
@@ -16,6 +24,8 @@
 
     <runonce script="migrations/5.9/scripts/fix-snakecase-settings.ts" tag="fix_snakecase_settings_5_9" when="poststart" />
     <runonce script="migrations/5.9/scripts/migrate-seosettings.whscr" tag="migrate_seosettings_5_9" when="poststart" />
+
+    <managedtask type="requestcertificate" taskrunner="js/certbot/internal/task.ts#requestCertificateTask" />
   </servicemanager>
 
   <backend>
@@ -57,6 +67,7 @@
     </webrule>
     <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after">
       <addheader header="Service-Worker-Allowed" value="/" />
+
       <!-- Avoids limiting service workers connection ability (for them the CSP of the mjs file is considered) -->
       <csp policy="" />
     </webrule>

@@ -55,6 +55,7 @@ exclude:
   - modules/devkit
   - modules/webhare_testsuite
   - jssdk/whdb/vendor/postgrejs
+  - modules/platform/js/certbot/vendor/acme
 
 include:
   - "jssdk/**/*"
