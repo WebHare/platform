@@ -136,7 +136,7 @@ run({
 
       await beginWork();
       await scheduleTask("platform:requestcertificate", {
-        certificate: cert.id,
+        certificateId: cert.id,
         domains: requestFor,
         staging: options.staging,
         debug: options.debug,

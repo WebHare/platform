@@ -1,5 +1,6 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
-import { acme, requestACMECertificate } from "@mod-platform/js/certbot/certbot";
+import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
+import { doRequestACMECertificate } from "@mod-platform/js/certbot/internal/certbot";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -21,7 +22,7 @@ import { openFolder } from "@webhare/whfs";
 import { stat, unlink } from "node:fs/promises";
 
 export async function requestCertificateTask(req: TaskRequest<{
-  certificate: number;
+  certificateId: number;
   domains: string[];
   staging?: boolean;
   debug?: boolean;
@@ -93,7 +94,7 @@ export async function requestCertificateTask(req: TaskRequest<{
         dnsChallenge: wildcard,
         httpChallenge: !wildcard,
       });
-    const result = await requestACMECertificate(directory, req.taskdata.domains, {
+    const result = await doRequestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
       keyPair,
       keyPairAlgorithm: "rsa",
@@ -112,14 +113,14 @@ export async function requestCertificateTask(req: TaskRequest<{
       // When using the staging server, don't actually update the certificate and private keys, but return them in the task
       // result for inspection
       return req.resolveByCompletion({
+        certificateId: 0,
         certificate,
-        privatekey: certKeyPair.privateKey,
-        accountkey: accountKeyPair.privateKey,
+        privateKey: certKeyPair.privateKey,
       });
     }
 
     // Store the certificate and its private key
-    let certFolder = await openFolder(req.taskdata.certificate, { allowMissing: true });
+    let certFolder = await openFolder(req.taskdata.certificateId, { allowMissing: true });
     if (!certFolder) {
       // Create the certificate folder
       const keystore = await openFolder("/webhare-private/system/keystore");
@@ -135,7 +136,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     if (!provider.accountPrivatekey || provider.accountPrivatekey.hash !== resource.hash)
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
 
-    return req.resolveByCompletion();
+    return req.resolveByCompletion({ success: true, certificateId: certFolder });
   } catch(e) {
     logError(e as Error);
     return req.resolveByPermanentFailure((e as Error).message);
