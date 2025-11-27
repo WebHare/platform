@@ -88,7 +88,7 @@ MACRO ImgCacheTest()
   STRING poorkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, quality := 25, format := "keep"]);
 
   TestEq(FALSE, testfw->browser->GotoWebPage(goodkikkerlink), testfw->browser->url);
-  TestEq("no-cache, no-store", testfw->browser->GetResponseHeader("Cache-Control")); //A valid 'but not yet' hash should return a no-cache header
+  TestEq("no-cache", testfw->browser->GetResponseHeader("Cache-Control")); //A valid 'but not yet' hash should return a no-cache header
 
   testfw->CommitWork();
 
