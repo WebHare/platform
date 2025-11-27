@@ -367,8 +367,8 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         Blex::OptionParser::Option optionlist[] =
         {
                 Blex::OptionParser::Option::Switch("d", false),
-                Blex::OptionParser::Option::Switch("singledispatcher", false),
 /*                Blex::OptionParser::Option::StringOpt("webhareinterface"),  --currently broken with new manage script. worth the trouble to restore? */
+                Blex::OptionParser::Option::StringOpt("dispatchers"),
                 Blex::OptionParser::Option::ListEnd()
         };
 
@@ -386,10 +386,18 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         onlyinterfaceport = 0; /* ADDME currently broken, see above optparse.Exists("webhareinterface") ? uint16_t(std::atol(optparse.StringOpt("webhareinterface").c_str())) : 0; */
 
         // ADDME: make this configurable (run-time, or in webhare configuration)
-        bool is_enterprise = true; // (now stored in DB: webhare->GetKey().GetKey("webhare") != NULL)
-        unsigned numdispatchers = is_enterprise ? 50 : 20; //number of workers
-        if (optparse.Switch("singledispatcher"))
-            numdispatchers=1;
+        unsigned numdispatchers = 50; //default
+        if (optparse.Exists("dispatchers"))
+        {
+                std::string val = optparse.StringOpt("dispatchers");
+                std::pair< unsigned, std::string::iterator > res = Blex::DecodeUnsignedNumber< int32_t >(val.begin(), val.end(), 10U);
+                if(res.second != val.end() || res.first < 1)
+                {
+                        Blex::ErrStream() << "Invalid --dispatchers value\n";
+                        return EXIT_FAILURE;
+                }
+                numdispatchers = res.first;
+        }
 
         if(webhare->GetLogRoot().empty())
             throw std::runtime_error("WebHare not properly configured or environment variables not set");
