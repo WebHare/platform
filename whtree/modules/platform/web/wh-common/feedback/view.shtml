@@ -4,7 +4,6 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
-AddHTTPHeader("Expires", "0", FALSE);
 AddHTTPHeader("Pragma", "no-cache", FALSE);
 AddHTTPHeader("Content-Type", "text/html; charset=utf-8", FALSE);
 AddHTTPHeader("Referrer-Policy", "no-referrer", FALSE); //don't leak the feedback token to the page

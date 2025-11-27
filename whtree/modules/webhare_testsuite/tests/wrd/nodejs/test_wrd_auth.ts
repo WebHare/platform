@@ -547,8 +547,7 @@ async function testAuthAPI() {
         requestInit.headers.set("origin", testsiteurl.origin);
       },
       onResponse(response) {
-        test.eq("no-cache, no-store", response.headers.get("cache-control"));
-        test.eq("0", response.headers.get("expires"));
+        test.eq("no-store", response.headers.get("cache-control"));
         test.eq("no-cache", response.headers.get("pragma"));
         seenheaders = true;
 
@@ -603,8 +602,7 @@ async function testAuthAPI() {
         requestInit.headers.set("cookie", `${authCookieName}=${authCookieValue}`);
       },
       onResponse(response) {
-        test.eq("no-cache, no-store", response.headers.get("cache-control"));
-        test.eq("0", response.headers.get("expires"));
+        test.eq("no-store", response.headers.get("cache-control"));
         test.eq("no-cache", response.headers.get("pragma"));
         seenheaders = true;
 

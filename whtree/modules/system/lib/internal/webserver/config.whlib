@@ -868,7 +868,7 @@ STATIC OBJECTTYPE WebConfigBuilder <
                                   AND hostingsrc != 1;
 
       access := EnforceStructure([__whs_baserulerecord], access);
-      UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "no-cache, no-store" ], [ name := "expires", value := "0" ], [ name := "Pragma", value := "no-cache" ] ] WHERE disablecaching;
+      UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "no-cache" ]] WHERE disablecaching;
       UPDATE access SET addheaders := addheaders CONCAT [[ name := "Cache-Control", value := "max-age=" || maxage ]] WHERE disablecaching = FALSE AND maxage>0;
 
       //Set externalonly wherever we're securing for external user _only_
