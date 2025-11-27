@@ -6,6 +6,9 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { type Configuration, type Port, type Host, initialconfig } from "./webconfig";
 import { IncomingWebRequest } from "@webhare/router/src/request";
+import { BackendServiceConnection, runBackendService } from '@webhare/services';
+import type { WebHareService } from '@webhare/services/src/backendservicerunner';
+import { loadlib } from '@webhare/harescript';
 
 class WebServerPort {
   server: http.Server | https.Server;
@@ -155,15 +158,62 @@ class WebServerPort {
   }
 }
 
-class WebServer {
+class WebServerClient extends BackendServiceConnection {
+  constructor(public ws: WebServer) {
+    super();
+  }
+  async reloadConfig() {
+    return await this.ws.loadConfig();
+  }
+}
+
+export class WebServer {
   config: Configuration;
   ports = new Set<WebServerPort>();
+  service: WebHareService | null = null;
+  rescuePort;
+  rescueIp;
+  forceConfig;
+  activeConfig: Configuration | null = null;
 
-  constructor() {
+  constructor(servicename: string, options?: { rescuePort?: number; rescueIp?: string; forceConfig?: Configuration }) {
     this.config = initialconfig;
+    this.forceConfig = options?.forceConfig;
+    this.rescuePort = options?.rescuePort;
+    this.rescueIp = options?.rescueIp;
+    void runBackendService(servicename, () => new WebServerClient(this), { autoRestart: false, dropListenerReference: true }).then(s => this.service = s);
+
+    if (this.forceConfig)
+      this.reconfigure(this.forceConfig);
+    else
+      void this.loadConfig();
+  }
+
+  async loadConfig() {
+    if (this.forceConfig) {
+      this.reconfigure(this.forceConfig);
+      return;
+    }
+
+    const config = await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig() as Configuration;
+
+    //Remove the HS trusted port from our bindlist - that one needs to be held by the HS webserver
+    const trustedportidx = config.ports.findIndex(_ => _.id === -6 /*whwebserverconfig_hstrustedportid*/);
+    if (trustedportidx >= 0)
+      config.ports.splice(trustedportidx, 1);
+
+    this.reconfigure(config);
   }
 
   reconfigure(config: Configuration) {
+    this.activeConfig = structuredClone(config);
+
+    if (this.rescuePort) {
+      config.ports = config.ports.filter(_ => _.id === -4); //keeps only the original 13679 rescueport
+      config.ports[0].port = this.rescuePort;
+      config.ports[0].ip = this.rescueIp || "127.0.0.1";
+    }
+
     for (const port of config.ports) {
       const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port === port.id) : undefined;
       this.ports.add(new WebServerPort(port, fixedhost));
@@ -178,10 +228,4 @@ class WebServer {
     this.ports.forEach(_ => _.server.close());
     this.ports.clear();
   }
-}
-
-export async function launch(config: Configuration) {
-  const ws = new WebServer();
-  ws.reconfigure(config);
-  return ws;
 }

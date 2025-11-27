@@ -59,7 +59,7 @@ async function testOurWebserver() {
     }
   ];
 
-  const ws = await webserver.launch(config);
+  const ws = new webserver.WebServer("webhare_testsuite:testwebserver", { forceConfig: config });
   ws.unref();
 
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
