@@ -1,6 +1,6 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, requestACMECertificate } from "@mod-platform/js/certbot/certbot";
-import type { ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
+import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import {
   backendConfig,
   importJSFunction,
@@ -17,8 +17,7 @@ import { addDuration, pick, regExpFromWildcards } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
-import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { stat, unlink } from "node:fs/promises";
 
 export async function requestCertificateTask(req: TaskRequest<{
   certificate: number;
@@ -86,8 +85,8 @@ export async function requestCertificateTask(req: TaskRequest<{
         domains: req.taskdata.domains,
         provider: provider.issuerDomain,
         // For wildcard certificates, use dns-01, otherwise use http-01 challenges, for harica.gr no challenge is needed
-        dnsChallenge: wildcard && provider.issuerDomain !== "harica" ? true : false,
-        httpChallenge: !wildcard && provider.issuerDomain !== "harica" ? true : false,
+        dnsChallenge: wildcard,
+        httpChallenge: !wildcard,
       });
     const result = await requestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
@@ -95,8 +94,8 @@ export async function requestCertificateTask(req: TaskRequest<{
       keyPairAlgorithm: "rsa",
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
-      updateDnsRecords: wildcard && provider.issuerDomain !== "harica" ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
-      updateHttpResources: !wildcard && provider.issuerDomain !== "harica" ? updateHttpResources.bind(null, req.taskdata.debug ?? false) : undefined,
+      updateDnsRecords: wildcard ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
+      updateHttpResources: !wildcard ? updateHttpResources.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
       cleanup: cleanup.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false),
     });
 
@@ -140,8 +139,6 @@ export async function requestCertificateTask(req: TaskRequest<{
 
 async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dnsRecord: acme.DnsTxtRecord[]) {
   const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
-  if (!handler)
-    throw new Error("No handler to handle DNS challenges");
 
   try {
     await handler.setupDNSChallenge(dnsRecord);
@@ -154,53 +151,36 @@ async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dn
   }
 }
 
-async function updateHttpResources(debug: boolean, httpResource: acme.HttpResource[]) {
-  const cacheDir = `${backendConfig.dataRoot}caches/platform/acme/`;
+async function updateHttpResources(acmeChallengeHandler: string, debug: boolean, httpResource: acme.HttpResource[]) {
+  const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
+
   try {
-    if (!await stat(cacheDir))
-      await mkdir(cacheDir, { recursive: true });
+    await handler.setupHTTPChallenge(httpResource);
+    if (debug)
+      logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])) });
   } catch(e) {
     logError(e as Error);
-    return;
+    if (debug)
+      logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
   }
-  // Create the challenge resources in the acme cache folder (lowercase the name so the webserver will find it)
-  for (const res of httpResource) {
-    try {
-      await writeFile(join(cacheDir, res.name.toLowerCase()), res.content);
-    } catch(e) {
-      logError(e as Error);
-    }
-  }
-
-  if (debug)
-    logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])) });
 }
 
 async function cleanup(acmeChallengeHandler: string, debug: boolean, challenge: {
   dnsRecords?: acme.DnsTxtRecord[];
   httpResources?: acme.HttpResource[];
 }) {
+  const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
+
   if (challenge.httpResources) {
     if (debug)
       logDebug("platform:certbot", { "#what": "cleanup http resources", httpResources: challenge.httpResources.map(_ => _.name) });
-    const cacheDir = `${backendConfig.dataRoot}caches/platform/acme/`;
-    for (const res of challenge.httpResources) {
-      try {
-        const cachePath = join(cacheDir, res.name.toLowerCase());
-        if (await stat(cachePath))
-          await unlink(cachePath);
-      } catch(e) {
-        logError(e as Error);
-      }
+    try {
+      await handler.cleanupHTTPChallenge(challenge.httpResources);
+    } catch(e) {
+      logError(e as Error);
     }
   }
   if (challenge.dnsRecords) {
-    const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
-    if (!handler) {
-      if (debug)
-        logDebug("platform:certbot", { "#what": "no handler to cleanup dns records" });
-      return;
-    }
 
     if (debug)
       logDebug("platform:certbot", { "#what": "cleanup dns records", dnsRecords: challenge.dnsRecords.map(_ => _.name) });
@@ -224,8 +204,7 @@ async function createACMEChallengeHandler(acmeChallengeHandler: string, debug: b
         const factory = resolveResource(modyml.baseResourcePath, modyml.acmeChallengeHandlers[handler].handlerFactory);
         return (await importJSFunction<ACMEChallengeHandlerFactory>(factory))({ debug });
       }
-  if (acmeChallengeHandler)
-    throw new Error(`No such ACME challenge handler factory '${acmeChallengeHandler}'`);
+  return new ACMEChallengeHandlerBase({ debug });
 }
 
 export async function cleanupOutdatedHttpResources(debug?: boolean) {
