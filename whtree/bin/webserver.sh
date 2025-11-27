@@ -13,4 +13,4 @@ if [ "$WEBHARE_WEBSERVER" != "node" ]; then
   exec "${BASH_SOURCE%/*}/webserver"
 fi
 
-exec wh run mod::system/js/internal/webserver/cli-webserver.ts
+exec $WEBHARE_DIR/bin/wh run mod::system/js/internal/webserver/cli-webserver.ts

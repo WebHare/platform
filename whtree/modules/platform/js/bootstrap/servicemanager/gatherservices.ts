@@ -46,6 +46,15 @@ const defaultServices: Record<string, ServiceDefinition> = {
     startIn: Stage.Bootup,
     run: "always"
   },
+  /** The HS webserver in case it's enabled as a secondary */
+  ...(process.env.WEBHARE_WEBSERVER === "node" ? {
+    "platform:webserver-harescript": {
+      cmd: ["webserver", "--secondary", "--dispatchers", "25"], //50 seems excessive for a secondary?
+      //Our startIn should match the platform:webserver
+      startIn: Stage.Bootup,
+      run: "always"
+    }
+  } : {}),
   "platform:webhareservice-startup": {
     cmd: ["wh", "run", "mod::system/scripts/internal/webhareservice-startup.ts"],
     startIn: Stage.StartupScript,

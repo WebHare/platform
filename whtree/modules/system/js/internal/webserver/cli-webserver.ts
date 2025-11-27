@@ -16,12 +16,6 @@ run({
   async main({ opts }) {
     const config = await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig() as Configuration;
 
-    // FIXME Remove or cleanup this dev workaround. To be able to listen to 80/443 ports on mac, we drop the IP binding from 127.0.0.1
-    if (process.platform === "darwin")
-      for (const port of config.ports)
-        if (port.ip === "127.0.0.1" && (port.port === 80 || port.port === 443))
-          port.ip = "";
-
     //Remove the HS trusted port from our bindlist - that one needs to be held by the HS webserver
     const trustedportidx = config.ports.findIndex(_ => _.id === -6 /*whwebserverconfig_hstrustedportid*/);
     if (trustedportidx >= 0)

@@ -367,6 +367,7 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         Blex::OptionParser::Option optionlist[] =
         {
                 Blex::OptionParser::Option::Switch("d", false),
+                Blex::OptionParser::Option::Switch("secondary", false),
                 Blex::OptionParser::Option::StringOpt("dispatchers"),
                 Blex::OptionParser::Option::ListEnd()
         };
