@@ -23,6 +23,7 @@
       <free tag="eab_kid" />
       <free tag="eab_hmackey" />
       <email tag="email" />
+      <free tag="acme_challenge_handler" />
       <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks -->
     </attributes>
   </object>

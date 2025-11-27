@@ -1,14 +1,18 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, requestACMECertificate } from "@mod-platform/js/certbot/certbot";
+import type { ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import {
   backendConfig,
+  importJSFunction,
   lockMutex,
   logDebug,
   logError,
+  resolveResource,
   ResourceDescriptor,
   type TaskRequest,
   type TaskResponse,
 } from "@webhare/services";
+import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { addDuration, pick, regExpFromWildcards } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork } from "@webhare/whdb";
@@ -51,7 +55,7 @@ export async function requestCertificateTask(req: TaskRequest<{
   // Find the relevant certificate provider
   const providers = await systemConfigSchema
     .query("certificateProvider")
-    .select(["wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist"])
+    .select(["wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist", "acmeChallengeHandler"])
     .execute();
   // Split the allowlist into separate domain masks
   const providersWithMasks = providers.map(provider => ({
@@ -99,15 +103,6 @@ export async function requestCertificateTask(req: TaskRequest<{
     using mutex = await lockMutex(`platform:certbot`);
     void(mutex);
 
-    // For DNS challenges, we need the PortalAPI client from the webharebv_policy module
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we cannot import the type from webharebv_policy
-    let getPolicyPortalAPIClient: any = null;
-    if ("webharebv_policy" in backendConfig.module)
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
-        ({ getPolicyPortalAPIClient } = require("@mod-webharebv_policy/js/apis"));
-      } catch(e) {}
-
     if (req.taskdata.debug)
       logDebug("platform:certbot", {
         "#what": "request",
@@ -124,9 +119,9 @@ export async function requestCertificateTask(req: TaskRequest<{
       keyPairAlgorithm: "rsa",
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
-      updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, getPolicyPortalAPIClient, req.taskdata.debug ?? false) : undefined,
+      updateDnsRecords: wildcard && provider.issuerDomain !== "harica.gr" ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
       updateHttpResources: !wildcard && provider.issuerDomain !== "harica.gr" ? updateHttpResources.bind(null, req.taskdata.debug ?? false) : undefined,
-      cleanup: cleanup.bind(null, req.taskdata.debug ?? false),
+      cleanup: cleanup.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false),
     });
 
     // Add Let's Encrypt root certificate
@@ -171,18 +166,20 @@ export async function requestCertificateTask(req: TaskRequest<{
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- we cannot import the type from webharebv_policy
-async function updateDnsRecords(getPolicyPortalAPIClient: any, debug: boolean, dnsRecord: acme.DnsTxtRecord[]) {
-  if (!getPolicyPortalAPIClient)
-    throw new Error("Module webharebv_policy not installed, dns-01 challenges unavailable!");
+async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dnsRecord: acme.DnsTxtRecord[]) {
+  const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
+  if (!handler)
+    throw new Error("No handler to handle DNS challenges");
 
-  const client = await getPolicyPortalAPIClient();
-  if (debug)
-    logDebug("platform:certbot", { "#what": "portalapi client", client: await client.getMe() });
-  await client.prepareACMEDNSChallenge(dnsRecord.map(_ => ({ domain: _.domain, token: _.content })));
-
-  if (debug)
-    logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])) });
+  try {
+    await handler.setupDNSChallenge(dnsRecord);
+    if (debug)
+      logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])) });
+  } catch(e) {
+    logError(e as Error);
+    if (debug)
+      logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
+  }
 }
 
 async function updateHttpResources(debug: boolean, httpResource: acme.HttpResource[]) {
@@ -207,7 +204,7 @@ async function updateHttpResources(debug: boolean, httpResource: acme.HttpResour
     logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])) });
 }
 
-async function cleanup(debug: boolean, challenge: {
+async function cleanup(acmeChallengeHandler: string, debug: boolean, challenge: {
   dnsRecords?: acme.DnsTxtRecord[];
   httpResources?: acme.HttpResource[];
 }) {
@@ -225,7 +222,38 @@ async function cleanup(debug: boolean, challenge: {
       }
     }
   }
-  // No cleanup for DNS records
+  if (challenge.dnsRecords) {
+    const handler = await createACMEChallengeHandler(acmeChallengeHandler, debug);
+    if (!handler) {
+      if (debug)
+        logDebug("platform:certbot", { "#what": "no handler to cleanup dns records" });
+      return;
+    }
+
+    if (debug)
+      logDebug("platform:certbot", { "#what": "cleanup dns records", dnsRecords: challenge.dnsRecords.map(_ => _.name) });
+    try {
+      await handler.cleanupDNSChallenge(challenge.dnsRecords);
+    } catch(e) {
+      logError(e as Error);
+    }
+  }
+}
+
+async function createACMEChallengeHandler(acmeChallengeHandler: string, debug: boolean) {
+  // Initialize the ACME challenge handler
+  if (debug)
+    logDebug("platform:certbot", { "#what": "initialize challenge handler", acmeChallengeHandler });
+  const module = acmeChallengeHandler.split(":")[0];
+  const handler = acmeChallengeHandler.substring(module.length + 1);
+  for (const modyml of await getAllModuleYAMLs())
+    if (modyml.module === module && modyml.acmeChallengeHandlers)
+      if (handler in modyml.acmeChallengeHandlers) {
+        const factory = resolveResource(modyml.baseResourcePath, modyml.acmeChallengeHandlers[handler].handlerFactory);
+        return (await importJSFunction<ACMEChallengeHandlerFactory>(factory))({ debug });
+      }
+  if (acmeChallengeHandler)
+    throw new Error(`No such ACME challenge handler factory '${acmeChallengeHandler}'`);
 }
 
 export async function cleanupOutdatedHttpResources(debug?: boolean) {
