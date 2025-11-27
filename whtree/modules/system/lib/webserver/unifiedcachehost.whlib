@@ -210,9 +210,7 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     }
     CATCH(OBJECT e)
     {
-      AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
-      AddHTTPHeader("Expires", "0", FALSE);
-      AddHTTPHeader("Pragma", "no-cache", FALSE);
+      AddHTTPHeader("Cache-Control", "no-cache", FALSE);
       LogWebserverError(e->what);
       IF(this->trace)
         Print("Final error: " || e->what ||"\n");
@@ -224,6 +222,4 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
     }
   }
 >;
-AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
-AddHTTPHeader("Expires", "0", FALSE);
-AddHTTPHeader("Pragma", "no-cache", FALSE);
+AddHTTPHeader("Cache-Control", "no-cache", FALSE);

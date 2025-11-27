@@ -18,7 +18,7 @@ STRING prodbundlecache := "public, max-age=900";
 STRING prodassetcache := "public, max-age=31536000, immutable";
 STRING devbundlecache := "public, max-age=0, must-revalidate";
 STRING devassetcache := "public, max-age=0, must-revalidate";
-STRING notfoundcache := "no-cache, no-store";
+STRING notfoundcache := "no-cache";
 
 OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("platform:assetpacks", [ arguments := VARIANT[ GetCurrentGroupID() ]]));
 
