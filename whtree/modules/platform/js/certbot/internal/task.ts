@@ -1,6 +1,7 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, requestACMECertificate } from "@mod-platform/js/certbot/certbot";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
+import { loadlib } from "@webhare/harescript";
 import {
   backendConfig,
   importJSFunction,
@@ -66,11 +67,15 @@ export async function requestCertificateTask(req: TaskRequest<{
     keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
 
   let wildcard = false;
+  const allHostnames = await loadlib("mod::system/lib/internal/webserver/certbot.whlib").GetCertifiableHostnames() as string[];
   for (const domain of req.taskdata.domains) {
     if (domain.includes("*")) {
       wildcard = true;
     } else {
       //FIXME: Check if DNS for domains points to this server?
+      if (!allHostnames.includes(domain.toUpperCase())) {
+        return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`);
+      }
     }
   }
 
