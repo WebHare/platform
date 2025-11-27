@@ -1,5 +1,8 @@
+import { getTid } from "@webhare/gettid";
+import { loadlib } from "@webhare/harescript";
 import { retrieveTaskResult, scheduleTask } from "@webhare/services";
 import { beginWork, commitWork } from "@webhare/whdb";
+import { createHash, createPrivateKey, X509Certificate } from "node:crypto";
 
 export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 
@@ -43,5 +46,81 @@ export async function requestACMECertificate(domains: string[], options?: Certif
     return await retrieveTaskResult<CertificateRequestResult>(taskId);
   } catch(e) {
     return { success: false, error: (e as Error).message };
+  }
+}
+
+type TestCertificateOptions = {
+  privateKey?: string;
+  checkFullChain?: boolean;
+};
+
+export async function testCertificate(certificate: string, options?: TestCertificateOptions): Promise<{
+  success: true;
+  certificate: string;
+} | {
+  success: false;
+  error: string;
+}> {
+  // Try to read the certificate chain
+  const certificates: X509Certificate[] = certificate
+    .split("-----BEGIN CERTIFICATE-----")
+    .filter(_ => _)
+    .map(_ => new X509Certificate("-----BEGIN CERTIFICATE-----" + _));
+
+  // Check if the private key belongs to the (first) certificate
+  if (options?.privateKey) {
+    const key = createPrivateKey({ key: options.privateKey, format: "pem" });
+    if (!certificates[0].checkPrivateKey(key))
+      return { success: false, error: getTid("system:tolliumapps.config.keystore.main.certificatenotforthiskey") };
+  }
+
+  // Check the certificate chain
+  if (options?.checkFullChain) {
+    while (certificates[certificates.length - 1].subject !== certificates[certificates.length - 1].issuer) {
+      const getIssuer = certificates[certificates.length - 1].issuer;
+      if (certificates.length > 10)
+        throw new Error(`Certificate chain too long looking for ${getIssuer}`);
+
+      const response = await fetchWHServiceUrl(`certificatestore/${createWebHareDNHash(getIssuer)}.pem`);
+      if (!response)
+        return { success: false, error: getTid("system:tolliumapps.config.keystore.main.missingcertificate", getIssuer) };
+
+      certificates.push(new X509Certificate(await response.bytes()));
+    }
+  }
+
+  // Single, self-signed certificate?
+  if (certificates.length === 1 && !certificates[0].checkIssued(certificates[0])) {
+    return { success: false, error: getTid("system:tolliumapps.config.keystore.main.missingcertificatechain") };
+  }
+
+  // If we get here, we've got a chain of certificates
+  for (let i = 0; i < certificates.length - 1; ++i) {
+    if (!certificates[i].checkIssued(certificates[i + 1])) {
+      return { success: false, error: getTid("system:tolliumapps.config.keystore.main.signatureverificationfailed") };
+    }
+  }
+
+  return {
+    success: true,
+    certificate: certificates.map(_ => _.toString()).join(""),
+  };
+}
+
+function createWebHareDNHash(readableName: string) {
+  const hash = createHash("sha1");
+  hash.update(readableName.split("\n").join(", "));
+  return hash.digest("hex");
+}
+
+async function fetchWHServiceUrl(url: string) {
+  if (url.startsWith("/"))
+    url = url.substring(1);
+
+  const servicesHosts = await loadlib("mod::system/lib/remoting/whservice.whlib").GetWHServiceServers() as string[];
+  for (const host of servicesHosts) {
+    const response = await fetch(host + url);
+    if (response.ok)
+      return response;
   }
 }
