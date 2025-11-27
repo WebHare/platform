@@ -367,7 +367,6 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         Blex::OptionParser::Option optionlist[] =
         {
                 Blex::OptionParser::Option::Switch("d", false),
-/*                Blex::OptionParser::Option::StringOpt("webhareinterface"),  --currently broken with new manage script. worth the trouble to restore? */
                 Blex::OptionParser::Option::StringOpt("dispatchers"),
                 Blex::OptionParser::Option::ListEnd()
         };
@@ -382,8 +381,6 @@ int WebHareServer::Execute (std::vector<std::string> const &args)
         }
 
         webhare.reset(new WHCore::Connection(optparse, "webserver", WHCore::WHManagerConnectionType::RequireConnected));
-
-        onlyinterfaceport = 0; /* ADDME currently broken, see above optparse.Exists("webhareinterface") ? uint16_t(std::atol(optparse.StringOpt("webhareinterface").c_str())) : 0; */
 
         // ADDME: make this configurable (run-time, or in webhare configuration)
         unsigned numdispatchers = 50; //default
