@@ -25,6 +25,7 @@ export async function requestCertificateTask(req: TaskRequest<{
   certificateId: number;
   domains: string[];
   staging?: boolean;
+  testOnly?: boolean;
   debug?: boolean;
 }>): Promise<TaskResponse> {
   await beginWork();
@@ -110,14 +111,13 @@ export async function requestCertificateTask(req: TaskRequest<{
     const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
 
     // Check the certificate
-    const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.staging });
+    const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.testOnly });
     if (!test.success) {
       return req.resolveByTemporaryFailure(`Invalid certificate received: ${test.error}`);
     }
 
-    if (req.taskdata.staging) {
-      // When using the staging server, don't actually update the certificate and private keys, but return them in the task
-      // result for inspection
+    if (req.taskdata.testOnly) {
+      // Don't actually update the certificate and private keys, but return them in the task result for inspection
       return req.resolveByCompletion({
         certificateId: 0,
         certificate,
