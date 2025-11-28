@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/checks.whlib";
 
 
 PUBLIC CONSTANT INTEGER current_schema_version := 2; //v1 doesn't explicitly mention mod::wrd/data/wrdschemas/base.wrdschema.xml as a dependency, causing 5.03 WH upgrades to not apply WRD_SETTINGS
@@ -743,8 +744,8 @@ PUBLIC STRING FUNCTION GetSafeWRDTag(STRING tag, FUNCTION PTR check_inuse)
   }
 }
 
-STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -795,13 +796,20 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase
 
   /** Called just before the function commits
   */
-  UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
-  {
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction) {
     this->auto_changesets := RECORD[];
     FOREVERY (INTEGER attr FROM this->linkcheckedchangedattrs)
       UpdateCheckedLinksForAttribute(attr);
     IF (LENGTH(this->linkcheckedsettings) != 0)
       UpdateCheckedLinksForSettings(this->linkcheckedsettings);
+    IF (this->metadatachanges) {
+      INTEGER ARRAY changedschemas := SELECT AS INTEGER ARRAY wrdschema FROM this->types WHERE metadatachanged GROUP BY wrdschema;
+      FOREVERY (INTEGER wrdschema FROM changedschemas) {
+        STRING ARRAY issues := CheckSchemaMetadata(wrdschema);
+        IF (IsValueSet(issues))
+          THROW NEW Exception(issues[0]);
+      }
+    }
   }
 
   /** Called when the transaction has committed

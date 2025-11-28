@@ -903,6 +903,20 @@ MACRO TestConversion()
   testfw->RollbackWork();
 }
 
+MACRO TestDuplicateAttributeDetection() {
+  OBJECT wrdschema :=  testfw->GetWRDSchema();
+
+  TestEQ(FALSE, RecordExists(wrdschema->GetType("WRD_RELATION")->GetAttribute("WRD_CONTACT_EMAIL")));
+  TestEQ(TRUE, RecordExists(wrdschema->GetType("WRD_RELATION")->GetAttribute("KARMA")));
+  TestEQ(TRUE, RecordExists(wrdschema->GetType("WRD_PERSON")->GetAttribute("WRD_CONTACT_EMAIL")));
+
+  testfw->BeginWork();
+  TestThrowsLike("*attribute*'KARMA'*already*WRD_PERSON*", PTR wrdschema->GetType("WRD_PERSON")->CreateAttribute("KARMA", "MONEY", [ title := "Duplicate karma" ]));
+  TestThrowsLike("*attribute*'KARMA'*already*WRD_RELATION*", PTR wrdschema->GetType("WRD_RELATION")->CreateAttribute("KARMA", "MONEY", [ title := "Duplicate karma" ]));
+  wrdschema->GetType("WRD_RELATION")->CreateAttribute("WRD_CONTACT_EMAIL", "EMAIL", [ title := "Duplicate email" ]);
+  TestThrowsLike("wrd:testschema: Attribute 'WRD_CONTACT_EMAIL' is present twice in WRD_PERSON", PTR testfw->CommitWork);
+}
+
 
 RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR Setup
@@ -921,6 +935,7 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestConversion
                  , PTR ExportXMLMetadata
                  , PTR VerifyWRDSettingsRecovery
+                 , PTR TestDuplicateAttributeDetection
                  ], [ wrdauth := FALSE
                     , schemaresource := Resolve("data/testconversion-0.wrdschema.xml")
                     ]);

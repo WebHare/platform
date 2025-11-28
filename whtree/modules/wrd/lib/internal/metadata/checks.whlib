@@ -76,3 +76,65 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDIssueList()
 
   RETURN msgs;
 }
+
+PUBLIC STRING ARRAY FUNCTION CheckSchemaMetadata(INTEGER schemaid) {
+  STRING ARRAY issues;
+  STRING schematag := SELECT AS STRING name FROM wrd.schemas WHERE id = schemaid;
+
+  RECORD ARRAY types := SELECT id, tag, requiretype_left, requiretype_right, parenttype, parentposses := INTEGER[], children := INTEGER[ id ] FROM wrd.types WHERE wrd_schema = schemaid ORDER BY id;
+  types := SELECT *, pos := #types FROM types;
+  RECORD ARRAY attrgroups :=
+      SELECT parent
+           , type
+           , attrs := GroupedValues(CELL[ id, tag, type, domain, title ])
+        FROM wrd.attrs
+       WHERE type IN (SELECT AS INTEGER ARRAY id FROM wrd.types WHERE wrd_schema = schemaid)
+         AND parent = 0 // Only top-level attributes
+    GROUP BY parent, type;
+
+  FOREVERY (RECORD type FROM types) {
+    FOREVERY (STRING field FROM [ "requiretype_left", "requiretype_right", "parenttype" ]) {
+      IF (GetCell(type, field) != 0 AND NOT RecordLowerBound(types, [ id := GetCell(type, field) ], [ "ID" ]).found)
+        INSERT `${schematag}: Type '${type.tag}' in schema '${schematag}' has invalid ${field} ${GetCell(type, field)}` INTO issues AT END;
+    }
+  }
+
+  RECORD ARRAY worklist := SELECT * FROM types WHERE parenttype = 0;
+  WHILE (IsValueSet(worklist)) {
+    FOREVERY (RECORD rec FROM worklist) {
+      IF (rec.parenttype != 0) {
+        RECORD pos := RecordLowerBound(types, [ id := rec.parenttype ], [ "ID" ]);
+        types[rec.pos].parentposses := INTEGER[ ...types[rec.pos].parentposses, pos.position ];
+        FOREVERY (INTEGER ppos FROM types[rec.pos].parentposses)
+           INSERT rec.id INTO types[ppos].children AT END;
+      }
+    }
+    worklist := SELECT * FROM types WHERE parenttype IN (SELECT AS INTEGER ARRAY id FROM worklist);
+  }
+
+  RECORD ARRAY namedattrs;
+  FOREVERY (RECORD rec FROM attrgroups) {
+    IF (rec.parent = 0) {
+      RECORD typepos := RecordLowerBound(types, [ id := rec.type ], [ "ID" ]);
+      INTEGER ARRAY ctypes := types[typepos.position].children;
+
+      FOREVERY (RECORD attr FROM rec.attrs) {
+        IF (attr.domain != 0 AND NOT RecordLowerBound(types, [ id := attr.domain ], [ "ID" ]).found)
+          INSERT `${schematag}: Attribute '${attr.tag}' in type '${types[typepos.position].tag}' has invalid domain type ${attr.domain}` INTO issues AT END;
+
+        RECORD npos := RecordLowerBound(namedattrs, attr, [ "tag" ]);
+        IF (NOT npos.found)
+          INSERT CELL[ attr.tag, ctypes := INTEGER[] ] INTO namedattrs AT npos.position;
+        FOREVERY (INTEGER ctype FROM ctypes) {
+          RECORD cpos := LowerBound(namedattrs[npos.position].ctypes, ctype);
+          IF (cpos.found)
+            INSERT `${schematag}: Attribute '${attr.tag}' is present twice in ${types[typepos.position].tag}` INTO issues AT END;
+          ELSE
+            INSERT ctype INTO namedattrs[npos.position].ctypes AT cpos.position;
+        }
+      }
+    }
+  }
+
+  RETURN issues;
+}
