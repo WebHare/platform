@@ -413,7 +413,6 @@
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
       <tryfile path="mod::platform/scripts/routers/unifiedcache.shtml" />
     </webrule>
-    <webrule path="allroots:/.adhocserve/" match="initial" priority="after" redirecttoscript="internal/adhocserve.shtml" />
     <webrule path="allroots:/wh_services/"
              match="initial"
              allowallmethods="true"

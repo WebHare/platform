@@ -139,6 +139,9 @@ export async function init(options: {
 }
 
 export async function runTest(test: Test) {
+  if (!puppeteer)
+    throw new Error("ForegroundRunner not initialized");
+
   const reportid = generateRandomId("hex");
   const testurl = new URL(test.baseurl);
   testurl.searchParams.set("mask", test.testname);
@@ -159,13 +162,59 @@ export async function runTest(test: Test) {
   }
 
   try {
-    page = await puppeteer!.newPage();
+    page = await puppeteer.newPage();
     page.on('console', message => addLogLine(`${message.type().substring(0, 3).toUpperCase()} ${message.text()}`, message.stackTrace()));
     page.on('pageerror', message => addLogLine(`PageError: ${message}`));
+
     // perhaps add these behind a debug flag? they're very noise especially for loading (data:) images
     // page.on('request', req => addLogLine(`Request: ${req.url()}`));
     // page.on('response', response => addLogLine(`Response: ${response.url()} ${response.status()} ${response.statusText()} ${response.headers()["content-type"] || "no content-type"}`));
     page.on('requestfailed', request => addLogLine(`Request failed: ${request.failure()?.errorText} ${request.url()}`));
+
+    //Listen for new service workers
+    puppeteer.on('targetcreated', (target) => {
+      if (target.type() !== 'service_worker')
+        return;
+
+      void target.worker().then(async serviceWorker => {
+        if (!serviceWorker)
+          throw new Error("Could not get service worker");
+
+        void serviceWorker.client.send('Log.enable');
+        void serviceWorker.client.send('Network.enable');
+
+        serviceWorker.client.on('Runtime.consoleAPICalled', (message) => {
+          addLogLine(`(sw: ${message.type}) ${message.args.map(arg => arg.value).join(' ')} `);
+        });
+        serviceWorker.client.on('Log.entryAdded', (message) => {
+          addLogLine(`(sw: Log.entryAdded) ${JSON.stringify(message)} `);
+        });
+
+        serviceWorker.client.on('Network.loadingFailed', (message) => {
+          addLogLine(`(sw: Network.loadingFailed) ${JSON.stringify(message)} `);
+        });
+
+        /* TODO add a debugflag to trace these too?
+        serviceWorker.client.on('Network.loadingFinished', (message) => {
+          console.log('Network.loadingFinished', message);
+        });
+        serviceWorker.client.on('Network.responseReceived', (message) => {
+          console.log('Network.responseReceived', message);
+        });
+        serviceWorker.client.on('Network.requestWillBeSent', (message) => {
+          console.log('Network.requestWillBeSent', message);
+        });
+        */
+
+        serviceWorker.client.on(
+          'Runtime.exceptionThrown',
+          ({ exceptionDetails }) => {
+            const text = `${exceptionDetails.text}${exceptionDetails.exception?.description ?? ''} `;
+            addLogLine(`(sw: Runtime.exceptionThrown) ${text}`);
+          }
+        );
+      });
+    });
 
     if (debug)
       console.log(`Opening test page ${testurl}`);

@@ -52,7 +52,7 @@
     - `/.wh/ea/ap/`: The new location for asset packs (see also getAssetPackBase)
     -->
     <webrule path="allroots:/.wh/auth/" match="initial" router="/js/auth/authpages.ts#authRouter" />
-    <webrule path="allroots:/.wh/adhocserve/" match="initial" priority="after" redirecttoscript="mod::sytem/scripts/internal/adhocserve.shtml" />
+    <webrule path="allroots:/.wh/adhocserve/" match="initial" priority="after" handlebyscript="mod::system/scripts/internal/adhocserve.shtml" />
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after">
       <!-- reset headers that break various buitin pages especially as some (eg preview-supporting pages) are static and can't set headers themselves -->
       <addheader header="X-Frame-Options" value="" />

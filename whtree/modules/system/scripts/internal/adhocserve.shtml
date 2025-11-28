@@ -6,9 +6,9 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 
 STRING url := GetRequestURL();
-STRING localpath := Substring(url, SearchSubstring(url, "/.adhocserve/") + 13);
+STRING localpath := Substring(url, SearchSubstring(url, "/.wh/adhocserve/") + 16);
 
-// Split the local path (after "/.adhocserver/") into port id (first part) and requested file path
+// Split the local path (after "/.wh/adhocserver/") into port id (first part) and requested file path
 STRING id := Tokenize(localpath, "/")[0];
 STRING path := Substring(localpath, Length(id));
 
