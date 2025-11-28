@@ -14,7 +14,7 @@ type RequestACMECertificateOptions = {
   /** Key pair to use for logging in, if not given, a new account is created */
   keyPair?: CryptoKeyPair;
   /** The key pair algorithm to use signing the certificate, defaults to "ec" */
-  keyPairAlgorithm?: "ec" | "rsa";
+  keyPairAlgorithm?: "ec" | "rsa" | "rsa-4096";
   /** If both kid and hmacKey are set, use these for external account binding */
   kid?: string;
   /** Base64url encoded HMAC key */
