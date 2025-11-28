@@ -42,6 +42,9 @@ properties:
   wrdSchemas:
     description: WRD Schemas
     $ref: "#/$defs/WRDSchemas"
+  acmeChallengeHandlers:
+    description: Used in WebHare 5.9
+    type: object
 
 $defs:
   # Server DTAP stages
@@ -430,7 +433,3 @@ $defs:
           title:
             type: string
             description: "Title for the schema"
-
-  ACMEChallengeHandlers:
-    type: object
-    description: Used in WebHare 5.9
