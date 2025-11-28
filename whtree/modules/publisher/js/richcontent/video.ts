@@ -18,7 +18,7 @@ function createMyFrame() {
   Most browsers default to "strict-origin-when-cross-origin", but let's explicitly request it.
   (so video providers can only see from which website you view the video, not which specific page)
   Note that YouTube won't accept "no-referrer", it'll give an "YouTube Error 153" message.
-  (this probably was enforced since juli 2025, error 153 appeared in the IFrame Player API documentation somewhere between 2 and 9 juli 2025)
+  (this probably was enforced since july 2025, error 153 appeared in the IFrame Player API documentation somewhere between 2 and 9 july 2025)
 
   Also see:
   - https://developers.google.com/youtube/iframe_api_reference
