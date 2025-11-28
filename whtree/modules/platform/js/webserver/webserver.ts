@@ -85,6 +85,7 @@ class WebServerPort {
       const response = await coreWebHareRouter(webreq);
       res.statusCode = response.status;
 
+      //coreWebHareRouter has filtered all transfer- headers and the Date header, but will let Content-Length through if present, and that will prevent our the node server from chunking the output
       for (const [key, value] of response.headers.entries())
         if (key !== 'set-cookie')
           res.setHeader(key, value);
@@ -92,6 +93,7 @@ class WebServerPort {
         res.appendHeader("Set-Cookie", cookie);
 
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
+      //FXIME don't buffer all in memory, stream it!
       res.write(new Uint8Array(await response.arrayBuffer()));
       res.end();
 

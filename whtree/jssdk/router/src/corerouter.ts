@@ -62,7 +62,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   const newheaders = new Headers;
   for (const [header, value] of Object.entries(result.headers))
     if (value) {
-      if (!['content-length', 'date'].includes(header) && !header.startsWith('transfer-'))
+      if (!['date'].includes(header) && !header.startsWith('transfer-'))
         for (const val of Array.isArray(value) ? value : [value])
           newheaders.append(header, val);
     }
