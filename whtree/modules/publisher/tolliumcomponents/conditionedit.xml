@@ -22,7 +22,6 @@
       <line>
         <inlineblock name="subconditionline" title="">
           <image width="16px" height="16px" title="" value="tollium:forms/subcondition" />
-          <spacer height="1pr" />
         </inlineblock>
         <select name="field" type="pulldown" onchange="onfieldselect" title="" />
         <inlineblock name="conditioncontainer" width="1pr" title="">
@@ -33,7 +32,7 @@
       </line>
       <line>
         <spacer name="subconditionspacer" width="16px" />
-        <inlineblock name="subconditions" title="" width="1pr">
+        <inlineblock name="subconditions" title="">
           <!-- 'condition' components are added dynamically -->
         </inlineblock>
       </line>
