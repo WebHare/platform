@@ -439,7 +439,7 @@ $defs:
     description: Declare ACME challenge handlers with a factory function
     additionalProperties: false
     patternProperties:
-      "^[a-z_][-a-z0-9_]$": # handler tag
+      "^[a-z_][-a-z0-9_]*$": # Handler name
         type: object
         required:
           - handlerFactory
