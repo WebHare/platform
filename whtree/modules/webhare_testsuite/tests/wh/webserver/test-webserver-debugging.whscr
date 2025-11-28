@@ -27,28 +27,28 @@ MACRO TestDebugging()
 
   // first retrieval, should fail in cache, fall back to 404
   testfw->browser->GotoWebPage(goodkikkerlink);
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/caches/platform/uc/*"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/routers/unifiedcache.shtml"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-SERVERREQUESTURL"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/caches/platform/uc/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/routers/unifiedcache.shtml"));
 
   // second retrieval, cache hit
   testfw->browser->GotoWebPage(goodkikkerlink);
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/caches/platform/uc/*"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/routers/unifiedcache.shtml"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-SERVERREQUESTURL"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/caches/platform/uc/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/routers/unifiedcache.shtml"));
 
   // disable the disk cache by debugging tag
   testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie([ "wud", "wst=platform:unifiedcache" ]));
   testfw->browser->GotoWebPage(goodkikkerlink);
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/caches/platform/uc/*"));
-  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/routers/unifiedcache.shtml"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-SERVERREQUESTURL"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/caches/platform/uc/*"));
+  TestEQ(TRUE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/routers/unifiedcache.shtml"));
 
   testfw->browser->SetSessionCookie("wh-debugwebserver", GetWebserverDebugCookie(STRING[]));
   testfw->browser->GotoWebPage(goodkikkerlink);
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-ServerRequestURL"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/caches/platform/uc/*"));
-  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE field = "X-WH-TryPath" AND value LIKE "*/routers/unifiedcache.shtml"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-SERVERREQUESTURL"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/caches/platform/uc/*"));
+  TestEQ(FALSE, RecordExists(SELECT FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "X-WH-TRYPATH" AND value LIKE "*/routers/unifiedcache.shtml"));
 }
 
 RunTestframework([ PTR TestDebugging

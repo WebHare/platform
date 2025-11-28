@@ -281,53 +281,53 @@ MACRO TestStripExtensions()
 {
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/withext.doc/index.html"));
   TestEq(200, browser->GetHTTPStatus().code);
-  TestEq("", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("", browser->GetResponseHeader("Location"));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions.doc/withext.doc/index.html"));
   TestEq(404, browser->GetHTTPStatus().code);
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc/index.html"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without/index.html", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without/index.html", browser->GetResponseHeader("Location"));
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc/"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without/", browser->GetResponseHeader("Location"));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions/withext/index.html")); //decided not to support this scenario
   TestEq(404, browser->GetHTTPStatus().code);
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without/index.html"));
   TestEq(200, browser->GetHTTPStatus().code);
-  TestEq("", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("", browser->GetResponseHeader("Location"));
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/withext.doc"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/!optionalcomponent/without.doc"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/!optionalcomponent/without.doc/!/wheretogofromhere"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without/!/wheretogofromhere", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/!optionalcomponent/without/!/wheretogofromhere", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without/", browser->GetResponseHeader("Location"));
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without.doc?var"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without?var", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without?var", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/without?var"));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("/webserver-beta-testing/stripextensions/without/?var", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/without/?var", browser->GetResponseHeader("Location"));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "stripextensions/geheim/"));
   TestEq(401, browser->GetHTTPStatus().code, browser->url);
 
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || "stripextensions/geheim.doc/"));
   TestEq(301, browser->GetHTTPStatus().code); //ADDME: allow extension-redirects to be disabled when we no longer need them. in the future, do this by default
-  TestEq("/webserver-beta-testing/stripextensions/geheim/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("/webserver-beta-testing/stripextensions/geheim/", browser->GetResponseHeader("Location"));
 }
 
 MACRO TestIPV6()
@@ -462,7 +462,7 @@ MACRO TestAuthScripts()
   //Requesting customaccess without a slash, should redirect us to customaccess with slash
   TestEq(TRUE, browser->GotoWebPage(Left(authbaseurl, Length(authbaseurl)-1)));
   TestEq(303, browser->GetHTTPStatus().code);
-  TestEq(authbaseurl, (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+  TestEq(authbaseurl, (browser->GetResponseHeader("Location")));
 
   TestEq(FALSE, browser->GotoWebPage(authbaseurl));
   TestEq(401, browser->GetHTTPStatus().code);
@@ -557,7 +557,7 @@ MACRO Status404()
                                                      ], "multipart/form-data"));
   TestEq(401, browser->GetHTTPStatus().code);
   //Cache-Control must be no-chace, this was a dynamic SHTML request
-  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq("no-cache", (browser->GetResponseHeader("Cache-Control")));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || "deepererrors/bestaatniet.html"));
   TestEq("A different 404!", TrimWhitespace(BlobToString(browser->content,1000)));
@@ -751,7 +751,7 @@ MACRO TestFlushWebResponse()
   //We expect the POST to fail
   TestEq(TRUE, browser->PostWebPage(testfile_webpath, [[ name := "type", value := "flushwebresponse" ]
                                                      ], "multipart/form-data"));
-  TestEq("no-cache", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Cache-Control"));
+  TestEq("no-cache", (browser->GetResponseHeader("Cache-Control")));
   TestEq(200, browser->GetHTTPStatus().code); //even though we expect an abort, it's too late to intercept the response
   TestEq("First test flush web responseSecond test flush web response", BlobToString(browser->content,59));
   //we no longer append the error response
@@ -871,18 +871,18 @@ MACRO AccessRules()
   TestEq(404, browser->GetHTTPStatus().code);
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir'));
   TestEq(303, browser->GetHTTPStatus().code);
-  TestEq(betabaseurl || 'subdir/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+  TestEq(betabaseurl || 'subdir/', (browser->GetResponseHeader("Location")));
 
   TestEq(FALSE, browser->GotoWebPage(betabaseurl || 'nosubdir2'));
   TestEq(404, browser->GetHTTPStatus().code);
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir2'));
   TestEq(303, browser->GetHTTPStatus().code);
-  TestEq(betabaseurl || 'subdir2/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+  TestEq(betabaseurl || 'subdir2/', (browser->GetResponseHeader("Location")));
 
   //Request a fake directory, test against "confused if files do exist on disk" regression
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'subdir3'));
   TestEq(303, browser->GetHTTPStatus().code);
-  TestEq(betabaseurl || 'subdir3/', (SELECT AS STRING value FROM browser->responseheaders WHERE field="Location"));
+  TestEq(betabaseurl || 'subdir3/', (browser->GetResponseHeader("Location")));
 
 
   //But requesting through the recurse dir should work fine
@@ -913,15 +913,15 @@ MACRO AcceptRange()
 
   //baseline test, header should normally not be there
   TestEq(TRUE, browser->GotoWebPage(testfile_webpath || '?type=echo'));
-  TestEq("", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+  TestEq("", (browser->GetResponseHeader("Accept-Ranges")));
   //static PDF
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'test.pdf'));
-  TestEq("application/pdf", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Content-Type"));
-  TestEq("bytes", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+  TestEq("application/pdf", (browser->GetResponseHeader("Content-Type")));
+  TestEq("bytes", (browser->GetResponseHeader("Accept-Ranges")));
   //dynamic PDF
   TestEq(TRUE, browser->GotoWebPage(testfile_webpath || '?type=echo&mimetype=application/pdf'));
-  TestEq("application/pdf", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Content-Type"));
-  TestEq("bytes", (SELECT AS STRING value FROM browser->responseheaders WHERE field="Accept-Ranges"));
+  TestEq("application/pdf", (browser->GetResponseHeader("Content-Type")));
+  TestEq("bytes", (browser->GetResponseHeader("Accept-Ranges")));
 }
 
 /*
@@ -946,7 +946,7 @@ MACRO WildcardMatching()
 {
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'matched-by-a-wildcard/'));
   TestEq(302, browser->GetHTTPStatus().code);
-  TestEq("http://www.wildcard.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.wildcard.invalid/", browser->GetResponseHeader("Location"));
 }
 
 MACRO PostToNonDynamicPage() //we need POSTs to dynamic pages to no longer return 405s, because that sucks when dealing with eg Facebook atbs
@@ -960,20 +960,20 @@ MACRO ExactSubpageMatching()
 {
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/'));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.test.invalid/", browser->GetResponseHeader("Location"));
   //make sure webbrowser strips #. not really a webserver test...
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/#'));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.test.invalid/", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/index.html'));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.test.invalid/", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || 'defaultpagetest/index.shtml'));
   TestEq(301, browser->GetHTTPStatus().code);
-  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.test.invalid/", browser->GetResponseHeader("Location"));
   TestEq(TRUE, browser->GotoWebPage(betabaseurl || '307test/'));
   TestEq(307, browser->GetHTTPStatus().code);
-  TestEq("http://www.test.invalid/", SELECT AS STRING value FROM browser->responseheaders WHERE field="Location");
+  TestEq("http://www.test.invalid/", browser->GetResponseHeader("Location"));
 }
 
 MACRO AuthenticateWebsession()
@@ -1523,7 +1523,7 @@ MACRO TestGlobalAccessRules()
   TestEQ(TRUE, testfw->browser->GotoWebPage(ResolveToAbsoluteURL(testfw->GetTestSite()->webroot, "bob.jpg")));
 
   // highest priority number is run last, so we get that header
-  TestEQ("6", SELECT AS STRING value FROM testfw->browser->responseheaders WHERE field = "X-Ordertest");
+  TestEQ("6", testfw->browser->GetResponseHeader("X-ORDERTEST"));
 }
 
 
