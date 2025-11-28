@@ -27,6 +27,12 @@ const obsoleteStuff = [
   backendConfig.dataRoot + "caches/run",
   //5.9 Webserver pid file
   backendConfig.dataRoot + ".webhare-webserver.pid",
+  //5.9 Discovered old stray files/directories
+  backendConfig.dataRoot + "lib", //no updates since 2023. held locally installed OCI libraries but we no longer support OCI in HareScript
+  backendConfig.dataRoot + ".envsettings", //no updates since 2019
+  backendConfig.dataRoot + ".last-monthly-cleanup", //no updates since 2020
+  backendConfig.dataRoot + "home", //old home dirs. root has /opt/whdata/root now and other apps have ephemeral homes
+  backendConfig.dataRoot + "serverconfig.xml", //no updates since 2021, old experiment with central server configuration
 ];
 
 for (const todelete of obsoleteStuff)
