@@ -17,6 +17,10 @@ export class WebServerFileLogger implements WebServerLogger {
   pxllog = new RotatingLogFile(backendConfig.dataRoot + "log/pxl");
 
   logRequest(request: WebRequest) {
+    /* TODO
+    {"@timestamp":"2025-11-27T00:00:00.311Z","ip":"10.55.55.55","method":"GET","url":"https://webhare.moe.sf.webhare.dev/testoutput/edudex_api/admin/v1/organizations","statusCode":200,"bodySent":278011,"userAgent":"node","mimeType":"application/json","responseTime":0.119902}
+    */
+
     const data = {
       ip: request.clientIp,
       method: request.method,

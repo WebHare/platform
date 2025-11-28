@@ -47,7 +47,8 @@ class WebServerPort {
       method: req.method!.toUpperCase() as HTTPMethod,
       headers: req.headers as Record<string, string>,
       body,
-      clientWebServer: this.fixedHost?.id || 0
+      clientWebServer: this.fixedHost?.id || 0,
+      clientIp: req.socket.remoteAddress || '' //TODO Do we need to process X-Forwarded-For here or later? here we probably know we're the trusted port. or was it: X-forwarded-for if your IP matches the regkey, x-wh-proxy if its the trusted port ?
     });
     return webreq;
   }
