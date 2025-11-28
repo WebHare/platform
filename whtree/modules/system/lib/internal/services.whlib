@@ -263,26 +263,31 @@ PUBLIC OBJECT ASYNC FUNCTION CreateServiceStartWait(STRING service, INTEGER time
   RETURN retval;
 }
 
-ASYNC MACRO AttemptAutoStart(STRING servicename)
-{
+PUBLIC VARIANT FUNCTION InvokeOnServiceManager(STRING method, VARIANT ARRAY args) {
+  //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
+  OBJECT smservice := __OpenSynchronousWebHareService("platform:servicemanager", [ timeout := 5000 ]);
+  TRY {
+    RETURN CallAnyPtrVA(GetObjectMethodPtr(smservice, method), args);
+  } FINALLY {
+    smservice->CloseService();
+  }
+}
+
+ASYNC MACRO AttemptAutoStart(STRING servicename) {
   //TODO avoid a thundering herd, throttle repeated auto starts from our side
   //TODO check configuration (where will we persist the service list) whether this service can be started on demand
-  //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
-  OBJECT smservice;
-  TRY
-  {
-    smservice := AWAIT OpenWebhareService("platform:servicemanager", [ timeout := 5000, notondemand := TRUE ]);
-    AWAIT smservice->startService(servicename);
-  }
-  CATCH(OBJECT ignore)
-  {
-    //ignore exceptions, we'll just timeout then
-  }
-  FINALLY
-  {
-    IF(ObjectExists(smservice))
-      smservice->CloseService();
-  }
+  InvokeOnServiceManager("startService", VARIANT[ servicename ]);
+}
+
+PUBLIC BOOLEAN FUNCTION IsServiceRunning(STRING servicename) {
+  RECORD state := InvokeOnServiceManager("getWebHareState", VARIANT[]);
+  RETURN RecordExists(SELECT FROM state.availableServices WHERE name = servicename AND isrunning);
+}
+
+PUBLIC MACRO RestartService(STRING servicename) {
+  RECORD result := InvokeOnServiceManager("restartService", VARIANT[ servicename ]);
+  IF(result.errormessage)
+    THROW NEW Exception(result.errormessage);
 }
 
 /** Open a WebHare service

@@ -44,7 +44,7 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
     @return The configuration load status as reported by ConfigureWebserver. */
 PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  BOOLEAN have_js_webserver := GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node";
+  BOOLEAN have_js_webserver := IsServiceRunning("platform:webserver-node");
   IF(have_js_webserver) {
     OBJECT service := __OpenSynchronousWebHareService("platform:webserver");
     service->ReloadConfig();
