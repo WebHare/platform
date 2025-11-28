@@ -91,7 +91,7 @@ export async function requestCertificateTask(req: TaskRequest<{
         directory,
         domains: req.taskdata.domains,
         provider: provider.issuerDomain,
-        // For wildcard certificates, use dns-01, otherwise use http-01 challenges, for harica.gr no challenge is needed
+        // For wildcard certificates, use dns-01, otherwise use http-01 challenges
         dnsChallenge: wildcard,
         httpChallenge: !wildcard,
       });
