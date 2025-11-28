@@ -13,6 +13,23 @@ function createMyFrame() {
   ifrm.style.height = "100%";
   ifrm.setAttribute("frameborder", 0);
   ifrm.setAttribute("allowfullscreen", "");
+
+  /*
+  Most browsers default to "strict-origin-when-cross-origin", but let's explicitly request it.
+  (so video providers can only see from which website you view the video, not which specific page)
+  Note that YouTube won't accept "no-referrer", it'll give an "YouTube Error 153" message.
+  (this probably was enforced since july 2025, error 153 appeared in the IFrame Player API documentation somewhere between 2 and 9 july 2025)
+
+  Also see:
+  - https://developers.google.com/youtube/iframe_api_reference
+  - https://developers.google.com/youtube/terms/required-minimum-functionality#embedded-player-api-client-identity
+  */
+  ifrm.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+
+  // delegate autoplay (for Chrome) and fullscreen permission to the video player iframe
+  // see: https://developer.chrome.com/blog/autoplay/#iframe_delegation
+  ifrm.setAttribute("allow", "autoplay; fullscreen");
+
   return ifrm;
 }
 
