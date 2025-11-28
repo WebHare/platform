@@ -63,7 +63,8 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   for (const [header, value] of Object.entries(result.headers))
     if (value) {
       if (!['content-length', 'date'].includes(header) && !header.startsWith('transfer-'))
-        newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
+        for (const val of Array.isArray(value) ? value : [value])
+          newheaders.append(header, val);
     }
 
   //A null body status is a status that is 101, 103, 204, 205, or 304.

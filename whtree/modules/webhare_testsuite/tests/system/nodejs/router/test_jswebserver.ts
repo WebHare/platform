@@ -124,9 +124,8 @@ async function testOurWebserver() {
     headers: { host: markdowndocurl.host, accept: "application/json" },
     dispatcher: insecureagent
   });
-  const setcookie: string[] = (fetcher.headers["set-cookie"] as string)?.split?.(',') ?? [];
-  test.eq(7, setcookie.length);
-  test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", setcookie[1].trim());
+  test.eq(7, fetcher.headers["set-cookie"]?.length);
+  test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", fetcher.headers["set-cookie"]?.[1]);
 
   //TODO without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why. and now ws.close isn't enough either so we're missing something...
   console.log("jswebserver test done");
