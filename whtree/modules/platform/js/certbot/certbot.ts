@@ -86,7 +86,7 @@ export async function testCertificate(certificate: string, options?: TestCertifi
       if (!cert)
         return { success: false, error: getTid("system:tolliumapps.config.keystore.main.missingcertificate", getIssuer) };
 
-      certificates.push(new X509Certificate(cert));
+      certificates.push(cert.parsed);
     }
   }
 
