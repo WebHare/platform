@@ -2,6 +2,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 
 LOADLIB "mod::tollium/lib/dragdrop.whlib";
@@ -12,6 +13,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib" EXPORT GetWebhareModules, GetWebhareModuleInfo;
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -42,6 +44,13 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
     @return The configuration load status as reported by ConfigureWebserver. */
 PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  BOOLEAN have_js_webserver := IsServiceRunning("platform:webserver-node");
+  IF(have_js_webserver) {
+    OBJECT service := __OpenSynchronousWebHareService("platform:webserver");
+    service->ReloadConfig();
+    service->CloseService();
+  }
+
   DATETIME now := GetCurrentDatetime();
   options := ValidateOptions( [ nowait := FALSE ], options);
   LogDebug("system:refreshglobalwebserverconfig-start", CELL[ options.nowait ], GetstackTrace());

@@ -19,7 +19,10 @@ function replaceLogParts(key: string, value: unknown) {
 }
 
 ///Create a string logline, order timestamp to front
-export function formatLogObject(when: Date | string, logline: LoggableRecord): string {
-  const timestamp = typeof when === "string" ? when : when.toISOString();
-  return JSON.stringify({ "@timestamp": timestamp, ...logline }, replaceLogParts);
+export function formatLogObject(when: Date | string | null, logline: LoggableRecord): string {
+  if (when) {
+    const timestamp = typeof when === "string" ? when : when.toISOString();
+    logline = { "@timestamp": timestamp, ...logline };
+  }
+  return JSON.stringify(logline, replaceLogParts);
 }

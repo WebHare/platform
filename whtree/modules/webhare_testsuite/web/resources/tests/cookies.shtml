@@ -3,8 +3,6 @@
 LOADLIB "mod::system/lib/webserver.whlib";
 
 
-STRING cookieteststr := ' abc%def"ghi&jkl ';
-
 SWITCH(GetWebVariable("type"))
 {
   /* cookie tests */
@@ -12,28 +10,15 @@ SWITCH(GetWebVariable("type"))
   {
     BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
     UpdateWebCookie("cookietest", " a;b,c,%,&,\" ", [ encrypt := encrypt ]);
-    AddHTTPHeader("Set-Cookie", "classic=\"" || encodeJava(Cookieteststr) || "\"; Path=/;Domain=", TRUE);
   }
   CASE "setcookie2", "setencryptedcookie2"
   {
     BOOLEAN encrypt := GetWebVariable("type") LIKE "*encrypt*";
 
-    //ensure first that webbrowser did it properly
-    IF(NOT encrypt)
-    {
-      STRING cookies := GetWebHeader("Cookie");
-      IF(cookies NOT LIKE '*cookietest=%20a%3Bb%2Cc%2C%25%2C%26%2C%22%20; classic="' || EncodeJAva(cookieteststr) || '"*')
-        ABORT("Unexpected cookie header [" || GetWebHeader("Cookie") || "]");
-    }
-
     //that worked. verify that the first cookie was read properly
     STRING firstcookie := encrypt ? GetDecryptedWebCookie("COOKIETEST") : GetWebCookie("COOKIETEST");
     IF(firstcookie != " a;b,c,%,&,\" ")
       ABORT("Unexpected cookietest result [" || firstcookie || "] " || GetWebCookie("COOKIETEST"));
-
-    //now verify that the old-style webhare cookie was read properly
-    IF(GetWebCookie("ClAssIC") != cookieteststr)
-      ABORT("Unexpected classic cookie result [" || GetWebCookie("ClAssIC") || "]");
 
     UpdateWebCookie("cookie2", "ja");
     UpdateWebCookie("COOKIE2", "oh nee toch niet");

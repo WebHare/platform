@@ -10,7 +10,7 @@ import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
 import { isTruthy, pick, whenAborted } from "@webhare/std";
-import { handleCrossOriginResourceSharing } from "../webserver/cors";
+import { handleCrossOriginResourceSharing } from "../../../../platform/js/webserver/cors";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { mergeIntoBundled } from "../generation/gen_openapi";

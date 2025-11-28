@@ -81,7 +81,6 @@ class WebHareServer
 
         ToDo GetTask();
         Blex::Thread maintenancethread;
-        uint16_t onlyinterfaceport;
 
         unsigned config_notifyid;
         unsigned users_notify_id;

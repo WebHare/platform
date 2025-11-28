@@ -36,22 +36,36 @@ const defaultServices: Record<string, ServiceDefinition> = {
     criticalForStartup: true,
     run: "always"
   },
+  //The HS webserver needs *some* harescript code but that code shouldn't depend on external modules and thus be precompiled. we can launch without a ready whcompile!
+  ...(process.env.WEBHARE_WEBSERVER === "node" ? {
+    "platform:webserver-node": {
+      cmd: ["wh", "run", "mod::platform/js/webserver/cli-webserver.ts"],
+      startIn: Stage.Bootup,
+      run: "always"
+    },
+    "platform:webserver": {
+      cmd: ["webserver", "--secondary", "--dispatchers", "25"], //50 seems excessive for a secondary?
+      //Our startIn should match the platform:webserver
+      startIn: Stage.Bootup,
+      run: "always"
+    }
+  } : {
+    "platform:webserver": {
+      cmd: ["webserver", "--dispatchers", "50"], //50 was the default but we might make it tunable ?
+      startIn: Stage.Bootup,
+      run: "always"
+    },
+  }),
   /** The startup stage is executed as soon as the HareScript compiler is responsive
    *
    * webhareservice-startup.ts will run the legacy webhareservice-startup.whscr as soon as basic configuration is in place
    */
-  "platform:webserver": {
-    cmd: ["webserver.sh"],
-    //The HS webserver needs *some* harescript code but that code shouldn't depend on external modules and thus be precompiled. we can launch without a ready whcompile!
-    startIn: Stage.Bootup,
-    run: "always"
-  },
   "platform:webhareservice-startup": {
     cmd: ["wh", "run", "mod::system/scripts/internal/webhareservice-startup.ts"],
     startIn: Stage.StartupScript,
     run: "once"
   },
-  /// Cluster services enable mutexes (and also set up some after-commit handlers). The startup scripts should not attempt to use cluster services (nothing runs parallelo them anyway)
+  /// Cluster services enable mutexes (and also set up some after-commit handlers). The startup scripts should not attempt to use cluster services (nothing runs parallel to them anyway)
   "platform:clusterservices": {
     cmd: ["wh", "run", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
     startIn: Stage.StartupScript,

@@ -1220,9 +1220,9 @@ MACRO TestCookies()
   TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setcookie2" ]
                                                              ], "multipart/form-data"));
 
-  TestEq(1,Length(SELECT * FROM testfw->browser->responseheaders WHERE field = "Set-Cookie"));
+  TestEq(1,Length(SELECT * FROM testfw->browser->responseheaders WHERE ToUppercase(field) = "SET-COOKIE"));
 
-  //test ecnyrpted cookies proper cookie, and one set by old webhare code
+  //test encrypted cookies proper cookie
   TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setencryptedcookie1" ]
                                                              ], "multipart/form-data"));
 

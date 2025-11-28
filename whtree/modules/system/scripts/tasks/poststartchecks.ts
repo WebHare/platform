@@ -1,6 +1,6 @@
 // Various checks to run after startup (but not block poststartdone)
 
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { backendConfig, toFSPath } from "@webhare/services";
 
@@ -18,3 +18,16 @@ for (const cachefolder of [
   if (!existsSync(cachetag))
     writeFileSync(cachetag, "Signature: 8a477f597d28d172789f06886806bc55\n# Created by WebHare - the contents of this directory are easily recreated and do not need to be backed up\n", { encoding: "utf8" });
 }
+
+// Obsolete stuff
+const obsoleteStuff = [
+  //5.9 Delete visible version of cli-autocomplete.sock, it's .cli-autocomplete.sock now (dot prefixed)
+  backendConfig.dataRoot + "cli-autocomplete.sock",
+  //5.9 Delete misplaced run/ dir
+  backendConfig.dataRoot + "caches/run",
+  //5.9 Webserver pid file
+  backendConfig.dataRoot + ".webhare-webserver.pid",
+];
+
+for (const todelete of obsoleteStuff)
+  rmSync(todelete, { recursive: true, force: true });

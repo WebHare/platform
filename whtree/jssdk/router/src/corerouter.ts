@@ -63,10 +63,14 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   for (const [header, value] of Object.entries(result.headers))
     if (value) {
       if (!['content-length', 'date'].includes(header) && !header.startsWith('transfer-'))
-        newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
+        for (const val of Array.isArray(value) ? value : [value])
+          newheaders.append(header, val);
     }
 
-  return createWebResponse(body, { status: result.statusCode, headers: newheaders });
+  //A null body status is a status that is 101, 103, 204, 205, or 304.
+  //We may not send a body with those
+  const nullStatuses = [101, 103, 204, 205, 304];
+  return createWebResponse(nullStatuses.includes(result.statusCode) ? undefined : body, { status: result.statusCode, headers: newheaders });
 }
 
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk

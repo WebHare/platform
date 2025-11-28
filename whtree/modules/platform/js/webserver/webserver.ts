@@ -6,6 +6,10 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { type Configuration, type Port, type Host, initialconfig } from "./webconfig";
 import { IncomingWebRequest } from "@webhare/router/src/request";
+import { BackendServiceConnection, runBackendService } from '@webhare/services';
+import type { WebHareService } from '@webhare/services/src/backendservicerunner';
+import { loadlib } from '@webhare/harescript';
+import type { WebServerLogger } from './logger';
 
 class WebServerPort {
   server: http.Server | https.Server;
@@ -13,7 +17,7 @@ class WebServerPort {
   overrideHost: string | undefined;
   readonly port: Port;
 
-  constructor(port: Port, fixedHost: Host | undefined) {
+  constructor(public webserver: WebServer, port: Port, fixedHost: Host | undefined) {
     this.port = port;
     this.fixedHost = fixedHost;
     if (fixedHost)
@@ -53,7 +57,6 @@ class WebServerPort {
       if (!req.method || !req.url)
         throw new Error("Incomplete request?");
 
-      console.log(`${req.method} ${req.headers.host} ${req.url}`);
       //TODO timeout for receiving 'end' event or something else that discards too long requests
       const bodyParts = new Array<Buffer>;
       let bodyLength = 0;
@@ -83,11 +86,18 @@ class WebServerPort {
       res.statusCode = response.status;
 
       for (const [key, value] of response.headers.entries())
-        res.setHeader(key, value); //entries() returns all individual cookie headers so expanding getSetCookie is not needed
+        if (key !== 'set-cookie')
+          res.setHeader(key, value);
+      for (const cookie of response.headers.getSetCookie())
+        res.appendHeader("Set-Cookie", cookie);
 
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
       res.write(new Uint8Array(await response.arrayBuffer()));
       res.end();
+
+      //TODO once clustering we need a two stage log where we inform our parent of start & end of request processing, and the parent actually writes the log and can still log something useful if we crash
+      this.webserver.logger?.logRequest(webreq);
+
     } catch (e) {
       this.handleException(e, req, res);
     }
@@ -155,18 +165,67 @@ class WebServerPort {
   }
 }
 
-class WebServer {
+class WebServerClient extends BackendServiceConnection {
+  constructor(public ws: WebServer) {
+    super();
+  }
+  async reloadConfig() {
+    return await this.ws.loadConfig();
+  }
+}
+
+export class WebServer {
   config: Configuration;
   ports = new Set<WebServerPort>();
+  service: WebHareService | null = null;
+  rescuePort;
+  rescueIp;
+  forceConfig;
+  activeConfig: Configuration | null = null;
+  logger: WebServerLogger | null = null;
 
-  constructor() {
+  constructor(servicename: string, options?: { rescuePort?: number; rescueIp?: string; forceConfig?: Configuration; logger?: WebServerLogger }) {
     this.config = initialconfig;
+    this.forceConfig = options?.forceConfig;
+    this.rescuePort = options?.rescuePort;
+    this.rescueIp = options?.rescueIp;
+    this.logger = options?.logger || null;
+    void runBackendService(servicename, () => new WebServerClient(this), { autoRestart: false, dropListenerReference: true }).then(s => this.service = s);
+
+    if (this.forceConfig)
+      this.reconfigure(this.forceConfig);
+    else
+      void this.loadConfig();
+  }
+
+  async loadConfig() {
+    if (this.forceConfig) {
+      this.reconfigure(this.forceConfig);
+      return;
+    }
+
+    const config = await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig() as Configuration;
+
+    //Remove the HS trusted port from our bindlist - that one needs to be held by the HS webserver
+    const trustedportidx = config.ports.findIndex(_ => _.id === -6 /*whwebserverconfig_hstrustedportid*/);
+    if (trustedportidx >= 0)
+      config.ports.splice(trustedportidx, 1);
+
+    this.reconfigure(config);
   }
 
   reconfigure(config: Configuration) {
+    this.activeConfig = structuredClone(config);
+
+    if (this.rescuePort) {
+      config.ports = config.ports.filter(_ => _.id === -4); //keeps only the original 13679 rescueport
+      config.ports[0].port = this.rescuePort;
+      config.ports[0].ip = this.rescueIp || "127.0.0.1";
+    }
+
     for (const port of config.ports) {
       const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port === port.id) : undefined;
-      this.ports.add(new WebServerPort(port, fixedhost));
+      this.ports.add(new WebServerPort(this, port, fixedhost));
     }
   }
 
@@ -178,10 +237,4 @@ class WebServer {
     this.ports.forEach(_ => _.server.close());
     this.ports.clear();
   }
-}
-
-export async function launch(config: Configuration) {
-  const ws = new WebServer();
-  ws.reconfigure(config);
-  return ws;
 }

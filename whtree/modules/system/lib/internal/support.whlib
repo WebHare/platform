@@ -230,12 +230,6 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
         ] INTO apps AT END;
   }
 
-  IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node") //servicemanager will have to manage the HareScript/C++ webserver?
-    INSERT
-        [ name :=       "system:hswebserver"
-        , cmdline :=    "webserver"
-        ] INTO apps AT END;
-
   trans->Close();
 
   RETURN apps;

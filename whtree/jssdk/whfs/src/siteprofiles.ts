@@ -3,7 +3,7 @@
 import type { FieldLayout } from "@mod-platform/generated/schema/siteprofile";
 import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
-import type { Rule } from "@mod-system/js/internal/webserver/webconfig";
+import type { Rule } from "@mod-platform/js/webserver/webconfig";
 import type { ToSnakeCase } from "@webhare/std/src/types";
 
 export enum CSPMemberType {

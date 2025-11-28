@@ -359,10 +359,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllWebCookies()
 
       STRING cookiename := Left(cookietok, SearchSubstring(cookietok, '='));
       STRING cookievalue := Substring(cookietok, Length(cookiename)+1);
-      IF(cookievalue LIKE '"*"') //classic value
-        cookievalue := DecodeJava(Substring(cookievalue, 1, Length(cookievalue)-2));
-      ELSE
-        cookievalue := DecodeURL(cookievalue);
+      cookievalue := DecodeURL(cookievalue);
 
       INSERT [ name := cookiename
              , value := cookievalue
