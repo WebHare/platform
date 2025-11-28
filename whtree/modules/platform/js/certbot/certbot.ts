@@ -9,8 +9,8 @@ export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 type CertificateRequestOptions = {
   /** The id of the certificate/private key to update, if it doesn't exist, a new certificate/private key is created  */
   certificateId?: number;
-  /** If the staging server should be used (only if the certificate provider's acme directory is not set and its issuer
-      domain is known, defaults to true) */
+  /** If the certificate provider's staging directory should be used, implies testOnly (only if the certificate provider's
+      ACME directory is not explicitly set and its issuer domain is known, defaults to true) */
   staging?: boolean;
   /** Only request and test the certificate, do not update/create the certificate/private key */
   testOnly?: boolean;

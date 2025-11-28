@@ -23,6 +23,7 @@
       <free tag="eab_kid" />
       <free tag="eab_hmackey" />
       <email tag="email" />
+      <enum tag="key_pair_algorithm" allowedvalues="ec rsa rsa-4096" />  <!-- If empty, "rsa" is used by default -->
       <free tag="acme_challenge_handler" />
       <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks -->
     </attributes>

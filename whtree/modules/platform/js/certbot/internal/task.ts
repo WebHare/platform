@@ -33,7 +33,10 @@ export async function requestCertificateTask(req: TaskRequest<{
   // Find the relevant certificate provider
   const providers = await systemConfigSchema
     .query("certificateProvider")
-    .select(["wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist", "acmeChallengeHandler"])
+    .select([
+      "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
+      "keyPairAlgorithm", "acmeChallengeHandler"
+    ])
     .execute();
   // Split the allowlist into separate domain masks
   const providersWithMasks = providers.map(provider => ({
@@ -98,7 +101,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     const result = await doRequestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
       keyPair,
-      keyPairAlgorithm: "rsa",
+      keyPairAlgorithm: provider.keyPairAlgorithm ?? "rsa",
       kid: provider.eabKid ? provider.eabKid : undefined,
       hmacKey: provider.eabHmackey ? provider.eabHmackey : undefined,
       updateDnsRecords: wildcard ? updateDnsRecords.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
@@ -111,12 +114,12 @@ export async function requestCertificateTask(req: TaskRequest<{
     const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
 
     // Check the certificate
-    const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.testOnly });
+    const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.staging && !req.taskdata.testOnly });
     if (!test.success) {
       return req.resolveByTemporaryFailure(`Invalid certificate received: ${test.error}`);
     }
 
-    if (req.taskdata.testOnly) {
+    if (req.taskdata.staging || req.taskdata.testOnly) {
       // Don't actually update the certificate and private keys, but return them in the task result for inspection
       return req.resolveByCompletion({
         certificateId: 0,
@@ -155,11 +158,11 @@ async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dn
   try {
     await handler.setupDNSChallenge(dnsRecord);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])) });
+      logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])) });
   } catch(e) {
     logError(e as Error);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
+      logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
   }
 }
 
@@ -169,11 +172,11 @@ async function updateHttpResources(acmeChallengeHandler: string, debug: boolean,
   try {
     await handler.setupHTTPChallenge(httpResource);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])) });
+      logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])) });
   } catch(e) {
     logError(e as Error);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
+      logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
   }
 }
 
