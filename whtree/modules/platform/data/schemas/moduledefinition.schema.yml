@@ -430,3 +430,7 @@ $defs:
           title:
             type: string
             description: "Title for the schema"
+
+  ACMEChallengeHandlers:
+    type: object
+    description: Used in WebHare 5.9
