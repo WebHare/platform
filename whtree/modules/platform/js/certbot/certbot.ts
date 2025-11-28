@@ -1,8 +1,8 @@
 import { getTid } from "@webhare/gettid";
-import { loadlib } from "@webhare/harescript";
 import { retrieveTaskResult, scheduleTask } from "@webhare/services";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { createHash, createPrivateKey, X509Certificate } from "node:crypto";
+import { createPrivateKey, X509Certificate } from "node:crypto";
+import { lookupKey, splitPEMCertificateBundle } from "../webserver/keymgmt";
 
 export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 
@@ -47,7 +47,7 @@ export async function requestACMECertificate(domains: string[], options?: Certif
 
   try {
     return await retrieveTaskResult<CertificateRequestResult>(taskId);
-  } catch(e) {
+  } catch (e) {
     return { success: false, error: (e as Error).message };
   }
 }
@@ -65,10 +65,8 @@ export async function testCertificate(certificate: string, options?: TestCertifi
   error: string;
 }> {
   // Try to read the certificate chain
-  const certificates: X509Certificate[] = certificate
-    .split("-----BEGIN CERTIFICATE-----")
-    .filter(_ => _)
-    .map(_ => new X509Certificate("-----BEGIN CERTIFICATE-----" + _));
+  const certificates: X509Certificate[] = splitPEMCertificateBundle(certificate).
+    map(_ => new X509Certificate(_));
 
   // Check if the private key belongs to the (first) certificate
   if (options?.privateKey) {
@@ -84,11 +82,11 @@ export async function testCertificate(certificate: string, options?: TestCertifi
       if (certificates.length > 10)
         throw new Error(`Certificate chain too long looking for ${getIssuer}`);
 
-      const response = await fetchWHServiceUrl(`certificatestore/${createWebHareDNHash(getIssuer)}.pem`);
-      if (!response)
+      const cert = await lookupKey(getIssuer);
+      if (!cert)
         return { success: false, error: getTid("system:tolliumapps.config.keystore.main.missingcertificate", getIssuer) };
 
-      certificates.push(new X509Certificate(await response.bytes()));
+      certificates.push(cert.parsed);
     }
   }
 
@@ -108,22 +106,4 @@ export async function testCertificate(certificate: string, options?: TestCertifi
     success: true,
     certificate: certificates.map(_ => _.toString()).join(""),
   };
-}
-
-function createWebHareDNHash(readableName: string) {
-  const hash = createHash("sha1");
-  hash.update(readableName.split("\n").join(", "));
-  return hash.digest("hex");
-}
-
-async function fetchWHServiceUrl(url: string) {
-  if (url.startsWith("/"))
-    url = url.substring(1);
-
-  const servicesHosts = await loadlib("mod::system/lib/remoting/whservice.whlib").GetWHServiceServers() as string[];
-  for (const host of servicesHosts) {
-    const response = await fetch(host + url);
-    if (response.ok)
-      return response;
-  }
 }
