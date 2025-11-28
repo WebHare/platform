@@ -139,7 +139,7 @@ async function describeChain(right: ModuleQualifiedName): Promise<{
 async function findRightsTable(tableRef: string) {
   //TODO This query is pretty slow (easily 200ms). We cache it but we should probably optimize it by going straight for the system catalog
   const [schema, table] = tableRef.split(".");
-  const result = await db<InformationSchema>()
+  const result = (await db<InformationSchema>()
     .selectFrom('information_schema.table_constraints as tc')
     .innerJoin('information_schema.key_column_usage as kcu', (join) =>
       join
@@ -157,7 +157,7 @@ async function findRightsTable(tableRef: string) {
     .where('ccu.table_name', '=', table)
     .where('ccu.column_name', '=', 'id')
     .where('tc.table_schema', '=', 'system_rights')
-    .execute();
+    .execute()).filter(r => r.referencing_table.match(/^o_\d*$/)); // HS also filters on o_(number)
 
   if (result.length > 1)
     throw new Error(`Multiple system_rights tables seem to handle table ${tableRef} : ${result.map(r => r.referencing_table).join(", ")}`);
