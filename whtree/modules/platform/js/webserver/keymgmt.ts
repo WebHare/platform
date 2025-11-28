@@ -1,10 +1,9 @@
 import { toFSPath } from "@webhare/services";
-import { X509Certificate } from "crypto";
-import { readFileSync } from "fs";
-import * as crypto from "crypto";
+import { createHash, X509Certificate } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 function createWebHareDNHash(readableName: string): string {
-  const hash = crypto.createHash("sha1").update(readableName).digest("hex").toLowerCase();
+  const hash = createHash("sha1").update(readableName).digest("hex").toLowerCase();
   return hash;
 }
 
