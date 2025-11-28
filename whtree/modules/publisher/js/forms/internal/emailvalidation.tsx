@@ -1,11 +1,12 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@webhare/gettid";
 import { getFormService } from "@webhare/forms/src/formservice";
-import { isValidEmail } from '@webhare/std';
+import { isValidEmail, sleep } from '@webhare/std';
 import { setFieldError } from './customvalidation';
 import type { EmailValidationResult } from '@webhare/forms/src/types';
 import type FormBase from '../formbase';
 import type RPCFormBase from '../rpc';
+import { debugFlags } from '@webhare/env';
 
 const cache:
   {
@@ -49,14 +50,25 @@ export async function validateField<DataShape extends object = Record<string, un
   //user is 'done' with email field apparently. remotely validate it
   const key = "e_" + field.name + "." + checkvalue; //e_ prefix protects against funny people using 'constructor' etc. TODO just switch to a Map<> or similar. TODO only include field.name if needed, and also bind to the form then
   if (cache[key] === undefined) {
-    cache[key] = "getRPCFormIdentifier" in form ?
+    const rpcCall = "getRPCFormIdentifier" in form ?
       //TODO rendering.whlib should add a data attribute if there are form+field-specific checks, perhaps we can even generalize that for all fields instead of just email whenever they need to do direct validation
       getFormService().formValidateEmail({ ...form.getRPCFormIdentifier(), field: field.name }, checkvalue)
       : getFormService().validateEmail(getTidLanguage(), checkvalue);
+
+    //wrap in timeout
+    cache[key] = Promise.race([rpcCall, sleep(3000).then(() => { throw new Error("Timeout"); })]);
   }
 
   //TODO should we ever clear the cache? only relevant probably if someone is on the frontend testing emails and doesn't want to refresh
-  const result = await cache[key];
+  let result: EmailValidationResult | undefined;
+
+  try {
+    result = await cache[key];
+  } catch (e) { //timeout or other error, or offline form (PWA?)
+    if (debugFlags.fhv)
+      console.log('[fhv] Email validation error or timeout for value', checkvalue, e);
+  }
+
   if (checkvalue !== field.value || !mayValidateField(field))
     return true; //the field already changed, don't report about old errors
 
