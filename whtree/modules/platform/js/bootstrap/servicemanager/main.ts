@@ -581,7 +581,7 @@ async function verifyStrayProcesses() {
   const strayprocs = await getServiceManagerChildPids();
   if (strayprocs.length) {
     console.error("There are still processes running from a previous WebHare instance.");
-    console.error("You can try to terminate them using `wh service force - terminate - all` or force it with `wh service force - terminate - all--kill`");
+    console.error("You can try to terminate them using `wh service force-terminate-all` or force it with `wh service force-terminate-all--kill`");
     console.error(`PIDs: ${strayprocs.join(", ")} `);
     process.exit(1);
   }
