@@ -90,3 +90,7 @@ PUBLIC INTEGER FUNCTION InsertImmediately()
   INSERT INTO webhare_testsuite.exporttest(id, text) VALUES(nextid, "Record #" || nextid);
   RETURN nextid;
 }
+
+PUBLIC MACRO Crash() {
+  ABORT("jscall aborted");
+}

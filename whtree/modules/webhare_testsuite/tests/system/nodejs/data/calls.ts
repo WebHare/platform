@@ -7,6 +7,7 @@ import { getLastAuthAuditEvent } from "@mod-webhare_testsuite/js/wts-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { ResourceDescriptor, WebHareBlob } from "@webhare/services";
 import { openFile } from "@webhare/whfs/src/objects";
+import { loadlib } from "@webhare/harescript/src/contextvm";
 
 const random = generateRandomId();
 
@@ -90,6 +91,10 @@ export async function getResource(res: string) {
 
 export async function getWHFSFileResource(res: string) {
   return (await openFile(res)).data;
+}
+
+export async function getHSFail() {
+  return await loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib").Crash();
 }
 
 export function crash() {
