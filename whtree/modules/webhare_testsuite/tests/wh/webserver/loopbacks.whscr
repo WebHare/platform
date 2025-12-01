@@ -1309,7 +1309,7 @@ MACRO TestWHPubPreview()
 
   // Test with proxy headers in the request (send through trusted port)
   res := previewbrowser->SendRawRequest("GET", baseurl || "getrequestdata.shtml",
-      [ [ field := "host", value := "proxyhost:82143" ]
+      [ [ field := "host", value := "proxyhost:22143" ]
       , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
                                                                , binding :=   testport.portid
                                                                , proto :=     "https"
@@ -1325,7 +1325,7 @@ MACRO TestWHPubPreview()
 
   data := DecodeHSONBlob(previewbrowser->content);
   TestEQMembers(
-      [ clienturl :=      'https://proxyhost:82143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
       , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , remoteip :=       `2001:db8::1`
       , remoteport :=     0
@@ -1351,7 +1351,7 @@ MACRO TestWHPubPreview()
 
   // When requesting the a port-hosted page with a (locally nonsense) host header, the preview page should still serve the correct page
   res := previewbrowser->SendRawRequest("GET", baseurl || "getrequestdata.shtml",
-      [ [ field := "host", value := "proxyhost:82143" ]
+      [ [ field := "host", value := "proxyhost:22143" ]
       , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
                                                                , binding :=   testport.portid
                                                                , proto :=     "https"
@@ -1367,7 +1367,7 @@ MACRO TestWHPubPreview()
 
   data := DecodeHSONBlob(previewbrowser->content);
   TestEQMembers(
-      [ clienturl :=      'https://proxyhost:82143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
       , serverurl :=      `http://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
       , remoteip :=       `2001:db8::1`
       , remoteport :=     0

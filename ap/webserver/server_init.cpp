@@ -539,6 +539,7 @@ void LoadConfigPorts(HSVM *hsvm, HSVM_VariableId ports, WebServer::ServerConfig 
                 HSVM_LoadCellIn(newport.virtualhosting, hsvm, thisport, "VIRTUALHOST");
                 HSVM_LoadCellIn(newport.listener.ciphersuite, hsvm, thisport, "CIPHERSUITE");
                 HSVM_LoadCellIn(newport.istrustedport, hsvm, thisport, "ISTRUSTEDPORT");
+                HSVM_LoadCellIn(newport.bind, hsvm, thisport, "BIND");
 
                 std::string ip;
                 HSVM_LoadCellIn(ip, hsvm, thisport, "IP");

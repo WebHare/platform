@@ -1,4 +1,6 @@
 /* wts-backend extends @webhare/test-backend with resources that only exist in webhare_testsuite, eg the webhare_testsuite.testsite* sites */
+import { WebServer } from "@mod-platform/js/webserver/webserver";
+import { generateRandomId } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 export * from "@webhare/test-backend";
 
@@ -52,4 +54,19 @@ export async function resetWTS(options?: test.ResetOptions) {
   await commitWork();
   if (updateres)
     await updateres.applied();
+}
+
+export async function getTestWebsever(url: string) {
+  const server = new WebServer("webhare_testsuite:basicrouter_" + generateRandomId().toLowerCase()); //TODO  et bind: false flags on the cnofig
+  await server.loadConfig();
+  const isSecureBackend = url.startsWith("https://");
+  const port = [...server.ports].find(_ => _.port.virtualhost && !isSecureBackend === !_.port.keypair);
+  test.assert(port);
+
+  return {
+    server,
+    clientIp: "127.0.0.1",
+    port,
+    localAddress: "127.0.0.1:32768"
+  };
 }

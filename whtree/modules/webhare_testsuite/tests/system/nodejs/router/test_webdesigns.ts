@@ -1,4 +1,4 @@
-import * as test from "@webhare/test";
+import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
 import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
@@ -125,15 +125,17 @@ async function testCaptureJSRendered() {
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
 async function testRouter_HSWebDesign() {
+  const { port, clientIp, localAddress } = await test.getTestWebsever("webhare_testsuite:basicrouter");
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  const result = await coreWebHareRouter(new IncomingWebRequest(markdowndoc.link!));
+  const result = await coreWebHareRouter(port, new IncomingWebRequest(markdowndoc.link!, { clientIp }), localAddress);
 
   await verifyMarkdownResponse(markdowndoc, result);
 }
 
 async function testRouter_JSWebDesign() {
+  const { port, clientIp, localAddress } = await test.getTestWebsever("webhare_testsuite:basicrouter");
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const result = await coreWebHareRouter(new IncomingWebRequest(markdowndoc.link!));
+  const result = await coreWebHareRouter(port, new IncomingWebRequest(markdowndoc.link!, { clientIp }), localAddress);
 
   await verifyMarkdownResponse(markdowndoc, result);
 }

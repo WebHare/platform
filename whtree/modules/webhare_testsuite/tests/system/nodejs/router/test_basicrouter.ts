@@ -1,4 +1,4 @@
-import * as test from "@webhare/test";
+import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as services from "@webhare/services";
 import { HTTPMethod, createRedirectResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
@@ -65,19 +65,24 @@ function testWebRequest() {
 }
 
 async function testHSWebserver() {
+  const { port, clientIp, localAddress } = await test.getTestWebsever("webhare_testsuite:basicrouter");
+  test.assert(port);
   const testsuiteresources = services.backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/";
-  let result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml"));
+  let result = await coreWebHareRouter(port, new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
+    clientIp,
+  }), localAddress);
   test.eq(200, result.status);
   test.eq("application/x-hson", result.headers.get("content-type"));
 
   let response = decodeHSON(await result.text()) as unknown as GetRequestDataResponse;
   test.eq("GET", response.method);
 
-  result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
+  result = await coreWebHareRouter(port, new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
+    clientIp,
     method: HTTPMethod.POST,
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body: new TextEncoder().encode("a=1&b=2").buffer as ArrayBuffer //TS5.7 workaround
-  }));
+  }), localAddress);
 
   test.eq(200, result.status);
   test.eq("application/json", result.headers.get("content-type"));
@@ -93,7 +98,9 @@ async function testHSWebserver() {
   test.eqPartial([{ name: 'a', value: '1' }, { name: 'b', value: '2' }], response2.webvars);
 
   //Get a binary file
-  result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "rangetestfile.jpg"));
+  result = await coreWebHareRouter(port, new IncomingWebRequest(testsuiteresources + "rangetestfile.jpg", {
+    clientIp
+  }), localAddress);
   //FIXME we also want a blob() interface - and that one to be smart enough to pipe-through huge responses
   test.eq("c72d48d291273215ba66fc473a4075de1de02f94", Buffer.from(await crypto.subtle.digest("SHA-1", await result.arrayBuffer())).toString('hex'));
 }

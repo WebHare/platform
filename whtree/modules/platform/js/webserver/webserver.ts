@@ -10,8 +10,20 @@ import { BackendServiceConnection, runBackendService } from '@webhare/services';
 import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { loadlib } from '@webhare/harescript';
 import type { WebServerLogger } from './logger';
+import { stringify } from '@webhare/std';
 
-class WebServerPort {
+function getLocalAddress(req: http.IncomingMessage): string {
+  if (req.socket.localFamily === 'IPv6') {
+    return `[${req.socket.localAddress}]:${req.socket.localPort}`;
+  }
+  return `${req.socket.localAddress}:${req.socket.localPort}`;
+}
+
+export async function getMinimalConfig(): Promise<Configuration> {
+  return await loadlib("mod::system/lib/internal/webserver/config.whlib").CreateMinimalWebserverConfig();
+}
+
+export class WebServerPort {
   server: http.Server | https.Server;
   fixedHost: Host | undefined;
   overrideHost: string | undefined;
@@ -32,15 +44,57 @@ class WebServerPort {
     const callback = (req: http.IncomingMessage, res: http.ServerResponse) => void this.onRequest(req, res);
     this.server = port.privatekey ? https.createServer(serveroptions, callback)
       : http.createServer(serveroptions, callback);
-    this.server.on('error', e => console.log("Server error", e)); //TODO deal with EADDRINUSE for listen falures
+    this.server.on('error', e => console.log("Server error", e)); //FIXME deal with EADDRINUSE for listen failures. just retry later
     this.server.on('upgrade', (req, socket, head) => this.forwardUpgrade(req, socket as net.Socket, head));
     this.server.listen(port.port, port.ip);
   }
 
-  buildWebRequest(req: http.IncomingMessage, body?: ArrayBuffer | null): WebRequest {
+  close() {
+    this.server.close();
+  }
+
+  buildWebRequest(req: http.IncomingMessage, body?: ArrayBuffer | null): { port: WebServerPort; localAddress: string; webreq: WebRequest } {
+    let remoteIp = req.socket.remoteAddress || '';
+    let proto = this.port.privatekey ? "https" : "http";
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    let port: WebServerPort = this;
+
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    const xForwardedProto = req.headers['x-forwarded-proto'];
+    const xWhProxy = req.headers['x-wh-proxy'];
+    let localAddress = '';
+
+    if (xForwardedFor || xForwardedProto || xWhProxy) {
+      if (this.port.istrustedport || this.webserver.isAllowedProxyIP(remoteIp)) {
+        if (typeof xWhProxy === 'string') {
+          for (const proxypart of xWhProxy.split(';').map(_ => _.trim())) {
+            const [key, value] = proxypart.split('=');
+            if (key === "proto" && (value === 'http' || value === 'https'))
+              proto = value;
+            else if (key === "for" && value)
+              remoteIp = value;
+            else if (key === "local" && value)
+              localAddress = value;
+            else if (key === "binding" && value) {
+              const valueAsNum = parseInt(value, 10);
+              const matchedBinding = [...this.webserver.ports].find(_ => _.port.id === valueAsNum);
+              if (matchedBinding)
+                port = matchedBinding;
+            }
+          }
+        } else {
+          if (typeof xForwardedFor === 'string')
+            remoteIp = xForwardedFor.split(',').at(-1)!;
+
+          if (typeof xForwardedProto === 'string' && (xForwardedProto === 'http' || xForwardedProto === 'https'))
+            proto = xForwardedProto;
+        }
+      }
+    }
+
     //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
     //FIXME ensure clientWebServer is also set for virtualhosted URLs
-    const finalurl = (this.port.privatekey ? "https://" : "http://") + (this.overrideHost || req.headers.host) + req.url;
+    const finalurl = `${proto}://${this.overrideHost || req.headers.host}${req.url}`;
 
     //Translate nodejs request to our Router stuff
     const webreq = new IncomingWebRequest(finalurl, {
@@ -48,9 +102,10 @@ class WebServerPort {
       headers: req.headers as Record<string, string>,
       body,
       clientWebServer: this.fixedHost?.id || 0,
-      clientIp: req.socket.remoteAddress || '' //TODO Do we need to process X-Forwarded-For here or later? here we probably know we're the trusted port. or was it: X-forwarded-for if your IP matches the regkey, x-wh-proxy if its the trusted port ?
+      clientIp: remoteIp
     });
-    return webreq;
+
+    return { port, webreq, localAddress };
   }
 
   async onRequest(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -82,8 +137,8 @@ class WebServerPort {
       }
 
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
-      const webreq = this.buildWebRequest(req, body.buffer);
-      const response = await coreWebHareRouter(webreq);
+      const { port, webreq, localAddress } = this.buildWebRequest(req, body.buffer);
+      const response = await coreWebHareRouter(port, webreq, localAddress || getLocalAddress(req));
       res.statusCode = response.status;
 
       //coreWebHareRouter has filtered all transfer- headers and the Date header, but will let Content-Length through if present, and that will prevent the node server from chunking the output
@@ -107,9 +162,9 @@ class WebServerPort {
   }
 
   forwardUpgrade(req: http.IncomingMessage, socket: net.Socket, head: Buffer) {
-    const webreq = this.buildWebRequest(req);
+    const { webreq } = this.buildWebRequest(req);
     //forward it unconditionally (TODO integrate with router ?)
-    const { targeturl, fetchmethod, headers } = getHSWebserverTarget(webreq);
+    const { targeturl, fetchmethod, headers } = getHSWebserverTarget(this, webreq, getLocalAddress(req));
 
     //FIXME deal with upstream connect errors
     const destreq = http.request(targeturl, { headers, method: fetchmethod });
@@ -201,6 +256,10 @@ export class WebServer {
       void this.loadConfig();
   }
 
+  isAllowedProxyIP(ip: string): boolean {
+    return this.activeConfig?.trust_xforwardedfor.includes(ip) || false;
+  }
+
   async loadConfig() {
     if (this.forceConfig) {
       this.reconfigure(this.forceConfig);
@@ -228,6 +287,14 @@ export class WebServer {
 
     for (const port of config.ports) {
       const fixedhost = !port.virtualhost ? config.hosts.find(_ => _.port === port.id) : undefined;
+      const existingPort = [...this.ports].find(_ => _.port.id === port.id);
+      if (existingPort) {
+        if (stringify(existingPort.port, { stable: true }) === stringify(port, { stable: true }))
+          continue;
+
+        // need to terminate the old port!
+        existingPort.close();
+      }
       this.ports.add(new WebServerPort(this, port, fixedhost));
     }
   }

@@ -6,6 +6,7 @@ import * as undici from "undici";
 import { importJSFunction } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
 import { getBasePort } from "@webhare/services/src/config";
+import type { WebServerPort } from "@mod-platform/js/webserver/webserver";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -27,23 +28,28 @@ export async function lookupPublishedTarget(url: string, options?: whfs.LookupUR
   };
 }
 
-export function getHSWebserverTarget(request: WebRequest) {
+export function getHSWebserverTarget(port: WebServerPort, request: WebRequest, localAddress: string) {
   const trustedlocalport = getBasePort() + whconstant_webserver_hstrustedportoffset;
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
+
   //Convert Request headers to Undici compatible headers, filter out the dangeorus ones
-  const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto"].includes(header)));
-  headers["x-forwarded-for"] = request.clientIp;
+  const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto", "x-wh-proxy"].includes(header)));
+  // headers["x-forwarded-for "] = request.clientIp;
   const url = new URL(request.url);
-  headers["x-forwarded-proto"] = url.protocol.split(':')[0]; //without ':'
-  headers["host"] = url.host;
+  //TODO local=...?
+  headers["x-wh-proxy"] = `source=js;proto=${url.protocol.split(':')[0]};for=${request.clientIp};local=${localAddress}`;
+  if (!port.port.istrustedport)
+    headers["x-wh-proxy"] += `;binding=${port.port.id}`;
+  //For non-virtual hosted ports transmit the original request host. This allows the HS webserver to build clientrequesturl
+  headers["host"] = (!port.port.virtualhost ? request.headers.get("host") : null) ?? url.host;
   const targeturl = `http://${trustedip}:${trustedlocalport}${url.pathname}${url.search}`;
   const fetchmethod = request.method;
   return { targeturl, fetchmethod, headers };
 }
 
-async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
+async function routeThroughHSWebserver(port: WebServerPort, request: WebRequest, localAddress: string): Promise<WebResponse> {
   //FIXME abortsignal / timeout
-  const { targeturl, fetchmethod, headers } = getHSWebserverTarget(request);
+  const { targeturl, fetchmethod, headers } = getHSWebserverTarget(port, request, localAddress);
 
   const fetchoptions: Parameters<typeof undici.request>[1] = {
     headers,
@@ -76,7 +82,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk
         dragging in a lot of dependencies here in the end, and may @webhare/router should only be for apps that implement routes, not execute them */
 
-export async function coreWebHareRouter(request: WebRequest): Promise<WebResponse> {
+export async function coreWebHareRouter(port: WebServerPort, request: WebRequest, localAddress: string): Promise<WebResponse> {
   const target = await lookupPublishedTarget(request.url.toString(), { clientWebServer: request.clientWebServer }); //"Kijkt in database. Haalt file info en publisher info op"
   /* TODO we have to disable this to be able to resolve <backend> webrules.
           ideally we would only forward to the HS Websever if we hit a SHTML
@@ -85,7 +91,7 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
   */
 
   if (!target?.renderer) //Looks like we'll need to fallback to the WebHare webserver to handle this request
-    return await routeThroughHSWebserver(request);
+    return await routeThroughHSWebserver(port, request, localAddress);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
   const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
