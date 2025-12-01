@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::publisher/lib/testfw/sites.whlib";
@@ -20,6 +21,7 @@ LOADLIB "mod::publisher/lib/internal/webdesign/preview.whlib";
 
 STRING testfile_diskbase := GetModuleInstallationRoot("webhare_testsuite") || "web/resources/tests/";
 RECORD mykeypair;
+BOOLEAN have_js_webserver := IsServiceRunning("platform:webserver-node");
 
 STRING shorttext := "|This is a text 100 bytes in length. The quick brown fox jumped over the dodgy red beagle! Run Eddy|";
 IF(Length(shorttext)!=100)
@@ -847,7 +849,7 @@ MACRO URLTrickery()
                                           ,  [[ name := "type", value := "echo" ]
                                              ,[ name := "data", value := shorttext ]
                                              ], "multipart/form-data"));
-  TestEq(403, browser->GetHTTPStatus().code);
+  TestEq(have_js_webserver ? 400 : 403, browser->GetHTTPStatus().code); //Bad request makes more sense in retrospect
 
   STRING non_short_path := Substitute(testfile_webpath, '/webserver.shtml', '%C0%AFwebserver.shtml');
   TestEq(FALSE, browser->PostWebPage(non_short_path
@@ -861,7 +863,7 @@ MACRO URLTrickery()
                                           ,  [[ name := "type", value := "echo" ]
                                              ,[ name := "data", value := shorttext ]
                                              ], "multipart/form-data"));
-  TestEq(403, browser->GetHTTPStatus().code);
+  TestEq(have_js_webserver ? 400 : 403, browser->GetHTTPStatus().code);
 }
 
 MACRO AccessRules()

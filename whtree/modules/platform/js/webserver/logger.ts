@@ -29,7 +29,15 @@ export class WebServerFileLogger implements WebServerLogger {
     };
 
     this.accesslog.logStructured(data);
-    if (request.localPath.startsWith(".wh/ea/pxl/"))
+
+    let isPxl;
+    try {
+      isPxl = request.localPath.startsWith(".wh/ea/pxl/");
+    } catch {
+      return; // URL parser failed, probably broken URL. don't log as pxl
+    }
+
+    if (isPxl)
       this.pxllog.logStructured(data);
   }
 }

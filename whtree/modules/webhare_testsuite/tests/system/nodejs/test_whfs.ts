@@ -480,6 +480,9 @@ async function testLookup() {
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html%C1%AC"));
+  test.eq({ folder: null, file: null, site: null, webServer: root.outputWeb }, lookupresult);
+
   // test with ignored extension extension
   const testfile2 = await testfolder.createFile('test-ignoreext.doc', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/mswordfile" });
   await whdb.db<PlatformDB>().updateTable("system.fs_objects").set({ published: PublishedFlag_StripExtension }).where("id", "=", testfile2.id).execute();
