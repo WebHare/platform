@@ -13,14 +13,14 @@ class WebHareServer;
 class WebHareServer
 {
         public:
-        WebHareServer();
+        WebHareServer(std::vector<std::string> const &args);
         ~WebHareServer();
 
         /** Scan the configuration databases and configure the webserver.
             Callback for the notify thread */
         void ScanConfig(bool reconnected);
 
-        int Execute(std::vector<std::string> const &args);
+        int Execute();
 
         ///Get the wh connection
         WHCore::Connection &GetWHConn() { return *webhare; }
@@ -76,6 +76,7 @@ class WebHareServer
                 std::string indexpages;
         };
 
+        std::vector<std::string> args;
         typedef Blex::InterlockedData<SharedData, Blex::ConditionMutex> LockedData;
         LockedData state;
 
