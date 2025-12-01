@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -76,7 +75,7 @@ PUBLIC STATIC OBJECTTYPE PostcodeAPI EXTEND WRDNLAddressVerificationBase
     RETURN
         [ success := TRUE
         , addresses := result._embedded.addresses
-        , remaining := ToInteger(GetMIMEHeader(this->webbrowser->responseheaders, "X-RateLimit-Remaining"), -1)
+        , remaining := ToInteger(this->webbrowser->GetResponseHeader("X-RateLimit-Remaining"), -1)
         ];
   }
 >;
