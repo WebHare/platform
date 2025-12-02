@@ -272,8 +272,9 @@ void WebHareServer::MaintenanceThreadCode()
         }
 }
 
-WebHareServer::WebHareServer()
-: maintenancethread(std::bind(&WebHareServer::MaintenanceThreadCode, this))
+WebHareServer::WebHareServer(std::vector<std::string> const &args)
+: args(args)
+, maintenancethread(std::bind(&WebHareServer::MaintenanceThreadCode, this))
 {
         LockedData::WriteRef lock(state);
         lock->must_stop=0;
@@ -347,6 +348,7 @@ bool WebHareServer::StartManagementScript()
         HSVM *hsvm = group->CreateVirtualMachine();
         HSVM_SetOutputCallback(hsvm, 0, &WHCore::StandardErrorWriter);
         HSVM_SetErrorCallback(hsvm, 0, &WHCore::StandardErrorWriter);
+        group->SetupConsole(hsvm, args);
 
         // FIXME: set current script name (setcurrentfile on errorhandler)
         if (!HSVM_LoadScript(hsvm, "mod::system/scripts/internal/webserver/manager.whscr"))
@@ -362,7 +364,7 @@ bool WebHareServer::StartManagementScript()
         return true;
 }
 
-int WebHareServer::Execute (std::vector<std::string> const &args)
+int WebHareServer::Execute ()
 {
         Blex::OptionParser::Option optionlist[] =
         {
@@ -537,6 +539,7 @@ void LoadConfigPorts(HSVM *hsvm, HSVM_VariableId ports, WebServer::ServerConfig 
                 HSVM_LoadCellIn(newport.virtualhosting, hsvm, thisport, "VIRTUALHOST");
                 HSVM_LoadCellIn(newport.listener.ciphersuite, hsvm, thisport, "CIPHERSUITE");
                 HSVM_LoadCellIn(newport.istrustedport, hsvm, thisport, "ISTRUSTEDPORT");
+                HSVM_LoadCellIn(newport.bind, hsvm, thisport, "BIND");
 
                 std::string ip;
                 HSVM_LoadCellIn(ip, hsvm, thisport, "IP");
@@ -844,8 +847,8 @@ void WebHareServer::LoadConfig(HSVM *hsvm, HSVM_VariableId retval, HSVM_Variable
 
 int UTF8Main(std::vector<std::string> const &args)
 {
-        WebHareServer myserver;
-        int ret=myserver.Execute(args);
+        WebHareServer myserver(args);
+        int ret=myserver.Execute();
         return ret;
 }
 

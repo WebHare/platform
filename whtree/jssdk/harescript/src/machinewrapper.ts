@@ -45,7 +45,12 @@ export class HSVMWrapper implements HSVM_HSVMSource {
       console.trace(`[${this.currentgroup}] VM terminating because of dispose()`);
     vmfinalizer.unregister(this);
     this.vm?.deref()?.shutdown();
-    await this.done;
+    try {
+      await this.done;
+    } catch (e) {
+      if (debugFlags.vmlifecycle) //Fix losing error information when a HS engine invoked from CallJS crashes
+        console.trace(`[${this.currentgroup}] Absorbing a throw from done() as we can't do anything about it during dispose()`, e);
+    }
     this.vm = null;
   }
 

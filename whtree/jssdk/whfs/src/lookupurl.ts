@@ -187,7 +187,13 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
     }
   }
 
-  const lookup = decodeURIComponent(url.pathname);
+  let lookup;
+  try {
+    lookup = decodeURIComponent(url.pathname);
+  } catch { //malformed path component
+    return result; //giving up
+  }
+
   let findwebservers: number[];
   if (webserver.isinterface)  //all interface webservers share the same output
     findwebservers = (await db<PlatformDB>().selectFrom("system.webservers").where("type", "=", whconstant_webservertype_interface).select("id").execute()).map(ws => ws.id);

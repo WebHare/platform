@@ -41,7 +41,7 @@ async function testOurWebserver() {
       ciphersuite: "",
       id: -1,
       ip: "127.0.0.1",
-      istrustedport: false,
+      istrustedport: true,
       keypair: 0,
       privatekey: "",
       virtualhost: true
@@ -50,9 +50,9 @@ async function testOurWebserver() {
       port: port_https,
       certificatechain: await fallback_certificate.data.resource.text(),
       ciphersuite: "",
-      id: -1,
+      id: -2,
       ip: "127.0.0.1",
-      istrustedport: false,
+      istrustedport: true,
       keypair: 0,
       privatekey: await fallback_privatekey.data.resource.text(),
       virtualhost: true

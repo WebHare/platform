@@ -160,6 +160,18 @@ IF(IsWasm()) { //Support opaque object marshalling
   TestThrowsLike("throwing getter", PTR CallJS("./data/calls.ts#getThrowingProperty", NEW ThrowingGetterSetter));
 }
 
+IF(NOT IsWasm()) { //Test HS error resistance
+  STRING startrandom := CallJS("./data/calls.ts#getOnceRandom");
+
+  //Call HS code that will abort
+  TRY {
+    CallJS("./data/calls.ts#getHSFail", VARIANT[], CELL[auth := DEFAULT RECORD ]);
+    ABORT("GetHSFail should throw");
+  } CATCH(OBJECT e) {
+    TestEqLike("*jscall aborted*", e->what);
+  }
+}
+
 IF(NOT IsWasm()) { //Test crash resistance
   STRING startrandom := CallJS("./data/calls.ts#getOnceRandom");
 

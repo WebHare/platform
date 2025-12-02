@@ -44,10 +44,12 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
   }
 
   RECORD useconfiguration := configuration;
+  useconfiguration.ports := SELECT *, bind := TRUE FROM configuration.ports;
+
   IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node") //Get out of node's way
-    DELETE FROM useconfiguration.ports WHERE id != whwebserverconfig_hstrustedportid;
+    UPDATE useconfiguration.ports SET bind := FALSE WHERE id != whwebserverconfig_hstrustedportid;
   ELSE IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "nginx") //Avoid taking 80/443
-    DELETE FROM useconfiguration.ports WHERE port IN [80,443];
+    UPDATE useconfiguration.ports SET bind := FALSE WHERE port IN [80,443];
 
   RECORD reloadstatus := ConfigureWebserver(useconfiguration);
   //count entries to give an impression how 'complete' this configuration set was

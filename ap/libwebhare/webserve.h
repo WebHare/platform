@@ -189,6 +189,7 @@ struct Listener
         , sitenum(0)
         , id(0)
         , istrustedport(false)
+        , bind(true)
         {
         }
 
@@ -197,6 +198,7 @@ struct Listener
         unsigned sitenum;
         int32_t id;
         bool istrustedport;
+        bool bind;
 };
 
 /** \brief WebServer configuration data.

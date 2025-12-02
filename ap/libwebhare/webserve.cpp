@@ -148,6 +148,7 @@ bool Server::ApplyConfig(ServerConfigPtr newconfig, std::vector<Blex::Dispatcher
         std::vector<Blex::Dispatcher::ListenAddress> addresses;
 
         for (unsigned i=0;i<newconfig->listeners.size();++i)
+          if(newconfig->listeners[i].bind)
             addresses.push_back(newconfig->listeners[i].listener);
 
         ServerConfigPtrHolder::WriteRef currentconfigptr(currentconfig);
