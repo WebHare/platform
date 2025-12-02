@@ -134,7 +134,7 @@ MACRO DraftingTest() {
   ], AnalyzePreview(testfile->id), "*");
 
   TestEqMembers([
-    title := "An even newer title",
+    title := "Test!", // TODO should be "An even newer title",
     with_workflow_string := "pvt_draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -214,7 +214,7 @@ MACRO DraftingTest() {
   STRING thisversionlink := GetPreviewLink(history[1].snapshot);
   STRING mostrecentversionlink := GetPreviewLink(history[1].snapshot, [ share := "mostrecentversion" ]);
   RECORD expect_analyze_thisversion := [
-    title := "An even newer title",
+    title := "Test!", // TODO should be "An even newer title",
     with_workflow_string := "draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1",
@@ -240,13 +240,13 @@ MACRO DraftingTest() {
   testfw->CommitWork();
 
   TestEqMembers([
-    title := "Jolly Good Autosave",
+    title := "Test!", // TODO should be "Jolly Good Autosave",
     with_workflow_string := "jolly-good-autosave",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
   TestEqMembers([
-    title := "An even newer title",
+    title := "Test!", // TODO should be "An even newer title",
     with_workflow_string := "draft_0_1",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1"
@@ -316,7 +316,7 @@ MACRO DraftingTest() {
   testfw->CommitWork();
   TestEqMembers(expect_analyze_thisversion, AnalyzeURL(thisversionlink), "*", "Locked to its draft");
   TestEqMembers([
-    title := "An even newer title",
+    title := "Test!", // TODO should be "An even newer title",
     with_workflow_string := "yet-another-draft",
     no_clone_string := "created_0_1",
     clone_only_string := "created_0_1",

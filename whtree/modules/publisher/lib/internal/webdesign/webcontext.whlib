@@ -257,7 +257,7 @@ PUBLIC STATIC OBJECTTYPE WebContext <
       OBJECT metasource := this->pvt_historic_contentobject ? this->contentobject : this->targetobject;
       this->pvt_metadata :=
             CELL[ name := metasource->name //FIXME should take from draftmetadata and cover this with a test
-                , title := metasource->title
+                , title := this->targetobject->title //because we're generally not showing titles for drafts, show the final object's title to reduce confusion for now
                 , keywords := metasource->keywords
                 , description := metasource->description
                 , typens := (this->contentobject ?? this->targetobject)->typens
