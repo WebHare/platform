@@ -397,7 +397,7 @@ types:
 apply:
 - to:
     type: http://www.webhare.net/xmlns/publisher/richdocumentfile
-  baseProps: [seotitle]
+  baseProps: [seoTitle]
   editProps:
     - type: test_type
       override:
@@ -430,7 +430,7 @@ apply:
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"] },
+        baseproperties: { description: false, seotitle: true, haslist: ["SEOTAB", "SEOTABREQUIRERIGHT", "SEOTITLE"], seotab: true, seotabrequireright: "publisher:pinning" },
         yaml: true,
         extendproperties: [
           {
@@ -463,7 +463,10 @@ types:
 apply:
 - to:
     type: http://www.webhare.net/xmlns/publisher/richdocumentfile
-  baseProps: [seotitle]
+  baseProps:
+    seoTitle: true
+    seoTab:
+      requireRight: publisher:pinning
   editProps:
     - type: sub.test_type
       override:

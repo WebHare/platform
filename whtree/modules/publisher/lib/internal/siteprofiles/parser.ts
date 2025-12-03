@@ -587,7 +587,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"],
       description: props.includes("description"),
       keywords: props.includes("keywords"),
-      seotitle: props.includes("seotitle"),
+      seotitle: props.includes("seotitle") || props.includes("seoTitle"),
       /* These things probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary optouts
         (or just tell you to set system:sysop as seotabrequireright so you will be reminded continously about these */
       seotab: true,
@@ -598,17 +598,21 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       noarchive: false
     };
   } else {
+    const haslist = new Set(typedKeys(props).map(k => k.toUpperCase()));
+    const seotabrequireright = props.seotabrequireright || (typeof props.seoTab === "object" ? props.seoTab.requireRight || '' : '');
+    if (seotabrequireright) //the new 'seoTab' property allows to embed requireRight into the property, but HS expects it as separate
+      haslist.add("SEOTABREQUIRERIGHT");
+
     return {
-      haslist: typedKeys(props).map(k => k.toUpperCase()).toSorted() as Array<Uppercase<keyof CSPBaseProperties>>,
-      description: false,
-      keywords: false,
-      seotitle: false,
-      seotab: false,
-      seotabrequireright: "",
-      noindex: false,
-      nofollow: false,
-      noarchive: false,
-      ...props
+      haslist: [...haslist].toSorted() as Array<Uppercase<keyof CSPBaseProperties>>,
+      description: props.description || false,
+      keywords: props.keywords || false,
+      seotitle: props.seoTitle || props.seotitle || false,
+      seotab: Boolean(props.seoTab || props.seotab),
+      seotabrequireright,
+      noindex: props.noIndex || props.noindex || false,
+      nofollow: props.noFollow || props.nofollow || false,
+      noarchive: props.noArchive || props.noarchive || false,
     };
   }
 }
