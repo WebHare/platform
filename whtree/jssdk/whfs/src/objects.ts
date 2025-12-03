@@ -516,7 +516,6 @@ export class WHFSFolder extends WHFSBaseObject {
     const retval = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .where(qb => this.id ? qb.eb("parent", "=", this.id) : qb.eb("parent", "is", null))
-      .orderBy("name")
       .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
       .$if(getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
       .$if(getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))

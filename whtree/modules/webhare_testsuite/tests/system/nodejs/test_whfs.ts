@@ -107,8 +107,6 @@ async function testWHFS() {
     }
   ], list.filter(e => e.name === markdownfile.name));
   test.eqPartial({ publish: false }, list.find(e => e.name === "unpublished"));
-  for (let i = 0; i < list.length - 1; ++i)
-    test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
   const list2 = await testpagesfolder.list(["type", "sitePath", "whfsPath"]);
   test.eqPartial({
