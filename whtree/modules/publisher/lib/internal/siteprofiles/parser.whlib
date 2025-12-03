@@ -923,11 +923,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "baseproperties"
             {
-              apply.baseproperties := [ haslist := GetHasList(node, [ "title", "description", "keywords", "striprtdextension", "seotab", "seotabrequireright", "noindex", "nofollow", "noarchive", "seotitle" ])
+              apply.baseproperties := [ haslist := GetHasList(node, [ "title", "description", "keywords", "seotab", "seotabrequireright", "noindex", "nofollow", "noarchive", "seotitle" ])
                                       , title := ParseXSBoolean(node->GetAttribute("title"))
                                       , description := ParseXSBoolean(node->GetAttribute("description"))
                                       , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
-                                      , striprtdextension := ParseXSBoolean(node->GetAttribute("striprtdextension"))
                                       , seotab := ParseXSBoolean(node->GetAttribute("seotab"))
                                       , seotabrequireright := node->GetAttribute("seotabrequireright")
                                       , noindex := ParseXSBoolean(node->GetAttribute("noindex"))

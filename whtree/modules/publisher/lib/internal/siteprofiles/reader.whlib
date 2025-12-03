@@ -1924,7 +1924,6 @@ PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester) {
     CELL[ title := TRUE
         , description := TRUE
         , keywords := NOT applytester->objisfolder
-        , striprtdextension := TRUE
         , seotab := FALSE
         , noindex := FALSE
         , nofollow := FALSE

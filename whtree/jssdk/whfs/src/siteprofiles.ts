@@ -271,7 +271,6 @@ export type CSPBaseProperties = {
   title: boolean;
   description: boolean;
   keywords: boolean;
-  striprtdextension: boolean;
   seotab: boolean;
   seotabrequireright: string;
   noindex: boolean;

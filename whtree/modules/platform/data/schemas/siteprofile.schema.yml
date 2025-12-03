@@ -673,10 +673,9 @@ $defs:
           noarchive:
             type: boolean
             description: If true for a file, enforces the 'noarchive' robot setting
-          # TODO: isn't this implied now that WH5.9 drops the extension from RTD files (and all virtual files/metaType: page)
           striprtdextension:
             type: boolean
-            description: Strip .rtd extension from newly created files
+            description: Deprecated. Ignored since WH5.9, will be removed
 
   ApplyEditProps:
     description: Set up an editor for these metadata fields

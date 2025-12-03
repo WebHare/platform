@@ -611,9 +611,6 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
       filename := GetWebserverDefaultPage(web);
     }
 
-    IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
-      filename := Left(filename, Length(filename) - 4);
-
     parentfolderobj->CreateFile([ type := newfiletype->id
                                 , name := filename
                                 , published := new_published
