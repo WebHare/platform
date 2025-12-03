@@ -11,6 +11,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { whconstant_whfsid_private, whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
 import { getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { getBasePort } from "@webhare/services/src/config";
+import { isTemporalInstant } from "@webhare/std";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -47,6 +48,7 @@ async function testWHFS() {
 
   const root = await whfs.openFolder('/', { allowRoot: true });
   test.eqPartial({ id: whconstant_whfsid_private }, (await root.list()).find(_ => _.name === "webhare-private"));
+  test.eq(/^2.*/, root.modificationDate.toString(), "should be a sane modificationdate");
 
   const testsite = await test.getTestSiteHS();
   const testsitejs = await test.getTestSiteJS();
@@ -115,6 +117,13 @@ async function testWHFS() {
     sitePath: '/TestPages/staticpage-ps-af',
     whfsPath: '/webhare-tests/webhare_testsuite.testsite/TestPages/staticpage-ps-af'
   }, list2.find(_ => _.name === 'staticpage-ps-af'));
+
+  const list3 = await testpagesfolder.list(["creationDate", "modificationDate", "contentModificationDate"]);
+  test.eqPartial({
+    creationDate: date => isTemporalInstant(date),
+    modificationDate: date => isTemporalInstant(date),
+    contentModificationDate: date => isTemporalInstant(date),
+  }, list3.find(_ => _.name === 'staticpage-ps-af'));
 
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name === markdownfile.name), "Verify list() works with empty keys");

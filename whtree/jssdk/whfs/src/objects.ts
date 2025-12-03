@@ -10,7 +10,7 @@ import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
-import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
@@ -543,10 +543,16 @@ export class WHFSFolder extends WHFSBaseObject {
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);
         } else {
-          const dbkey = fsObjects_js_to_db[k];
-          if (dbkey in row)
-            ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
-            result[k] = row[dbkey];
+          const dbkey: keyof typeof row = fsObjects_js_to_db[k] as keyof typeof row;
+          if (dbkey in row) {
+            const curvalue = row[dbkey];
+            if (std.isDate(curvalue))
+              ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
+              result[k] = Temporal.Instant.fromEpochMilliseconds(curvalue);
+            else
+              ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
+              result[k] = row[dbkey];
+          }
         }
       }
       mappedrows.push(result);
@@ -881,7 +887,8 @@ export interface OpenWHFSObjectOptions {
   allowRoot?: boolean;
 }
 
-function getRootFolderDBRow(): FsObjectRow {
+async function getRootFolderDBRow(): Promise<FsObjectRow> {
+  const rootSubstitute = await db<PlatformDB>().selectFrom("system.fs_objects").select(["creationdate", "modificationdate"]).where("id", "=", whconstant_whfsid_private_rootsettings).executeTakeFirst();
   return {
     id: 0,
     isfolder: true,
@@ -890,8 +897,8 @@ function getRootFolderDBRow(): FsObjectRow {
     title: "",
     description: "",
     keywords: "",
-    creationdate: defaultDateTime,
-    modificationdate: defaultDateTime,
+    creationdate: rootSubstitute?.creationdate ?? std.throwError("Cannot determine root folder creation date"),
+    modificationdate: rootSubstitute?.modificationdate ?? std.throwError("Cannot determine root folder modification date"),
     firstpublishdate: defaultDateTime,
     contentmodificationdate: defaultDateTime,
     lastpublishdate: defaultDateTime,
@@ -919,7 +926,7 @@ function getRootFolderDBRow(): FsObjectRow {
 
 async function getDBRecord(location: number) {
   if (location === 0)
-    return getRootFolderDBRow();
+    return await getRootFolderDBRow();
   else if (location > 0)
     return await db<PlatformDB>()
       .selectFrom("system.fs_objects")
