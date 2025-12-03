@@ -1921,8 +1921,7 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 
 PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester) {
   RECORD baseprops := applytester->GetCachedProperty("baseproperties",
-    CELL[ title := TRUE
-        , description := TRUE
+    CELL[ description := TRUE
         , keywords := NOT applytester->objisfolder
         , seotab := FALSE
         , noindex := FALSE

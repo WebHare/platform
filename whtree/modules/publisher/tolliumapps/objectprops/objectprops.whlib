@@ -633,7 +633,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO SetupObjectProps()
   {
-    ^title->visible := this->basesettings.title;
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
   }

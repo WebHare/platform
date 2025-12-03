@@ -154,7 +154,7 @@ MACRO TestApplyRuleTester()
 
   tester := GetApplyTesterForObject(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id);
   //yaml baseProps is allowed to reset most settings
-  TestEqMembers([ title := TRUE, description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
+  TestEqMembers([ description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
 }
 
 MACRO SiteSettingsTester()

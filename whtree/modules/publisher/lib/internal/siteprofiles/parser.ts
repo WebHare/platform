@@ -584,13 +584,12 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
 function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
   if (Array.isArray(props)) { //these are a 'full reset'
     return {
-      haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "TITLE"],
+      haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"],
       description: props.includes("description"),
       keywords: props.includes("keywords"),
       seotitle: props.includes("seotitle"),
       /* These things probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary optouts
         (or just tell you to set system:sysop as seotabrequireright so you will be reminded continously about these */
-      title: true,
       seotab: true,
       seotabrequireright: "",
       //NOTE these don't enable a configurable setting, but enforce it! it should probably not be part of <baseproperties>/baseProps
@@ -604,7 +603,6 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       description: false,
       keywords: false,
       seotitle: false,
-      title: false,
       seotab: false,
       seotabrequireright: "",
       noindex: false,

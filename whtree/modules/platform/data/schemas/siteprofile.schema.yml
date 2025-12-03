@@ -650,6 +650,7 @@ $defs:
         properties:
           title:
             type: boolean
+            description: Deprecated. Ignored since WH5.9, will be removed
           seotitle:
             type: boolean
             description: Enable the SEO title field

@@ -110,7 +110,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       this->basesettings.seotab := FALSE;
     }
 
-    ^title->visible := this->basesettings.title;
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
 

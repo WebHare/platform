@@ -272,7 +272,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
 
   if (ar.baseproperties) {
     rule.baseProps = {};
-    for (const binaryprop of ["description", "noarchive", "keywords", "noindex", "nofollow", "seotitle", "seotab", "title"] as const)
+    for (const binaryprop of ["description", "noarchive", "keywords", "noindex", "nofollow", "seotitle", "seotab"] as const)
       if (ar.baseproperties.haslist.includes(binaryprop.toUpperCase() as Uppercase<typeof binaryprop>))
         rule.baseProps[binaryprop] = (ar.baseproperties)[binaryprop] === true;
     if (ar.baseproperties.haslist.includes("SEOTABREQUIRERIGHT"))

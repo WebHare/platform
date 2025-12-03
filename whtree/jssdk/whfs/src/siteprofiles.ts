@@ -268,7 +268,6 @@ interface CSPBodyRendererRule {
 }
 
 export type CSPBaseProperties = {
-  title: boolean;
   description: boolean;
   keywords: boolean;
   seotab: boolean;
