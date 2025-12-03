@@ -63,13 +63,13 @@ async function setupWHAPITest() {
   { // fetch with a non-sysop
     const nonSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("notASysop").wrdId, { scopes: ["system:sysop"] });
     const api = new OpenAPIApiClient(directFetch, { bearerToken: nonSysopToken.accessToken });
-    test.eqPartial({ status: 401, body: { error: /User does not have the privileges/ } }, (await api.get("/meta")));
+    test.eqPartial({ status: 403, body: { error: /User does not have the privileges/ } }, (await api.get("/meta")));
   }
 
   { // fetch with a token lacking the required scope
     const sysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { scopes: ["wrd:schemas:0"] });
     const api = new OpenAPIApiClient(directFetch, { bearerToken: sysopToken.accessToken });
-    test.eqPartial({ status: 401, body: { error: /User lacks.*scope/ } }, (await api.get("/meta")));
+    test.eqPartial({ status: 403, body: { error: /User lacks.*scope/ } }, (await api.get("/meta")));
   }
 
   apiSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { scopes: ["system:sysop", "wrd:schemas:0"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Finite Token" });

@@ -32,7 +32,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/WRDSchema"
         "400":
-          $ref: "#/components/responses/unauthorized"
+          $ref: "#/components/responses/badrequest"
         "401":
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "wrd.ts#getSchemas"
@@ -384,8 +384,12 @@ components:
       bearerFormat: JWT
 
   responses:
+    badrequest:
+      description: Invalid request
     unauthorized:
       description: Authorization bearer token is missing or invalid
+    forbidden:
+      description: Access to the requested resource is forbidden
 
 security:
   - bearerAuth: [] # use the same name as above
