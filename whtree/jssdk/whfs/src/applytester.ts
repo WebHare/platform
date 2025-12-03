@@ -264,12 +264,12 @@ export class WHFSApplyTester {
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
-        if (element.whfstype && !isLike(this.objinfo.type, element.whfstype))
+        if (element.whfstype && !this.matchType(this.objinfo.type, element.whfstype, !this.objinfo.isfile))
           return false;
         if (element.foldertype || element.filetype) {
-          if (element.foldertype && (this.objinfo.isfile || !isLike(this.objinfo.type, element.foldertype)))
+          if (element.foldertype && (this.objinfo.isfile || !this.matchType(this.objinfo.type, element.foldertype, true)))
             return false;
-          if (element.filetype && (!this.objinfo.isfile || !isLike(this.objinfo.type, element.filetype)))
+          if (element.filetype && (!this.objinfo.isfile || !this.matchType(this.objinfo.type, element.filetype, false)))
             return false;
         }
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
@@ -381,14 +381,18 @@ export class WHFSApplyTester {
     return false; //FIXME implement but shouldn't this be in the site applicability cache and thus already available?
   }
 
-  matchType(folderType: number | null, matchwith: string, isfolder: boolean) {
+  matchType(folderType: string | number | null, matchwith: string, isfolder: boolean) {
     folderType = folderType ?? 0; // emulate HareScript behaviour for typeless files/folders
-    if (folderType && folderType < 1000 && matchwith === String(folderType)) //only match by ID for well-knowns
+    if (folderType && typeof folderType === 'number' && folderType < 1000 && matchwith === String(folderType)) //only match by ID for well-knowns
       return true;
 
     const types = getExtractedHSConfig("siteprofiles").contenttypes;
-    const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id === folderType);
-    return matchtype && isLike(matchtype.namespace, matchwith);
+    const matchtype = typeof folderType === "string" ?
+      types.find(_ => (isfolder ? _.foldertype : _.filetype) && (_.scopedtype === folderType || _.namespace === folderType))
+      :
+      types.find(_ => (isfolder ? _.foldertype : _.filetype) && (_.id === folderType));
+
+    return matchtype && (isLike(matchtype.namespace, matchwith) || isLike(matchtype.scopedtype, matchwith));
   }
 
   private async applyIsMatch(apply: CSPApplyRule): Promise<boolean> {

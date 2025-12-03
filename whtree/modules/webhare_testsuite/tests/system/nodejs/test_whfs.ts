@@ -109,7 +109,7 @@ async function testWHFS() {
 
   const list2 = await testpagesfolder.list(["type", "sitePath", "whfsPath"]);
   test.eqPartial({
-    type: "http://www.webhare.net/xmlns/publisher/richdocumentfile",
+    type: "platform:filetypes.richdocument",
     sitePath: '/TestPages/staticpage-ps-af',
     whfsPath: '/webhare-tests/webhare_testsuite.testsite/TestPages/staticpage-ps-af'
   }, list2.find(_ => _.name === 'staticpage-ps-af'));
@@ -255,11 +255,13 @@ async function testWHFS() {
   test.eq("sub1", ensuredfolder.name);
   test.eq("sub1", (await tmpfolder.ensureFolder("sub1")).name);
   test.eq("sub1", (await tmpfolder.ensureFolder("sub1", {})).name);
+  test.eq("platform:foldertypes.default", ensuredfolder.type);
   const ensuredfolder2 = await tmpfolder.ensureFolder("sub1");
   test.eq(ensuredfolder.id, ensuredfolder2.id);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.creationDate, ensuredfile.modificationDate);
+  test.eq("platform:filetypes.plaintext", ensuredfile.type);
 
   const now = Temporal.Now.instant();
   await test.sleep(1);//ensure clock progresses.

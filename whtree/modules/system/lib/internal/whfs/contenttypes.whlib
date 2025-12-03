@@ -1908,8 +1908,8 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
   IF(getnamespace = "")
     THROW NEW Exception(`Invalid OpenWHFSType for an empty namespace`); //make sure we don't match empty scopedtypes
 
-  BOOLEAN isnormalfolder := getnamespace = "http://www.webhare.net/xmlns/publisher/normalfolder";
-  BOOLEAN isunknownfile := getnamespace = "http://www.webhare.net/xmlns/publisher/unknownfile";
+  BOOLEAN isnormalfolder := IsFolderTypeZero(getnamespace);
+  BOOLEAN isunknownfile := IsFileTypeZero(getnamespace);
   IF(isnormalfolder OR isunknownfile)
   {
     RETURN FinalizeWHFSType([ id := 0

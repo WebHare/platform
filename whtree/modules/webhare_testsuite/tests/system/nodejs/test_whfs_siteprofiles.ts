@@ -51,7 +51,7 @@ async function testBeforeSite() { //port of HS TestBeforeSite
 
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
+  test.eq("platform:filetypes.markdown", markdownfile.type);
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
   test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectName);

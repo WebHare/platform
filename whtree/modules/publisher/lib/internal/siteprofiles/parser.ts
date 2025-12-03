@@ -1172,7 +1172,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
     if (settings.apply) {
       result.applyrules.push({
         ...parseApply(context, typeParser, module, baseScope, 0, (settings as Sp.FolderType).apply!),
-        whfstype: ns
+        whfstype: scopedtype || ns
       });
     }
 

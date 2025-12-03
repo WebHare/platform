@@ -531,7 +531,7 @@ export class WHFSFolder extends WHFSBaseObject {
       for (const k of getkeys) {
         if (k === 'type') { //remap to string
           const type = await describeWHFSType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
-          result.type = type?.namespace ?? "#" + row.type;
+          result.type = type?.scopedType || type?.namespace || "#" + row.type;
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);
         } else {
@@ -958,8 +958,8 @@ export async function __openWHFSObj(startingpoint: number, path: string | number
   if (findfile !== undefined && dbrecord.isfolder !== !findfile)
     throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
 
-  const matchtype = await getType(dbrecord.type || 0, dbrecord.isfolder ? "folderType" : "fileType"); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
-  const typens = matchtype?.namespace ?? "#" + dbrecord.type;
+  const matchtype = getType(dbrecord.type || 0, dbrecord.isfolder ? "folderType" : "fileType");
+  const typens = matchtype?.scopedtype || matchtype?.namespace || "#" + dbrecord.type;
   return dbrecord.isfolder ? new WHFSFolder(dbrecord, typens) : new WHFSFile(dbrecord, typens);
 }
 
