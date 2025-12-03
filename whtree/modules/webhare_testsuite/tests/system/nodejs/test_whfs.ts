@@ -48,7 +48,7 @@ async function testWHFS() {
 
   const root = await whfs.openFolder('/', { allowRoot: true });
   test.eqPartial({ id: whconstant_whfsid_private }, (await root.list()).find(_ => _.name === "webhare-private"));
-  test.eq(/^2.*/, root.modificationDate.toString(), "should be a sane modificationdate");
+  test.eq(/^2.*/, root.modified.toString(), "should be a sane modificationdate");
 
   const testsite = await test.getTestSiteHS();
   const testsitejs = await test.getTestSiteJS();
@@ -118,11 +118,11 @@ async function testWHFS() {
     whfsPath: '/webhare-tests/webhare_testsuite.testsite/TestPages/staticpage-ps-af'
   }, list2.find(_ => _.name === 'staticpage-ps-af'));
 
-  const list3 = await testpagesfolder.list(["creationDate", "modificationDate", "contentModificationDate"]);
+  const list3 = await testpagesfolder.list(["created", "modified", "contentModified"]);
   test.eqPartial({
-    creationDate: date => isTemporalInstant(date),
-    modificationDate: date => isTemporalInstant(date),
-    contentModificationDate: date => isTemporalInstant(date),
+    created: date => isTemporalInstant(date),
+    modified: date => isTemporalInstant(date),
+    contentModified: date => isTemporalInstant(date),
   }, list3.find(_ => _.name === 'staticpage-ps-af'));
 
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
@@ -179,14 +179,14 @@ async function testWHFS() {
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
   test.eq(false, newFile.publish);
-  test.eq(null, newFile.firstPublishDate);
-  test.eq(null, newFile.contentModificationDate);
+  test.eq(null, newFile.firstPublish);
+  test.eq(null, newFile.contentModified);
 
   await newFile.update({ publish: true });
   const openNewFile_state2 = await openFile(newFile.id);
-  test.assert(openNewFile_state2.modificationDate.epochMilliseconds > openNewFile.modificationDate.epochMilliseconds);
-  test.eq(openNewFile_state2.modificationDate, openNewFile_state2.firstPublishDate);
-  test.eq(openNewFile_state2.modificationDate, openNewFile_state2.contentModificationDate);
+  test.assert(openNewFile_state2.modified.epochMilliseconds > openNewFile.modified.epochMilliseconds);
+  test.eq(openNewFile_state2.modified, openNewFile_state2.firstPublish);
+  test.eq(openNewFile_state2.modified, openNewFile_state2.contentModified);
   test.eq(true, openNewFile_state2.publish);
 
   const goldFishId = await whfs.nextWHFSObjectId();
@@ -199,8 +199,8 @@ async function testWHFS() {
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data.hash);
   test.eq("goldfish.png", goldFish.data.fileName);
   test.eq(true, goldFish.publish);
-  test.eq(goldFish.creationDate, goldFish.firstPublishDate);
-  test.eq(goldFish.creationDate, goldFish.contentModificationDate);
+  test.eq(goldFish.created, goldFish.firstPublish);
+  test.eq(goldFish.created, goldFish.contentModified);
 
   await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false, isUnlisted: false });
   const openedGoldFish = await openFile(goldFish.id);
@@ -214,15 +214,15 @@ async function testWHFS() {
   const goldFish2 = await tmpfolder.createFile("goldfish2.png", {
     data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"),
     publish: true,
-    firstPublishDate: new Date(2020, 1, 1).toTemporalInstant(),
-    contentModificationDate: new Date(2021, 1, 1).toTemporalInstant()
+    firstPublish: new Date(2020, 1, 1).toTemporalInstant(),
+    contentModified: new Date(2021, 1, 1).toTemporalInstant()
   });
-  test.eq(new Date(2021, 1, 1).toTemporalInstant(), goldFish2.contentModificationDate);
-  test.eq(new Date(2020, 1, 1).toTemporalInstant(), goldFish2.firstPublishDate);
-  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), firstPublishDate: new Date(2022, 1, 1).toTemporalInstant() });
-  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModificationDate: new Date(2023, 1, 1).toTemporalInstant() });
-  test.eq(new Date(2022, 1, 1).toTemporalInstant(), goldFish2.firstPublishDate);
-  test.eq(new Date(2023, 1, 1).toTemporalInstant(), goldFish2.contentModificationDate);
+  test.eq(new Date(2021, 1, 1).toTemporalInstant(), goldFish2.contentModified);
+  test.eq(new Date(2020, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
+  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), firstPublish: new Date(2022, 1, 1).toTemporalInstant() });
+  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModified: new Date(2023, 1, 1).toTemporalInstant() });
+  test.eq(new Date(2022, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
+  test.eq(new Date(2023, 1, 1).toTemporalInstant(), goldFish2.contentModified);
 
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
@@ -230,16 +230,16 @@ async function testWHFS() {
   test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("text/plain", openNewFile2.data.mediaType);
   test.eq(false, newFile2.publish);
-  test.eq(newFile2.creationDate, newFile2.contentModificationDate);
-  test.eq(null, newFile2.firstPublishDate);
+  test.eq(newFile2.created, newFile2.contentModified);
+  test.eq(null, newFile2.firstPublish);
 
   await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
   test.eq("Updated text", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
   test.eq("text/plain", (await openFile(newFile2.id)).data.mediaType);
-  test.assert(openNewFile2.modificationDate.epochMilliseconds > newFile2.modificationDate.epochMilliseconds);
-  test.eq(openNewFile2.modificationDate, openNewFile2.contentModificationDate);
+  test.assert(openNewFile2.modified.epochMilliseconds > newFile2.modified.epochMilliseconds);
+  test.eq(openNewFile2.modified, openNewFile2.contentModified);
 
   //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor. eg if given we should also copy/preserve refpoints
 
@@ -274,14 +274,14 @@ async function testWHFS() {
   test.eq(ensuredfolder.id, ensuredfolder2.id);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
-  test.eq(ensuredfile.creationDate, ensuredfile.modificationDate);
+  test.eq(ensuredfile.created, ensuredfile.modified);
   test.eq("platform:filetypes.plaintext", ensuredfile.type);
 
   const now = Temporal.Now.instant();
   await test.sleep(1);//ensure clock progresses.
   const ensuredfile2 = await tmpfolder.ensureFile("file1", { data: await ResourceDescriptor.from("Updated text") });
-  test.assert(ensuredfile2.modificationDate.epochMilliseconds > now.epochMilliseconds, "Modification date should be updated");
-  test.eq(ensuredfile2.creationDate, ensuredfile.creationDate, "Creation date should be unchanged");
+  test.assert(ensuredfile2.modified.epochMilliseconds > now.epochMilliseconds, "Modification date should be updated");
+  test.eq(ensuredfile2.created, ensuredfile.created, "Creation date should be unchanged");
 
   await whdb.commitWork();
 }

@@ -30,7 +30,7 @@ interface ListableFsObjectRow {
   /// Unique identification for this file
   id: number;
   /// The date and time when this file was created
-  creationDate: Temporal.Instant;
+  created: Temporal.Instant;
   /// The content of the file, for file types which have physical content (all file types except profiles and link files)
   // data: WHDBBlob | null;
   /// A description for this file
@@ -58,7 +58,7 @@ interface ListableFsObjectRow {
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
   keywords: string;
   /// The date and time  when this file was first published
-  firstPublishDate: Temporal.Instant | null;
+  firstPublish: Temporal.Instant | null;
   /// The date and time  when this file was last published
   // lastPublishDate: Temporal.Instant;
   /// The size of the item since its last publication
@@ -70,9 +70,9 @@ interface ListableFsObjectRow {
   /// The id of the user that modified this item last.
   // modifiedBy: number | null;
   /// The date and time when any file (meta)data was last modified
-  modificationDate: Temporal.Instant;
+  modified: Temporal.Instant;
   /// The date and time when this file's content was last modified
-  contentModificationDate: Temporal.Instant | null;
+  contentModified: Temporal.Instant | null;
   /// The name for this file, which must be unique inside its parent folder
   name: string;
   /// Relative ordering of this file
@@ -112,8 +112,8 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   fileLink?: number | null;
   keywords?: string;
   publish?: boolean;
-  firstPublishDate?: Temporal.Instant | null;
-  contentModificationDate?: Temporal.Instant | null;
+  firstPublish?: Temporal.Instant | null;
+  contentModified?: Temporal.Instant | null;
 }
 
 export interface CreateFolderMetadata extends CreateFSObjectMetadata {
@@ -210,10 +210,10 @@ class WHFSBaseObject {
   get type(): string {
     return this._typens;
   }
-  get creationDate(): Temporal.Instant {
+  get created(): Temporal.Instant {
     return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime());
   }
-  get modificationDate(): Temporal.Instant {
+  get modified(): Temporal.Instant {
     return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime());
   }
 
@@ -306,10 +306,10 @@ class WHFSBaseObject {
       storedata.published = this.dbrecord.published;
       const fileMetadata = metadata as UpdateFileMetadata;
 
-      if (fileMetadata.firstPublishDate !== undefined)
-        storedata.firstpublishdate = fileMetadata.firstPublishDate ? new Date(fileMetadata.firstPublishDate.epochMilliseconds) : defaultDateTime;
-      if (fileMetadata.contentModificationDate !== undefined)
-        storedata.contentmodificationdate = fileMetadata.contentModificationDate ? new Date(fileMetadata.contentModificationDate.epochMilliseconds) : defaultDateTime;
+      if (fileMetadata.firstPublish !== undefined)
+        storedata.firstpublishdate = fileMetadata.firstPublish ? new Date(fileMetadata.firstPublish.epochMilliseconds) : defaultDateTime;
+      if (fileMetadata.contentModified !== undefined)
+        storedata.contentmodificationdate = fileMetadata.contentModified ? new Date(fileMetadata.contentModified.epochMilliseconds) : defaultDateTime;
       if (fileMetadata.keywords !== undefined)
         storedata.keywords = fileMetadata.keywords;
       if (fileMetadata.fileLink !== undefined)
@@ -415,11 +415,11 @@ export class WHFSFile extends WHFSBaseObject {
   get publish(): boolean {
     return isPublish(this.dbrecord.published);
   }
-  get firstPublishDate(): Temporal.Instant | null {
+  get firstPublish(): Temporal.Instant | null {
     const time = this.dbrecord.firstpublishdate.getTime();
     return time <= defaultDateTime.getTime() ? null : Temporal.Instant.fromEpochMilliseconds(time);
   }
-  get contentModificationDate(): Temporal.Instant | null {
+  get contentModified(): Temporal.Instant | null {
     const time = this.dbrecord.contentmodificationdate.getTime();
     return time <= defaultDateTime.getTime() ? null : Temporal.Instant.fromEpochMilliseconds(time);
   }
@@ -444,7 +444,7 @@ export class WHFSFile extends WHFSBaseObject {
 
     const until: Date = std.convertWaitPeriodToDate(options?.validUntil || "P1D");
     const base = this.link || backendConfig.backendURL;
-    const viewdata = encryptForThisServer("publisher:preview", { id: this.id, c: new Date(this.creationDate.epochMilliseconds), v: until, p: options?.password || "" });
+    const viewdata = encryptForThisServer("publisher:preview", { id: this.id, c: new Date(this.created.epochMilliseconds), v: until, p: options?.password || "" });
     //FIXME sandboxing gets us only so far, ideally we would have a separate hostname just for hosting content, ideally on a different TLD. We need a 'primary output URL'? see also https://github.com/whatwg/html/issues/3958#issuecomment-920347821
     return new URL(`/.publisher/preview/${viewdata}/`, base).toString();
   }
@@ -481,10 +481,10 @@ export class WHFSFile extends WHFSBaseObject {
 }
 
 const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
-  "creationDate": "creationdate",
-  "contentModificationDate": "contentmodificationdate",
+  "created": "creationdate",
+  "contentModified": "contentmodificationdate",
   "description": "description",
-  "firstPublishDate": "firstpublishdate",
+  "firstPublish": "firstpublishdate",
   "sitePath": "fullpath",
   "whfsPath": "whfspath",
   "parentSite": "parentsite",
@@ -493,7 +493,7 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
   "id": "id",
   "isFolder": "isfolder",
   "keywords": "keywords",
-  "modificationDate": "modificationdate",
+  "modified": "modificationdate",
   "name": "name",
   "ordering": "ordering",
   "parent": "parent",
@@ -602,13 +602,13 @@ export class WHFSFolder extends WHFSBaseObject {
         externallink: "",
         isfolder,
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
-        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate
-          ? new Date((metadata! as CreateFileMetadata).firstPublishDate!.epochMilliseconds)
+        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublish
+          ? new Date((metadata! as CreateFileMetadata).firstPublish!.epochMilliseconds)
           : initialPublish
             ? creationdate
             : defaultDateTime,
-        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModificationDate
-          ? new Date((metadata! as CreateFileMetadata).contentModificationDate!.epochMilliseconds)
+        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModified
+          ? new Date((metadata! as CreateFileMetadata).contentModified!.epochMilliseconds)
           : initialPublish || initialData
             ? creationdate
             : defaultDateTime,
