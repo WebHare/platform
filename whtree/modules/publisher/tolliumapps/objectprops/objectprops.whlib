@@ -635,6 +635,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   {
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
+    ^isunlisted->visible := this->basesettings.isunlisted;
+    ^title->required := this->basesettings.requiretitle;
   }
 
   UPDATE RECORD FUNCTION UpdatePinned()
@@ -1363,6 +1365,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           [ name := name
           , title := ^title->value
           , description := ^description->value
+          , isunlisted := ^isunlisted->value
           ];
 
       BOOLEAN update_ordering_otherfiles;

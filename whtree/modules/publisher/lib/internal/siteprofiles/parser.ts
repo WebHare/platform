@@ -584,9 +584,11 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
 function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
   if (Array.isArray(props)) { //these are a 'full reset'
     return {
-      haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"],
+      haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"],
       description: props.includes("description"),
+      isunlisted: props.includes("isUnlisted"),
       keywords: props.includes("keywords"),
+      requiretitle: props.includes("requireTitle"),
       seotitle: props.includes("seotitle") || props.includes("seoTitle"),
       /* These things probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary optouts
         (or just tell you to set system:sysop as seotabrequireright so you will be reminded continously about these */
@@ -606,7 +608,9 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
     return {
       haslist: [...haslist].toSorted() as Array<Uppercase<keyof CSPBaseProperties>>,
       description: props.description || false,
+      isunlisted: props.isUnlisted || false,
       keywords: props.keywords || false,
+      requiretitle: props.requireTitle || false,
       seotitle: props.seoTitle || props.seotitle || false,
       seotab: Boolean(props.seoTab || props.seotab),
       seotabrequireright,

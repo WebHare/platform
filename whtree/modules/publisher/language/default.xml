@@ -2229,6 +2229,7 @@
         <text tid="fileispinned">This file is protected (it may not be renamed or moved)</text>
         <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
         <text tid="info">Properties</text>
+        <text tid="isunlisted">Unlisted</text>
         <text tid="link">Link</text>
         <text tid="linkcheck">Link check</text>
         <text tid="maintab">General</text>

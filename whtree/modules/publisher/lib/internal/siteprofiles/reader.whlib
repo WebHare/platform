@@ -1922,11 +1922,13 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester) {
   RECORD baseprops := applytester->GetCachedProperty("baseproperties",
     CELL[ description := TRUE
+        , isunlisted := FALSE
         , keywords := NOT applytester->objisfolder
         , seotab := FALSE
         , noindex := FALSE
         , nofollow := FALSE
         , noarchive := FALSE
+        , requiretitle := FALSE
         , seotabrequireright := ""
         , seotitle := FALSE
     ]);

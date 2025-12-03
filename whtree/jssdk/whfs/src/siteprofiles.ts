@@ -269,12 +269,14 @@ interface CSPBodyRendererRule {
 
 export type CSPBaseProperties = {
   description: boolean;
+  isunlisted: boolean;
   keywords: boolean;
   seotab: boolean;
   seotabrequireright: string;
   noindex: boolean;
   nofollow: boolean;
   noarchive: boolean;
+  requiretitle: boolean;
   seotitle: boolean;
 };
 

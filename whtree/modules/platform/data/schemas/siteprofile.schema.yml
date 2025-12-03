@@ -645,6 +645,8 @@ $defs:
           enum:
             - description
             - keywords
+            - isUnlisted
+            - requireTitle
             - seoTitle
             # old name:
             - seotitle
@@ -684,6 +686,13 @@ $defs:
           striprtdextension:
             type: boolean
             description: Deprecated. Ignored since WH5.9, will be removed
+          # New WH5.9 props. Not currently available through siteprofiles.
+          isUnlisted:
+            type: boolean
+            description: Enable the isUnlisted field
+          requireTitle:
+            type: boolean
+            description: Require a title on all objects
 
           # old baseprop names
           seotitle:
