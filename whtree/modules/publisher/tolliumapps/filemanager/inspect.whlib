@@ -835,7 +835,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
   {
     RECORD ARRAY showrules := this->cachedapplyrules;
     IF(^searchapplyrules->value != "")
-      showrules := SELECT * FROM showrules WHERE ToUppercase(path || "\n"|| code) LIKE ToUppercase("*"||^searchapplyrules->value||"*");
+      showrules := SELECT * FROM showrules WHERE ToUppercase(path || "\n"|| applied || "\n" || code) LIKE ToUppercase("*"||^searchapplyrules->value||"*");
 
     ^applies->rows := showrules;
     IF(NOT RecordExists(^applies->selection) AND Length(showrules)>0)
