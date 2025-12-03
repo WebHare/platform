@@ -20,6 +20,47 @@ paths:
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "meta.ts#getMeta"
 
+  "/whfs/object":
+    get:
+      parameters:
+        - $ref: "#/components/parameters/path"
+        - in: query
+          name: children
+          schema:
+            type: boolean
+            description: If set and the object is a folder, include the children objects in the response
+        - in: query
+          name: instances
+          schema:
+            type: string
+            description: Set to '*' to get all instances of the object (if any)
+      responses:
+        "200":
+          description: Returns the basic name and type info for any WHFS object and the children for WHFS folders
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: "#/components/schemas/WHFSObject"
+                - type: object
+                  properties:
+                    children:
+                      type: array
+                      description: Child objects in a folder.
+                      items:
+                        $ref: "#/components/schemas/WHFSObject"
+                    instances:
+                      type: array
+                      description: Instances
+                      items:
+                        $ref: "#/components/schemas/WHFSInstance"
+
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notfound"
+      x-webhare-implementation: "whfs.ts#getWHFSObject"
+
   "/wrd":
     get:
       responses:
@@ -195,6 +236,14 @@ components:
         description: wrdGuid of the affected entity (UUID format)
         format: uuid
 
+    path:
+      in: query
+      name: path
+      required: false
+      schema:
+        type: string
+        description: The WHFS path to an object (defaults to root folder if not provided)
+
   schemas:
     ## Global types
     defaulterror: # This schema must be declared to use TypedRestRequest.createErrorResponse in TypeScript
@@ -223,6 +272,54 @@ components:
         email:
           type: string
           description: The email address of the user
+
+    ## WHFS API
+    WHFSObject:
+      type: object
+      required:
+        - name
+        - type
+        - whfsPath
+        - modified
+      properties:
+        name:
+          type: string
+          description: The name of the WHFS object
+        type:
+          type: string
+          description: The WHFS type (scoped type)
+        whfsPath:
+          type: string
+          description: Full WHFS path of the object
+        isFolder:
+          type: boolean
+          description: If true, this object is a folder
+        modified:
+          type: string
+          format: date-time
+          description: The last modification date/time of the object
+
+    WHFSInstance:
+      type: object
+      required:
+        - whfsType
+        - data
+        - clone
+      properties:
+        whfsType:
+          type: string
+          description: The WHFS instance type (scoped type)
+        clone:
+          type: string
+          description: The clone identifier if applicable
+          enum:
+          - onCopy
+          - onArchive
+          - never
+        data:
+          type: object
+          description: The metadata content of the WHFS instance
+          additionalProperties: true
 
     ## WRD API
     MetaType:
@@ -388,6 +485,8 @@ components:
       description: Invalid request
     unauthorized:
       description: Authorization bearer token is missing or invalid
+    notfound:
+      description: The requested resource was not found
     forbidden:
       description: Access to the requested resource is forbidden
 

@@ -14,6 +14,7 @@ import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
+import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -156,7 +157,7 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
   return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
 }
 
-class WHFSBaseObject {
+abstract class WHFSBaseObject {
   protected dbrecord: FsObjectRow;
   private readonly _typens: string;
 
@@ -252,6 +253,9 @@ class WHFSBaseObject {
       throw new Error(`Can't open parent of root subfolder`); //FIXME openWHFSRootFolder?
     return await __openWHFSObj(this.id, this.parent || 0, false, false, `parent of '${this.whfsPath}'`, false, allowRoot);
   }
+
+  /** Describe this object's type */
+  abstract describeType(): Promise<WHFSTypeInfo>;
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name", "ordering"]);
@@ -431,6 +435,11 @@ export class WHFSFile extends WHFSBaseObject {
     };
     return new ResourceDescriptor(this.dbrecord.data, meta);
   }
+
+  async describeType(): Promise<FileTypeInfo> {
+    return describeWHFSType(this.type, { metaType: "fileType" });
+  }
+
   async update(metadata: UpdateFileMetadata) {
     await this._doUpdate(metadata);
   }
@@ -559,6 +568,10 @@ export class WHFSFolder extends WHFSBaseObject {
     }
 
     return mappedrows;
+  }
+
+  async describeType(): Promise<FolderTypeInfo> {
+    return describeWHFSType(this.type, { metaType: "folderType" });
   }
 
   async update(metadata: UpdateFolderMetadata) {
