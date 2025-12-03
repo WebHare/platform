@@ -116,7 +116,7 @@ export type LoginDeniedInfo = {
 };
 
 export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
-  /** Invoked to look up a login name */
+  /** Invoked to look up a login name. Override to modify how accounts are mapped to IDs or to do just-in-time account creation */
   lookupUsername?: (params: LookupUsernameParameters<S>) => Promise<number | null> | number | null;
   /** Invoked to verify whether a user is allowed to login */
   isAllowedToLogin?: (params: IsAllowedToLoginParameters<S>) => Promise<LoginDeniedInfo | null> | LoginDeniedInfo | null;
