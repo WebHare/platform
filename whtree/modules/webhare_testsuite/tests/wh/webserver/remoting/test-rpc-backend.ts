@@ -53,6 +53,12 @@ async function testRPCCaller() {
 
   test.eq({ error: `Method 'noSuchAPI' not found` }, parseTyped(await call.text()));
 
+  // What happens if we invoke prototype methods?
+  request.url = `${servicebaseurl}toString`;
+  call = await RPCRouter(await newWebRequestFromInfo(request));
+  test.eq(404, call.status);
+  test.eq({ error: `Method 'toString' not found` }, parseTyped(await call.text()));
+
   request.url = `${servicebaseurl}serverCrash`;
   request.body = WebHareBlob.from(JSON.stringify([]));
   call = await RPCRouter(await newWebRequestFromInfo(request));

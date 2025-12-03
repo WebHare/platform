@@ -25,13 +25,25 @@ async function testRPCCaller() {
   test.eq(false, JSON.parse(await callres.body.text()).result);
   test.eq(null, JSON.parse(await callres.body.text()).error, "It must be null if there was no error.");
 
-  request.body = WebHareBlob.from(JSON.stringify({ id: 42, method: "noSuchAPI", params: [] }));
-  callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
-  test.eq(404, callres.status);
+  {
+    request.body = WebHareBlob.from(JSON.stringify({ id: 42, method: "noSuchAPI", params: [] }));
+    callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
+    test.eq(404, callres.status);
 
-  const { debug: debugData, ...result } = JSON.parse(await callres.body.text());
-  void (debugData);
-  test.eq({ id: 42, error: { code: -32601, message: `Method 'noSuchAPI' not found` }, result: null }, result);
+    const { debug: debugData, ...result } = JSON.parse(await callres.body.text());
+    void (debugData);
+    test.eq({ id: 42, error: { code: -32601, message: `Method 'noSuchAPI' not found` }, result: null }, result);
+  }
+
+  {
+    request.body = WebHareBlob.from(JSON.stringify({ id: 42, method: "toString", params: [] }));
+    callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
+    test.eq(404, callres.status);
+
+    const { debug: debugData, ...result } = JSON.parse(await callres.body.text());
+    void (debugData);
+    test.eq({ id: 42, error: { code: -32601, message: `Method 'toString' not found` }, result: null }, result);
+  }
 
   request.body = WebHareBlob.from(JSON.stringify({ id: 77, method: "serverCrash", params: [] }));
   callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);

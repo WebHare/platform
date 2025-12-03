@@ -85,7 +85,7 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
     const jsonrpcreq = JSON.parse(await req.body.text());
     id = jsonrpcreq.id;
 
-    if (!instance[jsonrpcreq.method])
+    if (!Object.hasOwn(Object.getPrototypeOf(instance), jsonrpcreq.method))
       throw new JSONRPCError(HTTPErrorCode.NotFound, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
 
     const promise = instance[jsonrpcreq.method](...jsonrpcreq.params);
