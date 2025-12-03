@@ -14,6 +14,7 @@ import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWit
 import { RestAPIWorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
 import type { OpenAPIHandlerInitializationContext, WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
+import { debugFlags } from "@webhare/env";
 
 export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void | { signal?: AbortSignal }> | void | { signal?: AbortSignal };
 
@@ -228,15 +229,22 @@ export class RestAPI {
     if (!this.def) //TODO with 'etr' return validation issues
       return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
 
-    const res = await this.workerPool.runInWorker(async worker => {
-      // Get the handler for this worker
-      let workerHandler = this.handlers.get(worker);
-      if (!workerHandler) {
-        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook));
-      }
+    let res;
+    if (debugFlags["openapi-noworkers"]) {
+      const workerHandler = getWorkerRestAPIHandler(this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook);
       const encodedTransfer = req.encodeForTransfer();
-      return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
-    });
+      res = (await workerHandler.handleRequest(encodedTransfer.value, relurl, logger)).value;
+    } else {
+      res = await this.workerPool.runInWorker(async worker => {
+        // Get the handler for this worker
+        let workerHandler = this.handlers.get(worker);
+        if (!workerHandler) {
+          this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook));
+        }
+        const encodedTransfer = req.encodeForTransfer();
+        return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
+      });
+    }
 
     Object.assign(logger, res.logger);
     return createWebResponseFromTransferData(res.response);
@@ -265,11 +273,11 @@ export class WorkerRestAPIHandler {
   validators = new Map<object, ValidateFunction>;
   routes: Route[];
   defaultErrorSchema: SchemaObject | null;
-  defaultErrorMapper: string;
+  defaultErrorMapper: string | null;
   handlerInitHook: string | null;
   calledHandlerInitHook: Promise<void> | null = null;
 
-  constructor(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string, handlerInitHook: string | null) {
+  constructor(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, handlerInitHook: string | null) {
     this.serviceName = serviceName;
     this.routes = routes;
     this.defaultErrorSchema = defaultErrorSchema;
@@ -545,6 +553,6 @@ export class WorkerRestAPIHandler {
   }
 }
 
-export function getWorkerRestAPIHandler(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string, handlerInitHook: string | null) {
+export function getWorkerRestAPIHandler(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, handlerInitHook: string | null) {
   return new WorkerRestAPIHandler(serviceName, routes, defaultErrorSchema, defaultErrorMapper, handlerInitHook);
 }
