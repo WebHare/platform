@@ -92,13 +92,14 @@ async function testWHFS() {
   //checking isFolder triggers a type assertion and now we *do* know its folder and that list() exists
   testpagesfolderAsFileOrfolder.list satisfies (...args: any[]) => any;
 
-  const list = await testpagesfolder.list(["parent", "publish"]);
+  const list = await testpagesfolder.list(["parent", "publish", "isUnlisted"]);
   test.assert(list.length > 5, "should be a lot of files/folders in this list");
   test.eq([
     {
       id: markdownfile.id,
       name: markdownfile.name,
       isFolder: false,
+      isUnlisted: true,
       parent: testpagesfolder.id,
       publish: true
     }
@@ -163,6 +164,7 @@ async function testWHFS() {
   const newFile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File", data: null });
   const openNewFile = await tmpfolder.openFile("testfile");
   test.eq(false, newFile.isPinned);
+  test.eq(false, newFile.isUnlisted);
   test.eq(newFile.id, openNewFile.id);
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
@@ -178,8 +180,9 @@ async function testWHFS() {
   test.eq(true, openNewFile_state2.publish);
 
   const goldFishId = await whfs.nextWHFSObjectId();
-  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true });
+  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true, isUnlisted: true });
   test.eq(true, goldFish.isPinned);
+  test.eq(true, goldFish.isUnlisted);
   test.eq(goldFishId, goldFish.id);
   test.eq("image/png", goldFish.data.mediaType);
   test.eq(385, goldFish.data.width);
@@ -189,9 +192,10 @@ async function testWHFS() {
   test.eq(goldFish.creationDate, goldFish.firstPublishDate);
   test.eq(goldFish.creationDate, goldFish.contentModificationDate);
 
-  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false });
+  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false, isUnlisted: false });
   const openedGoldFish = await openFile(goldFish.id);
   test.eq(false, openedGoldFish.isPinned);
+  test.eq(false, openedGoldFish.isUnlisted);
   test.eq("image/jpeg", openedGoldFish.data.mediaType);
   test.eq(428, openedGoldFish.data.width);
   test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);

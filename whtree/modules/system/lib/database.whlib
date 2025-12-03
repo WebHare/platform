@@ -222,6 +222,7 @@ PUBLIC SCHEMA
     , INTEGER "id" NULL := 0
     , BOOLEAN "isactive" __ATTRIBUTES__(READONLY)
     , BOOLEAN "ispinned"
+    , BOOLEAN "isunlisted"
     , STRING "scandata"
     ; KEY id
     > fs_objects

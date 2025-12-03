@@ -102,7 +102,8 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                               ordering,
                               fullpath,
                               indexdoc,
-                              ispinned
+                              ispinned,
+                              isunlisted
                          FROM system.fs_objects
                         WHERE id = VAR folderid
                               AND isfolder = TRUE;
@@ -171,6 +172,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                 , keywords                    := folderdata.keywords
                 , ordering                    := folderdata.ordering
                 , ispinned                    := folderdata.ispinned
+                , isunlisted                  := folderdata.isunlisted
                 ];
 
   RECORD xml_metadata := [ subversion := 1
@@ -196,6 +198,7 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                                 , description      := file.description
                                 , keywords         := file.keywords
                                 , ispinned         := file.ispinned
+                                , isunlisted       := file.isunlisted
                                 , externallink     := file.externallink
                                 ]
                       , templatepath := "" //WH4.31- compatibility

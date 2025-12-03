@@ -91,8 +91,10 @@ interface ListableFsObjectRow {
   // url: string;
   /// Checks if the current selected item is active
   // isActive: boolean;
-  /// Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.
+  /// If pinned the item cannot be replaced/renamed or deleted.
   isPinned: boolean;
+  /// If unlisted the item should be hidden from menus and other navigation.
+  isUnlisted: boolean;
 }
 
 export interface CreateFSObjectMetadata {
@@ -101,6 +103,7 @@ export interface CreateFSObjectMetadata {
   title?: string;
   description?: string;
   isPinned?: boolean;
+  isUnlisted?: boolean;
   ordering?: number;
 }
 
@@ -186,6 +189,9 @@ class WHFSBaseObject {
   get isPinned(): boolean {
     return this.dbrecord.ispinned;
   }
+  get isUnlisted(): boolean {
+    return this.dbrecord.isunlisted;
+  }
   get link(): string | null {
     return this.dbrecord.link || null;
   }
@@ -254,6 +260,8 @@ class WHFSBaseObject {
 
     if ("isPinned" in metadata)
       storedata.ispinned = metadata.isPinned;
+    if ("isUnlisted" in metadata)
+      storedata.isunlisted = metadata.isUnlisted;
     if ("indexDoc" in metadata && metadata.indexDoc !== undefined) {
       if (this.isFile)
         throw new Error(`indexDoc is not a valid property for files`);
@@ -492,7 +500,8 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
   "publish": "publish",
   "title": "title",
   "type": "type",
-  "isPinned": "ispinned"
+  "isPinned": "ispinned",
+  "isUnlisted": "isunlisted"
 };
 
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
@@ -606,6 +615,7 @@ export class WHFSFolder extends WHFSBaseObject {
         published,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
+        isunlisted: metadata?.isUnlisted || false,
         data: data
       }).returning(['id']).executeTakeFirstOrThrow();
 
@@ -894,6 +904,7 @@ function getRootFolderDBRow(): FsObjectRow {
     filelink: 0,
     externallink: "",
     ispinned: false,
+    isunlisted: false,
     ordering: 0,
     data: null,
     errordata: "",
