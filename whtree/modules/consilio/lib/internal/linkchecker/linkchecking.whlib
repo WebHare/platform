@@ -88,6 +88,9 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
     RETURN [ code := ToInteger(Tokenize(Tokenize(url,'-')[1],'/')[0], 0) ];
   }
 
+  IF (NOT IsValidPlainHTTPURL(url))
+    RETURN [ code := 003 ];
+
   RECORD denylistcheck := RunModuleHookTarget("consilio:fetcher_blacklist", CELL[ indexid := 0, contentsourceid := 0, url, action := "linkcheck_to", pattern := "" ]);
   IF (denylistcheck.pattern != "")
   {
