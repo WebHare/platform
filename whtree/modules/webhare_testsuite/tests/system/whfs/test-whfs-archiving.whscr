@@ -141,7 +141,9 @@ dumpvalue(setversion,'tree');
   OBJECT subsubfolderfile := subsubfolder->CreateFile([name:="index.doc", type := 4, publish := TRUE]); //adding a file to trigger an error when replacing the folder
 
   OBJECT contentlinkfile := subfolder->CreateFile([name:="test2.doc", type:=20, filelink:=cooldoc->id, ordering := 1]);
-  OBJECT intlinkfile := subfolder->CreateFile([name:="test2.txt.lnk", type:=18, filelink:=cooltxt->id, ordering := 3]);
+  OBJECT intlinkfile := subfolder->CreateFile([name:="test2.txt.lnk", type:=18, filelink:=cooltxt->id, ordering := 3, isunlisted := TRUE]);
+  TestEq(TRUE, intlinkfile->isunlisted);
+
   OBJECT extlinkfile := subfolder->CreateFile([name:="test3.lnk", type:=19, externallink:="http://www.webhare.net/", ordering := -5]);
   OBJECT imgfile := subfolder->CreateFile([ name:="harrispilton.jpg", data := GetWebhareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), wrapped := [ dominantcolor := "#0000EE"]]);
 
@@ -667,6 +669,8 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
     TestEq(cooldoc->id, contentlinkfile->filelink);
     TestEq(cooltxt->id, intlinkfile->filelink);
     TestEq("http://www.webhare.net/", extlinkfile->externallink);
+    TestEq(TRUE, intlinkfile->isunlisted);
+    TestEq(FALSE, extlinkfile->isunlisted);
   }
   ELSE
   {

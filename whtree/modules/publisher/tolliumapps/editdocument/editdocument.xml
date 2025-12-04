@@ -121,7 +121,10 @@
                             tid="~name"
                             validationchecks="whfsname"
                             required="true" />
-                  <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                  <line>
+                    <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                    <checkbox name="isunlisted" title="" labeltid="tolliumapps.objectprops.objectprops.isunlisted" />
+                  </line>
                   <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
                   <textedit composition="webmetadata"
                             cellname="seo_title"

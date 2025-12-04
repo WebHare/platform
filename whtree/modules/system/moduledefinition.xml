@@ -987,6 +987,9 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:boolean name="ispinned">
         <d:documentation>Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.</d:documentation>
       </d:boolean>
+      <d:boolean name="isunlisted">
+        <d:documentation>Indicates the file should not be listed in navigation (historically often an 'empty title' was used for this).</d:documentation>
+      </d:boolean>
       <d:index name="parentnameindex" columns="parent name(32)" unique="true" uppercase="true">
         <d:documentation>Also used to enforce unique names within folders.</d:documentation>
       </d:index>

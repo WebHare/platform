@@ -47,7 +47,10 @@
             <tab name="maintab" tid=".maintab">
               <heading name="maintab_heading" doclink="publisher:objectprops/nametitle" tid=".nametitle" />
               <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
-              <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+              <line>
+                <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+                <checkbox name="isunlisted" title="" labeltid=".isunlisted" />
+              </line>
               <heading name="seotab_heading" doclink="publisher:objectprops/seo" />
               <textedit composition="webmetadata"
                         cellname="seo_title"

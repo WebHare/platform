@@ -369,13 +369,15 @@ MACRO GetSetTest()
   testfw->BeginWork();
 
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-  OBJECT testfile := firstfolder->CreateFile([name:="getsettest"]);
+  OBJECT testfile := firstfolder->CreateFile([name:="getsettest", isunlisted := TRUE ]);
 
   OBJECT betatype := OpenWHFSType("http://www.webhare.net/xmlns/beta/test");
 
   DATETIME moddate := MakeDateTime(2020, 2, 2, 20, 20, 20);
   betatype->SetInstanceData(testfile->id, [ stringtest := "a" ] );
-  testfile->UpdateMetaData([ modificationdate := moddate ]);
+  TestEq(TRUE, testfile->isunlisted);
+  testfile->UpdateMetaData([ modificationdate := moddate, isunlisted := FALSE ]);
+  TestEq(FALSE, testfile->isunlisted);
 
   testfw->CommitWork();
   /*TODO: Fails, because SetInstanceData triggers an empty update on commit, causing the modification date to be updated to 'now'

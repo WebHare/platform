@@ -280,7 +280,7 @@ RECORD FUNCTION FixupDataAndType(RECORD newmetadata, RECORD oldversion)
 */
 STRING ARRAY FUNCTION GetUpdatableMetadataFields(BOOLEAN folder)
 {
-  STRING ARRAY base := [ "TITLE", "DESCRIPTION", "CREATIONDATE", "MODIFICATIONDATE", "MODIFIEDBY", "NAME", "KEYWORDS", "TYPE", "ORDERING", "FILELINK", "ISPINNED" ];
+  STRING ARRAY base := [ "TITLE", "DESCRIPTION", "CREATIONDATE", "MODIFICATIONDATE", "MODIFIEDBY", "NAME", "KEYWORDS", "TYPE", "ORDERING", "FILELINK", "ISPINNED", "ISUNLISTED" ];
   IF(folder)
     base := base CONCAT [ "INDEXDOC" ];
   ELSE
@@ -444,6 +444,8 @@ OBJECTTYPE WHFSObject <
   /// Whether this object is pinned (locked for renaming/deleting)
   BOOLEAN pvt_ispinned;
 
+  /// Whether this object is unlisted
+  BOOLEAN pvt_isunlisted;
 
   /// Ordering of this file
   INTEGER pvt_ordering;
@@ -550,6 +552,9 @@ OBJECTTYPE WHFSObject <
   /// Whether this object is pinned (locked for renaming/deleting)
   PUBLIC PROPERTY ispinned(pvt_ispinned,-);
 
+  /// Whether this object is unlisted (locked for renaming/deleting)
+  PUBLIC PROPERTY isunlisted(pvt_isunlisted,-);
+
   /// Ordering number
   PUBLIC PROPERTY ordering(pvt_ordering,-);
 
@@ -626,6 +631,7 @@ OBJECTTYPE WHFSObject <
     this->pvt_type := me.type;
     this->pvt_isactive := me.isactive;
     this->pvt_ispinned := me.ispinned;
+    this->pvt_isunlisted := me.isunlisted;
     this->pvt_ordering := me.ordering;
     this->pvt_indexurl := me.indexurl;
   }
@@ -1889,7 +1895,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSObject(INTEGER findid, RECORD options DEFAULTSTO 
                          , name, title, description, keywords, scandata
                          , creationdate, modificationdate, modifiedby
                          , type, indexdoc, filelink, externallink, isactive, ispinned, ordering
-                         , publish, published, firstpublishdate, lastpublishdate, contentmodificationdate
+                         , publish, published, firstpublishdate, lastpublishdate, contentmodificationdate, isunlisted
                       FROM system.fs_objects
                      WHERE fs_objects.id = VAR findid;
 
@@ -1974,6 +1980,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSRootObject()
         , externallink                  := ""
         , isactive                      := TRUE
         , ispinned                      := FALSE
+        , isunlisted                    := FALSE
         , ordering                      := 0
         ]);
 }
@@ -2732,7 +2739,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
   {
     RECORD sourceinfo := SELECT name, title, keywords, description, externallink
                               , ordering, type, indexdoc, data, filelink
-                              , publish, modifiedby, ispinned, wrapped := DecodeScanData(scandata)
+                              , publish, modifiedby, ispinned, isunlisted, wrapped := DecodeScanData(scandata)
                            FROM system.fs_objects
                           WHERE id = source.sourceid;
 
@@ -2851,6 +2858,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
                 , title := metainfo.data.title
                 , description := metainfo.data.description
                 , ispinned := CellExists(metainfo.data,'ispinned') ? metainfo.data.ispinned : FALSE
+                , isunlisted := CellExists(metainfo.data,'isunlisted') ? metainfo.data.isunlisted : FALSE
                 , externallink := CellExists(metainfo.data,'externallink') ? metainfo.data.externallink : ''
                 , keywords := CellExists(metainfo.data,'keywords') ? metainfo.data.keywords : ''
                 , filelink := CellExists(metainfo,'linkpath') ? metainfo.linkpath : ''

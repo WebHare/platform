@@ -276,7 +276,7 @@ MACRO SetupTestSite(OBJECT testsite)
   testpages->CreateFile( [ name := "staticpage-ps-af", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
   testpages->CreateFile( [ name := "staticpage-en-gb", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
 
-  OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE ]);
+  OBJECT markdownpage := testpages->CreateFile( [ name := "markdownpage", typens := "http://www.webhare.net/xmlns/publisher/markdownfile", publish := TRUE, isunlisted := TRUE ]);
   markdownpage->SetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile",
     [ data := [ type := "publisher:markdown"
               , text := StringToBlob(`

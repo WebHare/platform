@@ -110,9 +110,10 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       this->basesettings.seotab := FALSE;
     }
 
-    ^title->visible := this->basesettings.title;
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
+    ^isunlisted->visible := this->basesettings.isunlisted;
+    ^title->required := this->basesettings.requiretitle;
 
     //FIXME restore seotabrequireright. see objectprops.whlib
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();

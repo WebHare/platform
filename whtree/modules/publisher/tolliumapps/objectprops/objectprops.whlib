@@ -525,7 +525,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       {
         // Create a new file name based on the type name
         newname := GetTid(this->curtype.title);
-        IF (Length(this->curtype.extensions) > 0 AND (this->curtype.extensions[0] != ".rtd" OR NOT this->basesettings.striprtdextension))
+        IF (Length(this->curtype.extensions) > 0)
           newname := newname || this->curtype.extensions[0];
         //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
         //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
@@ -633,9 +633,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO SetupObjectProps()
   {
-    ^title->visible := this->basesettings.title;
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
+    ^isunlisted->visible := this->basesettings.isunlisted;
+    ^title->required := this->basesettings.requiretitle;
   }
 
   UPDATE RECORD FUNCTION UpdatePinned()
@@ -1183,7 +1184,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       suggestedname := "webhare";
 
     // Add extension for file type
-    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0 AND (this->curtype.extensions[0] != ".rtd" OR NOT this->basesettings.striprtdextension))
+    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0)
       suggestedname := suggestedname || this->curtype.extensions[0];
 
     RETURN this->parentfolder->GenerateUniqueName(suggestedname);
@@ -1364,6 +1365,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           [ name := name
           , title := ^title->value
           , description := ^description->value
+          , isunlisted := ^isunlisted->value
           ];
 
       BOOLEAN update_ordering_otherfiles;

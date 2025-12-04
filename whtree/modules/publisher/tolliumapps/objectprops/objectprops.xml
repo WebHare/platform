@@ -38,7 +38,10 @@
 
           <!-- general fields -->
           <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
-          <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+          <line>
+            <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+            <checkbox name="isunlisted" title="" labeltid=".isunlisted" />
+          </line>
           <textedit composition="webmetadata"
                     cellname="seo_title"
                     name="seotitle"

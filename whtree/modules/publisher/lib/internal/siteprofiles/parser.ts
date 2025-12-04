@@ -584,14 +584,14 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
 function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
   if (Array.isArray(props)) { //these are a 'full reset'
     return {
-      haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"],
+      haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"],
       description: props.includes("description"),
+      isunlisted: props.includes("isUnlisted"),
       keywords: props.includes("keywords"),
-      seotitle: props.includes("seotitle"),
+      requiretitle: props.includes("requireTitle"),
+      seotitle: props.includes("seotitle") || props.includes("seoTitle"),
       /* These things probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary optouts
         (or just tell you to set system:sysop as seotabrequireright so you will be reminded continously about these */
-      title: true,
-      striprtdextension: true,
       seotab: true,
       seotabrequireright: "",
       //NOTE these don't enable a configurable setting, but enforce it! it should probably not be part of <baseproperties>/baseProps
@@ -600,19 +600,23 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       noarchive: false
     };
   } else {
+    const haslist = new Set(typedKeys(props).map(k => k.toUpperCase()));
+    const seotabrequireright = props.seotabrequireright || (typeof props.seoTab === "object" ? props.seoTab.requireRight || '' : '');
+    if (seotabrequireright) //the new 'seoTab' property allows to embed requireRight into the property, but HS expects it as separate
+      haslist.add("SEOTABREQUIRERIGHT");
+
     return {
-      haslist: typedKeys(props).map(k => k.toUpperCase()).toSorted() as Array<Uppercase<keyof CSPBaseProperties>>,
-      description: false,
-      keywords: false,
-      seotitle: false,
-      title: false,
-      striprtdextension: false,
-      seotab: false,
-      seotabrequireright: "",
-      noindex: false,
-      nofollow: false,
-      noarchive: false,
-      ...props
+      haslist: [...haslist].toSorted() as Array<Uppercase<keyof CSPBaseProperties>>,
+      description: props.description || false,
+      isunlisted: props.isUnlisted || false,
+      keywords: props.keywords || false,
+      requiretitle: props.requireTitle || false,
+      seotitle: props.seoTitle || props.seotitle || false,
+      seotab: Boolean(props.seoTab || props.seotab),
+      seotabrequireright,
+      noindex: props.noIndex || props.noindex || false,
+      nofollow: props.noFollow || props.nofollow || false,
+      noarchive: props.noArchive || props.noarchive || false,
     };
   }
 }

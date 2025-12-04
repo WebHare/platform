@@ -637,7 +637,7 @@ $defs:
       value: {}
 
   ApplyBaseProps: # TODO camelcase the properties here? but we may really need to reconsider whether such detailed baseprops are the way to go in the future
-    description: Either an array of flags (to fully reset baseproperties) or a bag of mostly boolen properties to mutate base properties
+    description: Either an array of flags (to fully reset baseproperties) or a bag of mostly boolean properties to mutate base properties
     oneOf:
       - type: array
         items:
@@ -645,38 +645,68 @@ $defs:
           enum:
             - description
             - keywords
+            - isUnlisted
+            - requireTitle
+            - seoTitle
+            # old name:
             - seotitle
       - type: object
         properties:
           title:
             type: boolean
-          seotitle:
+            description: Deprecated. Ignored since WH5.9, will be removed
+          seoTitle:
             type: boolean
             description: Enable the SEO title field
           description:
             type: boolean
           keywords:
             type: boolean
-          seotab:
-            type: boolean
+          seoTab:
             description: Enable the SEO tab (noindex, nofollow, canonical)
-          seotabrequireright:
-            type: string
-            description: Require this right to see the SEO tab
+            oneOf:
+            - type: boolean
+            - type: object
+              additionalProperties: false
+              required: ["requireRight"]
+              properties:
+                requireRight:
+                  type: string
+
           # TODO: nodindex/nofollownoarchive don't seem to be properties that control the UI but primarily affect the generated value
-          noindex:
+          noIndex:
             type: boolean
             description: If true for a file, enforces the 'noindex' robot setting
-          nofollow:
+          noFollow:
             type: boolean
             description: If true for a file, enforces the 'nofollow' robot setting
-          noarchive:
+          noArchive:
             type: boolean
             description: If true for a file, enforces the 'noarchive' robot setting
-          # TODO: isn't this implied now that WH5.9 drops the extension from RTD files (and all virtual files/metaType: page)
           striprtdextension:
             type: boolean
-            description: Strip .rtd extension from newly created files
+            description: Deprecated. Ignored since WH5.9, will be removed
+          # New WH5.9 props. Not currently available through siteprofiles.
+          isUnlisted:
+            type: boolean
+            description: Enable the isUnlisted field
+          requireTitle:
+            type: boolean
+            description: Require a title on all objects
+
+          # old baseprop names
+          seotitle:
+            type: boolean
+          noindex:
+            type: boolean
+          nofollow:
+            type: boolean
+          noarchive:
+            type: boolean
+          seotab:
+            type: boolean
+          seotabrequireright:
+            type: string
 
   ApplyEditProps:
     description: Set up an editor for these metadata fields

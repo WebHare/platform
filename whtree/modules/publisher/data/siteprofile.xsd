@@ -998,7 +998,7 @@
       </xs:attribute>
       <xs:attribute name="striprtdextension" type="xs:boolean">
         <xs:annotation>
-          <xs:documentation>Strip .rtd extension from newly created files</xs:documentation>
+          <xs:documentation>Deprecated. Ignored since WH5.9, will be removed</xs:documentation>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="noindex" type="xs:boolean">

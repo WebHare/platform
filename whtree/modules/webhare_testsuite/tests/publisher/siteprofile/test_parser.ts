@@ -275,7 +275,7 @@ types:
         ],
         applyindex: 0,
         baseproperties: {
-          description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"]
+          description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"]
         },
         yaml: true,
         extendproperties: [
@@ -311,7 +311,7 @@ apply:
 - to:
     type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     whfsPath: "*seofiles*"
-  baseProps: [seotitle]
+  baseProps: [seotitle,isUnlisted,requireTitle]
   editProps:
     - type: my_types.test_type
       layout: [folksonomy,numberField]
@@ -366,7 +366,7 @@ rtdTypes:
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"] },
+        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT"] },
         yaml: true,
         extendproperties: [
           {
@@ -397,7 +397,7 @@ types:
 apply:
 - to:
     type: http://www.webhare.net/xmlns/publisher/richdocumentfile
-  baseProps: [seotitle]
+  baseProps: [seoTitle]
   editProps:
     - type: test_type
       override:
@@ -430,7 +430,7 @@ apply:
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"] },
+        baseproperties: { description: false, isunlisted: true, seotitle: true, haslist: ["ISUNLISTED", "SEOTAB", "SEOTABREQUIRERIGHT", "SEOTITLE"], seotab: true, seotabrequireright: "publisher:pinning" },
         yaml: true,
         extendproperties: [
           {
@@ -463,7 +463,11 @@ types:
 apply:
 - to:
     type: http://www.webhare.net/xmlns/publisher/richdocumentfile
-  baseProps: [seotitle]
+  baseProps:
+    isUnlisted: true
+    seoTitle: true
+    seoTab:
+      requireRight: publisher:pinning
   editProps:
     - type: sub.test_type
       override:
