@@ -59,7 +59,7 @@
       <action name="newfile" ellipsis="true" onexecute="donewfile" shortcut="ctrl+alt+n">
         <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </action>
-      <action name="newfolder" ellipsis="true" onexecute="donewfolder" shortcut="ctrl+shift+n">
+      <action name="newfolder" ellipsis="true" onexecute="donewfolder" shortcut="ctrl+alt+f">
         <enableon source="foldertreeproxy" min="1" checkflags="canadd" />
       </action>
       <action name="newitem" ellipsis="true" onexecute="donewitem" title="">
