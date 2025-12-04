@@ -80,11 +80,11 @@ export type AuthorizedWRDAPIUser = {
   accountStatus: WRDAuthAccountStatus | null;
 };
 
-/** Craft a 401 error response. Should be used by verifyWRDAPIUser wrappers  */
-export function failWRDAPIUserAuth(error: string): RestAuthorizationResult<AuthorizedWRDAPIUser> {
+/** Craft a 403/401 error response. Should be used by verifyWRDAPIUser wrappers  */
+export function failWRDAPIUserAuth(error: string, errorCode: HTTPErrorCode.Unauthorized | HTTPErrorCode.Forbidden = HTTPErrorCode.Forbidden): RestAuthorizationResult<AuthorizedWRDAPIUser> {
   return {
     authorized: false,
-    response: createJSONResponse(HTTPErrorCode.Unauthorized, {
+    response: createJSONResponse(errorCode, {
       error
     }, {
       headers: { "WWW-Authenticate": "Bearer" }
@@ -99,7 +99,7 @@ export function failWRDAPIUserAuth(error: string): RestAuthorizationResult<Autho
 export async function verifyWRDAPIUser(req: RestRequest): Promise<RestAuthorizationResult<AuthorizedWRDAPIUser>> {
   const key = req.webRequest.headers.get("authorization");
   if (!key || !key.toLowerCase().startsWith("bearer "))
-    return failWRDAPIUserAuth("Missing 'Authorization: bearer ....' header");
+    return failWRDAPIUserAuth("Missing 'Authorization: bearer ....' header", 401);
 
   const applytester = await getApplyTesterForURL(req.webRequest.url);
   const wrdauth = await applytester?.getWRDAuth();
@@ -111,7 +111,7 @@ export async function verifyWRDAPIUser(req: RestRequest): Promise<RestAuthorizat
   const idp = new IdentityProvider(new WRDSchema(wrdauth.wrdSchema));
   const res = await idp.verifyAccessToken("api", key.substring(7).trim());
   if ("error" in res)
-    return failWRDAPIUserAuth(res.error);
+    return failWRDAPIUserAuth(res.error, 401);
 
   return {
     authorized: true,

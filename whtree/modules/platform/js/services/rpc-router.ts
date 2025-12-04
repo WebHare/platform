@@ -68,7 +68,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
 
   try {
     const api = await importJSExport<RPCAPI>(matchservice.api);
-    if (!api[method])
+    if (!Object.hasOwn(api, method))
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 
     const responseHeaders = new Headers();

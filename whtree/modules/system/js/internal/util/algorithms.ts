@@ -16,7 +16,7 @@ export function mapObject<T extends object, N extends (v: T[keyof T], k?: keyof 
   */
   const retval = {} as { [K in keyof T]: ReturnType<N> };
   for (const i in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, i)) {
+    if (Object.hasOwn(obj, i)) {
       retval[i] = mapping(obj[i], i);
     }
   }

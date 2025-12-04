@@ -83,7 +83,7 @@ export async function importJSExport<T = unknown>(name: string): Promise<T> {
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
   const library = require(libraryURI);
-  if (!(symbolName in library)) {
+  if (!Object.hasOwn(library, symbolName)) {
     if (symbolName === "default") { //or do we need to look at __esModule to determine whether the default export is the module?
       if (!library)
         throw new Error(`Library ${libraryURI} does not export '${symbolName}'`);

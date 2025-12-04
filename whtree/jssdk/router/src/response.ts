@@ -184,7 +184,7 @@ export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, op
       throw new Error("HTTP 204 No Content should not have a body");
     sendbody = undefined;
   } else {
-    sendbody = JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined);
+    sendbody = JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined) + "\n";
     if (!headers.get("content-type"))
       headers.set("content-type", "application/json");
   }
