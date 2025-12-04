@@ -181,6 +181,7 @@ RECORD wrdattributes :=
  , "enum" :=                    [ attributetype := wrd_attributetype_enum
                                 , image := "dummy.gif"
                                 , options := [ "allowedvalues" ]
+                                , canchangeto := ["FREE"]
                                 ]
  , "enumarray" :=               [ attributetype := wrd_attributetype_enumarray
                                 , image := "dummy.gif"

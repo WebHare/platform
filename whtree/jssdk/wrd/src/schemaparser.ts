@@ -515,7 +515,8 @@ const wrdattributes: Record<string, {
   },
   "enum": {
     image: "dummy.gif",
-    options: ["allowedvalues"]
+    options: ["allowedvalues"],
+    canchangeto: ["FREE"]
   },
   "enumarray": {
     image: "dummy.gif",
