@@ -6,6 +6,8 @@ import * as process from 'node:process';
 import { type Connection, type DataType, DataTypeOIDs, type SmartBuffer } from './../vendor/postgrejs/src/index';
 import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob';
 import { storeDiskFile } from '@webhare/system-tools/src/fs';
+import { getWHType } from "@webhare/std/src/quacks";
+import { statSync } from "node:fs";
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -82,11 +84,14 @@ function createPGBlob(pgdata: string): WebHareBlob {
   return createPGBlobByBlobRec(databaseid, parseInt(sizetok));
 }
 
-export function createPGBlobByBlobRec(databaseid: string, size: number): WebHareBlob {
+export function createPGBlobByBlobRec(databaseid: string, size: number | null): WebHareBlob {
   if (!databaseid.startsWith('AAAB'))
     throw new Error(`Unrecognized storage system for blob '${databaseid}'`);
 
   const diskpath = getDiskPathinfo(databaseid.substring(4)).fullpath;
+  if (!size)
+    size = statSync(diskpath).size;
+
   const blob = new WebHareDiskBlob(size, diskpath);
   uploadedblobs.set(blob, databaseid);
   return blob;
@@ -170,8 +175,20 @@ export function isSameUploadedBlob(lhs: WebHareBlob, rhs: WebHareBlob): boolean 
 
 /** Debug api: get the raw database id for a blob if it's associated with the databse */
 export function __getBlobDatabaseId(lhs: WebHareBlob): string | null {
-  return uploadedblobs.get(lhs) || null;
+  const uploadedid = uploadedblobs.get(lhs);
+  if (uploadedid)
+    return uploadedid;
+
+  if (getWHType(lhs) === "WebHareDiskBlob") {
+    const p = (lhs as WebHareDiskBlob).path;
+    if (p.startsWith(getBlobStoragepath())) {
+      return 'AAAB' + p.slice(p.lastIndexOf('/') + 1);
+    }
+  }
+
+  return null;
 }
+
 /** HSVM helper api: get diskfilepath based on raw database id */
 export function __getBlobDiskFilePath(databaseid: string): string {
   if (!databaseid.startsWith('AAAB'))

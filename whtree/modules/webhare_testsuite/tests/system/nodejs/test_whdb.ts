@@ -110,6 +110,7 @@ async function testQueries() {
   test.assert(isSameUploadedBlob(tablecontents[1].datablob, thisisablob));
   test.assert(isSameUploadedBlob(goudvis.resource, tablecontents[0].datablob!));
   test.assert(!isSameUploadedBlob(goudvis.resource, tablecontents[1].datablob!));
+  test.eq(thisisablob_id, __getBlobDatabaseId(tablecontents[1].datablob));
 
   await beginWork();
   await uploadBlob(tablecontents[0].datablob!);
