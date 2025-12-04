@@ -2,7 +2,7 @@
 # Updating the #date/timestamp comment on a command can help to force a rebuild
 
 ################# STAGE 0 - base image. shared between builder and runner
-FROM       ubuntu:20.04 AS base
+FROM       docker.io/ubuntu:20.04 AS base
 MAINTAINER WebHare bv <info@webhare.com>
 
 ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
