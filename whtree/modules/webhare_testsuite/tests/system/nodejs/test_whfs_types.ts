@@ -698,11 +698,12 @@ async function testExportImport() {
 
   const aboutAFishDataFetch = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true, exportResources: "fetch" });
 
-  //Verify the expected data: {fetch: } is there and works!
+  //Verify the expected data: { fetch:, size: } is there and works!
   test.assert(aboutAFishDataFetch.data);
   test.assert("items" in aboutAFishDataFetch.data[0]);
   test.assert("image" in aboutAFishDataFetch.data[0].items[1]);
   test.assert("fetch" in aboutAFishDataFetch.data[0].items[1].image.data, "Image should be a fetch descriptor");
+  test.eq(theActualFish.resource.size, aboutAFishDataFetch.data[0].items[1].image.data.size);
   const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.data.fetch);
   test.eq(theActualFish.hash, (await ResourceDescriptor.fromBlob(await fetchFish.blob(), { getHash: true })).hash);
 

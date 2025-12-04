@@ -161,6 +161,7 @@ export type ExportedBlobReference = {
   base64: string; // base64 encoded data
 } | {
   fetch: string; //URL to fetch
+  size: number; //Size of the resource in
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
@@ -1084,8 +1085,8 @@ export class ResourceDescriptor implements ResourceMetaData {
       const dbid = __getBlobDatabaseId(this.resource);
       if (dbid)
         data = {
-          fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })
-            }`
+          fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })}`,
+          size: this.resource.size
         };
     }
 
