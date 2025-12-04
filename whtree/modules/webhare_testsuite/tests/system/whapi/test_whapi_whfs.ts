@@ -130,8 +130,49 @@ async function testWHFSAPI() {
         title: "",
         description: "",
         keywords: "",
+        publish: true,
       }
     }, simpleTestDoc.instances?.find(_ => _.whfsType === "platform:virtual.objectdata"));
+
+  // Create a new file using simpledoc
+  const tempPath = testSiteRootPath + "tmp";
+  const newFilePathCreated = await api.post("/whfs/object",
+    {
+      ...simpleTestDoc,
+      name: "newfile"
+    }, { params: { path: tempPath } },
+  );
+  test.assert(newFilePathCreated.status === 201, `Expected 201 on file creation, got ${newFilePathCreated.status}`);
+
+  const newFilePath = tempPath + "/newfile";
+
+  // Update file content
+  const publishNewFileResult = await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { publish: true, title: "An updated title" }
+      }
+    ]
+  }, { params: { path: newFilePath } });
+  test.assert(publishNewFileResult.status === 200, `Expected 200 on enabling publish, got ${publishNewFileResult.status}`);
+
+  // Retrieve
+  const newFilePathRetrieved = await api.get("/whfs/object", { params: { path: newFilePath, instances: "*" } });
+  test.assert(newFilePathRetrieved.status === 200, `Expected 200 on file retrieval, got ${newFilePathRetrieved.status}`);
+  test.eq("newfile", newFilePathRetrieved.body.name);
+  test.eq("platform:filetypes.richdocument", newFilePathRetrieved.body.type);
+  test.eq({
+    publish: true,
+    title: "An updated title",
+    description: "",
+    keywords: ""
+  }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  test.assert(newFilePathRetrieved.body.link);
+
+  // Wait for the file to come online
+  const newFileFetched = await test.wait(() => fetch(newFilePathRetrieved.body.link!), { test: res => res.ok });
+  test.eq(/simpletest.rtd - OneOfTheSimpleFiles/, await newFileFetched.text());
 }
 
 

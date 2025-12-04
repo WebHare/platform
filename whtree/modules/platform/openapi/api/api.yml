@@ -40,26 +40,78 @@ paths:
           content:
             application/json:
               schema:
+                type: object
+                unevaluatedProperties: false
                 allOf:
-                - $ref: "#/components/schemas/WHFSObject"
-                - type: object
-                  properties:
-                    children:
-                      type: array
-                      description: Child objects in a folder.
-                      items:
-                        $ref: "#/components/schemas/WHFSObject"
-                    instances:
-                      type: array
-                      description: Instances
-                      items:
-                        $ref: "#/components/schemas/WHFSInstance"
+                  - $ref: "#/components/schemas/RetrievedWHFSObject"
+                  - type: object
+                    properties:
+                      children:
+                        type: array
+                        description: Child objects in a folder.
+                        items:
+                          $ref: "#/components/schemas/RetrievedWHFSObject"
+                      instances:
+                        $ref: "#/components/schemas/RetrievedWHFSInstances"
 
         "403":
           $ref: "#/components/responses/forbidden"
         "404":
           $ref: "#/components/responses/notfound"
       x-webhare-implementation: "whfs.ts#getWHFSObject"
+
+    post:
+      parameters:
+        - $ref: "#/components/parameters/path"
+      requestBody:
+        description: The WHFS object to create
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              unevaluatedProperties: false
+              allOf:
+                - $ref: "#/components/schemas/CreateWHFSObject"
+                - type: object
+                  properties:
+                    instances:
+                      $ref: "#/components/schemas/WHFSInstances"
+      responses:
+        "201":
+          description: Creation succesful
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+      x-webhare-implementation: "whfs.ts#createWHFSObject"
+
+    patch:
+      parameters:
+        - $ref: "#/components/parameters/path"
+      requestBody:
+        description: The WHFS object metadata to update
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              unevaluatedProperties: false
+              allOf:
+                - $ref: "#/components/schemas/WHFSObject"
+                - type: object
+                  properties:
+                    instances:
+                      $ref: "#/components/schemas/WHFSInstances"
+      responses:
+        "200":
+          description: Update successful
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notfound"
+      x-webhare-implementation: "whfs.ts#updateWHFSObject"
 
   "/wrd":
     get:
@@ -276,11 +328,6 @@ components:
     ## WHFS API
     WHFSObject:
       type: object
-      required:
-        - name
-        - type
-        - whfsPath
-        - modified
       properties:
         name:
           type: string
@@ -298,28 +345,53 @@ components:
           type: string
           format: date-time
           description: The last modification date/time of the object
+        # We ignore updates to readonly properties so you can reasonably easy pass the output of GET back into POST.
+        link:
+          type: string
+          description: The link to the object if published. Ignored if set
+
+    CreateWHFSObject:
+      $ref: "#/components/schemas/WHFSObject"
+      required: [name, type]
+
+    RetrievedWHFSObject:
+      $ref: "#/components/schemas/WHFSObject"
+      required: [name, type, whfsPath, modified]
 
     WHFSInstance:
       type: object
-      required:
-        - whfsType
-        - data
-        - clone
+      required: [whfsType, data]
       properties:
         whfsType:
           type: string
           description: The WHFS instance type (scoped type)
         clone:
           type: string
-          description: The clone identifier if applicable
+          description: The clone identifier if applicable. Ignored when setting
           enum:
-          - onCopy
-          - onArchive
-          - never
+            - onCopy
+            - onArchive
+            - never
         data:
           type: object
           description: The metadata content of the WHFS instance
           additionalProperties: true
+
+    RetrievedWHFSInstance:
+      $ref: "#/components/schemas/WHFSInstance"
+      required: [whfsType, data, clone]
+
+    RetrievedWHFSInstances:
+      type: array
+      description: List of instances to get/set
+      items:
+        $ref: "#/components/schemas/RetrievedWHFSInstance"
+
+    WHFSInstances:
+      type: array
+      description: List of instances to get/set
+      items:
+        $ref: "#/components/schemas/WHFSInstance"
 
     ## WRD API
     MetaType:
@@ -329,8 +401,7 @@ components:
     WRDSchema:
       type: object
       additionalProperties: false
-      required:
-        - tag
+      required: [tag]
       properties:
         tag:
           type: string
@@ -339,7 +410,7 @@ components:
     CreateEntityBody:
       type: object
       additionalProperties: false
-      required: ["fields"]
+      required: [fields]
       properties: # NOTE wrap the fields so we have room for other import parameters, eg 'temp' or something like ifnew/entitykey for upsert like actions
         fields:
           $ref: "#/components/schemas/EntityFields"
@@ -347,7 +418,7 @@ components:
     UpdateEntityBody:
       type: object
       additionalProperties: false
-      required: ["fields"]
+      required: [fields]
       properties: # NOTE wrap the fields so we have room for other import parameters, eg de-temp. historymode?
         fields:
           $ref: "#/components/schemas/EntityFields"
@@ -377,8 +448,7 @@ components:
     Type:
       type: object
       additionalProperties: false
-      required:
-        - metaType
+      required: [metaType]
       properties:
         metaType:
           $ref: "#/components/schemas/MetaType"
@@ -420,8 +490,7 @@ components:
     TypeQueryResult:
       type: object
       additionalProperties: false
-      required:
-        - results
+      required: [results]
       properties:
         results:
           type: array

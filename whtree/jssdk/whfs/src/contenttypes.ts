@@ -84,6 +84,8 @@ export interface FileTypeInfo extends WHFSTypeBaseInfo {
   isWebPage: boolean;
   /** Is this a directly downloadable type? (does its "data" member make sense, formerly 'blobiscontent') */
   hasData: boolean;
+  /** Can this type be published? */
+  isPublishable: boolean;
 }
 
 export interface WidgetTypeInfo extends WHFSTypeBaseInfo {

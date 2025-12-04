@@ -98,7 +98,8 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
         ...baseinfo,
         metaType: "fileType",
         isWebPage: Boolean(matchtype.filetype.needstemplate),
-        hasData: Boolean(matchtype.filetype.blobiscontent)
+        isPublishable: Boolean(matchtype.filetype.ispublishable),
+        hasData: Boolean(matchtype.filetype.blobiscontent),
       };
     }
 
