@@ -161,7 +161,7 @@ export type ExportedBlobReference = {
   base64: string; // base64 encoded data
 } | {
   fetch: string; //URL to fetch
-  size: number; //Size of the resource in
+  size: number; //Size of the resource
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
