@@ -40,6 +40,10 @@ export interface WorkOptions {
   mutex?: string | string[];
   /// PG Isolation level. "read committed" is the default
   isolationLevel?: typeof PGIsolationLevels[number];
+  /// Read only transaction
+  readOnly?: boolean;
+  /// Use a snapshopt to use (isolation level must be repeatable read or serializable, using readOnly is recommended )
+  useSnapshot?: string;
 
   __skipNameCheck?: boolean; //to allow HS mutex names
 }
@@ -386,6 +390,12 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
   async beginWork(options?: WorkOptions): Promise<WorkObject> {
     if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
       throw new Error(`Invalid isolation level ${options.isolationLevel}`);
+    if (options?.useSnapshot) {
+      if (options?.isolationLevel !== "repeatable read" && options?.isolationLevel !== "serializable")
+        throw new Error(`When using a snapshot, isolation level must be "repeatable read" or "serializable"`);
+      if (options.useSnapshot.match(/[^0-9a-fA-F-]$/))
+        throw new Error(`Invalid snapshot ID format`);
+    }
 
     let lock;
     let mutexes: Mutex[] | undefined = [];
@@ -415,7 +425,10 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
 
       const isolationLevel = options?.isolationLevel ?? "read committed";
       await this.connectpromise;
-      await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} READ WRITE`);
+      await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} ${options?.readOnly ? "READ ONLY" : "READ WRITE"}`);
+      if (options?.useSnapshot) {
+        await this.execute(`SET TRANSACTION SNAPSHOT '${options.useSnapshot}'`);
+      }
     } catch (e) {
       newwork?.__releaseMutexes();
       if (mutexes)

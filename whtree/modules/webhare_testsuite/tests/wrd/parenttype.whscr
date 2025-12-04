@@ -95,18 +95,18 @@ MACRO SubPersonTest()
   TestEq(Detokenize((SELECT AS STRING ARRAY tag FROM persontype->ListAttributes(0)),",")
         ,Detokenize((SELECT AS STRING ARRAY tag FROM subpersontype->ListAttributes(0)),","));
 
-  //Create an email field in RELBASE
-  wrdreltype->CreateAttribute("WRD_CONTACT_EMAIL","EMAIL");
+  //Create an extra email field in RELBASE
+  wrdreltype->CreateAttribute("WRD_CONTACT_EMAIL2","EMAIL");
 
   //Expect this field in subpersontype
-  RECORD emailattr := subpersontype->GetAttribute("WRD_CONTACT_EMAIL");
+  RECORD emailattr := subpersontype->GetAttribute("WRD_CONTACT_EMAIL2");
   TestEq(TRUE, RecordExists(emailattr));
   TestEq(FALSE, emailattr.isunique);
   TestEq(FALSE, emailattr.isrequired);
 
   //Update metadata and verify
-  wrdreltype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE, isrequired := TRUE ]);
-  emailattr := subpersontype->GetAttribute("WRD_CONTACT_EMAIL");
+  wrdreltype->UpdateAttribute("WRD_CONTACT_EMAIL2", [ isunique := TRUE, isrequired := TRUE ]);
+  emailattr := subpersontype->GetAttribute("WRD_CONTACT_EMAIL2");
   TestEq(TRUE, RecordExists(emailattr));
   TestEq(TRUE, emailattr.isunique);
   TestEq(TRUE, emailattr.isrequired);
@@ -116,7 +116,8 @@ MACRO SubPersonTest()
   TestEq(FALSE, RecordExists(persontype->GetAttribute("COMMENT")));
 
   //Create an entity and test setting the various levels of attributes
-  RECORD subsetdata := [ wrd_contact_email := "lisa@example.net"
+  RECORD subsetdata := [ wrd_contact_email := "rob2@example.net"
+                       , wrd_contact_email2 := "lisa@example.net"
                        , comment := "Likes poetry"
                        , wrd_firstname := "Lisa"
                        , wrd_lastname := "Simpson"
@@ -125,25 +126,26 @@ MACRO SubPersonTest()
   TestEq(TRUE, subpersonid != 0);
 
   //Retrieve the fields
-  TestEq(subsetdata, subpersontype->GetEntityFields(subpersonid, ["WRD_CONTACT_EMAIL", "COMMENT", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
+  TestEq(subsetdata, subpersontype->GetEntityFields(subpersonid, ["WRD_CONTACT_EMAIL", "WRD_CONTACT_EMAIL2", "COMMENT", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
   TestEq(subpersontype->id, subpersontype->GetEntityfields(subpersonid, ["WRD_TYPE"]).wrd_type);
   TestEq(subpersontype->id, persontype->GetEntityfields(subpersonid, ["WRD_TYPE"]).wrd_type);
   TestEq(subpersontype->id, wrdreltype->GetEntityfields(subpersonid, ["WRD_TYPE"]).wrd_type);
 
   TestEq(subpersonid, subpersontype->Search("COMMENT", subsetdata.comment));
-  TestEq(subpersonid, subpersontype->Search("WRD_CONTACT_EMAIL", subsetdata.wrd_contact_email));
+  TestEq(subpersonid, subpersontype->Search("WRD_CONTACT_EMAIL2", subsetdata.wrd_contact_email2));
   TestEq(subpersonid, subpersontype->Search("WRD_FIRSTNAME", subsetdata.wrd_firstname));
   TestEq(subpersonid, subpersontype->Search("WRD_LASTNAME", subsetdata.wrd_lastname));
-  TestEq(subpersonid, persontype->Search("WRD_CONTACT_EMAIL", subsetdata.wrd_contact_email));
+  TestEq(subpersonid, persontype->Search("WRD_CONTACT_EMAIL2", subsetdata.wrd_contact_email2));
   TestEq(subpersonid, persontype->Search("WRD_FIRSTNAME", subsetdata.wrd_firstname));
   TestEq(subpersonid, persontype->Search("WRD_LASTNAME", subsetdata.wrd_lastname));
-  TestEq(subpersonid, wrdreltype->Search("WRD_CONTACT_EMAIL", subsetdata.wrd_contact_email));
+  TestEq(subpersonid, wrdreltype->Search("WRD_CONTACT_EMAIL2", subsetdata.wrd_contact_email2));
 
   //Edit through lower level. must succeed
-  persontype->UpdateEntity(subpersonid, [wrd_contact_email := "newlisamail@example.com"]);
+  persontype->UpdateEntity(subpersonid, [wrd_contact_email2 := "newlisamail@example.com"]);
 
   //Create a lower level entity
-  RECORD personsetdata := [ wrd_contact_email := "bart@example.net"
+  RECORD personsetdata := [ wrd_contact_email := "rob@example.net"
+                          , wrd_contact_email2 := "bart@example.net"
                           , wrd_firstname := "Bart"
                           , wrd_lastname := "Simpson"
                           ];
@@ -152,61 +154,61 @@ MACRO SubPersonTest()
   TestEq(TRUE, personid != 0);
 
   //edit through higher levle. must fail
-  TestThrowsLike('Trying to update entity*of type*', PTR subpersontype->UpdateEntity(personid, [wrd_contact_email := "newbartmail@example.com"]));
+  TestThrowsLike('Trying to update entity*of type*', PTR subpersontype->UpdateEntity(personid, [wrd_contact_email2 := "newbartmail@example.com"]));
 
-  TestEq(DEFAULT RECORD, subpersontype->GetEntityFields(personid, ["WRD_CONTACT_EMAIL", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
-  TestEq(personsetdata, persontype->GetEntityFields(personid, ["WRD_CONTACT_EMAIL", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
+  TestEq(DEFAULT RECORD, subpersontype->GetEntityFields(personid, ["WRD_CONTACT_EMAIL", "WRD_CONTACT_EMAIL2", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
+  TestEq(personsetdata, persontype->GetEntityFields(personid, ["WRD_CONTACT_EMAIL", "WRD_CONTACT_EMAIL2", "WRD_FIRSTNAME", "WRD_LASTNAME"]));
 
-  TestEq(0, subpersontype->Search("WRD_CONTACT_EMAIL", personsetdata.wrd_contact_email));
+  TestEq(0, subpersontype->Search("WRD_CONTACT_EMAIL2", personsetdata.wrd_contact_email2));
   TestEq(0, subpersontype->Search("WRD_FIRSTNAME", personsetdata.wrd_firstname));
-  TestEq(personid, persontype->Search("WRD_CONTACT_EMAIL", personsetdata.wrd_contact_email));
+  TestEq(personid, persontype->Search("WRD_CONTACT_EMAIL2", personsetdata.wrd_contact_email2));
   TestEq(personid, persontype->Search("WRD_FIRSTNAME", personsetdata.wrd_firstname));
-  TestEq(personid, wrdreltype->Search("WRD_CONTACT_EMAIL", personsetdata.wrd_contact_email));
+  TestEq(personid, wrdreltype->Search("WRD_CONTACT_EMAIL2", personsetdata.wrd_contact_email2));
 
   //Simple query which should find both
   RECORD ARRAY query, query2;
 
-  query := persontype->RunQuery( [ outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ] ] );
+  query := persontype->RunQuery( [ outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ] ] );
   TestEq( [[ type := persontype->id, email := "bart@example.net" ]
           ,[ type := subpersontype->id, email := "newlisamail@example.com" ]
           ], SELECT * FROM query ORDER BY email);
 
   //add filter (but no useful effect)
   query2 := persontype->RunQuery( [ typefilter := [ INTEGER(persontype->id), subpersontype->id ]
-                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ]
                                   ] );
   TestEq( (SELECT * FROM query ORDER BY email), (SELECT * FROM query2 ORDER BY email));
 
   //filter on subpersons (lisa)
   query2 := persontype->RunQuery( [ typefilter := [ INTEGER(subpersontype->id) ]
-                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ]
                                    ] );
   TestEq( [[ type := subpersontype->id, email := "newlisamail@example.com" ]], query2);
 
   //filter on persons (bart)
   query2 := persontype->RunQuery( [ typefilter := [ INTEGER(persontype->id) ]
-                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ]
                                    ] );
   TestEq( [[ type := persontype->id, email := "bart@example.net" ]], query2);
 
   //filter on persons (bart) by tag-based typefilter
   query2 := persontype->RunQuery( [ typefilter := [ STRING(persontype->tag) ]
-                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+                                  , outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ]
                                    ] );
   TestEq( [[ type := persontype->id, email := "bart@example.net" ]], query2);
 
   //query subpersons
-  query2 := subpersontype->RunQuery( [ outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL" ]
+  query2 := subpersontype->RunQuery( [ outputcolumns := [ type := "WRD_TYPE", email := "WRD_CONTACT_EMAIL2" ]
                                      ] );
   TestEq( [[ type := subpersontype->id, email := "newlisamail@example.com" ]], query2);
 
   //We're not allowd to change an attribute through its child
-  TestThrowsLike("*is inherited*",PTR subpersontype->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE ]));
+  TestThrowsLike("*is inherited*",PTR subpersontype->UpdateAttribute("WRD_CONTACT_EMAIL2", [ isunique := TRUE ]));
 
   TestEq(FALSE, subpersontype->GetAttribute("COMMENT").isinherited);
   TestEq("Likes poetry", subpersontype->GetEntityFields(subpersonid,["*"]).comment);
 
-  TestThrowsLike("*already exists*", PTR subpersontype->CreateAttribute("WRD_CONTACT_EMAIL","EMAIL")); //cannot create at sublevel
+  TestThrowsLike("*already exists*", PTR subpersontype->CreateAttribute("WRD_CONTACT_EMAIL2","EMAIL")); //cannot create at sublevel
 
   //create the attribute in the parent
   persontype->CreateAttribute("COMMENT","FREE");

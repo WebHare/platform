@@ -399,6 +399,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   messages := messages CONCAT RunConsilioChecks();
   IF(GetEnvironmentVariable("WEBHARE_IN_DOCKER") != "") //check for hotfixes when running as container (as there they're easily lost)
     messages := messages CONCAT GetHotFixCheckResult();
+  messages := messages CONCAT SELECT msg := `:${message}` FROM ToRecordArray(GetModuleObjectTypes().issues, "message");
   messages := messages CONCAT GetCustomCheckResults();
   messages := messages CONCAT SELECT msg := ":" || msg
                                    , messagetag := CELL[ type := "system:validation", resourcename, line ]

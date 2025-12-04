@@ -173,7 +173,8 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
       }, finalroute);
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
-      const responsebody = JSON.parse(await res.body.text());
+      const responsetext = await res.body.text();
+      const responsebody = responsetext ? JSON.parse(responsetext) : null;
       return { status: res.status, headers, contenttype, body: responsebody } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
     } else {
       const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
