@@ -55,7 +55,7 @@ async function getInstances(obj: WHFSObject) {
 export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">): Promise<OpenAPIResponse> {
   try {
     const targetObj = await resolvePath(req);
-    const reuslt: OpenAPIResponseType<typeof req, HTTPSuccessCode.Ok> = {
+    const result: OpenAPIResponseType<typeof req, HTTPSuccessCode.Ok> = {
       name: targetObj.name,
       whfsPath: targetObj.whfsPath,
       modified: targetObj.modified.toString(),
@@ -65,7 +65,7 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
     };
 
     if (targetObj.isFolder && req.params.children === true) {
-      reuslt.children = (await targetObj.list(["modified", "type", "link"])).map(item => ({
+      result.children = (await targetObj.list(["modified", "type", "link"])).map(item => ({
         name: item.name,
         whfsPath: targetObj.whfsPath + item.name + (item.isFolder ? "/" : ""),
         modified: item.modified.toString(),
@@ -78,10 +78,10 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
       if (req.params.instances !== "*")
         return req.createErrorResponse(400, { error: "instances parameter must be '*' if set" });
 
-      reuslt.instances = await getInstances(targetObj);
+      result.instances = await getInstances(targetObj);
     }
 
-    return req.createJSONResponse(200, reuslt);
+    return req.createJSONResponse(200, result);
   } catch (e) {
     if (e instanceof WHFSAPIError) {
       return req.createErrorResponse(e.statusCode, { error: e.message });
