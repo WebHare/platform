@@ -178,6 +178,14 @@ PUBLIC RECORD FUNCTION SelectFSType(STRING getnamespace) {
   RETURN entry;
 }
 
+PUBLIC BOOLEAN FUNCTION IsFileTypeZero(STRING ns) {
+  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/unknownfile","platform:filetypes.unknown"];
+}
+
+PUBLIC BOOLEAN FUNCTION IsFolderTypeZero(STRING ns) {
+  RETURN ns IN ["http://www.webhare.net/xmlns/publisher/normalfolder","platform:foldertypes.default"];
+}
+
 PUBLIC BOOLEAN FUNCTION IsTypeZero(STRING ns) {
   RETURN ns IN ["http://www.webhare.net/xmlns/publisher/normalfolder","http://www.webhare.net/xmlns/publisher/unknownfile","platform:foldertypes.default","platform:filetypes.unknown"];
 }

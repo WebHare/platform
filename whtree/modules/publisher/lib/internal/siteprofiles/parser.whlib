@@ -1487,7 +1487,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
         } ELSE { //create a rule
           INSERT CELL[
             ...csp_base_applyrule,
-            whfstype := ftype.namespace,
+            whfstype := ftype.scopedtype || ftype.namespace,
             folderindex := set_indexfile
           ] INTO siteprofdata.applyrules AT END;
         }
