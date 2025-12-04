@@ -327,8 +327,10 @@ components:
       properties:
         message:
           type: "string"
+        status:
+          type: "integer"
       type: "object"
-    defaultError:
+    defaulterror:
       properties:
         message:
           type: "string"

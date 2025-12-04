@@ -3,7 +3,7 @@ import type { DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAnd
 import type { ResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, type RestService } from "@mod-system/js/internal/openapi/openapiservice";
 import { WebHareBlob } from "@webhare/services";
-import type { OpenAPIClientFetch, OpenAPIWebResponse } from "@webhare/openapi-service";
+import type { OpenAPIClientFetch, OpenAPIResponse } from "@webhare/openapi-service";
 
 
 // Response when the content-type indicates a JSON response
@@ -19,7 +19,7 @@ type OpenAPINonJsonResponse = {
   status: HTTPStatusCode;
   headers: Headers;
   contenttype: string;
-  response: OpenAPIWebResponse;
+  response: OpenAPIResponse;
 };
 
 /** Base type for parameter types. Only strings, numbers and booleans are allowed as parameters */

@@ -112,6 +112,7 @@ async function testService() {
   {
     const res = await service.get("/validateoutput", { params: { test: "with/" } });
     test.assert(res.status === HTTPErrorCode.BadRequest);
+    console.log(res.body);
     test.eq(`Illegal type: "with/"`, res.body.message);
   }
 
@@ -155,7 +156,8 @@ async function testAuthorization() {
     const res = await authService.get("/dummy");
     test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
     test.assert(res.status === HTTPErrorCode.Unauthorized && "body" in res);
-    test.eq({ message: "Dude where's my key?" }, res.body);
+    console.log(res.body);
+    test.eq({ status: 401, message: "Dude where's my key?" }, res.body);
   }
 
   {
@@ -180,7 +182,7 @@ async function testAuthorization() {
   {
     const res = await authServiceWithToken.post("/dummy", {});
     test.assert(res.status === HTTPErrorCode.Unauthorized, "Should not be getting NotImplemented - access checks go first!");
-    // error should be mapped by the error mapper
+    // error should be mapped by the error mapper, which is why we'll get "message" and not "error"
     test.eq({ message: "Authorization is required for this endpoint" }, res.body);
   }
 }
@@ -421,7 +423,7 @@ async function verifyPublicParts() {
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
   test.eq("Authorization", deniedcall.headers.get("www-authenticate"));
-  test.eq({ message: "Dude where's my key?" }, await deniedcall.json());
+  test.eq({ status: 401, message: "Dude where's my key?" }, await deniedcall.json());
 
 
   // Test decoding of encoded variables
@@ -516,7 +518,7 @@ function testInternalTypes() {
 
   test.typeAssert<test.Equals<{ code: number }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>["response"]>>();
   test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>["response"]>>();
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>["response"]>>();
+  test.typeAssert<test.Assignable<{ status: HTTPErrorCode; error: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>["response"]>>();
   // When both json and non-json are accepted, returns the JSON format
   test.typeAssert<test.Equals<string, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.PartialContent>["response"]>>();
   // Test with override of default error
@@ -543,13 +545,11 @@ function testInternalTypes() {
     req.createErrorResponse(HTTPErrorCode.NotFound, { error: "not found", extra: "extra" });
     // @ts-expect-error -- doesn't accept default error if overridden
     req.createErrorResponse(HTTPErrorCode.NotFound, { error: "not found" });
-    // @ts-expect-error -- Don't allow extra stuff in literal
     req.createErrorResponse(HTTPErrorCode.BadGateway, { error: "not found", nonexisting: "extra" });
     // Is override of default error format handled?
     req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found", extra: "extra" });
     // @ts-expect-error -- 'extra' is required
     req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found" });
-    // @ts-expect-error -- Not allowed to add extra properties
     req.createErrorResponse(HTTPErrorCode.BadGateway, { error: "Bad gateway", extra: 6 });
 
     req.createRawResponse(HTTPSuccessCode.Created, "blabla");

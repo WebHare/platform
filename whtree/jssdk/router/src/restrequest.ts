@@ -4,7 +4,12 @@ import { createJSONResponse, createWebResponse, type HTTPErrorCode, type HTTPSuc
 import type { Simplify } from "@mod-system/js/internal/util/algorithms";
 import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools";
 
-export type RestDefaultErrorBody = { status: HTTPErrorCode; error: string };
+/** The default error body for untyped OpenAPI services.  */
+export type RestDefaultErrorBody = {
+  status: HTTPErrorCode;
+  error: string;
+  [key: string]: unknown;
+};
 
 /** Every rest responses specification must extend from this type. For allowed JSON responses, set `isjson`
  * to true and put the expected body type in `response`. For raw results, set isjson to true.
@@ -167,5 +172,5 @@ export type RestAuthorizationFunction = (request: RestRequest) => Promise<RestAu
 /** Signature for a x-webhare-implementation function */
 export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;
 
-/** Signature for a x-webhare-default-error-mapper function */
+/** Signature for a x-webhare-default-error-mapper function. Note that this callback doesn't receive the RestRequest as we may not have evaluated the route when we invoke the error handler */
 export type RestDefaultErrorMapperFunction = (data: { status: HTTPErrorCode; error: string }) => Promise<WebResponse>;

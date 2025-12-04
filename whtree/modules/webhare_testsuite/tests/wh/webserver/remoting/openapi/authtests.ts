@@ -1,15 +1,16 @@
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestAuthorizationFunction, type RestAuthorizationResult, type RestDefaultErrorMapperFunction, type RestImplementationFunction, type RestRequest } from "@webhare/router";
+import { HTTPErrorCode, HTTPSuccessCode, type OpenAPIAuthorization, type OpenAPIAuthorizationFunction, type OpenAPIDefaultErrorMapperFunction, type OpenAPIImplementationFunction, type OpenAPIRequest } from "@webhare/openapi-service";
+import { createJSONResponse } from "@webhare/router";
 
-export async function denyAll(req: RestRequest): Promise<RestAuthorizationResult> {
+export async function denyAll(req: OpenAPIRequest): Promise<OpenAPIAuthorization> {
   return { authorized: false };
 }
 
-export async function needSecret(req: RestRequest): Promise<RestAuthorizationResult> {
+export async function needSecret(req: OpenAPIRequest): Promise<OpenAPIAuthorization> {
   const key = req.webRequest.headers.get("authorization");
   if (!key)
     return {
       authorized: false,
-      response: createJSONResponse(HTTPErrorCode.Unauthorized, {
+      response: req.createErrorResponse(HTTPErrorCode.Unauthorized, {
         message: "Dude where's my key?"
       }, {
         headers: { "WWW-Authenticate": "Authorization" }
@@ -19,8 +20,8 @@ export async function needSecret(req: RestRequest): Promise<RestAuthorizationRes
   return { authorized: true, loginfo: { lastchar: key.at(-1) || "" }, authorization: { key } };
 }
 
-export async function getDummy(req: RestRequest) {
-  return createJSONResponse(HTTPSuccessCode.Ok, (req.authorization as any).key);
+export async function getDummy(req: OpenAPIRequest) {
+  return req.createJSONResponse(HTTPSuccessCode.Ok, (req.authorization as any).key);
 }
 
 export async function mapDefaultError({ status, error }: { status: HTTPErrorCode; error: string }) {
@@ -28,7 +29,7 @@ export async function mapDefaultError({ status, error }: { status: HTTPErrorCode
 }
 
 //validate signatures
-denyAll satisfies RestAuthorizationFunction;
-getDummy satisfies RestImplementationFunction;
-needSecret satisfies RestAuthorizationFunction;
-mapDefaultError satisfies RestDefaultErrorMapperFunction;
+denyAll satisfies OpenAPIAuthorizationFunction;
+getDummy satisfies OpenAPIImplementationFunction;
+needSecret satisfies OpenAPIAuthorizationFunction;
+mapDefaultError satisfies OpenAPIDefaultErrorMapperFunction;

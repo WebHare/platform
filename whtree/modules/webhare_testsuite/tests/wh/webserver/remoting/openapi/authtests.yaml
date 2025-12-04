@@ -105,6 +105,8 @@ components:
     # Error description
     errordescription:
       properties:
+        status:
+          type: number
         code:
           type: "string"
         errorid:

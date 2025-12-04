@@ -1,16 +1,15 @@
-import { createJSONResponse, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type RestRequest, type WebResponse } from "@webhare/router";
-import type { OpenAPIHandlerInitializationContext } from "@webhare/router/src/openapi";
+import { type OpenAPIResponse, HTTPSuccessCode, type OpenAPIRequest, type OpenAPIServiceInitializationContext, type OpenAPIHandlerInitializationContext } from "@webhare/openapi-service";
 import { signalOnEvent } from "@webhare/services";
 import * as test from "@webhare/test";
 
-export async function getExtensionCall(req: RestRequest): Promise<WebResponse> {
+export async function getExtensionCall(req: OpenAPIRequest): Promise<OpenAPIResponse> {
   test.eq('/extension', req.path);
-  return createJSONResponse(HTTPSuccessCode.Ok, { message: "I have been extended" });
+  return req.createJSONResponse(HTTPSuccessCode.Ok, { message: "I have been extended" });
 }
 
-export async function postExtensionCall(req: RestRequest): Promise<WebResponse> {
+export async function postExtensionCall(req: OpenAPIRequest): Promise<OpenAPIResponse> {
   test.eq('/extension', req.path);
-  return createJSONResponse(HTTPSuccessCode.Ok, req.body);
+  return req.createJSONResponse(HTTPSuccessCode.Ok, req.body);
 }
 
 const scriptUuid = crypto.randomUUID();

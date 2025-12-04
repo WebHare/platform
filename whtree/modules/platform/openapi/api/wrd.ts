@@ -1,8 +1,7 @@
+import { type AuthorizedWRDAPIUser, type OpenAPIResponse, HTTPErrorCode, HTTPSuccessCode } from "@webhare/openapi-service";
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import { createFirstPartyToken, getToken, listTokens } from "@webhare/auth";
 import type { AuthTokenOptions, FirstPartyToken, ListedToken } from "@webhare/auth/src/identity";
-import type { AuthorizedWRDAPIUser } from "@webhare/openapi-service";
-import { HTTPErrorCode, HTTPSuccessCode, type WebResponse } from "@webhare/router";
 import { omit, pick, throwError, typedFromEntries } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
 import { listSchemas, WRDSchema } from "@webhare/wrd";
@@ -13,14 +12,14 @@ import type { AllowedFilterConditions } from "@webhare/wrd/src/types";
    - audit information
    */
 
-export async function getSchemas(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd">): Promise<WebResponse> {
+export async function getSchemas(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd">): Promise<OpenAPIResponse> {
   const schemas = await listSchemas();
   return req.createJSONResponse(HTTPSuccessCode.Ok, schemas.map(schema => ({
     tag: schema.tag,
   })));
 }
 
-export async function createEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity">): Promise<WebResponse> {
+export async function createEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity">): Promise<OpenAPIResponse> {
   const schema = new WRDSchema(req.params.schema);
 
   return await runInWork(async () => {
@@ -32,7 +31,7 @@ export async function createEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
   });
 }
 
-export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "patch /wrd/{schema}/type/{type}/entity/{entity}">): Promise<WebResponse> {
+export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "patch /wrd/{schema}/type/{type}/entity/{entity}">): Promise<OpenAPIResponse> {
   const schema = new WRDSchema(req.params.schema);
 
   return await runInWork(async () => {
@@ -41,7 +40,7 @@ export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
   });
 }
 
-export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/query">): Promise<WebResponse> {
+export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/query">): Promise<OpenAPIResponse> {
   const schema = new WRDSchema(req.params.schema);
   let query = schema.query(req.params.type).select(["wrdId", ...req.body.fields || []]);
   for (const filter of req.body.filters || [])
@@ -56,7 +55,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
   });
 }
 
-export async function listTypes(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type">): Promise<WebResponse> {
+export async function listTypes(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type">): Promise<OpenAPIResponse> {
   const types = await new WRDSchema(req.params.schema).listTypes();
   return req.createJSONResponse(HTTPSuccessCode.Ok, typedFromEntries(types.map(type =>
     [
@@ -74,7 +73,7 @@ function mapTokenInfo(token: ListedToken) {
   };
 }
 
-export async function listApiTokens(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<WebResponse> {
+export async function listApiTokens(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<OpenAPIResponse> {
   const schema = new WRDSchema(req.params.schema);
   const target = await schema.find(req.params.type, { wrdGuid: req.params.entity });
   if (!target)
@@ -84,7 +83,7 @@ export async function listApiTokens(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   return req.createJSONResponse(HTTPSuccessCode.Ok, tokens.filter(tok => tok.type === "api" && tok.client === null).map(mapTokenInfo));
 }
 
-export async function createApiToken(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<WebResponse> {
+export async function createApiToken(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/entity/{entity}/apitoken">): Promise<OpenAPIResponse> {
   const schema = new WRDSchema(req.params.schema);
   const target = await schema.find(req.params.type, { wrdGuid: req.params.entity });
   if (!target)

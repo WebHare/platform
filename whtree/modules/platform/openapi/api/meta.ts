@@ -1,11 +1,10 @@
-import { HTTPSuccessCode, type RestAuthorizationResult, type WebResponse, type RestAuthorizationFunction, type RestRequest } from "@webhare/router";
+import { type AuthorizedWRDAPIUser, type OpenAPIResponse, HTTPSuccessCode, type OpenAPIRequest, type OpenAPIAuthorization, failWRDAPIUserAuth, verifyWRDAPIUser, type OpenAPIAuthorizationFunction } from "@webhare/openapi-service";
 import type { TypedRestRequest } from "modules/platform/generated/openapi/platform/api";
 
 import { WRDSchema } from "@webhare/wrd";
-import { failWRDAPIUserAuth, verifyWRDAPIUser, type AuthorizedWRDAPIUser } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
 
-export async function verifyUser(req: RestRequest): Promise<RestAuthorizationResult<AuthorizedWRDAPIUser>> {
+export async function verifyUser(req: OpenAPIRequest): Promise<OpenAPIAuthorization<AuthorizedWRDAPIUser>> {
   const basecheck = await verifyWRDAPIUser(req);
   if (!basecheck.authorized)
     return basecheck;
@@ -23,7 +22,7 @@ export async function verifyUser(req: RestRequest): Promise<RestAuthorizationRes
   return basecheck;
 }
 
-export async function getMeta(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /meta">): Promise<WebResponse> {
+export async function getMeta(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /meta">): Promise<OpenAPIResponse> {
   const wrdschema = new WRDSchema(req.authorization.wrdSchema);
   //TODO get the proper type and email/auth info from the wrdschema settings
   const user = await wrdschema.getFields("wrdPerson", req.authorization.userId, ["wrdContactEmail", "wrdGuid"]);
@@ -37,4 +36,4 @@ export async function getMeta(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /
 
 
 //validate signatures
-verifyUser satisfies RestAuthorizationFunction;
+verifyUser satisfies OpenAPIAuthorizationFunction;

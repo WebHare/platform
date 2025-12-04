@@ -9,6 +9,9 @@ import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
+export type { RestResponseType as OpenAPIResponseType } from "@webhare/router/src/restrequest";
+export { type RestDefaultErrorMapperFunction as OpenAPIDefaultErrorMapperFunction, type RestImplementationFunction as OpenAPIImplementationFunction, type OpenAPIServiceInitializationContext, HTTPSuccessCode, HTTPErrorCode, type RestRequest as OpenAPIRequest, type RestAuthorizationResult as OpenAPIAuthorization, type RestAuthorizationFunction as OpenAPIAuthorizationFunction } from "@webhare/router";
+export type { OpenAPIHandlerInitializationContext } from "@webhare/router/src/openapi";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/openapi-service" {
@@ -27,10 +30,10 @@ async function convertBody(body: BodyInit | null | undefined): Promise<WebHareBl
 }
 
 //TODO: Like PSPWebResponse extend the subset until we just have Response. But especially here internally it doesn't matter much
-export type OpenAPIWebResponse = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
+export type OpenAPIResponse = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
 /** The fetch API expected by an OpenAPICall - a subset of the actual fetch() API to allow mocking/direct connections */
-export type OpenAPIClientFetch = (input: string, init?: RequestInit) => Promise<OpenAPIWebResponse>;
+export type OpenAPIClientFetch = (input: string, init?: RequestInit) => Promise<OpenAPIResponse>;
 
 /** Returns an OpenAPIClientFetch compatible fetch that sets up the openapi service (but not (yet?) the workers) in the same JavaScript VM*/
 export async function getDirectOpenAPIFetch(service: string, options?: {
