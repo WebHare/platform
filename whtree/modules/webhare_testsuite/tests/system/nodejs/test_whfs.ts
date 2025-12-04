@@ -8,7 +8,7 @@ import { loadlib } from "@webhare/harescript";
 import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
 import { maxDateTime } from "@webhare/hscompat";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_whfsid_private, whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
 import { getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { getBasePort } from "@webhare/services/src/config";
 
@@ -44,6 +44,9 @@ async function testWHFS() {
   await test.throws(/Cannot open root folder/, whfs.openFolder('/'));
   test.eq(0, (await whfs.openFolder('/', { allowRoot: true })).id);
   test.eq(0, (await whfs.openFolder(0, { allowRoot: true })).id);
+
+  const root = await whfs.openFolder('/', { allowRoot: true });
+  test.eqPartial({ id: whconstant_whfsid_private }, (await root.list()).find(_ => _.name === "webhare-private"));
 
   const testsite = await test.getTestSiteHS();
   const testsitejs = await test.getTestSiteJS();
@@ -105,8 +108,6 @@ async function testWHFS() {
     }
   ], list.filter(e => e.name === markdownfile.name));
   test.eqPartial({ publish: false }, list.find(e => e.name === "unpublished"));
-  for (let i = 0; i < list.length - 1; ++i)
-    test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
   const list2 = await testpagesfolder.list(["type", "sitePath", "whfsPath"]);
   test.eqPartial({

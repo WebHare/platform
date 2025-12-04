@@ -86,7 +86,7 @@ export async function requestCertificateTask(req: TaskRequest<{
 
   try {
     using mutex = await lockMutex(`platform:certbot`);
-    void(mutex);
+    void (mutex);
 
     if (req.taskdata.debug)
       logDebug("platform:certbot", {
@@ -146,7 +146,7 @@ export async function requestCertificateTask(req: TaskRequest<{
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
 
     return req.resolveByCompletion({ success: true, certificateId: certFolder });
-  } catch(e) {
+  } catch (e) {
     logError(e as Error);
     return req.resolveByPermanentFailure((e as Error).message);
   }
@@ -159,7 +159,7 @@ async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dn
     await handler.setupDNSChallenge(dnsRecord);
     if (debug)
       logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])) });
-  } catch(e) {
+  } catch (e) {
     logError(e as Error);
     if (debug)
       logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
@@ -173,7 +173,7 @@ async function updateHttpResources(acmeChallengeHandler: string, debug: boolean,
     await handler.setupHTTPChallenge(httpResource);
     if (debug)
       logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])) });
-  } catch(e) {
+  } catch (e) {
     logError(e as Error);
     if (debug)
       logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
@@ -191,7 +191,7 @@ async function cleanup(acmeChallengeHandler: string, debug: boolean, challenge: 
       logDebug("platform:certbot", { "#what": "cleanup http resources", httpResources: challenge.httpResources.map(_ => _.name) });
     try {
       await handler.cleanupHTTPChallenge(challenge.httpResources);
-    } catch(e) {
+    } catch (e) {
       logError(e as Error);
     }
   }
@@ -201,7 +201,7 @@ async function cleanup(acmeChallengeHandler: string, debug: boolean, challenge: 
       logDebug("platform:certbot", { "#what": "cleanup dns records", dnsRecords: challenge.dnsRecords.map(_ => _.name) });
     try {
       await handler.cleanupDNSChallenge(challenge.dnsRecords);
-    } catch(e) {
+    } catch (e) {
       logError(e as Error);
     }
   }
@@ -223,7 +223,7 @@ async function createACMEChallengeHandler(acmeChallengeHandler: string, debug: b
 }
 
 export async function cleanupOutdatedHttpResources(debug?: boolean) {
-  const cacheFiles = await listDirectory(`${backendConfig.dataRoot}caches/platform/acme/`);
+  const cacheFiles = await listDirectory(`${backendConfig.dataRoot}caches/platform/acme/`, { allowMissing: true });
   // Delete http challenge resources older than one hour
   const threshold = addDuration(new Date(), { hours: -1 });
   const httpResources: string[] = [];
