@@ -39,17 +39,17 @@ async function exportWHFSTree(source: WHFSObject, basePath: string, target: Crea
       //FIXME this needs further generalization, allow 'any' type to be the content.json?
       const richdata = await whfsType("platform:filetypes.richdocument").get(obj.id, { export: true });
       if (richdata.data) {
-        await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modificationDate);
+        await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modified);
       }
 
       const props: ExportedProperties = {
         whfsType: obj.type,
         title: obj.name,
       };
-      await target.addFile(entryPath + "!props.json", stringify(props, { typed: true, space: options?.space }), obj.modificationDate);
+      await target.addFile(entryPath + "!props.json", stringify(props, { typed: true, space: options?.space }), obj.modified);
 
       if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-        await target.addFile(entryPath, obj.data.resource.stream(), obj.modificationDate);
+        await target.addFile(entryPath, obj.data.resource.stream(), obj.modified);
       }
     }
   }

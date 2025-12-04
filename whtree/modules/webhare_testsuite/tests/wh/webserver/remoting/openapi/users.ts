@@ -1,7 +1,8 @@
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestRequest, type RestSuccessfulAuthorization, type WebResponse } from "@webhare/router";
+import { HTTPErrorCode, HTTPSuccessCode, type OpenAPIAuthorization, type OpenAPIRequest, type OpenAPIResponse } from "@webhare/openapi-service";
 import * as services from "@webhare/services";
 import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
+import { throwError } from "@webhare/std";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import type { TypedRestRequest } from "wh:openapi/webhare_testsuite/testservice";
@@ -16,43 +17,43 @@ interface MyAuthorization {
   canwrite: boolean;
 }
 
-interface MyRestRequest extends RestRequest {
+interface MyRestRequest extends OpenAPIRequest {
   authorization: MyAuthorization;
 }
 
-export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthorization> {
+export async function allowAll(req: OpenAPIRequest): Promise<OpenAPIAuthorization> {
   return { authorized: true, authorization: null };
 }
 
-export async function reset() {
+export async function reset(req: OpenAPIRequest) {
   await createWRDTestSchema();
-  return createJSONResponse(HTTPSuccessCode.NoContent, null);
+  return req.createJSONResponse(HTTPSuccessCode.NoContent, null);
 }
 
-export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
+export async function getUsers(req: MyRestRequest): Promise<OpenAPIResponse> {
   test.eq('/users', req.path);
   let foundpersons = [...persons];
   if (req.params.searchFor)
     foundpersons = foundpersons.filter(person => person.firstName.includes(req.params.searchFor as string));
 
-  return createJSONResponse(HTTPSuccessCode.Ok, foundpersons);
+  return req.createJSONResponse(HTTPSuccessCode.Ok, foundpersons);
 }
 
-export async function getUser(req: TypedRestRequest<unknown, "get /users/{userid}">): Promise<WebResponse> {
+export async function getUser(req: TypedRestRequest<unknown, "get /users/{userid}">): Promise<OpenAPIResponse> {
   test.eq(`/users/${req.params.userid}`, req.path);
   test.eq("number", typeof req.params.userid);
 
   // @ts-expect-error -- userX should not exist and that should be validated
   if (req.params.userX) {
-    return createJSONResponse(HTTPErrorCode.BadRequest, { error: "parameter userX is set" });
+    return req.createErrorResponse(HTTPErrorCode.BadRequest, { message: "parameter userX is set" });
   }
   if (typeof req.params.wait !== "undefined" && typeof req.params.wait !== "boolean") {
-    return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Parameter 'wait' has type ${typeof req.params.wait}` });
+    return req.createErrorResponse(HTTPErrorCode.InternalServerError, { message: `Parameter 'wait' has type ${typeof req.params.wait}` });
   }
-  return createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id === req.params.userid));
+  return req.createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id === req.params.userid) ?? throwError(`User not found: ${req.params.userid}`));
 }
 
-export async function createUser(req: MyRestRequest): Promise<WebResponse> {
+export async function createUser(req: MyRestRequest): Promise<OpenAPIResponse> {
   test.eq('/users', req.path);
 
   const addperson = req.body as typeof persons[0];
@@ -68,36 +69,36 @@ export async function createUser(req: MyRestRequest): Promise<WebResponse> {
   await whdb.commitWork();
 
   lockadduser.release(); //TODO it would be even cooler if WebHare could autorelease (or at least detect failure to release)
-  return createJSONResponse(HTTPSuccessCode.Created, { ...addperson, id: personid });
+  return req.createJSONResponse(HTTPSuccessCode.Created, { ...addperson, id: personid });
 }
 
-export async function deleteUser(req: MyRestRequest): Promise<WebResponse> {
+export async function deleteUser(req: MyRestRequest): Promise<OpenAPIResponse> {
   test.eq(`/users/${req.params.userid}`, req.path);
   test.eq("number", typeof req.params.userid);
-  return createJSONResponse(HTTPSuccessCode.NoContent, null);
+  return req.createJSONResponse(HTTPSuccessCode.NoContent, null);
 }
 
-export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
+export async function validateOutput(req: MyRestRequest): Promise<OpenAPIResponse> {
   switch (req.params.test) {
-    case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
-    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
-    case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
+    case "ok": return req.createJSONResponse(HTTPSuccessCode.Ok, "ok");
+    case "unknownStatusCode": return req.createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
+    case "illegalData": return req.createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse(HTTPErrorCode.BadRequest, { message: `Illegal type: ${JSON.stringify(req.params.test)}`, p: req.params });
+  return req.createErrorResponse(HTTPErrorCode.BadRequest, { message: `Illegal type: ${JSON.stringify(req.params.test)}`, p: req.params });
 }
 
-export async function validatePathOutput(req: MyRestRequest): Promise<WebResponse> {
+export async function validatePathOutput(req: MyRestRequest): Promise<OpenAPIResponse> {
   switch (req.params.test) {
-    case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
-    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
-    case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
+    case "ok": return req.createJSONResponse(HTTPSuccessCode.Ok, "ok");
+    case "unknownStatusCode": return req.createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
+    case "illegalData": return req.createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse(HTTPErrorCode.BadRequest, { message: `Illegal path type: ${JSON.stringify(req.params.test)}`, p: req.params });
+  return req.createErrorResponse(HTTPErrorCode.BadRequest, { message: `Illegal path type: ${JSON.stringify(req.params.test)}`, p: req.params });
 }
 
-export async function getFile(req: TypedRestRequest<unknown, "/file/{type}">): Promise<WebResponse> {
+export async function getFile(req: TypedRestRequest<unknown, "/file/{type}">): Promise<OpenAPIResponse> {
   switch (req.params.type) {
     case "text": {
       return req.createRawResponse(HTTPSuccessCode.Ok, new Blob(["Hello world"]), { headers: { "Content-Type": "text/plain" } });
@@ -116,7 +117,7 @@ export async function getFile(req: TypedRestRequest<unknown, "/file/{type}">): P
       return req.createRawResponse(HTTPSuccessCode.Ok, uploadedBlob, { headers: { "Content-Type": "application/json" } });
     }
   }
-  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal file type: ${JSON.stringify(req.params.type)}`, p: req.params });
+  return req.createErrorResponse(HTTPErrorCode.BadRequest, { message: `Illegal file type: ${JSON.stringify(req.params.type)}` });
 }
 
 export function getContext(req: TypedRestRequest<unknown, "/getcontext/{id}">) {

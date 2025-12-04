@@ -8,7 +8,7 @@ import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
-import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { backendConfig, getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeBMP } from "./bmp-to-raw";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -16,8 +16,21 @@ import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webh
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
 import { getWHType } from "@webhare/std/src/quacks";
 import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
+import { __getBlobDatabaseId, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
+import { decryptForThisServer, encryptForThisServer } from "./secrets";
+
+declare module "@webhare/services" {
+  interface ServerEncryptionScopes {
+    "platform:blob": {
+      db: string;
+      until: Date;
+    };
+  }
+}
+
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
+const BlobLinkValidity = 86400_000; //one day
 
 //cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
@@ -43,6 +56,7 @@ export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type ExportOptions = {
   export?: boolean;
+  exportResources?: "fetch" | "base64";
   mapWhfsLink?: (data: {
     id: number;
     whfsPath: string;
@@ -145,6 +159,9 @@ export interface ExportedResourceMetaData extends ResourceBaseMetaData {
 
 export type ExportedBlobReference = {
   base64: string; // base64 encoded data
+} | {
+  fetch: string; //URL to fetch
+  size: number; //Size of the resource
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
@@ -966,6 +983,21 @@ export class ResourceDescriptor implements ResourceMetaData {
     let blob;
     if ("base64" in resource.data && resource.data.base64 !== undefined) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
+    } else if ("fetch" in resource.data && resource.data.fetch !== undefined) {
+      if (resource.data.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
+        const url = new URL(resource.data.fetch);
+        const ref = url.searchParams.get("ref");
+        const decoded = decryptForThisServer("platform:blob", ref || "");
+        blob = createPGBlobByBlobRec(decoded.db, null);
+      } else {
+        throw new Error("External fetching of resources is not enabled");
+      }
+      /* TODO once we allow external fetching through an importOption:
+      const response = await fetch(resource.data.fetch);
+      if (!response.ok)
+        throw new Error(`Failed to fetch resource from '${resource.data.fetch}', status ${response.status}`);
+      blob = WebHareBlob.fromBlob(await response.blob());
+      */
     } else if (WebHareBlob.isWebHareBlob(resource.data)) {
       //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
       blob = resource.data;
@@ -1048,9 +1080,18 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 
   async export(options?: ExportOptions): Promise<ExportedResource> {
-    //TODO Serialization methods other than data: will be requestable through ExportOptions
+    let data: ExportedBlobReference | undefined;
+    if (options?.exportResources === "fetch" && this.resource.size > 0) {
+      const dbid = __getBlobDatabaseId(this.resource);
+      if (dbid)
+        data = {
+          fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })}`,
+          size: this.resource.size
+        };
+    }
+
     return {
-      data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
+      data: data || { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
       ...(this.sourceFile ? { sourceFile: await mapExternalWHFSRef(this.sourceFile, options) } : {}),
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };

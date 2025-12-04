@@ -124,7 +124,7 @@ export function convertToWillPublish(published: number, firsttime: boolean, enab
 export function getWHFSObjRef(fsobj: WHFSObject) {
   const hash = crypto
     .createHash("sha1")
-    .update(String(fsobj.creationDate.epochMilliseconds))
+    .update(String(fsobj.created.epochMilliseconds))
     .digest("base64url")
     .slice(-6);
 

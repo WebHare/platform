@@ -616,14 +616,14 @@ async function testInstanceData() {
   // STORY: setting instance to default data doesn't create an instance record
   {
     await testfile.refresh();
-    const oldModified = testfile.modificationDate;
+    const oldModified = testfile.modified;
 
     await beginWork();
     await testtype.set(testfile.id, emptyData);
     await commitWork();
     test.assert((await db<PlatformDB>().selectFrom("system.fs_instances").where("fs_object", "=", testfile.id).where("fs_type", "=", testTypeDescription.id).execute()).length === 0, "Instance should have been removed");
     await testfile.refresh();
-    test.assert(Temporal.Instant.compare(oldModified, testfile.modificationDate) < 0, "File should be modified");
+    test.assert(Temporal.Instant.compare(oldModified, testfile.modified) < 0, "File should be modified");
   }
 
   // STORY: setting URL, intextlink and rich tet document results in 3 indexed links
@@ -646,7 +646,7 @@ async function testInstanceData() {
 
   {
     await testfile.refresh();
-    const oldModified = testfile.modificationDate;
+    const oldModified = testfile.modified;
     await beginWork();
     await testtype.set(testfile.id, {
       url: "http://www.webhare.net/somepage",
@@ -655,7 +655,7 @@ async function testInstanceData() {
     }, { isVisibleEdit: false });
     await commitWork();
     await testfile.refresh();
-    test.assert(Temporal.Instant.compare(oldModified, testfile.modificationDate) === 0, "File should not be modified");
+    test.assert(Temporal.Instant.compare(oldModified, testfile.modified) === 0, "File should not be modified");
   }
 
   {
@@ -683,14 +683,57 @@ async function testInstanceData() {
   }
 }
 
+async function testExportImport() {
+  await beginWork();
+  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const theActualFish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true });
+  await whfs.whfsType("platform:filetypes.richdocument").set(aboutAFish.id,
+    {
+      data: [
+        {
+          p: ["An image: ", { image: theActualFish }]
+        }
+      ]
+    });
+
+  const aboutAFishDataFetch = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true, exportResources: "fetch" });
+
+  //Verify the expected data: { fetch:, size: } is there and works!
+  test.assert(aboutAFishDataFetch.data);
+  test.assert("items" in aboutAFishDataFetch.data[0]);
+  test.assert("image" in aboutAFishDataFetch.data[0].items[1]);
+  test.assert("fetch" in aboutAFishDataFetch.data[0].items[1].image.data, "Image should be a fetch descriptor");
+  test.eq(theActualFish.resource.size, aboutAFishDataFetch.data[0].items[1].image.data.size);
+  const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.data.fetch);
+  test.eq(theActualFish.hash, (await ResourceDescriptor.fromBlob(await fetchFish.blob(), { getHash: true })).hash);
+
+  const clonedFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "platform:filetypes.richdocument" });
+  await whfs.whfsType("platform:filetypes.richdocument").set(clonedFish.id, aboutAFishDataFetch);
+
+  //verify the cloned data
+  test.eqPartial(
+    [
+      {
+        tag: "p",
+        items: [
+          { text: "An image: " },
+          { image: (res: ResourceDescriptor): boolean => res.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY' }
+        ]
+      }
+    ], (await whfs.whfsType("platform:filetypes.richdocument").get(clonedFish.id)).data?.blocks);
+
+  await commitWork();
+}
+
 async function testVisitor() {
   await beginWork();
   const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const theActualFish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true });
   await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(aboutAFish.id,
     {
       data: [
         {
-          p: ["An image: ", { image: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true }) }]
+          p: ["An image: ", { image: theActualFish }]
         }
       ]
     });
@@ -788,6 +831,7 @@ test.runTests([
   testMockedTypes,
   testInstanceData,
   testXMLInstanceData,
+  testExportImport,
   testVisitor,
   testRecycle
 ]);

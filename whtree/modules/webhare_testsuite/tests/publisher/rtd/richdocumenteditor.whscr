@@ -90,7 +90,7 @@ OBJECT ASYNC FUNCTION TestReadOnly()
   testfile := OpenWHFSObject(testfile->id);
   TestEq(DEFAULT DATETIME, testfile->firstpublishdate);
 
-  // TODO - test this with a dataFile: TestAssert(testfile->contentmodificationdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update contentModificationDate");
+  // TODO - test this with a dataFile: TestAssert(testfile->contentmodificationdate > testfile->firstpublishdate, "An unpublished draft save edits the file itself. So this should update contentModified");
   // Saving an unpublished RTD just creates a new draft now since WH5.9, just like saving against a published RTD would. so no change to testfile
   TestEq(DEFAULT DATETIME, testfile->contentmodificationdate);
 

@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+RECORD blobinfo := DecryptForThisServer("platform:blob", GetWebVariable("ref"));
+IF(blobinfo.until < GetCurrentDateTime())
+  AbortWithHTTPError(410);
+
+IF(blobinfo.db NOT LIKE "AAAB*")
+  Abort("Iinvalid blob reference");
+
+STRING blobpath := MergePath(GetWebHareConfiguration().basedataroot, "postgresql/blob") || "/" || Substring(blobinfo.db, 4, 2) || "/" || Substring(blobinfo.db, 4);
+AddHTTPHeader("content-type","application/octet-stream", FALSE);
+SendWebFile(GetDiskResource(blobpath));

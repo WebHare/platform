@@ -286,7 +286,7 @@ async function testFinishHandler() {
   {
     await whdb.beginWork();
     const testFile = await rootFolder.createFile("testfile.txt");
-    const lastModified = testFile.modificationDate;
+    const lastModified = testFile.modified;
     await whdb.commitWork();
 
     await test.sleep(1); // make sure 1ms has elapsed
@@ -294,7 +294,7 @@ async function testFinishHandler() {
     whfsFinishHandler().triggerEmptyUpdateOnCommit(testFile.id);
     await whdb.commitWork();
 
-    test.assert(Temporal.Instant.compare((await rootFolder.openFile("testfile.txt")).modificationDate, lastModified) > 0, { annotation: "File modification date should change after empty update" });
+    test.assert(Temporal.Instant.compare((await rootFolder.openFile("testfile.txt")).modified, lastModified) > 0, { annotation: "File modification date should change after empty update" });
 
     await whdb.beginWork();
     await testFile.recycle();
