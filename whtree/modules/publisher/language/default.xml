@@ -2230,6 +2230,8 @@
         <text tid="folderispinned">This folder is protected (it may not be renamed or moved)</text>
         <text tid="info">Properties</text>
         <text tid="isunlisted">Unlisted</text>
+        <text tid="isunlisted-false">Show in navigation</text>
+        <text tid="isunlisted-true">Hide from navigation</text>
         <text tid="link">Link</text>
         <text tid="linkcheck">Link check</text>
         <text tid="maintab">General</text>

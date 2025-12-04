@@ -2228,6 +2228,8 @@
         <text tid="folderispinned">Deze map is beschermd (hernoemen en verwijderen zijn niet toegestaan)</text>
         <text tid="info">Eigenschappen</text>
         <text tid="isunlisted">Niet in navigatie</text>
+        <text tid="isunlisted-false">Toon in navigatie</text>
+        <text tid="isunlisted-true">Laat weg uit navigatie</text>
         <text tid="link">Link</text>
         <text tid="linkcheck">Linkcontrole</text>
         <text tid="maintab">Algemeen</text>
