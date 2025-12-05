@@ -1964,6 +1964,10 @@
           <text tid="rsa">RSA, 2048 bit</text>
           <text tid="rsa-4096">RSA, 4096 bit</text>
         </textgroup>
+        <textgroup gid="messages">   <!-- tolliumapps.webservers.managecertificateproviders.messages -->
+          <text tid="agreetotos">Please read the <html:a data-href-param="1">Terms of Service</html:a>.<br/><br/>You must agree in order to register with this certificate provider. Do you agree?</text>
+          <text tid="notagreedtotos">You cannot register without accepting Terms of Service.</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
         <text tid="couldnotconnect">Could not connect to the proxy.</text>

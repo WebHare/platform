@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -868,9 +869,13 @@ PUBLIC OBJECTTYPE ManageCertificateProviders EXTEND TolliumScreenBase <
 >;
 
 PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
+  RECORD urls;
   BOOLEAN advancedsettings;
 
   UPDATE MACRO Init(RECORD data) {
+    // Read the default ACME directory urls from the acme package
+    this->urls := ImportJS("mod::platform/js/certbot/vendor/acme/src/ACME_DIRECTORY_URLS.ts")->_Get("ACME_DIRECTORY_URLS");
+
     WRDEntityEditScreenBase::Init(data);
 
     // When editing an existing provider, always configure manually
@@ -918,6 +923,26 @@ PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
     ^entity->^skip_connectivity_check->value := ^prefill->value = "harica.gr";
 
     this->UpdateVisibility();
+  }
+
+  UPDATE MACRO Validator(OBJECT work, RECORD updatevalue) {
+    // When adding a new provider, the user must agree to the terms and conditions
+    IF (NOT work->HasFailed() AND ^entity->entityid = 0) {
+      TRY {
+        // Retrieve the Terms of Service url from the directory
+        STRING acme_directory := updatevalue.acme_directory;
+        IF (acme_directory = "" AND updatevalue.issuer_domain = "letsencrypt.org")
+          acme_directory := this->urls.lets_encrypt;
+        IF (acme_directory != "") {
+          RECORD directory := EnforceStructure([ meta := [ termsofservice := "" ] ], FetchSync(acme_directory)->JSON());
+          IF (directory.meta.termsofservice != "" AND this->RunSimpleScreen("confirm", this->GetHtmlTid(".messages.agreetotos", directory.meta.termsofservice), [ html := TRUE ]) != "yes") {
+            work->AddErrorFor(^entity->^issuer_domain, this->GetTid(".messages.notagreedtotos"));
+        }
+        }
+      } CATCH(OBJECT e) {
+        LogHareScriptException(e);
+      }
+    }
   }
 
   UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue) {

@@ -1773,6 +1773,10 @@
           <text tid="rsa">RSA, 2048-bits</text>
           <text tid="rsa-4096">RSA, 4096-bits</text>
         </textgroup>
+        <textgroup gid="messages">   <!-- tolliumapps.webservers.managecertificateproviders.messages -->
+          <text tid="agreetotos">Lees eerst de <html:a data-href-param="1">Algemene Voorwaarden</html:a>.<br/><br/>Je moet hiermee akkoord gaan om te kunnen registreren bij deze certificaataanbieder. Ga je akkoord?</text>
+          <text tid="notagreedtotos">Je kunt je niet registreren zonder de Algemene Voorwaarden te accepteren.</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
         <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
