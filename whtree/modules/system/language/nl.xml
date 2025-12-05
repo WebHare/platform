@@ -1007,8 +1007,10 @@
           <text tid="main">Sleutels and certificaten</text>
           <text tid="missingcertificate">Het certificaat voor uitgever '<param p="1"/>' bevindt zich niet in het certificaatbestand en is ook niet bekend bij de centrale certificaatopslag.</text>
           <text tid="missingcertificatechain">Dit certificaatbestand bevat geen certificaatketting.</text>
+          <text tid="nocertificatenamesfound">Geen DNS namen gevonden voor deze sleutel/certificaat paar</text>
           <text tid="noncertificateinchain">Dit bestand bevat een incorrect certificaat.</text>
           <text tid="overwritewithselfsigned">Weet je zeker dat je het certificaat van deze sleutel wilt vervangen door een zelf-ondertekend certificaat?</text>
+          <text tid="requestnewcertificate">Vraag nieuwe sleutel/certificaat aan</text>
           <text tid="signatureverificationfailed">De validatie van de certificaatketting is mislukt.</text>
           <text tid="suredeletekey">Weet je zeker dat je sleutel '<param p="1"/>' wilt verwijderen? Deze operatie kan niet ongedaan worden gemaakt!</text>
           <text tid="unsupportedsignaturealgorithm">Het ondertekeningsalgoritme "<param p="1"/>" wordt niet ondersteund.</text>
