@@ -1734,7 +1734,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="certbotrequest">   <!-- tolliumapps.webservers.certbotrequest -->
-        <text tid="certbotrequest">LetsEncrypt (Certbot) certificaat aanvraag</text>
+        <text tid="certbotrequest">Certificaataanvraag</text>
         <text tid="domainnames">Domeinnamen</text>
         <text tid="domainnames-placeholder">De namen om aan te vragen, bv www.example.net example.net</text>
         <text tid="nothostedhere">De hostnaam '<param p="1"/>' wordt niet door deze server gehost</text>
@@ -1788,7 +1788,7 @@
         <text tid="bindings">Poorten</text>
         <text tid="cannotdeleteprimaryinterface">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat deze de primaire WebHare-interface host.</text>
         <text tid="cannotdeleteyourserver">De webserver '<param p="1"/>' kan op dit moment niet verwijderd worden, omdat je deze webserver nu gebruikt om dit configuratiescherm te benaderen.</text>
-        <text tid="certbotrequest">LetsEncrypt certificaat aanvragen</text>
+        <text tid="certbotrequest">Certificaat aanvragen</text>
         <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
         <text tid="deletealias">Weet je zeker dat je de alias "<param p="1"/>' wilt verwijderen?</text>
         <text tid="deletegroup">Weet je zeker dat je deze groep wil verwijderen?</text>

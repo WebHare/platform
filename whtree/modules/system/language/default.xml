@@ -1925,7 +1925,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="certbotrequest">   <!-- tolliumapps.webservers.certbotrequest -->
-        <text tid="certbotrequest">LetsEncrypt (Certbot) certificate request</text>
+        <text tid="certbotrequest">Certificate request</text>
         <text tid="domainnames">Domain names</text>
         <text tid="domainnames-placeholder">The name(s) to request, eg www.example.net example.net</text>
         <text tid="nothostedhere">The hostname '<param p="1"/>'' is not hosted on this server</text>
@@ -1979,7 +1979,7 @@
         <text tid="bindings">Ports</text>
         <text tid="cannotdeleteprimaryinterface">The webserver '<param p="1"/>' can not be deleted at this moment, because it hosts the primary WebHare interface.</text>
         <text tid="cannotdeleteyourserver">The webserver '<param p="1"/>' can not be deleted at this moment, because you are using this webserver now to access this configuration screen.</text>
-        <text tid="certbotrequest">Request LetsEncrypt certificate</text>
+        <text tid="certbotrequest">Request certificate</text>
         <text tid="checkingwebservers">A webserver check has been scheduled, the list will update when it's done</text>
         <text tid="deletealias">Are you sure you want to delete alias '<param p="1"/>'?</text>
         <text tid="deletegroup">Are you sure you want to delete this group?</text>

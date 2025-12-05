@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -14,7 +15,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
-LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/webserver/stats.whlib";
@@ -785,8 +785,7 @@ PUBLIC STATIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
 
 PUBLIC RECORD FUNCTION RequestCert(STRING ARRAY names, BOOLEAN staging)
 {
-  OpenPrimary();
-  RETURN RequestCertbotCertificate(names, staging);
+  RETURN CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificate", names, CELL[ staging ]);
 }
 
 PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
@@ -811,6 +810,7 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
 
     TRY
     {
+      // Run in a separate job so the interface isn't blocked
       RECORD result := AWAIT AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE);
       IF(result.success)
       {
@@ -828,7 +828,7 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
       }
       ELSE
       {
-        work->AddError(result.error || ": " || result.errordata);
+        work->AddError(result.error || (CellExists(result, "errordata") ? ": " || result.errordata : ""));
       }
 
       work->Finish();

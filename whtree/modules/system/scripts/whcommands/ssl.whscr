@@ -2,16 +2,17 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
-LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
+
 
 MACRO CertBot(RECORD subargs)
 {
-  RECORD res := RequestCertbotCertificate(STRING[ subargs.primaryhostname, ...subargs.hostnames ], subargs.staging);
+  RECORD res := CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificate", STRING[ subargs.primaryhostname, ...subargs.hostnames ], CELL[ subargs.staging, subargs.debug ]);
   IF(NOT res.success)
   {
     IF (res.error = "hostnotlocal")
@@ -134,6 +135,7 @@ SWITCH(RecordExists(cmdargs) ? cmdargs.command : "help")
   {
     ParseSubArgs(
         [ [ name := "staging", type := "switch" ]
+        , [ name := "debug", type := "switch" ]
         , [ name := "primaryhostname", type := "param", required := TRUE ]
         , [ name := "hostnames", type := "paramlist" ]
         ], "Syntax: wh ssl certbot [--staging] <primarydomain> [subdomains]\n");
