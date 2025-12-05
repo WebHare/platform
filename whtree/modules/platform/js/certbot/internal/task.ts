@@ -202,7 +202,7 @@ export async function requestCertificateTask(req: TaskRequest<{
 
   try {
     // Store the certificate and its private key
-    let certFolder = await openFolder(req.taskdata.certificateId, { allowMissing: true });
+    let certFolder = req.taskdata.certificateId ? await openFolder(req.taskdata.certificateId, { allowMissing: true }) : null;
     if (!certFolder) {
       // Create the certificate folder
       const keystore = await openFolder("/webhare-private/system/keystore");

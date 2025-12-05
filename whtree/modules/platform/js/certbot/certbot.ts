@@ -63,7 +63,7 @@ export async function testCertificate(certificate: string, options?: TestCertifi
   // Check the certificate chain
   if (options?.checkFullChain) {
     while (certificates[certificates.length - 1].subject !== certificates[certificates.length - 1].issuer) {
-      const getIssuer = certificates[certificates.length - 1].issuer;
+      const getIssuer = certificates[certificates.length - 1].issuer.split("\n").join(", ");
       if (certificates.length > 10)
         throw new Error(`Certificate chain too long looking for ${getIssuer}`);
 
