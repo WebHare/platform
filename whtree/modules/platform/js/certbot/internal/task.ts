@@ -1,6 +1,6 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
-import { doRequestACMECertificate } from "@mod-platform/js/certbot/internal/certbot";
+import { doRequestACMECertificate, getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -98,7 +98,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
 
   let wildcard = false;
-  const allHostnames = await loadlib("mod::system/lib/internal/webserver/certbot.whlib").GetCertifiableHostnames() as string[];
+  const allHostnames = await getCertifiableHostNames();
   for (const domain of req.taskdata.domains) {
     if (domain.includes("*")) {
       wildcard = true;
