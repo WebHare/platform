@@ -1948,8 +1948,15 @@
         <text tid="editcertificateprovider">Certificate provider</text>
         <text tid="email">Email address</text>
         <text tid="issuer_domain">Issuer domain</text>
+        <text tid="issuer_domain-placeholder">E.g. letsencrypt.org</text>
         <text tid="key_pair_algorithm">Algorithm</text>
         <text tid="managecertificateproviders">Certificate providers</text>
+        <text tid="prefill">Provider</text>
+        <text tid="prefill-harica_gr">HARICA</text>
+        <text tid="prefill-letsencrypt_org">Let's Encrypt</text>
+        <text tid="prefill-manual">Configure manually</text>
+        <text tid="providersettings">Provider settings</text>
+        <text tid="showadvancedsettings">Show advanced settings</text>
         <text tid="skip_connectivity_check">Don't check host connectivity</text>
         <textgroup gid="algorithms">   <!-- tolliumapps.webservers.managecertificateproviders.algorithms -->
           <text tid="default">Default (RSA, 2048 bit)</text>

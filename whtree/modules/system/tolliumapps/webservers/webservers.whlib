@@ -868,13 +868,60 @@ PUBLIC OBJECTTYPE ManageCertificateProviders EXTEND TolliumScreenBase <
 >;
 
 PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
+  BOOLEAN advancedsettings;
+
   UPDATE MACRO Init(RECORD data) {
     WRDEntityEditScreenBase::Init(data);
 
-    ^eab->value := ^entity->^eab_kid->value != "" OR ^entity->^eab_hmackey->value != "";
+    // When editing an existing provider, always configure manually
+    IF (^entity->entityid != 0) {
+      ^prefill->value := "manual";
+      ^prefill->visible := FALSE;
+    }
+    this->OnPrefillChange();
+  }
+
+  MACRO DoShowAdvancedSettings() {
+    this->advancedsettings := TRUE;
+    this->UpdateVisibility();
+  }
+
+  MACRO OnPrefillChange() {
+    IF (^prefill->value != "manual") {
+      // When not configuring manually, prefill the issuer domain
+      ^entity->^issuer_domain->value := ^prefill->value;
+
+      // Update the ACME directory placeholder
+      IF (^prefill->value = "letsencrypt.org")
+        ^entity->^acme_directory->placeholder := this->urls.lets_encrypt;
+      ELSE IF (^prefill->value = "harica.gr")
+        ^entity->^acme_directory->placeholder := "https://acme.harica.gr/yourAlias/directory";
+
+      // Don't show advanced settings
+      this->advancedsettings := FALSE;
+    } ELSE {
+      // Update the ACME directory placeholder
+      ^entity->^acme_directory->placeholder := "https://example.org/acme/directory";
+
+      // When manually configuring, always show all settings
+      this->advancedsettings := TRUE;
+    }
+
+    // ACME directory is mandatory for HARICA
+    ^entity->^acme_directory->required := ^prefill->value = "harica.gr";
+
+    // EAB is mandatory for HARICA, also enable the EAB settings if they're filled
+    ^eab->value := ^prefill->value = "harica.gr" OR ^entity->^eab_kid->value != "" OR ^entity->^eab_hmackey->value != "";
+    ^eab->enabled := ^prefill->value != "harica.gr";
+
+    // Don't check server connectivity for HARICA (which doesn't required ACME challenges)
+    ^entity->^skip_connectivity_check->value := ^prefill->value = "harica.gr";
+
+    this->UpdateVisibility();
   }
 
   UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue) {
+    // If the EAB checkbox isn't checked, clear the EAB settings
     IF (NOT ^eab->value) {
       updatevalue := CELL[
         ...updatevalue,
@@ -883,5 +930,17 @@ PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
       ];
     }
     RETURN updatevalue;
+  }
+
+  MACRO UpdateVisibility() {
+    ^showadvancedsettings_label->visible := NOT this->advancedsettings AND ^prefill->value NOT IN [ "manual" ];
+    ^entity->^acme_directory->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^eab->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^eab_kid->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^eab_hmackey->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^key_pair_algorithm->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^acme_challenge_handler->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^allowlist->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^skip_connectivity_check->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
   }
 >;

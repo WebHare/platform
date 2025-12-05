@@ -248,19 +248,38 @@
   </screen>
 
   <screen name="editcertificateprovider" width="80x" footerbuttons="ok cancel" gid=".managecertificateproviders">
+    <actions>
+      <action name="showadvancedsettings" onexecute="doshowadvancedsettings" />
+    </actions>
+
     <compositions>
       <wrd:entity name="entity" />
     </compositions>
 
     <body>
-      <textedit composition="entity" cellname="issuer_domain" width="1pr" required="true" validationchecks="hostname" />
+      <heading doclink="platform:keystore/acme/provider" tid=".providersettings" />
+      <select name="prefill" type="pulldown" onchange="onprefillchange">
+        <option rowkey="letsencrypt.org" />
+        <option rowkey="harica.gr" />
+        <divider />
+        <option rowkey="manual" />
+      </select>
+      <textedit composition="entity"
+                cellname="issuer_domain"
+                width="1pr"
+                placeholdertid=".issuer_domain-placeholder"
+                required="true"
+                validationchecks="hostname" />
+      <textedit composition="entity" cellname="email" width="1pr" required="true" validationchecks="email" />
       <textedit composition="entity" cellname="acme_directory" width="1pr" validationchecks="http-url" />
       <line layout="left">
         <checkbox name="eab" enablecomponents="entity.eab_kid entity.eab_hmackey" labeltid=".eab" title="" />
       </line>
       <textedit composition="entity" cellname="eab_kid" required="true" />
       <textedit composition="entity" cellname="eab_hmackey" required="true" />
-      <textedit composition="entity" cellname="email" width="1pr" validationchecks="email" />
+      <line layout="left">
+        <text name="showadvancedsettings_label" action="showadvancedsettings" title="" valuetid=".showadvancedsettings" />
+      </line>
       <select composition="entity" cellname="key_pair_algorithm" type="pulldown" optiongid=".algorithms">
         <option rowkey="" tid=".algorithms.default" />
         <option rowkey="ec" />

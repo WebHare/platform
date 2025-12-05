@@ -1757,8 +1757,15 @@
         <text tid="editcertificateprovider">Certificaataanbieder</text>
         <text tid="email">E-mailadres</text>
         <text tid="issuer_domain">Domein uitgever</text>
+        <text tid="issuer_domain-placeholder">Bijv. letsencrypt.org</text>
         <text tid="key_pair_algorithm">Algoritme</text>
         <text tid="managecertificateproviders">Certificaataanbieders</text>
+        <text tid="prefill">Aanbieder</text>
+        <text tid="prefill-harica_gr">HARICA</text>
+        <text tid="prefill-letsencrypt_org">Let's Encrypt</text>
+        <text tid="prefill-manual">Handmatig instellen</text>
+        <text tid="providersettings">Instellingen aanbieder</text>
+        <text tid="showadvancedsettings">Geavanceerde instellingen tonen</text>
         <text tid="skip_connectivity_check">Verbinding met host niet controleren</text>
         <textgroup gid="algorithms">   <!-- tolliumapps.webservers.managecertificateproviders.algorithms -->
           <text tid="default">Standaard (RSA, 2048-bits)</text>
@@ -1820,7 +1827,7 @@
         <text tid="filetypes">File types</text>
         <text tid="filter">Filter</text>
         <text tid="keystore">Sleutels</text>
-        <text tid="managecertificateproviders">Beheer certificaataanbieder</text>
+        <text tid="managecertificateproviders">Beheer certificaataanbieders</text>
         <text tid="nofiltermatch">Er zijn geen webservers of aliassen die de tekst '<param p="1"/>' bevatten</text>
         <text tid="preview">Bekijk site</text>
         <text tid="proxies">Proxies</text>
