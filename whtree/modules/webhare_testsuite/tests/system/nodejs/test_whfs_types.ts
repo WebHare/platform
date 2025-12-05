@@ -81,6 +81,7 @@ async function testMockedTypes() {
   //verify some corner cases
   await test.throws(/No such type/, () => whfs.describeWHFSType("", { allowMissing: true }));
   test.eq(null, await whfs.describeWHFSType(0, { allowMissing: true }));
+  await test.throws(/No such type/, () => whfs.describeWHFSType(0, { allowMissing: false }));
   await test.throws(/No such type/, () => whfs.describeWHFSType("", { allowMissing: true, metaType: "fileType" }));
   test.eqPartial({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeWHFSType(777777777777, { allowMissing: true, metaType: "fileType" }));
 

@@ -20,6 +20,99 @@ paths:
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "meta.ts#getMeta"
 
+  "/whfs/object":
+    get:
+      parameters:
+        - $ref: "#/components/parameters/path"
+        - in: query
+          name: children
+          schema:
+            type: boolean
+            description: If set and the object is a folder, include the children objects in the response
+        - in: query
+          name: instances
+          schema:
+            type: string
+            description: Set to '*' to get all instances of the object (if any)
+      responses:
+        "200":
+          description: Returns the basic name and type info for any WHFS object and the children for WHFS folders
+          content:
+            application/json:
+              schema:
+                type: object
+                unevaluatedProperties: false
+                allOf:
+                  - $ref: "#/components/schemas/RetrievedWHFSObject"
+                  - type: object
+                    properties:
+                      children:
+                        type: array
+                        description: Child objects in a folder.
+                        items:
+                          $ref: "#/components/schemas/RetrievedWHFSObject"
+                      instances:
+                        $ref: "#/components/schemas/RetrievedWHFSInstances"
+
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notfound"
+      x-webhare-implementation: "whfs.ts#getWHFSObject"
+
+    post:
+      parameters:
+        - $ref: "#/components/parameters/path"
+      requestBody:
+        description: The WHFS object to create
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              unevaluatedProperties: false
+              allOf:
+                - $ref: "#/components/schemas/CreateWHFSObject"
+                - type: object
+                  properties:
+                    instances:
+                      $ref: "#/components/schemas/WHFSInstances"
+      responses:
+        "201":
+          description: Creation succesful
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+      x-webhare-implementation: "whfs.ts#createWHFSObject"
+
+    patch:
+      parameters:
+        - $ref: "#/components/parameters/path"
+      requestBody:
+        description: The WHFS object metadata to update
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              unevaluatedProperties: false
+              allOf:
+                - $ref: "#/components/schemas/WHFSObject"
+                - type: object
+                  properties:
+                    instances:
+                      $ref: "#/components/schemas/WHFSInstances"
+      responses:
+        "200":
+          description: Update successful
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notfound"
+      x-webhare-implementation: "whfs.ts#updateWHFSObject"
+
   "/wrd":
     get:
       responses:
@@ -195,6 +288,14 @@ components:
         description: wrdGuid of the affected entity (UUID format)
         format: uuid
 
+    path:
+      in: query
+      name: path
+      required: false
+      schema:
+        type: string
+        description: The WHFS path to an object (defaults to root folder if not provided)
+
   schemas:
     ## Global types
     defaulterror: # This schema must be declared to use TypedRestRequest.createErrorResponse in TypeScript
@@ -224,6 +325,74 @@ components:
           type: string
           description: The email address of the user
 
+    ## WHFS API
+    WHFSObject:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the WHFS object
+        type:
+          type: string
+          description: The WHFS type (scoped type)
+        whfsPath:
+          type: string
+          description: Full WHFS path of the object
+        isFolder:
+          type: boolean
+          description: If true, this object is a folder
+        modified:
+          type: string
+          format: date-time
+          description: The last modification date/time of the object
+        # We ignore updates to readonly properties so you can reasonably easy pass the output of GET back into POST.
+        link:
+          type: string
+          description: The link to the object if published. Ignored if set
+
+    CreateWHFSObject:
+      $ref: "#/components/schemas/WHFSObject"
+      required: [name, type]
+
+    RetrievedWHFSObject:
+      $ref: "#/components/schemas/WHFSObject"
+      required: [name, type, whfsPath, modified]
+
+    WHFSInstance:
+      type: object
+      required: [whfsType, data]
+      properties:
+        whfsType:
+          type: string
+          description: The WHFS instance type (scoped type)
+        clone:
+          type: string
+          description: The clone identifier if applicable. Ignored when setting
+          enum:
+            - onCopy
+            - onArchive
+            - never
+        data:
+          type: object
+          description: The metadata content of the WHFS instance
+          additionalProperties: true
+
+    RetrievedWHFSInstance:
+      $ref: "#/components/schemas/WHFSInstance"
+      required: [whfsType, data, clone]
+
+    RetrievedWHFSInstances:
+      type: array
+      description: List of instances to get/set
+      items:
+        $ref: "#/components/schemas/RetrievedWHFSInstance"
+
+    WHFSInstances:
+      type: array
+      description: List of instances to get/set
+      items:
+        $ref: "#/components/schemas/WHFSInstance"
+
     ## WRD API
     MetaType:
       type: string
@@ -232,8 +401,7 @@ components:
     WRDSchema:
       type: object
       additionalProperties: false
-      required:
-        - tag
+      required: [tag]
       properties:
         tag:
           type: string
@@ -242,7 +410,7 @@ components:
     CreateEntityBody:
       type: object
       additionalProperties: false
-      required: ["fields"]
+      required: [fields]
       properties: # NOTE wrap the fields so we have room for other import parameters, eg 'temp' or something like ifnew/entitykey for upsert like actions
         fields:
           $ref: "#/components/schemas/EntityFields"
@@ -250,7 +418,7 @@ components:
     UpdateEntityBody:
       type: object
       additionalProperties: false
-      required: ["fields"]
+      required: [fields]
       properties: # NOTE wrap the fields so we have room for other import parameters, eg de-temp. historymode?
         fields:
           $ref: "#/components/schemas/EntityFields"
@@ -280,8 +448,7 @@ components:
     Type:
       type: object
       additionalProperties: false
-      required:
-        - metaType
+      required: [metaType]
       properties:
         metaType:
           $ref: "#/components/schemas/MetaType"
@@ -323,8 +490,7 @@ components:
     TypeQueryResult:
       type: object
       additionalProperties: false
-      required:
-        - results
+      required: [results]
       properties:
         results:
           type: array
@@ -388,6 +554,8 @@ components:
       description: Invalid request
     unauthorized:
       description: Authorization bearer token is missing or invalid
+    notfound:
+      description: The requested resource was not found
     forbidden:
       description: Access to the requested resource is forbidden
 

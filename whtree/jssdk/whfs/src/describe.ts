@@ -46,12 +46,13 @@ export function getType(type: string | number, kind?: "fileType" | "folderType")
 }
 
 //splitting off a keyof WHFSTypes only version for improved intellisense and type autocompletion
-
 export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
 export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
-export async function describeWHFSType(type: keyof WHFSTypes | string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
+export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
-export async function describeWHFSType(type: keyof WHFSTypes | string | number): Promise<WHFSTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
 
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
   const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
@@ -97,7 +98,8 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
         ...baseinfo,
         metaType: "fileType",
         isWebPage: Boolean(matchtype.filetype.needstemplate),
-        hasData: Boolean(matchtype.filetype.blobiscontent)
+        isPublishable: Boolean(matchtype.filetype.ispublishable),
+        hasData: Boolean(matchtype.filetype.blobiscontent),
       };
     }
 
