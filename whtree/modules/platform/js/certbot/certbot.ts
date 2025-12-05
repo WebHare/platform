@@ -3,6 +3,7 @@ import { retrieveTaskResult, scheduleTask } from "@webhare/services";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { createPrivateKey, X509Certificate } from "node:crypto";
 import { lookupKey, splitPEMCertificateBundle } from "../webserver/keymgmt";
+import type { CertificateRequestResult } from "./internal/task";
 
 export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 
@@ -15,22 +16,6 @@ type CertificateRequestOptions = {
   /** Only request and test the certificate, do not update/create the certificate/private key */
   testOnly?: boolean;
   debug?: boolean;
-};
-
-type CertificateRequestResult = {
-  /** The request was successful */
-  success: true;
-  /** The id of the certificate/key pair that was updated/created */
-  certificateId: number;
-  /** For staging requests, the result certificate */
-  certificate?: string;
-  /** For staging requests, the result private key */
-  privateKey?: string;
-} | {
-  /** The request was not successful */
-  success: false;
-  /** The error message */
-  error: string;
 };
 
 /** Request a certificate for one or more domains hosted by this installation */
@@ -46,9 +31,9 @@ export async function requestACMECertificate(domains: string[], options?: Certif
   await commitWork();
 
   try {
-    return await retrieveTaskResult<CertificateRequestResult>(taskId);
+    return await retrieveTaskResult(taskId, { acceptTempFailure: true, acceptPermFailure: true });
   } catch (e) {
-    return { success: false, error: (e as Error).message };
+    return { success: false, error: "error", errorData: (e as Error).message };
   }
 }
 
