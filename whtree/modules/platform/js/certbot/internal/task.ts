@@ -53,7 +53,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     .query("certificateProvider")
     .select([
       "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler"
+      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck"
     ])
     .execute();
   // Split the allowlist into separate domain masks
@@ -103,13 +103,41 @@ export async function requestCertificateTask(req: TaskRequest<{
     if (domain.includes("*")) {
       wildcard = true;
     } else {
-      //FIXME: Check if DNS for domains points to this server?
       if (!allHostnames.includes(domain.toUpperCase())) {
         return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`, { result: {
           success: false,
           error: "hostnotlocal",
           errorData: domain,
         }});
+      }
+
+      if (!provider.skipConnectivityCheck) {
+        const myUuid = await loadlib("mod::system/lib/internal/webserver/config.whlib").GenerateWebserverUUID();
+        try {
+          const response = await fetch(`http://${domain}/.webhare/direct/system/uuid.shtml`, { signal: AbortSignal.timeout(2000) });
+          if (!response.ok)
+            return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${response.statusText.substring(0, 512) || "Unknown error"}`, { result: {
+              success: false,
+              error: "hostconnecterror",
+              errorData: response.statusText.substring(0, 512) || "Unknown error",
+            }});
+          const serverUuid = await response.text();
+          if (serverUuid !== myUuid) {
+            if (req.taskdata.debug)
+              logDebug("platform:certbot", { "#what": "Server mismatch", myUuid, serverUuid });
+            return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`, { result: {
+              success: false,
+              error: "hostnotlocal",
+              errorData: domain,
+            }});
+          }
+        } catch (e) {
+          return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${(e as Error).message}`, { result: {
+            success: false,
+            error: "hostconnecterror",
+            errorData: (e as Error).message,
+          }});
+        }
       }
     }
   }
