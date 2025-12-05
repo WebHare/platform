@@ -6,6 +6,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 
@@ -197,22 +198,28 @@ MACRO DoReplaceWith(RECORD task)
     RETURN;
   }
 
-  //Create a copy for the recyclebin so the original contents are not lost immediately
-  OBJECT copy := toreplace->CopyTo(toreplace->parentobject, GenerateUFS128BitId()); //copy to random name
-  RecycleWHFSObjects(INTEGER[copy->id], toreplace->name);
-
+  //Create a copy of the original in the history
+  OBJECT ARRAY clonetypes;
   FOREVERY(INTEGER cancopy FROM ArrayUnion(GetCopyableInstanceTypes(replacewith.id), GetCopyableInstanceTypes(toreplace->id)))
-  {
-    OBJECT typeobj := OpenWHFSTypeById(cancopy);
-    typeobj->SetInstanceData(toreplace->id, typeobj->GetInstanceData(replacewith.id), [ isvisibleedit := FALSE ]); //UpdateMetadata will take care of updating modtimes
-  }
+    INSERT OpenWHFSTypeById(cancopy) INTO clonetypes AT END;
 
+  OBJECT workflowmgr := NEW WorkflowManager(task.file,
+      [ useworkflow := TRUE,
+        workflowtypes := SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type")
+      ]);
+
+  FOREVERY(OBJECT typeobj FROM clonetypes)
+    workflowmgr->SetInstanceData(typeobj->namespace, typeobj->GetInstanceData(replacewith.id));
+
+  //FIXME workflow should support and track the linkfields (exernallink and filelink)
+  workflowmgr->UpdateMetadata(CELL[ replacewith.data
+                                  , replacewith.title
+                                  , replacewith.description
+                                  , replacewith.keywords
+                                  ]);
+  workflowmgr->Save(TRUE);
   toreplace->UpdateMetadata(CELL[ replacewith.filelink
-                                , replacewith.data
-                                , replacewith.title
-                                , replacewith.description
                                 , replacewith.externallink
-                                , replacewith.keywords
                                 ]);
 }
 

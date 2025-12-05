@@ -408,11 +408,11 @@ STATIC OBJECTTYPE WHFSDraft <
     //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
     RECORD curversion := GetLastSnapshotVersion(this->source);
     STRING nextversion := `${curversion.major + 1}.0`;
-    RECORD userinfo := user->GetUserDataForLogging();
+    RECORD userinfo := ObjectExists(user) ? user->GetUserDataForLogging() : DEFAULT RECORD;
 
     //Add history record
     INSERT CELL [ fs_object := this->source
-                , user := user->authobjectid
+                , user := ObjectExists(user) ? user->authobjectid : 0
                 , userdata := EncodeHSON(userinfo)
                 , type := whconstant_historytype_final
                 , when := now
@@ -483,8 +483,6 @@ PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
     @param objid - The ID of the object we're updating. Draft or final object id */
 PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ user := DEFAULT OBJECT, workflowtypes := INTEGER[] ], options);
-  IF(NOT ObjectExists(options.user))
-    THROW NEW Exception(`StartWorkflowUpdate requires a user object`);
 
   // Determine the base object for the draft we're going to update
   INTEGER baseobjectid;
@@ -508,7 +506,7 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
               , modificationdate := now
               , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
               , filelink := baseobjectid
-              , modifiedby := options.user->authobjectid
+              , modifiedby := ObjectExists(options.user) ? options.user->authobjectid : 0
              ] INTO system.fs_objects;
 
   CopyWorkflowInstances(objid, destid, options.workflowtypes, FALSE);
