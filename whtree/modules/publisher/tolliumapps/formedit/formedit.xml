@@ -8,20 +8,20 @@
     <actions>
       <action name="settings" frameflags="canedit" onexecute="dosettings" />
       <action name="showresults" frameflags="canviewresults" onexecute="doshowresults" />
-      <action name="addpage" frameflags="canedit !issinglepage" onexecute="doaddpage" />
-      <action name="addgroup" frameflags="canedit" onexecute="doaddgroup">
+      <action name="addpage" frameflags="canedit !issinglepage" onexecute="doaddpage" shortcut="ctrl+alt+p" />
+      <action name="addgroup" frameflags="canedit" onexecute="doaddgroup" shortcut="ctrl+alt+g">
         <enableon source="questions" min="1" max="1" checkflags="canaddgroups" />
       </action>
-      <action name="addquestion" frameflags="canedit" onexecute="doaddquestion">
+      <action name="addquestion" frameflags="canedit" onexecute="doaddquestion" shortcut="ctrl+alt+n">
         <enableon source="questions" min="1" max="1" checkflags="canaddquestions" />
       </action>
       <action name="duplicate" frameflags="canedit" onexecute="doduplicate" tid="~duplicate">
         <enableon source="questions" min="1" checkflags="canduplicate" />
       </action>
-      <action name="addtext" frameflags="canedit" onexecute="doaddtext">
+      <action name="addtext" frameflags="canedit" onexecute="doaddtext" shortcut="ctrl+alt+t">
         <enableon source="questions" min="1" max="1" checkflags="canaddtexts" />
       </action>
-      <action name="addhandler" frameflags="canedit" onexecute="doaddhandler" />
+      <action name="addhandler" frameflags="canedit" onexecute="doaddhandler" shortcut="ctrl+alt+h" />
       <action name="edititem" frameflags="canedit" tid="~edit">
         <enableon source="questions" min="1" max="1" checkflags="caneditrow ispage" onexecute="doeditpage" />
         <enableon source="questions" min="1" max="1" checkflags="caneditrow isquestion" onexecute="doeditquestion" />
