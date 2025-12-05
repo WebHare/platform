@@ -954,6 +954,11 @@ PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
         eab_hmackey := ""
       ];
     }
+    // If this is a new provider, make sure it's added to the top of the list
+    IF (^entity->entityid = 0) {
+      INTEGER minordering := SELECT AS INTEGER Min(wrd_ordering) FROM this->contexts->wrdschema->^certificate_provider->RunQuery([ outputcolumns := [ "wrd_ordering" ] ]);
+      updatevalue := CELL[ ...updatevalue, wrd_ordering := minordering - 1 ];
+    }
     RETURN updatevalue;
   }
 

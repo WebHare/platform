@@ -53,7 +53,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     .query("certificateProvider")
     .select([
       "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck"
+      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
     ])
     .execute();
   // Split the allowlist into separate domain masks
@@ -63,7 +63,7 @@ export async function requestCertificateTask(req: TaskRequest<{
       .split(" ").filter(_ => _) // split into separate masks
       .sort((a, b) => b.length - a.length) // sort by longest mask first
       .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => (b.allowlist[0]?.source.length ?? 0) - (a.allowlist[0]?.source.length ?? 0)); // sort providers by longest mask first
+  })).sort((a, b) => ((b.allowlist[0]?.source.length ?? 0) - (a.allowlist[0]?.source.length ?? 0)) || (a.wrdOrdering - b.wrdOrdering)); // sort providers by longest mask first, then by ordering
   // Find the first matching provider
   let provider: typeof providersWithMasks[0] | null = null;
   for (const prov of providersWithMasks) {

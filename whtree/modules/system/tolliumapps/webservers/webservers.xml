@@ -239,6 +239,7 @@
                         deletemode="close"
                         entityeditscreen="#editcertificateprovider"
                         onmaprows="mapproviders"
+                        orderable="true"
                         wrdtype="certificate_provider">
         <column name="issuer_domain" type="text" width="2pr" />
         <column name="key_pair_algorithm" type="text" width="20x" optiongid=".algorithms" />

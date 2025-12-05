@@ -27,6 +27,7 @@
       <free tag="acme_challenge_handler" />
       <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks, if empty, all domains are allowed -->
       <boolean tag="skip_connectivity_check" />
+      <integer tag="wrd_ordering" />
     </attributes>
   </object>
 
