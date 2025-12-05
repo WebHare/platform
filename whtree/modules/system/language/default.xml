@@ -1197,8 +1197,10 @@
           <text tid="main">Keys and certificates</text>
           <text tid="missingcertificate">The certificate for issuer '<param p="1"/>' is not in the certificate file and not known in the central certificate store.</text>
           <text tid="missingcertificatechain">This certificate file does not contain a certificate chain.</text>
+          <text tid="nocertificatenamesfound">No DNS names found for this key/certificate pair</text>
           <text tid="noncertificateinchain">This file contains an invalid certificate.</text>
           <text tid="overwritewithselfsigned">Are you sure you want to replace the certificate of this key with a self-signed certificate?</text>
+          <text tid="requestnewcertificate">Request new key/certificate</text>
           <text tid="signatureverificationfailed">The validation of the certificate chain failed.</text>
           <text tid="suredeletekey">Are you sure you want to delete key '<param p="1"/>'? This operation can't be undone!</text>
           <text tid="unsupportedsignaturealgorithm">The signature algorithm "<param p="1"/>" is not supported.</text>
