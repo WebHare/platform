@@ -1,4 +1,5 @@
 ﻿<?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
@@ -19,6 +21,9 @@ LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/webserver/stats.whlib";
 LOADLIB "mod::system/tolliumapps/webservers/support.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 
 BOOLEAN FUNCTION IsLocalIP(STRING ip)
@@ -486,6 +491,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     this->RunScreen("#certbotrequest", CELL[ names ]);
   }
+
+  MACRO DoManageCertificateProviders() {
+    this->RunScreen("#managecertificateproviders");
+  }
 >;
 
 
@@ -842,5 +851,37 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
     ^domainnames->enabled := TRUE;
     ^request->enabled := TRUE;
   }
+>;
 
+PUBLIC OBJECTTYPE ManageCertificateProviders EXTEND TolliumScreenBase <
+  MACRO NEW() {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
+
+  RECORD ARRAY FUNCTION MapProviders(RECORD ARRAY providers) {
+    RETURN
+        SELECT *
+             , key_pair_algorithm := key_pair_algorithm ?? "default"
+             , allowlist := allowlist ?? this->GetTid(".alldomainsallowed")
+          FROM providers;
+  }
+>;
+
+PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
+  UPDATE MACRO Init(RECORD data) {
+    WRDEntityEditScreenBase::Init(data);
+
+    ^eab->value := ^entity->^eab_kid->value != "" OR ^entity->^eab_hmackey->value != "";
+  }
+
+  UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue) {
+    IF (NOT ^eab->value) {
+      updatevalue := CELL[
+        ...updatevalue,
+        eab_kid := "",
+        eab_hmackey := ""
+      ];
+    }
+    RETURN updatevalue;
+  }
 >;

@@ -15,7 +15,7 @@
     </attributes>
   </domain>
 
-  <object tag="certificate_provider">
+  <object tag="certificate_provider" keephistorydays="2600">
     <attributes>
       <free tag="issuer_domain" required="true" />
       <free tag="acme_directory" />

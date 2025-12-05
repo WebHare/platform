@@ -1745,6 +1745,28 @@
         <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>
         <text tid="startdate">Startdatum</text>
       </textgroup>
+      <textgroup gid="managecertificateproviders">   <!-- tolliumapps.webservers.managecertificateproviders -->
+        <text tid="acme_challenge_handler">ACME-challenge handler</text>
+        <text tid="acme_directory">ACME-directory</text>
+        <text tid="alldomainsallowed">&lt;alle domeinen&gt;</text>
+        <text tid="allowlist">Toegestane domeinen</text>
+        <text tid="allowlist-placeholder">Spatie-gescheiden maskers, leeg voor alle domeinen</text>
+        <text tid="eab">Externe accountbinding (EAB) gebruiken</text>
+        <text tid="eab_hmackey">HMAC-sleutel</text>
+        <text tid="eab_kid">Sleutel-id</text>
+        <text tid="editcertificateprovider">Certificaataanbieder</text>
+        <text tid="email">E-mailadres</text>
+        <text tid="issuer_domain">Domein uitgever</text>
+        <text tid="key_pair_algorithm">Algoritme</text>
+        <text tid="managecertificateproviders">Certificaataanbieders</text>
+        <text tid="skip_connectivity_check">Verbinding met host niet controleren</text>
+        <textgroup gid="algorithms">   <!-- tolliumapps.webservers.managecertificateproviders.algorithms -->
+          <text tid="default">Standaard (RSA, 2048-bits)</text>
+          <text tid="ec">EC</text>
+          <text tid="rsa">RSA, 2048-bits</text>
+          <text tid="rsa-4096">RSA, 4096-bits</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
         <text tid="couldnotconnect">Kon geen verbinding maken met de proxy.</text>
         <text tid="interfaceurlnothosted">De proxy heeft gedetecteerd dat het lokale verbindingsadres niet naar deze server wijst, omdat de URL van de WebHare interface niet werd gevonden op de bereikte server. Is deze installatie een backup van de originele server?</text>
@@ -1798,6 +1820,7 @@
         <text tid="filetypes">File types</text>
         <text tid="filter">Filter</text>
         <text tid="keystore">Sleutels</text>
+        <text tid="managecertificateproviders">Beheer certificaataanbieder</text>
         <text tid="nofiltermatch">Er zijn geen webservers of aliassen die de tekst '<param p="1"/>' bevatten</text>
         <text tid="preview">Bekijk site</text>
         <text tid="proxies">Proxies</text>

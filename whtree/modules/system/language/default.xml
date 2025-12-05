@@ -1936,6 +1936,28 @@
         <text tid="exportusagestats">Export usage stats</text>
         <text tid="startdate">Start date</text>
       </textgroup>
+      <textgroup gid="managecertificateproviders">   <!-- tolliumapps.webservers.managecertificateproviders -->
+        <text tid="acme_challenge_handler">ACME challenge handler</text>
+        <text tid="acme_directory">ACME directory</text>
+        <text tid="alldomainsallowed">&lt;all domains&gt;</text>
+        <text tid="allowlist">Allowed domains</text>
+        <text tid="allowlist-placeholder">Space-separated masks, empty for all domains</text>
+        <text tid="eab">Use external account binding (EAB)</text>
+        <text tid="eab_hmackey">HMAC key</text>
+        <text tid="eab_kid">Key id</text>
+        <text tid="editcertificateprovider">Certificate provider</text>
+        <text tid="email">Email address</text>
+        <text tid="issuer_domain">Issuer domain</text>
+        <text tid="key_pair_algorithm">Algorithm</text>
+        <text tid="managecertificateproviders">Certificate providers</text>
+        <text tid="skip_connectivity_check">Don't check host connectivity</text>
+        <textgroup gid="algorithms">   <!-- tolliumapps.webservers.managecertificateproviders.algorithms -->
+          <text tid="default">Default (RSA, 2048 bit)</text>
+          <text tid="ec">EC</text>
+          <text tid="rsa">RSA, 2048 bit</text>
+          <text tid="rsa-4096">RSA, 4096 bit</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
         <text tid="couldnotconnect">Could not connect to the proxy.</text>
         <text tid="interfaceurlnothosted">The proxy detected that the local connection address does not resolve to this server, because the WebHare interface URL was not found on the connected server. Is this a backup of the original server?</text>
@@ -1989,6 +2011,7 @@
         <text tid="filetypes">Filetypes</text>
         <text tid="filter">Filter</text>
         <text tid="keystore">Keystore</text>
+        <text tid="managecertificateproviders">Manage certificate providers</text>
         <text tid="nofiltermatch">No webservers or aliasses contain the text '<param p="1"/>'</text>
         <text tid="preview">View site</text>
         <text tid="proxies">Proxies</text>
