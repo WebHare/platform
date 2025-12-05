@@ -3,7 +3,10 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { backendConfig, toFSPath } from "@webhare/services";
+import { listStoredKeyPairs } from "@mod-platform/js/webserver/keymgmt";
 import { run } from "@webhare/cli";
+import { openFolder } from "@webhare/whfs";
+import { runInWork } from "@webhare/whdb";
 
 // TODO tikacache should perhaps be droppable too, but it has little churn and we're not guaranteed to quickly recover opensearch databases right now..
 
@@ -40,5 +43,15 @@ run({
 
     for (const todelete of obsoleteStuff)
       rmSync(todelete, { recursive: true, force: true });
+
+    // WH5.9: Getting rid of certbot keys without a matching certficate.
+    const todelete = (await listStoredKeyPairs()).filter(key => key.name.startsWith("certbot-") && !key.hasCertificate);
+    if (todelete.length > 0)
+      await runInWork(async () => {
+        for (const key of todelete) {
+          const keyfolder = await openFolder(key.id);
+          await keyfolder.recycle();
+        }
+      });
   }
 });

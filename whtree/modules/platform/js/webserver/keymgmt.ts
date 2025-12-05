@@ -1,4 +1,6 @@
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { toFSPath } from "@webhare/services";
+import { db } from "@webhare/whdb";
 import { openFolder, type WHFSFolder } from "@webhare/whfs";
 import { createHash, X509Certificate } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -89,4 +91,31 @@ export async function openStoredKeyPair(id: number) {
 
 export async function getDNSNamesForHS(id: number): Promise<string[]> {
   return (await openStoredKeyPair(id)).getDNSNames();
+}
+
+/** List all keypairs
+    @returns A list of keypairs
+    @cell(integer) return.id Key ids
+    @cell(integer) return.name Key name
+    @cell(integer) return.title Title
+    @cell(integer) return.hasCertificate True if this key has a certificate
+*/
+export async function listStoredKeyPairs(): Promise<Array<{
+  id: number;
+  name: string;
+  title: string;
+  hasCertificate: boolean;
+}>> {
+  const keystore = await openFolder("/webhare-private/system/keystore", { allowMissing: true });
+  if (!keystore)
+    return [];
+
+  const keyfolders = await keystore.list(["title"]);
+  const certificates = await db<PlatformDB>().selectFrom("system.fs_objects").select(["parent"]).where("name", "=", "certificatechain.pem").where("parent", "in", keyfolders.map(_ => _.id)).execute();
+  return keyfolders.map(kf => ({
+    id: kf.id,
+    name: kf.name,
+    title: kf.title,
+    hasCertificate: certificates.some(c => c.parent === kf.id)
+  }));
 }
