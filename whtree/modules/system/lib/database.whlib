@@ -247,6 +247,7 @@ PUBLIC SCHEMA
     , BOOLEAN "isfoldertype"
     , BOOLEAN "isfiletype"
     , BOOLEAN "cloneoncopy"
+    , BOOLEAN "cloneonarchive"
     , BOOLEAN "orphan"
     , BOOLEAN "isacceptableindex"
     , BOOLEAN "needstemplate"

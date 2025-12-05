@@ -199,6 +199,8 @@ STATIC OBJECTTYPE WHFSType <
   */
   PUBLIC PROPERTY cloneoncopy(this->typedef.cloneoncopy, -);
 
+  PUBLIC PROPERTY cloneonarchive(this->typedef.cloneonarchive, -);
+
   /** Default value for an instance
   */
   PUBLIC PROPERTY defaultinstance(GetDefaultInstance, -);
@@ -1633,7 +1635,7 @@ STATIC OBJECTTYPE WHFSType <
   PUBLIC INTEGER64 FUNCTION SetInstanceData(INTEGER objectid, RECORD newinstancedata, RECORD options DEFAULTSTO CELL[])
   {
     options := ValidateOptions(
-        [ isvisibleedit := this->cloneoncopy
+        [ isvisibleedit := this->cloneoncopy OR this->cloneonarchive
         , orphans       := FALSE
         , ifreadonly := "fail"
         , workflow      := FALSE
@@ -1816,14 +1818,15 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
   BOOLEAN makefoldertype := CellExists(typeinfo, 'foldertype') AND typeinfo.foldertype;
   BOOLEAN makefiletype := CellExists(typeinfo, 'filetype') AND typeinfo.filetype;
   BOOLEAN makecloneoncopy := CellExists(typeinfo, 'cloneoncopy') AND typeinfo.cloneoncopy;
+  BOOLEAN makecloneonarchive := CellExists(typeinfo, 'cloneonarchive') AND typeinfo.cloneonarchive;
   BOOLEAN makedynamicexecution := CellExists(typeinfo, 'isdynamicexecution') AND typeinfo.isdynamicexecution;
   GetWHFSCommitHandler()->FSTypesChanged();
 
   IF(NOT ObjectExists(type))
   {
     whfstypeid := MakeAutonumber(system.fs_types, "id");
-    INSERT INTO system_internal.fs_types(id, namespace, orphan, isfiletype, isfoldertype, cloneoncopy, isdynamicexecution, orphansince)
-           VALUES(whfstypeid, typeinfo.namespace, TRUE, makefiletype, makefoldertype, makecloneoncopy, makedynamicexecution, GetCurrentDatetime());
+    INSERT INTO system_internal.fs_types(id, namespace, orphan, isfiletype, isfoldertype, cloneoncopy, cloneonarchive, isdynamicexecution, orphansince)
+           VALUES(whfstypeid, typeinfo.namespace, TRUE, makefiletype, makefoldertype,  makecloneoncopy, makecloneonarchive, makedynamicexecution, GetCurrentDatetime());
   }
   ELSE
   {
@@ -1833,6 +1836,7 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
                            SET isfoldertype := makefoldertype OR isfoldertype
                              , isfiletype := makefiletype OR isfiletype
                              , cloneoncopy := makecloneoncopy OR cloneoncopy
+                             , cloneonarchive := makecloneonarchive OR cloneonarchive
                              , isdynamicexecution := makedynamicexecution OR isdynamicexecution
                            WHERE id = type->id;
   }
@@ -1918,6 +1922,7 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
                             , isfiletype := isunknownfile
                             , orphan := FALSE
                             , cloneoncopy := FALSE
+                            , cloneonarchive := FALSE
                             , isacceptableindex := FALSE
                             , ispublishedassubdir := FALSE
                             ]);

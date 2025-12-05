@@ -102,6 +102,7 @@ RECORD FUNCTION TryResolveTypeConflict(RECORD conflict)
       , foldertype :=     TryMergeData(conflict.current, conflict.parent, conflict.changes, "FOLDERTYPE", FALSE)
       , filetype :=       TryMergeData(conflict.current, conflict.parent, conflict.changes, "FILETYPE", FALSE)
       , cloneoncopy :=    TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONCOPY", FALSE)
+      , cloneonarchive := TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONARCHIVE", FALSE)
       , members :=        members
       ];
 }

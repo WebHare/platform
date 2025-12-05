@@ -27,6 +27,7 @@ MACRO TestWHFSType()
   OBJECT rtdtype := OpenWHFStype("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   TestEQ([[name:="data",type:=15],[name :="original", type := 5]], SELECT name,type FROM rtdtype->members ORDER BY name);
   TestEq(TRUE, rtdtype->cloneoncopy);
+  TestEq(TRUE, rtdtype->cloneonarchive);
 
   OBJECT dynfoldertype := OpenWHFStype("http://www.webhare.net/xmlns/beta/dynfolder");
   TestEQ([[name:="test",type:=2]], SELECT name,type FROM dynfoldertype->members ORDER BY name);

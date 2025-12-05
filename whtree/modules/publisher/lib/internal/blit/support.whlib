@@ -838,6 +838,7 @@ PUBLIC RECORD FUNCTION DescribeType(OBJECT intype, RECORD ARRAY instances)
       , foldertype :=   intype->foldertype
       , filetype :=     intype->filetype
       , cloneoncopy :=  intype->cloneoncopy
+      , cloneonarchive :=  intype->cloneonarchive
       ];
 }
 

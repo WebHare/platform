@@ -1036,6 +1036,9 @@ false = authentication is only necessary for users not matching the IP access ru
 
           FIXME: how does this work when a type is used in a member type 'instance'??</d:documentation>
       </d:boolean>
+      <d:boolean name="cloneonarchive">
+        <d:documentation>Whether the data in this contenttype will be copied to the new fs_object when archiving a file or folder.</d:documentation>
+      </d:boolean>
       <d:boolean name="isfiletype">
         <d:documentation>Whether to allow creation of a file with this type in the Publisher</d:documentation>
       </d:boolean>
