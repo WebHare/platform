@@ -19,6 +19,23 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+RECORD FUNCTION GetCloneTestFields(INTEGER id) {
+  RETURN CELL[
+    ...OpenWHFSType("webhare_testsuite:global.type_no_clone")->GetInstanceData(id),
+    ...OpenWHFSType("webhare_testsuite:global.type_with_workflow")->GetInstanceData(id),
+    ...OpenWHFSType("webhare_testsuite:global.type_clone_only")->GetInstanceData(id)
+  ];
+}
+
+MACRO SetCloneTestFields(INTEGER id, RECORD fields) {
+  IF(CellExists(fields, "no_clone_string"))
+    OpenWHFSType("webhare_testsuite:global.type_no_clone")->SetInstanceData(id, [ no_clone_string := fields.no_clone_string ]);
+  IF(CellExists(fields, "with_workflow_string"))
+    OpenWHFSType("webhare_testsuite:global.type_with_workflow")->SetInstanceData(id, [ with_workflow_string := fields.with_workflow_string ]);
+  IF(CellExists(fields, "clone_only_string"))
+    OpenWHFSType("webhare_testsuite:global.type_clone_only")->SetInstanceData(id, [ clone_only_string := fields.clone_only_string ]);
+}
+
 
 MACRO Prep()
 {
@@ -359,15 +376,16 @@ MACRO DraftingTest() {
   TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "approved", version := "1.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
+                , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
 
   //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
   //FIXME where did created_0_1 go ?
   TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[3].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "draft_0_1" , no_clone_string := "", clone_only_string := "" ], GetCloneTestFields(history[1].snapshot), "The 0.2 snapshot should only have the workflow managed data");
+  TestEq([ with_workflow_string := "yet-another-draft" , no_clone_string := "", clone_only_string := "" ], GetCloneTestFields(history[2].snapshot), "The 0.3 snapshot should only have its own data");
+  TestEq([ with_workflow_string := "yet-another-draft" , no_clone_string := "", clone_only_string := "created_0_1" ], GetCloneTestFields(history[3].snapshot), "The 1.0 saved should have clonable non-workflow data too");
+  TestEq(['http://www.webhare.net/xmlns/beta/test', 'webhare_testsuite:global.type_clone_only', 'webhare_testsuite:global.type_no_clone', 'webhare_testsuite:global.type_with_workflow'], SELECT AS STRING ARRAY namespace FROM ListInstances(testfile->id) ORDER BY namespace);
 
   TestAssert(testfile->id != history[3].snapshot, "Assure us that the 1.0 version is really independent from the live file");
   TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts"); //FIXME we probably don't want this in the future
@@ -489,8 +507,8 @@ MACRO DraftingTest() {
   TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "approved", version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
-                , [ type := "approved", version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
+                , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge") ]
+                , [ type := "final",    version := "2.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
   //FIXME verify we can to 'thisversion' links to both 1.0 and 2.0
 
@@ -537,8 +555,8 @@ ASYNC MACRO UnpublishedSavesTest()
   RECORD ARRAY history := ListObjectHistory(unpublishedfile->id);
   TestEqMembers([ [ type := "created",  version := "0.1", userdata := [ login := "marge@beta.webhare.net"], user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved",    version := "0.2", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "approved", version := "1.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
-                , [ type := "approved", version := "2.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "final",    version := "1.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
+                , [ type := "final",    version := "2.0", userdata := [ login := "homer@beta.webhare.net"], user := testfw->GetUserAuthobjectId("homer") ]
                 ], history, "*");
 
   testfw->CommitWork();
@@ -550,6 +568,52 @@ ASYNC MACRO UnpublishedSavesTest()
   TestEq(FALSE, clicked);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
+
+//Test whether files that receive updates but had no history at all, properly get an import entry
+ASYNC MACRO ImportTest() {
+  testfw->BeginWork();
+
+  OBJECT importfile := GetTestsuiteTempFolder()->CreateFile(
+    [ title := "Imported!"
+    , keywords := "my new import"
+    , description := "describe import"
+    , data := StringToBlob("I'm a jolly good file")
+    , typens := "http://www.webhare.net/xmlns/publisher/htmlfile"
+    ]);
+
+  importfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["a","b"]  ]);
+  SetCloneTestFields(importfile->id, [ no_clone_string := "import_0_1", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ]);
+
+  RECORD ARRAY history := ListObjectHistory(importfile->id);
+  TestEq(RECORD[], history, "There should be no history yet");
+
+  //This is what we expect task replacecontents to do: backup the old version as an 'import' snapshot and setup a 'final' version
+  OBJECT workflowmgr := NEW WorkflowManager(importfile->id,
+    [ user := testfw->GetUserObject("marge"),
+      useworkflow := TRUE,
+      workflowtypes := ["http://www.webhare.net/xmlns/beta/test"]
+    ]);
+  workflowmgr->UpdateData(StringToBlob("I'm an  updated file"));
+  workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["x","z"]  ]);
+  workflowmgr->Save(TRUE);
+
+  history := ListObjectHistory(importfile->id);
+  TestEqMembers([ [ type := "import",   version := "1.0", userdata := DEFAULT RECORD, user := 0 ]
+                , [ type := "final",    version := "2.0", userdata := [ login := "marge@beta.webhare.net"], user := testfw->GetUserAuthobjectId("marge") ]
+                ], history, "*");
+
+  TestEq(STRING["a","b"], OpenWHFSObject(history[0].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq([ no_clone_string := "", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(history[0].snapshot), "The import snapshot should have preserved its clonable instance data");
+
+  TestEq(STRING["x","z"], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq([ no_clone_string := "", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(history[1].snapshot), "The final snapshot should have the clonabledata");
+
+  TestEq(STRING["x","z"], OpenWHFSObject(importfile->id)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq([ no_clone_string := "import_0_1", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(importfile->id), "The final snapshot should have ALL data");
+
+  testfw->CommitWork();
+}
+
 
 ASYNC MACRO ViewHistory() {
   DATETIME startcopy := GetCurrentDatetime();
@@ -574,6 +638,7 @@ ASYNC MACRO ViewHistory() {
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
                  , PTR UnpublishedSavesTest
+                 , PTR ImportTest
                  , PTR ViewHistory
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "marge" ]

@@ -251,6 +251,9 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   PUBLIC MACRO Save(BOOLEAN withpublish, RECORD options DEFAULTSTO DEFAULT RECORD) {
     this->LoadDrafts();
 
+    IF(Length(ListObjectHistory(this->baseobject->id)) = 0)
+      ImportCurrentState(this->baseobject->id);  //Import the current final state
+
     IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
       this->currentautosave->SaveAsNewPublicDraft(this->options.user, options);
     } ELSE { // commit or publish

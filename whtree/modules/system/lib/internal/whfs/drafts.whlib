@@ -23,6 +23,8 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
                                     , "created"    //4 whconstant_historytype_created
                                     , "approved"   //5 whconstant_historytype_approved
                                     , "autosave"   //6 whconstant_historytype_autosave
+                                    , "import"     //7 whconstant_historytype_import
+                                    , "final"      //8 whconstant_historytype_final
                                     ];
 
 RECORD FUNCTION ValidateSaveOptions(RECORD options) {
@@ -55,6 +57,35 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
                                 ORDER parts.major DESC, parts.minor DESC
                                 LIMIT 1)
          ?? [ userdata := DEFAULT RECORD, major := 0, minor := 0 ];
+}
+
+INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER modifiedby) {
+  INTEGER destid := MakeAutonumber(system.fs_objects, "id");
+  RECORD objinfo := SELECT name, filelink, parent, parentsite, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR baseobjectid;
+  INSERT CELL [ id := destid
+              , parent := EnsureSnapshotsFolder(objinfo.parentsite)
+              , name := ToString(destid)
+              , creationdate := now
+              , modificationdate := now
+              , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
+              , filelink := baseobjectid
+              , modifiedby
+              ] INTO system.fs_objects;
+
+  //We're building a full snapshot. So instancesource (the snapshot) should receive all copyable instances from destid (the final)
+  RECORD ARRAY snapshot_current_instances := ListInstances(baseobjectid);
+  FOREVERY(RECORD inst FROM snapshot_current_instances)
+    IF(inst.cloneonarchive) {
+      OBJECT typeobj := OpenWHFSType(inst.namespace);
+      typeobj->SetInstanceData(destid, typeobj->GetInstanceData(baseobjectid), [ ifreadonly := "update", isvisibleedit := FALSE, workflow := FALSE ]);
+    }
+
+  OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+  typeobj->SetInstancedata(destid,
+      [ name :=       objinfo.name
+      ], [ ifreadonly := "update" ]);
+
+  RETURN destid;
 }
 
 /** Get the change history for this object
@@ -369,6 +400,9 @@ STATIC OBJECTTYPE WHFSDraft <
     RECORD updates := PickCells(sourcedata, STRING["data", ...options.updatemetadatafields]);
     OpenWHFSObject(this->source)->UpdateMetadata(CELL[...updates, modificationdate := now ]);
 
+    // Duplicate the final as a snapshot
+    INTEGER finalsnapshot := CreateFullSnapshot(now, this->source, GetEffectiveUserID());
+
     RefreshDraftStatus(this->source);
 
     //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
@@ -380,10 +414,10 @@ STATIC OBJECTTYPE WHFSDraft <
     INSERT CELL [ fs_object := this->source
                 , user := user->authobjectid
                 , userdata := EncodeHSON(userinfo)
-                , type := whconstant_historytype_approved
+                , type := whconstant_historytype_final
                 , when := now
                 , version := nextversion
-                , snapshot := this->id
+                , snapshot := finalsnapshot
                 ] INTO system_internal.fs_history;
 
     // Fire events
@@ -512,4 +546,19 @@ PUBLIC MACRO CleanupOtherPrivateDrafts(INTEGER objid)
 PUBLIC MACRO CleanupMyPrivateDrafts(INTEGER objid)
 {
   DELETE FROM system.fs_objects WHERE filelink = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby = GetEffectiveUserID();
+}
+
+PUBLIC MACRO ImportCurrentState(INTEGER baseobjectid) {
+  DATETIME now := GetCurrentDateTime();
+  INTEGER destid := CreateFullSnapshot(now, baseobjectid, 0);
+
+  //Add history record
+  INSERT CELL [ fs_object := baseobjectid
+              , type := whconstant_historytype_import
+              , when := now
+              , version := "1.0"
+              , snapshot := destid
+              ] INTO system_internal.fs_history;
+
+  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
 }

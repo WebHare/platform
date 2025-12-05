@@ -419,6 +419,7 @@ MACRO TestEvents() {
   INTEGER snapshotfolder;
   {
     RECORD ARRAY events := ExpectWHFSEvents(5);
+    INTEGER finalsnapshot := events[0].files[1].file;
 
     snapshotfolder := events[2].files[0].file; // The snapshot parent folder
 
@@ -429,7 +430,8 @@ MACRO TestEvents() {
         folder := whconstant_whfsid_autosaves,
         events := STRING[],
         files := [
-          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ]
+          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ],
+          [ file := finalsnapshot, isfolder := FALSE, events := [ "create" ] ]
         ]
       ], [
         folder := whconstant_whfsid_drafts,
