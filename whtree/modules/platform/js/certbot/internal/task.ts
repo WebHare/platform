@@ -61,9 +61,8 @@ export async function requestCertificateTask(req: TaskRequest<{
     ...provider,
     allowlist: provider.allowlist
       .split(" ").filter(_ => _) // split into separate masks
-      .sort((a, b) => b.length - a.length) // sort by longest mask first
       .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => ((b.allowlist[0]?.source.length ?? 0) - (a.allowlist[0]?.source.length ?? 0)) || (a.wrdOrdering - b.wrdOrdering)); // sort providers by longest mask first, then by ordering
+  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
   // Find the first matching provider
   let provider: typeof providersWithMasks[0] | null = null;
   for (const prov of providersWithMasks) {
