@@ -43,7 +43,7 @@ export { registerRelyingParty, initializeIssuer } from "./oauth2";
 export type { RelyingPartyConfig as ClientConfig, RelyingProviderInit as ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
-export type { LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+export type { LoginDeniedInfo, AuthCustomizer, OpenIdAuthenticationParameters, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
 
 export type { LoginErrorCode as LoginErrorCodes } from "./shared";
 

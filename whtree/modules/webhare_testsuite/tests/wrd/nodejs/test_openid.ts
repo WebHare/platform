@@ -23,11 +23,12 @@ let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
-async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: string; changePasswordTo?: string }) {
+async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: string; password?: string; changePasswordTo?: string }) {
   const password = options?.password || test.getUser("sysop").password;
-  console.log("Login with sysop", test.getUser("sysop").login, "and password", password);
+  const user = test.getUser(options?.user || "sysop");
+  console.log("Login with ", user.login, "and password", password);
   await page.waitForSelector('[name=login]');
-  await page.type('[name=login]', test.getUser("sysop").login);
+  await page.type('[name=login]', user.login);
   await page.type('[name=password]', password);
   await page.click('button[type=submit]');
 
@@ -84,7 +85,8 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
 async function setupOIDC() {
   await test.resetWTS({ //resetWTS also links platform:identityprovider to the testsiteJS which we need to see the testsiteJS .well-known/openid-configuration
     users: {
-      sysop: { grantRights: ["system:sysop"] }
+      sysop: { grantRights: ["system:sysop"] },
+      marge: {}
     },
     wrdSchema: "webhare_testsuite:testschema",
     schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
@@ -354,10 +356,49 @@ async function verifyAsOpenIDSP() {
   }
 }
 
+async function verifyCustomOpenIDFlow() {
+  const testsite = await test.getTestSiteJS();
+
+  //Setup test sysop user
+  await beginWork();
+  const changePasswordTo = "pass$" + Math.random().toString(36).substring(2, 16);
+  await oidcAuthSchema.update("wrdPerson", test.getUser("marge").wrdId, {
+    whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:marge$"),
+    wrdLastName: "BLOCKME"
+  });
+  await commitWork();
+
+  const context = await puppeteer!.createBrowserContext(); //separate cookie storage
+  try {
+    const page = await context.newPage();
+    console.log("\nVisiting OIDC SP portal at", testsite.webRoot + "portal1-oidc/");
+
+    const portal1LoginRequest = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
+    console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
+    await page.goto(portal1LoginRequest);
+
+    await runWebHareLoginFlow(page, { user: "marge", password: "marge$", changePasswordTo: changePasswordTo });
+
+    //We're blocked so this should show Login failed page
+    const heading = await page.waitForSelector("h2");
+    test.eq("Login failed", await page.evaluate(el => el?.textContent, heading));
+
+    //Test NavigateInstruction now
+    await runInWork(() => oidcAuthSchema.update("wrdPerson", test.getUser("marge").wrdId, { wrdLastName: "REDIRECTME" }));
+    await page.goto(portal1LoginRequest);
+
+    await test.wait(() => page.url().endsWith("/redirected-away"));
+  } finally {
+    await context.close();
+  }
+}
+
+
 test.runTests([
   setupOIDC, //implies test.reset
   verifyRoutes,
   verifyOpenIDClient,
   verifyAsOpenIDSP,
+  verifyCustomOpenIDFlow,
   async () => { await puppeteer?.close(); }
 ]);

@@ -1,7 +1,8 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <domain tag="wrdauth_service_provider">
-    <!-- these are service providers registered to our IDP -->
+  <domain tag="wrdauth_service_provider" keephistorydays="1100">
+    <!-- these are service providers registered to our IDP
+         ie everyone who lists this server/application as a login button -->
     <attributes>
       <free tag="wrd_title" required="true" unique="true" />
       <array tag="client_secrets">

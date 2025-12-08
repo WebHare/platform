@@ -2,6 +2,7 @@ import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd
 import type { NavigateInstruction } from "@webhare/env";
 import type { WRDSchema } from "@webhare/wrd";
 import type { LoginErrorCode } from "./shared";
+import type { MaybePromise } from "@webhare/std";
 
 export type JWTPayload = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
@@ -64,13 +65,20 @@ export interface LoginUsernameLookupOptions {
   site?: string;
 }
 
+export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+  /** Current WRD schema */
+  wrdSchema: WRDSchema<S>;
+  /** Provider id (references wrdauthOidcClient) */
+  provider: number;
+  /** JWT payload */
+  jwtPayload: JWTPayload;
+}
+
 export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends LoginUsernameLookupOptions {
   /** Current WRD schema */
   wrdSchema: WRDSchema<S>;
   /** Username to look up */
   username: string;
-  /** JWT payload if we're coming in through an OpenID Connect (OIDC) flow */
-  jwtPayload?: JWTPayload;
 }
 
 export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> { //Could imagine adding IP/GEO and browser info to these parameters
@@ -109,7 +117,6 @@ export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySch
 
 export type ReportedUserInfo = Record<string, unknown> & { error?: never };
 
-
 export type LoginDeniedInfo = {
   error: string;
   code: LoginErrorCode;
@@ -117,17 +124,20 @@ export type LoginDeniedInfo = {
 
 export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Invoked to look up a login name. Override to modify how accounts are mapped to IDs or to do just-in-time account creation */
-  lookupUsername?: (params: LookupUsernameParameters<S>) => Promise<number | null> | number | null;
+  lookupUsername?: (params: LookupUsernameParameters<S>) => MaybePromise<number | null>;
+  /** Invoked to handle incoming OIDC authentication. Override to modify how OIDC accounts are mapped or to do just-in-time account creation. Invoked before the loginfield is checked and before lookupUsername is invoked
+   * @returns User ID to directly log in this user, null to attempt to login using the username in the token or a NavigateInstruction or LoginDeniedInfo for immediate handling or rejection */
+  processOpenIdAuth?: (params: OpenIdAuthenticationParameters<S>) => MaybePromise<number | null | NavigateInstruction | LoginDeniedInfo>;
   /** Invoked to verify whether a user is allowed to login */
-  isAllowedToLogin?: (params: IsAllowedToLoginParameters<S>) => Promise<LoginDeniedInfo | null> | LoginDeniedInfo | null;
+  isAllowedToLogin?: (params: IsAllowedToLoginParameters<S>) => MaybePromise<LoginDeniedInfo | null>;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
-  onOpenIdReturn?: (params: OpenIdRequestParameters<S>) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
+  onOpenIdReturn?: (params: OpenIdRequestParameters<S>) => MaybePromise<NavigateInstruction | null>;
   /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
-  onOpenIdToken?: (params: OpenIdRequestParameters<S>, payload: JWTPayload) => Promise<void> | void;
+  onOpenIdToken?: (params: OpenIdRequestParameters<S>, payload: JWTPayload) => MaybePromise<void>;
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
-  onOpenIdUserInfo?: (params: OpenIdRequestParameters<S>, userinfo: ReportedUserInfo) => Promise<void> | void;
+  onOpenIdUserInfo?: (params: OpenIdRequestParameters<S>, userinfo: ReportedUserInfo) => MaybePromise<void>;
   /** Invoked when creating an access token. Allows you to add or modify claims before it's signed */
-  onFrontendIdToken?: (params: FrontendRequestParameters<S>, payload: JWTPayload) => Promise<void> | void;
+  onFrontendIdToken?: (params: FrontendRequestParameters<S>, payload: JWTPayload) => MaybePromise<void>;
   /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
-  onFrontendUserInfo?: (params: FrontendRequestParameters<S>) => Promise<object> | object;
+  onFrontendUserInfo?: (params: FrontendRequestParameters<S>) => MaybePromise<object>;
 }
