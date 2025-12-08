@@ -1,6 +1,9 @@
 ﻿<?wh
+
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -10,15 +13,18 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
-LOADLIB "mod::system/lib/internal/webserver/certbot.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/webserver/stats.whlib";
 LOADLIB "mod::system/tolliumapps/webservers/support.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 
 BOOLEAN FUNCTION IsLocalIP(STRING ip)
@@ -486,6 +492,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     this->RunScreen("#certbotrequest", CELL[ names ]);
   }
+
+  MACRO DoManageCertificateProviders() {
+    this->RunScreen("#managecertificateproviders");
+  }
 >;
 
 
@@ -785,8 +795,7 @@ PUBLIC STATIC OBJECTTYPE ExportUsageStats EXTEND TolliumScreenBase
 
 PUBLIC RECORD FUNCTION RequestCert(STRING ARRAY names, BOOLEAN staging)
 {
-  OpenPrimary();
-  RETURN RequestCertbotCertificate(names, staging);
+  RETURN CallJS("mod::platform/js/certbot/certbot.ts#requestACMECertificate", names, CELL[ staging ]);
 }
 
 PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
@@ -811,6 +820,7 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
 
     TRY
     {
+      // Run in a separate job so the interface isn't blocked
       RECORD result := AWAIT AsyncCallFunctionFromJob(Resolve("#RequestCert"), names, FALSE);
       IF(result.success)
       {
@@ -828,7 +838,7 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
       }
       ELSE
       {
-        work->AddError(result.error || ": " || result.errordata);
+        work->AddError(result.error || (CellExists(result, "errordata") ? ": " || result.errordata : ""));
       }
 
       work->Finish();
@@ -842,5 +852,120 @@ PUBLIC STATIC OBJECTTYPE CertbotRequest EXTEND TolliumScreenBase
     ^domainnames->enabled := TRUE;
     ^request->enabled := TRUE;
   }
+>;
 
+PUBLIC OBJECTTYPE ManageCertificateProviders EXTEND TolliumScreenBase <
+  MACRO NEW() {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
+
+  RECORD ARRAY FUNCTION MapProviders(RECORD ARRAY providers) {
+    RETURN
+        SELECT *
+             , key_pair_algorithm := key_pair_algorithm ?? "default"
+             , allowlist := allowlist ?? this->GetTid(".alldomainsallowed")
+          FROM providers;
+  }
+>;
+
+PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
+  RECORD urls;
+  BOOLEAN advancedsettings;
+
+  UPDATE MACRO Init(RECORD data) {
+    // Read the default ACME directory urls from the acme package
+    this->urls := ImportJS("mod::platform/js/certbot/vendor/acme/src/ACME_DIRECTORY_URLS.ts")->_Get("ACME_DIRECTORY_URLS");
+
+    WRDEntityEditScreenBase::Init(data);
+
+    // When editing an existing provider, always configure manually
+    IF (^entity->entityid != 0) {
+      ^prefill->value := "manual";
+      ^prefill->visible := FALSE;
+    }
+    this->OnPrefillChange();
+  }
+
+  MACRO DoShowAdvancedSettings() {
+    this->advancedsettings := TRUE;
+    this->UpdateVisibility();
+  }
+
+  MACRO OnPrefillChange() {
+    IF (^prefill->value != "manual") {
+      // When not configuring manually, prefill the issuer domain
+      ^entity->^issuer_domain->value := ^prefill->value;
+
+      // Update the ACME directory placeholder
+      IF (^prefill->value = "letsencrypt.org")
+        ^entity->^acme_directory->placeholder := this->urls.lets_encrypt;
+      ELSE IF (^prefill->value = "harica.gr")
+        ^entity->^acme_directory->placeholder := "https://acme.harica.gr/yourAlias/directory";
+
+      // Don't show advanced settings
+      this->advancedsettings := FALSE;
+    } ELSE {
+      // Update the ACME directory placeholder
+      ^entity->^acme_directory->placeholder := "https://example.org/acme/directory";
+
+      // When manually configuring, always show all settings
+      this->advancedsettings := TRUE;
+    }
+
+    // ACME directory is mandatory for HARICA
+    ^entity->^acme_directory->required := ^prefill->value = "harica.gr";
+
+    // EAB is mandatory for HARICA, also enable the EAB settings if they're filled
+    ^eab->value := ^prefill->value = "harica.gr" OR ^entity->^eab_kid->value != "" OR ^entity->^eab_hmackey->value != "";
+    ^eab->enabled := ^prefill->value != "harica.gr";
+
+    // Don't check server connectivity for HARICA (which doesn't required ACME challenges)
+    ^entity->^skip_connectivity_check->value := ^prefill->value = "harica.gr";
+
+    this->UpdateVisibility();
+  }
+
+  UPDATE MACRO Validator(OBJECT work, RECORD updatevalue) {
+    // When adding a new provider, the user must agree to the terms and conditions
+    IF (NOT work->HasFailed() AND ^entity->entityid = 0) {
+      TRY {
+        // Retrieve the Terms of Service url from the directory
+        STRING acme_directory := updatevalue.acme_directory;
+        IF (acme_directory = "" AND updatevalue.issuer_domain = "letsencrypt.org")
+          acme_directory := this->urls.lets_encrypt;
+        IF (acme_directory != "") {
+          RECORD directory := EnforceStructure([ meta := [ termsofservice := "" ] ], FetchSync(acme_directory)->JSON());
+          IF (directory.meta.termsofservice != "" AND this->RunSimpleScreen("confirm", this->GetHtmlTid(".messages.agreetotos", directory.meta.termsofservice), [ html := TRUE ]) != "yes") {
+            work->AddErrorFor(^entity->^issuer_domain, this->GetTid(".messages.notagreedtotos"));
+        }
+        }
+      } CATCH(OBJECT e) {
+        LogHareScriptException(e);
+      }
+    }
+  }
+
+  UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue) {
+    // If the EAB checkbox isn't checked, clear the EAB settings
+    IF (NOT ^eab->value) {
+      updatevalue := CELL[
+        ...updatevalue,
+        eab_kid := "",
+        eab_hmackey := ""
+      ];
+    }
+    RETURN updatevalue;
+  }
+
+  MACRO UpdateVisibility() {
+    ^showadvancedsettings_label->visible := NOT this->advancedsettings AND ^prefill->value NOT IN [ "manual" ];
+    ^entity->^acme_directory->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^eab->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^eab_kid->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^eab_hmackey->visible := this->advancedsettings OR ^prefill->value IN [ "harica.gr", "manual" ];
+    ^entity->^key_pair_algorithm->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^acme_challenge_handler->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^allowlist->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+    ^entity->^skip_connectivity_check->visible := this->advancedsettings OR ^prefill->value IN [ "manual" ];
+  }
 >;

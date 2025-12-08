@@ -25,9 +25,8 @@ export class ACMEChallengeHandlerBase {
   async setupHTTPChallenge(httpResource: HttpResource[]) {
     const cacheDir = `${backendConfig.dataRoot}caches/platform/acme/`;
     try {
-      if (!await stat(cacheDir))
-        await mkdir(cacheDir, { recursive: true });
-    } catch(e) {
+      await mkdir(cacheDir, { recursive: true });
+    } catch (e) {
       logError(e as Error);
       return;
     }

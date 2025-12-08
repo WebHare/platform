@@ -1,6 +1,6 @@
 import { systemConfigSchema } from "@mod-platform/generated/wrd/webhare";
 import { acme, testCertificate } from "@mod-platform/js/certbot/certbot";
-import { doRequestACMECertificate } from "@mod-platform/js/certbot/internal/certbot";
+import { doRequestACMECertificate, getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
 import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod-platform/js/certbot/acmechallengehandler";
 import { loadlib } from "@webhare/harescript";
 import {
@@ -21,13 +21,31 @@ import { beginWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
 import { stat, unlink } from "node:fs/promises";
 
+export type CertificateRequestResult = {
+  /** The request was successful */
+  success: true;
+  /** The id of the certificate/key pair that was updated/created */
+  certificateId: number;
+  /** For staging requests, the result certificate */
+  certificate?: string;
+  /** For staging requests, the result private key */
+  privateKey?: string;
+} | {
+  /** The request was not successful */
+  success: false;
+  /** The error code */
+  error: "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error";
+  /** Additional error data */
+  errorData?: string;
+};
+
 export async function requestCertificateTask(req: TaskRequest<{
   certificateId: number;
   domains: string[];
   staging?: boolean;
   testOnly?: boolean;
   debug?: boolean;
-}>): Promise<TaskResponse> {
+}, CertificateRequestResult>): Promise<TaskResponse> {
   await beginWork();
 
   // Find the relevant certificate provider
@@ -35,7 +53,7 @@ export async function requestCertificateTask(req: TaskRequest<{
     .query("certificateProvider")
     .select([
       "wrdId", "issuerDomain", "acmeDirectory", "accountPrivatekey", "eabKid", "eabHmackey", "email", "allowlist",
-      "keyPairAlgorithm", "acmeChallengeHandler"
+      "keyPairAlgorithm", "acmeChallengeHandler", "skipConnectivityCheck", "wrdOrdering"
     ])
     .execute();
   // Split the allowlist into separate domain masks
@@ -43,9 +61,8 @@ export async function requestCertificateTask(req: TaskRequest<{
     ...provider,
     allowlist: provider.allowlist
       .split(" ").filter(_ => _) // split into separate masks
-      .sort((a, b) => b.length - a.length) // sort by longest mask first
       .map(_ => regExpFromWildcards(_)), // convert to regexp
-  })).sort((a, b) => (b.allowlist[0]?.source.length ?? 0) - (a.allowlist[0]?.source.length ?? 0)); // sort providers by longest mask first
+  })).sort((a, b) => a.wrdOrdering - b.wrdOrdering); // sort by ordering
   // Find the first matching provider
   let provider: typeof providersWithMasks[0] | null = null;
   for (const prov of providersWithMasks) {
@@ -56,7 +73,11 @@ export async function requestCertificateTask(req: TaskRequest<{
     }
   }
   if (!provider)
-    return req.resolveByTemporaryFailure(`No matching certificate provider found matching domains ${req.taskdata.domains.join(", ")}`);
+    return req.resolveByTemporaryFailure(`No matching certificate provider found matching domains ${req.taskdata.domains.join(", ")}`, { result: {
+      success: false,
+      error: "noprovider",
+      errorData: req.taskdata.domains.join(", "),
+    }});
 
   let directory = provider.acmeDirectory;
   if (!directory) {
@@ -65,29 +86,66 @@ export async function requestCertificateTask(req: TaskRequest<{
     }
   }
   if (!directory)
-    return req.resolveByTemporaryFailure(`No directory for provider ${provider.issuerDomain}`, { nextRetry: null });
+    return req.resolveByTemporaryFailure(`No directory for provider ${provider.issuerDomain}`, { nextRetry: null, result: {
+      success: false,
+      error: "noproviderdirectory",
+      errorData: provider.issuerDomain,
+    }});
 
   let keyPair: CryptoKeyPair | undefined = undefined;
   if (provider.accountPrivatekey)
     keyPair = await acme.CryptoKeyUtils.importKeyPairFromPemPrivateKey(await provider.accountPrivatekey.resource.text());
 
   let wildcard = false;
-  const allHostnames = await loadlib("mod::system/lib/internal/webserver/certbot.whlib").GetCertifiableHostnames() as string[];
+  const allHostnames = await getCertifiableHostNames();
   for (const domain of req.taskdata.domains) {
     if (domain.includes("*")) {
       wildcard = true;
     } else {
-      //FIXME: Check if DNS for domains points to this server?
       if (!allHostnames.includes(domain.toUpperCase())) {
-        return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`);
+        return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`, { result: {
+          success: false,
+          error: "hostnotlocal",
+          errorData: domain,
+        }});
+      }
+
+      if (!provider.skipConnectivityCheck) {
+        const myUuid = await loadlib("mod::system/lib/internal/webserver/config.whlib").GenerateWebserverUUID();
+        try {
+          const response = await fetch(`http://${domain}/.webhare/direct/system/uuid.shtml`, { signal: AbortSignal.timeout(2000) });
+          if (!response.ok)
+            return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${response.statusText.substring(0, 512) || "Unknown error"}`, { result: {
+              success: false,
+              error: "hostconnecterror",
+              errorData: response.statusText.substring(0, 512) || "Unknown error",
+            }});
+          const serverUuid = await response.text();
+          if (serverUuid !== myUuid) {
+            if (req.taskdata.debug)
+              logDebug("platform:certbot", { "#what": "Server mismatch", myUuid, serverUuid });
+            return req.resolveByPermanentFailure(`Domain '${domain}' not hosted by this installation`, { result: {
+              success: false,
+              error: "hostnotlocal",
+              errorData: domain,
+            }});
+          }
+        } catch (e) {
+          return req.resolveByPermanentFailure(`Error while checking domain '${domain}' connectivity: ${(e as Error).message}`, { result: {
+            success: false,
+            error: "hostconnecterror",
+            errorData: (e as Error).message,
+          }});
+        }
       }
     }
   }
 
-  try {
-    using mutex = await lockMutex(`platform:certbot`);
-    void (mutex);
+  using mutex = await lockMutex(`platform:certbot`);
+  void(mutex);
 
+  let result: Awaited<ReturnType<typeof doRequestACMECertificate>>;
+  try {
     if (req.taskdata.debug)
       logDebug("platform:certbot", {
         "#what": "request",
@@ -98,7 +156,7 @@ export async function requestCertificateTask(req: TaskRequest<{
         dnsChallenge: wildcard,
         httpChallenge: !wildcard,
       });
-    const result = await doRequestACMECertificate(directory, req.taskdata.domains, {
+    result = await doRequestACMECertificate(directory, req.taskdata.domains, {
       emails: provider.email ? [provider.email] : undefined,
       keyPair,
       keyPairAlgorithm: provider.keyPairAlgorithm ?? "rsa",
@@ -108,28 +166,42 @@ export async function requestCertificateTask(req: TaskRequest<{
       updateHttpResources: !wildcard ? updateHttpResources.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false) : undefined,
       cleanup: cleanup.bind(null, provider.acmeChallengeHandler, req.taskdata.debug ?? false),
     });
+  } catch(e) {
+    logError(e as Error);
+    return req.resolveByPermanentFailure((e as Error).message, { result: {
+      success: false,
+      error: "requesterror",
+      errorData: (e as Error).message.split("\n")[0],
+    }});
+  }
 
-    const certificate = result.certificate;
-    const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
-    const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
+  const certificate = result.certificate;
+  const certKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.certKeyPair);
+  const accountKeyPair = await acme.CryptoKeyUtils.exportKeyPairToPem(result.accountKeyPair);
 
-    // Check the certificate
-    const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.staging && !req.taskdata.testOnly });
-    if (!test.success) {
-      return req.resolveByTemporaryFailure(`Invalid certificate received: ${test.error}`);
-    }
+  // Check the certificate
+  const test = await testCertificate(certificate, { privateKey: certKeyPair.privateKey, checkFullChain: !req.taskdata.staging && !req.taskdata.testOnly });
+  if (!test.success) {
+    return req.resolveByTemporaryFailure(`Invalid certificate received: ${test.error}`, { result: {
+      success: false,
+      error: "testerror",
+      errorData: test.error,
+    }});
+  }
 
-    if (req.taskdata.staging || req.taskdata.testOnly) {
-      // Don't actually update the certificate and private keys, but return them in the task result for inspection
-      return req.resolveByCompletion({
-        certificateId: 0,
-        certificate,
-        privateKey: certKeyPair.privateKey,
-      });
-    }
+  if (req.taskdata.staging || req.taskdata.testOnly) {
+    // Don't actually update the certificate and private keys, but return them in the task result for inspection
+    return req.resolveByCompletion({
+      success: true,
+      certificateId: 0,
+      certificate,
+      privateKey: certKeyPair.privateKey,
+    });
+  }
 
+  try {
     // Store the certificate and its private key
-    let certFolder = await openFolder(req.taskdata.certificateId, { allowMissing: true });
+    let certFolder = req.taskdata.certificateId ? await openFolder(req.taskdata.certificateId, { allowMissing: true }) : null;
     if (!certFolder) {
       // Create the certificate folder
       const keystore = await openFolder("/webhare-private/system/keystore");
@@ -145,10 +217,17 @@ export async function requestCertificateTask(req: TaskRequest<{
     if (!provider.accountPrivatekey || provider.accountPrivatekey.hash !== resource.hash)
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
 
-    return req.resolveByCompletion({ success: true, certificateId: certFolder });
-  } catch (e) {
+    return req.resolveByCompletion({
+      success: true,
+      certificateId: certFolder.id,
+    });
+  } catch(e) {
     logError(e as Error);
-    return req.resolveByPermanentFailure((e as Error).message);
+    return req.resolveByPermanentFailure((e as Error).message, { result: {
+      success: false,
+      error: "storeerror",
+      errorData: (e as Error).message,
+    }});
   }
 }
 

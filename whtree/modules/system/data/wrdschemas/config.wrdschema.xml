@@ -15,7 +15,7 @@
     </attributes>
   </domain>
 
-  <object tag="certificate_provider">
+  <object tag="certificate_provider" keephistorydays="2600">
     <attributes>
       <free tag="issuer_domain" required="true" />
       <free tag="acme_directory" />
@@ -25,7 +25,9 @@
       <email tag="email" />
       <enum tag="key_pair_algorithm" allowedvalues="ec rsa rsa-4096" />  <!-- If empty, "rsa" is used by default -->
       <free tag="acme_challenge_handler" />
-      <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks -->
+      <free tag="allowlist" />  <!-- Space-separated list of domains/wildcard masks, if empty, all domains are allowed -->
+      <boolean tag="skip_connectivity_check" />
+      <integer tag="wrd_ordering" />
     </attributes>
   </object>
 

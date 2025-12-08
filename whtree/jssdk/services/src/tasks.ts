@@ -321,6 +321,7 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Fle
 interface RetrieveTaskResultOptions {
   acceptCancel?: boolean;
   acceptTempFailure?: boolean;
+  acceptPermFailure?: boolean;
   acceptTimeout?: boolean;
   timeout?: WaitPeriod;
 }
@@ -339,6 +340,7 @@ export async function retrieveTaskResult<T>(taskId: number, options?: RetrieveTa
  * @param timeout - How long to wait for the task to finish
  * @param options - acceptCancel: Don't throw if the task is cancelled
  *                  acceptTempFailure: Don't throw if the task is temporarily failed but will still retry
+ *                  acceptPermFailure: Don't throw if the task is permanently failed
  *                  acceptTimeout: Return null in case of timeout (by default, throws)
  * @returns The result of the task
  * @throws if the task is cancelled, failed or timed out
@@ -352,6 +354,7 @@ export async function retrieveTaskResult<T>(taskId: number, options?: RetrieveTa
   options = {
     acceptCancel: false,
     acceptTempFailure: false,
+    acceptPermFailure: false,
     acceptTimeout: false,
     ...options
   };
@@ -373,7 +376,7 @@ export async function retrieveTaskResult<T>(taskId: number, options?: RetrieveTa
       if (taskinfo.iscancelled) {
         if (!options.acceptCancel)
           throw new Error(`Task ${taskinfo.tasktype} #${taskId} has been cancelled: ${taskinfo.lasterrors}`);
-      } else if (taskdone || !options.acceptTempFailure) {
+      } else if ((taskdone && !options.acceptPermFailure) || !options.acceptTempFailure) {
         const err = new Error(`Task ${taskinfo.tasktype} #${taskId} has${taskdone ? " permanently" : ""} failed: ${taskinfo.lasterrors}`);
         if (taskinfo.stacktrace) {
           const trace = decodeHSON(taskinfo.stacktrace) as ExceptionTrace;

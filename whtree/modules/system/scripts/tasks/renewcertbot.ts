@@ -1,4 +1,5 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { getCertifiableHostNames } from "@mod-platform/js/certbot/internal/certbot";
 import { run } from "@webhare/cli";
 import { loadlib } from "@webhare/harescript";
 import { scheduleTask } from "@webhare/services";
@@ -55,7 +56,7 @@ run({
   },
   main: async ({ opts: options }) => {
     const allCerts = toCamelCase(await loadlib("mod::system/lib/internal/nginx/config.whlib").ListCertificates()) as WebserverCertificate[];
-    const allHostnames = await loadlib("mod::system/lib/internal/webserver/certbot.whlib").GetCertifiableHostnames() as string[];
+    const allHostnames = await getCertifiableHostNames();
 
     const checkDate = addDuration(new Date, { days: 30 });
     for (const cert of allCerts) {

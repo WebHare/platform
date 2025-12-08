@@ -1,4 +1,3 @@
-import { pick } from "@webhare/std";
 import {
   type AcmeAccount,
   AcmeClient,
@@ -6,7 +5,17 @@ import {
   type DnsTxtRecord,
   type HttpResource,
 } from "@mod-platform/js/certbot/vendor/acme/src/mod";
+import { loadlib } from "@webhare/harescript";
+import { pick } from "@webhare/std";
 import { logError } from "@webhare/services";
+
+export async function getCertifiableHostNames() {
+  const allHostNames: string[] = [];
+  const config = await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig();
+  for (const host of config.hosts)
+    allHostNames.push(...host.listenhosts);
+  return allHostNames;
+}
 
 type RequestACMECertificateOptions = {
   /** Email address(es) to associate with the request */

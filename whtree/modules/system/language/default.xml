@@ -1925,7 +1925,7 @@
         </textgroup>
       </textgroup>
       <textgroup gid="certbotrequest">   <!-- tolliumapps.webservers.certbotrequest -->
-        <text tid="certbotrequest">LetsEncrypt (Certbot) certificate request</text>
+        <text tid="certbotrequest">Certificate request</text>
         <text tid="domainnames">Domain names</text>
         <text tid="domainnames-placeholder">The name(s) to request, eg www.example.net example.net</text>
         <text tid="nothostedhere">The hostname '<param p="1"/>'' is not hosted on this server</text>
@@ -1935,6 +1935,39 @@
         <text tid="enddate">End date</text>
         <text tid="exportusagestats">Export usage stats</text>
         <text tid="startdate">Start date</text>
+      </textgroup>
+      <textgroup gid="managecertificateproviders">   <!-- tolliumapps.webservers.managecertificateproviders -->
+        <text tid="acme_challenge_handler">ACME challenge handler</text>
+        <text tid="acme_directory">ACME directory</text>
+        <text tid="alldomainsallowed">&lt;all domains&gt;</text>
+        <text tid="allowlist">Allowed domains</text>
+        <text tid="allowlist-placeholder">Space-separated masks, empty for all domains</text>
+        <text tid="eab">Use external account binding (EAB)</text>
+        <text tid="eab_hmackey">HMAC key</text>
+        <text tid="eab_kid">Key id</text>
+        <text tid="editcertificateprovider">Certificate provider</text>
+        <text tid="email">Email address</text>
+        <text tid="issuer_domain">Issuer domain</text>
+        <text tid="issuer_domain-placeholder">E.g. letsencrypt.org</text>
+        <text tid="key_pair_algorithm">Algorithm</text>
+        <text tid="managecertificateproviders">Certificate providers</text>
+        <text tid="prefill">Provider</text>
+        <text tid="prefill-harica_gr">HARICA</text>
+        <text tid="prefill-letsencrypt_org">Let's Encrypt</text>
+        <text tid="prefill-manual">Configure manually</text>
+        <text tid="providersettings">Provider settings</text>
+        <text tid="showadvancedsettings">Show advanced settings</text>
+        <text tid="skip_connectivity_check">Don't check host connectivity</text>
+        <textgroup gid="algorithms">   <!-- tolliumapps.webservers.managecertificateproviders.algorithms -->
+          <text tid="default">Default (RSA, 2048 bit)</text>
+          <text tid="ec">EC</text>
+          <text tid="rsa">RSA, 2048 bit</text>
+          <text tid="rsa-4096">RSA, 4096 bit</text>
+        </textgroup>
+        <textgroup gid="messages">   <!-- tolliumapps.webservers.managecertificateproviders.messages -->
+          <text tid="agreetotos">Please read the <html:a data-href-param="1">Terms of Service</html:a>.<br/><br/>You must agree in order to register with this certificate provider. Do you agree?</text>
+          <text tid="notagreedtotos">You cannot register without accepting Terms of Service.</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.webservers.messages -->
         <text tid="couldnotconnect">Could not connect to the proxy.</text>
@@ -1979,7 +2012,7 @@
         <text tid="bindings">Ports</text>
         <text tid="cannotdeleteprimaryinterface">The webserver '<param p="1"/>' can not be deleted at this moment, because it hosts the primary WebHare interface.</text>
         <text tid="cannotdeleteyourserver">The webserver '<param p="1"/>' can not be deleted at this moment, because you are using this webserver now to access this configuration screen.</text>
-        <text tid="certbotrequest">Request LetsEncrypt certificate</text>
+        <text tid="certbotrequest">Request certificate</text>
         <text tid="checkingwebservers">A webserver check has been scheduled, the list will update when it's done</text>
         <text tid="deletealias">Are you sure you want to delete alias '<param p="1"/>'?</text>
         <text tid="deletegroup">Are you sure you want to delete this group?</text>
@@ -1989,6 +2022,7 @@
         <text tid="filetypes">Filetypes</text>
         <text tid="filter">Filter</text>
         <text tid="keystore">Keystore</text>
+        <text tid="managecertificateproviders">Manage certificate providers</text>
         <text tid="nofiltermatch">No webservers or aliasses contain the text '<param p="1"/>'</text>
         <text tid="preview">View site</text>
         <text tid="proxies">Proxies</text>
