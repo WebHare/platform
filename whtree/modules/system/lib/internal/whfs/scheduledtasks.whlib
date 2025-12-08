@@ -50,6 +50,15 @@ MACRO DoStartPublish(RECORD task)
     RETURN;
   }
 
+  INTEGER ARRAY affected_files := fsobj.isfolder ? GetWHFSDescendantIds(fsobj.id, FALSE, TRUE) : INTEGER[fsobj.id];
+  INTEGER ARRAY check_for_drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN affected_files AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
+
+  FOREVERY(INTEGER tocheck FROM check_for_drafts) {
+    OBJECT mgr := NEW WorkflowManager(task.file, [ useworkflow := TRUE, assumewriteaccess := TRUE ]);
+    IF(RecordExists(mgr->GetCurrentDraft()))
+      mgr->Save(TRUE);
+  }
+
   IF(fsobj.isfolder)
   {
     RecurseUpdatePublish(fsobj.id, TRUE);

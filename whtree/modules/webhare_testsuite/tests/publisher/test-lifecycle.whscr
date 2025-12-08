@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
@@ -465,6 +466,39 @@ MACRO PublicationStartStopTest()
   EnsureTasksExecuted(now);
 }
 
+MACRO PublicationOfDrafts() {
+  testfw->BeginWork();
+
+  OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile([ name := "test-publication-of-draft", publish := FALSE ]);
+  OBJECT workflowmgr := NEW WorkflowManager(testrtd->id,
+  [ user := GetEffectiveUser(),
+    useworkflow := TRUE,
+    workflowtypes := ["platform:filetypes.richdocument"]
+  ]);
+
+  workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+            [ data := [ htmltext := StringToBlob('<html><body><p class="normal">D1</p></body></html>') ]
+            ]);
+
+  workflowmgr->Save(FALSE);
+
+  TestEq(DEFAULT RECORD, testrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  // Schedule publish task, verify it's the draft that goes live
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(testrtd->id, now, whconstant_publisherschedule_publish, 0);
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  TestEq(`<html><body><p class="normal">D1</p></body></html>`, BlobToString(testrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+
+  TestEqMembers([[ type := "import", version := "1.0" ]
+                ,[ type := "saved", version := "1.1" ]
+                ,[ type := "final", version := "2.0" ]
+                ], ListObjectHistory(testrtd->id), "*");
+}
+
 MACRO SetIndexDocTest()
 {
   OBJECT indexfile := GetTestsuiteTempFolder()->OpenByPath("index.html");
@@ -499,6 +533,7 @@ RunTestFramework([ PTR TestLifecycle
                  , PTR PublicationDeleteFolder
                  , PTR PublicationMoveFile
                  , PTR PublicationStartStopTest
+                 , PTR PublicationOfDrafts
                  , PTR SetIndexDocTest
                  ], [ testusers :=
                       [ [ login := "sysop", grantrights := [ "system:sysop" ] ]
