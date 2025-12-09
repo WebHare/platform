@@ -1089,7 +1089,7 @@
         <text tid="clientsecret">Client secret</text>
         <text tid="clientsettings">Client instellingen</text>
         <text tid="configuration">Configuratie</text>
-        <text tid="editprovider">OpenID Connet provider instelingen</text>
+        <text tid="editprovider">OpenID Connect provider instelingen</text>
         <text tid="icon">Icon</text>
         <text tid="loginfield">Loginveld</text>
         <text tid="metadataurl">Metadata URL</text>
