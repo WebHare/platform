@@ -17,6 +17,7 @@ import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { parseTyped } from "@webhare/std";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { runInWork } from "@webhare/whdb";
+import type { AnySchemaTypeDefinition } from "@webhare/wrd/src/types";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -208,14 +209,38 @@ export async function verifyPasswordComplianceForHS(targetUrl: WRDAuthPluginSett
 }
 
 /** HS Callback into the customizer infrastructure that expects validation to already be done */
-export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string, client: number): Promise<number> {
+export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string, client: number): Promise<number | null | NavigateInstruction | LoginDeniedInfo> {
   loginfield ||= 'sub'; //fallback
 
   const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
+  const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
   const impSettings = importWRDAuthSettings(targetUrl);
+  const customizer = impSettings.customizer ? await importJSObject(impSettings.customizer) as AuthCustomizer : undefined;
   const wrdSchema = new WRDSchema(impSettings.wrdSchema!);
 
-  const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
+  if (customizer?.processOpenIdAuth) {
+    const result = await customizer.processOpenIdAuth({
+      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      provider: client,
+      jwtPayload,
+    });
+    if (typeof result === "number")
+      return result; //FIXME ensure succesful login is audited. oidc.shtml LoginById probably does this
+    if (result !== null) { //LoginDeniedInfo or NavigateInstruction
+      if ("code" in result) { //LoginDeniedInfo
+        await runInWork(() => writeAuthAuditEvent(wrdSchema, {
+          type: "platform:login-failed",
+          entity: null,
+          entityLogin: userfield,
+          //TODO ...request.tokenOptions?.authAuditContext,
+          data: { code: result.code, client },
+        }));
+      }
+      return result;
+    }
+
+    result satisfies null; //type check, must be null here. and null means 'run normal lookup procedure'
+  }
 
   if (!userfield) {
     await runInWork(() => writeAuthAuditEvent(wrdSchema, {
@@ -232,9 +257,8 @@ export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id
   if (!authsettings)
     return 0;
 
-  const customizer = impSettings.customizer ? await importJSObject(impSettings.customizer) as AuthCustomizer : undefined;
-  const user = await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
-  if (!user) //log it TODO Add more details once we itegrate oidc.shtml into TS. eg payload info, client info
+  const user = await idp.lookupUser(authsettings, userfield, customizer) || 0;
+  if (!user) //log it TODO Add more details once we integrate oidc.shtml into TS. eg payload info, client info
     await runInWork(() => writeAuthAuditEvent(wrdSchema, {
       type: "platform:login-failed",
       entity: null,

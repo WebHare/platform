@@ -43,6 +43,7 @@ PUBLIC BOOLEAN FUNCTION RunCopyMoveObjects(OBJECT parentscreen, INTEGER ARRAY se
   RECORD opts :=
     CELL[ acceptforeignfolders := FALSE
         , acceptfiles := FALSE
+        , acceptrootfolder := TRUE
         , showreadonly := TRUE
         , value := options.suggestdestination ?? (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0] AND isactive)
         , title := ""

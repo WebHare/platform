@@ -712,7 +712,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer?: AuthCustomizer, jwtPayload?: JWTPayload | undefined, options?: LoginUsernameLookupOptions): Promise<number | null> {
+  async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer?: AuthCustomizer, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
 
@@ -720,7 +720,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return await customizer.lookupUsername({
         wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
         username: loginname,
-        jwtPayload,
         ...pick(options || {}, ["site"])
       });
 
@@ -758,7 +757,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const authsettings = await this.getAuthSettings(true);
     const returnTo = request.loginOptions?.returnTo || request.loginHost;
-    const userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
+    const userid = await this.lookupUser(authsettings, request.login, request.customizer, pick(request.loginOptions || {}, ["persistent", "site"]));
     if (!userid)
       return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password", "unknown-account");
 
