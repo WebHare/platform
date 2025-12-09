@@ -520,7 +520,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
   function describeData(toDescribe: { type?: CLIArgumentType<unknown>; default?: unknown }): string {
     const strs = [
       toDescribe.type?.description,
-      toDescribe.default !== false ? JSON.stringify(toDescribe.default) : undefined
+      toDescribe.default !== false && toDescribe.default !== undefined ? `defaults to ${JSON.stringify(toDescribe.default)}` : undefined
     ].filter(_ => _);
     return strs.length ? ` (${strs.join(", ")})` : "";
   }

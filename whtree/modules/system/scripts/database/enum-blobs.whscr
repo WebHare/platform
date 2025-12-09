@@ -96,12 +96,12 @@ INSERT [ id := 0, parent := -1, name := "", size := 0i64 ] INTO folders AT 0;
 
 PRINT("Reading all fs_settings:\n");
 RECORD ARRAY fs_settings :=
-    SELECT id :=              fs_instance
+    SELECT fs_instance
          , settingsize :=     SUM(LENGTH64(blobdata))
       FROM system.fs_settings
   GROUP BY fs_instance;
 
-fs_settings := EnrichWithTable(fs_settings, "id", system.fs_instances, [ fs_object := "fs_object" ]);
+fs_settings := EnrichWithTable(fs_settings, "fs_instance", system.fs_instances, [ id := "fs_object" ]);
 
 PRINT("Reading all files:\n");
 RECORD ARRAY folderfiles :=
