@@ -19,9 +19,9 @@
     <attributes>
       <free tag="issuer_domain" required="true" />
       <free tag="acme_directory" />
-      <file tag="account_privatekey" />
-      <free tag="eab_kid" />
-      <free tag="eab_hmackey" />
+      <file tag="account_privatekey" unsafetocopy="true" />
+      <free tag="eab_kid" unsafetocopy="true" />
+      <free tag="eab_hmackey" unsafetocopy="true" />
       <email tag="email" />
       <enum tag="key_pair_algorithm" allowedvalues="ec rsa rsa-4096" />  <!-- If empty, "rsa" is used by default -->
       <free tag="acme_challenge_handler" />
