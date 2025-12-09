@@ -15,7 +15,6 @@ ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
   WEBHARE_DATAROOT=/opt/whdata/ \
   WEBHARE_DIR=/opt/wh/whtree \
-  WEBHARE_CHECKEDOUT_TO=/opt/wh \
   WEBHARE_HSBUILDCACHE=/opt/wh/whtree/currentinstall/cache.harescript/13679/ \
   WEBHARE_TSBUILDCACHE=/opt/wh/whtree/currentinstall/cache.typescript/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
@@ -44,6 +43,7 @@ ENV \
   WHBUILD_NODEPS=1 \
   WHBUILD_LTO=1 \
   WHBUILD_WASMLTO=1 \
+  WEBHARE_CHECKEDOUT_TO=/opt/wh \
   WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION
 
 ARG WHBUILD_ASSETROOT
@@ -93,16 +93,19 @@ ARG WHBUILD_ASSETROOT
 # Install pdfbox
 RUN --mount=type=bind,source=addons/docker-build/setup-pdfbox.sh,target=/setup-pdfbox.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
+    WEBHARE_CHECKEDOUT_TO=/opt/wh \
     /bin/bash /setup-pdfbox.sh "$WHBUILD_ASSETROOT" 2.0.32  # 2024-11-01
 
 # Install TIKA
 RUN --mount=type=bind,source=addons/docker-build/setup-tika.sh,target=/setup-tika.sh \
     --mount=type=cache,id=tika,target=/tmp/downloads \
+    WEBHARE_CHECKEDOUT_TO=/opt/wh \
     /bin/bash /setup-tika.sh "$WHBUILD_ASSETROOT" 2.9.2
 
 # Install OpenSearch
 RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
+    WEBHARE_CHECKEDOUT_TO=/opt/wh \
     /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 3.2.0
 
 ## Install Chrome
