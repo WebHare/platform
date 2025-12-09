@@ -38,6 +38,17 @@ function cmp(a: unknown, condition: string, b: unknown) {
   return false;
 }
 
+function allPermutations<T>(arr: T[]): T[][] {
+  if (arr.length === 0)
+    return [[]];
+  const result: T[][] = [];
+  for (const perm of allPermutations(arr.slice(0, arr.length - 1))) {
+    result.push(perm);
+    result.push([arr[arr.length - 1], ...perm]);
+  }
+  return result;
+}
+
 async function testSupportAPI() {
   function testTag(hs: string, js: string) {
     test.eq(js, wrdsupport.tagToJS(hs));
@@ -436,10 +447,18 @@ async function testNewAPI() {
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", null));
   await whdb.commitWork();
 
-  //Test search and matchase
+  //Test search and matchcase
   test.eq(null, await schema.search("wrdPerson", "testFree", "free", { matchCase: true }));
   test.eq(secondperson, await schema.search("wrdPerson", "testFree", "free", { matchCase: false }));
   test.eq({ wrdId: secondperson }, await schema.query("wrdPerson").select(["wrdId"]).where("testFree", "=", "free", { matchCase: false }).executeRequireExactlyOne());
+
+  // test a string longer than 264 chars (the max indexed length)
+  await whdb.beginWork();
+  await schema.update("wrdPerson", secondperson, { wrdGender: null, testFree: "FrEE".repeat(100) });
+  await whdb.commitWork();
+  test.eq(null, await schema.search("wrdPerson", "testFree", "free".repeat(100), { matchCase: true }));
+  test.eq(secondperson, await schema.search("wrdPerson", "testFree", "free".repeat(100), { matchCase: false }));
+  test.eq({ wrdId: secondperson }, await schema.query("wrdPerson").select(["wrdId"]).where("testFree", "=", "free".repeat(100), { matchCase: false }).executeRequireExactlyOne());
 
   //Test enrich and history modes
   test.eq([
@@ -1454,6 +1473,61 @@ async function testComparisons() {
       // @ts-expect-error -- testArray.testSingle is within an array field, so only conditions "mentions" and "mentionsany" are allowed
       schema.query("wrdPerson").select("wrdId").where("testArray.testSingle", "=", 10);
     }
+  }
+
+  // STORY: domain value comparisons
+  {
+    await whdb.beginWork();
+
+    const domValueS1 = (await schema.upsert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }, {}))[0];
+    const domValueS2 = (await schema.upsert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }, {}))[0];
+    const domValueM1 = (await schema.upsert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1" }, {}))[0];
+    const domValueM2 = (await schema.upsert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2" }, {}))[0];
+
+    const domVals = [null, domValueS1, domValueS2];
+    const domValsM = [domValueM1, domValueM2];
+
+    for (const set of domVals) {
+      await schema.update("wrdPerson", newperson, {
+        testSingleDomain: set,
+      });
+      for (const testValue of domVals) {
+        const res = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testSingleDomain", "=", testValue).executeRequireAtMostOne();
+        test.eq(set === testValue ? newperson : null, res);
+        const res2 = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testSingleDomain", "!=", testValue).executeRequireAtMostOne();
+        test.eq(set !== testValue ? newperson : null, res2);
+      }
+      for (const testValue of allPermutations(domVals)) {
+        const res = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testSingleDomain", "in", testValue).executeRequireAtMostOne();
+        test.eq(testValue.includes(set) ? newperson : null, res);
+      }
+    }
+
+    for (const set of allPermutations(domValsM)) {
+      await schema.update("wrdPerson", newperson, {
+        testMultipleDomain: set,
+      });
+      for (const testValue of domValsM) {
+        const res = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "mentions", testValue).executeRequireAtMostOne();
+        test.eq(set.includes(testValue) ? newperson : null, res);
+        const res2 = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "contains", testValue).executeRequireAtMostOne();
+        test.eq(set.includes(testValue) ? newperson : null, res2);
+      }
+      for (const testValue of allPermutations(domValsM)) {
+        const res = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "mentionsany", testValue).executeRequireAtMostOne();
+        const mentionsany = testValue.some(v => set.includes(v));
+        test.eq(mentionsany ? newperson : null, res);
+        const res2 = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "intersects", testValue).executeRequireAtMostOne();
+        test.eq(mentionsany ? newperson : null, res2);
+        const equal = set.join(",") === testValue.join(",");
+        const res3 = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "=", testValue).executeRequireAtMostOne();
+        test.eq(equal ? newperson : null, res3);
+        const res4 = await schema.query("wrdPerson").select("wrdId").where("wrdId", "=", newperson).where("testMultipleDomain", "!=", testValue).executeRequireAtMostOne();
+        test.eq(!equal ? newperson : null, res4);
+      }
+    }
+
+    await whdb.commitWork();
   }
 }
 
