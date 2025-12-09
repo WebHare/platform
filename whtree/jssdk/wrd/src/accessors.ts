@@ -347,6 +347,27 @@ function addQueryFilter2<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities"
   });
 }
 
+function addIndexedSelect(builder: SettingsExpressionBuilder, expr: Expression<SqlBool>, condition: string, value: string | readonly (string | null)[]): Expression<SqlBool> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any --  !Array.isArray doesn't exclude readonly arrays
+  if (condition === "=" && !(Array.isArray as (arg: any) => arg is any[] | readonly any[])(value) && value) {
+    value = toCLocaleUppercase(value).substring(0, 264);
+    return builder.and([
+      expr,
+      builder(sql`upper(left("rawdata", 264))`, `=`, value)
+    ]);
+  } else if (condition === "in" && Array.isArray(value)) {
+    value = value.map(v => v && toCLocaleUppercase(v).substring(0, 264)).filter(v => v);
+    if (!value.length)
+      return expr;
+    return builder.and([
+      expr,
+      builder(sql`upper(left("rawdata", 264))`, `in`, value)
+    ]);
+  }
+  return expr;
+}
+
+
 function getAttrBaseCells<T extends keyof typeof baseAttrCells>(tag: string, allowedTypes: readonly T[]): typeof baseAttrCells[T] {
   if (!allowedTypes.includes(tag as T))
     throw new Error(`Unhandled base attribute ${JSON.stringify(tag)}`);
@@ -422,9 +443,10 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, str
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
     query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
-      return caseInsensitive
-        ? b(sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value)
-        : b(`rawdata`, filtered_cv.condition, filtered_cv.value);
+      const mainQuery = caseInsensitive ?
+        b(sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value) :
+        b(`rawdata`, filtered_cv.condition, filtered_cv.value);
+      return addIndexedSelect(b, mainQuery, filtered_cv.condition, filtered_cv.value);
     });
 
     return {
@@ -732,7 +754,10 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBBooleanConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`rawdata`, cv.condition, cv.value ? "1" : ""));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+      const mainQuery = b(`rawdata`, cv.condition, cv.value ? "1" : "");
+      return addIndexedSelect(b, mainQuery, cv.condition, cv.value ? "1" : "");
+    });
 
     return {
       needaftercheck: false,
@@ -795,7 +820,10 @@ class WRDDBIntegerValue<Required extends boolean = true> extends WRDAttributeVal
     if (cv.condition === "in" && !cv.value.length)
       return null;
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<number>`rawdata::integer`, cv.condition, cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+      const mainQuery = b(sql<number>`rawdata::integer`, cv.condition, cv.value);
+      return addIndexedSelect(b, mainQuery, cv.condition, cv.value?.toString() ?? "");
+    });
 
     return {
       needaftercheck: false,
@@ -1313,7 +1341,10 @@ abstract class WRDDBEnumValueBase<
 
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`rawdata`, filtered_cv.condition, filtered_cv.value || ''));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+      const mainQuery = b(sql`rawdata`, filtered_cv.condition, filtered_cv.value || '');
+      return addIndexedSelect(b, mainQuery, filtered_cv.condition, filtered_cv.value || '');
+    });
     return {
       needaftercheck: false,
       query
@@ -2410,10 +2441,16 @@ class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number | string
       return null;
 
     if (cv.condition === "in") {
-      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, cv.value));
+      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+        const mainQuery = b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, cv.value);
+        return addIndexedSelect(b, mainQuery, cv.condition, cv.value.map(v => String(v)));
+      });
     } else {
       const value = typeof cv.value === "number" ? BigInt(cv.value) : cv.value;
-      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, value));
+      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+        const mainQuery = b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, value);
+        return addIndexedSelect(b, mainQuery, cv.condition, String(value));
+      });
     }
 
     return {
@@ -2497,7 +2534,10 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money | string, Money, Money
         return null;
     }
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<Money>`rawdata::NUMERIC(1000,5)`, cv.condition, cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
+      const mainQuery = b(sql<Money>`rawdata::NUMERIC(1000,5)`, cv.condition, cv.value);
+      return addIndexedSelect(b, mainQuery, cv.condition, Array.isArray(cv.value) ? cv.value.map(v => v.toString()) : String(cv.value));
+    });
 
     return {
       needaftercheck: false,
