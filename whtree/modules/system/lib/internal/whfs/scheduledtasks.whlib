@@ -220,7 +220,7 @@ MACRO DoReplaceWith(RECORD task)
   FOREVERY(OBJECT typeobj FROM clonetypes)
     workflowmgr->SetInstanceData(typeobj->namespace, typeobj->GetInstanceData(replacewith.id));
 
-  //FIXME workflow should support and track the linkfields (exernallink and filelink)
+  //FIXME workflow should support and track the linkfields (externallink and filelink)
   workflowmgr->UpdateMetadata(CELL[ replacewith.data
                                   , replacewith.title
                                   , replacewith.description
