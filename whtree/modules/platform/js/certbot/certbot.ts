@@ -10,6 +10,8 @@ export * as acme from "@mod-platform/js/certbot/vendor/acme/src/mod";
 type CertificateRequestOptions = {
   /** The id of the certificate/private key to update, if it doesn't exist, a new certificate/private key is created  */
   certificateId?: number;
+  /** If this is a certificate renewal, the certificate will only be requested if it's about to expire (defaults to true) */
+  isRenewal?: boolean;
   /** If the certificate provider's staging directory should be used, implies testOnly (only if the certificate provider's
       ACME directory is not explicitly set and its issuer domain is known, defaults to true) */
   staging?: boolean;
@@ -23,6 +25,7 @@ export async function requestACMECertificate(domains: string[], options?: Certif
   await beginWork();
   const taskId = await scheduleTask("platform:requestcertificate", {
     certificateId: options?.certificateId ?? 0,
+    isRenewal: options?.isRenewal ?? true,
     domains,
     staging: options?.staging ?? true,
     testOnly: options?.testOnly ?? false,

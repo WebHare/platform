@@ -56,6 +56,14 @@ export async function lookupKey(subject: string, options?: { offline?: boolean }
 }
 
 class StoredKeyPair {
+  get id() {
+    return this.keyFolder.id;
+  }
+
+  get name() {
+    return this.keyFolder.name;
+  }
+
   constructor(private keyFolder: WHFSFolder) {
   }
 
@@ -68,12 +76,9 @@ class StoredKeyPair {
   }
 
   async getDNSNames(): Promise<string[]> {
-    const chain = await this.getCertificateChain();
-
-    if (!chain.length)
+    const parsed = await this.getCertificate();
+    if (!parsed)
       return [];
-
-    const parsed = new X509Certificate(chain[0]);
     const names: string[] = [];
     for (let name of parsed.subjectAltName?.split(", ") || []) {
       name = name.trim();
@@ -81,6 +86,28 @@ class StoredKeyPair {
         names.push(name.substring(4));
     }
     return names;
+  }
+
+  async getValidFrom() {
+    const parsed = await this.getCertificate();
+    if (!parsed)
+      return null;
+    return parsed.validFromDate;
+  }
+
+  async getValidTo() {
+    const parsed = await this.getCertificate();
+    if (!parsed)
+      return null;
+    return parsed.validToDate;
+  }
+
+  private async getCertificate() {
+    const chain = await this.getCertificateChain();
+    if (!chain.length)
+      return null;
+
+    return new X509Certificate(chain[0]);
   }
 }
 
