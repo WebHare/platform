@@ -7,9 +7,11 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/scheduledtasks.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
@@ -208,6 +210,7 @@ MACRO PublicationMoveFile()
 
 MACRO TestReplaceContents()
 {
+  RECORD ARRAY history;
   testfw->BeginWork();
 
   OBJECT dummyhtml := GetTestsuiteTempFolder()->CreateFile(
@@ -276,6 +279,13 @@ MACRO TestReplaceContents()
   AddScheduledTask(emptyreplacefile, now, "replacewith", [ source := replacement2->id ]);
 
   ExecuteAllTasksNow();
+
+  history := ListObjectHistory(toreplacefile->id);
+  TestEqMembers([ [ type := "import", version := "1.0" ]
+                , [ type := "final", version := "2.0" ] //TODO can we capture the user too?, user := testfw->GetUserAuthobjectId("sysop"), userdata := [ login := "sysop@beta.webhare.net" ] ]
+                                                        //TODO more metadata so we can tell it was a scheduled task?
+                ], history, "*");
+
   testfw->CommitWork();
 
   TestEq(0, Length(ListScheduledTasks(toreplacefile)));
@@ -285,19 +295,35 @@ MACRO TestReplaceContents()
   TestEq(`<html><body><p class="normal">V1</p></body></html>`, BlobToString(toreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
   TestEq(`<html><body><p class="normal">V2</p></body></html>`, BlobToString(emptyreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
 
-  RECORD ARRAY recycledfiles := SearchRecycleBin(CELL[ fromdate := testfw->starttime
-                                                     , site := GetTestsuiteTempFolder()->parentsite
-                                                     , owner := GetEffectiveUserID()
-                                                     , namecontains := "toreplace.rtd"
-                                                     ]);
-  TestEq(1,Length(recycledfiles));
-  TestEq(`<html><body><p class="normal">First document</p></body></html>`, BlobToString(OpenWHFSObject(recycledfiles[0].id)->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
-
-
+  // STORY: Replace task with replacement2
   testfw->BeginWork();
+
+  //We'll also setup drafts for the file to be replaced, and expect the task to destroy these
+  OBJECT workflowmgr := NEW WorkflowManager(toreplacefile->id,
+  [ user := GetEffectiveUser(),
+    useworkflow := TRUE,
+    workflowtypes := ["platform:filetypes.richdocument"]
+  ]);
+  workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+            [ data := [ htmltext := StringToBlob('<html><body><p class="normal">Draft</p></body></html>') ]
+            ]);
+  workflowmgr->Save(FALSE);
+
+  history := ListObjectHistory(toreplacefile->id);
+  TestEqMembers([ [ type := "import" ]
+                , [ type := "final" ]
+                , [ type := "saved", version := "2.1", user := testfw->GetUserAuthobjectId("sysop"), userdata := [ login := "sysop@beta.webhare.net" ] ]
+                ], history, "*");
 
   AddScheduledTask(toreplacefile, now, "replacewith", [ source := replacement2->id ]);
   ExecuteAllTasksNow();
+
+  history := ListObjectHistory(toreplacefile->id);
+  TestEqMembers([ [ type := "import" ]
+                , [ type := "final" ]
+                , [ type := "saved", version := "2.1", user := testfw->GetUserAuthobjectId("sysop"), userdata := [ login := "sysop@beta.webhare.net" ] ]
+                , [ type := "final" ]
+                ], history, "*");
 
   TestEq(`<html><body><p class="normal">V2</p></body></html>`, BlobToString(toreplacefile->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
 
@@ -440,6 +466,39 @@ MACRO PublicationStartStopTest()
   EnsureTasksExecuted(now);
 }
 
+MACRO PublicationOfDrafts() {
+  testfw->BeginWork();
+
+  OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile([ name := "test-publication-of-draft", publish := FALSE ]);
+  OBJECT workflowmgr := NEW WorkflowManager(testrtd->id,
+  [ user := GetEffectiveUser(),
+    useworkflow := TRUE,
+    workflowtypes := ["platform:filetypes.richdocument"]
+  ]);
+
+  workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+            [ data := [ htmltext := StringToBlob('<html><body><p class="normal">D1</p></body></html>') ]
+            ]);
+
+  workflowmgr->Save(FALSE);
+
+  TestEq(DEFAULT RECORD, testrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data);
+
+  // Schedule publish task, verify it's the draft that goes live
+  DATETIME now := GetCurrentDateTime();
+  AddFileTask(testrtd->id, now, whconstant_publisherschedule_publish, 0);
+  testfw->CommitWork();
+
+  EnsureTasksExecuted(now);
+
+  TestEq(`<html><body><p class="normal">D1</p></body></html>`, BlobToString(testrtd->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile").data.htmltext));
+
+  TestEqMembers([[ type := "import", version := "1.0" ]
+                ,[ type := "saved", version := "1.1" ]
+                ,[ type := "final", version := "2.0" ]
+                ], ListObjectHistory(testrtd->id), "*");
+}
+
 MACRO SetIndexDocTest()
 {
   OBJECT indexfile := GetTestsuiteTempFolder()->OpenByPath("index.html");
@@ -474,6 +533,7 @@ RunTestFramework([ PTR TestLifecycle
                  , PTR PublicationDeleteFolder
                  , PTR PublicationMoveFile
                  , PTR PublicationStartStopTest
+                 , PTR PublicationOfDrafts
                  , PTR SetIndexDocTest
                  ], [ testusers :=
                       [ [ login := "sysop", grantrights := [ "system:sysop" ] ]

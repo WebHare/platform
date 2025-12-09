@@ -42,10 +42,11 @@ ASYNC MACRO EditRTD()
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("sendpreviewlink"), [ messagemask := "*save*preview*"]);
 
   RECORD ARRAY history := ListObjectHistory(testrtdfileid);
-  TestEqMembers([ [ type := "saved", version := "0.1", userdata := [ login := "lisa@beta.webhare.net" ] ]
+  TestEqMembers([ [ type := "import", version := "1.0" ]
+                , [ type := "saved", version := "1.1", userdata := [ login := "lisa@beta.webhare.net" ] ]
                 ], history, "*");
   TestEq(DEFAULT RECORD, richdoctype->GetInstanceData(testrtdfileid).data);
-  TestEqLike("*previewable text*", BlobToString(richdoctype->GetInstanceData(history[0].snapshot).data.htmltext));
+  TestEqLike("*previewable text*", BlobToString(richdoctype->GetInstanceData(history[1].snapshot).data.htmltext));
 
   Print("[rte-workflow] actually request the preview link\n");
   AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);

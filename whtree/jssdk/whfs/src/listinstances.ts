@@ -39,6 +39,7 @@ export async function listInstances(objId: number | number[], options?: ListInst
       "system.fs_types.namespace",
       "system.fs_types.scopedtype as scopedType",
       "system.fs_types.cloneoncopy as cloneOnCopy",
+      "system.fs_types.cloneonarchive as cloneOnArchive",
       "system.fs_types.orphan",
     ])
     .where("system.fs_instances.fs_object", "=", sql<number>`any(${objIds})`)
@@ -55,7 +56,7 @@ export async function listInstances(objId: number | number[], options?: ListInst
       fsObject: inst.fsObject,
       namespace: inst.namespace,
       scopedType: inst.scopedType,
-      clone: inst.cloneOnCopy ? "onCopy" as const : (type?.cloneonarchive ? "onArchive" as const : "never" as const),
+      clone: inst.cloneOnCopy ? "onCopy" as const : (inst.cloneOnArchive ? "onArchive" as const : "never" as const),
       workflow: inst.workflow,
       orphan: inst.orphan || !type,
     });

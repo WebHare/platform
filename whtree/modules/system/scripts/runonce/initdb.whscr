@@ -81,7 +81,7 @@ MACRO InitializeFileTypes()
     IF(currentid = 0) //create it
     {
       INTEGER newid := ftype.id ?? MakeAutonumber(system.fs_types, "ID");
-      INSERT INTO system.fs_types(id, namespace, isfoldertype, isfiletype, cloneoncopy) VALUES(newid, ftype.namespace, ftype.isfoldertype, ftype.isfiletype, TRUE);
+      INSERT INTO system.fs_types(id, namespace, isfoldertype, isfiletype, cloneoncopy, cloneonarchive) VALUES(newid, ftype.namespace, ftype.isfoldertype, ftype.isfiletype, TRUE, TRUE);
       IF(CellExists(ftype,'members'))
       {
         FOREVERY(RECORD memberrec FROM ftype.members)

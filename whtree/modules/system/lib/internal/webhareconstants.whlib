@@ -130,11 +130,17 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_reverted := 3;
 /// fs_history.type created action
 PUBLIC CONSTANT INTEGER whconstant_historytype_created := 4;
 
-/// fs_history.type approved (update public/publish file) action
+/// fs_history.type approved (update public/publish file) action. new history actions will use _final to indicate they're saving a full snapshot
 PUBLIC CONSTANT INTEGER whconstant_historytype_approved := 5;
 
 /// fs_history.type autosave
 PUBLIC CONSTANT INTEGER whconstant_historytype_autosave := 6;
+
+/// fs_history.type import - we can generate 'import' history entries if a file lacks a 'created' entry. it should be an x.0 version with a full snapshot
+PUBLIC CONSTANT INTEGER whconstant_historytype_import := 7;
+
+/// fs_history.type final - generate when a version is finalized, ie applied to the original fsobject. it should be an x.0 version with a full snapshot
+PUBLIC CONSTANT INTEGER whconstant_historytype_final := 8;
 
 /// publisher.schedule start publish/republish event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_publish := 1;

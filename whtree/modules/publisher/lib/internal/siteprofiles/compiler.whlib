@@ -292,6 +292,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext EXTEND CoreRecompileContext <
       Look at MakeBasicTypeInfo, GetBaseFolderTypeRecord and GetBaseFiletypeRecord to find out where these fields are in suppliedcontenttypes
       */
       RECORD fstype := CELL[ ctype.cloneoncopy
+                           , ctype.cloneonarchive
                            , ctype.scopedtype
                            , isfiletype := RecordExists(ctype.filetype)
                            , isfoldertype := RecordExists(ctype.foldertype)

@@ -393,7 +393,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetWHFSDescendantIds(INTEGER basefolder, BOOLEAN r
 //list active instances linked to a object that should be copied
 PUBLIC RECORD ARRAY FUNCTION ListInstances(INTEGER forobject) {
   //TODO doesn't this incorrectly pick up instance-in-instances? It probably won't hurt though as GetInstanceData/SetInstanceData still filter the actual results
-  RETURN SELECT instance := fs_instances.id, fstype := fs_types.id, fs_types.namespace, fs_types.scopedtype, fs_instances.workflow
+  RETURN SELECT instance := fs_instances.id, fstype := fs_types.id, fs_types.namespace, fs_types.scopedtype, fs_instances.workflow, fs_types.cloneoncopy, fs_types.cloneonarchive
            FROM system_internal.fs_instances, system_internal.fs_types
           WHERE fs_instances.fs_type = fs_types.id
                 AND fs_instances.fs_object = VAR forobject
