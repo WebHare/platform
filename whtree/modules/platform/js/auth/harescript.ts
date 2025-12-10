@@ -1,7 +1,7 @@
 /* HareScript auth entry points */
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { type AuthCustomizer, type AuthAuditContext, type LoginDeniedInfo, type JWTPayload, writeAuthAuditEvent } from "@webhare/auth";
+import { type AuthCustomizer, type AuthAuditContext, type LoginDeniedInfo, type JWTPayload, writeAuthAuditEvent, createOAuth2Client, type OAuth2AuthorizeRequestOptions, handleOAuth2AuthorizeLanding } from "@webhare/auth";
 import { buildPublicAuthData, IdentityProvider, prepareLogin, verifyAllowedToLogin, wrapAuthCookiesIntoForm } from "@webhare/auth/src/identity";
 import { getAuthSettings, prepAuth, type WRDAuthPluginSettings_Request } from "@webhare/auth/src/support";
 import { defaultDateTime, toCamelCase, type ToSnakeCase } from "@webhare/hscompat";
@@ -304,4 +304,20 @@ export async function preparePublicAuthDataCookie(targetUrl: WRDAuthPluginSettin
   const newData = await buildPublicAuthData(await idp.getAuthSettings(true), prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
 
   return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
+}
+
+export async function createOAuth2LoginRequest(wrdschema: string, provider: string, redirectTo: string, options?: ToSnakeCase<OAuth2AuthorizeRequestOptions>): Promise<NavigateInstruction> {
+  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : provider;
+  const client = await createOAuth2Client(new WRDSchema(wrdschema), providerId);
+  return await client.createLoginRequest(redirectTo, toCamelCase(options));
+}
+
+export async function createOAuth2AuthorizeRequest(wrdschema: string, provider: string, redirectTo: string, options?: ToSnakeCase<OAuth2AuthorizeRequestOptions>): Promise<NavigateInstruction> {
+  const providerId = provider.startsWith('#') ? parseInt(provider.slice(1)) : provider;
+  const client = await createOAuth2Client(new WRDSchema(wrdschema), providerId);
+  return await client.createAuthorizeLink(redirectTo, toCamelCase(options));
+}
+
+export async function handleOAuth2AuthorizeRequestLanding(clientscope: string, oauth2session: string) {
+  return await handleOAuth2AuthorizeLanding(clientscope, oauth2session);
 }
