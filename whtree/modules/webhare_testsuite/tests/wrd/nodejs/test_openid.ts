@@ -218,12 +218,9 @@ async function verifyRoutes_TSClient() {
   const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
   test.assert(landing && landing.id_token);
 
-  const [, payload] = landing.id_token.split(".");
-  const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
-
   const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
-  test.eq(sysopguid, parsedPayload.sub);
-  test.eq("sysop@beta.webhare.net", parsedPayload.email);
+  test.eq(sysopguid, landing.id_token_payload?.sub);
+  test.eq("sysop@beta.webhare.net", landing.id_token_payload?.email);
 }
 
 async function verifyOpenIDClient() {

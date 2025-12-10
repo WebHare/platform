@@ -78,6 +78,10 @@ CONSTANT RECORD logincontrol_structure :=
 CONSTANT INTEGER logincontrol_valid_secs := 60 * 60; // login control token is valid for 1 hour
 CONSTANT INTEGER loginproof_valid_secs := 60; // login proof token is valid for 1 minute
 
+PUBLIC RECORD FUNCTION HandleOAuth2AuthorizeRequestLanding(STRING clientscope, STRING oauth2session) {
+  RETURN CallJS("mod::platform/js/auth/harescript.ts#handleOAuth2AuthorizeRequestLanding", clientscope, oauth2session);
+}
+
 
 /** WRD auth webdesign plugin
     @topic wrdauth/api
@@ -1261,7 +1265,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
   PUBLIC RECORD FUNCTION HandleOAuth2AuthorizeRequestLanding(STRING oauth2session) {
     this->CheckNotFailed();
-    RETURN CallJS("mod::platform/js/auth/harescript.ts#handleOAuth2AuthorizeRequestLanding", this->wrdschema->tag, oauth2session);
+    RETURN HandleOAuth2AuthorizeRequestLanding(this->wrdschema->tag, oauth2session);
   }
 
   /** Returns the configuration object for a registered SAML SP

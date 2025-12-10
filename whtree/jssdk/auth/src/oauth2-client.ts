@@ -1,10 +1,11 @@
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
-import type { JWKS } from "./identity";
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import { verifyJWT, type JWKS } from "./identity";
 import type { WRDSchema } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { throwError } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, encryptForThisServer, getServerSession, type SessionScopes } from "@webhare/services";
+import { backendConfig, createServerSession, encryptForThisServer, getServerSession, subscribe, type SessionScopes } from "@webhare/services";
 import type { OAuth2Tokens, OpenIdConfiguration } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
@@ -16,6 +17,7 @@ declare module "@webhare/services" {
       code_verifier: string;
       requeststart: Date;
       client_scope?: string; //optional as not set or validated yet by HS
+      metadata_url?: string; //optional as not set or validated yet by HS
       oauthconfig: {
         clientid: string;
         clientsecret: string;
@@ -62,9 +64,13 @@ function createCodeChallenge(verifier: string, method: "plain" | "S256"): string
   }
 }
 
-//FIXME flush cache on system:internal.clearopenidcaches event and after 15 minutes. we need an adhoc like cache in TS
 async function getOpenIDConnectMetadata(metadataurl: string) {
-  crudeMetadataCache ||= {};
+  if (!crudeMetadataCache) { //initialize the cache
+    crudeMetadataCache = {};
+    //poor man's adhoc cache
+    await subscribe("system:internal.clearopenidcaches", () => crudeMetadataCache = {});
+  }
+
   if (crudeMetadataCache[metadataurl]?.expires > Date.now()) //still good
     return crudeMetadataCache[metadataurl];
 
@@ -123,6 +129,7 @@ export class OAuth2Client {
       code_verifier: options?.codeVerifier || '',
       requeststart: new Date,
       client_scope: this.clientinfo.clientScope,
+      metadata_url: this.clientinfo.metadataUrl,
       oauthconfig: {
         clientid: this.clientinfo.clientId,
         clientsecret: this.clientinfo.clientSecret,
@@ -180,13 +187,27 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
  * @param oauth2Session - OAuth2 session id (take from the URL searchParameter)   */
 export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Session: string): Promise<OAuth2Tokens & {
   expires?: Temporal.Instant;
+  id_token_payload?: JwtPayload;
 } | null> {
 
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
   if (sessdata?.tokeninfo && sessdata.client_scope === clientScope) {
+    let id_token_payload: JwtPayload | undefined;
+
+    if (sessdata?.tokeninfo.id_token) {
+      const decoded = jwt.decode(sessdata.tokeninfo.id_token, { complete: true });
+      const metadata = await getOpenIDConnectMetadata(sessdata.metadata_url || throwError("No metadata_url in oauth2 session"));
+      const matchKey = metadata.jwks?.keys.find(k => k.kid === decoded?.header.kid);
+      if (!matchKey)
+        throw new Error(`Unable to find key '${decoded?.header.kid}' in OIDC provider JWKS`);
+
+      id_token_payload = await verifyJWT(matchKey, metadata.config.issuer, sessdata.tokeninfo.id_token);
+    }
+
     //TODO Validate the id_token if present (or have oauth2 landing page validate it) so there's no way to skip it. mod::wrd/web/endpoints/oidc.shtml has validation code but one step too late for users relying on handleOAuth2AuthorizeLanding
     return {
       ...sessdata.tokeninfo,
+      id_token_payload,
       expires: sessdata.tokeninfo.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
     };
   }

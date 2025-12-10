@@ -1,8 +1,6 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
-LOADLIB "wh::internet/jwt.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -11,7 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/webdesignplugin.whlib";
 
 //FIXME this should be shared with the actual TS algorithms - and oidc.shtml itself should be cancelled together
 RECORD FUNCTION GetOIDCLoginName(RECORD providerinfo, RECORD payload)
@@ -50,33 +48,31 @@ MACRO AbortLogin(STRING redirecturl, RECORD data) {
           ]));
 }
 
-MACRO RunOpenIDAuth()
-{
+MACRO RunOpenIDAuth() {
   //FIXME replay protections. we currently just keep accepting the URL
 
+  //TODO can't 'why' be combined into the oauth2session we're creating anyway during oidc ?
   RECORD whyreason := DecryptForThisServer("wrd:oidcauth", GetWebVariable("why"), [ fallback := DEFAULT RECORD ]);
   RECORD clientinfo := DescribeWRDEntity(whyreason.client);
-
   OBJECT wrdschema := OpenWRDSchemaById(clientinfo.wrdschema);
-  RECORD spinfo := wrdschema->GetTypeById(clientinfo.wrdtype)->GetEntityFields(whyreason.client, ["WRD_ID", "WRD_TAG", "METADATAURL", "CLIENTID", "CLIENTSECRET", "LOGINFIELD"]);
-  OBJECT oauth2 := GetOIDCOauth2Connection(spinfo);
-
-  RECORD authres := oauth2->AuthorizeClient();
-  IF(NOT authres.success) //eg a 'none' prompt that failed to find a session
+  RECORD decodedinfo := HandleOAuth2AuthorizeRequestLanding(wrdschema->tag, GetWebVariable("oauth2session"));
+  IF(NOT RecordExists(decodedinfo))  //eg a 'none' prompt that failed to find a session
     Redirect(whyreason.redirect);
+  IF(NOT CellExists(decodedinfo,'id_token_payload'))
+    THROW NEW Exception(`No ID token received from OIDC provider. Was 'openid' scope passed?`);
 
-  RECORD loginconfig := GetOIDCMetadata(spinfo.metadataurl);
-  RECORD payload := DecodeVerifyJWT(loginconfig.keys, oauth2->token.id_token, GetCurrentDateTime(), [ algorithms := [ "RS256" ], issuer := STRING[loginconfig.issuer] ]);
-  IF(NOT RecordExists(payload))
-    THROW NEW Exception(`Invalid JWT token received from OIDC provider`);
+  RECORD spinfo := wrdschema->GetTypeById(clientinfo.wrdtype)->GetEntityFields(whyreason.client, ["WRD_ID", "WRD_TAG", "LOGINFIELD"]);
+  RECORD payload := decodedinfo.id_token_payload;
 
-  LogDebug("wrd:auth-oidc", [ reason := "Received JWT for oidc auth", payload := payload, why := whyreason ]);
+  IF(IsDebugTagEnabled("oauth2"))
+    LogDebug("platform:oauth2", [ reason := "Received JWT for oidc auth", payload := payload, why := whyreason ]);
+
   OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
   INTEGER userid;
-  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), oauth2->token.id_token, spinfo.loginfield, whyreason.client);
+  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), decodedinfo.id_token, spinfo.loginfield, whyreason.client);
   IF(TYPEID(lookupresult) = TYPEID(INTEGER))
     userid := lookupresult;;
 
