@@ -298,10 +298,33 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
     });
   } catch(e) {
     logError(e as Error);
+
+    let errorData = (e as Error).message;
+    //FIXME: Maybe have the acme client throw the error in a nice error structure instead of having to string match the error and parse the error text as JSON?
+    if (errorData.startsWith(`Order status is "invalid"\n`)) {
+      // The error thrown is `Order status is "invalid"\n${JSON.stringify(latestOrderResponse, null, 2)}` and we're
+      // interested in the latestOrderResponse. That doesn't contain the error itself, but we can request that by fetching
+      // the authorization url.
+      try {
+        const order = JSON.parse(errorData.substring(26)) as acme.AcmeOrderObjectSnapshot;
+        // Fetch the (first) authorization status
+        const response = await fetch(order.authorizations[0]);
+        if (response.ok) {
+          const authorization = await response.json() as acme.AcmeAuthorizationObjectSnapshot;
+          // The 'error' field (which contains the actual challenge validation error) is not defined in AcmeChallengeObjectSnapshot
+          const error = authorization.challenges
+            .filter(_ => "error" in _)
+            .map(_ => _.error)[0] as { "type": string; "detail": string; "status": number } | undefined;
+          // Use the error detail as the actual error data
+          if (error)
+            errorData = error.detail;
+        }
+      } catch(_) {}
+    }
     return req.resolveByPermanentFailure((e as Error).message, { result: {
       success: false,
       error: "requesterror",
-      errorData: (e as Error).message.split("\n")[0],
+      errorData,
     }});
   }
 
