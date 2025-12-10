@@ -3,9 +3,9 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
 import type { WRDSchema } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { throwError } from "@webhare/std";
+import { throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, encryptForThisServer, getServerSession, subscribe, type SessionScopes } from "@webhare/services";
+import { backendConfig, createServerSession, getServerSession, subscribe, type SessionScopes } from "@webhare/services";
 import type { OAuth2Tokens, OpenIdConfiguration } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
@@ -18,6 +18,7 @@ declare module "@webhare/services" {
       requeststart: Date;
       client_scope?: string; //optional as not set or validated yet by HS
       metadata_url?: string; //optional as not set or validated yet by HS
+      user_data?: Record<string, unknown>; //optional as not set or validated yet by HS
       oauthconfig: {
         clientid: string;
         clientsecret: string;
@@ -30,11 +31,16 @@ declare module "@webhare/services" {
   }
 }
 
-export interface OAuth2AuthorizeRequestOptions {
-  addScopes?: string[];
-  login?: boolean;
+export interface OAuth2LoginRequestOptions {
   prompt?: string;
+  addScopes?: string[];
+}
+
+export interface OAuth2AuthorizeRequestOptions extends OAuth2LoginRequestOptions {
+  login?: boolean;
   codeVerifier?: string;
+  userData?: Record<string, unknown>;
+  clientScope?: string;
 }
 
 interface OIDCMetadata {
@@ -108,12 +114,20 @@ export class OAuth2Client {
    * @param redirectTo - URL to redirect to after login
    * @param options - Options for the authorize request
    */
-  async createLoginRequest(redirectTo: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
+  async createLoginRequest(redirectTo: string, options?: OAuth2LoginRequestOptions): Promise<NavigateInstruction> {
     const finalurl = new URL("/.wrd/endpoints/oidc.shtml", redirectTo);
-    //TODO we shouldn't need a clientWrdId? isn't all the info stored in the session? or better, actually avoid storing that all in the session...
-    finalurl.searchParams.set("why", encryptForThisServer("wrd:oidcauth", { redirect: redirectTo, client: this.clientinfo.clientWrdId || throwError("OAuth2Client was not initialized with a clientWrdId") }));
 
-    return await this.createAuthorizeLink(finalurl.toString(), { ...options, addScopes: [...options?.addScopes || [], "openid"] });
+    return await this.createAuthorizeLink(finalurl.toString(), {
+      ...options,
+      // One scope for all logins should be enough, we'll still verify the provider
+      clientScope: "platform:openidlogin",
+      addScopes: [...options?.addScopes || [], "openid"],
+      userData: {
+        redirect: redirectTo,
+        //TODO we shouldn't need a clientWrdId? isn't all the info stored in the session? or better, actually avoid storing all that provider metadata (eg clientsecret) in the session...
+        provider: this.clientinfo.clientWrdId || throwError("OAuth2Client was not initialized with a clientWrdId")
+      }
+    });
   }
 
   /** Creates a link that initiates the oauth2flow. The redirect page should invoke RunOAuth2LandingPage which will read the system:oauth2 session, process/validatee the tokens, store them in a session and finally
@@ -128,8 +142,9 @@ export class OAuth2Client {
       finalreturnurl: finalurl.toString(),
       code_verifier: options?.codeVerifier || '',
       requeststart: new Date,
-      client_scope: this.clientinfo.clientScope,
+      client_scope: options?.clientScope || this.clientinfo.clientScope,
       metadata_url: this.clientinfo.metadataUrl,
+      user_data: options?.userData ? toSnakeCase(options?.userData) : undefined,
       oauthconfig: {
         clientid: this.clientinfo.clientId,
         clientsecret: this.clientinfo.clientSecret,
@@ -185,31 +200,32 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
 /** Handle a landing from createAuthorizeLink.
  * @param clientScope - WRD Schema tag or other identifier to bind responses to the application as specified when creating the OAuth2Client
  * @param oauth2Session - OAuth2 session id (take from the URL searchParameter)   */
-export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Session: string): Promise<OAuth2Tokens & {
+export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Session: string): Promise<{
+  tokens?: OAuth2Tokens;
   expires?: Temporal.Instant;
-  id_token_payload?: JwtPayload;
+  idPayload?: JwtPayload;
+  userData?: Record<string, unknown>;
 } | null> {
 
   const sessdata = await getServerSession("system:oauth2", oauth2Session);
-  if (sessdata?.tokeninfo && sessdata.client_scope === clientScope) {
-    let id_token_payload: JwtPayload | undefined;
+  if (!sessdata || sessdata.client_scope !== clientScope)
+    return null; //expired or invalid sessions
 
-    if (sessdata?.tokeninfo.id_token) {
-      const decoded = jwt.decode(sessdata.tokeninfo.id_token, { complete: true });
-      const metadata = await getOpenIDConnectMetadata(sessdata.metadata_url || throwError("No metadata_url in oauth2 session"));
-      const matchKey = metadata.jwks?.keys.find(k => k.kid === decoded?.header.kid);
-      if (!matchKey)
-        throw new Error(`Unable to find key '${decoded?.header.kid}' in OIDC provider JWKS`);
+  let idPayload: JwtPayload | undefined;
+  if (sessdata?.tokeninfo?.id_token) {
+    const decoded = jwt.decode(sessdata.tokeninfo.id_token, { complete: true });
+    const metadata = await getOpenIDConnectMetadata(sessdata.metadata_url || throwError("No metadata_url in oauth2 session"));
+    const matchKey = metadata.jwks?.keys.find(k => k.kid === decoded?.header.kid);
+    if (!matchKey)
+      throw new Error(`Unable to find key '${decoded?.header.kid}' in OIDC provider JWKS`);
 
-      id_token_payload = await verifyJWT(matchKey, metadata.config.issuer, sessdata.tokeninfo.id_token);
-    }
-
-    //TODO Validate the id_token if present (or have oauth2 landing page validate it) so there's no way to skip it. mod::wrd/web/endpoints/oidc.shtml has validation code but one step too late for users relying on handleOAuth2AuthorizeLanding
-    return {
-      ...sessdata.tokeninfo,
-      id_token_payload,
-      expires: sessdata.tokeninfo.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
-    };
+    idPayload = await verifyJWT(matchKey, metadata.config.issuer, sessdata.tokeninfo.id_token);
   }
-  return null;
+
+  return {
+    tokens: sessdata.tokeninfo || undefined,
+    userData: sessdata.user_data ? toCamelCase(sessdata.user_data) : undefined,
+    idPayload,
+    expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
+  };
 }

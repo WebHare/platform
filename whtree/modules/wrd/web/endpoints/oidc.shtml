@@ -4,7 +4,6 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -52,27 +51,29 @@ MACRO RunOpenIDAuth() {
   //FIXME replay protections. we currently just keep accepting the URL
 
   //TODO can't 'why' be combined into the oauth2session we're creating anyway during oidc ?
-  RECORD whyreason := DecryptForThisServer("wrd:oidcauth", GetWebVariable("why"), [ fallback := DEFAULT RECORD ]);
-  RECORD clientinfo := DescribeWRDEntity(whyreason.client);
+  RECORD decodedinfo := HandleOAuth2AuthorizeRequestLanding("platform:openidlogin", GetWebVariable("oauth2session"));
+  RECORD clientinfo := DescribeWRDEntity(decodedinfo.userdata.provider);
   OBJECT wrdschema := OpenWRDSchemaById(clientinfo.wrdschema);
-  RECORD decodedinfo := HandleOAuth2AuthorizeRequestLanding(wrdschema->tag, GetWebVariable("oauth2session"));
-  IF(NOT RecordExists(decodedinfo))  //eg a 'none' prompt that failed to find a session
-    Redirect(whyreason.redirect);
-  IF(NOT CellExists(decodedinfo,'id_token_payload'))
+  IF(NOT RecordExists(decodedinfo)) //we lost the session
+    AbortWithHTTPError(410);
+  IF(NOT CellExists(decodedinfo,'tokens')) //eg a 'none' prompt that failed to find a session simply redirects back to us
+    Redirect(decodedinfo.userdata.redirect);
+
+  IF(NOT CellExists(decodedinfo,'idPayload'))
     THROW NEW Exception(`No ID token received from OIDC provider. Was 'openid' scope passed?`);
 
-  RECORD spinfo := wrdschema->GetTypeById(clientinfo.wrdtype)->GetEntityFields(whyreason.client, ["WRD_ID", "WRD_TAG", "LOGINFIELD"]);
-  RECORD payload := decodedinfo.id_token_payload;
+  RECORD spinfo := wrdschema->GetTypeById(clientinfo.wrdtype)->GetEntityFields(decodedinfo.userdata.provider, ["WRD_ID", "WRD_TAG", "LOGINFIELD"]);
+  RECORD payload := decodedinfo.idPayload;
 
   IF(IsDebugTagEnabled("oauth2"))
-    LogDebug("platform:oauth2", [ reason := "Received JWT for oidc auth", payload := payload, why := whyreason ]);
+    LogDebug("platform:oauth2", CELL[ reason := "Received JWT for oidc auth", payload, decodedinfo.userdata ]);
 
-  OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
+  OBJECT targetplugin := GetWRDAuthPlugin(decodedinfo.userdata.redirect);
   IF(NOT ObjectExists(targetplugin))
-    THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
+    THROW NEW Exception(`No authplugin found for target ` || decodedinfo.userdata.redirect);
 
   INTEGER userid;
-  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), decodedinfo.id_token, spinfo.loginfield, whyreason.client);
+  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), decodedinfo.tokens.id_token, spinfo.loginfield, decodedinfo.userdata.provider);
   IF(TYPEID(lookupresult) = TYPEID(INTEGER))
     userid := lookupresult;;
 
@@ -81,7 +82,7 @@ MACRO RunOpenIDAuth() {
     RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(payload, provider);
     IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0)) {
       RECORD logininfo := GetOIDCLoginName(provider, payload);
-      AbortLogin(whyreason.redirect, CELL[ reason := "unknown-login", loginname := CellExists(logininfo, 'value') ? logininfo.value : "" ]);
+      AbortLogin(decodedinfo.userdata.redirect, CELL[ reason := "unknown-login", loginname := CellExists(logininfo, 'value') ? logininfo.value : "" ]);
     }
     //TODO support 'navigateto'
     IF(NOT CellExists(result,'userid'))
@@ -92,7 +93,7 @@ MACRO RunOpenIDAuth() {
 
   IF(TYPEID(lookupresult) = TYPEID(RECORD) AND CellExists(lookupresult,"error")) {
     //Then it's a LoginDenied structure
-    AbortLogin(whyreason.redirect, CELL[ reason := lookupresult.code ]);
+    AbortLogin(decodedinfo.userdata.redirect, CELL[ reason := lookupresult.code ]);
   }
 
   IF(TYPEID(lookupresult) = TYPEID(RECORD)) //NavigateInstruction
@@ -106,9 +107,9 @@ MACRO RunOpenIDAuth() {
                                                                     , thirdparty := TRUE
                                                                     ]);
   IF(loginres.success)
-    Redirect(whyreason.redirect);
+    Redirect(decodedinfo.userdata.redirect);
   ELSE
-    AbortLogin(whyreason.redirect, CELL[ reason := loginres.code ]);
+    AbortLogin(decodedinfo.userdata.redirect, CELL[ reason := loginres.code ]);
 }
 
 OpenPrimary();

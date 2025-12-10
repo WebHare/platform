@@ -1259,8 +1259,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
   PUBLIC RECORD FUNCTION CreateOAuth2AuthorizeRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
     this->CheckNotFailed();
-    options := ValidateOptions(CELL[ prompt := "" ], options);
-    RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2AuthorizeRequest", this->wrdschema->tag, serviceprovidertag, redirectto, options);
+    options := ValidateOptions(CELL[ prompt := "", userdata := DEFAULT RECORD ], options);
+    RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2AuthorizeRequest", this->wrdschema->tag, serviceprovidertag, redirectto,
+      CELL[ options.prompt, user_data := options.userdata ]);
   }
 
   PUBLIC RECORD FUNCTION HandleOAuth2AuthorizeRequestLanding(STRING oauth2session) {

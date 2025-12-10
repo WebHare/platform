@@ -201,7 +201,7 @@ async function verifyRoutes_TSClient() {
     clientSecret,
   });
 
-  const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier() });
+  const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier(), userData: { testData: 42 } });
 
   //FIXME verify invalid secret fails
 
@@ -216,11 +216,12 @@ async function verifyRoutes_TSClient() {
   test.assert(oauth2session, "No oauth2session in " + finalurl);
 
   const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
-  test.assert(landing && landing.id_token);
+  test.assert(landing?.tokens?.id_token);
+  test.eq(42, landing.userData?.testData);
 
   const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
-  test.eq(sysopguid, landing.id_token_payload?.sub);
-  test.eq("sysop@beta.webhare.net", landing.id_token_payload?.email);
+  test.eq(sysopguid, landing.idPayload?.sub);
+  test.eq("sysop@beta.webhare.net", landing.idPayload?.email);
 }
 
 async function verifyOpenIDClient() {
