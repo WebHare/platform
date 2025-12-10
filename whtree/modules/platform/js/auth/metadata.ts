@@ -5,6 +5,7 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import type { Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
+import type { IdTokenSigningAlgValuesSupported, OpenIdConfiguration } from "@webhare/auth/src/types";
 
 //wellKnownRouter implements .well-known/openid-configuration
 export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
@@ -22,7 +23,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   if (!settings.issuer)
     return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer` });
 
-  const id_token_signing_alg_values_supported: string[] = [];
+  const id_token_signing_alg_values_supported: IdTokenSigningAlgValuesSupported[] = [];
   if (settings.signingKeys.find(_ => _.privateKey.kty === "RSA"))
     id_token_signing_alg_values_supported.push("RS256");
   //  can't offer ES256 yet as we haven't enabled/tested generating it yet
@@ -45,7 +46,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     //see also https://openid.net/specs/oauth-v2-multiple-response-types-1_0.html
     response_types_supported: ["code"],
     subject_types_supported: ["public"]
-  });
+  } satisfies OpenIdConfiguration);
 
 }
 

@@ -10,7 +10,7 @@ import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer } from '@webhare/auth';
+import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { prepAuthForURL } from '@webhare/auth/src/support';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
@@ -105,7 +105,7 @@ run({
     "get-callback-url": {
       shortDescription: "Obtain this server's OpenID Connect/OAuth2 callback URL",
       main: async ({ opts, args }) => {
-        const url = backendConfig.backendURL + ".wh/common/oauth2/";
+        const url = getDefaultOAuth2RedirectURL();
         console.log(opts.json ? JSON.stringify({ url }) : url);
       }
     },
