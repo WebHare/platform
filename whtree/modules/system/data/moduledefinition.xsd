@@ -533,7 +533,7 @@
 
           <xs:attribute name="runat">
             <xs:annotation>
-              <xs:documentation>Task runtime in %GetNextCronTime format: (eg `*/2 */3 * * *`)</xs:documentation>
+              <xs:documentation>Task runtime in %GetNextCronTime format: &lt;minute&gt; &lt;hour&gt; &lt;dayofmonth&gt; &lt;month&gt; &lt;dayofweek&gt; (eg `*/2 */3 * * *`)</xs:documentation>
             </xs:annotation>
           </xs:attribute>
 
