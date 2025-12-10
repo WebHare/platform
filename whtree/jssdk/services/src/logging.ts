@@ -8,6 +8,7 @@ import { getModuleDefinition } from "./moduledefinitions";
 import { convertFlexibleInstantToDate, escapeRegExp, isBlob, type FlexibleInstant } from "@webhare/std";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 import { listDirectory } from "@webhare/system-tools";
+import path from "node:path";
 
 type LogReadField = string | number | boolean | null | Temporal.Instant | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = {
@@ -82,16 +83,12 @@ export function logDebug(source: string, data: LoggableRecord): void {
   bridge.logDebug(source, data);
 }
 
-/** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
-*/
-function flushLog(logname: string | "*"): Promise<void> {
-  return bridge.flushLog(logname);
-}
-
 export interface ReadLogOptions {
   start?: FlexibleInstant | null;
   limit?: FlexibleInstant | null;
   content?: string | Blob;
+  /** Override where to find the log files. Usually of the form `/tmp/logfiles/pxl` to which the reader will append `.<DATE>.log`  */
+  basePath?: string;
   /** Continu reading loglines after the line with this id */
   continueAfter?: string;
 }
@@ -118,13 +115,14 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     if (fileinfo.timestamps !== false)
       throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLines to be able to process it`);
 
-    await flushLog(logname);
+    if (!options?.basePath)
+      await bridge.flushLog(logname);
   }
 
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
-  const basedir = backendConfig.dataRoot + "log";
-  const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
-  const logfiles = (await listDirectory(basedir, { allowMissing: true })).filter(_ => _.name.match(filter)).sort();
+  const basePath = options?.basePath || `${backendConfig.dataRoot}log/${fileinfo.filename}`;
+  const filter = new RegExp("^" + escapeRegExp(path.basename(basePath) + ".") + "[0-9]{8}\\.log$");
+  const logfiles = (await listDirectory(path.dirname(basePath), { allowMissing: true })).filter(_ => _.name.match(filter)).sort();
   const start = options?.start ? convertFlexibleInstantToDate(options.start) : null;
   const limit = options?.limit ? convertFlexibleInstantToDate(options.limit) : null;
 

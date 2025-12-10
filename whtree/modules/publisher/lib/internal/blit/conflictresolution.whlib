@@ -102,7 +102,7 @@ RECORD FUNCTION TryResolveTypeConflict(RECORD conflict)
       , foldertype :=     TryMergeData(conflict.current, conflict.parent, conflict.changes, "FOLDERTYPE", FALSE)
       , filetype :=       TryMergeData(conflict.current, conflict.parent, conflict.changes, "FILETYPE", FALSE)
       , cloneoncopy :=    TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONCOPY", FALSE)
-      , cloneonarchive := TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONARCHIVE", FALSE)
+      , cloneonarchive := TryMergeData(conflict.current, conflict.parent, conflict.changes, "CLONEONCOPY", FALSE) //for blit connections, assume cloneonarchive follows cloneoncopy. new WHFS sync should not adopt remote type but trust local type info
       , members :=        members
       ];
 }

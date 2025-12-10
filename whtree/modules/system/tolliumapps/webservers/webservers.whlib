@@ -915,9 +915,9 @@ PUBLIC OBJECTTYPE EditCertificateProvider EXTEND WRDEntityEditScreenBase <
     // ACME directory is mandatory for HARICA
     ^entity->^acme_directory->required := ^prefill->value = "harica.gr";
 
-    // EAB is mandatory for HARICA, also enable the EAB settings if they're filled
+    // EAB is mandatory for HARICA, also enable the EAB settings if they're filled.
+    // However enablecomponents doesn't work well with ^eab->enable = FALSE, breaking the 'new provider' dialog flow so just leave it deselectable if you really want to.
     ^eab->value := ^prefill->value = "harica.gr" OR ^entity->^eab_kid->value != "" OR ^entity->^eab_hmackey->value != "";
-    ^eab->enabled := ^prefill->value != "harica.gr";
 
     // Don't check server connectivity for HARICA (which doesn't required ACME challenges)
     ^entity->^skip_connectivity_check->value := ^prefill->value = "harica.gr";

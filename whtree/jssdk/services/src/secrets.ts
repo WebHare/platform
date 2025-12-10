@@ -19,6 +19,18 @@ function getKeyForScope(scope: string): Buffer {
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
     @returns Encrypted data, base64url encoded (so safe for direct use in URLs)
+    @example
+
+// Set up the data format you will use for TypeScript
+declare module "@webhare/services" {
+  interface ServerEncryptionScopes {
+    "mymodule:myscope": {
+      field: string;
+    };
+  }
+}
+
+const enctoken = encryptForThisServer("mymodule:myscope", { field: "value" });
 */
 export function encryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
   const iv = crypto.randomBytes(12);
