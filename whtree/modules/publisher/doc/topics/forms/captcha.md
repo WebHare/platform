@@ -10,13 +10,9 @@ To enable captcha checks on the forms, add a usecaptcha=true to the `formintegra
 
 Setup captcha support in your JS code
 ```javascript
-import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
-googleRecaptcha.setupGoogleRecaptcha();
+import { setupGoogleRecaptcha } from '@webhare/forms';
+setupGoogleRecaptcha();
 ```
-
-Setup the [dompack dialog APIs](https://gitlab.com/webhare/dompack/dompack/blob/master/doc/dialogapi.md)
-so the captcha can be shown in an overlay.
-
 Request an API key from Google and configure it in WebHare.
 
 ## Manual captcha integration

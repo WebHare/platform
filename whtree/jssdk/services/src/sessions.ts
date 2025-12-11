@@ -23,6 +23,17 @@ export interface SessionOptions {
     @param scope - Scope for session (must be unique for each createServerSession usage so users can't try to trick other getServerSession users to reveal data)
     @param data - Data to store (needs to be serializable to typed JSON)
     @returns Session id (base64url encoded string)
+    @example
+
+declare module "@webhare/services" {
+  interface SessionScopes {
+    "mymodule:myscope": {
+      field: string;
+    };
+  }
+}
+
+const sessionId = createServerSession("mymodule:myscope", { field: "value" });
 */
 export async function createServerSession<S extends string>(scope: S, data: S extends keyof SessionScopes ? SessionScopes[S] : object, options?: SessionOptions): Promise<string> {
   if (!isWorkOpen()) //HareScript would automanage the session for you for backwards compatibility, but it's better to show what happens
