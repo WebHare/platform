@@ -134,17 +134,26 @@ async function testWHFSAPI() {
       }
     }, simpleTestDoc.instances?.find(_ => _.whfsType === "platform:virtual.objectdata"));
 
-  // Create a new file using simpledoc
+  // Create a new folder using simpledoc
   const tempPath = testSiteRootPath + "tmp";
+  const newFolderCreated = await api.post("/whfs/object",
+    {
+      name: "newfolder",
+      type: "platform:foldertypes.default"
+    }, { params: { path: tempPath } },
+  );
+  test.assert(newFolderCreated.status === 201, `Expected 201 on folder creation, got ${newFolderCreated.status}`);
+
+  // Create a new file using simpledoc
   const newFilePathCreated = await api.post("/whfs/object",
     {
       ...simpleTestDoc,
       name: "newfile"
-    }, { params: { path: tempPath } },
+    }, { params: { path: tempPath + "/newfolder" } },
   );
   test.assert(newFilePathCreated.status === 201, `Expected 201 on file creation, got ${newFilePathCreated.status}`);
 
-  const newFilePath = tempPath + "/newfile";
+  const newFilePath = tempPath + "/newfolder/newfile";
 
   // Update file content
   const publishNewFileResult = await api.patch("/whfs/object", {
