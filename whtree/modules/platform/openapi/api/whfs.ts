@@ -4,6 +4,7 @@ import { getAuthorizationInterface } from "@webhare/auth";
 import { listInstances, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from "@webhare/whfs";
 import type { FileTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { runInWork } from "@webhare/whdb";
+import { getType } from "@webhare/whfs/src/describe";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -124,7 +125,13 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
 
     return await runInWork(async () => {
       const virtualMetadata = req.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
-      const newObj = await parentFolder[req.body.isFolder ? "createFolder" : "createFile"](req.body.name, {
+      const typeinfo = getType(req.body.type);
+      if (!typeinfo)
+        return req.createErrorResponse(400, { error: `Unknown type: ${req.body.type}` });
+      if (!typeinfo.filetype && !typeinfo.foldertype)
+        return req.createErrorResponse(400, { error: `Type is neither a file nor a folder type: ${req.body.type}` });
+
+      const newObj = await parentFolder[typeinfo.foldertype ? "createFolder" : "createFile"](req.body.name, {
         type: req.body.type,
         ...virtualMetadata && mapVirtualMetaData(virtualMetadata) || {}
       });
