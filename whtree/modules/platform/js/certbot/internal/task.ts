@@ -41,7 +41,7 @@ async function getBestCertificateForHost(keyPairs: StoredKeyPairProps[], hostnam
         if (bestCertValidTo && (!keyPairValidTo || bestCertValidTo >= keyPairValidTo))
           continue;
       }
-        bestCert = keyPair;
+      bestCert = keyPair;
     }
   }
   return bestCert;
