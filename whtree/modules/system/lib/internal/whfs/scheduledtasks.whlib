@@ -56,7 +56,7 @@ MACRO DoStartPublish(RECORD task)
   FOREVERY(INTEGER tocheck FROM check_for_drafts) {
     OBJECT mgr := NEW WorkflowManager(task.file, [ useworkflow := TRUE, assumewriteaccess := TRUE ]);
     IF(RecordExists(mgr->GetCurrentDraft()))
-      mgr->Save(TRUE);
+      mgr->Save(TRUE, CELL[updatemetadatafields := STRING[]]); //don't copy title etc until those props are visible to all
   }
 
   IF(fsobj.isfolder)
