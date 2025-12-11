@@ -130,7 +130,7 @@ export class OAuth2Client {
     });
   }
 
-  /** Creates a link that initiates the oauth2flow. The redirect page should invoke RunOAuth2LandingPage which will read the system:oauth2 session, process/validatee the tokens, store them in a session and finally
+  /** Creates a link that initiates the oauth2flow. The redirect page should invoke RunOAuth2LandingPage which will read the system:oauth2 session, process/validate the tokens, store them in a session and finally
    *  redirect to the finalurl with the ?oauth2sesson= parameter on the URL for the page to process the data
    */
   async createAuthorizeLink(finalurl: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
