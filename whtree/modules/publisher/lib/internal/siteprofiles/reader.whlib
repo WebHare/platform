@@ -27,6 +27,7 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
 PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 
@@ -1521,6 +1522,19 @@ STATIC OBJECTTYPE ApplyRuleTester <
       }
     }
     RETURN usetempl;
+  }
+
+  //Return the workflow editor for a file (ie a editdocument based separate app editor)
+  PUBLIC RECORD FUNCTION GetWorkflowEditor() {
+    RECORD editorinfo := this->GetLastValueForCell("SETOBJECTEDITOR"); //TODO this is replicating the editor selection logic from RunFSObjectEditApplication, cleaner?
+    IF(RecordExists(editorinfo) AND editorinfo.name != "") {
+      RECORD objeditor := GetObjectEditor(editorinfo.name);
+      IF(RecordExists(objeditor) AND objeditor.documenteditor != "") { //TODO also support (RecordExists(editorinfo) AND editorinfo.separateapp) ? or phase that out?
+        RETURN CELL[];
+      }
+    }
+
+    RETURN DEFAULT RECORD;
   }
 
   PUBLIC RECORD FUNCTION GetLastValueForCell(STRING cellname)
