@@ -18,6 +18,9 @@ properties:
   openApiServices:
     description: OpenAPI services
     $ref: "#/$defs/OpenApiServices"
+  openApiClients:
+    description: OpenAPI clients
+    $ref: "#/$defs/OpenApiClients"
   rpcServices:
     description: RPC services
     $ref: "#/$defs/RPCServices"
@@ -225,6 +228,21 @@ $defs:
             items:
               type: string
               description: "Host to permit ('*' is supported as a wildcard)"
+
+  OpenApiClients:
+    description: Specifies an OpenAPI client
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Client name
+        type: object
+        additionalProperties: false
+        required:
+          - spec
+        properties:
+          spec:
+            description: "Path to the OpenAPI V3 specification"
+            type: string
 
   RPCServices:
     description: Specifies a RPC service using typed JSON as ts data format

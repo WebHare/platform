@@ -6,6 +6,7 @@ import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import type * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
 import { OpenAPIAuthtestsClient } from "wh:openapi/webhare_testsuite/authtests";
+import { createOpenAPIClient } from "@webhare/openapi-client";
 
 let userapiroot = '', authtestsroot = '';
 
@@ -17,7 +18,7 @@ async function testService() {
 
   //whitebox try the service directly for more useful traces etc
   using serviceFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice");
-  const service = new OpenAPITestserviceClient(serviceFetch);
+  const service = createOpenAPIClient<"webhare_testsuite:testservice">(serviceFetch);
 
   using serviceNoValidationFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice_novalidation");
   const serviceNoValidation = new OpenAPITestserviceClient(serviceNoValidationFetch);

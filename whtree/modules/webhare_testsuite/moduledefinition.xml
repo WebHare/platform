@@ -128,7 +128,7 @@
                     outputvalidation="never"
                     spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
 
-    <openapiclient name="testclient" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+    <openapiclient name="testclient_xml" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
 
     <webservice name="test"
                 library="lib/webservicetest.whlib"

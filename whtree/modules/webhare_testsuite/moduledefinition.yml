@@ -58,6 +58,10 @@ openApiServices:
       - example.*
       - https://webhare.dev:1234
 
+openApiClients:
+  testclient:
+    spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+
 selfChecks:
   - checker: tests/system/modules/data/checker.ts#runTestsuiteCheck
 
