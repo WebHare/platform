@@ -653,6 +653,9 @@
       <text tid="sessionexpired">Your login session has expired. Please log in again to restart this application.</text>
       <text tid="untrustedparams">You are not allowed to open this application with additional URL parameters.</text>
     </textgroup>
+    <textgroup gid="criticalissues">   <!-- shell.criticalissues -->
+      <text tid="dashboard">There are critical issues that require immediate attention. Please check the Dashboard</text>
+    </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
       <text tid="apptitle">WebHare</text>
       <text tid="logout">Log out</text>
@@ -767,6 +770,7 @@
     <text tid="filesize">File size</text>
     <text tid="finish">Finish</text>
     <text tid="firstname">First name</text>
+    <text tid="foldername">Folder name</text>
     <text tid="fullname">Full name</text>
     <text tid="help">Help</text>
     <text tid="home">Home</text>
