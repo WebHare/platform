@@ -30,35 +30,35 @@ ASYNC MACRO TestSeoSettings()
   testfw->BeginWork();
 
   OBJECT root := OpenTestsuiteSite()->rootobject;
-  OBJECT rtdtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT usetype := OpenWHFSType("platform:filetypes.contentlisting"); //no doceditor but *does* have a webdesign and can publish SEO met atags
 
   OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
-  OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := rtdtype->id, publish := TRUE ]);
-  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := rtdtype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
+  OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := usetype->id, publish := TRUE ]);
+  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := usetype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
   OBJECT seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
-  OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := rtdtype->id, publish := TRUE ]);
+  OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := usetype->id, publish := TRUE ]);
 
   OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
   noindexfolder->SetInstanceData("platform:web.config", [no_index := TRUE]);
   OBJECT noindexsubfolder := noindexfolder->CreateFolder([name := "noindexsub"]);
-  OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := usetype->id, publish := TRUE ]);
   OBJECT noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
 
   //we were ignoring settings on index documents as they weren't in the path used for breadcrumbs and we were sharing that. fixing that
-  OBJECT noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := rtdtype->id, publish := TRUE ], [ setindex := TRUE ]);
+  OBJECT noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := usetype->id, publish := TRUE ], [ setindex := TRUE ]);
   noindexsubfolderindex->SetInstanceData("platform:web.config", [ no_archive := TRUE]);
 
   OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
   nofollowfolder->SetInstanceData("platform:web.config", [no_follow := TRUE]);
   OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
-  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := rtdtype->id, publish := TRUE ]);
+  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := usetype->id, publish := TRUE ]);
   nofollowsubfile->SetInstanceData("platform:web.config", [ canonical := noindexsubfile->id ]);
 
-  OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := rtdtype->id, publish := TRUE ]);
-  OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := rtdtype->id, publish := TRUE ]);
-  OBJECT forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := rtdtype->id, publish := TRUE ]);
-  OBJECT forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := rtdtype->id, publish := TRUE ]);
-  OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := rtdtype->id, publish := TRUE ]);
+  OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := usetype->id, publish := TRUE ]);
+  OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := usetype->id, publish := TRUE ]);
+  OBJECT forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := usetype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := usetype->id, publish := TRUE ]);
+  OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := usetype->id, publish := TRUE ]);
 
   testfw->CommitWork();
 

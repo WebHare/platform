@@ -18,7 +18,7 @@ types:
     icon: tollium:files/application_x-webhare-contentlisting
     metaType: page
     workflow: false
-    isPublishedAsSubdir: false
+    isPublishedAsSubdir: true
   filetypes.css:
     namespace: http://www.webhare.net/xmlns/publisher/cssfile
     icon: tollium:files/text_css
