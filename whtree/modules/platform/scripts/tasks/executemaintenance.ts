@@ -61,6 +61,18 @@ async function rotateLogs() {
   }
 }
 
+async function removeOldDatabases() {
+  for (const archivedDb of await listDirectory(backendConfig.dataRoot + "postgresql", { mask: "db.bak.*" })) {
+    const dirdate = Temporal.Instant.from(archivedDb.name.slice("db.bak.".length) + "Z");
+
+    const age = dirdate.until(Temporal.Now.instant(), { largestUnit: "hours" });
+    if (age.hours >= 7 * 24) { //time to delete
+      console.log(`Removing old archived database at ${archivedDb.fullPath}`);
+      await deleteRecursive(archivedDb.fullPath, { deleteSelf: true });
+    }
+  }
+}
+
 async function cleanupFetchResourceCacheCleanups() {
   await getFetchResourceCacheCleanups(7 * 86400_000, rm);
 }
@@ -72,6 +84,7 @@ async function runMaintenance() {
   await cleanupOldUploads();
   await cleanupFetchResourceCacheCleanups();
   await removeObsoleteCacheFolders();
+  await removeOldDatabases();
   await cleanupOutdatedHttpResources();
 
   await expireOldUsers();
