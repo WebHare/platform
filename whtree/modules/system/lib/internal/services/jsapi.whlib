@@ -21,8 +21,10 @@ PUBLIC RECORD FUNCTION RPC_GetCheckResult(STRING url)
 
   RECORD ARRAY messages := GetCurrentCheckIssues();
   DELETE FROM messages WHERE snoozed;
-  IF(Length(messages)>0)
-    RETURN [ privileged := TRUE, numleft := Length(messages) - 1, firstmessage := messages[0].message_text ];
-  ELSE
-    RETURN [ privileged := TRUE, numleft := 0, firstmessage := "" ];
+
+  RETURN [ privileged := TRUE
+         , numleft := Length(messages) > 0 ? Length(messages) - 1 : 0
+         , firstmessage := Length(messages) > 0 ? messages[0].message_text : ""
+         , any_critical := RecordExists(SELECT FROM messages WHERE is_critical)
+         ];
 }
