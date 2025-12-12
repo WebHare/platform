@@ -34,7 +34,6 @@ LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
@@ -78,6 +77,10 @@ CONSTANT RECORD logincontrol_structure :=
 
 CONSTANT INTEGER logincontrol_valid_secs := 60 * 60; // login control token is valid for 1 hour
 CONSTANT INTEGER loginproof_valid_secs := 60; // login proof token is valid for 1 minute
+
+PUBLIC RECORD FUNCTION HandleOAuth2AuthorizeRequestLanding(STRING clientscope, STRING oauth2session) {
+  RETURN CallJS("mod::platform/js/auth/harescript.ts#handleOAuth2AuthorizeRequestLanding", clientscope, oauth2session);
+}
 
 
 /** WRD auth webdesign plugin
@@ -1232,27 +1235,38 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @cell options.action 'redirect' / 'postmessage'
       @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
   */
-  PUBLIC RECORD FUNCTION GenerateLoginRequest(STRING type, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    this->CheckNotFailed();
+  PUBLIC RECORD FUNCTION GenerateLoginRequest(STRING type, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    IF(type="oidc")
+      RETURN this->CreateOAuth2LoginRequest(serviceprovidertag, redirectto, options);
 
+    this->CheckNotFailed();
     options := ValidateOptions(CELL[ forcelogin := FALSE
                                    , passive := FALSE
                                    , action := "redirect"
                                    , prompt := ""
-                                   ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]], optional := ["prompt"] ]);
+                                   ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]] ]);
     IF(type = "saml")
-    {
-      RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, options);
-    }
-    ELSE IF(type="oidc")
-    {
-      RETURN GenerateOIDCLoginRequest(this, serviceprovidertag, redirectto, options);
-    }
+      RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, PickCells(options, ["forcelogin", "passive", "action"]));
     ELSE
-    {
       THROW NEW Exception(`Unknown login type '${type}'`);
-    }
+  }
+
+  PUBLIC RECORD FUNCTION CreateOAuth2LoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    this->CheckNotFailed();
+    options := ValidateOptions(CELL[ prompt := "" ], options);
+    RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2LoginRequest", this->wrdschema->tag, serviceprovidertag, redirectto, options);
+  }
+
+  PUBLIC RECORD FUNCTION CreateOAuth2AuthorizeRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    this->CheckNotFailed();
+    options := ValidateOptions(CELL[ prompt := "", userdata := DEFAULT RECORD ], options);
+    RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2AuthorizeRequest", this->wrdschema->tag, serviceprovidertag, redirectto,
+      CELL[ options.prompt, user_data := options.userdata ]);
+  }
+
+  PUBLIC RECORD FUNCTION HandleOAuth2AuthorizeRequestLanding(STRING oauth2session) {
+    this->CheckNotFailed();
+    RETURN HandleOAuth2AuthorizeRequestLanding(this->wrdschema->tag, oauth2session);
   }
 
   /** Returns the configuration object for a registered SAML SP

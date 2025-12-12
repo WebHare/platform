@@ -16,6 +16,8 @@ import { broadcast, toResourcePath } from "@webhare/services";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { AuthenticationSettings, createSchema, updateSchemaSettings } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
+import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oauth2-client";
+import { generateRandomId } from "@webhare/std";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
@@ -131,7 +133,7 @@ async function setupOIDC() {
   puppeteer = await launchPuppeteer({ headless });
 }
 
-async function verifyRoutes() {
+async function verifyRoutes_HSClient() {
   const testsite = await test.getTestSiteJS();
   const openidconfigReq = await fetch(testsite.webRoot + ".well-known/openid-configuration");
   test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
@@ -174,6 +176,52 @@ async function verifyRoutes() {
   const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
   test.eq("sysop@beta.webhare.net", parsedPayload.email);
+}
+
+async function verifyRoutes_TSClient() {
+  const testsite = await test.getTestSiteJS();
+  const metadataUrl = testsite.webRoot + ".well-known/openid-configuration";
+  const clientScope = "webhare_testsuite:test_openid_" + generateRandomId();
+
+  //Manual metadata checks
+  const openidconfigReq = await fetch(metadataUrl);
+  test.assert(openidconfigReq.ok, "Cannot find config on " + openidconfigReq.url);
+  const openidconfig = await openidconfigReq.json();
+  test.assert('https://beta.webhare.net/', openidconfig.issuer);
+  const jwksReq = await fetch(openidconfig.jwks_uri);
+  const jwks = await jwksReq.json();
+  test.eq(2, jwks.keys.length);
+
+  //Run the new client
+  const client = new OAuth2Client({
+    metadataUrl,
+    additionalScopes: ["email"],
+    clientScope,
+    clientId,
+    clientSecret,
+  });
+
+  const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier(), userData: { testData: 42 } });
+
+  //FIXME verify invalid secret fails
+
+  //FIXME WH should verify callback url validation
+  //FIXME WH should verify valid and acceptable scopes
+  test.assert(authorize.type === "redirect");
+
+  const finalurl = await runAuthorizeFlow(authorize.url);
+
+  //Get the oauth2ession
+  const oauth2session = new URL(finalurl).searchParams.get("oauth2session");
+  test.assert(oauth2session, "No oauth2session in " + finalurl);
+
+  const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
+  test.assert(landing?.tokens?.id_token);
+  test.eq(42, landing.userData?.testData);
+
+  const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
+  test.eq(sysopguid, landing.idPayload?.sub);
+  test.eq("sysop@beta.webhare.net", landing.idPayload?.email);
 }
 
 async function verifyOpenIDClient() {
@@ -396,7 +444,8 @@ async function verifyCustomOpenIDFlow() {
 
 test.runTests([
   setupOIDC, //implies test.reset
-  verifyRoutes,
+  verifyRoutes_HSClient,
+  verifyRoutes_TSClient,
   verifyOpenIDClient,
   verifyAsOpenIDSP,
   verifyCustomOpenIDFlow,

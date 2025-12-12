@@ -2,13 +2,9 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webapi/oauth2.whlib";
 
 
@@ -53,44 +49,6 @@ PUBLIC OBJECT FUNCTION GetOIDCOauth2Connection(RECORD spinfo)
           , rpclogsource := "wrd:auth-oidc"
           ]);
   RETURN oauth2;
-}
-
-PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag, STRING redirectto, RECORD options)
-{
-  OBJECT wrdtype := wrdauthplugin->wrdschema->^WRDAUTH_OIDC_CLIENT;
-  IF (NOT ObjectExists(wrdtype))
-    THROW NEW Exception("This authentication domain is not setup for OIDC authentication");
-
-  RECORD ARRAY filters;
-  IF (tag LIKE "#?*")
-    INSERT [ field := "WRD_ID", value := ToInteger(Substring(tag,1),0) ] INTO filters AT END;
-  ELSE IF (tag != "")
-    INSERT [ field := "WRD_TAG", value := tag ] INTO filters AT END;
-
-  RECORD ARRAY spdata := wrdtype->RunQuery(
-      [ filters := filters
-      , outputcolumns := [ "WRD_ID", "METADATAURL", "CLIENTID", "CLIENTSECRET", "ADDITIONALSCOPES", "REDIRECT_URI" ]
-      ]);
-
-  IF (NOT RecordExists(spdata))
-    THROW NEW Exception("No OIDC service provider" || (tag != "" ? " with tag '" || EncodeJava(tag) || "'" : "") || " configured for this authentication domain");
-  ELSE IF (LENGTH(spdata) > 1)
-    THROW NEW Exception("Multiple OIDC service providers are configured, please select one by tag"); //This shouldn't get triggered by applicationportal.whlib as that one now falls back to #<id> for tagging. anything else left?
-
-
-  //TODO support prompt=login, prompt=none modes. they somewhat map to passive/auto logins?
-  STRING finalurl := UpdateURLVariables(ResolveToAbsoluteURL(GetRequestURL(), "/.wrd/endpoints/oidc.shtml")
-                                      , [ why := EncryptForThisServer("wrd:oidcauth", [ redirect := redirectto, client := spdata[0].wrd_id ])
-                                        , prompt := ""
-                                        ]);
-
-  RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl,
-    [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
-    , redirect_uri := spdata[0].redirect_uri
-    , extraparameters := [ prompt := CellExists(options, 'prompt') ? options.prompt : GetWebVariable("prompt") //FIXME accepting a webvariable is a hack and will be removed in the future
-                          //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
-                          ]
-    ]);
 }
 
 PUBLIC RECORD FUNCTION GuessOpenIdIcon(STRING metadataurl) {

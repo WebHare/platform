@@ -42,6 +42,9 @@ export { getOpenIDMetadataURL } from "@mod-platform/js/auth/openid";
 export { registerRelyingParty, initializeIssuer } from "./oauth2";
 export type { RelyingPartyConfig as ClientConfig, RelyingProviderInit as ServiceProviderInit } from "./oauth2";
 
+export { getDefaultOAuth2RedirectURL, createOAuth2Client, handleOAuth2AuthorizeLanding } from "./oauth2-client";
+export type { OAuth2LoginRequestOptions, OAuth2AuthorizeRequestOptions } from "./oauth2-client";
+
 //export all the types needed to implement a AuthCustomizer
 export type { LoginDeniedInfo, AuthCustomizer, OpenIdAuthenticationParameters, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
 
