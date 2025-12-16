@@ -171,7 +171,7 @@ run({
         const options: AuthTokenOptions = {
           scopes: opts.scopes ? opts.scopes.split(",") : [],
           title: opts.title || "",
-          ...opts.expires ? { expires: opts.expires === null ? Infinity : opts.expires } : {}
+          ...opts.expires ? { expires: opts.expires === "never" ? Infinity : opts.expires } : {}
         };
         const token = await createFirstPartyToken(wrdSchema, "api", entityId, options);
         if (opts.json) {
