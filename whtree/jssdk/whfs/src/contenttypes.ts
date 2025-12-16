@@ -321,6 +321,13 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     else
       whfsFinishHandler().triggerReindexOnCommit(id);
   }
+
+  /** List objects with data for this instance */
+  async listInstances(): Promise<Set<number>> {
+    this.descr ??= await describeWHFSType(this.ns);
+    const instances = await db<PlatformDB>().selectFrom("system.fs_instances").where("fs_type", "=", this.descr.id).select("fs_object").execute();
+    return new Set(instances.map(i => i.fs_object));
+  }
 }
 
 export interface VisitedResourceContext {
