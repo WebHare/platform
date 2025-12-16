@@ -219,7 +219,18 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
     if (!matchKey)
       throw new Error(`Unable to find key '${decoded?.header.kid}' in OIDC provider JWKS`);
 
-    idPayload = await verifyJWT(matchKey, metadata.config.issuer, sessdata.tokeninfo.id_token);
+    let verifyIssuer = metadata.config.issuer;
+
+    if (verifyIssuer === "https://login.microsoftonline.com/{tenantid}/v2.0" && typeof decoded?.payload === "object" && decoded.payload.tid) {
+      /* https://learn.microsoft.com/en-us/entra/identity-platform/access-tokens#validate-tokens
+         Instead of expecting the issuer claim in the token to exactly match the issuer value from metadata,
+          the application should replace the {tenantid} value in the issuer metadata with the tenant id that
+          is the target of the current request, and then check the exact match.
+      */
+      verifyIssuer = verifyIssuer.replace("{tenantid}", decoded.payload.tid);
+    }
+
+    idPayload = await verifyJWT(matchKey, verifyIssuer, sessdata.tokeninfo.id_token);
   }
 
   return {
