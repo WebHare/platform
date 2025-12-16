@@ -1030,6 +1030,7 @@
         <text tid="created">Aangemaakt</text>
         <text tid="editapikey">Wijzig API sleutel</text>
         <text tid="expires">Verloopt</text>
+        <text tid="scopes">Scopes</text>
         <text tid="title">Sleutelnaam</text>
         <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
@@ -1045,8 +1046,8 @@
         <text tid="login-intro-default"><html:i>Bij inloggen met e-mailadres</html:i>: <param p="1"/><br/><html:i>Bij inloggen met gebruikersnaam</html:i>: <param p="2"/></text>
         <text tid="password_totp_issuer">Label TOTP-issuer</text>
         <text tid="passwordrestrictions">Wachtwoordeisen</text>
-        <text tid="round_long_logins_to">Afronden naar</text>
         <text tid="round_long_logins_t_z">Volgens tijdzone</text>
+        <text tid="round_long_logins_to">Afronden naar</text>
         <text tid="round_min_duration">Minimum duur</text>
         <text tid="roundlogins">Rond de verlooptijd af naar een specifiek moment</text>
         <text tid="tag">Tekst</text>

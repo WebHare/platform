@@ -2160,6 +2160,7 @@
       <text tid="addroletousers-hint">Grant a role to the selected user</text>
       <text tid="adduserstorole">Grant to</text>
       <text tid="adduserstorole-hint">Grant this role to other users</text>
+      <text tid="apikeys">Manage API keys</text>
       <text tid="copypermissions">Copy all grants to ...</text>
       <text tid="delete">Delete</text>
       <text tid="delete-hint">Delete the selected item(s)</text>
@@ -2595,6 +2596,9 @@
     <textgroup gid="rights">   <!-- userrights.rights -->
       <text tid="additionaloptions">Options</text>
       <text tid="withgrantoption">This user or role may grant this right to others.</text>
+    </textgroup>
+    <textgroup gid="scopes">   <!-- userrights.scopes -->
+      <text tid="sysop">Sysop-access</text>
     </textgroup>
     <textgroup gid="screentitles">   <!-- userrights.screentitles -->
       <text tid="addrole">New role</text>

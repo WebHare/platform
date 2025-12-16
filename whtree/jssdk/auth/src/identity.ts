@@ -1067,6 +1067,7 @@ async function verifyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
 export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number, update: {
   title?: string;
   expires?: Temporal.Instant | null;
+  scopes?: string[];
 }): Promise<void> {
   await verifyToken(wrdSchema, tokenId);
 
@@ -1075,6 +1076,8 @@ export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
     updates.title = update.title;
   if (update?.expires !== undefined)
     updates.expirationdate = update.expires ? new Date(update.expires.epochMilliseconds) : defaultDateTime;
+  if (update?.scopes !== undefined)
+    updates.scopes = update.scopes.join(" ");
 
   if (Object.keys(updates).length)
     await db<PlatformDB>().updateTable("wrd.tokens").where("id", "=", tokenId).set(updates).execute();

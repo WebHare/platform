@@ -109,6 +109,7 @@
         <divider />
         <item action="unitcontents->openas" />
         <item action="unitcontents->getresetlink" />
+        <item action="unitcontents->apikeys" />
         <item action="syncauthobjects" disablemode="hidden" />
         <item action="setuserdefaults" disablemode="hidden" />
         <item action="editauthtexts" disablemode="hidden" />
