@@ -3,6 +3,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -366,6 +367,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(NOT this->browser->SendRawRequest("POST", this->oauthconfig.authtokenurl,
         [[ field := "Content-Type", value := "application/x-www-form-urlencoded" ]], body))
     {
+      LogDebug("system:oauth2-error", CELL[ error := "requesttoken", status := this->browser->GetHTTPStatusText(), response := BlobToString(this->browser->content, 4000) ]);
       THROW NEW Exception(`Unable to retrieve request token: ${this->browser->GetHTTPStatusText()}`);
     }
 
