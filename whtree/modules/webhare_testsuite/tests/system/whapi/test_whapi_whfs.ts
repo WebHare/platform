@@ -160,7 +160,7 @@ async function testWHFSAPI() {
     instances: [
       {
         whfsType: 'platform:virtual.objectdata',
-        data: { publish: true, title: "An updated title" }
+        data: { publish: true, title: "An updated title", description: "An updated descr", keywords: "Updated keywords", isUnlisted: true }
       }
     ]
   }, { params: { path: newFilePath } });
@@ -174,8 +174,9 @@ async function testWHFSAPI() {
   test.eq({
     publish: true,
     title: "An updated title",
-    description: "",
-    keywords: ""
+    description: "An updated descr",
+    keywords: "Updated keywords",
+    isUnlisted: true
   }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   test.assert(newFilePathRetrieved.body.link);
 

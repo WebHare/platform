@@ -30,6 +30,7 @@ async function getInstances(obj: WHFSObject) {
       data: {
         title: obj.title,
         description: obj.description,
+        ...obj.isUnlisted ? { isUnlisted: true } : {},
         ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
         ...obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
         ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
@@ -93,6 +94,9 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
 
 function mapVirtualMetaData(data: Record<string, unknown>): {
   title?: string;
+  description?: string;
+  keywords?: string;
+  isUnlisted?: boolean;
   publish?: boolean;
   type?: string;
 } | null {
@@ -100,6 +104,12 @@ function mapVirtualMetaData(data: Record<string, unknown>): {
   const retval: ReturnType<typeof mapVirtualMetaData> = {};
   if ("title" in data && typeof data.title === "string")
     retval.title = data.title;
+  if ("description" in data && typeof data.description === "string")
+    retval.description = data.description;
+  if ("keywords" in data && typeof data.keywords === "string")
+    retval.keywords = data.keywords;
+  if ("isUnlisted" in data && typeof data.isUnlisted === "boolean")
+    retval.isUnlisted = data.isUnlisted;
   if ("publish" in data && typeof data.publish === "boolean")
     retval.publish = data.publish;
   if ("type" in data && typeof data.type === "string")
