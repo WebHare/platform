@@ -43,12 +43,13 @@ run({
       if (debug)
         console.log(`Requesting for '${cert.name}'`);
 
-      await scheduleTask("platform:requestcertificate", toSnakeCase({
-        certificateId: cert.id,
-        isRenewal: !options.force,
-        staging: options.staging,
-        debug: options.debug,
-      }));
+      if (!options.dryRun)
+        await scheduleTask("platform:requestcertificate", toSnakeCase({
+          certificateId: cert.id,
+          isRenewal: !options.force,
+          staging: options.staging,
+          debug: options.debug,
+        }));
     }
     await commitWork();
   }

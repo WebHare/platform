@@ -69,12 +69,11 @@ class StoredKeyPair {
   }
 
   async shouldRenew(): Promise<{ shouldRenew: boolean; validUntil: Temporal.Instant }> {
-    const checkDate = addDuration(new Date, { days: 30 });
     const validFrom = await this.getValidFrom();
     const validUntil = await this.getValidTo();
 
     if (validFrom && validUntil) {
-      const timeStillValid = validUntil.getTime() - checkDate.getTime();
+      const timeStillValid = validUntil.getTime() - Date.now();
       const totalValidity = validUntil.getTime() - validFrom.getTime();
       //LetsEncrypt recommends renewal when 1/3 of the validity period is left
       return { shouldRenew: (timeStillValid / totalValidity) < 1 / 3, validUntil: Temporal.Instant.from(validUntil.toISOString()) };
