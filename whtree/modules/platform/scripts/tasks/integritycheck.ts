@@ -4,6 +4,7 @@ import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import { loadlib } from '@webhare/harescript';
 import type { CheckResult } from '@webhare/services';
 import { toSnakeCase } from '@webhare/std';
+import { isValidWRDSchemaTag } from '@webhare/wrd/src/wrdsupport';
 
 const issues: CheckResult[] = [];
 let verbose = false;
@@ -14,6 +15,12 @@ async function checkWRD() {
     const localIssues: WRDIssue[] = [];
     if (verbose)
       console.log(`Checking WRD schema '${schema.tag}'...`);
+
+    if (!isValidWRDSchemaTag(schema.tag)) {
+      localIssues.push({ message: `Schema tag '${schema.tag}' is not a valid WRD schema tag` });
+      continue;
+    }
+
     await checkWRDSchema(schema.tag, (issue: WRDIssue) => {
       localIssues.push(issue);
     });
