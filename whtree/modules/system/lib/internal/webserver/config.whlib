@@ -910,7 +910,7 @@ STATIC OBJECTTYPE WebConfigBuilder <
                , forcehttpsport := 0
                , hostname := url.host
                , is_interface_webserver := FALSE
-               , lowercasemode := FALSE
+               , lowercasemode := TRUE
                , outputfolder := ""
                , port := whwebserverconfig_virtualportid
                , type := 0
