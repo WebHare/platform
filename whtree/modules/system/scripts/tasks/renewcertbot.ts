@@ -16,11 +16,10 @@ run({
     const allCerts = await listStoredKeyPairs();
     await beginWork();
 
-    for (const cert of allCerts) {
+    certLoop: for (const cert of allCerts) {
       // In scope?
       if (!cert.name.startsWith("certbot-"))
-        continue;
-
+        continue certLoop;
 
       // Don't schedule if a task for this certificate is already running/pending
       for (const task of await listTasks("platform:requestcertificate", { onlyPending: true })) {
@@ -28,7 +27,7 @@ run({
         if (data?.data && typeof data.data === "object" && "certificate_id" in data.data && data.data.certificate_id === cert.id) {
           if (debug)
             console.log(`Request task ${task.id} already scheduled for '${cert.name}'`);
-          continue;
+          continue certLoop;
         }
       }
 
@@ -37,7 +36,7 @@ run({
       if (!checkResult.shouldRenew) {
         if (debug)
           console.log(`Skipping '${cert.name}': still valid until ${checkResult.validUntil.toString()}`);
-        continue;
+        continue certLoop;
       }
 
       if (debug)
