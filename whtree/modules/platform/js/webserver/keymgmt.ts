@@ -67,6 +67,20 @@ class StoredKeyPair {
   constructor(private keyFolder: WHFSFolder) {
   }
 
+  async shouldRenew(): Promise<{ shouldRenew: boolean; validUntil: Temporal.Instant }> {
+    const validFrom = await this.getValidFrom();
+    const validUntil = await this.getValidTo();
+
+    if (validFrom && validUntil) {
+      const timeStillValid = validUntil.getTime() - Date.now();
+      const totalValidity = validUntil.getTime() - validFrom.getTime();
+      //LetsEncrypt recommends renewal when 1/3 of the validity period is left
+      return { shouldRenew: (timeStillValid / totalValidity) < 1 / 3, validUntil: Temporal.Instant.from(validUntil.toISOString()) };
+    } else {
+      return { shouldRenew: true, validUntil: Temporal.Instant.fromEpochMilliseconds(0) };
+    }
+  }
+
   async getCertificateChain(): Promise<string[]> {
     const chain = await this.keyFolder.openFile("certificatechain.pem", { allowMissing: true });
     if (!chain)
