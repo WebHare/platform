@@ -179,7 +179,10 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
     }
 
     IF(url = "" AND suppresswhy = "") { //no renderable URL found yet
-      IF(typeinfo.browserpreview != "" OR typeinfo.iswidgettype OR typeinfo.needstemplate) {
+      //TODO whconstant_whfstype_dynamicfoldercontents is an assumption though. we *assume* it's safe and it generally will be, but it's a SHTML so it can do anything. Either way we can't use preview link as it needs direct execution
+      IF(typeinfo.id = whconstant_whfstype_dynamicfoldercontents)
+        url := SELECT AS STRING link FROM system.fs_objects WHERE id = selectedfile.id;
+      ELSE IF(typeinfo.browserpreview != "" OR typeinfo.iswidgettype OR typeinfo.needstemplate OR typeinfo.id = whconstant_whfstype_dynamicfoldercontents) {
         url := GetPreviewLink(selectedfile.id);
       }
     }
