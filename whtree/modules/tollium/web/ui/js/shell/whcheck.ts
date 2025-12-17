@@ -5,6 +5,7 @@ interface CheckResult {
   privileged: boolean;
   firstmessage: string;
   numleft: number;
+  any_critical: boolean;
 }
 
 interface JSAPIService {
@@ -18,12 +19,15 @@ import { encodeString } from "@webhare/std";
 import type IndyShell from '@mod-tollium/web/ui/js/shell';
 import type { TowlNotification } from "./towl";
 import type { AppLaunchInstruction } from "@mod-platform/js/tollium/types";
+import { create, qR } from "@webhare/dompack";
 
 let checkcall: Promise<void> | null = null;
 let checkinterval: NodeJS.Timeout | undefined;
+let criticalholder: HTMLElement | null = null;
 
 function onCheckFail() {
   checkcall = null;
+  setCriticalError(null); //assuming this means a loss of connectivity.
 }
 
 function onCheckResponse(shell: IndyShell, response: CheckResult) {
@@ -56,6 +60,23 @@ function onCheckResponse(shell: IndyShell, response: CheckResult) {
     shell.towl.showNotification(notification);
   } else {
     shell.towl.hideNotification("system:checks");
+  }
+
+  setCriticalError(response.any_critical ? getTid("tollium:shell.criticalissues.dashboard") : null);
+}
+
+function setCriticalError(text: string | null) {
+  if (text) {
+    if (!criticalholder) {
+      criticalholder = create("div",
+        { class: "wh-shell__criticalissue" },
+      );
+      document.body.insertBefore(criticalholder, qR(".wh-backend__topbar"));
+    }
+    criticalholder.textContent = text;
+  } else if (criticalholder) {
+    criticalholder.remove();
+    criticalholder = null;
   }
 }
 

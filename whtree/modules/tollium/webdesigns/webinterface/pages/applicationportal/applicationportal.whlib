@@ -818,21 +818,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
     RETURN BootApp(app, invoke);
   }
 
-  PUBLIC RECORD FUNCTION WCS_GetCheckResult()
-  {
-    this->SetupPortal();
-    BOOLEAN issupervisor := ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor");
-    IF(NOT issupervisor)
-      RETURN [ privileged := FALSE ];
-
-    RECORD ARRAY messages := GetCurrentCheckIssues();
-    DELETE FROM messages WHERE snoozed;
-    IF(Length(messages)>0)
-      RETURN [ privileged := TRUE, numleft := Length(messages) - 1, firstmessage := messages[0].message_text ];
-    ELSE
-      RETURN [ privileged := TRUE, numleft := 0, firstmessage := "" ];
-  }
-
   ///Execute an action through the portal
   PUBLIC RECORD FUNCTION WCS_ExecuteAction(RECORD action)
   {

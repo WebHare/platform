@@ -633,6 +633,9 @@
       <text tid="sessionexpired">Uw inlogsessie is verlopen. U moet opnieuw inloggen om deze applicatie te herstarten.</text>
       <text tid="untrustedparams">U mag deze applicatie niet openen met URL parameters.</text>
     </textgroup>
+    <textgroup gid="criticalissues">   <!-- shell.criticalissues -->
+      <text tid="dashboard">Er zijn kritieke fouten die  direct aandacht vereisen. Zie het Dashboard</text>
+    </textgroup>
     <textgroup gid="dashboard">   <!-- shell.dashboard -->
       <text tid="apptitle">WebHare</text>
       <text tid="logout">Uitloggen</text>
@@ -747,6 +750,7 @@
     <text tid="filesize">Bestandsgrootte</text>
     <text tid="finish">Voltooien</text>
     <text tid="firstname">Voornaam</text>
+    <text tid="foldername">Mapnaam</text>
     <text tid="fullname">Volledige naam</text>
     <text tid="help">Help</text>
     <text tid="home">Home</text>

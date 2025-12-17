@@ -24,7 +24,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
     issues.push({
       type: "system:checker.pg.collation",
       isCritical: true,
-      messageText: `PostgreSQL reports it's in the '${collation}' collation, you need to 'wh dump-restore-database' as soon as possible`,
+      messageText: `PostgreSQL reports it's in the '${collation}' collation, forcing a 'wh db upgrade' to the same vesrion may fix this`,
     });
   }
 
@@ -61,10 +61,10 @@ async function checkPostgres(): Promise<CheckResult[]> {
         messageText: `Your database server needs to be restarted to activate a restored/migrated database in ${unusedDb.fullPath}`,
         moreInfoLink: upgradingPostgresLink
       });
-    } else {
+    } else if (!unusedDb.name.startsWith(`db.bak.`)) { //the db.bak.* archives will be removed automatically after some time
       issues.push({
         type: "system:checker.pg.unused",
-        messageText: `It looks like a previous migration backup can be removed in ${unusedDb.fullPath} - use \`wh remove-old-databases\` to clean up`,
+        messageText: `An unused database appears to exist in ${unusedDb.fullPath}`,
         moreInfoLink: upgradingPostgresLink
       });
     }
