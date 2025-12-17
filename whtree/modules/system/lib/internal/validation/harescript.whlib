@@ -159,8 +159,8 @@ PUBLIC RECORD FUNCTION __ScanLib(BLOB libdata, STRING resourcepath)
       CONTINUE;
     }
 
-    BOOLEAN is_gettid := ToUppercase(tok.token) IN ["GETTID","GETHTMLTID"];
-    BOOLEAN is_getidforlanguage := ToUppercase(tok.token) IN ["GETTIDFORLANGUAGE","GETHTMLTIDFORLANGUAGE"];
+    BOOLEAN is_gettid := ToUppercase(tok.token) IN ["GETTID","GETHTMLTID","GETTIDASINLINEITEMS"];
+    BOOLEAN is_getidforlanguage := ToUppercase(tok.token) IN ["GETTIDFORLANGUAGE","GETHTMLTIDFORLANGUAGE","GETTIDASINLINEITEMSFORLANGUAGE"];
     BOOLEAN is_explicittid := ToUppercase(tok.token) = "/*TID*/";
     BOOLEAN is_screen := ToUppercase(tok.token) = "LOADSCREEN" OR ToUppercase(tok.token) = "RUNSCREEN";
     BOOLEAN is_expliciticon := ToUppercase(tok.token) = "/*ICON*/";

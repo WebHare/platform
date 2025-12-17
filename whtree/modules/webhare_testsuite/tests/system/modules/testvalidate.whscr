@@ -661,10 +661,12 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := commenticon, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
   TestEq([[ icon:="tollium:b.icon" ],[ icon:="tollium:c.icon" ], [icon := "tollium:group.see-me" ]], SELECT icon FROM res.icons);
 
-  //Test GetTIDForLanguage
+  //Test GetTIDForLanguage and variants
   FOREVERY(STRING totest FROM [`OBJECT x; GetTIDForLanguage(x->formlanguagecode, "system:has.module");`
                               ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, "system:has.module");`
                               ,`OBJECT x; GetHTMLTIDForLanguage(x->formlanguagecode, \`system:has.module\`);`
+                              ,`OBJECT x; GetTidAsInlineItems(\`system:has.module\`);`
+                              ,`OBJECT x; GetTidAsInlineItemsForLanguage(x->formlanguagecode, \`system:has.module\`);`
                               ])
   {
     BLOB testfile := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib"; ${totest}`);
