@@ -19,6 +19,17 @@ LOADLIB "mod::tollium/lib/internal/uploads.whlib";
 
 CONSTANT STRING ARRAY validlistclasses := [ "", "verticaltabs" ];
 
+STRING FUNCTION InlineItemsToString(VARIANT ARRAY inlineitems) {
+  STRING out := "";
+  FOREVERY(VARIANT el FROM inlineitems) {
+    IF(TypeID(el) = TypeID(STRING))
+      out := out || el;
+    ELSE IF(CellExists(el,"text"))
+      out := out || el.text;
+  }
+  RETURN out;
+}
+
 INTEGER FUNCTION GetTypeIdForListColumnType(STRING coltype)
 {
   IF(coltype IN ["date","datetime"])
@@ -1552,6 +1563,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       INSERT [ name := col.name
              , type := coltype
              , allowdupe := FALSE
+             , inlineitems := col.type IN ["text"]
              ] INTO this->storage->required_cells AT END;
 
       IF (col.iconname != "")
@@ -1713,8 +1725,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
 
       @cell formattedvalue the title that was generated using GetFormattedListCell, used for values of type STRING to sort (without needing to know specifics on titlefromrowkey or optiongid)
   */
-  STRING FUNCTION GetSortableListCell(RECORD coldef, RECORD listrow, STRING formattedvalue)
-  {
+  STRING FUNCTION GetSortableListCell(RECORD coldef, RECORD listrow, VARIANT invalue) {
+    STRING formattedvalue := TYPEID(invalue) = TYPEID(STRING) ? invalue : InlineItemsToString(invalue);
     //Exceptions first
     IF(coldef.sortkeyname="")
     {
@@ -1788,7 +1800,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       @param coldef Column
       @param listrow Row
   */
-  STRING FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname)
+  VARIANT FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname)
   {
     IF(NOT CellExists(listrow,cellname))
       RETURN ""; //footer cells may be missing

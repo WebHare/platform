@@ -54,8 +54,8 @@ PUBLIC OBJECTTYPE ListTreeCallback
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE ListTreeHelper
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE ListTreeHelper <
+  // ---------------------------------------------------------------------------
   //
   // Private variables
   //
@@ -473,8 +473,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
       @param isfooterrow Whether the row is a footer row
       @return Rows with valid rowkeys present.
   */
-  PUBLIC RECORD ARRAY FUNCTION CheckNewRows(RECORD ARRAY rows, BOOLEAN isfooterrow)
-  {
+  PUBLIC RECORD ARRAY FUNCTION CheckNewRows(RECORD ARRAY rows, BOOLEAN isfooterrow) {
     FOREVERY(RECORD row FROM rows)
     {
       IF(NOT CellExists(row,"LISTROWCLASSES"))
@@ -537,6 +536,9 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
           VARIANT val := GetCell(row, req.name);
           IF(CellExists(req,"allowconstants") AND SearchElement(req.allowconstants, val) >= 0)
             CONTINUE; //acceptable constant! ("indeterminate")
+
+          IF(CellExists(req,"inlineitems") AND req.inlineitems AND TYPEID(val) = TYPEID(VARIANT ARRAY))
+            CONTINUE; //RTDInlineItem like format.
 
           // test if the input value is correct (if onmapvalue is used this might be different than the type of the listcolumn)
           IF(req.type != 0 AND NOT CanCastTypeTo(TypeId(val), req.type))

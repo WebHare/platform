@@ -329,7 +329,8 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
   {
     RECORD baserow := CELL[
        cbox1 := "",
-       cbox1_value := FALSE
+       cbox1_value := FALSE,
+       inline := VARIANT[]
     ];
     this->list1->rows :=
       [ [ ...baserow
@@ -383,6 +384,8 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
         , "datetime" := DEFAULT DATETIME
         , datetimehint := "Kweenie"
         , cbox1_value := TRUE
+
+        , inline := VARIANT["Text ", [ bold := TRUE, text := "in bold" ]]
         ]
       , [ ...baserow
         , rowicon := 3

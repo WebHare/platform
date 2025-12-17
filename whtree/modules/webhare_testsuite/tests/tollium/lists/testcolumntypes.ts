@@ -30,7 +30,7 @@ test.runTests(
         const row5cells = getListRowCells(list, "<A05>");
 
         // test whether we got the expected amount of columns
-        test.eq(11, row1cells.length);
+        test.eq(12, row1cells.length);
         test.eq(row1cells.length, row2cells.length);
         test.eq(row1cells.length, row3cells.length);
 
@@ -81,20 +81,24 @@ test.runTests(
         test.eq("http://www.webhare.nl/", row1cells[6].querySelector('a')?.href);
         test.eq("_blank", row1cells[6].querySelector('a')?.target);
 
+        //inline items
+        test.eq("", row1cells[7].innerHTML);
+        test.eq("Text <b>in bold</b>", row2cells[7].innerHTML);
+
         //date
-        test.eq("", row1cells[7].textContent);
-        test.eq("10-11-2012", row2cells[7].textContent);
+        test.eq("", row1cells[8].textContent);
+        test.eq("10-11-2012", row2cells[8].textContent);
 
         //time
-        test.eq("9:08", row1cells[8].textContent);
-        test.eq("0:00", row2cells[8].textContent);
+        test.eq("9:08", row1cells[9].textContent);
+        test.eq("0:00", row2cells[9].textContent);
 
         //checkbox
-        test.eq(false, row1cells[10].querySelector('input')?.checked);
-        test.eq(false, row1cells[10].querySelector('input')?.indeterminate);
-        test.eq(true, row2cells[10].querySelector('input')?.checked);
-        test.eq(false, row2cells[10].querySelector('input')?.indeterminate);
-        test.eq(true, row3cells[10].querySelector('input')?.indeterminate);
+        test.eq(false, row1cells[11].querySelector('input')?.checked);
+        test.eq(false, row1cells[11].querySelector('input')?.indeterminate);
+        test.eq(true, row2cells[11].querySelector('input')?.checked);
+        test.eq(false, row2cells[11].querySelector('input')?.indeterminate);
+        test.eq(true, row3cells[11].querySelector('input')?.indeterminate);
 
         // ADDME: test datetime
         // ADDME: also test integer, integer64, money and blobrecord
@@ -107,19 +111,19 @@ test.runTests(
       test.eq('', tt.comp("feedback").getValue());
       test.eq([false, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
 
-      test.click(getListRowCells(list, "<R01>")[10].querySelector('input')!); //toggle first row
+      test.click(getListRowCells(list, "<R01>")[11].querySelector('input')!); //toggle first row
       await test.wait('ui');
 
       test.eq('OnCheck: <R01> cbox1_value', tt.comp("feedback").getValue());
       test.eq([true, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
 
-      test.click(getListRowCells(list, "<A03>")[10].querySelector('input')!); //toggle indeermiante one
+      test.click(getListRowCells(list, "<A03>")[11].querySelector('input')!); //toggle indeermiante one
       await test.wait('ui');
 
       test.eq('OnCheck: <A03> cbox1_value', tt.comp("feedback").getValue());
       test.eq([true, true, true, false, false], getListContents().map((row: any) => row.cbox1_value));
 
-      test.click(getListRowCells(list, "<A03>")[10].querySelector('input')!); //toggle indeermiante one
+      test.click(getListRowCells(list, "<A03>")[11].querySelector('input')!); //toggle indeermiante one
       await test.wait('ui');
       test.eq([true, true, false, false, false], getListContents().map((row: any) => row.cbox1_value));
     },
