@@ -81,7 +81,7 @@ export type CertificateRequestResult = {
   /** The request was not successful */
   success: false;
   /** The error code */
-  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error";
+  error: "nodomains" | "certificateobsolete" | "noprovider" | "noproviderdirectory" | "hostnotlocal" | "hostconnecterror" | "requesterror" | "testerror" | "error" | "stillvalid";
   /** Additional error data */
   errorData?: string;
 };
@@ -95,6 +95,7 @@ type CertificateRequestData = {
   debug?: boolean;
 };
 
+//Implements task platform:requestcertificate
 export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<CertificateRequestData>, CertificateRequestResult>): Promise<TaskResponse> {
   const taskdata = toCamelCase(req.taskdata);
   await beginWork();
@@ -102,23 +103,14 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
   // Find the domains to request certificates for
   const domains = taskdata.domains ?? [];
   const storedKeyPair = taskdata.certificateId ? await openStoredKeyPair(taskdata.certificateId) : null;
-  if (storedKeyPair) {
-    const checkDate = addDuration(new Date, { days: 30 });
-    const validUntil = await storedKeyPair.getValidTo();
-    if (taskdata.debug)
-      logDebug("platform:certbot", {
-        "#what": "Check stored key pair",
+  if (storedKeyPair && taskdata.isRenewal) {
+    const checkResult = await storedKeyPair.shouldRenew();
+    if (!checkResult.shouldRenew) {
+      return req.resolveByCompletion({
+        success: false,
+        error: "stillvalid",
+        errorData: checkResult.validUntil.toString(),
       });
-    if (validUntil && validUntil > checkDate) {
-      if (taskdata.isRenewal) {
-        return req.resolveByPermanentFailure("Certificate not up for renewal", {
-          result: {
-            success: false,
-            error: "stillvalid",
-            errorData: validUntil.toISOString(),
-          }
-        });
-      }
     }
   } else if (taskdata.certificateId)
     return req.resolveByPermanentFailure("Certificate not found", {

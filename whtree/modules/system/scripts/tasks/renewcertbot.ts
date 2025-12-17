@@ -1,4 +1,4 @@
-import { listStoredKeyPairs } from "@mod-platform/js/webserver/keymgmt";
+import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { run } from "@webhare/cli";
 import { describeTask, listTasks, scheduleTask } from "@webhare/services";
 import { toSnakeCase } from "@webhare/std";
@@ -30,6 +30,14 @@ run({
             console.log(`Request task ${task.id} already scheduled for '${cert.name}'`);
           continue;
         }
+      }
+
+      const storedKeyPair = await openStoredKeyPair(cert.id);
+      const checkResult = await storedKeyPair.shouldRenew();
+      if (!checkResult.shouldRenew) {
+        if (debug)
+          console.log(`Skipping '${cert.name}': still valid until ${checkResult.validUntil.toString()}`);
+        continue;
       }
 
       if (debug)

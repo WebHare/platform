@@ -1,5 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { toFSPath } from "@webhare/services";
+import { addDuration } from "@webhare/std";
 import { db } from "@webhare/whdb";
 import { openFolder, type WHFSFolder } from "@webhare/whfs";
 import { createHash, X509Certificate } from "node:crypto";
@@ -65,6 +66,21 @@ class StoredKeyPair {
   }
 
   constructor(private keyFolder: WHFSFolder) {
+  }
+
+  async shouldRenew(): Promise<{ shouldRenew: boolean; validUntil: Temporal.Instant }> {
+    const checkDate = addDuration(new Date, { days: 30 });
+    const validFrom = await this.getValidFrom();
+    const validUntil = await this.getValidTo();
+
+    if (validFrom && validUntil) {
+      const timeStillValid = validUntil.getTime() - checkDate.getTime();
+      const totalValidity = validUntil.getTime() - validFrom.getTime();
+      //LetsEncrypt recommends renewal when 1/3 of the validity period is left
+      return { shouldRenew: (timeStillValid / totalValidity) < 1 / 3, validUntil: Temporal.Instant.from(validUntil.toISOString()) };
+    } else {
+      return { shouldRenew: true, validUntil: Temporal.Instant.fromEpochMilliseconds(0) };
+    }
   }
 
   async getCertificateChain(): Promise<string[]> {
