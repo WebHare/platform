@@ -19,11 +19,19 @@ export interface ModulePlugins {
     /** TS Plugin code */
     composerHook: string;
   }>;
+  objectEditors: Array<{
+    name: string;
+    documentEditor: string;
+    supportsReadOnly: boolean;
+    supportsNoAccess: boolean;
+    types: string[];
+  }>;
 }
 
 export async function generatePlugins(context: GenerateContext): Promise<string> {
   const retval: ModulePlugins = {
     spPlugins: [],
+    objectEditors: []
   };
 
   for (const mod of context.moduledefs) {
@@ -43,6 +51,17 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
           objectName: resolveResource(mod.resourceBase, node.getAttribute("objectname") || ""),
           parser: resolveResource(mod.resourceBase, node.getAttribute("parser") || ""),
           hooksFeatures: getAttr(node, "hooksfeatures", [])
+        });
+      }
+
+      const objectEditors = elements(mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "objecteditor"));
+      for (const editor of objectEditors) {
+        retval.objectEditors.push({
+          name: mod.name + ":" + getAttr(editor, "name", ""),
+          documentEditor: resolveResource(mod.resourceBase, editor.getAttribute("documenteditor") || ""),
+          supportsReadOnly: getAttr(editor, "supportsreadonly", false),
+          supportsNoAccess: getAttr(editor, "supportsnoaccess", false),
+          types: getAttr(editor, "types", [])
         });
       }
     }
