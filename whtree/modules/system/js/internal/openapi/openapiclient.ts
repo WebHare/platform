@@ -11,7 +11,7 @@ export type OpenAPIResponse<BodyType> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResponse = any;
 
-export class OpenAPIClient {
+export class RawOpenAPIClient {
   readonly baseurl: string;
   defaultheaders: Record<string, string> = {};
 

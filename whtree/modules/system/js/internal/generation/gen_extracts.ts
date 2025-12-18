@@ -43,9 +43,12 @@ export interface BackendServiceDescriptor {
 
 export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "development">;
 
-export interface OpenAPIDescriptor {
+export interface OpenAPIClientDescriptor {
   name: string;
   spec: string;
+}
+
+export interface OpenAPIDescriptor extends OpenAPIClientDescriptor {
   initHook?: string;
   handlerInitHook?: string;
   merge?: string;
@@ -64,7 +67,7 @@ export interface TypedServiceDescriptor {
 export interface Services {
   backendServices: BackendServiceDescriptor[];
   openAPIServices: OpenAPIDescriptor[];
-  openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
+  openAPIClients: OpenAPIClientDescriptor[];
   rpcServices: TypedServiceDescriptor[];
 }
 
@@ -238,6 +241,13 @@ export async function gatherServices(context: GenerateContext) {
         ...(servicedef.handlerInitHook ? { handlerInitHook: resolveResource(mod.resourceBase, servicedef.handlerInitHook) } : {}),
         merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
         crossdomainOrigins: servicedef.crossDomainOrigins || [],
+      });
+    }
+
+    for (const [servicename, servicedef] of Object.entries(mod.modYml?.openApiClients ?? [])) {
+      retval.openAPIClients.push({
+        name: `${mod.name}:${servicename}`,
+        spec: resolveResource(mod.resourceBase, servicedef.spec),
       });
     }
 

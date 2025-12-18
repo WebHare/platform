@@ -52,6 +52,11 @@ async function testWebHareConfig() {
     spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
   }, testservice);
 
+   const testclient_xml = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient_xml"); //only exists to verify the moduledef XMl syntax works
+  test.eqPartial({
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+  }, testclient_xml);
+
   const testclient = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient");
   test.eqPartial({
     spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"

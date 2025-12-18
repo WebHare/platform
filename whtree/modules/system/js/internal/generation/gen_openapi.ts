@@ -1,5 +1,5 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import type { FileToUpdate, GenerateContext } from "./shared";
+import { generatorBanner, type FileToUpdate, type GenerateContext } from "./shared";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { astToString, type OpenAPI3, type SchemaObject } from "openapi-typescript";
 import type { OpenAPIV3 } from "openapi-types";
@@ -7,7 +7,7 @@ import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
-import type { OpenAPIDescriptor } from "./gen_extracts";
+import type { OpenAPIDescriptor, Services } from "./gen_extracts";
 import { promises as fs } from "node:fs";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
@@ -459,9 +459,8 @@ async function generateFile(options: GenerateContext, service: OpenAPIDescriptor
   return retval;
 }
 
-function getFilesForModules(module: string, processmodules: string[]): FileToUpdate[] {
+function getFilesForModules(serviceconfig: Services, module: string, processmodules: string[]): FileToUpdate[] {
   const retval: FileToUpdate[] = [];
-  const serviceconfig = getExtractedConfig("services");
   //FIXME as client and services use separate XML nodes but build the same name, who prevents a clash?
   const openapis = [
     ...serviceconfig.openAPIClients.map(_ => ({ ..._, isservice: false })),
@@ -480,10 +479,54 @@ function getFilesForModules(module: string, processmodules: string[]): FileToUpd
   return retval;
 }
 
+export async function generateOpenAPIDefs(serviceconfig: Services, context: GenerateContext, platform: boolean, mods: string[]): Promise<string> {
+  const openapis = [
+    ...serviceconfig.openAPIClients.map(_ => ({ ..._, isservice: false })),
+    ...serviceconfig.openAPIServices.map(_ => ({ ..._, isservice: true }))
+  ].filter(_ => mods.some(m => _.name.startsWith(m + ":")))
+    .map(_ => ({
+      name: _.name,
+      varname: _.name.replace(':', '__'),
+    }));
+
+  return `${generatorBanner}
+
+import { TypedOpenAPIClient } from "@mod-system/js/internal/openapi/openapitypedclient";
+import type { } from "@mod-platform/generated/ts/openapi.ts";
+
+${openapis.map(api => `import type { paths as ${api.varname}__paths, components as ${api.varname}__components } from "../openapi/${api.name.replace(":", "/")}.ts"`).join('\n')}
+
+declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/openapi.ts" : "wh:ts/openapi.ts")} {
+}
+
+declare module "@mod-platform/generated/ts/openapi.ts" {
+  export interface OpenAPIClientDefinitions {
+${openapis.map(api => `    ${JSON.stringify(api.name)}: TypedOpenAPIClient<${api.varname}__paths, ${api.varname}__components>;`).join('\n')}
+  }
+}
+`;
+}
+
 export async function listAllModuleOpenAPIDefs(): Promise<FileToUpdate[]> {
+  const serviceconfig = getExtractedConfig("services");
   const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
-  const files = getFilesForModules("platform", whconstant_builtinmodules);
+  const files = getFilesForModules(serviceconfig, "platform", whconstant_builtinmodules);
   for (const mod of noncoremodules)
-    files.push(...getFilesForModules(mod, [mod]));
-  return files;
+    files.push(...getFilesForModules(serviceconfig, mod, [mod]));
+
+  return [
+    ...files,
+    {
+      path: `ts/openapi.ts`,
+      module: "platform",
+      type: "ts",
+      generator: (context: GenerateContext) => generateOpenAPIDefs(serviceconfig, context, true, whconstant_builtinmodules)
+    }, {
+
+      path: `ts/openapi.ts`,
+      module: "dummy-installed",
+      type: "ts",
+      generator: (context: GenerateContext) => generateOpenAPIDefs(serviceconfig, context, false, noncoremodules)
+    }
+  ];
 }
