@@ -9,7 +9,7 @@ export async function getAPIKeys(wrdschema: string, entity: number) {
   return toSnakeCase(await listTokens(new WRDSchema(wrdschema), entity));
 }
 
-export async function createAPIkey(wrdschema: string, entity: number, expires: Date, title: string): Promise<{
+export async function createAPIkey(wrdschema: string, entity: number, expires: Date, title: string, scopes: string[]): Promise<{
   access_token: string;
   expires: Temporal.Instant | null;
   id: number;
@@ -17,6 +17,7 @@ export async function createAPIkey(wrdschema: string, entity: number, expires: D
   const tok = await createFirstPartyToken(new WRDSchema(wrdschema), "api", entity, {
     title: title,
     expires: expires.getTime() === defaultDateTime.getTime() ? Infinity : expires,
+    scopes: scopes
   });
   return toSnakeCase(tok);
 }
@@ -29,6 +30,10 @@ export async function getAPIKey(wrdschema: string, keyId: number) {
   return toSnakeCase(await getToken(new WRDSchema(wrdschema), keyId));
 }
 
-export async function updateAPIKey(wrdschema: string, keyId: number, expires: Date, title: string) {
-  return await runInWork(() => updateToken(new WRDSchema(wrdschema), keyId, { expires: expires.getTime() === defaultDateTime.getTime() ? null : expires.toTemporalInstant(), title }));
+export async function updateAPIKey(wrdschema: string, keyId: number, expires: Date, title: string, scopes: string[]) {
+  return await runInWork(() => updateToken(new WRDSchema(wrdschema), keyId, {
+    expires: expires.getTime() === defaultDateTime.getTime() ? null : expires.toTemporalInstant(),
+    title,
+    scopes
+  }));
 }

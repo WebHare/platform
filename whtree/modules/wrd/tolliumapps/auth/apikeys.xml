@@ -25,6 +25,7 @@
         <page name="page1" onnext="onnextpage1">
           <textedit name="title" placeholdertid=".title-placeholder" required="true" />
           <date name="expires" />
+          <select name="scopes" type="checkbox" rowkeytype="string" />
           <text valuetid=".clicknext" />
         </page>
         <page name="page2" isfinish="true" oninit="oninitpage2">
@@ -41,6 +42,7 @@
     <body>
       <textedit name="title" placeholdertid=".title-placeholder" required="true" />
       <date name="expires" />
+      <select name="scopes" type="checkbox" rowkeytype="string" />
     </body>
   </screen>
 

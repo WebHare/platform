@@ -1969,6 +1969,7 @@
       <text tid="addroletousers-hint">Ken een rol toe aan de geselecteerde gebruiker</text>
       <text tid="adduserstorole">Toekennen aan</text>
       <text tid="adduserstorole-hint">Ken deze rol toe aan andere gebruikers</text>
+      <text tid="apikeys">Beheer API sleutels</text>
       <text tid="copypermissions">Kopieer alle rechten naar ...</text>
       <text tid="delete">Verwijderen</text>
       <text tid="delete-hint">Verwijder de geselecteerde element(en)</text>
@@ -2404,6 +2405,9 @@
     <textgroup gid="rights">   <!-- userrights.rights -->
       <text tid="additionaloptions">Opties</text>
       <text tid="withgrantoption">De gebruiker of rol mag dit recht aan anderen toekennen.</text>
+    </textgroup>
+    <textgroup gid="scopes">   <!-- userrights.scopes -->
+      <text tid="sysop">Sysop toegang</text>
     </textgroup>
     <textgroup gid="screentitles">   <!-- userrights.screentitles -->
       <text tid="addrole">Nieuwe rol</text>

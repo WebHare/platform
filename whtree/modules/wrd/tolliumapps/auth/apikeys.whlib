@@ -6,9 +6,11 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
   INTEGER entity;
+  RECORD options;
 
   MACRO Init(RECORD data) {
     this->entity := data.entity;
+    this->options := ValidateOptions([ scopes := RECORD[]], data.options);
   }
 
   RECORD ARRAY FUNCTION OnGetApiKeys() {
@@ -25,10 +27,10 @@ PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
 
   MACRO OnEditApiKey(RECORD row) {
     IF(RecordExists(row)) {
-      this->RunScreen(Resolve("apikeys.xml#editapikey"), CELL[row]);
+      this->RunScreen(Resolve("apikeys.xml#editapikey"), CELL[row, this->options]);
       ^apikeys->Invalidate();
     } ELSE {
-      INTEGER newid := this->RunScreen(Resolve("apikeys.xml#addapikey"), CELL[this->entity]);
+      INTEGER newid := this->RunScreen(Resolve("apikeys.xml#addapikey"), CELL[this->entity, this->options]);
       IF(newid != 0) {
         ^apikeys->Invalidate();
         ^apikeys->value := newid;
@@ -44,12 +46,13 @@ PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE AddAPIKEy EXTEND TolliumScreenBase <
+PUBLIC STATIC OBJECTTYPE AddAPIKey EXTEND TolliumScreenBase <
   INTEGER entity;
   INTEGER keyid;
 
   MACRO Init(RECORD data) {
     this->entity := data.entity;
+    ^scopes->options := SELECT rowkey := scope, title FROM data.options.scopes;
   }
 
   BOOLEAN FUNCTION OnNextPage1() {
@@ -59,7 +62,7 @@ PUBLIC STATIC OBJECTTYPE AddAPIKEy EXTEND TolliumScreenBase <
   }
 
   MACRO OnInitPage2(RECORD data) {
-    RECORD result := EnforceStructure([ expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#createAPIkey", this->contexts->wrdschema->tag, this->entity, ^expires->value, ^title->value));
+    RECORD result := EnforceStructure([ expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#createAPIkey", this->contexts->wrdschema->tag, this->entity, ^expires->value, ^title->value, ^scopes->value));
     ^access_token->value := result.access_token;
     ^expires->value := result.expires;
     this->keyid := result.id;
@@ -75,15 +78,17 @@ PUBLIC STATIC OBJECTTYPE EditAPIKey EXTEND TolliumScreenBase <
 
   MACRO Init(RECORD data) {
     this->keyid := data.row.rowkey;
+    ^scopes->options := SELECT rowkey := scope, title FROM data.options.scopes;
 
-    RECORD tokeninfo := EnforceStructure([expires := DEFAULT DATETIME], CallJS("./apikeys.ts#getAPIKey", this->contexts->wrdschema->tag, this->keyid));
+    RECORD tokeninfo := EnforceStructure([expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#getAPIKey", this->contexts->wrdschema->tag, this->keyid));
     ^title->value := tokeninfo.title;
     ^expires->value := tokeninfo.expires;
+    ^scopes->value := tokeninfo.scopes;
   }
 
   BOOLEAN FUNCTION Submit() {
     OBJECT work := this->BeginUnvalidatedFeedback();
-    CallJS("./apikeys.ts#updateAPIKey", this->contexts->wrdschema->tag, this->keyid, ^expires->value, ^title->value);
+    CallJS("./apikeys.ts#updateAPIKey", this->contexts->wrdschema->tag, this->keyid, ^expires->value, ^title->value, ^scopes->value);
     RETURN work->Finish();
   }
 >;

@@ -14,8 +14,8 @@ LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
-PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -103,6 +103,7 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     this->pvt_unit := unit;
     this->newuser->enabled := ObjectExists(unit) AND unit->authobjectid != 0 AND this->contexts->user->HasRightOn("system:manageunit", unit->authobjectid);
     this->newrole->enabled := ObjectExists(unit) AND unit->authobjectid != 0 AND this->contexts->user->HasRightOn("system:manageroles", unit->authobjectid);
+    ^apikeys->enabled := this->contexts->user->HasRight("system:sysop");
 
     IF (NOT this->SetColumnMode("unit"))
       this->ResetColumns();
@@ -471,6 +472,12 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     }
 
     this->contexts->screen->RunScreen("mod::system/screens/userrights/parts/unitcontents.xml#prepareresetlink", CELL[ user ]);
+  }
+
+  MACRO DoAPIKeys() {
+    RunWRDMAnageAPIKeys(this->owner, this->GetSelectedWRDAuthobject()->entityid, CELL[
+        scopes := [[ scope := "system:sysop", title := GetTid("system:userrights.scopes.sysop")]]
+    ]);
   }
 
   MACRO DoShowAuditLog()

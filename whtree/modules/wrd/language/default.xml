@@ -1030,6 +1030,7 @@
         <text tid="created">Created</text>
         <text tid="editapikey">Edit API key</text>
         <text tid="expires">Expires</text>
+        <text tid="scopes">Scopes</text>
         <text tid="title">Key name</text>
         <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
@@ -1045,8 +1046,8 @@
         <text tid="login-intro-default"><html:i>When logging in using email address</html:i>: <param p="1"/><br/><html:i>When logging in using user name</html:i>: <param p="2"/></text>
         <text tid="password_totp_issuer">TOTP issuer label</text>
         <text tid="passwordrestrictions">Password restrictions</text>
-        <text tid="round_long_logins_to">Round to</text>
         <text tid="round_long_logins_t_z">In timezone</text>
+        <text tid="round_long_logins_to">Round to</text>
         <text tid="round_min_duration">Minimum duration</text>
         <text tid="roundlogins">Round login expiry to a specific time</text>
         <text tid="tag">Text</text>
