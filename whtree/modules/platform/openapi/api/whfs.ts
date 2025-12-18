@@ -117,7 +117,7 @@ function mapVirtualMetaData(data: Record<string, unknown>): {
   return Object.keys(retval).length > 0 ? retval : null;
 }
 
-async function applyInstanceUpdats(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"]) {
+async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"]) {
   for (const instance of instances || []) {
     if (instance.whfsType === "platform:virtual.objectdata")
       continue;
@@ -145,7 +145,7 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
         type: req.body.type,
         ...virtualMetadata && mapVirtualMetaData(virtualMetadata) || {}
       });
-      await applyInstanceUpdats(newObj, req.body.instances);
+      await applyInstanceUpdates(newObj, req.body.instances);
       return req.createJSONResponse(201, {});
     });
   } catch (e) {
@@ -167,7 +167,7 @@ export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
           await targetObject.update(updates);
         }
       }
-      await applyInstanceUpdats(targetObject, req.body.instances);
+      await applyInstanceUpdates(targetObject, req.body.instances);
       return req.createJSONResponse(200, {});
     });
   } catch (e) {
