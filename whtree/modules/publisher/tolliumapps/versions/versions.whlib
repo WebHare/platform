@@ -135,9 +135,13 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
   MACRO LoadBaseData(RECORD sel) {
     OBJECT sourceobject := OpenWHFSObject(sel.snapshot);
+    ^maintab->visible := ObjectExists(sourceobject);
+    IF(NOT ^maintab->visible)
+      RETURN;
+
     RECORD draftmeta := sourceobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
 
-    ^pinobject->value := sourceobject->ispinned;
+    ^pinobject->value := ObjectExists(sourceobject) AND sourceobject->ispinned;
 
     ^name->value := draftmeta.name;
 
