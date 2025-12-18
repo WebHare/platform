@@ -623,6 +623,8 @@ ASYNC MACRO ViewHistory() {
 
   //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/versions
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectVersionsDialog(GetTestController(), unpublishedfile->id));
+  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.1"; //this one lacks a snapshot and may crash
+
   TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.2"; //this one contained temporary data
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Copy to"));
@@ -633,6 +635,7 @@ ASYNC MACRO ViewHistory() {
 
   RECORD ARRAY newobjects := SELECT * FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id AND creationdate >= startcopy;
   TestEq(1, Length(newobjects), "There should be one new object created by the copy");
+  //FIXME verify this copy
 }
 
 RunTestframework([ PTR Prep

@@ -997,7 +997,7 @@
           <text tid="createselfsignedcert">Zelf-ondertekend certificaat aanmaken</text>
           <text tid="deletekey">Sleutel verwijderen</text>
           <text tid="downloadcertificate">Certificaat downloaden</text>
-          <text tid="downloadkey">Key downloaden</text>
+          <text tid="downloadkey">Sleutel downloaden</text>
           <text tid="generatecsr">CSR Genereren</text>
           <text tid="invalidkeyfile">Het bestand '<param p="1"/>' lijkt geen valide private key te zijn</text>
           <text tid="keyfile">Sleutelbestand</text>
