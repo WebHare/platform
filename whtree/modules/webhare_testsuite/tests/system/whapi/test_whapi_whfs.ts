@@ -160,7 +160,12 @@ async function testWHFSAPI() {
     instances: [
       {
         whfsType: 'platform:virtual.objectdata',
-        data: { publish: true, title: "An updated title" }
+        data: { publish: true, title: "An updated title", description: "An updated descr", keywords: "Updated keywords", isUnlisted: true }
+      }, {
+        whfsType: "webhare_testsuite:global.generic_test_type",
+        data: {
+          myWhfsRefArray: [`whfs::${tempPath}`]
+        }
       }
     ]
   }, { params: { path: newFilePath } });
@@ -174,9 +179,13 @@ async function testWHFSAPI() {
   test.eq({
     publish: true,
     title: "An updated title",
-    description: "",
-    keywords: ""
+    description: "An updated descr",
+    keywords: "Updated keywords",
+    isUnlisted: true
   }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  test.eq({
+     myWhfsRefArray: ["site::webhare_testsuite.testsitejs/tmp/"]
+  }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "webhare_testsuite:global.generic_test_type")?.data);
   test.assert(newFilePathRetrieved.body.link);
 
   // Wait for the file to come online
