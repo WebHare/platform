@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -110,16 +111,17 @@ BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
 //TODO we assume we won't be inside a long running process. UpdateIncides should only run in CI and in a task..
 RECORD ARRAY indexmanagers;
 
-MACRO EnsureIndexManagerUp(INTEGER id)
-{
-  INTEGER idx := (SELECT AS INTEGER #indexmanagers + 1 FROM indexmanagers WHERE indexmanagers.id = VAR id) - 1;
-  IF(idx < 0)
+MACRO EnsureIndexManagerUp(INTEGER id) {
+  RECORD indexmanager := SELECT * FROM indexmanagers WHERE indexmanagers.id = VAR id;
+  IF(NOT RecordExists(indexmanager))
     THROW NEW Exception(`Unknown indexmanager #${id}`);
-  WHILE(NOT indexmanagers[idx].isup)
-  {
-    TRY
-    {
-      RECORD ARRAY indices := ListOpenSearchIndices(indexmanagers[idx].id);
+  IF(indexmanager.isup)
+    RETURN;
+
+  DATETIME deadline := AddTimeToDate(15 * 60 * 1000, GetCurrentDateTime()); //15 minutes max wait time
+  WHILE(TRUE) {
+    TRY {
+      RECORD ARRAY indices := ListOpenSearchIndices(id);
       /* +RECORD ARRAY
            +RECORD
             +DOCS: 0
@@ -131,18 +133,21 @@ MACRO EnsureIndexManagerUp(INTEGER id)
             +UUID: 'ES4GCGCZSn2DNpKbMm_ngA'
 
         TODO do we als need to be able to wait for specific indices to be open? */
-      indexmanagers[idx].isup := TRUE;
-    }
-    CATCH(OBJECT<SearchUnavailableException> e)
-    {
-      //Wait for it to come online TODO: we should probably log this after some wait time but I'm not sure what a reasonable give up timeout is
+
+      UPDATE indexmanagers SET isup := TRUE WHERE indexmanagers.id = VAR id;
+      RETURN;
+    } CATCH(OBJECT<SearchUnavailableException> e) {
+      IF(NOT indexmanager.isbuiltin OR GetCurrentDateTime() > deadline)
+        THROW e; //We're not waiting at all for external index managers, starting them is outside our control
+
+      /* indexmanager can take a couple of minutes on very complex installations. This mostly affects consilio:update which should
+         probably be running 'per index manager' and not globally to not get stuck - and not actually start until we know the indexmgr is live */
       Sleep(200);
     }
   }
 }
 
-MACRO UpdateModuleCatalogs(RECORD options)
-{
+MACRO UpdateModuleCatalogs(RECORD options) {
   //Moddef-based catalog creation has been moved to TS
   ApplyWebHareConfiguration([ subsystems := ["consilio"], source := "UpdateModuleCatalogs"]);
   indexmanagers := SELECT *, isup := FALSE FROM ListIndexManagers() ORDER BY isdefault DESC;
@@ -155,8 +160,10 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
   BOOLEAN havedefaultindexmanager := Length(indexmanagers) >= 1 AND indexmanagers[0].isdefault;
   trans->BeginWork();
-  FOREVERY(RECORD want FROM wantcatalogs)
-  {
+  FOREVERY(RECORD want FROM wantcatalogs) {
+    IF(options.verbose)
+      Print(`Checking configuration of catalog '${want.tag}'\n`);
+
     OBJECT catalog := OpenConsilioCatalog(want.tag);
     IF(NOT ObjectExists(catalog))
       CONTINUE; //ApplyWebHareConfiguration apparently failed?
@@ -201,9 +208,17 @@ MACRO UpdateModuleCatalogs(RECORD options)
     IF(NOT ObjectExists(want.catalog))
      CONTINUE;
 
+    IF(options.verbose)
+      Print(`Checking indices of catalog '${want.tag}'\n`);
+
     RECORD ARRAY indices := want.catalog->ListAttachedIndices();
-    FOREVERY(RECORD indic FROM indices)
-      EnsureIndexManagerUp(indic.indexmanager);
+    TRY {
+      FOREVERY(RECORD indic FROM indices)
+        EnsureIndexManagerUp(indic.indexmanager);
+    } CATCH(OBJECT e) {
+      PrintTo(2, `Failed to ensure index manager(s) are up for catalog '${want.tag}': ${e->what}\n`);
+      CONTINUE;
+    }
 
     IF(want.managed AND want.catalog->managed) //If we are supposed to manage the catalog, we'll restore indices if needed
     {
@@ -278,6 +293,7 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       , catalogmask := "*"
       , zapbroken := FALSE
       , zapanymismatch := FALSE
+      , verboSE := FALSE
       ], options);
 
   IF (NOT GetPrimary()->ColumnExists("consilio", "indexmanagers", "id"))

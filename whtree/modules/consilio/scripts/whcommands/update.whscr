@@ -12,6 +12,7 @@ MACRO Main()
 {
   RECORD ARRAY options := [ [ name := "zapbroken", type := "switch" ]
                           , [ name := "zapanymismatch", type := "switch" ]
+                          , [ name := "verbose", type := "switch" ]
                           , [ name := "catalogmask", type := "param" ]
                           ];
 
@@ -28,6 +29,7 @@ MACRO Main()
   FixConsilioIndices(CELL[ catalogmask := cmdargs.catalogmask ?? "*"
                          , cmdargs.zapbroken
                          , cmdargs.zapanymismatch
+                         , cmdargs.verbose
                          ]);
 }
 
