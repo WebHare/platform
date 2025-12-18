@@ -167,6 +167,7 @@ export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
           await targetObject.update(updates);
         }
       }
+      await applyInstanceUpdats(targetObject, req.body.instances);
       return req.createJSONResponse(200, {});
     });
   } catch (e) {
