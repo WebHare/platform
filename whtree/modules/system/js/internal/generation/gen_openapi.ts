@@ -529,6 +529,4 @@ export async function listAllModuleOpenAPIDefs(): Promise<FileToUpdate[]> {
       generator: (context: GenerateContext) => generateOpenAPIDefs(serviceconfig, context, false, noncoremodules)
     }
   ];
-
-  return files;
 }
