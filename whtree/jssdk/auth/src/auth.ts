@@ -55,7 +55,7 @@ export type { AuthAuditEvent, AuthAuditContext } from "./audit";
 
 export { getRequestUser } from "./authfrontend";
 
-export type { AuthorizationInterface } from "./userrights";
+export type { AuthorizationInterface, GlobalRight, TargettedRight } from "./userrights";
 export { getAuthorizationInterface } from "./userrights";
 
 export type { WRDAuthLoginSettings } from "./support";

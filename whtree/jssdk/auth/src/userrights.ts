@@ -7,8 +7,8 @@ import { appendToArray, throwError } from "@webhare/std";
 import { db, query, escapePGIdentifier } from "@webhare/whdb";
 import { encodeWRDGuid } from "@webhare/wrd/src/accessors";
 
-type GlobalRight = "system:sysop" | "system:supervisor" | ModuleQualifiedName;
-type TargettedRight = "system:fs_fullaccess" | ModuleQualifiedName;
+export type GlobalRight = "system:sysop" | "system:supervisor" | ModuleQualifiedName;
+export type TargettedRight = "system:fs_fullaccess" | ModuleQualifiedName;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RightsDB = any;
@@ -230,9 +230,6 @@ class WRDEntityAuthorization implements AuthorizationInterface {
       if (chain[0].target)
         throw new Error(`Right '${right}' is not a global right but requires an object of type '${chain[0].target}'`);
     } else {
-      if (!chain[0].target)
-        throw new Error(`Right '${right}' is a global right, use hasRight instead`);
-
       if (typeof object === "number") //not looking for all/any
         if (targetTable && parentColumn)
           matchObjects.push(...await gatherParents(targetTable, parentColumn, object));
