@@ -4,7 +4,7 @@ import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type Record
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration } from "./wrdsupport";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag } from "./wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
@@ -235,7 +235,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   /** Open a WRD schema by tag */
   constructor(tag: string) {
     // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll see if the tag is OK once we eventually start to open schemas
-    if (!tag.match(/^.+:.+$/)) //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
+    if (!isValidWRDSchemaTag(tag)) //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
       throw new Error(`Invalid schema tag '${tag}'`);
 
     this.tag = tag;

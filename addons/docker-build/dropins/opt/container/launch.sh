@@ -20,14 +20,14 @@ export PATH=$PATH:$JAVA_HOME/bin
 mkdir -p /tmp 2>/dev/null
 chmod 1777 /tmp 2>/dev/null
 
-# Ensure root has /opt/whdata/home/root/
-mkdir -p /opt/whdata/home/root
-chown root /opt/whdata/home/root
+# Ensure root has /opt/whdata/root/
+mkdir -p /opt/whdata/root
+chown root /opt/whdata/root
 
 # If no $HOME/.vimrc exists, create it to make vi behave more sane. This is the way we like it
-if [ ! -f /opt/whdata/home/root/.vimrc ]; then
-  echo '" Necessary line' > /opt/whdata/home/root/.vimrc
-  echo 'set nocompatible' >> /opt/whdata/home/root/.vimrc
+if [ ! -f /opt/whdata/root/.vimrc ]; then
+  echo '" Necessary line' > /opt/whdata/root/.vimrc
+  echo 'set nocompatible' >> /opt/whdata/root/.vimrc
 fi
 
 # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it

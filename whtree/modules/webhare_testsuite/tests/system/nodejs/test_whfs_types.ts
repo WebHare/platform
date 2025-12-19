@@ -115,6 +115,7 @@ async function testInstanceData() {
   const testtype = whfsType("webhare_testsuite:global.generic_test_type");
   test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", 0);
+  test.assert(!(await testtype.listInstances()).has(testfile.id));
 
   //Test basic get/set
   await testtype.set(testfile.id, {
@@ -123,6 +124,7 @@ async function testInstanceData() {
   });
   test.eqPartial({ int: 15, yesNo: true }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", 2);
+  test.assert((await testtype.listInstances()).has(testfile.id));
 
   await testtype.set(testfile.id, {
     int: 20,

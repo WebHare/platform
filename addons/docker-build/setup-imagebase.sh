@@ -57,9 +57,9 @@ apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4C
 add-apt-repository 'deb http://apt-archive.postgresql.org/pub/repos/apt/ focal-pgdg main'
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
 
-# Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
-# usermod -d /opt/whdata/home/root root - doesn't work:  'usermod: user root is currently used by process 1'
-sed -e 's/:\/root:/:\/opt\/whdata\/home\/root:/' /etc/passwd > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
+# Modify root to live in /opt/whdata/root/ so data there is preserved between restarts
+# usermod -d /opt/whdata/root root - doesn't work:  'usermod: user root is currently used by process 1'
+sed -e 's/:\/root:/:\/opt\/whdata\/root:/' /etc/passwd > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
 
 # Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
 groupadd --gid 20000 whdata
