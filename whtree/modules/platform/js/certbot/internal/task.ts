@@ -6,6 +6,7 @@ import { ACMEChallengeHandlerBase, type ACMEChallengeHandlerFactory } from "@mod
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
 import { loadlib } from "@webhare/harescript";
 import {
+  applyConfiguration,
   backendConfig,
   importJSFunction,
   lockMutex,
@@ -19,7 +20,7 @@ import {
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { addDuration, pick, regExpFromWildcards, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
-import { beginWork, db } from "@webhare/whdb";
+import { beginWork, db, onFinishWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
 import { stat, unlink } from "node:fs/promises";
 
@@ -383,6 +384,10 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
     const resource = await ResourceDescriptor.from(accountKeyPair.privateKey);
     if (!provider.accountPrivatekey || provider.accountPrivatekey.hash !== resource.hash)
       await systemConfigSchema.update("certificateProvider", provider.wrdId, { accountPrivatekey: resource });
+
+    onFinishWork({
+      onCommit: async () => applyConfiguration({ subsystems: ["webserver"], source: "platform:requestcertificate" })
+    });
 
     return req.resolveByCompletion({
       success: true,
