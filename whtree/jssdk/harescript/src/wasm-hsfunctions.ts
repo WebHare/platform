@@ -476,6 +476,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       output: Buffer.concat(stdout_buffers).toString()
     });
   });
+  wasmmodule.registerAsyncExternalFunction("GETLOCALIPS::SA:", async (vm, id_set) => {
+    const ips = [...new Set(Object.values(os.networkInterfaces()).flatMap(iface => iface ? iface.map(addr => addr.address) : []))];
+    id_set.setJSValue(getTypedArray(VariableType.StringArray, ips));
+  });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
     id_set.setString(generateRandomId("base64url"));
   });
