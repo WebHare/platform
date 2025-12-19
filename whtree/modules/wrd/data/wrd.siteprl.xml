@@ -20,11 +20,6 @@
     <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlspendpoint.whlib#RunSAMLSpEndpoint" />
   </filetype>
 
-  <apply>
-    <to type="all" />
-    <formdefinitions name="wrd:authpages" path="mod::wrd/data/forms/authpages.formdef.xml" />
-  </apply>
-
   <filetype namespace="http://www.webhare.net/xmlns/wrd/schemaarchive"
             blobiscontent="true"
             comment="WRD Schema archive"

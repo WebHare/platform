@@ -168,7 +168,7 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options) {
     ExecuteSubmitInstruction(webdesign->GetWRDAuthPlugin()->GenerateLoginRequest(toks[0], toks[1], landing));
   }
 
-  OBJECT loginform := webdesign->OpenForm("wrd:authpages#login");
+  OBJECT loginform := webdesign->OpenForm("platform:authpages#login");
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
 
@@ -250,7 +250,7 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
 
 
 PUBLIC OBJECT FUNCTION GetTotpPage(OBJECT webdesign, RECORD options) {
-  OBJECT totpform := webdesign->OpenForm("wrd:authpages#totp");
+  OBJECT totpform := webdesign->OpenForm("platform:authpages#totp");
   RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
                       , form := totpform->GetWittyData()
                       , token := GetWebVariable("token")
@@ -310,7 +310,7 @@ PUBLIC OBJECTTYPE ForgotPasswordForm EXTEND Formbase
 
 PUBLIC OBJECT FUNCTION GetForgotPasswordPage(OBJECT webdesign, RECORD options)
 {
-  OBJECT loginform := webdesign->OpenForm("wrd:authpages#forgotpassword");
+  OBJECT loginform := webdesign->OpenForm("platform:authpages#forgotpassword");
   loginform->^email->value := GetWebVariable("email");
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.forgotpassword-title");
@@ -420,7 +420,7 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
 
 PUBLIC OBJECT FUNCTION GetResetPasswordPage(OBJECT webdesign, STRING action, RECORD options)
 {
-  OBJECT loginform := webdesign->OpenForm("wrd:authpages#resetpassword");
+  OBJECT loginform := webdesign->OpenForm("platform:authpages#resetpassword");
   loginform->SetAction(action);
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := loginform->verifyresult.issetpassword
@@ -524,7 +524,7 @@ PUBLIC OBJECTTYPE EmailChangeForm EXTEND Formbase
 
 PUBLIC OBJECT FUNCTION GetEmailChangePage(OBJECT webdesign, RECORD options)
 {
-  OBJECT loginform := webdesign->OpenForm("wrd:authpages#emailchange");
+  OBJECT loginform := webdesign->OpenForm("platform:authpages#emailchange");
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.emailchange-title");
 
@@ -620,7 +620,7 @@ PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase <
 
 PUBLIC OBJECT FUNCTION GetPasswordChangePage(OBJECT webdesign, RECORD options)
 {
-  OBJECT loginform := webdesign->OpenForm("wrd:authpages#passwordchange");
+  OBJECT loginform := webdesign->OpenForm("platform:authpages#passwordchange");
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.passwordchange-title");
 
@@ -801,7 +801,7 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
       ELSE
         message := GetHTMLTid("platform:frontend.worldwide.auth.completeaccount.passwordmustbereset");
 
-      OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccountpassword");
+      OBJECT completeform := webdesign->OpenForm("platform:authpages#completeaccountpassword");
       completeform->^message->richvalue := [ htmltext := StringToBlob(`<p class="normal">${message}</p>`) ];
       completeform->^message->visible := TRUE;
 
@@ -815,7 +815,7 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
 
   IF(require2fa) { //we wanted you to setup 2FA
     IF(NOT RecordExists(userauthinfo.totp)) {
-      OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccounttotp");
+      OBJECT completeform := webdesign->OpenForm("platform:authpages#completeaccounttotp");
       STRING issuer := GetWRDSetting(wrdschema, "password_totp_issuer") ?? "WebHare"; // Issuer may be shown in the authenticator app
       STRING username := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountlogintag);
       RECORD newtotp := PrepareTOTPForUser(username, issuer);

@@ -38,7 +38,7 @@ PUBLIC OBJECTTYPE PwatestPage EXTEND PWAPageBase
       [ publishedat := FormatISO8601Datetime(GetCurrentDatetime(),"","milliseconds")
       , myimglink := myimg.link
       , mytextfile := GetModuleResourceURL("mod::webhare_testsuite/webdesigns/pwatest/web/mypath/deeperpath/public.txt")
-      , testpage_form := this->webdesign->OpenForm("publisher:testpages#testpage")->GetWittyData()
+      , testpage_form := this->webdesign->OpenForm("platform:testpages#testpage")->GetWittyData()
       ];
 
     RETURN PTR EmbedWittyComponent(Resolve("pwatest.witty:pwatest"), wittydata);

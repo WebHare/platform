@@ -144,3 +144,4 @@ rpcServices:
 
 formDefinitions:
   customform: webdesigns/basetest/pages/customformdef/customformdef.formdef.xml
+  beaconform: tests/publisher/contentlibraries/libs/beaconform.formdef.xml

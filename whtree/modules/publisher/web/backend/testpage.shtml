@@ -30,7 +30,7 @@ PUBLIC STATIC OBJECTTYPE DynamicPage EXTEND DynamicPageBase
 
     __CONSTREF RECORD infodoc := [ htmltext := StringToBlob(`<html><body><h2>This a heading 2</h2><p class="normal">This is a normal infotext paragraph</p></body></html>`) ];
     MACRO PTR contents;
-    OBJECT form := this->webdesign->OpenForm("publisher:testpages#testpage");
+    OBJECT form := this->webdesign->OpenForm("platform:testpages#testpage");
     FOREVERY(RECORD field FROM form->ListFields())
     {
       IF(alldisabled)

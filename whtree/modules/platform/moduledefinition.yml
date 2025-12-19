@@ -164,3 +164,8 @@ rpcServices:
   frontendtests:
     api: js/devsupport/frontend-test-service.ts#testService
     filter: js/devsupport/frontend-test-service.ts#filterTestService
+
+formDefinitions:
+  authpages: mod::wrd/data/forms/authpages.formdef.xml
+  testpages: mod::publisher/lib/internal/forms/testpage.formdef.xml
+  webtoolform: mod::publisher/lib/internal/forum/forum.formdef.xml
