@@ -293,7 +293,7 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
       , catalogmask := "*"
       , zapbroken := FALSE
       , zapanymismatch := FALSE
-      , verboSE := FALSE
+      , verbose := FALSE
       ], options);
 
   IF (NOT GetPrimary()->ColumnExists("consilio", "indexmanagers", "id"))
