@@ -18,8 +18,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
-<
+PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase <
   RECORD ARRAY columns;
 
   MACRO Init()
@@ -105,7 +104,8 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
     RECORD ARRAY messages :=
          SELECT TEMPORARY rowicon := snoozed ? 2 : stopped = DEFAULT DATETIME ? is_critical ? 3 : 1 : 0
               , *
-              , message :=      message_text
+                //WH5.9 and before we're wrting 'tid:=""' tids where they should have been default records, so need to check for that
+              , message :=      RecordExists(message_tid) AND message_tid.tid != "" ? CallFunctionPtrVA(PTR GetTidAsInlineItems, VARIANT[message_tid.tid, ...message_tid.params]) : VARIANT(message_text)
               , sortmessage :=  (rowicon = 3 ? "0" : "1") || ToLowercase(message_text) //sort critical issues first, reusing rowicon's evaluation
               , canjumpto :=    RecordExists(jump_to)
               , cansnooze :=    is_manageable AND NOT snoozed
@@ -255,7 +255,6 @@ PUBLIC STATIC OBJECTTYPE Details EXTEND TolliumScreenBase
                            , when := wrd_creationdate
                         FROM history;
     ^entity->^wrd_limitdate->visible := ^entity->^wrd_limitdate->value != MAX_DATETIME;
-    ^entity->^more_info_link->visible := ^entity->^more_info_link->value != "";
 
     IF(this->contexts->user->ShowDeveloperOptions())
     {

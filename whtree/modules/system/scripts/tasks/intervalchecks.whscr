@@ -1,4 +1,4 @@
-<?wh
+<?wh (*WASMENGINE*)
 LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
@@ -21,7 +21,6 @@ RECORD ARRAY checkresults :=
        , message_text := text
        , message_tid := DEFAULT RECORD //not supported yet for autochecks
        , jump_to := CellExists(checks,'jumpto') ? checks.jumpto : DEFAULT RECORD
-       , more_info_link := CellExists(checks,'more_info_link') ? checks.more_info_link : ""
        , scopes := checktypes
        , is_critical := CellExists(checks,'is_critical') AND checks.is_critical
     FROM checks;

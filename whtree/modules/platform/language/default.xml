@@ -190,4 +190,17 @@
       </textgroup>
     </textgroup>
   </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
+      <textgroup gid="checks">   <!-- tolliumapps.dashboard.checks -->
+        <textgroup gid="errors" limitlanguages="en">   <!-- tolliumapps.dashboard.checks.errors -->
+          <text tid="assetpacks-autocompile-disabled"><html:a href="https://www.webhare.dev/manuals/developers/tips-and-tricks/suspend-autocompilation/">Automatic compilation</html:a> of out-of-date production assets has been disabled</text>
+          <text tid="postgresql-oldversion">You are running PostgreSQL <param p="1"/> but version <param p="2"/> will be required by future WebHare versions, you should <html:a href="https://www.webhare.dev/manuals/database-management/upgrading-postgres/">upgrade</html:a> soon</text>
+          <text tid="postgresql-oldversion-brew">You are running PostgreSQL <param p="1"/> but versions &lt;= 13 will be removed from Homebrew on 2026-03-01, you must <html:a href="https://www.webhare.dev/manuals/database-management/upgrading-postgres/">upgrade ASAP</html:a></text>
+          <text tid="postgresql-switchdb">Your database server needs to be restarted to activate a restored/migrated database in <param p="1"/></text>
+          <text tid="postgresql-unuseddb">An unused database appears to exist in <param p="1"/>. Delete it to save space</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
 </language>

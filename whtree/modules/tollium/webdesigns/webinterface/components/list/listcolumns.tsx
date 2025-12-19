@@ -6,6 +6,7 @@ import type { DataColumn, VisibleRow } from './list';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { createImage, updateImage } from '@mod-tollium/js/icons';
 import { colminwidth } from './listsupport';
+import type { RTDSourceInlineItems } from '@webhare/services/src/richdocument';
 
 type SizeStyles = {
   width: number;
@@ -209,21 +210,50 @@ export class BaseEditable extends ListColumnBase<string> {
   }
 }
 
+function splitText(text: string): Array<string | Node> {
+  const retval = [];
+  for (const part of text.split('\n')) {
+    if (retval.length)
+      retval.push(document.createElement('br'));
+    retval.push(part);
+  }
+  return retval;
+}
+
+//TODO this should move to RTD APIs and there should be some sharing with actual/real HTML rendering?
+function mapInlineItems(items: RTDSourceInlineItems): Array<Node | string> {
+  const result: Array<Node | string> = [];
+  for (const el of items) {
+    if (typeof el === 'string') {
+      result.push(...splitText(el));
+      continue;
+    }
+
+    if (!("text" in el)) //widget or image? but can't render those yet
+      continue;
+
+    let nodes = splitText(el.text);
+    if (el.bold)
+      nodes = [dompack.create("b", {}, nodes)];
+    if (el.italic)
+      nodes = [dompack.create("i", {}, nodes)];
+    if (el.underline)
+      nodes = [dompack.create("u", {}, nodes)];
+    if (el.link)
+      nodes = [dompack.create("a", { href: el.link, target: el.target }, nodes)];
+
+    result.push(...nodes);
+  }
+  return result;
+}
+
 export class Text extends BaseEditable {
-  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: RTDSourceInlineItems, wrapped?: boolean) {
     if (!cell)
       throw new Error('no cell');
 
     cell.classList.add("text"); // so CSS can apply ellipsis
-    if (data.indexOf('\n') >= 0) {//linefeeds should be converted to ;
-
-      while (data[0] === '\n')
-        data = data.substr(1);
-      while (data[data.length - 1] === '\n')
-        data = data.substr(0, data.length - 1);
-      data = data.split('\n').join('; ');
-    }
-    cell.textContent = data;
+    cell.replaceChildren(...mapInlineItems(data));
     if (columndef.align === 'right')
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
   }

@@ -1545,7 +1545,6 @@
         <text tid="message">Error message</text>
         <text tid="messagetidatsnooze">Error message</text>
         <text tid="metadata">Metadata</text>
-        <text tid="more_info_link">More information</text>
         <text tid="multiplemessages">(multiple error messages)</text>
         <text tid="noerrors">There are no known issues</text>
         <text tid="platform">Platform</text>

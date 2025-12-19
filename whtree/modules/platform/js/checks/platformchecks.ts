@@ -4,8 +4,6 @@ import { query } from "@webhare/whdb";
 import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 import { readPlatformConf } from "../configure/axioms";
 
-const upgradingPostgresLink = "https://www.webhare.dev/manuals/database-management/upgrading-postgres/";
-
 async function checkPostgres(): Promise<CheckResult[]> {
   const issues: CheckResult[] = [];
 
@@ -42,15 +40,15 @@ async function checkPostgres(): Promise<CheckResult[]> {
   if (curVersion <= 13 && process.platform === "darwin") { //then we assume you're using brew which has hard EOLed PG13: ' postgresql@13 has been deprecated! It will be disabled on 2026-03-01.'
     issues.push({
       type: "system:checker.pg.oldversion.brew",
-      messageText: `You are running PostgreSQL ${curVersion} but versions <= 13 will be removed from Homebrew on 2026-03-01, you must upgrade ASAP`,
+      messageTid: { tid: /*tid*/ "platform:tolliumapps.dashboard.checks.errors.postgresql-oldversion-brew", params: [curVersion.toString()] },
+      metadata: { currentVersion: curVersion },
       isCritical: true,
-      moreInfoLink: upgradingPostgresLink
     });
   } else if (curVersion < expectVersion) {
     issues.push({
       type: "system:checker.pg.oldversion",
-      messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion} is recommended, you should upgrade soon`,
-      moreInfoLink: upgradingPostgresLink
+      messageTid: { tid: /*tid*/ "platform:tolliumapps.dashboard.checks.errors.postgresql-oldversion", params: [curVersion.toString(), expectVersion.toString()] },
+      metadata: { currentVersion: curVersion, expectedVersion: expectVersion },
     });
   }
 
@@ -58,14 +56,13 @@ async function checkPostgres(): Promise<CheckResult[]> {
     if (unusedDb.name === "db.switchto") {
       issues.push({
         type: "system:checker.pg.switchto",
-        messageText: `Your database server needs to be restarted to activate a restored/migrated database in ${unusedDb.fullPath}`,
-        moreInfoLink: upgradingPostgresLink
+        messageTid: { tid: /*tid*/ "platform:tolliumapps.dashboard.checks.errors.postgresql-switchdb", params: [unusedDb.fullPath] },
+        metadata: { path: unusedDb.fullPath }
       });
     } else if (!unusedDb.name.startsWith(`db.bak.`)) { //the db.bak.* archives will be removed automatically after some time
       issues.push({
         type: "system:checker.pg.unused",
-        messageText: `An unused database appears to exist in ${unusedDb.fullPath}`,
-        moreInfoLink: upgradingPostgresLink
+        messageTid: { tid: /*tid*/ "platform:tolliumapps.dashboard.checks.errors.postgresql-unuseddb", params: [unusedDb.fullPath] },
       });
     }
   }

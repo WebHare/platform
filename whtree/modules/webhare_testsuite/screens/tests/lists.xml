@@ -103,6 +103,7 @@
                 <column type="email" name="email" title="Email" hintname="emailhint" iconname="icon" iconoverlayname="iconoverlay" />
                 <column type="url"   name="url"   title="URL"   hintname="urlhint" iconname="icon" iconoverlayname="iconoverlay" />
                 <column type="text"  name="urlhint" title="URL2"  linkname="url" />
+                <column type="text"  name="inline" title="InlineItems" />
 
                 <column type="date" name="date" title="Date" />
                 <column type="time" name="time" title="Time" />

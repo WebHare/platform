@@ -199,45 +199,32 @@ RECORD FUNCTION CompileLanguageFile(STRING resname)
   RETURN result;
 }
 
-STRING FUNCTION ExecuteCompiledTidText(VARIANT text, STRING ARRAY params, BOOLEAN rich)
-{
+STRING FUNCTION ExecuteCompiledTidText(VARIANT text, STRING ARRAY params, BOOLEAN rich) {
   IF(TYPEID(text) = TYPEID(STRING))
     RETURN rich ? EncodeHTML(text) : text;
 
   STRING output;
-  FOREVERY(VARIANT tok FROM VARIANT ARRAY(text))
-  {
-    IF(TYPEID(tok) = TYPEID(STRING))
-    {
+  FOREVERY(VARIANT tok FROM VARIANT ARRAY(text)) {
+    IF(TYPEID(tok) = TYPEID(STRING)) {
       output := output || (rich ? EncodeHTML(tok) : tok);
-    }
-    ELSE IF(TYPEID(tok) = TYPEID(INTEGER))
-    {
-      IF(tok >= 1)
-      {
+    } ELSE IF(TYPEID(tok) = TYPEID(INTEGER)) {
+      IF(tok >= 1) {
         STRING get_param;
         IF(tok <= Length(params))
           get_param := params[tok - 1];
         output := output || (rich ? EncodeHTML(get_param) : get_param);
       }
-    }
-    ELSE IF(TYPEID(tok) = TYPEID(RECORD))
-    {
-      IF(tok.t = "tag")
-      {
+    } ELSE IF(TYPEID(tok) = TYPEID(RECORD)) {
+      IF(tok.t = "tag") {
         STRING sub := ExecuteCompiledTidText(tok.subs, params, rich);
         output := output || (rich ? `<${tok.tag}>${sub}</${tok.tag}>` : sub);
-      }
-      ELSE IF(tok.t = "ifparam")
-      {
+      } ELSE IF(tok.t = "ifparam") {
         STRING get_param;
         IF(tok.p <= Length(params))
           get_param := params[tok.p - 1];
 
         output := output || ExecuteCompiledTidText(ToUppercase(get_param) = ToUppercase(tok.value) ? tok.subs : tok.subselse, params, rich);
-      }
-      ELSE IF(tok.t = "a")
-      {
+      } ELSE IF(tok.t = "a") {
         STRING sub := ExecuteCompiledTidText(tok.subs, params, rich);
         IF(rich)
         {
@@ -254,6 +241,77 @@ STRING FUNCTION ExecuteCompiledTidText(VARIANT text, STRING ARRAY params, BOOLEA
         {
           output := output || sub;
         }
+      }
+    }
+  }
+  RETURN output;
+}
+
+VARIANT ARRAY FUNCTION MapTextToInlineItem(STRING text, RECORD activetags) {
+  IF(RecordExists(activetags))
+    RETURN VARIANT[[ text := text, ...activetags ]];
+  ELSE IF(text != "")
+    RETURN VARIANT[ text ];
+  ELSE
+    RETURN VARIANT[];
+}
+
+VARIANT ARRAY FUNCTION CompressInlineItems(VARIANT ARRAY initems) {
+  VARIANT ARRAY output;
+  FOREVERY(VARIANT item FROM VARIANT ARRAY(initems)) {
+    IF(Length(output) = 0) {
+      INSERT item INTO output AT END;
+    } ELSE {
+      VARIANT lastitem := output[Length(output)-1];
+      IF(TYPEID(item) = TYPEID(STRING) AND TYPEID(lastitem) = TYPEID(STRING)) {
+        output[Length(output)-1] := lastitem || item;
+      } ELSE {
+        INSERT item INTO output AT END;
+      }
+    }
+  }
+  RETURN output;
+}
+
+VARIANT ARRAY FUNCTION ExecuteCompiledTidInlineItems(VARIANT text, STRING ARRAY params, RECORD activetags) {
+  IF(TYPEID(text) = TYPEID(STRING))
+    RETURN MapTextToInlineItem(text, activetags);
+
+  VARIANT ARRAY output;
+  FOREVERY(VARIANT tok FROM VARIANT ARRAY(text)) {
+    IF(TYPEID(tok) = TYPEID(STRING)) {
+      output := output CONCAT MapTextToInlineItem(tok, activetags);
+    } ELSE IF(TYPEID(tok) = TYPEID(INTEGER)) {
+      IF(tok >= 1) {
+        STRING get_param;
+        IF(tok <= Length(params))
+          get_param := params[tok - 1];
+
+      output := output CONCAT MapTextToInlineItem(get_param, activetags);
+      }
+    } ELSE IF(TYPEID(tok) = TYPEID(RECORD)) {
+      IF(tok.t = "tag") {
+        RECORD addition;
+        SWITCH(tok.tag) {
+          CASE "b" { addition := [ bold := TRUE ]; }
+          CASE "i" { addition := [ italic := TRUE ]; }
+          CASE "u" { addition := [ underline := TRUE ]; }
+        }
+        output := output CONCAT ExecuteCompiledTidInlineItems(tok.subs, params, CELL[...activetags, ...addition]);
+      } ELSE IF(tok.t = "ifparam") {
+        STRING get_param;
+        IF(tok.p <= Length(params))
+          get_param := params[tok.p - 1];
+
+        VARIANT subtoks := ToUppercase(get_param) = ToUppercase(tok.value) ? tok.subs : tok.subselse;
+        output := output CONCAT ExecuteCompiledTidInlineItems(subtoks, params, activetags);
+      } ELSE IF(tok.t = "a") {
+        STRING link := tok.link;
+        IF(tok.linkparam > 0 AND tok.linkparam <= Length(params))
+          link := params[tok.linkparam - 1] ?? link;
+
+        RECORD addition := link != "" ? CELL[ link := link ] : DEFAULT RECORD;
+        output := output CONCAT ExecuteCompiledTidInlineItems(tok.subs, params, CELL[...activetags, ...addition]);
       }
     }
   }
@@ -324,31 +382,33 @@ STRING ARRAY FUNCTION GroupParams(STRING p1, STRING p2, STRING p3, STRING p4)
   RETURN params;
 }
 
-STRING FUNCTION WrapForMode(STRING text, BOOLEAN rich)
-{
-  RETURN rich ? EncodeHTML(text) : text;
+VARIANT FUNCTION WrapForMode(STRING text, INTEGER format) {
+  IF(format = 2)
+    RETURN [[ text := text ]];
+
+  RETURN format = 1 ? EncodeHTML(text) : text;
 }
 
-STRING FUNCTION MissingTid(STRING module, STRING langcode, STRING tid, STRING ARRAY params, BOOLEAN rich)
+VARIANT FUNCTION MissingTid(STRING module, STRING langcode, STRING tid, STRING ARRAY params, INTEGER format)
 {
   IF(missingtidcallback != DEFAULT MACRO PTR)
     missingtidcallback(CELL[ module := module, langcode := langcode, tid := tid, params, stacktrace := ArraySlice(GetStackTrace(), 3) ]);
 
   IF(__shortunknowntids)
-    RETURN WrapForMode(Substring(tid,SearchLastSubstring(tid,'.')), rich);
+    RETURN WrapForMode(Substring(tid,SearchLastSubstring(tid,'.')), format);
   ELSE
-    RETURN WrapForMode(`(cannot find text: ${tid})`, rich);
+    RETURN WrapForMode(`(cannot find text: ${tid})`, format);
 }
 
-STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY params, BOOLEAN rich)
+VARIANT FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY params, INTEGER format)
 {
   tid := GetCanonicalTid(tid);
   IF(tid = "tollium:tilde.locale.datetimestrings")
-    RETURN WrapForMode(GetLanguageDatetimeStrings(langcode), rich);
+    RETURN WrapForMode(GetLanguageDatetimeStrings(langcode), format);
 
   INTEGER modsep := SearchSubstring(tid,':');
   IF(modsep = -1)
-    RETURN WrapForMode(`(missing module name in tid: ${tid})`, rich);
+    RETURN WrapForMode(`(missing module name in tid: ${tid})`, format);
 
   STRING module := Left(tid, modsep);
   IF(tid LIKE "* *") //spaces? map to underscore, but NOT the modulename.
@@ -361,7 +421,7 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
 
     //Use {, as that mixes more safely with HTML than <s, which is useful with rich text...
     STRING debugtid := "{" || Detokenize(STRING[tid,...params], "|") || "}";
-    RETURN WrapForMode(debugtid, rich);
+    RETURN WrapForMode(debugtid, format);
   }
 
   TRY
@@ -377,14 +437,17 @@ STRING FUNCTION CalcTIDForLanguage2(STRING langcode, STRING tid, STRING ARRAY pa
     }
 
     IF(NOT match.found)
-      RETURN MissingTid(module, langcode, tid, params, rich);
+      RETURN MissingTid(module, langcode, tid, params, format);
 
-    RETURN ExecuteCompiledTidText(compiled.texts[match.position].text, params, rich);
+    IF(format = 2)
+      RETURN CompressInlineItems(ExecuteCompiledTidInlineItems(compiled.texts[match.position].text, params, DEFAULT RECORD));
+    ELSE
+      RETURN ExecuteCompiledTidText(compiled.texts[match.position].text, params, format = 1);
   }
   CATCH(OBJECT<RetrieveResourceException> e)
   {
     LogHarescriptException(e);
-    RETURN MissingTid(module, langcode, tid, params, rich);
+    RETURN MissingTid(module, langcode, tid, params, format);
   }
 }
 
@@ -408,7 +471,21 @@ PUBLIC STRING FUNCTION GetTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEF
   ELSE IF(tid LIKE "<>*")
     RETURN DecodeHTML(Substring(tid,2));
 
-  RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), FALSE);
+  RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), 0);
+}
+
+PUBLIC VARIANT ARRAY FUNCTION GetTidAsInlineItems(STRING tid, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") {
+  IF(tid LIKE ":*")
+    RETURN MapTextToInlineItem(Substring(tid,1), DEFAULT RECORD);
+
+  RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), 2);
+}
+
+PUBLIC VARIANT ARRAY FUNCTION GetTidAsInlineItemsForLanguage(STRING langcode, STRING tid,  STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "") {
+  IF(tid LIKE ":*")
+    RETURN MapTextToInlineItem(Substring(tid,1), DEFAULT RECORD);
+
+  RETURN CalcTIDForLanguage2(langcode, tid, GroupParams(p1, p2, p3, p4), 2);
 }
 
 /** Get the HTML text for a tid in the current language
@@ -429,7 +506,7 @@ PUBLIC STRING FUNCTION GetHTMLTid(STRING tid, STRING p1 DEFAULTSTO "", STRING p2
   ELSE IF(tid LIKE "<>*")
     RETURN Substring(tid,2);
 
-  RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), TRUE);
+  RETURN CalcTIDForLanguage2(tidlang, tid, GroupParams(p1, p2, p3, p4), 1);
 }
 
 /** Get the text for a tid for a specific language
@@ -451,7 +528,7 @@ PUBLIC STRING FUNCTION GetTidForLanguage(STRING languagecode, STRING tid, STRING
   ELSE IF(tid LIKE "<>*")
     RETURN DecodeHTML(Substring(tid,2));
 
-  RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), FALSE);
+  RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), 0);
 }
 
 /** Get the HTML text for a tid in the current language
@@ -473,7 +550,7 @@ PUBLIC STRING FUNCTION GetHTMLTidForLanguage(STRING languagecode, STRING tid, ST
   ELSE IF(tid LIKE "<>*")
     RETURN Substring(tid,2);
 
-  RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), TRUE);
+  RETURN CalcTIDForLanguage2(languagecode, tid, GroupParams(p1, p2, p3, p4), 1);
 }
 
 

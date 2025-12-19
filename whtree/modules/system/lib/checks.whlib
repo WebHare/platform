@@ -106,12 +106,13 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
   OBJECT wrdschema := OpenWRDSchema("system:config");
   GetPrimary()->BeginLockedWork("system:updatechecks." || task);
 
-  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD, scopes := STRING[], is_critical := FALSE, more_info_link := "" ]], checks);
+  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := DEFAULT RECORD, jump_to := DEFAULT RECORD, scopes := STRING[], is_critical := FALSE ]], checks);
+  UPDATE checks SET message_tid := EnforceStructure([ tid := "", params := STRING[] ], message_tid) WHERE RecordExists(message_tid);
   UPDATE checks SET message_text := CallFunctionPtrVA(PTR GetTidForLanguage, VARIANT["en", message_tid.tid, ...message_tid.params]) WHERE message_text = "" AND RecordExists(message_tid);
 
   DATETIME now := GetCurrentDatetime();
   RECORD ARRAY current := wrdschema->^server_check->RunQuery(
-    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","wrd_limitdate","is_critical"]
+    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","message_tid","wrd_limitdate","is_critical"]
          , filters := [[ field := "check_task", value := task ]]
          , historymode := "all"
          ]);
@@ -136,7 +137,6 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
           , check.jump_to
           , check.scopes
           , check.is_critical
-          , check.more_info_link
           ];
 
     IF(match = -1) //it's new
@@ -156,7 +156,10 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
     }
 
     //We assume something like jumpto won't change without the message changing
-    IF(current[match].message_text != check.message_text OR current[match].wrd_limitdate != MAX_DATETIME OR current[match].is_critical != check.is_critical) //update it!
+    IF(current[match].message_text != check.message_text
+       OR EncodeHSON(current[match].message_tid) != EncodeHSON(check.message_tid)
+       OR current[match].wrd_limitdate != MAX_DATETIME
+       OR current[match].is_critical != check.is_critical) //update it!
     {
       wrdschema->^server_check->UpdateEntity(current[match].wrd_id, baserecord);
       wrdschema->^server_check_history->CreateEntity(

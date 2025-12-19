@@ -26,13 +26,14 @@ async function checkWRD() {
     });
 
     if (localIssues.length > 0) {
-      issues.push({
+      const integrityIssue = {
         type: "platform:wrd.integrity",
         metadata: { schema: schema.tag },
         messageText: `Schema ${schema.tag} has ${localIssues.length} integrity issue${localIssues.length > 1 ? 's' : ''}: ${localIssues.slice(0, 3).map(_ => _.message).join(', ')}${localIssues.length > 3 ? ` and ${localIssues.length - 3} more` : ''}`,
-      });
+      };
+      issues.push(integrityIssue);
       if (verbose)
-        console.log(issues.at(-1)!.messageText);
+        console.log(integrityIssue.messageText);
     }
   }
 }

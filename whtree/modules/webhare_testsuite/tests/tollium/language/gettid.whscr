@@ -25,6 +25,7 @@ MACRO TidCompilerTest()
   TestEq("One", GetTid(":One"));
   TestEq("A&B", GetTid(":A&B"));
   TestEq("A&#38;B", GetHTMLTid(":A&B"));
+  TestEq(VARIANT[ "A&B" ], GetTidAsInlineItems(":A&B"));
   TestEq("One", GetTid("webhare_testsuite:aaa.limitlanguage_en.one"));
   TestEq("One", GetTid("webhare_testsuite:AAa.Limitlanguage_en.One"));
   TestEq("One", GetTid("Webhare_Testsuite:aaa.limitlanguage_en.one"));
@@ -37,11 +38,13 @@ MACRO TidCompilerTest()
   TestEq("Ifparam: p1=a p2!=b", GetTID("webhare_testsuite:test.ifparam","a"));
   TestEq("Ifparam: p1=a p2!=b", GetTID("webhare_testsuite:test.ifparam","A"));
   TestEq("Ifparam: p1=a p2=b", GetTID("webhare_testsuite:test.ifparam","A","B"));
+  TestEq(VARIANT["Ifparam: p1=a p2=b"], GetTidAsInlineItems("webhare_testsuite:test.ifparam","A","B"));
   TestEq('Use this link to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam"));
   TestEq('Use <a href="http://www.webhare.net/">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam","http://www.webhare.net/"));
   TestEq('Use <a href="x-fallback:">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2"));
   TestEq('Use <a href="x-fallback:">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2", "", "unused"));
   TestEq('Use <a href="x-test:a&#38;b">this link</a> to choose a new password', GetHTMLTID("webhare_testsuite:test.hrefparam2","x-test:a&b"));
+  TestEq(VARIANT['Use ', [ link := "x-test:a&b", text := "this link"], ' to choose a new password'], GetTidAsInlineItems("webhare_testsuite:test.hrefparam2","x-test:a&b"));
 
   //Builtins
   TestEq(GetLanguageDatetimeStrings("nl"), GetTidForLanguage("nl","tollium:tilde.locale.datetimestrings"));
@@ -81,6 +84,7 @@ MACRO GetTidTest()
 
   TestEq("A message", GetTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
   TestEq("A <i>message</i>", GetHTMLTid("webhare_testsuite_temp:notifications.messagefromthefuture"));
+  TestEq(VARIANT["A ", [ italic := TRUE, text := "message"]], GetTidAsInlineItems("webhare_testsuite_temp:notifications.messagefromthefuture"));
   TestEq("An <a href=\"http://www.example.org/\">example</a> link", GetHTMLTid("webhare_testsuite_temp:notifications.linkfromthefuture"));
   TestEq("A <a href=\"https://www.webhare.com/\">parametered</a> link", GetHTMLTid("webhare_testsuite_temp:notifications.linkparameter","https://www.webhare.com/"));
 }
