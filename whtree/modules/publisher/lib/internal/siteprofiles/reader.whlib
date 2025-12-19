@@ -1206,7 +1206,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
   PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)
   {
     IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
-      RETURN this->GetContentApplyTester()->GetUsePublishTemplate();
+      RETURN this->GetContentApplyTester()->GetFormDefinitionFile(name);
 
     RECORD match;
     FOREVERY(RECORD apply FROM this->__GetAppliesForcell("FORMDEFINITIONS"))
