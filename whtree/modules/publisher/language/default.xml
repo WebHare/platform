@@ -2163,7 +2163,7 @@
         <text tid="selectform">Select form</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.formedit.settings -->
-        <text tid="availabilitytab">Availability</text>
+        <text tid="availability">Availability</text>
         <text tid="available">The form is available</text>
         <text tid="cannotsaveresults">This form does not allow to store or export its results</text>
         <text tid="cursignups">(<param p="1"/> registrations since <param p="2"/>)</text>

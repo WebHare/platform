@@ -2161,7 +2161,7 @@
         <text tid="selectform">Selecteer formulier</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.formedit.settings -->
-        <text tid="availabilitytab">Beschikbaarheid</text>
+        <text tid="availability">Beschikbaarheid</text>
         <text tid="available">Het formulier is beschikbaar</text>
         <text tid="cannotsaveresults">Dit formulier staat niet toe dat de resultaten worden vastgelegd of geëxporteerd</text>
         <text tid="cursignups">(<param p="1"/> registraties sinds <param p="2"/>)</text>

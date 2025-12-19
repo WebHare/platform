@@ -305,7 +305,8 @@
             <!-- insert position="settings" where="after" -->
           </panel>
         </tab>
-        <tab name="availabilitytab" spacers="all">
+        <tab name="availabilitytab" spacers="all" tid=".availability" >
+          <heading tid=".availability" doclink="platform:forms/ui/availability" />
           <select name="availability" type="radio" title="">
             <option rowkey="available" tid=".available" />
             <option rowkey="unavailable" enablecomponents="unavailabletext" tid=".unavailable" />
