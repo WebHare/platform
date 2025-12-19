@@ -13,7 +13,7 @@ import { convertWaitPeriodToDate, isDate, throwError, type WaitPeriod } from "@w
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
-import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
+import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
 import { type IntExtLink, type Instance, openBackendService } from "@webhare/services";
@@ -40,6 +40,7 @@ export interface TestUserDetails extends TestUserConfig {
   login: string;
   wrdId: number;
   password: string;
+  auth: AuthorizationInterface;
 }
 
 export interface ResetOptions {
@@ -79,7 +80,7 @@ export async function reset(options?: ResetOptions) {
       const wrdId = await testfw.GetUserWRDId(name);
       const login = await testfw.GetUserLogin(name);
       const password = await testfw.GetUserPassword(name);
-      users[name] = { ...config, wrdId, password, login };
+      users[name] = { ...config, wrdId, password, login, auth: getAuthorizationInterface(wrdId) };
     }
   }
 

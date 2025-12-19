@@ -480,6 +480,12 @@
     <extendproperties extension="#rtdtypeprops2" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" />
   </apply>
 
+  <apply comment="Picking a random file to test extendprops parsing in test_metatabsdata">
+    <to type="file" pathmask="/testpages/imgeditfile.jpg" />
+    <extendproperties extension="#rtdtypeprops1" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
+    <extendproperties extension="#rtdtypeprops2" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" requireright="system:sysop" />
+  </apply>
+
   <apply>
     <to type="file" pathmask="*/lvl2-with-video.rtd" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" />

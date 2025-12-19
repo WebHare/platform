@@ -10,6 +10,7 @@ import { type ContentValidationFunction, TrackedYAML, type ValidationMessageWith
 import { loadlib } from "@webhare/harescript";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import type { TargettedRight } from "@webhare/auth/src/userrights";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedSiteProfile = {
@@ -542,7 +543,7 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
     const rule: CSPApplyRule["extendproperties"][0] = {
       contenttype: context.resolveType(prop.type),
       extension: context.resolve(prop.tabsExtension || ''),
-      requireright: prop.requireRight || '',
+      requireright: (prop.requireRight || '') as TargettedRight | '',
     };
 
     if (prop.layout) {

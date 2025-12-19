@@ -5,6 +5,7 @@ import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
 import type { Rule } from "@mod-platform/js/webserver/webconfig";
 import type { ToSnakeCase } from "@webhare/std/src/types";
+import type { GlobalRight, TargettedRight } from "@webhare/auth";
 
 export enum CSPMemberType {
   String = 2,
@@ -384,7 +385,7 @@ export type CSPApplyRule = {
   extendproperties: Array<{
     contenttype: string;
     extension: string;
-    requireright: string;
+    requireright: TargettedRight | GlobalRight | "";
     /* Sets and orders which fields to offer to edit */
     layout?: CustomFieldsLayout;
     /* Specific field level overrides */
