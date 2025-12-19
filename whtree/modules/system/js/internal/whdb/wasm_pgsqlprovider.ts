@@ -448,6 +448,10 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   if (modifyend)
     dbquery = dbquery.modifyEnd(modifyend);
 
+  if (resultcolumns.length === 0) { //we need to select something or the driver will crash. TODO will @webhare/postgrease fix this?
+    dbquery = dbquery.select(sql`1`.as('c0'));
+  }
+
   const res = await dbquery.execute();
 
   const prepped_resultcolumns = resultcolumns.map(col => ({ ...col, exportId: vm.getColumnId(col.exportName) }));

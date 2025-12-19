@@ -208,6 +208,9 @@ MACRO TestPrimitiveValues()
   UPDATE testtable SET RECORD CELL[] WHERE id = 1;
   trans->RollbackWork();
 
+  // Test no-column select
+  TestEq(1, Length(SELECT FROM testtable));
+
   // Test touppercase on binary columns
   trans->BeginWork();
   DELETE FROM testtable;
