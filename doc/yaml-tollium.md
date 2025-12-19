@@ -45,3 +45,12 @@ been invoked. If you see a components derived from TolliumFragmentBase not setti
     TolliumFragmentBase::SetTitle(newtitle);
   }
 ```
+
+
+## CI tests
+These paths live under mod::webhare_testsuite/tests/
+- `tollium/yaml/test-yaml-builder.whscr` - RunYamlInlineScreen and component construction
+- `publisher/siteprofile/test_parser.ts` - parsing members/components out of YAML siteprofiles
+- `publisher/siteprofile/test_metatabsdata.ts` - setting up metatabs out of YAML siteprofiles
+- `tollium/api/test_constraints.ts` - mapping valueConstraints to YAML component definitions
+- `publisher/rtd/test-rtdedit-savepublish.whscr` - manipulating metadata fields built through metatabs
