@@ -26,12 +26,17 @@ export interface ModulePlugins {
     supportsNoAccess: boolean;
     types: string[];
   }>;
+  formDefinitions: Array<{
+    name: string;
+    path: string;
+  }>;
 }
 
 export async function generatePlugins(context: GenerateContext): Promise<string> {
   const retval: ModulePlugins = {
     spPlugins: [],
-    objectEditors: []
+    objectEditors: [],
+    formDefinitions: []
   };
 
   for (const mod of context.moduledefs) {
@@ -62,6 +67,15 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
           supportsReadOnly: getAttr(editor, "supportsreadonly", false),
           supportsNoAccess: getAttr(editor, "supportsnoaccess", false),
           types: getAttr(editor, "types", [])
+        });
+      }
+    }
+
+    if (mod.modYml) {
+      for (const [name, path] of Object.entries(mod.modYml.formDefinitions || {})) {
+        retval.formDefinitions.push({
+          name: mod.name + ":" + name,
+          path: resolveResource(mod.resourceBase, path)
         });
       }
     }

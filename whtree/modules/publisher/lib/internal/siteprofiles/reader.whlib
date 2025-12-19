@@ -1203,10 +1203,16 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN data;
   }
 
-  PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)
-  {
+  PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name) {
     IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
       RETURN this->GetContentApplyTester()->GetFormDefinitionFile(name);
+
+    IF(name != "") {
+      RECORD plugins := __GetExtractedConfig("plugins");
+      STRING modmatch := SELECT AS STRING path FROM plugins.form_definitions WHERE form_definitions.name = name;
+      IF(modmatch != "")
+        RETURN [ path := modmatch ];
+    }
 
     RECORD match;
     FOREVERY(RECORD apply FROM this->__GetAppliesForcell("FORMDEFINITIONS"))

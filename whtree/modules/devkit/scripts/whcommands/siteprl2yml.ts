@@ -298,13 +298,8 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
   if (ar.sitelanguage?.has_lang)
     rule.siteLanguage = ar.sitelanguage.lang;
 
-  for (const formdef of ar.formdefinitions) {
-    rule.formDefinitions ||= [];
-    rule.formDefinitions.push({
-      path: formdef.path,
-      ...formdef.name ? { name: formdef.name } : {}
-    });
-  }
+  if (ar.formdefinitions.length)
+    throw new Error(`<formdefinitions> is not supported by YAML based siteprofiles, move them to your moduledefinition.yml`);
 
   if (ar.bodyrenderer) {
     rule.bodyRenderer = ar.bodyrenderer.objectname
