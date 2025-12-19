@@ -308,3 +308,5 @@ export class WebServer {
     this.ports.clear();
   }
 }
+
+export type { WebServerClient };

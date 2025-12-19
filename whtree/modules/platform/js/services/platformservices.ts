@@ -20,6 +20,7 @@ declare module "@webhare/services" {
     "platform:coreservices": NodeServicesClient;
     "platform:nodeservices": NodeServicesClient;
     "platform:servicemanager": ServiceManagerClient;
+    "platform:webserver": WebServerClient;
     "publisher:publication": PublicationService;
     "publisher:outputanalyzer": OutputAnalyzerService;
   }
@@ -74,4 +75,5 @@ type OutputAnalyzerService = {
 
 //TypeScript issue - if we don't import it explicitly, TS looks to us for the "@webhare/services" and suddenly can't find @webhare/services anymore
 import type { BackendServices, GetBackendServiceInterface } from "@webhare/services";
+import type { WebServerClient } from "../webserver/webserver";
 export { type BackendServices, type GetBackendServiceInterface }; //import/export gives us 'something to do' and users 'something to import' in the TypesScript sense. this library should otherwise stay empty

@@ -6,6 +6,7 @@ import { backendConfig, broadcast, lockMutex, logDebug, openBackendService, sche
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { updateConsilioCatalogs } from './consilio';
 import { updateTypeScriptInfrastructure } from '@mod-system/js/internal/generation/gen_typescript';
+import { reconfigureProxies, refreshGlobalWebserverConfig } from '../webserver/control';
 
 type SubsystemConfig = {
   generate?: readonly GeneratorType[];
@@ -61,7 +62,14 @@ const subsystems = {
     description: "Recompile site profiles",
     generate: ["extracts"] //we need the plugins extract to be up to date
   },
-  siteprofilerefs: { title: "Siteprofile references", description: "Regenerate site webfeature/webdesign associations" },
+  webserver: {
+    title: "Webserver",
+    description: "Reconfigure webserver and proxies",
+  },
+  siteprofilerefs: {
+    title: "Siteprofile references",
+    description: "Regenerate site webfeature/webdesign associations"
+  },
 } as const satisfies Record<string, SubsystemData>;
 
 
@@ -166,6 +174,11 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true);
     } else if (todoList.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
+    }
+
+    if (todoList.includes('webserver')) {
+      await refreshGlobalWebserverConfig();
+      await reconfigureProxies();
     }
 
     if (todoList.includes('consilio')) {
