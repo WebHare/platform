@@ -1,4 +1,4 @@
-<?wh
+<?wh (*WASMENGINE*)
 LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
