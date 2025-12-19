@@ -187,8 +187,8 @@ RECORD FUNCTION ParsePageForm(STRING pageurl, OBJECT formroot)
 
 /** Utility class to communicate with HTTP servers
 */
-PUBLIC STATIC OBJECTTYPE WebBrowser
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE WebBrowser <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -564,10 +564,8 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       @param isasync Whether this is used for an async function
       @return TRUE if the request was succesfull
   */
-  OBJECT FUNCTION* GetPage(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options, BOOLEAN isasync)
-  {
-    IF(IsWasm())
-    {
+  OBJECT FUNCTION* GetPage(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options, BOOLEAN isasync) {
+    IF(IsWasm()) {
       //TCP/IP won't be supported in the WASM engine. We'll simulate browser->GetPage as best as we can. We're not aiming for a 100% perfect replacement, just support the most often used patterns
       IF(isasync)
         THROW NEW Exception(`The async Webbrowser API is not supported in the WASM engine - you should use wh::internet/fetch.whlib as a cross-engine alternative`);
@@ -584,8 +582,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       }
 
       BOOLEAN retry_for_login;
-      WHILE(TRUE)
-      {
+      WHILE(TRUE) {
         RECORD unpacked := UnpackURL(url);
         BOOLEAN forcedauth;
         STRING requesturl := url;
@@ -611,7 +608,17 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
           }
         }
 
-        OBJECT fetchresp := FetchSync(requesturl, reqopts, [ debug := this->debug OR __webbrowser_debugall ]);
+        OBJECT fetchresp;
+        TRY {
+          fetchresp := FetchSync(requesturl, reqopts, [ debug := this->debug OR __webbrowser_debugall ]);
+        } CATCH (OBJECT exc) {
+          this->SetDummyLastRequest();
+          this->pvt_lasterror := exc->what;
+          this->pvt_lastrequest.code := -1;
+          this->pvt_lastrequest.message := exc->what;
+          RETURN FALSE;
+        }
+
         IF(NOT fetchresp->ok AND fetchresp->status = 401 AND NOT forcedauth AND NOT retry_for_login AND this->pvt_authhandler != DEFAULT FUNCTION PTR) //Login required and not attempted
         {
           RECORD basicauth := DecodeHTTPAuthenticationHeader(fetchresp->headers->Get("www-authenticate"),FALSE);
