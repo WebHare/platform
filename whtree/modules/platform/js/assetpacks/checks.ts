@@ -6,7 +6,7 @@ export async function checkAssetPacks(): Promise<CheckResult[]> {
   if ((await loadAssetPacksConfig()).suspendAutoCompile) {
     errors.push({
       type: "platform:assetpacks_autocompile_disabled",
-      messageText: "Automatic compilation of out-of-date production assets has been disabled",
+      messageTid: { tid: /*tid*/ "platform:tolliumapps.dashboard.checks.errors.assetpacks-autocompile-disabled" },
       metadata: {},
       jumpTo: null,
       scopes: []

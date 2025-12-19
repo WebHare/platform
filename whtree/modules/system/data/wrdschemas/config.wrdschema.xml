@@ -142,7 +142,7 @@
       <json tag="jump_to" description="Jump instruction to application which can provide more information" />
       <datetime tag="snoozed_until" description="Time until we start actively reporting this error again" />
       <enumarray tag="scopes" allowedvalues="gdpr policy" description="Special scopes for some checks" />
-      <free tag="more_info_link" description="Link for more information" />
+      <obsolete tag="more_info_link" />
     </attributes>
   </object>
 

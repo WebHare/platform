@@ -105,7 +105,6 @@
                 storeutc="true"
                 tid=".stopped" />
       <text composition="entity" cellname="message_text" width="1pr" minwidth="40x" tid=".message" wordwrap="true" />
-      <url composition="entity" cellname="more_info_link" width="1pr" minwidth="40x" tid=".more_info_link" />
       <datetime composition="entity" cellname="snoozed_until" type="datetime" readonly="true" storeutc="true" />
       <text name="lastsnoozedby" />
       <text name="lastsnoozemessage" width="1pr" wordwrap="true" />

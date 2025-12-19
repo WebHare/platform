@@ -4,24 +4,25 @@ import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduled
 
 type CheckScopes = "gdpr" | "policy";
 
-export interface CheckResult {
+export type CheckResult = {
   /** Check type, a modulescoped:name */
   type: string;
   /** Check specific metadata */
   metadata?: object | null;
-  /** Textual message */
-  messageText: string;
-  /** Message text */
-  messageTid?: {
-    tid: string;
-    params: string[];
-  };
   /** Is this a critical message? */
   isCritical?: boolean;
   jumpTo?: object | null;
   scopes?: CheckScopes[];
-  moreInfoLink?: string;
-}
+} & ({
+  /** Textual message */
+  messageText: string;
+} | {
+  /** TID based message */
+  messageTid: {
+    tid: string;
+    params?: string[];
+  };
+});
 
 export type CheckFunction = () => CheckResult[] | Promise<CheckResult[]>;
 
