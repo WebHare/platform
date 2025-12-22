@@ -959,6 +959,9 @@ postuninstall:
 
 postinstall: success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js
 
+# Prevent deleting these files when finalize-webhare is interrupted
+.PRECIOUS: $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platform/generated/buildinfo
+
 success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platform/generated/buildinfo &: \
 			$(PREFIX)/tsconfig.yml \
 			$(PREFIX)/package.json \
@@ -969,7 +972,7 @@ success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platf
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/etc/platform.conf \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
-	WHBUILD_DISALLOW_INTERRUPT=1 $(PREFIX)/bin/wh finalize-webhare
+	$(PREFIX)/bin/wh finalize-webhare
 	touch $@
 
 endif #WEBHARE_IN_DOCKER
