@@ -963,6 +963,7 @@ success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platf
 			$(PREFIX)/tsconfig.yml \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
+			$(wildcard $(SRCDIR)/whtree/jssdk/*/package.json) \
 			$(PREFIX)/jssdk/whdb/vendor/postgrejs/package.json \
 			$(PREFIX)/modules/devkit/package.json \
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
