@@ -156,7 +156,10 @@ MACRO DefaultRightsTest()
   TestEq(TRUE, TestHasRight("mysysop", "system:sysop"), "Verify the role-assigned sysop right");
   TestEq(TRUE, TestHasRight("mysysop", "webhare_testsuite:globalright"));
   TestThrowsLike("* is not a global right*", PTR TSHasRight("mysysop", "webhare_testsuite:objectright"));
-  TestThrowsLike("* is a global right*", PTR TSHasRightOn("mysysop", "system:sysop", 0));
+  // This is inconvenient for generic code in TS when implementing requireright=, let's just accept hasRightOn("system:sysop", ...)
+  // TestThrowsLike("* is a global right*", PTR TSHasRightOn("mysysop", "system:sysop", 0));
+  Testeq(TRUE, TSHasRightOn("mysysop", "system:sysop", 0));
+  Testeq(TRUE, TSHasRightOnAny("mysysop", "system:sysop"));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 0));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 1));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 7));
