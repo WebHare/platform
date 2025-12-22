@@ -509,8 +509,6 @@ $defs:
         $ref: "#/$defs/ApplyIntercept"
       webDesign:
         $ref: "#/$defs/ApplyWebdesign"
-      formDefinitions:
-        $ref: "#/$defs/ApplyFormDefinitions"
       siteLanguage:
         $ref: "#/$defs/ApplySiteLanguage"
       debugSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#debugsettings
@@ -1064,18 +1062,6 @@ $defs:
       contentNavStops:
         type: array
         items:
-          type: string
-
-  ApplyFormDefinitions: # TODO this style is far from elegant because 1) name is optional and 2) it suggests global namespace but still goes through <apply> rules. we should consider moving formdefs to moduledefinitions?
-    type: array
-    items:
-      type: object
-      additionalProperties: false
-      required: [path]
-      properties:
-        name:
-          type: string
-        path:
           type: string
 
   ApplySiteLanguage:

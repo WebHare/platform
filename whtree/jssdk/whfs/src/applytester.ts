@@ -4,7 +4,7 @@ import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
 import { emplace, nameToSnakeCase, omit, pick, slugify, toCamelCase } from "@webhare/std";
-import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import { getExtractedConfig, getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
@@ -457,6 +457,21 @@ export class WHFSApplyTester {
           rows.push(plugin.data);
 
     return rows.length ? buildPluginData(rows) : null;
+  }
+
+  async getObjectEditor() {
+    let name = '';
+    for (const apply of await this.getMatchingRules('setobjecteditor')) {
+      name = apply.setobjecteditor.name;
+    }
+
+    if (name) {
+      const doceditor = getExtractedConfig("plugins").objectEditors.find(_ => _.name === name);
+      if (doceditor)
+        return doceditor;
+    }
+
+    return null;
   }
 
   /** Get the plugin settings associated with the specified name

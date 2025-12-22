@@ -48,6 +48,9 @@ properties:
   acmeChallengeHandlers:
     description: Challenge handlers for ACME certificate challenges
     $ref: "#/$defs/ACMEChallengeHandlers"
+  formDefinitions:
+    description: Form definition files (used in OpenForm calls)
+    $ref: "#/$defs/FormDefinitions"
 
 $defs:
   # Server DTAP stages
@@ -466,3 +469,11 @@ $defs:
           handlerFactory:
             type: string
             description: "Function that creates the challenge handler object, must resolve to a ACMEChallengeHandler object"
+
+  FormDefinitions:
+    type: object
+    description: Declare the location of form definitions in this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Form definition name
+        type: string

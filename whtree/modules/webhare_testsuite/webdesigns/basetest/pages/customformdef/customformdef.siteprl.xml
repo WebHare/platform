@@ -6,7 +6,6 @@
             icon="tollium:files/application_x-webhare-survey"
             title="WebHare testsuite customformdef type">
     <dynamicexecution routerfunction="customformdef.whlib#CustomFormDefRouter" />
-    <formdefinitions name="webhare_testsuite:customform" path="customformdef.formdef.xml" />
     <formintegration allowsubmittype="true" />
     <setobjecteditor screen="#editcustomformdef" />
   </filetype>

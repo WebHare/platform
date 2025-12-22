@@ -141,3 +141,7 @@ rpcServices:
     api: js/rpcservice.ts#testAPI
   authtestsupport:
     api: tests/wrd/auth/authtestsupport.ts#authTestSupportRPC
+
+formDefinitions:
+  customform: webdesigns/basetest/pages/customformdef/customformdef.formdef.xml
+  beaconform: tests/publisher/contentlibraries/libs/beaconform.formdef.xml

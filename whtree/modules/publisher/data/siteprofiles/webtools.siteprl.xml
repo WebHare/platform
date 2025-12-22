@@ -247,12 +247,6 @@
     </blockstyles>
   </rtdtype>
 
-  <apply comment="Global webtool supporting forms">
-    <to type="all" />
-    <formdefinitions name="publisher:testpages" path="mod::publisher/lib/internal/forms/testpage.formdef.xml" />
-    <formdefinitions name="publisher:webtoolform" path="mod::publisher/lib/internal/forum/forum.formdef.xml" />
-  </apply>
-
   <!-- Sitemap files -->
   <filetype namespace="platform:filetypes.sitemap"
             blobiscontent="false"

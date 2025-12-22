@@ -717,13 +717,6 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     };
   }
 
-  for (const formdef of apply.formDefinitions || []) {
-    rule.formdefinitions.push({
-      name: formdef.name || '',
-      path: context.resolve(formdef.path),
-    });
-  }
-
   if (apply.siteLanguage)
     rule.sitelanguage = { lang: apply.siteLanguage, has_lang: true };
 

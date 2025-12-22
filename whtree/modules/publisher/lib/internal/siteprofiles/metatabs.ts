@@ -28,6 +28,8 @@ interface MetaTabs {
   }>;
   /** Issues - for now simply strings */
   issues: string[];
+  /** Whether a workflow editor is active */
+  workflowEditor: Record<never, never> | null; //we'll be adding metadata about the editor in the future, so already make it an object
 }
 
 interface MetaTabsWithHSInfo extends MetaTabs {
@@ -111,8 +113,14 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
     [hsinfo]: applytester.__getHSInfo(),
-    issues: []
+    issues: [],
+    workflowEditor: null
   };
+
+  //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
+  const setObjectEditor = await applytester.getObjectEditor();
+  if (setObjectEditor?.documentEditor)
+    metasettings.workflowEditor = {};
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
     const matchtype = getType(contenttype);

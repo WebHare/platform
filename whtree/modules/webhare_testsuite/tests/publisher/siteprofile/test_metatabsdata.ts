@@ -18,9 +18,15 @@ async function testIgnoreMetatabsForOldContent() {
 }
 
 async function testMetadataReader() {
+  const imgfile = await openFile("site::webhare_testsuite.testsitejs/testpages/imgeditfile.jpeg");
+  const imgfileMetatabs = await describeMetaTabs(await getApplyTesterForObject(imgfile));
+  test.eq(null, imgfileMetatabs.workflowEditor);
+
   const richdocfile = await openFile("site::webhare_testsuite.testsitejs/testpages/staticpage");
   const applyester = await getApplyTesterForObject(richdocfile);
   const metatabs = await describeMetaTabs(applyester);
+
+  test.assert(metatabs.workflowEditor);
 
   test.eqPartial({
     types: [
