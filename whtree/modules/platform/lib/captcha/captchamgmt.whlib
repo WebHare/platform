@@ -12,14 +12,14 @@ PUBLIC RECORD FUNCTION GetCaptchaProvider(STRING url) {
   IF(IsWHDebugOptionSet("nsc")) //the mock for CI is currently provided by the google recaptcha code
     RETURN CELL[ name := "google-recaptcha", apikey := "mock" ];
 
-  RECORD keyinfo := LookupAPIKey("google-recaptcha,friendly-captcha", url);
+  RECORD keyinfo := LookupAPIKey("google-recaptcha,friendly-captcha", url, [ allowmissing := TRUE ]);
   IF(RecordExists(keyinfo))
     RETURN CELL[ name := keyinfo.keytype
                , apikey := keyinfo.apikey
                , privatekey := keyinfo.privatekey
                ];
 
-  THROW NEW Exception("Unconfigured URL for recaptcha: " || url);
+  RETURN DEFAULT RECORD;
 }
 
 PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING url, STRING response)  {
@@ -30,6 +30,9 @@ PUBLIC BOOLEAN FUNCTION VerifyCaptchaResponse(STRING url, STRING response)  {
     RETURN response = "mock";
 
   RECORD provider := GetCaptchaProvider(url);
+  IF(NOT RecordExists(provider))
+    RETURN TRUE; //captcha not configured for this URL so let the user pass anyway
+
   RECORD verifyresult;
   IF(provider.name = "friendly-captcha")
     verifyresult := VerifyFriendlyCaptchaResponse(provider, response);
