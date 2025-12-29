@@ -1,39 +1,22 @@
 {
-  "name": "xlsx-stream-reader",
-  "version": "1.1.1",
+  "name": "@webhare/xlsx-stream-reader",
+  "version": "",
   "description": "Memory efficinet non-blocking/event based streaming XLSX reader",
-  "main": "index.js",
-  "scripts": {
-    "test": "standard && mocha --timeout 20000 test",
-    "standard:fix": "standard --fix"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/daspawn/xlsx-stream-reader.git"
-  },
-  "engines": {
-    "node": ">= 0.10.0"
-  },
   "keywords": [
     "xlsx",
     "reader",
     "stream",
     "simple"
   ],
-  "author": "Brian Taber <btaber@diversecg.com>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/daspawn/xlsx-stream-reader/issues"
+  "main": "src/xlsx-stream-reader.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "homepage": "https://github.com/daspawn/xlsx-stream-reader#readme",
-  "dependencies": {
-    "sax": "^1.2.4",
-    "ssf": "^0.11.2",
-    "tmp": "^0.2.1",
-    "unzipper": "^0.10.11"
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/xlsx-stream-reader.ts"
+    ]
   },
-  "devDependencies": {
-    "mocha": "^8.1.1",
-    "standard": "^14.3.4"
-  }
+  "private": true,
+  "dependencies": {}
 }

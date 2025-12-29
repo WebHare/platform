@@ -1,5 +1,4 @@
-/* @ts-expect-error -- still needs typings */
-import XlsxStreamReader from "../../../../../jssdk/xlsx-stream-reader/index.js";
+import XlsxStreamReader from "@webhare/xlsx-stream-reader";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as test from "@webhare/test-backend";
@@ -7,7 +6,7 @@ import * as test from "@webhare/test-backend";
 type WorkSheetReader = any;
 
 function consumeXlsxFile(cb: any) {
-  const workBookReader = new XlsxStreamReader();
+  const workBookReader = XlsxStreamReader();
   workBookReader.on('worksheet', (sheet: any) => sheet.process());
   workBookReader.on('end', cb);
   return workBookReader;
@@ -16,7 +15,7 @@ function consumeXlsxFile(cb: any) {
 async function testStreamingReader() {
   //it supports predefined formats
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/predefined_formats.xlsx')).pipe(workBookReader);
     const rows: any = [];
@@ -35,7 +34,7 @@ async function testStreamingReader() {
   }
   //it supports custom formats
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/import.xlsx')).pipe(workBookReader);
     const rows: any = [];
@@ -54,7 +53,7 @@ async function testStreamingReader() {
   }
   //it supports date formate 1904
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/date1904.xlsx')).pipe(workBookReader);
     const rows: any = [];
@@ -72,7 +71,7 @@ async function testStreamingReader() {
   }
   //it catches zip format errors
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/notanxlsx')).pipe(workBookReader);
     workBookReader.on('error', (err: any) => {
@@ -83,7 +82,7 @@ async function testStreamingReader() {
   }
   //it parses a file with no number format ids
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     const rows: any = [];
     fs.createReadStream(path.join(__dirname, 'data/nonumfmt.xlsx')).pipe(workBookReader);
@@ -119,7 +118,7 @@ async function testStreamingReader() {
   }
   //it support rich-text
   {
-    const workBookReader = new XlsxStreamReader({ saxTrim: false });
+    const workBookReader = XlsxStreamReader({ saxTrim: false });
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/richtext.xlsx')).pipe(workBookReader);
     const rows: any = [];
@@ -138,7 +137,7 @@ async function testStreamingReader() {
   }
   //it parses a file having uppercase in sheet name and mixed first node
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     const rows: any = [];
     fs.createReadStream(path.join(__dirname, 'data/uppercase_sheet_name.xlsx')).pipe(workBookReader);
@@ -161,7 +160,7 @@ async function testStreamingReader() {
   }
   //it parse 0 as 0
   {
-    const workBookReader = new XlsxStreamReader();
+    const workBookReader = XlsxStreamReader();
     const done = Promise.withResolvers<void>();
     fs.createReadStream(path.join(__dirname, 'data/issue_44_empty_0.xlsx')).pipe(workBookReader);
     const rows: any = [];
