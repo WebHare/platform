@@ -268,6 +268,7 @@ interface ListAttributes extends ComponentStandardAttributes {
 
   selectmode: "none" | "single" | "multiple";
   columnselectmode: "none" | "single";
+  scroll_horizontal: boolean;
   openaction: string;
   empty: string;
   columnheaders: boolean;
@@ -306,6 +307,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
   openaction: string;
   selectmode: "none" | "single" | "multiple" = "none";
+  scrollHorizontal = false;
   overheadx = 0;
   overheady = 0;
   selectionupdates = 0;
@@ -429,7 +431,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.columnwidths = [];
     this.footerrows = [];
 
-
+    this.scrollHorizontal = data.scroll_horizontal;
     this.columnselectmode = data.columnselectmode;
     this.node = dompack.create("div",
       {
@@ -794,7 +796,10 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
 
     const contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
-    this.distributeSizes(contentwidth, this.columnwidths, true, this.cols.length - 1);
+    if (this.scrollHorizontal) //straight up appy requested sizes
+      this.columnwidths.forEach(col => col.set = $todd.isFixedSize(col.xml_set) ? $todd.CalcAbsSize(col.xml_set, true) : 30);
+    else
+      this.distributeSizes(contentwidth, this.columnwidths, true, this.cols.length - 1);
 
     for (let i = 0; i < this.cols.length; ++i)
       this.cols[i].width = this.columnwidths[i].set;
@@ -816,7 +821,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       this.isfirstlayout = false;
     }
 
-    this.setColumnsWidths(this.cols);
+    this.setColumnsWidths();
   }
 
   setRowLayout(layout: ListRowLayout) { //should only  invoked on actual change
@@ -1627,7 +1632,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     //console.info("resetList");
 
     //clear all cached data, all generated content
-    dompack.empty(this.node);
+    this.node.replaceChildren();
 
     if (!this)
       return;
@@ -1708,6 +1713,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     this.listbodyholder.addEventListener("scroll", evt => this._onBodyScroll());
     //manually handling the wheel reduces flicker on chrome (seems that scroll events are throtteld less)
     this.listbodyholder.style.overflowY = "scroll";
+    this.listbodyholder.style.overflowX = this.scrollHorizontal ? "scroll" : "static";
   }
 
   scrollRowIntoCenterOfView(rownum: number) {
@@ -1764,12 +1770,12 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     }
   }
   //update column widths. although we accept the original columns structure, we'll only use the 'width' parameter
-  setColumnsWidths(columns: ListCol[]) {
-    if (columns.length !== this.lv_cols.length)
-      throw new Error(`updateColumnsWidths did not receive the number of columns expected, got ${columns.length} but expected ${this.lv_cols.length}`);
+  setColumnsWidths() {
+    if (this.cols.length !== this.lv_cols.length)
+      throw new Error(`updateColumnsWidths did not receive the number of columns expected, got ${this.cols.length} but expected ${this.lv_cols.length}`);
 
-    for (let i = 0; i < columns.length; ++i)
-      this.lv_cols[i].width = columns[i].width;
+    for (let i = 0; i < this.cols.length; ++i)
+      this.lv_cols[i].width = this.cols[i].width;
 
     this._refreshColCalculation();
 
@@ -2095,6 +2101,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   // Callbacks
   //
   _onBodyScroll() {
+    if (this.scrollHorizontal) {
+      this.listheader.scrollLeft = this.listbodyholder.scrollLeft;
+    }
     const newfirstvisiblerow = this.getFirstVisibleRow();
     if (this.firstvisiblerow === newfirstvisiblerow) //this will also absorb duplicate scroll invocations caused by setScrollPosition shortcircuiting scroll
       return;
@@ -2343,7 +2352,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       event.dataTransfer.setDragImage(this.dragnode, 0, 0);
     } else {
       this.dragnode = this.extractRowNode(target.propRow ?? throwError("propRow missing"));
-      dompack.empty(this.dragnode);
+      this.dragnode.replaceChildren();
     }
 
     // Build the drag node
@@ -3379,7 +3388,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     });
 
     //currently, simply requests all rows
-    dompack.empty(this.listbody);
+    this.listbody.replaceChildren();
 
     for (let i = 0; i < this.numvisiblerows; ++i) {
       const inputrow = this.firstvisiblerow + i;

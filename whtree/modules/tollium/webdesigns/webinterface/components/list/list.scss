@@ -6,6 +6,7 @@ div.wh-ui-listview .listheader
 {
   border-bottom: 1px solid black;
   height: 28px;
+  overflow: hidden; /* allows the header to scroll */
 }
 div.wh-ui-listview .listbodyholder
 {

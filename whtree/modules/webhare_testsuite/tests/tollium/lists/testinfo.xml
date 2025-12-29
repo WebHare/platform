@@ -4,6 +4,7 @@
   <jstest file="testjump.ts" />
   <jstest file="testresize.ts" />
   <jstest file="testcolumntypes.ts" />
+  <jstest file="test-list-hscroll.ts" />
   <jstest file="testmultirow.ts" />
   <jstest file="testfindasyoutype.ts" />
   <jstest file="testcelledit.ts" />

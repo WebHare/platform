@@ -273,6 +273,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
 
   PUBLIC RECORD ARRAY debugactions;
 
+  PUBLIC BOOLEAN scroll_horizontal;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -2309,6 +2311,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       RECORD listinfo :=
                      CELL[ selectmode        := this->storage->selectmode
                          , columnselectmode  := this->columnselectmode
+                         , this->scroll_horizontal
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
                          , selectcontextmenu := GetComponentName(this->selectcontextmenu)
                          , openaction        := GetComponentName(this->openaction)
