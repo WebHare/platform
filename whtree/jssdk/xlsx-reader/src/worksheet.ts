@@ -3,6 +3,7 @@
 import ssf from 'ssf';
 import Stream from 'stream';
 import type XlsxStreamReaderWorkBook from './workbook';
+import type { UnpackArchiveFile } from '@webhare/zip';
 
 type NodeDataItem = any;
 
@@ -21,7 +22,7 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
   write = function () { };
   end = function () { };
 
-  constructor(workBook: XlsxStreamReaderWorkBook, sheetName: any, workSheetId: any, workSheetStream: any) {
+  constructor(workBook: XlsxStreamReaderWorkBook, sheetName: any, workSheetId: any, workSheetStream: UnpackArchiveFile) {
     super();
 
     this.id = workSheetId;
@@ -35,21 +36,6 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     this.workingRow = {};
     this.currentCell = {};
     this.abortSheet = false;
-
-    this._handleWorkSheetStream();
-  }
-
-  private _handleWorkSheetStream() {
-    this.on('pipe', (srcPipe: any) => {
-      this.workBook._parseXML.call(this, srcPipe, this._handleWorkSheetNode.bind(this), () => {
-        if (this.workingRow.name) {
-          delete (this.workingRow.name);
-          this.emit('row', this.workingRow);
-          this.workingRow = {};
-        }
-        this.emit('end');
-      });
-    });
   }
 
   getColumnNumber(columnName: string): number {
@@ -77,8 +63,15 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     return columnName;
   }
 
-  process() {
-    this.workSheetStream.pipe(this);
+  async process() {
+    await this.workBook._parseXML(this.workSheetStream, this._handleWorkSheetNode.bind(this));
+
+    if (this.workingRow.name) {
+      delete (this.workingRow.name);
+      this.emit('row', this.workingRow);
+      this.workingRow = {};
+    }
+    this.emit('end');
   }
 
   skip() {

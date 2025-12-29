@@ -1,19 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import Fs from 'fs';
-import Tmp from 'tmp';
-import type Stream from 'stream';
-import { Writable } from 'stream';
-import unzipper from 'unzipper';
+import { EventEmitter } from 'stream';
 import Sax from 'sax';
 import XlsxStreamReaderWorkSheet from './worksheet';
-
-Tmp.setGracefulCleanup();
+import type { UnpackArchiveDirectory, UnpackArchiveFile, UnpackArchiveResult } from '@webhare/zip';
+import { throwError } from '@webhare/std';
 
 type TmpNode = any;
 
 interface WorkBookOptions {
-  saxTrim?: boolean;
   saxPosition?: boolean;
   saxStrictEntities?: boolean;
   saxStrict?: boolean;
@@ -28,7 +23,7 @@ interface WorkBookInfo {
   date1904: boolean;
 }
 
-class XlsxStreamReaderWorkBook extends Writable {
+class XlsxStreamReaderWorkBook extends EventEmitter {
   options: WorkBookOptions;
   workBookSharedStrings: any[];
   workBookInfo: WorkBookInfo;
@@ -44,7 +39,7 @@ class XlsxStreamReaderWorkBook extends Writable {
   write = () => false;
   end = () => this;
 
-  constructor(options: WorkBookOptions = {}) {
+  constructor(public source: UnpackArchiveResult, options: WorkBookOptions = {}) {
     super();
 
     this.options = options;
@@ -59,128 +54,68 @@ class XlsxStreamReaderWorkBook extends Writable {
     this.formatCodes = {};
     this.xfs = {};
     this.abortBook = false;
-    this._handleWorkBookStream();
+    setImmediate(() => void this._handleWorkBookStream());
   }
 
-  _handleWorkBookStream() {
-    let match: RegExpMatchArray | null;
+  async _handleWorkBookStream() {
 
-    this.on('pipe', (srcPipe: Stream.Readable) => {
-      (srcPipe as any).pipe(unzipper.Parse())
-        .on('error', (err: Error) => {
-          this.emit('error', err);
-        })
-        .on('entry', (entry: any) => {
-          if (this.abortBook) {
-            entry.autodrain();
-            return;
-          }
-          switch (entry.path) {
-            case 'xl/workbook.xml':
-              this._parseXML(entry, this._parseWorkBookInfo, () => {
-                this.parsedWorkBookInfo = true;
-                this.emit('workBookInfo');
-              });
-              break;
-            case 'xl/_rels/workbook.xml.rels':
-              this._parseXML(entry, this._parseWorkBookRels, () => {
-                this.parsedWorkBookRels = true;
-                this.emit('workBookRels');
-              });
-              break;
-            case '_rels/.rels':
-              entry.autodrain();
-              break;
-            case 'xl/sharedStrings.xml':
-              this._parseXML(entry, this._parseSharedStrings, () => {
-                this.parsedSharedStrings = true;
-                this.emit('sharedStrings');
-              });
-              break;
-            case 'xl/styles.xml':
-              this._parseXML(entry, this._parseStyles, () => {
-                if (Object.keys(this.formatCodes).length > 0) {
-                  this.hasFormatCodes = true;
-                }
-                const cellXfsIndex = this.workBookStyles.findIndex((item: any) => {
-                  return item.name === 'cellXfs';
-                });
-                this.xfs = this.workBookStyles.filter((item: any, index: number) => {
-                  return item.name === 'xf' && index > cellXfsIndex;
-                });
-                this.emit('styles');
-              });
-              break;
-            default:
-              if ((match = entry.path.match(/xl\/(worksheets\/sheet(\d+)\.xml)/i))) {
-                const sheetPath = match[1];
-                const sheetNo = match[2];
+    const workbook = this.source.find(_ => _.fullPath === 'xl/workbook.xml') || throwError('xl/workbook.xml not found in archive');
+    await this._parseXML(workbook, this._parseWorkBookInfo);
 
-                if (this.parsedWorkBookInfo === false ||
-                  this.parsedWorkBookRels === false ||
-                  this.parsedSharedStrings === false ||
-                  this.waitingWorkSheets.length > 0
-                ) {
-                  const { name } = Tmp.fileSync({});
-                  const stream = Fs.createWriteStream(name);
+    const workbookRels = this.source.find(_ => _.fullPath === 'xl/_rels/workbook.xml.rels') || throwError('xl/_rels/workbook.xml.rels not found in archive');
+    await this._parseXML(workbookRels, this._parseWorkBookRels);
 
-                  this.waitingWorkSheets.push({ sheetNo: sheetNo, name: entry.path, path: name, sheetPath: sheetPath });
+    const sharedStrings = this.source.find(_ => _.fullPath === 'xl/sharedStrings.xml');
+    if (sharedStrings)
+      await this._parseXML(sharedStrings, this._parseSharedStrings, { trim: false });
 
-                  entry.pipe(stream);
-                } else {
-                  const name = this._getSheetName(sheetPath);
-                  const workSheet = new (XlsxStreamReaderWorkSheet as any)(this, name, sheetNo, entry);
+    const styles = this.source.find(_ => _.fullPath === 'xl/styles.xml');
+    if (styles) {
+      await this._parseXML(styles, this._parseStyles);
 
-                  this.emit('worksheet', workSheet);
-                }
-              } else if ((match = entry.path.match(/xl\/worksheets\/_rels\/sheet(\d+)\.xml.rels/i))) {
-                entry.autodrain();
-              } else {
-                entry.autodrain();
-              }
-              break;
-          }
-        })
-        .on('close', (entry: any) => {
-          if (this.waitingWorkSheets.length > 0) {
-            let currentBook = 0;
-            const processBooks = () => {
-              const sheetInfo = this.waitingWorkSheets[currentBook];
-              const workSheetStream = Fs.createReadStream(sheetInfo.path);
-              const name = this._getSheetName(sheetInfo.sheetPath);
-              const workSheet = new (XlsxStreamReaderWorkSheet as any)(this, name, sheetInfo.sheetNo, workSheetStream);
+      if (Object.keys(this.formatCodes).length > 0) {
+        this.hasFormatCodes = true;
+      }
+      const cellXfsIndex = this.workBookStyles.findIndex((item: any) => {
+        return item.name === 'cellXfs';
+      });
+      this.xfs = this.workBookStyles.filter((item: any, index: number) => {
+        return item.name === 'xf' && index > cellXfsIndex;
+      });
+    }
 
-              workSheet.on('end', (node: any) => {
-                ++currentBook;
-                if (currentBook === this.waitingWorkSheets.length) {
-                  setImmediate(this.emit.bind(this), 'end');
-                } else {
-                  setImmediate(processBooks);
-                }
-              });
+    for (const entry of this.source) {
+      let match: RegExpMatchArray | null;
+      if (entry.type !== "file")
+        continue;
 
-              setImmediate(this.emit.bind(this), 'worksheet', workSheet);
-            };
-            setImmediate(processBooks);
-          } else {
-            setImmediate(this.emit.bind(this), 'end');
-          }
-        });
-    });
+      if ((match = entry.fullPath.match(/xl\/(worksheets\/sheet(\d+)\.xml)/i))) {
+        const sheetPath = match[1];
+        const sheetNo = match[2];
+
+        const workSheet = new XlsxStreamReaderWorkSheet(this, this._getSheetName(sheetPath), sheetNo, entry);
+        this.emit('worksheet', workSheet);
+      }
+    }
+
+    setImmediate(this.emit.bind(this), 'end');
   }
 
   abort() {
     (this as any).abortBook = true;
   }
 
-  _parseXML(entryStream: Stream.Readable, entryHandler: (this: XlsxStreamReaderWorkBook, node: TmpNode) => void, endHandler: () => void) {
-    let isErred = false;
+  async _parseXML(entry: UnpackArchiveDirectory | UnpackArchiveFile, entryHandler: (this: XlsxStreamReaderWorkBook, node: TmpNode) => void, { trim } = { trim: true }) {
+    if (entry.type !== "file")
+      throw new Error("Cannot parse XML from a folder entry");
+
+    let isErred: Error | undefined;
 
     let tmpNode: TmpNode[] = [];
     let tmpNodeEmit = false;
 
     const saxOptions: any = {
-      trim: this.options.saxTrim,
+      trim: trim,
       position: this.options.saxPosition,
       strictEntities: this.options.saxStrictEntities,
       normalize: this.options.normalize
@@ -188,16 +123,9 @@ class XlsxStreamReaderWorkBook extends Writable {
 
     const parser = Sax.createStream(this.options.saxStrict, saxOptions);
 
-    entryStream.on('end', () => {
-      if (this.abortBook) return;
-      if (!isErred) setImmediate(endHandler);
-    });
-
     parser.on('error', (error: Error) => {
       if (this.abortBook) return;
-      isErred = true;
-
-      this.emit('error', error);
+      isErred = error;
     });
 
     parser.on('opentag', (node: any) => {
@@ -245,11 +173,19 @@ class XlsxStreamReaderWorkBook extends Writable {
       tmpNode.splice(-1, 1);
     });
 
-    try {
-      (entryStream as any).pipe(parser);
-    } catch (error) {
-      this.emit('error', error);
+    const reader = entry.stream().getReader();
+
+    // eslint-disable-next-line no-unmodified-loop-condition -- set asynchronously
+    while (!isErred) {
+      const { done, value } = await reader.read();
+      if (done)
+        break;
+
+      if (!parser.write(Buffer.from(value)))
+        await new Promise(resolve => parser.once('drain', resolve));
     }
+    if (isErred)
+      throw isErred;
   }
 
   _getSharedString(stringIndex: number) {

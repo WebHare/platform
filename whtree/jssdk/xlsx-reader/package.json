@@ -1,0 +1,27 @@
+{
+  "name": "@webhare/xlsx-reader",
+  "version": "",
+  "description": "Memory efficient XLSX reader",
+  "keywords": [
+    "xlsx",
+    "reader",
+    "stream",
+    "simple"
+  ],
+  "main": "src/xlsx-reader.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/xlsx-reader.ts"
+    ]
+  },
+  "dependencies": {
+    "@types/sax": "^1.2.7",
+    "@webhare/zip": "",
+    "sax": "^1.4.3",
+    "ssf": "^0.11.2"
+  },
+  "private": true
+}
