@@ -1,12 +1,22 @@
 // @webhare/cli: Control WebHare bridge connections (ie. javascript processes)
 
+// TODO move/integrate this into `wh debug`, reconsider command names then (and add dashes)
+
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
 import { getInspectorURL } from "@mod-platform/js/bridge/tools";
+import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 
+function parseHostPort(str: string) {
+  const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
+  if (!matchRes)
+    throw new CLISyntaxError(`Could not parse host/port from ${JSON.stringify(str)}`);
+
+  return { host: matchRes[2] || null, port: parseInt(matchRes[3]) };
+}
 
 run({
   subCommands:
@@ -74,6 +84,26 @@ run({
         console.log("Opening " + devtoolsurl);
         const subprocess = child_process.spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
         subprocess.unref();
+      }
+    },
+    "devtools-proxy": {
+      description: "Start a DevTools proxy for the given process",
+      options: {
+        bind: { description: "Address to bind the proxy to", default: "127.0.0.1:9229" },
+        local: { description: "Local port" }
+      },
+      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      main: async ({ opts, args }) => {
+
+        const parsedBind = parseHostPort(opts.bind);
+        const bindHost = parsedBind.host || "127.0.0.1";
+        const bindPort = parsedBind.port;
+
+        const parsedLocal = parseHostPort(opts.local || `${bindHost}:${bindPort}`);
+        const localHost = parsedLocal.host || "127.0.0.1";
+        const localPort = parsedLocal.port;
+
+        await devtoolsProxy({ localHost, localPort, bindHost, bindPort, connectProcess: args.process });
       }
     },
     "getrecentlog": {

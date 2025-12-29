@@ -1,10 +1,7 @@
-import { createDeferred } from '@webhare/std';
 import http from 'node:http';
 import WebSocket, { WebSocketServer } from 'ws';
 import EventSource from '@mod-system/js/internal/eventsource';
-import bridge from '@mod-system/js/internal/whmanager/bridge';
-import { DebugMgrClientLinkRequestType, type DebugMgrClientLink } from '@mod-system/js/internal/whmanager/debug';
-
+import { getInspectorURL } from './tools';
 
 type DevToolsRequest = { id?: number; method: string; params?: object };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,7 +42,7 @@ class DevToolsSocket extends EventSource<DevToolsSocketEvents> {
     this.active = new Promise<void>((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       this.cws.on("open", async () => {
-        console.log(`event open`);
+        // console.log(`event open`);
         try {
           await this.handleOpen();
           resolve();
@@ -66,7 +63,7 @@ class DevToolsSocket extends EventSource<DevToolsSocketEvents> {
       else
         data = JSON.parse(message.toString());
 
-      console.log(`<-cws`, "id" in data ? `response ${data.id}` : `event: ${data.method}`);
+      // console.log(`<-cws`, "id" in data ? `response ${data.id}` : `event: ${data.method}`);
 
       if ("id" in data) {
         const resolve = this.requestPromises.get(data.id);
@@ -90,10 +87,10 @@ class DevToolsSocket extends EventSource<DevToolsSocketEvents> {
   send(request: DevToolsRequest, { awaitResponse }: { awaitResponse?: boolean } = {}): void | Promise<Extract<DevToolsResponse, { result: unknown }>> {
     const toSend = { ...request };
     toSend.id ??= toSend.id = ++this.idCounter;
-    console.log(`->cws`, toSend);
+    // console.log(`->cws`, toSend);
     this.cws.send(JSON.stringify(toSend));
     if (awaitResponse) {
-      const deferred = createDeferred<Extract<DevToolsResponse, { result: unknown }>>();
+      const deferred = Promise.withResolvers<Extract<DevToolsResponse, { result: unknown }>>();
       this.requestPromises.set(toSend.id, deferred.resolve);
       return deferred.promise;
     }
@@ -127,7 +124,7 @@ class NodeWorkerKeeper {
       this.workers.delete(data.params.sessionId);
     });
     // wait for nodeworker to become active
-    this.active = cws.active.then(() => cws.send({ method: `NodeWorker.enable`, params: { waitForDebuggerOnStart: true } }, { awaitResponse: true }).then(() => console.log(`NodeWorkerKeeper active`), void undefined));
+    this.active = cws.active.then(() => void cws.send({ method: `NodeWorker.enable`, params: { waitForDebuggerOnStart: true } }, { awaitResponse: true }));
   }
 }
 
@@ -176,7 +173,7 @@ class NodeWorkerForwarder extends EventSource<DevToolsSocketEvents> {
     toSend.id ??= toSend.id = ++this.idCounter;
     this.cws.send({ method: `NodeWorker.sendMessageToWorker`, params: { sessionId: this.sessionId, message: JSON.stringify(toSend) } }, { awaitResponse: false });
     if (awaitResponse) {
-      const deferred = createDeferred<Extract<DevToolsResponse, { result: unknown }>>();
+      const deferred = Promise.withResolvers<Extract<DevToolsResponse, { result: unknown }>>();
       this.requestPromises.set(toSend.id, deferred.resolve);
       return deferred.promise;
     }
@@ -221,25 +218,7 @@ interface DevToolsConn extends EventSource<DevToolsSocketEvents> {
   send(request: DevToolsRequest, options: { awaitResponse: true }): Promise<Extract<DevToolsResponse, { result: unknown }>>;
 }
 
-async function getInspectorURL(process: string) {
-  const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
-  try {
-    await link.activate();
-    const inspectorinfo = await link.doRequest({
-      type: DebugMgrClientLinkRequestType.enableInspector,
-      processid: process
-    });
-    return inspectorinfo?.url || null;
-  } catch (e) {
-    console.error(`Could not connect to debug manager`);
-    return null;
-  } finally {
-    link.close();
-  }
-}
-
-
-async function myHandler(options: { localHost: string; localPort: number; bindHost: string; bindPort: number; connectProcess: string }) {
+export async function devtoolsProxy(options: { localHost: string; localPort: number; bindHost: string; bindPort: number; connectProcess: string }) {
   console.log(`Enabling inspector for process ${options.connectProcess}`);
   const inspectorUrl = await getInspectorURL(options.connectProcess);
   if (!inspectorUrl) {
@@ -254,7 +233,7 @@ async function myHandler(options: { localHost: string; localPort: number; bindHo
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const server = http.createServer(async (req, res) => {
-    console.log(`request ${req.method} ${req.url} `);
+    // console.log(`request ${req.method} ${req.url} `);
     //console.log(requestBuffers);
 
     let toSend: unknown;
@@ -286,7 +265,7 @@ async function myHandler(options: { localHost: string; localPort: number; bindHo
         //console.log(proxy.workers);
         for (const [, worker] of [...workerKeeper.workers.entries()].sort((a, b) => naturalCompare(a[1].workerInfo.title, b[1].workerInfo.title))) {
           const newElt = { ...listJson[0] };
-          newElt.id = newElt.id + `? workerId = ${worker.workerInfo.workerId} `;
+          newElt.id = newElt.id + `?workerId=${worker.workerInfo.workerId}`;
           newElt.webSocketDebuggerUrl = setURLVariables(newElt.webSocketDebuggerUrl, { workerId: worker.workerInfo.workerId });
           const wsUrl = newElt.webSocketDebuggerUrl.replace(`ws://`, ``);
           newElt.devtoolsFrontendUrl = setURLVariables(newElt.devtoolsFrontendUrl, { ws: wsUrl });
@@ -339,7 +318,7 @@ async function myHandler(options: { localHost: string; localPort: number; bindHo
       return;
     }
 
-    console.log({ item });
+    // console.log({ item });
 
     const client = new DevToolsSocket(item.webSocketDebuggerUrl);
     let itf: DevToolsConn;
@@ -373,51 +352,3 @@ async function myHandler(options: { localHost: string; localPort: number; bindHo
   console.log(`Starting server on ${options.bindHost}:${options.bindPort}`);
   server.listen(options.bindPort, options.bindHost);
 }
-
-function parseHostPort(str: string) {
-  const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
-  if (!matchRes) {
-    console.error(`Illegal host/port combo ${JSON.stringify(str)}`);
-    process.exit(1);
-  }
-  return { host: matchRes[2] || null, port: parseInt(matchRes[3]) };
-}
-
-let bindHost = "127.0.0.1";
-let bindPort = 9229;
-let localHost = "127.0.0.1";
-let localPort: number | null = null;
-let connectProcess = "";
-
-const args = process.argv.slice(2);
-while (args.length && args[0].startsWith("-")) {
-  const arg = args.shift() || "";
-  if (["-b", "--bind"].includes(arg)) {
-    const parsed = parseHostPort(args.shift() || "");
-    if (parsed.host)
-      bindHost = parsed.host;
-    bindPort = parsed.port;
-  } else if (["-l", "--local"].includes(arg)) {
-    const parsed = parseHostPort(args.shift() || "");
-    if (parsed.host)
-      localHost = parsed.host;
-    localPort = parsed.port;
-  } else {
-    console.error(`Unknown options ${arg}`);
-    process.exit(1);
-  }
-}
-localPort ??= bindPort;
-
-
-if (!args.length) {
-  console.error(`No process specified`);
-  process.exit(1);
-}
-connectProcess = args.shift() || "";
-if (args.length) {
-  console.error(`Too many arguments`);
-  process.exit(1);
-}
-
-void myHandler({ localHost, localPort, bindHost, bindPort, connectProcess });

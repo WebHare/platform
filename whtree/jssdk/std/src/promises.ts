@@ -19,7 +19,7 @@ export function sleep(duration: WaitPeriod, options?: { signal?: AbortSignal }):
   });
 }
 
-//TODO Deprecate once everyone is WH5.5+
+/** @deprecated Use Promise.withResolvers instead */
 export function createDeferred<T>(): PromiseWithResolvers<T> {
   return Promise.withResolvers<T>();
 }
