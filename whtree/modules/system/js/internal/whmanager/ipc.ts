@@ -46,7 +46,7 @@ type CalcResponseType<SendType, ReceiveType, T extends OmitResponseKey<SendType>
   ? ReceiveType & (SendType & T)["__responseKey"]
   : ReceiveType>;
 
-export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord> extends EventSource<IPCEndPointEvents<ReceiveType>> {
+export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRecord, ReceiveType extends object | null = IPCMarshallableRecord> extends EventSource<IPCEndPointEvents<ReceiveType>>, Disposable {
   /** Indicator if closed */
   get closed(): boolean;
 
@@ -114,7 +114,7 @@ export type IPCEndPointImplControlMessage = {
   success: boolean;
 };
 
-export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCEndPointEvents<ReceiveType>> implements IPCEndPoint<SendType, ReceiveType> {
+export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCEndPointEvents<ReceiveType>> implements IPCEndPoint<SendType, ReceiveType>, Disposable {
   /** id for logging */
   private id: string;
 
@@ -289,6 +289,10 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     for (const [, { reject }] of this.requests)
       reject(new DOMException(`Request is cancelled, link was closed`, "AbortError"));
     this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
+  }
+
+  [Symbol.dispose]() {
+    this.close();
   }
 
   sendPortMessage(msg: IPCEndPointImplControlMessage, transferlist?: ArrayBuffer[]) {

@@ -5,21 +5,8 @@ import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-sys
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { throwError } from "@webhare/std";
+import { getInspectorURL } from "@mod-platform/js/bridge/tools";
 
-async function getInspectorURL(process: string): Promise<string> {
-  const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
-  try {
-    await link.activate();
-    const inspectorinfo = await link.doRequest({
-      type: DebugMgrClientLinkRequestType.enableInspector,
-      processid: process
-    });
-    return inspectorinfo?.url || throwError("Could not get an inspector URL");
-  } finally {
-    link.close();
-  }
-}
 
 run({
   subCommands:
