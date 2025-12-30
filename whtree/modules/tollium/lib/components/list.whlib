@@ -1728,7 +1728,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       @cell formattedvalue the title that was generated using GetFormattedListCell, used for values of type STRING to sort (without needing to know specifics on titlefromrowkey or optiongid)
   */
   STRING FUNCTION GetSortableListCell(RECORD coldef, RECORD listrow, VARIANT invalue) {
-    STRING formattedvalue := TYPEID(invalue) = TYPEID(STRING) ? invalue : InlineItemsToString(invalue);
+    //for structured list cells (RECORD type) just ignore formattedvalue. we should be looking at actual values
+
+    STRING formattedvalue := TYPEID(invalue) = TYPEID(RECORD) ? "" : TYPEID(invalue) = TYPEID(STRING) ? invalue : InlineItemsToString(invalue);
     //Exceptions first
     IF(coldef.sortkeyname="")
     {

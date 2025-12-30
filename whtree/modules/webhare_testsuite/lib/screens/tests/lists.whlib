@@ -58,6 +58,11 @@ RECORD ARRAY coltypes_rows :=
 
         , "datetime" := MakeDatetime(2012,10,11,9,8,7)
         , datetimehint := "Erg laat!"
+        , inline := CELL[
+            value := "Italic text", //the value for sorting. must be made explicit currently
+            text := VARIANT[[ text := "Italic", italic := TRUE ], " text" ],
+            bg_color := "#FF0000"
+          ]
         ]
       , [ ...coltypes_baserow
         , style := "italic"

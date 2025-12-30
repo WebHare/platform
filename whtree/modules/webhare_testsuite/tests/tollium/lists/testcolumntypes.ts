@@ -82,7 +82,7 @@ test.runTests(
         test.eq("_blank", row1cells[6].querySelector('a')?.target);
 
         //inline items
-        test.eq("", row1cells[7].innerHTML);
+        test.eq("<i>Italic</i> text", row1cells[7].innerHTML);
         test.eq("Text <b>in bold</b>", row2cells[7].innerHTML);
 
         //date

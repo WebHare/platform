@@ -17,6 +17,12 @@ type SizeStyles = {
   padright: number;
 };
 
+type StructuredListCell = {
+  value: string;
+  text: RTDSourceInlineItems;
+  bg_color?: string;
+};
+
 export const cellpadding_x = 4;
 
 function setIcon(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, width: number, height: number, icon: string | null) {
@@ -247,15 +253,21 @@ function mapInlineItems(items: RTDSourceInlineItems): Array<Node | string> {
   return result;
 }
 
+function isStructuredListCell(data: RTDSourceInlineItems | StructuredListCell): data is StructuredListCell {
+  return typeof data === 'object' && 'text' in data;
+}
+
 export class Text extends BaseEditable {
-  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: RTDSourceInlineItems, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: RTDSourceInlineItems | StructuredListCell, wrapped?: boolean) {
     if (!cell)
       throw new Error('no cell');
 
     cell.classList.add("text"); // so CSS can apply ellipsis
-    cell.replaceChildren(...mapInlineItems(data));
+    cell.replaceChildren(...mapInlineItems(isStructuredListCell(data) ? data.text : data));
     if (columndef.align === 'right')
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
+    if (isStructuredListCell(data) && data.bg_color)
+      cell.style.backgroundColor = data.bg_color;
   }
 }
 
