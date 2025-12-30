@@ -6,7 +6,7 @@ import type { UnpackArchiveFile } from '@webhare/zip';
 
 type NodeDataItem = any;
 
-export type XlsxCellValue = string | number | Temporal.PlainDate | boolean;
+export type XlsxCellValue = string | number | Temporal.PlainDate | boolean | null;
 export type XlsxRow = XlsxCellValue[];
 
 type InternalXlsxRow = {
@@ -214,6 +214,8 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
 
       if (workingCell.name === 'c') {
         const cellNum = this.getColumnNumber(workingCell.attributes!.r!);
+        while (this.workingRow.values.length < cellNum + 1) //we've missed cells
+          this.workingRow.values.push(null);
 
         if (workingPart && workingPart.name && workingPart.name === 'f') {
           this.workingRow.formulas[cellNum] = workingVal;
@@ -237,19 +239,23 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
             const formatId = workingCell.attributes.s ? Number(this.workBook.xfs[workingCell.attributes.s].attributes.numFmtId) : 0;
             const format = this.workBook.getFormat(formatId);
             const date1904 = this.workBook.workBookInfo.date1904;
-
-            switch (guessFormat(format)) {
-              case "plaindate":
-                this.workingRow.values[cellNum] = excelFloatToPlainDate(Number(workingVal), date1904);
-                break;
-              case "number":
-                this.workingRow.values[cellNum] = parseFloat(workingVal);
-                break;
+            const asNumber = parseFloat(workingVal);
+            if (isNaN(asNumber)) {
+              this.workingRow.values[cellNum] = null;
+            } else {
+              switch (guessFormat(format)) {
+                case "plaindate":
+                  this.workingRow.values[cellNum] = excelFloatToPlainDate(Number(workingVal), date1904);
+                  break;
+                case "number":
+                  this.workingRow.values[cellNum] = parseFloat(workingVal);
+                  break;
+              }
             }
             break;
           }
           case 'b': { //boolean
-            workingVal = workingVal === '1' || workingVal === 'true';
+            this.workingRow.values[cellNum] = workingVal === '1' || workingVal === 'true';
             break;
           }
 

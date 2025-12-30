@@ -74,6 +74,18 @@ async function testStreamingReader() {
     test.eq(0, rows[1][0]);
     test.eq(1, rows[1][1]);
   }
+  //more column parsing tests
+  {
+    const workBookReader = await openXlsxFromDisk(path.join(__dirname, 'data/morecoltypes.xlsx'));
+    const rows: XlsxRow[] = await Array.fromAsync(workBookReader.openSheet(0).rows());
+
+    test.eq([
+      ['Startdatum', 'StudentenAantal', 'Studielast', 'Bool', 'NOTES'],
+      ['2011-09-01', 75, '240', true],
+      ['2009-09-01', null, '60', false, 'B3 is formatted as a number to trigger potential NaN'],
+      [null, 50, null, null, "A4 is date, D4 specifically empty"]
+    ], rows);
+  }
 }
 
 test.run([testStreamingReader]);
