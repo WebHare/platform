@@ -5,7 +5,6 @@ This XLSX parser is based on [xlsx-stream-reader](https://github.com/DaSpawn/xls
 |Key|Default Value|Description|
 |---|---|---|
 |verbose|true|throw additional exceptions, if `false` - then pass empty string in that places|
-|formatting|true|should cells with combined formats be formatted or not|
 
 For example usage see `test_xlsx_reader`
 

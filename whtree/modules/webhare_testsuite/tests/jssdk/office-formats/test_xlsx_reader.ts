@@ -15,8 +15,8 @@ async function testStreamingReader() {
     test.eq('Foglio1', sheet1byname.name);
 
     const rows: XlsxRow[] = await Array.fromAsync(sheet1byname.rows());
-    test.eq('9/27/86', rows[1][4]);
-    test.eq('20064', rows[1][8]);
+    test.eq(Temporal.PlainDate.from("1986-09-27"), rows[1][4]);
+    test.eq(20064, rows[1][8]);
   }
 
   //multiple worksheets
@@ -33,15 +33,15 @@ async function testStreamingReader() {
     const workBookReader = await openXlsxFromDisk(path.join(__dirname, 'data/import.xlsx'));
     const rows: XlsxRow[] = await Array.fromAsync(workBookReader.openSheet(0).rows());
 
-    test.eq('27/09/1986', rows[1][2]);
-    test.eq('20064', rows[1][3]);
+    test.eq(Temporal.PlainDate.from("1986-09-27"), rows[1][2]);
+    test.eq(20064, rows[1][3]);
   }
   //it supports date formate 1904
   {
     const workBookReader = await openXlsxFromDisk(path.join(__dirname, 'data/date1904.xlsx'));
     const rows: XlsxRow[] = await Array.fromAsync(workBookReader.openSheet(0).rows());
 
-    test.eq('27/09/1986', rows[1][2]);
+    test.eq(Temporal.PlainDate.from("1986-09-27"), rows[1][2]);
   }
   //it catches zip format errors  FIXME nicer error not talking about ZIP but clearer about XLSX
   await test.throws(/is not a valid.*file/, () => openXlsxFromDisk(path.join(__dirname, 'data/notanxlsx')));

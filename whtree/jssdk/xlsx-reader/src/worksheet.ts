@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import ssf from 'ssf';
 import Stream from 'stream';
 import type XlsxStreamReaderWorkBook from './workbook';
 import type { UnpackArchiveFile } from '@webhare/zip';
 
 type NodeDataItem = any;
 
-export type XlsxCellValue = string | number;
+export type XlsxCellValue = string | number | Temporal.PlainDate | boolean;
 export type XlsxRow = XlsxCellValue[];
 
 type InternalXlsxRow = {
@@ -15,6 +14,23 @@ type InternalXlsxRow = {
   values: XlsxRow;
   formulas: string[];
 };
+
+function guessFormat(format: string) {
+  const hasdate = format.toUpperCase().includes("YY");
+  if (hasdate)
+    return "plaindate";
+  return "number";
+}
+function excelFloatToEpochTime(val: number, date1904: boolean): number {
+  const daynum = Math.floor(val);
+  const remainder = val - daynum;
+  const timepart = Math.floor(remainder * (86400 * 1000) + 0.5);
+
+  return ((daynum - (date1904 ? 24107 : 25569)) * 86400 * 1000 + timepart);
+}
+function excelFloatToPlainDate(val: number, date1904: boolean): Temporal.PlainDate {
+  return Temporal.PlainDate.from("1970-01-01").add({ days: Math.floor(excelFloatToEpochTime(val, date1904) / (86400 * 1000)) });
+}
 
 export default class XlsxStreamReaderWorkSheet extends Stream {
   id: any;
@@ -25,7 +41,7 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
   rowCount: number;
   sheetData: any;
   inRows: boolean;
-  workingRow: any;
+  workingRow: InternalXlsxRow | undefined;
   currentCell: any;
   abortSheet: boolean;
   write = function () { };
@@ -42,7 +58,6 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     this.rowCount = 0;
     this.sheetData = {};
     this.inRows = false;
-    this.workingRow = {};
     this.currentCell = {};
     this.abortSheet = false;
   }
@@ -104,10 +119,9 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     await this.workBook.readyForStreaming();
     await this.workBook._parseXML(this.workSheetStream, this._handleWorkSheetNode.bind(this));
 
-    if (this.workingRow.name) {
-      delete (this.workingRow.name);
+    if (this.workingRow) {
       this.emit('row', this.workingRow);
-      this.workingRow = {};
+      this.workingRow = undefined;
     }
     this.emit('end');
   }
@@ -145,10 +159,9 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
       case 'pageMargins':
       case 'pageSetup':
         this.inRows = false;
-        if (this.workingRow.name) {
-          delete (this.workingRow.name);
+        if (this.workingRow) {
           this.emit('row', this.workingRow);
-          this.workingRow = {};
+          this.workingRow = undefined;
         }
         break;
 
@@ -166,22 +179,25 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
         nodeData.shift();
 
       // fallthrough
-      case 'row':
-        if (this.workingRow.name) {
-          delete (this.workingRow.name);
+      case 'row': {
+        if (this.workingRow) {
           this.emit('row', this.workingRow);
-          this.workingRow = {};
+          this.workingRow = undefined;
         }
 
         ++this.rowCount;
 
-        this.workingRow = nodeData.shift() || {};
-        if (typeof this.workingRow !== 'object') {
-          this.workingRow = {};
+        let inNode = nodeData.shift() || {};
+        if (typeof inNode !== 'object') {
+          inNode = {};
         }
-        this.workingRow.values = [];
-        this.workingRow.formulas = [];
+        this.workingRow = {
+          attributes: inNode.attributes || {},
+          values: [],
+          formulas: [],
+        };
         break;
+      }
     }
 
     if (this.inRows === true) {
@@ -189,7 +205,7 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
       const workingPart = nodeData.shift();
       let workingVal: any = nodeData.shift();
 
-      if (!workingCell) {
+      if (!workingCell || !this.workingRow) {
         return;
       }
 
@@ -217,36 +233,30 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
             this.workingRow.values[cellNum] = nodeData.shift() || '';
             break;
           }
-          case 'str':
-          case 'b':
           case 'n':
-          case 'e':
-          default: {
-            if (this.options.formatting && workingVal) {
-              if (this.workBook.hasFormatCodes) {
-                const formatId = workingCell.attributes.s ? this.workBook.xfs[workingCell.attributes.s].attributes.numFmtId : 0;
-                const date1904 = this.workBook.workBookInfo.date1904;
-                if (typeof formatId !== 'undefined') {
-                  const format = this.workBook.formatCodes[formatId];
-                  if (typeof format === 'undefined') {
-                    try {
-                      workingVal = ssf.format(Number(formatId), Number(workingVal), { date1904 });
-                    } catch (e) {
-                      workingVal = '';
-                    }
-                  } else if (format !== 'General') {
-                    try {
-                      workingVal = ssf.format(format, Number(workingVal), { date1904 });
-                    } catch (e) {
-                      workingVal = '';
-                    }
-                  }
-                }
-              } else if (!isNaN(parseFloat(workingVal))) {
-                workingVal = parseFloat(workingVal);
-              }
-            }
+          case undefined: { //it's a number
+            const formatId = workingCell.attributes.s ? Number(this.workBook.xfs[workingCell.attributes.s].attributes.numFmtId) : 0;
+            const format = this.workBook.getFormat(formatId);
+            const date1904 = this.workBook.workBookInfo.date1904;
 
+            switch (guessFormat(format)) {
+              case "plaindate":
+                this.workingRow.values[cellNum] = excelFloatToPlainDate(Number(workingVal), date1904);
+                break;
+              case "number":
+                this.workingRow.values[cellNum] = parseFloat(workingVal);
+                break;
+            }
+            break;
+          }
+          case 'b': { //boolean
+            workingVal = workingVal === '1' || workingVal === 'true';
+            break;
+          }
+
+          case 'str':
+          case 'e'://not sure?
+          default: {
             this.workingRow.values[cellNum] = (workingVal || workingVal === 0) ? workingVal : '';
 
           }

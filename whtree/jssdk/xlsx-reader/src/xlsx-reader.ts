@@ -9,7 +9,6 @@ export type { XlsxRow } from './worksheet';
 
 export interface OpenXlsxOptions {
   verbose: boolean;
-  formatting: boolean;
 }
 
 async function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXlsxOptions> = {}): Promise<XlsxStreamReaderWorkBook> {
@@ -18,12 +17,10 @@ async function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXlsx
   }
 
   if (typeof options.verbose === 'undefined') options.verbose = true;
-  if (typeof options.formatting === 'undefined') options.formatting = true;
 
   const instanceOptions = {
     saxStrict: true,
     verbose: options.verbose,
-    formatting: options.formatting
   };
 
   const workbook = new XlsxStreamReaderWorkBook(source, instanceOptions);
