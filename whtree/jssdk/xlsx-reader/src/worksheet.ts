@@ -101,6 +101,11 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
       while (!isDone || rowQueue.length > 0) {
         const next = rowQueue.shift();
         if (next) {
+          /* Technically XLSX rows don't need to be in ascending order in the file, but if someone actually does that
+             it may break compatibility with other readers too so we'll assume rows are in order (TODO but might there be a vertical gap?)
+
+             There's an attribute before the actual rows that *should* have the highest row number so if we need to check for out-of-order vs gap we might be able to use that, in theory
+             */
           yield next.values;
           continue;
         }
