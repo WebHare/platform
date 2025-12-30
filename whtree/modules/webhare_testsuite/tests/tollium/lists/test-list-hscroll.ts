@@ -105,8 +105,8 @@ test.runTests(
         test.eq(true, row3cells[11].querySelector('input')?.indeterminate);
 
         //floats
-        test.eq(["3 komma 5", "0,00", "0,00", "0,00", "7,50"], transposedCells[12].map(cell => cell.textContent));
-        test.eq(["rgb(0, 255, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"], transposedCells[12].map(cell => getComputedStyle(cell).backgroundColor));
+        test.eq(["3 komma 5", "", "", "0,00", "7,50"], transposedCells[12].map(cell => cell.textContent));
+        test.eq(["rgb(0, 255, 0)", "rgba(0, 0, 0, 0)", "rgb(255, 0, 255)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"], transposedCells[12].map(cell => getComputedStyle(cell).backgroundColor));
 
         // ADDME: test datetime
         // ADDME: also test integer, integer64, money and blobrecord

@@ -97,6 +97,7 @@ RECORD ARRAY coltypes_rows :=
         , cbox1_value := TRUE
 
         , inline := VARIANT["Text ", [ bold := TRUE, text := "in bold" ]]
+        , c_float := DEFAULT RECORD //test a 'null'
         ]
       , [ ...coltypes_baserow
         , rowicon := 3
@@ -122,6 +123,11 @@ RECORD ARRAY coltypes_rows :=
         , "datetime" := MakeDatetime(2012,10,11,9,8,7)
         , datetimehint := "Erg laat!"
         , cbox1_value := "indeterminate"
+        , c_float := [
+            value := DEFAULT RECORD, //test a 'null' in a structuredlistcel
+            text := "",
+            bg_color := "#ff00ff"
+          ]
         ]
       , [ ...coltypes_baserow
         , style := "textcolor"

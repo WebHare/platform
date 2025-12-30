@@ -1809,7 +1809,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       RETURN ""; //footer cells may be missing
 
     VARIANT basevalue := GetCell(listrow, cellname);
-    IF (coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
+    IF ((coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
+        OR (TYPEID(basevalue) = TYPEID(RECORD) AND NOT RecordExists(basevalue))) //'null' cell
       RETURN "";
 
     IF(IsStructuredListCell(basevalue))
