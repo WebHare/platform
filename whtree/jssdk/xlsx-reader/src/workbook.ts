@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { EventEmitter } from 'stream';
 import Sax from 'sax';
 import XlsxStreamReaderWorkSheet from './worksheet';
 import type { UnpackArchiveDirectory, UnpackArchiveFile, UnpackArchiveResult } from '@webhare/zip';
@@ -23,12 +22,10 @@ interface WorkBookInfo {
   date1904: boolean;
 }
 
-class XlsxStreamReaderWorkBook extends EventEmitter {
+class XlsxStreamReaderWorkBook {
   options: WorkBookOptions;
   workBookSharedStrings: any[];
-  workBookInfo: WorkBookInfo;
-  parsedWorkBookInfo: boolean;
-  parsedWorkBookRels: boolean;
+  workBookInfo!: WorkBookInfo; //loaded immediately at construction by xlsx-reader, so noone can publicly access it before it's ready
   parsedSharedStrings: boolean;
   waitingWorkSheets: Array<{ sheetNo: string; name: string; path: string; sheetPath: string }>;
   workBookStyles: any[];
@@ -38,15 +35,13 @@ class XlsxStreamReaderWorkBook extends EventEmitter {
   abortBook: boolean;
   write = () => false;
   end = () => this;
+  ready;
+  private _readyForStreamingPromise: Promise<void> | null = null;
 
   constructor(public source: UnpackArchiveResult, options: WorkBookOptions = {}) {
-    super();
 
     this.options = options;
     this.workBookSharedStrings = [];
-    this.workBookInfo = { sheetRelationships: {}, sheetRelationshipsNames: {}, date1904: false };
-    this.parsedWorkBookInfo = false;
-    this.parsedWorkBookRels = false;
     this.parsedSharedStrings = false;
     this.waitingWorkSheets = [];
     this.workBookStyles = [];
@@ -54,17 +49,52 @@ class XlsxStreamReaderWorkBook extends EventEmitter {
     this.formatCodes = {};
     this.xfs = {};
     this.abortBook = false;
-    setImmediate(() => void this._handleWorkBookStream());
+    this.ready = this.loadWorkBookInfo();
   }
 
-  async _handleWorkBookStream() {
-
+  private async loadWorkBookInfo(): Promise<void> {
     const workbook = this.source.find(_ => _.fullPath === 'xl/workbook.xml') || throwError('xl/workbook.xml not found in archive');
-    await this._parseXML(workbook, this._parseWorkBookInfo);
+    const workBookInfo: WorkBookInfo = { sheetRelationships: {}, sheetRelationshipsNames: {}, date1904: false };
+    await this._parseXML(workbook, nodeData => this._parseWorkBookInfo(nodeData, workBookInfo));
 
     const workbookRels = this.source.find(_ => _.fullPath === 'xl/_rels/workbook.xml.rels') || throwError('xl/_rels/workbook.xml.rels not found in archive');
-    await this._parseXML(workbookRels, this._parseWorkBookRels);
+    await this._parseXML(workbookRels, nodeData => this._parseWorkBookRels(nodeData, workBookInfo));
 
+    this.workBookInfo = workBookInfo;
+  }
+
+  async readyForStreaming() {
+    this._readyForStreamingPromise ||= this.prepareForStreaming();
+    return this._readyForStreamingPromise;
+  }
+
+  getSheets(): Array<{ name: string; sheetPath: string }> {
+    const sheets: Array<{ name: string; sheetPath: string }> = [];
+    for (const [id, name] of Object.entries(this.workBookInfo.sheetRelationshipsNames)) { //sheetRelationshipsNames were inserted in the XLSX order
+      const matchingrel = Object.entries(this.workBookInfo.sheetRelationships).find(([_, relid]) => relid === id);
+      if (matchingrel)
+        sheets.push({ name, sheetPath: matchingrel[0] });
+    }
+    return sheets;
+  }
+
+  /** Open a sheet
+   * @param sheet - Sheet index (0-based) or name
+   */
+  openSheet(sheet: number | string) {
+    const sheets = this.getSheets();
+    const selectedSheet = typeof sheet === 'number' ? sheets[sheet] : sheets.find(s => s.name.toLowerCase() === sheet.toLowerCase());
+    if (!selectedSheet)
+      throw new Error(`Sheet not found: ${sheet}`);
+
+    const file = this.source.find(_ => _.fullPath === 'xl/' + selectedSheet.sheetPath) ?? throwError(`Sheet file not found: ${selectedSheet.sheetPath}`);
+    if (file.type !== "file")
+      throw new Error(`Sheet path is not a file: ${selectedSheet.sheetPath}`);
+
+    return new XlsxStreamReaderWorkSheet(this, selectedSheet.name, '', file);
+  }
+
+  private async prepareForStreaming() {
     const sharedStrings = this.source.find(_ => _.fullPath === 'xl/sharedStrings.xml');
     if (sharedStrings)
       await this._parseXML(sharedStrings, this._parseSharedStrings, { trim: false });
@@ -83,22 +113,6 @@ class XlsxStreamReaderWorkBook extends EventEmitter {
         return item.name === 'xf' && index > cellXfsIndex;
       });
     }
-
-    for (const entry of this.source) {
-      let match: RegExpMatchArray | null;
-      if (entry.type !== "file")
-        continue;
-
-      if ((match = entry.fullPath.match(/xl\/(worksheets\/sheet(\d+)\.xml)/i))) {
-        const sheetPath = match[1];
-        const sheetNo = match[2];
-
-        const workSheet = new XlsxStreamReaderWorkSheet(this, this._getSheetName(sheetPath), sheetNo, entry);
-        this.emit('worksheet', workSheet);
-      }
-    }
-
-    setImmediate(this.emit.bind(this), 'end');
   }
 
   abort() {
@@ -191,7 +205,7 @@ class XlsxStreamReaderWorkBook extends EventEmitter {
   _getSharedString(stringIndex: number) {
     if (stringIndex > this.workBookSharedStrings.length) {
       if (this.options.verbose) {
-        this.emit('error', 'missing shared string: ' + stringIndex);
+        console.error('missing shared string: ' + stringIndex);
       }
       return;
     }
@@ -226,20 +240,20 @@ class XlsxStreamReaderWorkBook extends EventEmitter {
     });
   }
 
-  _parseWorkBookInfo(nodeData: any[]) {
-    nodeData.forEach((data: any) => {
+  _parseWorkBookInfo(nodeData: TmpNode[], workBookInfo: WorkBookInfo) {
+    nodeData.forEach(data => {
       if (data.name === 'sheet') {
-        this.workBookInfo.sheetRelationshipsNames[data.attributes['r:id']] = data.attributes.name;
+        workBookInfo.sheetRelationshipsNames[data.attributes['r:id']] = data.attributes.name;
       } else if (data.name === 'workbookPr' && data.attributes && data.attributes.date1904 === '1') {
-        this.workBookInfo.date1904 = true;
+        workBookInfo.date1904 = true;
       }
     });
   }
 
-  _parseWorkBookRels(nodeData: any[]) {
+  _parseWorkBookRels(nodeData: any[], workBookInfo: WorkBookInfo) {
     nodeData.forEach((data: any) => {
       if (data.name === 'Relationship') {
-        this.workBookInfo.sheetRelationships[data.attributes.Target] = data.attributes.Id;
+        workBookInfo.sheetRelationships[data.attributes.Target] = data.attributes.Id;
       }
     });
   }

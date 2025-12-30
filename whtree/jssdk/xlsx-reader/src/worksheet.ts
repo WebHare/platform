@@ -7,6 +7,15 @@ import type { UnpackArchiveFile } from '@webhare/zip';
 
 type NodeDataItem = any;
 
+export type XlsxCellValue = string | number;
+export type XlsxRow = XlsxCellValue[];
+
+type InternalXlsxRow = {
+  attributes: { [key: string]: string };
+  values: XlsxRow;
+  formulas: string[];
+};
+
 export default class XlsxStreamReaderWorkSheet extends Stream {
   id: any;
   workBook: XlsxStreamReaderWorkBook;
@@ -63,7 +72,36 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     return columnName;
   }
 
+  async *rows(): AsyncIterable<XlsxRow> {
+    const rowQueue: InternalXlsxRow[] = [];
+    let isDone = false;
+    const listenerOn = (row: InternalXlsxRow) => rowQueue.push(row);
+    const listenerEnd = () => isDone = true;
+
+    this.on("row", listenerOn);
+    this.on("end", listenerEnd);
+
+    try {
+      void this.process();
+      // eslint-disable-next-line no-unmodified-loop-condition
+      while (!isDone || rowQueue.length > 0) {
+        const next = rowQueue.shift();
+        if (next) {
+          yield next.values;
+          continue;
+        }
+
+        //wait a tick so new rows can come in. TODO Optimize, instead of _parseXML streaming data itself, we should be streaming data directly and yield rows, and we'll be giving proper backpressure
+        await new Promise<void>(resolve => setImmediate(() => resolve()));
+      }
+    } finally {
+      this.off("row", listenerOn);
+      this.off("end", listenerEnd);
+    }
+  }
+
   async process() {
+    await this.workBook.readyForStreaming();
     await this.workBook._parseXML(this.workSheetStream, this._handleWorkSheetNode.bind(this));
 
     if (this.workingRow.name) {

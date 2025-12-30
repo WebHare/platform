@@ -5,12 +5,14 @@ declare module "@webhare/xlsx-reader" {
 import { unpackArchive, unpackArchiveFromDisk, type UnpackArchiveResult } from '@webhare/zip';
 import XlsxStreamReaderWorkBook from './workbook';
 
+export type { XlsxRow } from './worksheet';
+
 export interface OpenXlsxOptions {
   verbose: boolean;
   formatting: boolean;
 }
 
-export function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXlsxOptions> = {}): XlsxStreamReaderWorkBook {
+async function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXlsxOptions> = {}): Promise<XlsxStreamReaderWorkBook> {
   if (!options || typeof options !== 'object') {
     options = {};
   }
@@ -20,14 +22,13 @@ export function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXls
 
   const instanceOptions = {
     saxStrict: true,
-    saxNormalize: true,
-    saxPosition: true,
-    saxStrictEntities: true,
     verbose: options.verbose,
     formatting: options.formatting
   };
 
-  return new XlsxStreamReaderWorkBook(source, instanceOptions);
+  const workbook = new XlsxStreamReaderWorkBook(source, instanceOptions);
+  await workbook.ready;
+  return workbook;
 }
 
 export async function openXlsx(source: Blob, options?: Partial<OpenXlsxOptions>): Promise<XlsxStreamReaderWorkBook> {
