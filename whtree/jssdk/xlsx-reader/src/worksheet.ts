@@ -69,8 +69,7 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
       colNum += (parseInt(letter, 36) - 9) * Math.pow(26, --i);
       return '';
     });
-
-    return colNum;
+    return colNum - 1;
   }
 
   getColumnName(columnNumber: number): string | undefined {
@@ -87,7 +86,7 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
     return columnName;
   }
 
-  async *rows(): AsyncIterable<XlsxRow> {
+  async *rows(): AsyncGenerator<XlsxRow, void, unknown> {
     const rowQueue: InternalXlsxRow[] = [];
     let isDone = false;
     const listenerOn = (row: InternalXlsxRow) => rowQueue.push(row);
