@@ -5,7 +5,7 @@ declare module "@webhare/xlsx-reader" {
 import { unpackArchive, unpackArchiveFromDisk, type UnpackArchiveResult } from '@webhare/zip';
 import XlsxStreamReaderWorkBook from './workbook';
 
-export type { XlsxRow } from './worksheet';
+export type { XlsxRow, XlsxCellValue } from './worksheet';
 
 export interface OpenXlsxOptions {
   verbose: boolean;
