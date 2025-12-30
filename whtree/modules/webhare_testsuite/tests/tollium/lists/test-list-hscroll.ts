@@ -28,9 +28,11 @@ test.runTests(
         const row3cells = getListRowCells(list, "<A03>");
         const row4cells = getListRowCells(list, "<A04>");
         const row5cells = getListRowCells(list, "<A05>");
+        const rowCells = [row1cells, row2cells, row3cells, row4cells, row5cells];
+        const transposedCells = rowCells[0].map((_, colIndex) => rowCells.map(row => row[colIndex]));
 
         // test whether we got the expected amount of columns
-        test.eq(12, row1cells.length);
+        test.eq(13, row1cells.length);
         test.eq(row1cells.length, row2cells.length);
         test.eq(row1cells.length, row3cells.length);
 
@@ -101,6 +103,10 @@ test.runTests(
         test.eq(true, row2cells[11].querySelector('input')?.checked);
         test.eq(false, row2cells[11].querySelector('input')?.indeterminate);
         test.eq(true, row3cells[11].querySelector('input')?.indeterminate);
+
+        //floats
+        test.eq(["3 komma 5", "0,00", "0,00", "0,00", "7,50"], transposedCells[12].map(cell => cell.textContent));
+        test.eq(["rgb(0, 255, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"], transposedCells[12].map(cell => getComputedStyle(cell).backgroundColor));
 
         // ADDME: test datetime
         // ADDME: also test integer, integer64, money and blobrecord

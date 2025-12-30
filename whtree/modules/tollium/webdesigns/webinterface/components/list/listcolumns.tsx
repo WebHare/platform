@@ -17,8 +17,8 @@ type SizeStyles = {
   padright: number;
 };
 
-type StructuredListCell = {
-  value: string;
+export type StructuredListCell = {
+  value: string | number | null;
   text: RTDSourceInlineItems;
   bg_color?: string;
 };

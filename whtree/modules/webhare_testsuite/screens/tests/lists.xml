@@ -396,6 +396,7 @@
                 <column type="datetime" name="datetime" width="64px" hintname="datetimehint" title="Datetime" />
 
                 <column type="text" name="cbox1" title="CBox" checkboxname="cbox1_value" width="3x" />
+                <column type="float" name="c_float" title="Float" width="10x" decimals="2"/>
 
                 <!--
                 ADDME ?:

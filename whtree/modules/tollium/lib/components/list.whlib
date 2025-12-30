@@ -1804,14 +1804,16 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       @param coldef Column
       @param listrow Row
   */
-  VARIANT FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname)
-  {
+  VARIANT FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname) {
     IF(NOT CellExists(listrow,cellname))
       RETURN ""; //footer cells may be missing
 
     VARIANT basevalue := GetCell(listrow, cellname);
     IF (coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
       RETURN "";
+
+    IF(IsStructuredListCell(basevalue))
+      RETURN basevalue;
 
     VARIANT mappedvalue := this->GetColumnMappedValue(coldef, basevalue);
 

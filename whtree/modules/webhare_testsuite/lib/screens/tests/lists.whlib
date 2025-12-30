@@ -29,7 +29,8 @@ RECORD ARRAY names := [ [ name := "Brian N. Breault",     email := "kris+breault
 RECORD coltypes_baserow := CELL[
     cbox1 := "",
     cbox1_value := FALSE,
-    inline := VARIANT[]
+    inline := VARIANT[],
+    c_float := 0f
 ];
 
 RECORD ARRAY coltypes_rows :=
@@ -62,6 +63,11 @@ RECORD ARRAY coltypes_rows :=
             value := "Italic text", //the value for sorting. must be made explicit currently
             text := VARIANT[[ text := "Italic", italic := TRUE ], " text" ],
             bg_color := "#FF0000"
+          ]
+        , c_float := CELL[
+            value := 3.5f,
+            text := "3 komma 5",
+            bg_color := "#00FF00"
           ]
         ]
       , [ ...coltypes_baserow
@@ -166,6 +172,7 @@ RECORD ARRAY coltypes_rows :=
         , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
         , "datetime" := MakeDatetime(2012,10,11,9,18,7)
         , datetimehint := "Nog veel later!"
+        , c_float := 7.5
         ]
 ];
 
