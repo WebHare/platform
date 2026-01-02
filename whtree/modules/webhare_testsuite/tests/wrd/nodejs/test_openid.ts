@@ -169,6 +169,8 @@ async function verifyRoutes_HSClient() {
   test.eq({ success: true }, await oauth2.HandleAuthorizedLanding(oauth2session));
 
   const oauth2tokens = await oauth2.$get("token") as { id_token: string };
+  if (!oauth2tokens.id_token)
+    throw new Error("No id_token received");
 
   const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));

@@ -3,12 +3,15 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
 import type { WRDSchema } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { throwError, toCamelCase, toSnakeCase } from "@webhare/std";
+import { encodeString, pick, throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, getServerSession, subscribe, type SessionScopes } from "@webhare/services";
+import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
 import type { OAuth2Tokens, OpenIdConfiguration } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
+import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
+import { createRedirectResponse, createWebResponse, type WebRequest, type WebResponse } from "@webhare/router";
 
 declare module "@webhare/services" {
   interface SessionScopes {
@@ -239,4 +242,78 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
     idPayload,
     expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
   };
+}
+
+function createError(text: string) {
+  return createWebResponse(`<html><body>${encodeString(text, "html")}</body></html>`, { status: 400, headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+export async function handleOAuth2LandingPage_HS(reqInfo: WebRequestInfo): Promise<WebResponseInfo> {
+  return (await handleOAuth2LandingPage(await newWebRequestFromInfo(reqInfo))).asWebResponseInfo();
+}
+
+async function getParams(req: WebRequest) {
+  const params = {
+    state: null as string | null,
+    code: null as string | null,
+    error: null as string | null,
+    error_description: null as string | null
+  };
+
+  const props = ['state', 'code', 'error', 'error_description'] as const;
+  if (req.method === "POST") {
+    const data = await req.formData();
+    for (const prop of props) {
+      const val = data.get(prop);
+      if (typeof val === "string")
+        params[prop] = val;
+    }
+  } else {
+    const url = new URL(req.url.toString());
+    for (const prop of props) {
+      params[prop] = url.searchParams.get(prop);
+    }
+  }
+  return params;
+}
+
+export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebResponse> {
+  const { state, code, error, error_description } = await getParams(req);
+  if (!state)
+    return createError("Missing state or code parameters");
+  const sessdata = await getServerSession("system:oauth2", state);
+  if (!sessdata)
+    return createError("Session has expired");
+
+  if (error || error_description) {
+    logNotice("error", "Error from oauth2 redirect", { data: { error, error_description } });
+  }
+
+  if (code) {
+    const tokenRequest = new URLSearchParams;
+    tokenRequest.set("code", code);
+    tokenRequest.set("client_id", sessdata.oauthconfig.clientid);
+    tokenRequest.set("client_secret", sessdata.oauthconfig.clientsecret);
+    tokenRequest.set("redirect_uri", sessdata.oauthconfig.redirecturl);
+    tokenRequest.set("grant_type", "authorization_code");
+    if (sessdata.code_verifier)
+      tokenRequest.set("code_verifier", sessdata.code_verifier);
+
+    const res = await fetch(sessdata.oauthconfig.authtokenurl, {
+      method: "POST",
+      body: tokenRequest,
+    });
+    if (!res.ok) {
+      logNotice("error", "Error retrieving tokens", { data: await res.json() });
+      return createError(`Error retrieving tokens`);
+    }
+
+    const tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
+    sessdata.tokeninfo = tokeninfo;
+    await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
+  }
+  //TODO Forward error/error_description?
+  const gotoUrl = new URL(sessdata.finalreturnurl);
+  gotoUrl.searchParams.set("oauth2session", state);
+  return createRedirectResponse(gotoUrl.toString());
 }

@@ -5,6 +5,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -14,6 +15,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
+
 
 PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
                                                , clientsecret := ""
@@ -224,7 +227,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   {
     RECORD authcontext := this->GetAuthorizeContext(options);
     INSERT CELL finalreturnurl := finalreturnurl INTO authcontext.__oauth2_authflow.state;
-    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, [ maxidle_minutes := 90]);
+    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, [ maxidle_minutes := 90, json := TRUE]);
     RETURN [ type := "redirect"
            , url := UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ])
            ];
@@ -325,24 +328,6 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     }
     RETURN [ success := FALSE, message := "No new accesstoken received" ];
   }
-
-  /** @short Start an oauth2 authorization
-      @return options.promise Promise that will resolve when the oauth2 process is complete
-      @return options.url URL for the user to visit */
-  //PUBLIC RECORD FUNCTION StartOauth2Authorization(RECORD options DEFAULTSTO DEFAULT RECORD)
-  //{
-  //  IF(CellExists(options,'state'))
-  //    THROW NEW Exception("The 'state' option is reserved by StartOauth2Authorization and cannot be used");
-
-  //  //TODO use something more persistent and more flexible than a websession
-  //  RECORD defer := CreateDeferredPromise();
-  //  STRING oauth2session := CreateWebSession("system:oauth2", DEFAULT RECORD, 90, FALSE);
-  //  options := CELL [ ...options, state := oauth2session];
-
-  //  RETURN [ promise := defer.promise
-  //         , url := this->GetAuthorizationCodeURL(options)
-  //         ];
-  //}
 
   //trade in the authorization code for a request token
   PUBLIC RECORD FUNCTION RequestToken(STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -529,6 +514,9 @@ PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
 */
 PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
   STRING sessid := GetWebVariable("state");
+  IF(sessid NOT LIKE "ipc:*")
+    ExecuteWebResponse(CallJS("@webhare/auth/src/oauth2-client.ts#handleOAuth2LandingPage_HS", EncodeWebRequestForJS()));
+
   options := ValidateOptions(CELL[], options);
 
   IF(sessid = "")
@@ -536,14 +524,10 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
 
   RECORD sessdata;
   OBJECT connection;
-  IF(sessid LIKE "ipc:*") {
-    connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
-    IF(ObjectExists(connection)) {
-      RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
-      sessdata := msg.msg.__oauth2_authflow.state;
-    }
-  } ELSE {
-    sessdata := GetWebSessionData(sessid, "system:oauth2");
+  connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
+  IF(ObjectExists(connection)) {
+    RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
+    sessdata := msg.msg.__oauth2_authflow.state;
   }
 
   STRING error := GetWebVariable("error");
@@ -565,14 +549,6 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
-  IF(ObjectExists(connection))
-  {
-    connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
-    ExecuteSubmitInstruction([ type := "close" ]);
-  }
-  ELSE
-  {
-    StoreWebSessionData(sessid, "system:oauth2", sessdata);
-    Redirect(UpdateURLVariables(sessdata.finalreturnurl, [ oauth2session := sessid ]));
-  }
+  connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
+  ExecuteSubmitInstruction([ type := "close" ]);
 }
