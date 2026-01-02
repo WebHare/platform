@@ -14,7 +14,7 @@ type ResponseTypesScopes =
   | "code id_token"
   | "code id_token token";
 
-type ResponseModesScopes = "query" | "fragment" | "form_post";
+export type ResponseModesScopes = "query" | "fragment" | "form_post";
 
 type GrantTypesSupported =
   | "implicit"

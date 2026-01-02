@@ -6,7 +6,7 @@ import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webh
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
 import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
-import type { OAuth2Tokens, OpenIdConfiguration } from "./types";
+import type { OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
 import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
@@ -44,6 +44,7 @@ export interface OAuth2AuthorizeRequestOptions extends OAuth2LoginRequestOptions
   codeVerifier?: string;
   userData?: Record<string, unknown>;
   clientScope?: string;
+  responseMode?: ResponseModesScopes;
 }
 
 interface OIDCMetadata {
@@ -169,6 +170,14 @@ export class OAuth2Client {
     authurl.searchParams.set("state", session);
     authurl.searchParams.set("client_id", this.clientinfo.clientId);
     authurl.searchParams.set("response_type", "code");
+    if (options?.responseMode)
+      authurl.searchParams.set("response_mode", options.responseMode);
+    else if (metadata.config.response_modes_supported?.includes("form_post")) {
+      /* Prefer responseMode: form_post if available and the client can actually navigate (eg. not a SPA).
+         Safer becauser it keeps tokens off the URL but it does require a client that can navigate. but as we're going
+         to return a NavigateInstruction anyway, that should be fine */
+      authurl.searchParams.set("response_mode", "form_post");
+    }
     authurl.searchParams.set("scope", scopes.join(" "));
     authurl.searchParams.set("redirect_uri", redirecturl);
     if (options?.prompt)
