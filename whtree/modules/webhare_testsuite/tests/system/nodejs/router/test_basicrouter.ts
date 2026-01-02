@@ -159,6 +159,24 @@ async function testJSBackedURLs() {
   const badbaseUrl = services.backendConfig.backendURL + ".webhare_testsuite/tests/j%73/"; //%73=s
   fetchresult = await fetch(badbaseUrl + "Sub%20Url?type=debug");
   test.eq(400, fetchresult.status);
+
+  const tosubmit = new FormData;
+  tosubmit.append("field1", "value1");
+  tosubmit.append("field2", new File(["this is a text blob"], "testfile.txt", { type: "text/plain" }));
+  fetchresult = await fetch(baseURL + "?type=formdata", {
+    method: "POST",
+    body: tosubmit
+  });
+  test.eq({
+    contentType: /multipart\/form-data/,
+    values: [
+      { field: 'field1', value: 'value1' },
+      {
+        field: 'field2',
+        value: `File: testfile.txt - ${Buffer.from("this is a text blob").toString("base64")}`
+      }
+    ]
+  }, await fetchresult.json());
 }
 
 test.runTests([

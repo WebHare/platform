@@ -3,6 +3,7 @@ import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { getDebugSettings } from "./debug";
 import type { TransferListItem } from "worker_threads";
 import type { AnyWRDSchema } from "@webhare/wrd";
+import Busboy from "@fastify/busboy";
 
 export enum HTTPMethod {
   GET = "GET",
@@ -46,7 +47,7 @@ export type RPCAPI = Record<string, (context: RPCContext, ...args: any[]) => unk
 export type RPCFilter = (context: RPCContext, args: unknown[]) => Promise<{ result?: unknown } | void> | { result?: unknown } | void;
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
-export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;
+export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text" | "formData">;
 
 /** Reconstruct the client's URL based on a pathname and unforgable headers (Origin or Referer) and on requesturl otherwise (if it's not a browser invoking us)
   @param req - Request object
@@ -209,6 +210,44 @@ export class IncomingWebRequest implements WebRequest {
       transferList: this.__body ? [this.__body] : []
     };
   }
+
+  async formData(): Promise<FormData> {
+    const ctype = this.headers.get("content-type");
+    if (ctype?.includes("application/x-www-form-urlencoded")) {
+      const txt = await this.text();
+      const formData = new FormData();
+      const params = new URLSearchParams(txt);
+      for (const [key, value] of params) {
+        formData.append(key, value);
+      }
+      return formData;
+    }
+
+    if (ctype?.includes("multipart/form-data"))
+      return new Promise<FormData>((resolve, reject) => {
+        const busboy = new Busboy({ headers: { "content-type": this.headers.get("content-type") || '' } });
+        const formData = new FormData();
+        busboy.on("field", (fieldname, val) => {
+          formData.append(fieldname, val);
+        });
+        busboy.on("file", (fieldname, file, filename, encoding, mimetype): void =>
+          void (async function () {
+            const chunks: Uint8Array[] = [];
+            for await (const chunk of file)
+              chunks.push(chunk);
+            formData.append(fieldname, new File(chunks, filename, { type: mimetype }));
+          })());
+        busboy.on("finish", () => {
+          resolve(formData);
+        });
+        busboy.on("error", (err: string) => {
+          throw new Error(err);
+        });
+        busboy.end(this.__body ? Buffer.from(this.__body) : undefined);
+      });
+
+    throw new Error(`Unsupported content-type '${ctype}' for formData`);
+  }
 }
 
 class ForwardedWebRequest implements WebRequest {
@@ -229,6 +268,7 @@ class ForwardedWebRequest implements WebRequest {
   get clientIp() { return this.original.clientIp; }
   async text() { return this.original.text(); }
   async json() { return this.original.json(); }
+  async formData() { return this.original.formData(); }
 
   getAllCookies(): Record<string, string> { return this.original.getAllCookies(); }
   getCookie(name: string): string | null { return this.original.getCookie(name); }

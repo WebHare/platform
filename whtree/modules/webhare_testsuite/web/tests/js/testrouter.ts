@@ -22,6 +22,17 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
     return createJSONResponse(200, { cookies: true }, { headers });
   }
 
+  if (searchParams.get("type") === "formdata") {
+    const formdata = await req.formData();
+    const values = await Promise.all([...formdata.entries()].map(
+      async ([field, value]) => ({ field, value: value instanceof File ? `File: ${value.name} - ${Buffer.from(await value.arrayBuffer()).toString("base64")}` : value })
+    ));
+    return createJSONResponse(200, {
+      contentType: req.headers.get("content-type"),
+      values
+    });
+  }
+
   return createJSONResponse(400, { error: "Invalid request" });
 }
 
