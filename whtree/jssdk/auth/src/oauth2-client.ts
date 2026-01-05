@@ -19,6 +19,7 @@ declare module "@webhare/services" {
     "system:oauth2": { //Shared with HareScript oauth2 code. Updated by HS so keep every key lowercased
       finalreturnurl: string;
       code_verifier: string;
+      redirect_uri?: string;
       requeststart: Date;
       client_scope?: string; //optional as not set or validated yet by HS
       metadata_url?: string; //optional as not set or validated yet by HS
@@ -361,7 +362,7 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
     else
       throw new Error("No client secret or signing method available for oauth2 token request");
 
-    tokenRequest.set("redirect_uri", sessdata.oauthconfig.redirecturl);
+    tokenRequest.set("redirect_uri", sessdata.redirect_uri || sessdata.oauthconfig.redirecturl);
     tokenRequest.set("grant_type", "authorization_code");
     if (sessdata.code_verifier)
       tokenRequest.set("code_verifier", sessdata.code_verifier);
