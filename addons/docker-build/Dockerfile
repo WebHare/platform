@@ -25,7 +25,8 @@ ENV LC_ALL=C \
   PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-RUN --mount=type=bind,source=addons/docker-build/setup-imagebase.sh,target=/setup-imagebase.sh \
+RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
+    --mount=type=bind,source=addons/docker-build/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
     WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-10-31
 
@@ -51,7 +52,8 @@ ARG WHBUILD_ASSETROOT
 COPY vendor/ /opt/wh/vendor/
 
 # Base image setup
-RUN --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
+RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
+    --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
     --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
     --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
     /bin/bash /setup-builder.sh "$WHBUILD_ASSETROOT" # 2024-08-19

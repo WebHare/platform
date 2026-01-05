@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # We can't mark this script as executable as it shouldn't be run on a build host
 
 # Updated 2019-10-02 (update this timestamp if nothing else to pull in new dependencies)
@@ -52,7 +53,6 @@ PACKAGES=(
   libjpeg-turbo
   libjpeg-turbo-devel
   libpng-devel
-  postgresql-devel
   openssl-devel
   libtiff-devel
   make
@@ -65,6 +65,8 @@ PACKAGES=(
 )
 
 dnf install -y "${PACKAGES[@]}"
+
+source "${BASH_SOURCE%/*}/setup-base-shared.sh"
 
 if [ -z "$WHBUILD_EMSCRIPTEN_VERSION" ]; then
   echo "WHBUILD_EMSCRIPTEN_VERSION not set"

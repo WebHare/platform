@@ -53,14 +53,6 @@ else
   PACKAGES+=(nodejs)
 fi
 
-# postgres key & repository - https://www.postgresql.org/download/linux/redhat/
-dnf install -y "https://download.postgresql.org/pub/repos/yum/reporpms/EL-10-$(uname -m)/pgdg-redhat-repo-latest.noarch.rpm"
-
-# Looks like we also need to disable testing repos. see also the many repos in /etc/yum.repos.d/pgdg-redhat-all.repo and whether they're enabled
-# If you see 'Error: Failed to download metadata for repo' and it looks unimportant, just disable that repo too
-dnf config-manager --set-disabled pgdg*
-dnf config-manager --set-enabled pgdg17
-
 # Modify root to live in /opt/whdata/root/ so data there is preserved between restarts
 # usermod -d /opt/whdata/root root - doesn't work:  'usermod: user root is currently used by process 1'
 sed -e 's/:\/root:/:\/opt\/whdata\/root:/' /etc/passwd > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
@@ -92,8 +84,6 @@ PACKAGES+=(
  libicu
  libjpeg-turbo
  libpng
- postgresql17-libs
- postgresql17-server
  openssl
  pixman
  procps-ng
@@ -109,6 +99,8 @@ PACKAGES+=(
 )
 
 dnf install -y "${PACKAGES[@]}"
+
+source "${BASH_SOURCE%/*}/setup-base-shared.sh"
 
 
 # downgrade node if we meet a broken version

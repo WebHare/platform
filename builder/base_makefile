@@ -58,7 +58,7 @@ ifeq ($(WEBHARE_PLATFORM),darwin)
 
 else
 	BUILDSYSTEM ?= gcc
-	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/
+	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/:/usr/pgsql-17/lib/pkgconfig/
 	# Set LD_LIBRARY_PATH for tests
 	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/lib64:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
 	GLOBALLDFLAGS += -L/usr/local/lib64
