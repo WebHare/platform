@@ -5,6 +5,8 @@ import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
+import { readFileSync } from "node:fs";
+import { toFSPath } from "@webhare/services";
 
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
 
@@ -156,6 +158,7 @@ async function testWHFSAPI() {
   const newFilePath = tempPath + "/newfolder/newfile";
 
   // Update file content
+  const fish = readFileSync(toFSPath("mod::system/web/tests/goudvis.png"));
   const publishNewFileResult = await api.patch("/whfs/object", {
     instances: [
       {
@@ -164,7 +167,8 @@ async function testWHFSAPI() {
       }, {
         whfsType: "webhare_testsuite:global.generic_test_type",
         data: {
-          myWhfsRefArray: [`whfs::${tempPath}`]
+          myWhfsRefArray: [`whfs::${tempPath}`],
+          blubImg: { data: { base64: fish.toString('base64') }, fileName: "goudvis.png" }
         }
       }
     ]
@@ -184,7 +188,14 @@ async function testWHFSAPI() {
     isUnlisted: true
   }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   test.eq({
-     myWhfsRefArray: ["site::webhare_testsuite.testsitejs/tmp/"]
+    myWhfsRefArray: ["site::webhare_testsuite.testsitejs/tmp/"],
+    blubImg: (exp: ExportedResource) => {
+      test.assert("fetch" in exp.data);
+      test.eq("image/png", exp.mediaType);
+      test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", exp.hash);
+      test.eq(385, exp.width);
+      return true;
+    }
   }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "webhare_testsuite:global.generic_test_type")?.data);
   test.assert(newFilePathRetrieved.body.link);
 

@@ -39,7 +39,8 @@ PUBLIC OBJECTTYPE CaptchaField EXTEND FormFieldBase
        AND NOT this->form->formcontext->AllowToSkipCaptchaCheck())
     {
       RECORD provider := GetCaptchaProvider(GetFormRequestURL());
-      work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ provider := PickCells(provider,["name","apikey"]) ]]);
+      IF(RecordExists(provider))
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.required"), [ metadata := CELL[ provider := PickCells(provider,["name","apikey"]) ]]);
     }
   }
 >;
