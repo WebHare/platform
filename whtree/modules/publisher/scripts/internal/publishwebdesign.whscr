@@ -6,7 +6,6 @@ LOADLIB "mod::publisher/lib/common-v2.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 OBJECT uplink := publishingbackendlink;
-STRING ARRAY pageloadlibs;
 RECORD publishfile := file;
 RECORD publishfolder := folder;
 RECORD publishsite := site;
@@ -23,32 +22,6 @@ MACRO SwitchToIndexSHTML()
   //Verify some corner cases making this impossible
   IF(NOT (separate_first_page OR firstmustbeindex) AND ToUppercase(file.name) NOT LIKE "*.SHTML")
     THROW NEW Exception("This file needs to have an extension ending in 'shtml' to support dynamic code in webpages");
-}
-
-MACRO AddLoadlibToOutput(STRING libname)
-{
-  IF(opened_firstpage)
-    THROW NEW Exception("Too late to add libraries - first page already open");
-
-  SwitchToindexSHTML();
-
-  IF(libname IN pageloadlibs)
-    RETURN;
-  IF((separate_first_page OR firstmustbeindex) AND firstpagename="index.html")
-  {
-    firstpagename := "index.shtml";
-  }
-  ELSE IF(firstpagename NOT LIKE "*.shtml")
-  {
-    THROW NEW Exception("This file requires to be published with a '.shtml' extension");
-  }
-
-  INSERT libname INTO pageloadlibs AT END;
-}
-
-MACRO AddHarescriptCode(STRING code)
-{
-  PrintTrustedCodeTo(outputid, code);
 }
 
 OBJECT applytester := GetApplyTesterForObject(file.id);
@@ -70,10 +43,6 @@ contentfile := DEFAULT RECORD;
 contentfolder := DEFAULT RECORD;
 contentsite := DEFAULT RECORD;
 
-
-__publishwebdesign_callbacks := [ addloadlib := PTR AddLoadlibToOutput
-                                , addcode := PTR AddHarescriptCode
-                                ];
 
 //Now get to work. GetWebDesign actually loads user code, but we should have done enough to disrupt any usage of template-v2 by now.
 __ValidateWebdesign(applytester);
@@ -104,15 +73,6 @@ FOREVERY(RECORD page FROM webdesign->__staticpages)
   outputid := OpenOutputFile(pagename, TRUE);
 
   RedirectOutputTo(outputid);
-
-  IF(Length(pageloadlibs) > 0 AND #page = 0)
-  {
-    STRING code := '<?wh ';
-    FOREVERY(STRING loadlibpath FROM pageloadlibs)
-      code := code || 'LOADLIB "' || EncodeJava(loadlibpath) || '";';
-    code := code || '?>';
-    PrintTrustedCodeTo(outputid, code);
-  }
 
   IF(page.preparepage != DEFAULT MACRO PTR)
     page.preparepage();

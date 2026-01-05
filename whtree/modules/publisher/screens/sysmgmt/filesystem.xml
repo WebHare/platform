@@ -20,7 +20,6 @@
           <option rowkey="1" tid=".loglevel-statistics" />
           <option rowkey="2" tid=".loglevel-debug" />
         </select>
-        <textedit name="defaultcontentlisting" width="1pr" />
       </box>
       <box name="trashcan">
         <line>

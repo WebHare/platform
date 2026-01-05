@@ -277,7 +277,7 @@ STATIC OBJECTTYPE PublicationRun
         INTEGER pos := SearchElement(this->outputfilepipestack, handle);
         IF (pos >= 0)
         {
-          DEBUGPRINT("READING DATA (to: "||this->outstack[pos].handle||")");
+          DEBUGPRINT("READING DATA (to: "||this->outstack[pos].filehandle||")");
           WHILE (WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle)
           {
             STRING data := ReadFrom(handle, -4096); // Don't want to read until end of stream
@@ -286,7 +286,7 @@ STATIC OBJECTTYPE PublicationRun
 
             DEBUGPRINT("Read "||LENGTH(data)||" bytes");
             this->totalsize := this->totalsize + LENGTH(data);
-            PrintTo(this->outstack[pos].handle, data);
+            PrintTo(this->outstack[pos].filehandle, data);
           }
           IF (IsAtEndOfStream(handle))
           {
@@ -592,11 +592,7 @@ STATIC OBJECTTYPE PublicationRun
       CASE "OPENOUTPUT"
       {
         DEBUGPRINT("OpenOutput: file=" || msg.filename || ", dbfile=" || (msg.dbfile?'true':'false'));
-        INTEGER handle := msg.dbfile ? CreateStream() : this->outputmedia->OpenOutput(this->ToFSCase(msg.filename));
-        INTEGER filehandle := handle;
-
-        IF (NOT msg.dbfile AND (msg.sanitize_output OR msg.isshtml))
-          handle := CreateStream();
+        INTEGER filehandle := msg.dbfile ? CreateStream() : this->outputmedia->OpenOutput(this->ToFSCase(msg.filename));
 
         IF (this->outputmedia->AnyError())
         {
@@ -605,12 +601,9 @@ STATIC OBJECTTYPE PublicationRun
           RETURN DEFAULT RECORD;
         }
 
-        INSERT [ handle := handle
-               , filehandle := filehandle
+        INSERT [ filehandle := filehandle
                , dbfile := msg.dbfile
                , filename := msg.filename
-               , sanitize_output := msg.sanitize_output
-               , isshtml := msg.isshtml
                ] INTO this->outstack AT 0;
 
         RECORD pipeset := CreatePipeSet();
@@ -618,7 +611,7 @@ STATIC OBJECTTYPE PublicationRun
         SetPipeYieldThreshold(pipeset.write, 256*1024); // 256*1024 (yield at writes when more than 256 kb is in buffer)
         INSERT pipeset.read INTO this->outputfilepipestack AT 0; //ADDME merge outputfilepipestack into outstack
 
-        RETURN  [ id := handle
+        RETURN  [ id := filehandle
                 , pipe := CreatePipeMarshaller(pipeset.write)
                 ];
       }
@@ -627,7 +620,7 @@ STATIC OBJECTTYPE PublicationRun
       {
         DEBUGPRINT("CloseOutput: id=" || msg.id);
         // Flush all outstanding pipe data
-        INTEGER pos := (SELECT AS INTEGER #outstack + 1 FROM this->outstack AS outstack WHERE handle = msg.id) - 1;
+        INTEGER pos := (SELECT AS INTEGER #outstack + 1 FROM this->outstack AS outstack WHERE filehandle = msg.id) - 1;
         IF (pos = -1)
         {
           this->errordata := "Message format error with template";
@@ -657,33 +650,10 @@ STATIC OBJECTTYPE PublicationRun
           }
         }
 
-        BLOB filedata;
-        IF (closedfile.dbfile OR closedfile.sanitize_output OR closedfile.isshtml)
-        {
-          filedata := MakeBlobFromStream(closedfile.handle);
-
-          IF (closedfile.sanitize_output)
-          {
-            RECORD res := SanitizeOutput(filedata, msg.substitutions);
-            filedata := res.data;
-            IF (res.found_code)
-            {
-              this->errorcode := 3005; //io error achtig iets?
-              this->errordata := "Found untrusted HareScript code in the output code: '" || UCTruncate(res.first_script, 80) || "'";
-              RETURN DEFAULT RECORD;
-            }
-          }
-
-          // Send the final sanitized data to the disk outputfile
-          IF (NOT closedfile.dbfile)
-            SendBlobTo(closedfile.filehandle, filedata);
-        }
-
-
         IF(closedfile.dbfile)
         {
           INSERT [ filename := closedfile.filename
-                 , data := WrapBlob(filedata, closedfile.filename)
+                 , data := WrapBlob(MakeBlobFromStream(closedfile.filehandle), closedfile.filename)
                  ] INTO this->dbfiles AT END;
         }
         ELSE
@@ -711,39 +681,6 @@ STATIC OBJECTTYPE PublicationRun
         this->errorcode := msg.errorcode;
         this->errordata := msg.errordata;
         RETURN DEFAULT RECORD;
-      }
-
-      CASE "OPENHARESCRIPTFILE"
-      {
-        IF (ObjectExists(this->contentfiletype) AND (this->contentfiletype->id = 7 /*HareScript*/ OR this->contentfiletype->id = 24/*placeholder filetype*/))
-        {
-          INTEGER scriptid := 0;
-          STRING scriptname;
-
-          IF (ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 7)
-            scriptid := this->contentfileid;
-          ELSE //dus 24: placeholder filetype
-            scriptname := ReadRegistryKey("publisher.publication.defaultcontentlisting");
-
-          OBJECT ifr := NEW IndexFileRun(this->outputsettings, this->profile);
-          ifr->publicationrun := this;
-          BOOLEAN result := ifr->Run(scriptid, scriptname);
-
-          IF (NOT result)
-          {
-            this->errorcode := ifr->errorcode;
-            this->errordata := ifr->errordata;
-            this->hs_errors := ifr->hs_errors;
-            this->hs_groupid := ifr->hs_groupid;
-            RETURN DEFAULT RECORD;
-          }
-          RETURN [ parts := ifr->parts ];
-        }
-        ELSE
-        {
-          // FIXME: set error code!
-          RETURN DEFAULT RECORD;
-        }
       }
 
       CASE "SETONPUBLISH"
@@ -906,12 +843,6 @@ STATIC OBJECTTYPE IndexFileRun
                  ] INTO this->parts[part_pos].subs AT END;
         }
 
-    CASE "OPENHARESCRIPTFILE"
-        {
-          this->errordata := "Index file tried to open another index file";
-          this->errorcode := 3003;
-          RETURN FALSE;
-        }
 
     DEFAULT
         {

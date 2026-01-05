@@ -14,8 +14,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 RECORD publishfile;
 
-PUBLIC RECORD __publishwebdesign_callbacks;
-
 //Is the first page in a different directory than the rest? (Indexdocs and non-word documents)
 PUBLIC BOOLEAN separate_first_page;
 //Name of the first converted page
@@ -69,7 +67,7 @@ PUBLIC STRING FUNCTION DoMakeFileLinkByName(INTEGER startpageid, STRING filename
 }
 
 
-INTEGER FUNCTION PUBLISHER_OPENOUTPUT(STRING filename, BOOLEAN dbfile, BOOLEAN isfirstpage, BOOLEAN isshtml)
+INTEGER FUNCTION PUBLISHER_OPENOUTPUT(STRING filename, BOOLEAN dbfile, BOOLEAN isfirstpage)
 {
   IF(NOT dbfile)
   {
@@ -96,7 +94,6 @@ INTEGER FUNCTION PUBLISHER_OPENOUTPUT(STRING filename, BOOLEAN dbfile, BOOLEAN i
       , filename := filename
       , dbfile := dbfile
       , sanitize_output := sanitize
-      , isshtml := isshtml
       ]);
 
   IF (rec.status != "ok")
@@ -148,27 +145,6 @@ PUBLIC MACRO PUBLISHER_SetCaptureSubPaths(BOOLEAN capturesubpaths)
     THROW NEW Exception(rec.msg.errordata);
 }
 
-PUBLIC MACRO PrintTrustedCodeTo(INTEGER outputid, STRING code)
-{
-  INTEGER pos := (SELECT AS INTEGER #handledata + 1 FROM handledata WHERE pipe = outputid) - 1;
-  IF (pos = -1)
-    ABORT("Cannot write to a non-existing output");
-
-  IF (handledata[pos].sanitized)
-  {
-    STRING marker := "<!-- HSID:" || GenerateUFS128BitId() || "-->";
-    PrintTo(outputid, marker);
-
-    INSERT
-        [ outputid :=     outputid
-        , toreplace :=    marker
-        , replacewith :=  code
-        ] INTO substitutions AT END;
-  }
-  ELSE
-    PrintTo(outputid, code);
-}
-
 PUBLIC BOOLEAN FUNCTION IsDefaultPagename(STRING filename)
 {
   FOREVERY(STRING page FROM whconstant_webserver_indexpages)
@@ -191,7 +167,7 @@ PUBLIC INTEGER FUNCTION OpenDBOutputFile(STRING filename)
     ABORT("Filename '" || filename || "' has already been used during this publication");
   INSERT ToUppercase(filename) INTO opened_db_pages AT END;
 
-  INTEGER id := PUBLISHER_OPENOUTPUT(filename, TRUE, FALSE, FALSE);
+  INTEGER id := PUBLISHER_OPENOUTPUT(filename, TRUE, FALSE);
   RETURN id;
 }
 
@@ -214,15 +190,8 @@ PUBLIC INTEGER FUNCTION OpenOutputFile(STRING filename, BOOLEAN shtmlprologue)
 
 
   STRING ext := Substring(GetExtensionFromPath(filename),1);
-  BOOLEAN isshtml := ToUppercase(ext) IN autofileidextensions;
-  INTEGER id := PUBLISHER_OPENOUTPUT(filename, FALSE, isfirstpage, isshtml);
+  INTEGER id := PUBLISHER_OPENOUTPUT(filename, FALSE, isfirstpage);
   //Check for auto fileid filename
-
-  IF(ext != "" AND isshtml AND shtmlprologue)
-  {
-    PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILEID'" || publishfile.id || "*)?>");
-    PrintTrustedCodeTo(id,"<?wh (*SCRIPTPROPERTY'FILECREATIONDATE'" || GetDayCount(publishfile.creationdate) || ' ' || GetMsecondCount(publishfile.creationdate) || "*)?>");
-  }
 
   RETURN id;
 }

@@ -19,9 +19,6 @@ PUBLIC OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
 <
   MACRO NEW()
   {
-    IF(this->targetobject->name IN ["loadlib.html","loadlib.shtml"])
-      this->AddLoadlibToOutput("mod::webhare_testsuite/lib/publisher/testsitedesign-loadlib.whlib");
-
     IF(this->designfolder != "")
       ABORT("Unexpected design folder: " || this->designfolder);
   }
