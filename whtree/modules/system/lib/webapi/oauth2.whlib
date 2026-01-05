@@ -20,6 +20,7 @@ LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 
 PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
                                                , clientsecret := ""
+                                               , client_signing := DEFAULT RECORD
                                                , clientregistrykey := ""
                                                , rpclogsource := ""
                                                , redirecturl := ""
@@ -188,7 +189,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(CellExists(options,'state'))
       THROW NEW Exception("The 'state' option is reserved by StartRedirectAuthorizationFlow and cannot be used");
 
-    IF(this->oauthconfig.clientsecret = "")
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
       THROW NEW Exception("Cannot start an authorization flow without a client secret");
 
     RETURN [ __oauth2_authflow := [ url := this->GetAuthorizationCodeURL(CELL[ ...options ])
@@ -292,6 +293,11 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(NOT CellExists(this->token,'refresh_token')) //not everyone (eg facebook) will give us a refresh_token
       RETURN [ success := FALSE, message := "Token cannot be refreshed" ];
 
+    IF(this->oauthconfig.clientsecret = "" AND RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("HareScript cannot be used when clients are configured using clientSigning");
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("Neither clientsecret nor clientSigning are set up");
+
     DATETIME requeststart := GetCurrentDatetime();
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "refresh_token", value := this->token.refresh_token ]
@@ -336,6 +342,10 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                , code_verifier := ""
                                ], options);
 
+    IF(this->oauthconfig.clientsecret = "" AND RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("HareScript cannot be used when clients are configured using clientSigning");
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("Neither clientsecret nor clientSigning are set up");
 
     STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
