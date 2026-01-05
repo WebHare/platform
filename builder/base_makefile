@@ -147,14 +147,7 @@ else
 	CXXFLAGS += -DNDEBUG -O3
 	CXXFLAGS_WASM += -DNDEBUG -O3
 	ifeq ($(BUILDSYSTEM),gcc)
-		CXXFLAGS += -fno-implement-inlines -ffast-math -finline-functions
-	else
-		ifeq ($(BUILDSYSTEM),llvm)
-		  ifneq ($(WEBHARE_PLATFORM),linux)
-		    # -ffast-math gives compilation errors on Fedora 18
-		    CXXFLAGS += -ffast-math
-		  endif
-		endif
+		CXXFLAGS += -fno-implement-inlines -finline-functions
 	endif
 endif
 
