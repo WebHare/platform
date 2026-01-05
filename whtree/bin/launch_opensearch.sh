@@ -67,7 +67,13 @@ export OPENSEARCH_JAVA_OPTS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-Al
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  CHPST="chpst -u opensearch:opensearch:whdata "
+  if hash -r chpst 2>/dev/null; then
+    CHPST="chpst -u opensearch:opensearch:whdata "
+  elif hash -r setpriv 2>/dev/null; then
+    CHPST="setpriv --reuid=opensearch --regid=opensearch --init-groups "
+  else
+    die "Error: neither chpst nor setpriv available"
+  fi
 fi
 
 if [ -z "$WEBHARE_IN_DOCKER" ]; then
