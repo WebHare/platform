@@ -27,7 +27,7 @@ Fork our repository and send in a merge request. See the [contribution guideline
 WebHare is an open source product developed and maintained by [WebHare](https://www.webhare.com/). We offer commercial support and services
 for WebHare through various support and service contracts. See https://www.webhare.com/contact/.
 
-For self-support by the community please see the [WebHare developers google group](https://groups.google.com/a/webhare.dev/g/developers).
+For self-support by the community please see [WebHare discussions on GitHub](https://github.com/WebHare/platform/discussions).
 
-Issues can be reported through the [issue tracker](https://gitlab.com/groups/webhare/-/issues) on GitLab. Please use the group above for
+Issues can be reported through the [issue tracker](https://github.com/WebHare/platform/issues) on GitHub. Please use the group above for
 general questions and discussions.
