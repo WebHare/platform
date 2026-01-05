@@ -65,7 +65,7 @@ export type UnpackArchiveResult = Array<UnpackArchiveDirectory | UnpackArchiveFi
 
 export type { UnpackArchiveDirectory, UnpackArchiveFile };
 
-export async function unpackArchive(archiveData: RandomAccessReadStreamSource | RandomAccessReadStream, options: { checkCrc?: boolean } = {}): Promise<Array<UnpackArchiveDirectory | UnpackArchiveFile>> {
+export async function unpackArchive(archiveData: RandomAccessReadStreamSource | RandomAccessReadStream, options: { checkCrc?: boolean } = {}): Promise<UnpackArchiveResult> {
   const archive = await ZipArchiveReader.from(archiveData, options);
   const retval: Array<UnpackArchiveDirectory | UnpackArchiveFile> = [];
   for (const entry of archive.entries) {
@@ -77,7 +77,7 @@ export async function unpackArchive(archiveData: RandomAccessReadStreamSource | 
   return Promise.all(retval);
 }
 
-export async function unpackArchiveFromDisk(path: string, options: { checkCrc?: boolean } = {}): Promise<Array<UnpackArchiveDirectory | UnpackArchiveFile>> {
+export async function unpackArchiveFromDisk(path: string, options: { checkCrc?: boolean } = {}): Promise<UnpackArchiveResult> {
   const archive = await ZipArchiveReader.fromDisk(path, options);
   const retval: Array<UnpackArchiveDirectory | UnpackArchiveFile> = [];
   for (const entry of archive.entries) {
