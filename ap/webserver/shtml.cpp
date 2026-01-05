@@ -170,14 +170,13 @@ static const char MagicSignature[MagicSignatureLen+1] = "WBHRWS::v0dmzc5chW4Axhb
 
 struct MagicHeader
 {
-        MagicHeader() : iswhfsexecute(false), isredirect(false), fileid(0)
+        MagicHeader() : isredirect(false)
         {
         }
 
-        bool iswhfsexecute;
         bool isredirect;
-        int32_t fileid;
         std::string link;
+        std::string execdata;
 };
 
 MagicHeader ReadMagicHeader(std::string const &path)
@@ -214,8 +213,11 @@ MagicHeader ReadMagicHeader(std::string const &path)
 
         //Might be a rapidjson::Parse that accepts iterators? but it's no problem for us to null terminate it
         *end_json_data = 0;
+
+        retval.execdata = std::string(start_json_data, end_json_data);
+
         rapidjson::Document indoc;
-        indoc.ParseInsitu(start_json_data);
+        indoc.ParseInsitu(start_json_data); //Modifies the buffer!
 
         if (indoc.HasParseError())
         {
@@ -223,18 +225,10 @@ MagicHeader ReadMagicHeader(std::string const &path)
                 return retval;
         }
 
-        if(indoc.IsObject())
+        if(indoc.IsObject() && indoc.HasMember("redirect") && indoc["redirect"].IsString()) //short-circuit redirects to not use the HS engine
         {
-                if(indoc.HasMember("whfsexecute") && indoc["whfsexecute"].IsInt())
-                {
-                        retval.iswhfsexecute = true;
-                        retval.fileid = indoc["whfsexecute"].GetInt();
-                }
-                else if(indoc.HasMember("redirect") && indoc["redirect"].IsString())
-                {
-                        retval.isredirect = true;
-                        retval.link = indoc["redirect"].GetString();
-                }
+                retval.isredirect = true;
+                retval.link = indoc["redirect"].GetString();
         }
         return retval;
 }
@@ -304,14 +298,14 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
 
         // Load the needed script
         std::string runpath;
-        if(magicinfo.iswhfsexecute)
-        {
-                runpath = "mod::system/scripts/internal/webserver/whfsexecute.whscr";
-        }
-        else if(magicinfo.isredirect)
+        if(magicinfo.isredirect)
         {
                 webcon->RedirectRequest(magicinfo.link, WebServer::StatusSeeOther); //303
                 return true;
+        }
+        else if(!magicinfo.execdata.empty())
+        {
+                runpath = "mod::system/scripts/internal/webserver/whfsexecute.whscr";
         }
         else
         {
@@ -425,8 +419,8 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         HSVM_SetDefault(app->hsvm, cell_allowedjobenvironments, HSVM_VAR_StringArray);
         HSVM_StringSetSTD(app->hsvm, HSVM_ArrayAppend(app->hsvm, cell_allowedjobenvironments), "WEBHARE");
 
-        HSVM_VariableId cell_whfsexecute = HSVM_RecordCreate(app->hsvm, authrec, HSVM_GetColumnId(app->hsvm, "WHFSEXECUTE"));
-        HSVM_IntegerSet(app->hsvm, cell_whfsexecute, magicinfo.iswhfsexecute ? magicinfo.fileid : 0);
+        HSVM_VariableId cell_execdata = HSVM_RecordCreate(app->hsvm, authrec, HSVM_GetColumnId(app->hsvm, "EXECDATA"));
+        HSVM_StringSetSTD(app->hsvm, cell_execdata, magicinfo.execdata);
 
         HSVM_VariableId auth_cell_webserverrequest = HSVM_RecordCreate(app->hsvm, authrec, col_webserverrequest);
         HSVM_CopyFrom(app->hsvm, auth_cell_webserverrequest, cell_webserverrequest);
