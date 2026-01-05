@@ -367,4 +367,62 @@
     </footer>
   </screen>
 
+  <screen name="hscroll" title="HScroll testing" allowresize="true">
+    <body>
+      <split type="vertical">
+        <part height="1pr" name="toppart">
+          <split type="horizontal">
+            <part width="1pr" name="leftpart">
+              <list name="list1"
+                    icons="tollium:mailclient/mail_opened tollium:mailclient/mail_closed tollium:media/soundon tollium:overlays/protected" rowiconhintname="rowiconhint"
+                    rowiconname="rowicon"
+                    oniconclick="oniconclick"
+                    selectmode="single"
+                    height="1pr"
+                    oncheck="oncheck"
+                    >
+                <column type="text" name="rowkey" width="15x" title="Text (rowkey)" sortkeyname="sorttext" />
+
+                <column type="icon" name="icon" width="32px" title="Icon" hintname="iconhint" iconoverlayname="iconoverlay" iconlink="true" />
+                <column type="icons" name="icons" width="64px" title="Icons" hintname="iconshint" iconoverlayname="iconoverlay" />
+
+                <column type="email" name="email" width="64px" title="Email" hintname="emailhint" iconname="icon" iconoverlayname="iconoverlay" />
+                <column type="url"   name="url"   width="64px" title="URL"   hintname="urlhint" iconname="icon" iconoverlayname="iconoverlay" />
+                <column type="text"  name="urlhint" width="64px" title="URL2"  linkname="url" />
+                <column type="text"  name="inline" width="64px" title="InlineItems" />
+
+                <column type="date" name="date" width="64px" title="Date" />
+                <column type="time" name="time" width="64px" title="Time" />
+                <column type="datetime" name="datetime" width="64px" hintname="datetimehint" title="Datetime" />
+
+                <column type="text" name="cbox1" title="CBox" checkboxname="cbox1_value" width="3x" />
+                <column type="float" name="c_float" title="Float" width="10x" decimals="2"/>
+
+                <!--
+                ADDME ?:
+                - integer
+                - integer64
+                - money
+                - blobrecord
+                -->
+
+                <style name="bold" bold="1" />
+                <style name="italic" italic="1" />
+                <style name="textcolor" textcolor="#0000FF" />
+                <style name="backgroundcolor" backgroundcolor="#FF00FF" />
+                <!-- ADDME: test color and backgroundcolor -->
+              </list>
+              <textedit enabled="false" name="feedback" width="1pr" />
+              <codeedit enabled="false" name="liststate" width="1pr" height="5gr" />
+            </part>
+            <part width="8x" name="rightpart">
+            </part>
+          </split>
+        </part>
+        <part height="1gr" name="bottompart">
+        </part>
+      </split>
+    </body>
+  </screen>
+
 </screens>

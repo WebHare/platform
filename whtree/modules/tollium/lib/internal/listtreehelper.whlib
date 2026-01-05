@@ -14,6 +14,10 @@ LOADLIB "mod::tollium/lib/internal/support.whlib"; // For TolliumException
 
 BOOLEAN debuglth := FALSE;
 
+PUBLIC BOOLEAN FUNCTION IsStructuredListCell(VARIANT cellvalue) {
+  RETURN TYPEID(cellvalue) = TYPEID(RECORD) AND CellExists(cellvalue,"value") AND CellExists(cellvalue,"text");
+}
+
 PUBLIC OBJECTTYPE ListTreeCallback
 < // ---------------------------------------------------------------------------
   //
@@ -474,8 +478,7 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper <
       @return Rows with valid rowkeys present.
   */
   PUBLIC RECORD ARRAY FUNCTION CheckNewRows(RECORD ARRAY rows, BOOLEAN isfooterrow) {
-    FOREVERY(RECORD row FROM rows)
-    {
+    FOREVERY(RECORD row FROM rows) {
       IF(NOT CellExists(row,"LISTROWCLASSES"))
         INSERT CELL listrowclasses := DEFAULT STRING ARRAY INTO rows[#row];
       ELSE IF(TypeID(row.listrowclasses) != TypeID(STRING ARRAY))
@@ -534,10 +537,19 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper <
             THROW NEW TolliumException(this->pvt_callback, "Component " || this->callback->GetComponentIdentification() || " received a row update, but row #" || #row || " has no cell named '" || req.name || "'");
 
           VARIANT val := GetCell(row, req.name);
+          IF(TYPEID(val) = TYPEID(RECORD) AND NOT RecordExists(val))
+            CONTINUE; //is 'null'
+
+          IF(IsStructuredListCell(val)) {
+            val := val.value;
+            IF(TYPEID(val) = TYPEID(RECORD) AND NOT RecordExists(val))
+              CONTINUE; //is 'null'
+          }
+
           IF(CellExists(req,"allowconstants") AND SearchElement(req.allowconstants, val) >= 0)
             CONTINUE; //acceptable constant! ("indeterminate")
 
-          IF(CellExists(req,"inlineitems") AND req.inlineitems AND TYPEID(val) = TYPEID(VARIANT ARRAY))
+          IF(CellExists(req,"inlineitems") AND req.inlineitems AND TYPEID(val) IN [ TYPEID(VARIANT ARRAY) ])
             CONTINUE; //RTDInlineItem like format.
 
           // test if the input value is correct (if onmapvalue is used this might be different than the type of the listcolumn)

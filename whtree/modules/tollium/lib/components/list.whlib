@@ -273,6 +273,8 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
 
   PUBLIC RECORD ARRAY debugactions;
 
+  PUBLIC BOOLEAN scroll_horizontal;
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -1726,7 +1728,9 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       @cell formattedvalue the title that was generated using GetFormattedListCell, used for values of type STRING to sort (without needing to know specifics on titlefromrowkey or optiongid)
   */
   STRING FUNCTION GetSortableListCell(RECORD coldef, RECORD listrow, VARIANT invalue) {
-    STRING formattedvalue := TYPEID(invalue) = TYPEID(STRING) ? invalue : InlineItemsToString(invalue);
+    //for structured list cells (RECORD type) just ignore formattedvalue. we should be looking at actual values
+
+    STRING formattedvalue := TYPEID(invalue) = TYPEID(RECORD) ? "" : TYPEID(invalue) = TYPEID(STRING) ? invalue : InlineItemsToString(invalue);
     //Exceptions first
     IF(coldef.sortkeyname="")
     {
@@ -1800,14 +1804,17 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       @param coldef Column
       @param listrow Row
   */
-  VARIANT FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname)
-  {
+  VARIANT FUNCTION GetFormattedListCell(RECORD coldef, RECORD listrow, STRING cellname) {
     IF(NOT CellExists(listrow,cellname))
       RETURN ""; //footer cells may be missing
 
     VARIANT basevalue := GetCell(listrow, cellname);
-    IF (coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
+    IF ((coldef.emptyvalueisset AND basevalue = coldef.emptyvalue)
+        OR (TYPEID(basevalue) = TYPEID(RECORD) AND NOT RecordExists(basevalue))) //'null' cell
       RETURN "";
+
+    IF(IsStructuredListCell(basevalue))
+      RETURN basevalue;
 
     VARIANT mappedvalue := this->GetColumnMappedValue(coldef, basevalue);
 
@@ -2309,6 +2316,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
       RECORD listinfo :=
                      CELL[ selectmode        := this->storage->selectmode
                          , columnselectmode  := this->columnselectmode
+                         , this->scroll_horizontal
                          , newcontextmenu    := GetComponentName(this->newcontextmenu)
                          , selectcontextmenu := GetComponentName(this->selectcontextmenu)
                          , openaction        := GetComponentName(this->openaction)

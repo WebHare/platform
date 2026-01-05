@@ -26,6 +26,161 @@ RECORD ARRAY names := [ [ name := "Brian N. Breault",     email := "kris+breault
                       , [ name := "Kenneth J. Castle",    email := "kris+castle@example.net" ]
                       , [ name := "Kevin L. Barton",      email := "kris+barton@example.net" ]
                       ];
+RECORD coltypes_baserow := CELL[
+    cbox1 := "",
+    cbox1_value := FALSE,
+    inline := VARIANT[],
+    c_float := 0f
+];
+
+RECORD ARRAY coltypes_rows :=
+        [ [ ...coltypes_baserow
+        , style := "bold"
+        , rowicon := 3
+        , rowiconhint := "hover row1cell0"
+        , rowkey := "<R01>"
+        , sorttext := "R1"
+
+        , icon := 0
+        , iconoverlay := 0
+        , iconhint := ""
+        , iconshint := ""
+
+        , icons := [1,2]
+
+        , email := "info@example.net"
+        , emailhint := "mail us!"
+
+        , url := "http://www.webhare.nl"
+        , urlhint := "visit us!"
+
+        , date := DEFAULT DATETIME
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,9,8,7))
+
+        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+        , datetimehint := "Erg laat!"
+        , inline := CELL[
+            value := "Italic text", //the value for sorting. must be made explicit currently
+            text := VARIANT[[ text := "Italic", italic := TRUE ], " text" ],
+            bg_color := "#FF0000"
+          ]
+        , c_float := CELL[
+            value := 3.5f,
+            text := "3 komma 5",
+            bg_color := "#00FF00"
+          ]
+        ]
+      , [ ...coltypes_baserow
+        , style := "italic"
+        , rowicon := 0
+        , rowiconhint := ""
+        , rowkey := "<D02>"
+        , sorttext := "R2"
+
+        , icon := 1
+        , iconoverlay := 0
+        , iconhint := "No."
+
+        , icons := [1,2]
+        , iconshint := "Allerlei iconen!"
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,11,10,9,8,7)
+        , time := 0
+        , "datetime" := DEFAULT DATETIME
+        , datetimehint := "Kweenie"
+        , cbox1_value := TRUE
+
+        , inline := VARIANT["Text ", [ bold := TRUE, text := "in bold" ]]
+        , c_float := DEFAULT RECORD //test a 'null'
+        ]
+      , [ ...coltypes_baserow
+        , rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A03>"
+        , sorttext := "R3"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,7)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,53,7))
+        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+        , datetimehint := "Erg laat!"
+        , cbox1_value := "indeterminate"
+        , c_float := [
+            value := DEFAULT RECORD, //test a 'null' in a structuredlistcel
+            text := "",
+            bg_color := "#ff00ff"
+          ]
+        ]
+      , [ ...coltypes_baserow
+        , style := "textcolor"
+        , rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A04>"
+        , sorttext := "R4"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,8)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
+        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
+        , datetimehint := "Nog veel later!"
+        ]
+      , [ ...coltypes_baserow
+        , style := "backgroundcolor"
+        , rowicon := 3
+        , rowiconhint := ""
+        , rowkey := "<A05>"
+        , sorttext := "R5"
+
+        , icon := 2
+        , iconoverlay := 4
+        , iconhint := ""
+
+        , icons := [1,2]
+        , iconshint := ""
+
+        , email := ""
+        , emailhint := ""
+
+        , url := ""
+        , urlhint := ""
+
+        , date := MakeDatetime(2012,10,11,9,8,8)
+        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
+        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
+        , datetimehint := "Nog veel later!"
+        , c_float := 7.5
+        ]
+];
 
 PUBLIC OBJECTTYPE BaseTest EXTEND TolliumScreenBase
 < INTEGER rowkeycounter;
@@ -327,142 +482,7 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
-    RECORD baserow := CELL[
-       cbox1 := "",
-       cbox1_value := FALSE,
-       inline := VARIANT[]
-    ];
-    this->list1->rows :=
-      [ [ ...baserow
-        , style := "bold"
-        , rowicon := 3
-        , rowiconhint := "hover row1cell0"
-        , rowkey := "<R01>"
-        , sorttext := "R1"
-
-        , icon := 0
-        , iconoverlay := 0
-        , iconhint := ""
-        , iconshint := ""
-
-        , icons := [1,2]
-
-        , email := "info@example.net"
-        , emailhint := "mail us!"
-
-        , url := "http://www.webhare.nl"
-        , urlhint := "visit us!"
-
-        , date := DEFAULT DATETIME
-        , time := GetMsecondCount(MakeDatetime(2012,11,10,9,8,7))
-
-        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
-        , datetimehint := "Erg laat!"
-        ]
-      , [ ...baserow
-        , style := "italic"
-        , rowicon := 0
-        , rowiconhint := ""
-        , rowkey := "<D02>"
-        , sorttext := "R2"
-
-        , icon := 1
-        , iconoverlay := 0
-        , iconhint := "No."
-
-        , icons := [1,2]
-        , iconshint := "Allerlei iconen!"
-
-        , email := ""
-        , emailhint := ""
-
-        , url := ""
-        , urlhint := ""
-
-        , date := MakeDatetime(2012,11,10,9,8,7)
-        , time := 0
-        , "datetime" := DEFAULT DATETIME
-        , datetimehint := "Kweenie"
-        , cbox1_value := TRUE
-
-        , inline := VARIANT["Text ", [ bold := TRUE, text := "in bold" ]]
-        ]
-      , [ ...baserow
-        , rowicon := 3
-        , rowiconhint := ""
-        , rowkey := "<A03>"
-        , sorttext := "R3"
-
-        , icon := 2
-        , iconoverlay := 4
-        , iconhint := ""
-
-        , icons := [1,2]
-        , iconshint := ""
-
-        , email := ""
-        , emailhint := ""
-
-        , url := ""
-        , urlhint := ""
-
-        , date := MakeDatetime(2012,10,11,9,8,7)
-        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,53,7))
-        , "datetime" := MakeDatetime(2012,10,11,9,8,7)
-        , datetimehint := "Erg laat!"
-        , cbox1_value := "indeterminate"
-        ]
-      , [ ...baserow
-        , style := "textcolor"
-        , rowicon := 3
-        , rowiconhint := ""
-        , rowkey := "<A04>"
-        , sorttext := "R4"
-
-        , icon := 2
-        , iconoverlay := 4
-        , iconhint := ""
-
-        , icons := [1,2]
-        , iconshint := ""
-
-        , email := ""
-        , emailhint := ""
-
-        , url := ""
-        , urlhint := ""
-
-        , date := MakeDatetime(2012,10,11,9,8,8)
-        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
-        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
-        , datetimehint := "Nog veel later!"
-        ]
-      , [ ...baserow
-        , style := "backgroundcolor"
-        , rowicon := 3
-        , rowiconhint := ""
-        , rowkey := "<A05>"
-        , sorttext := "R5"
-
-        , icon := 2
-        , iconoverlay := 4
-        , iconhint := ""
-
-        , icons := [1,2]
-        , iconshint := ""
-
-        , email := ""
-        , emailhint := ""
-
-        , url := ""
-        , urlhint := ""
-
-        , date := MakeDatetime(2012,10,11,9,8,8)
-        , time := GetMsecondCount(MakeDatetime(2012,11,10,12,54,27))
-        , "datetime" := MakeDatetime(2012,10,11,9,18,7)
-        , datetimehint := "Nog veel later!"
-        ]
-      ];
+    this->list1->rows := coltypes_rows;
 
     this->list1->footerrows :=
         [ [ style := "bold"
@@ -693,4 +713,39 @@ PUBLIC STATIC OBJECTTYPE ResizeTest EXTEND TolliumScreenBase
     ^body->ExtUpdatedComponent();
   }
 
+>;
+
+PUBLIC STATIC OBJECTTYPE HScroll EXTEND TolliumScreenBase <
+  MACRO Init() {
+    ^list1->rows := coltypes_rows;
+    ^list1->scroll_horizontal := TRUE;
+    ^list1->footerrows :=
+        [ [ style := "bold"
+          , rowicon := 3
+          , rowiconhint :=""
+          , rowkey := "<R01>"
+          , icons := [2,3]
+
+          , email := "info@example.net"
+          , emailhint := "email us!"
+
+          , time := GetMsecondCount(MakeDatetime(2012,11,10,9,8,7))
+          , "datetime" := MakeDatetime(2012,10,11,9,8,7)
+          , datetimehint := "Oi!"
+          ]
+        ];
+
+    this->Refresh();
+  }
+  MACRO OnIconClick(RECORD rec, STRING str) {
+    ^feedback->value := "Iconclick: " || rec.rowkey || " " || str;
+    this->Refresh();
+  }
+  MACRO OnCheck(RECORD rec, STRING cellname) {
+    ^feedback->value := "OnCheck: " || rec.rowkey || " " || cellname;
+    this->Refresh();
+  }
+  MACRO Refresh() {
+    ^liststate->value := PrettifyJSON(EncodeJSON(^list1->rows));
+  }
 >;
