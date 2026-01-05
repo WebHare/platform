@@ -47,11 +47,12 @@ PUBLIC MACRO __Dummy() //exists only to make systemredirect.whlib happy
 
 }
 
-INTEGER currentfileid := GetAuthenticationRecord().whfsexecute;
+
+RECORD execdata := DecodeJSON(GetAuthenticationRecord().execdata);
 
 // Get the library data for the library
-RECORD rec := GetAdhocCached([ fileid := currentfileid ], PTR GetCacheableFileData(currentfileid));
+RECORD rec := GetAdhocCached([ fileid := execdata.whfsexecute ], PTR GetCacheableFileData(execdata.whfsexecute));
 IF (NOT RecordExists(rec)) // FIXME: nicer error pages?
-  THROW NEW Exception("Could not locate type for fs object #" || currentfileid);
+  THROW NEW Exception("Could not locate type for fs object #" || execdata.whfsexecute);
 
-DoWHFSExecute(currentfileid, rec);
+DoWHFSExecute(execdata.whfsexecute, rec);
