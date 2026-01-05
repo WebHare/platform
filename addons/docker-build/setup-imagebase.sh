@@ -67,6 +67,7 @@ sed -e 's/:\/root:/:\/opt\/whdata\/root:/' /etc/passwd > /etc/passwd.new && mv /
 # 2023-08-23: Restore openssh-server, our test_sftp needs it (and sftp needs a ssh client)
 
 PACKAGES+=(
+ busybox # Needed for runsvdir
  certbot #EPEL
  fontconfig
  freetype
@@ -145,6 +146,11 @@ fi
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
 mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
+
+# setup busyboxs' version of runsv
+ln -s /usr/sbin/busybox /usr/sbin/sv
+ln -s /usr/sbin/busybox /usr/sbin/runsv
+ln -s /usr/sbin/busybox /usr/sbin/runsvdir
 
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then

@@ -88,7 +88,7 @@ done
 #    but the container will SIGKILL everything once PID 1 goes away
 
 # If runsvdir receives a HUP signal, it sends a TERM signal to each runsv(8) process it is monitoring and then exits with 111.
-/usr/bin/runsvdir /etc/service &
+runsvdir /var/service &
 RUNSVDIR_PID=$!
 
 function shutdown()
