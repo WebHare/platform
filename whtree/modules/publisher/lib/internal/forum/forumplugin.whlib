@@ -67,7 +67,7 @@ PUBLIC STATIC OBJECTTYPE ForumPlugin EXTEND WebDesignPluginBase
     ELSE
       cd := SELECT AS DATETIME creationdate FROM system.fs_objects WHERE fs_objects.id = options.forfile;
 
-    OBJECT form := this->webdesign->OpenForm("platform:webtoolform#addcomment");
+    OBJECT form := this->webdesign->OpenForm("platform:forum#addcomment");
     INSERT CELL "wh-forum" := EncryptForThisServer("publisher:commentsplugin", [ id := options.forfile, cd := cd ])
            INTO form->formdataset;
 
