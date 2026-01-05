@@ -95,11 +95,13 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
 {
   harescriptinfo := FixupHarescripterrorInfo(errorcode, harescriptinfo);
 
+  STRING url := GetRequestURL();
+  RECORD unpacked := UnpackURL(url);
+
   IF(errorcode = 500)
   {
-    IF (IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),';')[0] = "application/json")
+    IF (IsRequestPost() AND Tokenize(GetWebHeader("Content-Type"),';')[0] = "application/json" AND unpacked.urlpath LIKE "wh_services/*")
     {
-      //FIXME why isn't this handler limited to /wh_services/ folders ?
       TRY
       {
         SendJSONRPCError(harescriptinfo);
@@ -109,8 +111,6 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     }
   }
 
-  STRING url := GetRequestURL();
-  RECORD unpacked := UnpackURL(url);
   IF(unpacked.urlpath LIKE "modules/system/errors/40?.shtml*")
   {
     url := GetWebVariable("url"); //allow testing
