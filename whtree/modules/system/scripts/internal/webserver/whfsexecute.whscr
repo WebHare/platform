@@ -49,6 +49,10 @@ PUBLIC MACRO __Dummy() //exists only to make systemredirect.whlib happy
 
 
 RECORD execdata := DecodeJSON(GetAuthenticationRecord().execdata);
+IF(CellExists(execdata,'abtest')) {
+  MakeFunctionPtr("mod::publisher/lib/internal/webdesign/abtest.whlib#RunABTest")(execdata);
+  RETURN;
+}
 
 // Get the library data for the library
 RECORD rec := GetAdhocCached([ fileid := execdata.whfsexecute ], PTR GetCacheableFileData(execdata.whfsexecute));

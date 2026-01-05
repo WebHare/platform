@@ -70,9 +70,9 @@ FLOAT FUNCTION RandomFloat()
   RETURN res < 0 ? 0f : res > 1 ? 1f : res; //should never happen but we need a better randomfloat function :)
 }
 
-PUBLIC MACRO RunABTest()
+PUBLIC MACRO RunABTest(RECORD execdata)
 {
-  INTEGER myfileid := GetStoredScriptProperty("FILEID");
+  INTEGER myfileid := execdata.abtest;
   RECORD abinfo := GetAdhocCached([ abtestinfo := myfileid ], PTR GetABtestInfo(myfileid));
   IF(abinfo.abgroup = "" OR Length(abinfo.aboptions) = 0)
     AbortWithHTTPError(404, "A/B not properly configured");

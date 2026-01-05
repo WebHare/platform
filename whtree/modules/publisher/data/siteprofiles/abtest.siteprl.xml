@@ -16,7 +16,6 @@
     <!-- only the real test should show the tab -->
     <extendproperties extension="#abtest" />
 
-    <!-- we need to control both contentlinks and normal publication -->
     <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
   </filetype>
 

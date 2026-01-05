@@ -3,6 +3,7 @@
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/template-v2.whlib";
+LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 BOOLEAN iscontentlink := file.type = 20;
@@ -60,9 +61,7 @@ ELSE
     CloseFile();
   }
 
-  OpenFile(1);
-  //INTEGER redirectoutputid := OpenOutputFile("index.shtml",FALSE);
-  //PrintTrustedCode("<?wh (*SCRIPTPROPERTY'SYSTEMREDIRECT'*)?>");
-  PrintTrustedCode(`<?wh LOADLIB "${Resolve("abtest.whlib")}"; RunABTest(); ?>`);
-  closefile();
+  INTEGER outputid := OPENOUTPUTFILE(FindPage(1).name, FALSE);
+  PrintTo(outputid,`WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([abtest := file.id])}\r\n`);
+  PUBLISHER_CloseOutput(outputid);
 }
