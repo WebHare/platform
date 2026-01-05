@@ -359,7 +359,7 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
     else if (sessdata.oauthconfig.clientsecret)
       tokenRequest.set("client_secret", sessdata.oauthconfig.clientsecret);
     else
-      throw new Error("No client secret   or signing method available for oauth2 token request");
+      throw new Error("No client secret or signing method available for oauth2 token request");
 
     tokenRequest.set("redirect_uri", sessdata.oauthconfig.redirecturl);
     tokenRequest.set("grant_type", "authorization_code");
