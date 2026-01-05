@@ -45,8 +45,9 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: stri
   }
 }
 
-async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string): Promise<string> {
+async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string) {
   const page = await context.newPage();
+  const path: URL[] = [];
 
   console.log("Oauth starting on", authorizeURL);
   await page.goto(authorizeURL);
@@ -55,15 +56,18 @@ async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, auth
 
   const waitForLocalhost = new Promise<string>((resolve) => {
     page.on('request', req => {
-      if (req.isNavigationRequest() && req.frame() === page.mainFrame() && req.url().startsWith(callbackUrl)) {
-        resolve(req.url());
-        void req.respond(req.redirectChain().length
-          ? { body: '' } // prevent 301/302 redirect
-          : { status: 204 } // prevent navigation by js
-        );
-      } else {
-        void req.continue();
+      path.push(new URL(req.url()));
+      if (req.isNavigationRequest() && req.frame() === page.mainFrame()) {
+        if (req.url().startsWith(callbackUrl)) {
+          resolve(req.url());
+          void req.respond(req.redirectChain().length
+            ? { body: '' } // prevent 301/302 redirect
+            : { status: 204 } // prevent navigation by js
+          );
+          return;
+        }
       }
+      void req.continue();
     });
   });
 
@@ -72,10 +76,10 @@ async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, auth
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
 
-  return finalurl;
+  return { path, finalurl };
 }
 
-async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
+async function runAuthorizeFlow(authorizeURL: string) {
   const context = await puppeteer!.createBrowserContext(); //separate cookie storage
   try {
     return await runAuthorizeFlowInContext(context, authorizeURL);
@@ -161,7 +165,7 @@ async function verifyRoutes_HSClient() {
   const authorize = await oauth2.StartAuthorizeClient(callbackUrl, { scopes: ["openid", "email"], code_verifier: createCodeVerifier() });
   test.eq("redirect", authorize.type);
 
-  const finalurl = await runAuthorizeFlow(authorize.url);
+  const { finalurl } = await runAuthorizeFlow(authorize.url);
 
   //Get the oauth2ession
   const oauth2session = new URL(finalurl).searchParams.get("oauth2session");
@@ -169,6 +173,8 @@ async function verifyRoutes_HSClient() {
   test.eq({ success: true }, await oauth2.HandleAuthorizedLanding(oauth2session));
 
   const oauth2tokens = await oauth2.$get("token") as { id_token: string };
+  if (!oauth2tokens.id_token)
+    throw new Error("No id_token received");
 
   const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
@@ -201,27 +207,58 @@ async function verifyRoutes_TSClient() {
     clientSecret,
   });
 
-  const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier(), userData: { testData: 42 } });
+  { //STORY: Simple authorize flow, using defaults
+    const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier(), responseMode: "query", userData: { testData: 42 } });
 
-  //FIXME verify invalid secret fails
+    //FIXME verify invalid secret fails
 
-  //FIXME WH should verify callback url validation
-  //FIXME WH should verify valid and acceptable scopes
-  test.assert(authorize.type === "redirect");
+    //FIXME WH should verify callback url validation
+    //FIXME WH should verify valid and acceptable scopes
+    test.assert(authorize.type === "redirect");
 
-  const finalurl = await runAuthorizeFlow(authorize.url);
+    const { finalurl, path } = await runAuthorizeFlow(authorize.url);
+    const oauth2Url = path.find(_ => _.pathname.endsWith("/common/oauth2/"));
+    //verify params were passed on the URL
+    test.assert(oauth2Url?.searchParams.get("code"));
+    test.assert(oauth2Url?.searchParams.get("state"));
 
-  //Get the oauth2ession
-  const oauth2session = new URL(finalurl).searchParams.get("oauth2session");
-  test.assert(oauth2session, "No oauth2session in " + finalurl);
+    //Get the oauth2ession
+    const oauth2session = new URL(finalurl).searchParams.get("oauth2session");
+    test.assert(oauth2session, "No oauth2session in " + finalurl);
 
-  const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
-  test.assert(landing?.tokens?.id_token);
-  test.eq(42, landing.userData?.testData);
+    const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
+    test.assert(landing?.tokens?.id_token);
+    test.eq(42, landing.userData?.testData);
 
-  const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
-  test.eq(sysopguid, landing.idPayload?.sub);
-  test.eq("sysop@beta.webhare.net", landing.idPayload?.email);
+    const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
+    test.eq(sysopguid, landing.idPayload?.sub);
+    test.eq("sysop@beta.webhare.net", landing.idPayload?.email);
+  }
+
+
+  { //STORY: Authorize flow with response_mode form_post
+    const authorize = await client.createAuthorizeLink(callbackUrl, { addScopes: ["openid"], codeVerifier: createCodeVerifier(), responseMode: "form_post", userData: { testData: 47 } });
+    test.assert(authorize.type === "redirect");
+
+    const { finalurl, path } = await runAuthorizeFlow(authorize.url);
+    const oauth2Url = path.find(_ => _.pathname.endsWith("/common/oauth2/"));
+    //verify params were passed through POST
+    test.eq(null, oauth2Url?.searchParams.get("code"));
+    test.eq(null, oauth2Url?.searchParams.get("state"));
+
+    //Get the oauth2ession
+    const oauth2session = new URL(finalurl).searchParams.get("oauth2session");
+    test.assert(oauth2session, "No oauth2session in " + finalurl);
+
+    const landing = await handleOAuth2AuthorizeLanding(clientScope, oauth2session);
+    test.assert(landing?.tokens?.id_token);
+    test.eq(47, landing.userData?.testData);
+
+    const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
+    test.eq(sysopguid, landing.idPayload?.sub);
+    test.eq("sysop@beta.webhare.net", landing.idPayload?.email);
+  }
+
 }
 
 async function verifyOpenIDClient() {
@@ -253,12 +290,14 @@ async function verifyOpenIDClient() {
 
   const authorizeurl = client.authorizationUrl({
     scope: 'openid email invalidscope',
+    // response_mode
+
     // TODO make code work
     // code_challenge,
     // code_challenge_method: 'S256',
   });
 
-  const finalurl = await runAuthorizeFlow(authorizeurl);
+  const { finalurl } = await runAuthorizeFlow(authorizeurl);
   const params = client.callbackParams(finalurl);
 
   const tokenSet = await client.callback(callbackUrl, params); // , { code_verifier });
@@ -281,7 +320,7 @@ async function verifyOpenIDClient() {
     nonce
   });
 
-  const finalurl2 = await runAuthorizeFlow(authorizeurl2);
+  const { finalurl: finalurl2 } = await runAuthorizeFlow(authorizeurl2);
   const params2 = client.callbackParams(finalurl2);
 
   const tokenSet2 = await client.callback(callbackUrl, params2, { nonce });

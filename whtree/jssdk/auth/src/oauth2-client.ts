@@ -3,12 +3,16 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
 import type { WRDSchema } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { throwError, toCamelCase, toSnakeCase } from "@webhare/std";
+import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
-import { backendConfig, createServerSession, getServerSession, subscribe, type SessionScopes } from "@webhare/services";
-import type { OAuth2Tokens, OpenIdConfiguration } from "./types";
+import { backendConfig, createServerSession, getServerSession, logNotice, subscribe, updateServerSession, type SessionScopes } from "@webhare/services";
+import type { OAuth2Tokens, OpenIdConfiguration, ResponseModesScopes } from "./types";
 import { runInWork } from "@webhare/whdb/src/impl";
 import * as crypto from "node:crypto";
+import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
+import { createRedirectResponse, createWebResponse, type WebRequest, type WebResponse } from "@webhare/router";
+import type { JWTPayload } from "./customizer";
 
 declare module "@webhare/services" {
   interface SessionScopes {
@@ -22,6 +26,7 @@ declare module "@webhare/services" {
       oauthconfig: {
         clientid: string;
         clientsecret: string;
+        clientsigning: ToSnakeCase<ClientSigning> | null;
         redirecturl: string;
         authorizeurl: string;
         authtokenurl: string;
@@ -41,7 +46,29 @@ export interface OAuth2AuthorizeRequestOptions extends OAuth2LoginRequestOptions
   codeVerifier?: string;
   userData?: Record<string, unknown>;
   clientScope?: string;
+  responseMode?: ResponseModesScopes;
 }
+
+/** Stores a client secret configuration */
+export type ClientSigning = {
+  /** Type */
+  type: "client_secret";
+  /** The actual secret given by the server */
+  secret: string;
+  /** Secret ID (provided by Microsoft) */
+  secretId?: string;
+} | {
+  /** Type */
+  type: "private_key_jwt";
+  /** Private key */
+  privateKey: string;
+  /** JWT Token values to use */
+  jwtParams: JWTPayload;
+  /** Key ID (provided by the server) */
+  keyId: string;
+  /** Algorithm to use */
+  algorithm: "ES256";
+};
 
 interface OIDCMetadata {
   config: OpenIdConfiguration;
@@ -101,7 +128,10 @@ type OAuth2ClientInfo = {
   clientScope: string;
   redirectUrl?: string;
   clientId: string;
-  clientSecret: string;
+  /** Holds string based secret */
+  clientSecret?: string;
+  /** Holds client signing information, will replace clientSecret in the future */
+  clientSigning?: ClientSigning;
   additionalScopes: string[];
   clientWrdId?: number;
 };
@@ -136,8 +166,8 @@ export class OAuth2Client {
   async createAuthorizeLink(finalurl: string, options?: OAuth2AuthorizeRequestOptions): Promise<NavigateInstruction> {
     const metadata = await getOpenIDConnectMetadata(this.clientinfo.metadataUrl);
     const redirecturl = this.clientinfo.redirectUrl || getDefaultOAuth2RedirectURL();
-    /* TODO There isn't much binding the original request call to createOAuth2AuthorizeLink to the finalurl. What happens if a user takes the oauth2session= parameter
-            and uses it on a different URL on the same server? */
+
+    //TODO avoid storing this all in webserver sessions, WRD clientid should often suffice. And link that up to JWT caching for apple logins
     const state: SessionScopes["system:oauth2"] = {
       finalreturnurl: finalurl.toString(),
       code_verifier: options?.codeVerifier || '',
@@ -147,7 +177,8 @@ export class OAuth2Client {
       user_data: options?.userData ? toSnakeCase(options?.userData) : undefined,
       oauthconfig: {
         clientid: this.clientinfo.clientId,
-        clientsecret: this.clientinfo.clientSecret,
+        clientsecret: this.clientinfo.clientSecret || '',
+        clientsigning: this.clientinfo.clientSigning ? toSnakeCase(this.clientinfo.clientSigning) : null,
         redirecturl,
         authorizeurl: metadata.config.authorization_endpoint ?? throwError(`OIDC provider at ${this.clientinfo.metadataUrl} has no authorization_endpoint`),
         authtokenurl: metadata.config.token_endpoint ?? throwError(`OIDC provider at ${this.clientinfo.metadataUrl} has no token_endpoint`),
@@ -166,6 +197,14 @@ export class OAuth2Client {
     authurl.searchParams.set("state", session);
     authurl.searchParams.set("client_id", this.clientinfo.clientId);
     authurl.searchParams.set("response_type", "code");
+    if (options?.responseMode)
+      authurl.searchParams.set("response_mode", options.responseMode);
+    else if (metadata.config.response_modes_supported?.includes("form_post")) {
+      /* Prefer responseMode: form_post if available and the client can actually navigate (eg. not a SPA).
+         Safer becauser it keeps tokens off the URL but it does require a client that can navigate. but as we're going
+         to return a NavigateInstruction anyway, that should be fine */
+      authurl.searchParams.set("response_mode", "form_post");
+    }
     authurl.searchParams.set("scope", scopes.join(" "));
     authurl.searchParams.set("redirect_uri", redirecturl);
     if (options?.prompt)
@@ -184,7 +223,7 @@ export class OAuth2Client {
 export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, provider: number | string) {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<System_UsermgmtSchemaType>; //TODO better schema type but at least this one has the OIDC Client
   const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthOidcClient", { wrdTag: provider }) ?? throwError(`No OIDC provider with tag ${provider} found`);
-  const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri"]) ?? throwError(`No OIDC service provider #${providerId} found`);
+  const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning"]) ?? throwError(`No OIDC service provider #${providerId} found`);
 
   return new OAuth2Client({
     metadataUrl: spData.metadataurl,
@@ -192,6 +231,7 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
     redirectUrl: spData.redirectUri,
     clientId: spData.clientid,
     clientSecret: spData.clientsecret,
+    clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalscopes.split(" ").map(s => s.trim()).filter(s => s),
     clientWrdId: providerId
   });
@@ -239,4 +279,108 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
     idPayload,
     expires: sessdata.tokeninfo?.expires_in ? Temporal.Instant.fromEpochMilliseconds(sessdata.requeststart.getTime()).add({ seconds: sessdata.tokeninfo.expires_in }) : undefined
   };
+}
+
+function createError(text: string) {
+  return createWebResponse(`<html><body>${encodeString(text, "html")}</body></html>`, { status: 400, headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+export async function handleOAuth2LandingPage_HS(reqInfo: WebRequestInfo): Promise<WebResponseInfo> {
+  return (await handleOAuth2LandingPage(await newWebRequestFromInfo(reqInfo))).asWebResponseInfo();
+}
+
+async function getParams(req: WebRequest) {
+  const params = {
+    state: null as string | null,
+    code: null as string | null,
+    error: null as string | null,
+    error_description: null as string | null
+  };
+
+  const props = ['state', 'code', 'error', 'error_description'] as const;
+  if (req.method === "POST") {
+    const data = await req.formData();
+    for (const prop of props) {
+      const val = data.get(prop);
+      if (typeof val === "string")
+        params[prop] = val;
+    }
+  } else {
+    const url = new URL(req.url.toString());
+    for (const prop of props) {
+      params[prop] = url.searchParams.get(prop);
+    }
+  }
+  return params;
+}
+
+function buildClientSecret(signing: ClientSigning): string {
+  if (signing.type === "client_secret")
+    return signing.secret;
+  if (signing.type === "private_key_jwt") {
+    const now = Math.floor(Date.now() / 1000);
+    const clientSecret = jwt.sign(
+      {
+        ...signing.jwtParams,
+        iat: now,
+        nbf: now - 600, // tolerate 10 minutes clock skew
+        exp: now + 86_400 + 600, // max 1 day plus 10 minutes tolerance
+      },
+      signing.privateKey,
+      {
+        algorithm: signing.algorithm,
+        keyid: signing.keyId,
+      }
+    );
+    return clientSecret;
+  }
+  throw new Error("Invalid client signing configuration: " + (signing satisfies never as ClientSigning).type);
+}
+
+export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebResponse> {
+  const { state, code, error, error_description } = await getParams(req);
+  if (!state)
+    return createError("Missing state or code parameters");
+  const sessdata = await getServerSession("system:oauth2", state);
+  if (!sessdata)
+    return createError("Session has expired");
+
+  if (error || error_description) {
+    logNotice("error", "Error from oauth2 redirect", { data: { error, error_description } });
+  }
+
+  if (code) {
+    const tokenRequest = new URLSearchParams;
+    tokenRequest.set("code", code);
+    tokenRequest.set("client_id", sessdata.oauthconfig.clientid);
+    //TODO cache the clientsecret for re-use, at least if we know the clientid and can listen for changes
+    if (sessdata.oauthconfig.clientsigning)
+      tokenRequest.set("client_secret", buildClientSecret(toCamelCase(sessdata.oauthconfig.clientsigning)));
+    else if (sessdata.oauthconfig.clientsecret)
+      tokenRequest.set("client_secret", sessdata.oauthconfig.clientsecret);
+    else
+      throw new Error("No client secret or signing method available for oauth2 token request");
+
+    tokenRequest.set("redirect_uri", sessdata.oauthconfig.redirecturl);
+    tokenRequest.set("grant_type", "authorization_code");
+    if (sessdata.code_verifier)
+      tokenRequest.set("code_verifier", sessdata.code_verifier);
+
+    const res = await fetch(sessdata.oauthconfig.authtokenurl, {
+      method: "POST",
+      body: tokenRequest,
+    });
+    if (!res.ok) {
+      logNotice("error", "Error retrieving tokens", { data: await res.json() });
+      return createError(`Error retrieving tokens`);
+    }
+
+    const tokeninfo = pick(await res.json(), ["access_token", "refresh_token", "expires_in", "token_type", "id_token"]) as OAuth2Tokens;
+    sessdata.tokeninfo = tokeninfo;
+    await runInWork(() => updateServerSession("system:oauth2", state, sessdata));
+  }
+  //TODO Forward error/error_description?
+  const gotoUrl = new URL(sessdata.finalreturnurl);
+  gotoUrl.searchParams.set("oauth2session", state);
+  return createRedirectResponse(gotoUrl.toString());
 }

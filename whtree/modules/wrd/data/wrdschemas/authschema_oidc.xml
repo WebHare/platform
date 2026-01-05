@@ -13,7 +13,8 @@
       <integer tag="wrd_ordering" />  <!-- TODO make this object a domain and then use the builtin wrd_ordering -->
       <free tag="metadataurl" />
       <free tag="clientid" />
-      <free tag="clientsecret" />
+      <json tag="client_signing" unsafetocopy="true" typedeclaration="@webhare/auth#ClientSigning" />
+      <free tag="clientsecret" unsafetocopy="true" description="Old string format client secret key"/>
       <datetime tag="secret_expiration" description="When is the secret known to expire (allows us to give warnings)" />
       <free tag="additionalscopes" />
       <free tag="loginfield" />  <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->

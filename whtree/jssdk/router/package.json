@@ -11,5 +11,8 @@
       "./src/router.ts"
     ]
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@fastify/busboy": "^3.2.0"
+  }
 }

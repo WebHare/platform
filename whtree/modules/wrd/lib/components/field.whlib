@@ -5,8 +5,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 
-PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
-<
+PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase <
   PUBLIC STRING imagewidth;
   PUBLIC STRING imageheight;
   PUBLIC BOOLEAN hr;
@@ -40,7 +39,6 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 
   PRIVATE BOOLEAN fieldreadonly;
   PRIVATE OBJECT ARRAY currentobjects;
-//  PRIVATE RECORD ARRAY arrayvalue;
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateValue()
   {
@@ -50,8 +48,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
     RETURN TolliumComponentBase::IsUpdateValue();
   }
 
-  PRIVATE VARIANT FUNCTION GetValue()
-  {
+  PRIVATE VARIANT FUNCTION GetValue() {
     SWITCH (this->attrinfo.attributetype)
     {
       CASE 0
@@ -68,7 +65,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       }
       CASE wrd_attributetype_json
       {
-        RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeJSON(this->currentobjects[0]->value);
+        RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeJSON(this->currentobjects[0]->value, DEFAULT RECORD, [ camelcase := TRUE ]);
       }
       CASE wrd_attributetype_whfsinstance,
            wrd_attributetype_richdocument,
@@ -132,7 +129,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       }
       CASE wrd_attributetype_json
       {
-        this->currentobjects[0]->value := EncodeJSON(val);
+        this->currentobjects[0]->value := EncodeJSON(val, DEFAULT RECORD, [ camelcase := TRUE ]);
       }
       CASE wrd_attributetype_whfsinstance,
            wrd_attributetype_richdocument,
@@ -176,8 +173,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       this->currentobjects[0]->domainfilters := domainfilters;
   }
 
-  PRIVATE MACRO CreateComponents(OBJECT wrdtype)
-  {
+  PRIVATE MACRO CreateComponents(OBJECT wrdtype) {
     this->wrdtype := wrdtype;
     INTEGER attrtype := this->attrinfo.attributetype;
     IF (attrtype = 2 AND this->password)
@@ -185,8 +181,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 
     BOOLEAN manual_enable;
 
-    SWITCH (attrtype)
-    {
+    SWITCH (attrtype) {
       CASE 0
       {
         OBJECT comp := this->CreateSubComponent("text");
@@ -470,10 +465,10 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
            wrd_attributetype_statusrecord,
            wrd_attributetype_authenticationsettings
       {
-        OBJECT comp := this->CreateSubComponent("textedit");
+        OBJECT comp := this->CreateSubComponent("textarea");
         comp->width := "1pr";
         comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
-        comp->enabled := FALSE;
+        comp->enabled := attrtype IN [wrd_attributetype_json];
         this->currentobjects := [comp];
       }
       DEFAULT

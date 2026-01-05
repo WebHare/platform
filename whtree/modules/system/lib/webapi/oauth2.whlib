@@ -5,6 +5,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -14,9 +15,12 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
+
 
 PUBLIC CONSTANT RECORD oauthbaseoptions := CELL[ clientid := ""
                                                , clientsecret := ""
+                                               , client_signing := DEFAULT RECORD
                                                , clientregistrykey := ""
                                                , rpclogsource := ""
                                                , redirecturl := ""
@@ -185,7 +189,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(CellExists(options,'state'))
       THROW NEW Exception("The 'state' option is reserved by StartRedirectAuthorizationFlow and cannot be used");
 
-    IF(this->oauthconfig.clientsecret = "")
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
       THROW NEW Exception("Cannot start an authorization flow without a client secret");
 
     RETURN [ __oauth2_authflow := [ url := this->GetAuthorizationCodeURL(CELL[ ...options ])
@@ -224,7 +228,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   {
     RECORD authcontext := this->GetAuthorizeContext(options);
     INSERT CELL finalreturnurl := finalreturnurl INTO authcontext.__oauth2_authflow.state;
-    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, [ maxidle_minutes := 90]);
+    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, [ maxidle_minutes := 90, json := TRUE]);
     RETURN [ type := "redirect"
            , url := UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ])
            ];
@@ -289,6 +293,11 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     IF(NOT CellExists(this->token,'refresh_token')) //not everyone (eg facebook) will give us a refresh_token
       RETURN [ success := FALSE, message := "Token cannot be refreshed" ];
 
+    IF(this->oauthconfig.clientsecret = "" AND RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("HareScript cannot be used when clients are configured using clientSigning");
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("Neither clientsecret nor clientSigning are set up");
+
     DATETIME requeststart := GetCurrentDatetime();
     BLOB body := CreateHTTPUrlencodedRequest(
                   [[ name := "refresh_token", value := this->token.refresh_token ]
@@ -326,24 +335,6 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
     RETURN [ success := FALSE, message := "No new accesstoken received" ];
   }
 
-  /** @short Start an oauth2 authorization
-      @return options.promise Promise that will resolve when the oauth2 process is complete
-      @return options.url URL for the user to visit */
-  //PUBLIC RECORD FUNCTION StartOauth2Authorization(RECORD options DEFAULTSTO DEFAULT RECORD)
-  //{
-  //  IF(CellExists(options,'state'))
-  //    THROW NEW Exception("The 'state' option is reserved by StartOauth2Authorization and cannot be used");
-
-  //  //TODO use something more persistent and more flexible than a websession
-  //  RECORD defer := CreateDeferredPromise();
-  //  STRING oauth2session := CreateWebSession("system:oauth2", DEFAULT RECORD, 90, FALSE);
-  //  options := CELL [ ...options, state := oauth2session];
-
-  //  RETURN [ promise := defer.promise
-  //         , url := this->GetAuthorizationCodeURL(options)
-  //         ];
-  //}
-
   //trade in the authorization code for a request token
   PUBLIC RECORD FUNCTION RequestToken(STRING code, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -351,6 +342,10 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
                                , code_verifier := ""
                                ], options);
 
+    IF(this->oauthconfig.clientsecret = "" AND RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("HareScript cannot be used when clients are configured using clientSigning");
+    IF(this->oauthconfig.clientsecret = "" AND NOT RecordExists(this->oauthconfig.client_signing))
+      THROW NEW Exception("Neither clientsecret nor clientSigning are set up");
 
     STRING redirect_uri := options.redirect_uri ?? this->oauthconfig.redirecturl ?? GetDefaultOauth2RedirectURL();
 
@@ -528,22 +523,21 @@ PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
     @param options No options available yet
 */
 PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
+  STRING sessid := GetWebVariable("state");
+  IF(sessid NOT LIKE "ipc:*")
+    ExecuteWebResponse(CallJS("@webhare/auth/src/oauth2-client.ts#handleOAuth2LandingPage_HS", EncodeWebRequestForJS()));
+
   options := ValidateOptions(CELL[], options);
 
-  STRING sessid := GetWebVariable("state");
   IF(sessid = "")
     AbortWithHTTPError(400, "Missing state variable", [ htmlbody := `<html><head><title>OAuth endpoint</title><body>This page is the landing page for OAuth requests, and not intended to be accessed directly (missing 'state' variable)</body></html>` ]);
 
   RECORD sessdata;
   OBJECT connection;
-  IF(sessid LIKE "ipc:*") {
-    connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
-    IF(ObjectExists(connection)) {
-      RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
-      sessdata := msg.msg.__oauth2_authflow.state;
-    }
-  } ELSE {
-    sessdata := GetWebSessionData(sessid, "system:oauth2");
+  connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
+  IF(ObjectExists(connection)) {
+    RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
+    sessdata := msg.msg.__oauth2_authflow.state;
   }
 
   STRING error := GetWebVariable("error");
@@ -565,19 +559,6 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
 
   sessdata := CELL[...sessdata, tokeninfo := tokeninfo ];
 
-  IF(ObjectExists(connection))
-  {
-    connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
-    ExecuteSubmitInstruction([ type := "close" ]);
-  }
-  ELSE IF(CellExists(sessdata,"callback"))
-  {
-    RECORD finaltoken := oauthconnection->__CreateFinalToken(sessdata);
-    MakeFunctionPtr(sessdata.callback)(sessdata.callbackstate, finaltoken);
-  }
-  ELSE
-  {
-    StoreWebSessionData(sessid, "system:oauth2", sessdata);
-    Redirect(UpdateURLVariables(sessdata.finalreturnurl, [ oauth2session := sessid ]));
-  }
+  connection->SendMessage(oauthconnection->__CreateFinalToken(sessdata));
+  ExecuteSubmitInstruction([ type := "close" ]);
 }

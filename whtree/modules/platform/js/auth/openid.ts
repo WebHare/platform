@@ -13,6 +13,7 @@ import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import type { NavigateInstruction } from "@webhare/env";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
+import type { ResponseModesScopes } from "@webhare/auth/src/types";
 
 declare module "@webhare/services" {
   interface SessionScopes {
@@ -23,6 +24,7 @@ declare module "@webhare/services" {
       nonce: string | null;
       code_challenge: string | null;
       code_challenge_method: CodeChallengeMethod | null;
+      response_mode: ResponseModesScopes;
       cbUrl: string;
       /** User id to set */
       user?: number;
@@ -129,6 +131,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   const nonce = searchParams.get("nonce") || null;
   const code_challenge = searchParams.get("code_challenge") || null;
   const code_challenge_method = searchParams.get("code_challenge_method") || null;
+  const response_mode = (searchParams.get("response_mode") || "query") as ResponseModesScopes;
 
   //If a code challenge was supplied, check the challenge method
   if (code_challenge) {
@@ -138,6 +141,9 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
       return { error: `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256` };
   }
 
+  if (!["query", "fragment", "form_post"].includes(response_mode))
+    return { error: `Invalid response_mode '${response_mode}', allowed are 'query', 'fragment', or 'form_post'` };
+
   const client = await provider.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
   if (client.length !== 1)
     return { error: "No such client" };
@@ -146,7 +152,16 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
     return { error: "Unauthorized callback URL " + redirect_uri };
 
   const returnInfo = await runInWork(() => createServerSession("wrd:openid.idpstate",
-    { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, code_challenge, code_challenge_method: code_challenge_method as CodeChallengeMethod, cbUrl: redirect_uri }));
+    {
+      clientid: client[0].wrdId,
+      scopes: scopes || [],
+      state,
+      nonce,
+      code_challenge,
+      code_challenge_method: code_challenge_method as CodeChallengeMethod,
+      response_mode,
+      cbUrl: redirect_uri
+    }));
 
   const currentRedirectURI = `${getOpenIdBase(provider.wrdschema)}return?tok=${returnInfo}`;
 
@@ -192,10 +207,29 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
   await runInWork(() => updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
 
   const finalRedirectURI = new URL(returnInfo.cbUrl);
-  if (returnInfo.state !== null)
-    finalRedirectURI.searchParams.set("state", returnInfo.state);
-  finalRedirectURI.searchParams.set("code", sessionid);
+  if (returnInfo.response_mode === "form_post") {
+    return {
+      type: "form",
+      form: {
+        action: finalRedirectURI.toString(),
+        vars: [
+          { name: "code", value: sessionid },
+          ...returnInfo.state ? [{ name: "state", value: returnInfo.state }] : []
+        ]
+      },
+      error: null
+    };
+  }
 
+  if (returnInfo.response_mode === "fragment") {
+    finalRedirectURI.hash = `code=${encodeURIComponent(sessionid)}`;
+    if (returnInfo.state !== null)
+      finalRedirectURI.hash += `&state=${encodeURIComponent(returnInfo.state)}`;
+  } else {  // default to query
+    if (returnInfo.state !== null)
+      finalRedirectURI.searchParams.set("state", returnInfo.state);
+    finalRedirectURI.searchParams.set("code", sessionid);
+  }
   return { type: "redirect", url: finalRedirectURI.toString(), error: null };
 }
 
@@ -212,8 +246,10 @@ export async function retrieveTokens<T extends SchemaTypeDefinition>(provider: I
         Or aren't we allowed to validate  .. RFC6749 4.1.2 doesn't mention checking confidential clients, 4.1.4 does
         */
   }
+  const clientid = headerClientId || form.get("client_id");
+  if (!clientid)
+    return { error: "Missing parameter client_id" };
 
-  const clientid = headerClientId || form.get("client_id") || '';
   const client = await provider.wrdschema.
     query("wrdauthServiceProvider").
     where("wrdGuid", "=", decompressUUID(clientid)).

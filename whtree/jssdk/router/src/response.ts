@@ -3,7 +3,7 @@ import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
 import type { TransferListItem } from "worker_threads";
-import { encodeString, stringify } from "@webhare/std";
+import { encodeString, generateRandomId, stringify } from "@webhare/std";
 import type { RPCResponse } from "@webhare/rpc/src/rpc";
 
 export enum HTTPErrorCode {
@@ -198,28 +198,61 @@ export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, op
 
 /** Create a redirect response
  * @param location - Target URL/instruction
- * @param status - Status code to use (default is 303 See Other)
+ * @param status - Status code to use (default for redirects is 303 See Other)
  * @param options - Optionals for body and headers
  */
-export function createRedirectResponse(location: string | NavigateInstruction, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
-  if (typeof location === "string") {
-    const body = options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${encodeString(location, "attribute")}">Click here to continue</a></body></html>`;
+export function createRedirectResponse(location: string | NavigateInstruction, status?: HTTPRedirectCode, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
+  if (typeof location === "string")
+    location = { type: "redirect", url: location };
+
+  if (location.type === "redirect") {
+    const body = options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${encodeString(location.url, "attribute")}">Click here to continue</a></body></html>`;
     const resp = new WebResponse(body, {
       headers: options?.headers,
-      status: status
+      status: status || HTTPSuccessCode.SeeOther
     });
     if (!resp.headers.get("location"))
-      resp.headers.set("location", location);
+      resp.headers.set("location", location.url);
     if (!resp.headers.get("content-type"))
       resp.headers.set("content-type", "text/html");
     return resp;
-  } else {
-    //TODO implement and test the rest of HareScript ExecuteSubmitInstruction and properly allow some createRedirectResponse options to override where it makes sense?
-    if (location.type === "redirect")
-      return createRedirectResponse(location.url, status, options);
-    else
-      throw new Error("Unsupported NavigateInstruction type");
   }
+
+  if (options?.body)
+    throw new Error("Cannot set body when using NavigateInstruction other than redirect");
+
+  const nonce = generateRandomId("hex");
+  let body;
+  if (location.type === "form") {
+    body = `<html><body><form id="repostform" action="${encodeString(location.form.action, "attribute")}" method="${encodeString(location.form.method || "POST", "attribute")}">
+        ${location.form.vars.map(v => `<input name="${encodeString(v.name, "attribute")}" type="hidden" value="${encodeString(v.value, "attribute")}"></input>`).join('')}
+        <input id="submitbutton" type="submit" value="Submit"></input></form>
+        <script nonce="${nonce}">document.getElementById("submitbutton").style.display="none";document.getElementById("repostform").submit()</script>
+        </body></html>`;
+  } else if (location.type === "postmessage") {
+    const target = location.target || 'parent';
+    if (target !== 'opener' && target !== 'parent')
+      throw new Error("Only allowed postmessage targets are 'parent' and 'opener'");
+    body = `<html><body><script nonce="${nonce}">${target}.postMessage(${JSON.stringify(location.message)},'*');`;
+    if (target === 'opener')
+      body += 'window.close();';
+    body += `</script><p>You can safely close this window</p></body></html>`;
+  } else if (location.type === "close") {
+    body = `<html><body><script nonce="${nonce}">window.close();</script><p>You can safely close this window</p></body></html>`;
+  } else {
+    throw new Error(`Unsupported NavigateInstruction type '${location.type}'`);
+  }
+
+  const resp = new WebResponse(body, {
+    headers: options?.headers,
+    status: status || HTTPSuccessCode.Ok
+  });
+
+  resp.headers.set("content-type", "text/html");
+  if (!resp.headers.get("content-security-policy"))
+    resp.headers.set("content-security-policy", `default-src 'unsafe-inline' 'nonce-${nonce}'`); //nonce- causes modern browsers to ignore unsafe-inline
+
+  return resp;
 }
 
 export type { WebResponse };
