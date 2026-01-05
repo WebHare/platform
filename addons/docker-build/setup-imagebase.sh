@@ -84,6 +84,7 @@ PACKAGES+=(
  libicu
  libjpeg-turbo
  libpng
+ libtiff
  openssl
  pixman
  procps-ng
@@ -96,6 +97,22 @@ PACKAGES+=(
  valgrind
  vim
  zip
+)
+
+# Chrome deps
+PACKAGES+=(
+  atk
+  at-spi2-atk
+  libxcb
+  libxkbcommon
+  libX11
+  libXcomposite
+  libXdamage
+  libXext
+  libXfixes
+  libXrandr
+  libgbm
+  pango
 )
 
 dnf install -y "${PACKAGES[@]}"
