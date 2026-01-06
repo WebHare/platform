@@ -80,7 +80,7 @@ testmodules: # tests both platform modules and the JS SDK (@webhare/..)
 testpublisher:
   stage: test
   script:
-    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,-forms publisher
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,-forms publisher,socialite
 
 testpublisher-forms:
   stage: test
@@ -126,11 +126,6 @@ testwebserver:
   stage: test
   script:
     - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.webserver
-
-testsocialite:
-  stage: test
-  script:
-    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external socialite
 
 testwrd:
   stage: test
