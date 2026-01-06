@@ -30,18 +30,11 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   MACRO DoRecompile()
   {
     RECORD result := RecompileSiteProfiles();
-    IF (Length(result.errors) > 0 OR Length(result.warnings) > 0)
-    {
-      // Group errors by file, show fatal errors first, order by line number
-      RECORD ARRAY messages := (SELECT *, iserror := TRUE FROM result.errors)
-                               CONCAT
-                               (SELECT *, iserror := FALSE FROM result.warnings);
-
+    // Group errors by file, show fatal errors first, order by line number
+    RECORD ARRAY messages := SELECT *, iserror := type = "error" FROM result.messages WHERE type IN ["error","warning"] ORDER BY type="error" DESC;
+    IF (Length(messages) > 0) {
       this->RunScreen("#ctypeerrors", CELL[messages]);
-      RETURN;
-    }
-    ELSE
-    {
+    } ELSE {
       this->RunSimpleScreen("info", this->GetTid(".siteprofilesrecompiled"));
     }
     this->RefreshDashboardPanel();
