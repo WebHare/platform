@@ -125,7 +125,7 @@ MACRO TestCompiler()
 
   RECORD pdffile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/pdffile";
   //dumpvalue(pdffile);
-  TestEq(TRUE, RecordExists(pdffile), "MSWord should be there");
+  TestEq(TRUE, RecordExists(pdffile), "PDF should be there");
   TestEq(whconstant_whfstype_pdffile, pdffile.id, "And picked up as type #11");
   TestEq(TRUE, RecordExists(pdffile.filetype), "Parsed as a filetype");
   TestEq(TRUE, pdffile.filetype.blobiscontent, "blob is content");
