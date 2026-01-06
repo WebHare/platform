@@ -227,7 +227,6 @@ const mimeToExt: Record<string, string> = {
   "application/msword": ".doc",
   "application/vnd.ms-excel": ".xls",
   "application/vnd.ms-powerpoint": ".ppt",
-  "application/x-webhare-conversionprofile": ".prl",
 
   "application/x-webhare-template": ".tpl",
   "application/x-webhare-library": ".whlib",

@@ -65,19 +65,6 @@
 
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
-    <mswordconversion webharecss="false">
-      <deletetextstyles>
-        <deletetextstyle mask="font-size:*" />
-      </deletetextstyles>
-      <profile emptydocobjects="false">
-        <style tag="h2" bold="false" fgcolor="#333333" fontfamily='"LinotypeUniversW02-Cn",Arial' fontsize="27px" italic="false" mswordstyleid="1" smallcaps="allcaps" underline="false" />
-        <style tag="h3" bold="false" fgcolor="#333333" fontfamily='"LinotypeUniversW02-Cn",Arial' fontsize="19px" italic="false" mswordstyleid="2" smallcaps="allcaps" underline="false" />
-        <style tag="h4" bold="false" fgcolor="#333333" fontfamily='"LinotypeUniversW02-Cn",Arial' fontsize="15px" italic="false" mswordstyleid="3" smallcaps="allcaps" underline="false" />
-        <style tag="h5" bold="false" fgcolor="#333333" fontfamily="univers_lt_std_57_cnregular, Arial" fontsize="12px" italic="false" mswordstyleid="4" underline="false" />
-        <style fgcolor="#333333" fontfamily='"LinotypeUniversW02-Cn",Arial' fontsize="12px" />
-        <style mswordcustomstyle="HTML Sourcecode" embedtype="rawhtml" toclevel="99" />
-      </profile>
-    </mswordconversion>
     <customplugin objectname="lib/basetest.whlib#customplugin" />
     <webhare_testsuite:test />
 

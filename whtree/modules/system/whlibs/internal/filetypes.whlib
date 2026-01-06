@@ -309,8 +309,6 @@ RECORD FUNCTION GuessXMLFile(STRING fileheader, STRING filename, STRINg ext)
     RETURN MakeFile("application/octet-stream");
 
   //ADDME: Do an initial abortable SAX parse and actually read the root element
-  IF(SearchSubstring(fileheader, 'xmlns="http://www.webhare.net/xmlns/publisher/conversionprofile"') != -1)
-    RETURN MakeFile("application/x-webhare-conversionprofile");
   IF(SearchSubstring(fileheader, 'xmlns="http://www.w3.org/2000/svg"') != -1)
     RETURN MakeFile("image/svg+xml");
 

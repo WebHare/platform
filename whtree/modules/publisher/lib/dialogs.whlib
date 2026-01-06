@@ -522,13 +522,6 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
     }
   }
 
-  IF(fileobj->type=29)
-  {
-    OBJECT editprofilescreen := parentscreen->LoadScreen("publisher:conversionprofile.editor", [fileid:=objectid]);
-    editprofilescreen->RunModal();
-    RETURN;
-  }
-
   IF(fileobj->type=32)
   {
     //Ook hier. Integreren met algemene property editor (forum voegt dan tabbladden toe) of aparte dialogs of... ?

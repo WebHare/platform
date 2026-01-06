@@ -803,7 +803,6 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
     CASE "application/msword"                                                         { RETURN ".doc"; }
     CASE "application/vnd.ms-excel"                                                   { RETURN ".xls"; }
     CASE "application/vnd.ms-powerpoint"                                              { RETURN ".ppt"; }
-    CASE "application/x-webhare-conversionprofile"                                    { RETURN ".prl"; }
 
     CASE "application/x-webhare-template" { RETURN ".tpl"; }
     CASE "application/x-webhare-library" { RETURN ".whlib"; }
