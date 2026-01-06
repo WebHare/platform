@@ -60,8 +60,8 @@ else
 	BUILDSYSTEM ?= gcc
 	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/:/usr/pgsql-17/lib/pkgconfig/
 	# Set LD_LIBRARY_PATH for tests
-	LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/lib64:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
-	GLOBALLDFLAGS += -L/usr/local/lib64
+	#LD_LIBRARY_PATH := $(WHBUILD_BUILDDIR)/lib:/usr/local/lib:/usr/local/lib64:/usr/local/ssl/lib/:$(LD_LIBRARY_PATH)
+	#GLOBALLDFLAGS += -L/usr/local/lib64
 endif
 
 PKGCONFIG = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(PKGCONFIGPATHS) pkg-config
@@ -83,7 +83,7 @@ vpath %.pc $(PKGCONFIGPATHS)
 export WEBHARE_PLATFORM
 export PREFIX
 export DLL_SUFFIX
-export LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH
 
 ################################################
 #
