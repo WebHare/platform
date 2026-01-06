@@ -980,11 +980,12 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
 
 PUBLIC RECORD FUNCTION BuildFormConfig(OBJECT form)
 {
-  RETURN [ formid := form->formid
-         , backlink := form->formbacklink
-         , handler := form->formjshandler
-         , target := form->GetFormTarget()
-         ];
+  RETURN CELL[ formid := form->formid
+             , backlink := form->formbacklink
+             , handler := form->formjshandler
+             , target := form->GetFormTarget()
+             , captcha := ObjectExists(form->__captchaquestion)
+             ];
 }
 PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)
 {
@@ -995,7 +996,10 @@ PUBLIC RECORD FUNCTION GetFormConfigAsDataset(RECORD rendertree)
     INSERT CELL "wh-form-backlink" := rendertree.backlink INTO dataset;
   IF(rendertree.handler != "")
     INSERT CELL "wh-form-handler" := rendertree.handler INTO dataset;
+  IF(rendertree.captcha)
+    INSERT CELL "wh-form-captcha" := "" INTO dataset;
   INSERT CELL "wh-form-target" := rendertree.target INTO dataset;
+
   RETURN dataset;
 }
 

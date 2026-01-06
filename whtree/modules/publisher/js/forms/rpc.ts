@@ -306,7 +306,7 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     //Checks whether to show captcha based on configuration. Note that even if *we* think it's not needed, form submission may still require a captcha
     const config = getFormConfiguration();
     const shouldShow = config?.captcha === "onLoad" || (config?.captcha === "onActivate" && this.#hadFocus);
-    if (shouldShow && !this.#settingUpCaptcha && !this.getElementByName("__form_captcha")) {
+    if (shouldShow && this.node.dataset.whFormCaptcha !== undefined && !this.#settingUpCaptcha && !this.getElementByName("__form_captcha")) {
       this.#settingUpCaptcha = true;
       void getFormService().getCaptchaConfiguration(this.getRPCFormIdentifier()).then(captchaConfig => {
         if (captchaConfig) {
