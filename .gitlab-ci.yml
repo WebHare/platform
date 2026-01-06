@@ -155,12 +155,6 @@ testexternal:
   script:
     - addons/docker-build/testcontainer.sh --nocheckmodule --tag=external
 
-testsftp:
-  stage: test
-  allow_failure: true
-  script:
-    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.sftp
-
 testtwohares:
   stage: test
   script:

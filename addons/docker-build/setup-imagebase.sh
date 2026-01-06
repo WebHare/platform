@@ -64,7 +64,6 @@ sed -e 's/:\/root:/:\/opt\/whdata\/root:/' /etc/passwd > /etc/passwd.new && mv /
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for finalize-webhare (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version. But keep it for analyzing logs!
-# 2023-08-23: Restore openssh-server, our test_sftp needs it (and sftp needs a ssh client)
 
 PACKAGES+=(
  busybox # Needed for runsvdir
