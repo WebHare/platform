@@ -279,12 +279,12 @@ finalize_tests()
 
   if [ -n "$COVERAGE" ]; then
     RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/analyze_coverage.whscr
-    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > "$ARTIFACTS/coverage.tar.gz"
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/caches/platform/hs-profiles/ default > "$ARTIFACTS/coverage.tar.gz"
     echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
   fi
 
   if [ -n "$WEBHARE_PROFILE" ]; then
-    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > "$ARTIFACTS/functionprofile.tar.gz"
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/caches/platform/hs-profiles/ default > "$ARTIFACTS/functionprofile.tar.gz"
     echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
   fi
 
