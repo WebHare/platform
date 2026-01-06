@@ -32,22 +32,22 @@ MACRO TestWHFSType()
   OBJECT dynfoldertype := OpenWHFStype("http://www.webhare.net/xmlns/beta/dynfolder");
   TestEQ([[name:="test",type:=2]], SELECT name,type FROM dynfoldertype->members ORDER BY name);
 
-  RECORD wordtype := DescribeContentTypeById(4);
-  TestEq(TRUE, wordtype.needstemplate);
-  TestEq(TRUE, wordtype.ispublishable);
-  TestEq("platform:siteprofiles.types.filetypes.msword.msword", wordtype.title);
-  TestEQ(TRUE, wordtype.isacceptableindex);
-  TestEq(4,wordtype.id);
-  TestEq("http://www.webhare.net/xmlns/publisher/mswordfile", wordtype.namespace);
-  Testeq([".doc"], wordtype.extensions);
-  TestEq(wordtype, DescribeContentTypeById(4, [isfolder := FALSE]));
-  TestEQ(TRUE, wordtype.blobiscontent);
-  TestEq("tollium:files/application_msword", wordtype.tolliumicon);
-  TestEq(DEFAULT RECORD, wordtype.dynamicexecution);
-  TestEq(DEFAULT RECORD, DescribeContentTypeById(4, [isfolder := TRUE]));
+  RECORD htmltype := DescribeContentTypeById(whconstant_whfstype_htmlfile);
+  TestEq(TRUE, htmltype.needstemplate);
+  TestEq(TRUE, htmltype.ispublishable);
+  TestEq("platform:siteprofiles.types.filetypes.html.html", htmltype.title);
+  TestEQ(TRUE, htmltype.isacceptableindex);
+  TestEq(whconstant_whfstype_htmlfile,htmltype.id);
+  TestEq("http://www.webhare.net/xmlns/publisher/htmlfile", htmltype.namespace);
+  Testeq([".html"], htmltype.extensions);
+  TestEq(htmltype, DescribeContentTypeById(whconstant_whfstype_htmlfile, [isfolder := FALSE]));
+  TestEQ(TRUE, htmltype.blobiscontent);
+  TestEq("tollium:files/text_html", htmltype.tolliumicon);
+  TestEq(DEFAULT RECORD, htmltype.dynamicexecution);
+  TestEq(DEFAULT RECORD, DescribeContentTypeById(whconstant_whfstype_htmlfile, [isfolder := TRUE]));
 
-  TestEq("mod::platform/data/siteprofiles/types.siteprl.yml", wordtype.siteprofile);
-  TestEq(TRUE, wordtype.line > 20);
+  TestEq("mod::platform/data/siteprofiles/types.siteprl.yml", htmltype.siteprofile);
+  TestEq(TRUE, htmltype.line > 20);
 
   TestEq(DEFAULT RECORD, DescribeContentTypeById(0));
 

@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -116,23 +117,23 @@ MACRO TestCompiler()
                                       FROM system.fs_types
                                      WHERE id < 20;
 
-  UPDATE faked_db_contents SET orphan := TRUE WHERE id = 5;
-  UPDATE faked_db_contents SET isfiletype := FALSE, ispublishable := FALSE WHERE id = 4;
+  UPDATE faked_db_contents SET orphan := TRUE WHERE id = whconstant_whfstype_htmlfile;
+  UPDATE faked_db_contents SET isfiletype := FALSE, ispublishable := FALSE WHERE id = whconstant_whfstype_pdffile;
 
   RECORD ARRAY against_empty_db := compiler->PreprocessContentTypes(res.allcontenttypes, faked_db_contents);
   TestEq(TRUE, Length(against_empty_db)>30, 'there should be over 30 contenttypes if basesiteprofile was parsed, we have ' || Length(against_empty_db));
 
-  RECORD mswordfile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/mswordfile";
-  //dumpvalue(mswordfile);
-  TestEq(TRUE, RecordExists(mswordfile), "MSWord should be there");
-  TestEq(4, mswordfile.id, "And picked up as type #4");
-  TestEq(TRUE, RecordExists(mswordfile.filetype), "Parsed as a filetype");
-  TestEq(TRUE, mswordfile.filetype.blobiscontent, "blob is content");
-  TestEq([isfiletype := TRUE, ispublishable := TRUE ], mswordfile.toupdate, "Upgrade back to publishable filetype!");
+  RECORD pdffile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/pdffile";
+  //dumpvalue(pdffile);
+  TestEq(TRUE, RecordExists(pdffile), "MSWord should be there");
+  TestEq(whconstant_whfstype_pdffile, pdffile.id, "And picked up as type #11");
+  TestEq(TRUE, RecordExists(pdffile.filetype), "Parsed as a filetype");
+  TestEq(TRUE, pdffile.filetype.blobiscontent, "blob is content");
+  TestEq([isfiletype := TRUE, ispublishable := TRUE ], pdffile.toupdate, "Upgrade back to publishable filetype!");
 
   RECORD htmlfile := SELECT * FROM against_empty_db WHERE namespace="http://www.webhare.net/xmlns/publisher/htmlfile";
   TestEq(TRUE, RecordExists(htmlfile), "HTMLFILE should be there");
-  TestEq(5, htmlfile.id, "And picked up as type #5");
+  TestEq(whconstant_whfstype_htmlfile, htmlfile.id, "And picked up as type #5");
   TestEq([orphan := FALSE ], htmlfile.toupdate, "Upgrade back to non-orphan type!");
 
   compiler := NEW RecompileContext();
@@ -148,7 +149,7 @@ MACRO TestCompiler()
 
   TestEq(TRUE, Length(res.allcontenttypes)>30, 'there should be over 30 contenttypes if basesiteprofiel was parsed, we have ' || Length(res.result.contenttypes));
   TestEq([id:=0], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/normalfolder"));
-  TestEq([id:=4], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/mswordfile"));
+  TestEq([id:=whconstant_whfstype_pdffile], RECORD(SELECT id FROM res.allcontenttypes WHERE namespace="http://www.webhare.net/xmlns/publisher/pdffile"));
 }
 
 MACRO TestUnreferencedSiteprofiles()

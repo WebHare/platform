@@ -324,16 +324,17 @@ MACRO StripExtensionsTest()
 {
   testfw->BeginWork();
 
+  OBJECT rtdtype := OpenWHFSType("platform:filetypes.richdocument");
   OBJECT firstfolder := testfw->GetWHFSTestRoot();
-  OBJECT testfile := firstfolder->CreateFile( [ name := "extensiontest-0.doc", type := 4]);
+  OBJECT testfile := firstfolder->CreateFile( [ name := "extensiontes t-0.rtd", type := rtdtype->id]);
   TestEq(TRUE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
-  testfile := firstfolder->CreateFile( [ name := "extensiontest-1.doc", type := 0]);
+  testfile := firstfolder->CreateFile( [ name := "extensiontest-1.rtd", type := 0]);
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
-  testfile := firstfolder->CreateFile( [ name := "extensiontest-2.schaap", type := 4]);
+  testfile := firstfolder->CreateFile( [ name := "extensiontest-2.schaap", type := rtdtype->id]);
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
-  TestEq(4, testfile->type);
-  testfile->UpdateMetadata([name := "extensiontest-2.doc"]);
-  TestEq(4, testfile->type);
+  TestEq(rtdtype->id, testfile->type);
+  testfile->UpdateMetadata([name := "extensiontest-2.rtd"]);
+  TestEq(rtdtype->id, testfile->type);
   TestEq(TRUE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
   testfile->UpdateMetadata([type := 0]);
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_StripExtension));
@@ -560,6 +561,7 @@ MACRO LinkTest()
 MACRO IndexDocTest()
 {
   testfw->BeginWork();
+  OBJECT rtdtype := OpenWHFSType("platform:filetypes.richdocument");
   OBJECT testfolderobj := testfw->GetWHFSTestRoot();
 
   OBJECT idtest := testfolderobj->CreateFolder([ name := "idtest" ]);
@@ -567,7 +569,7 @@ MACRO IndexDocTest()
   OBJECT idfolder1 := testfolderobj->CreateFolder([ name := "idfolder1" ]);
   TestEq(0, idfolder1->indexdoc);
 
-  OBJECT testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4 ]);
+  OBJECT testdoc1 := idfolder1->CreateFile([name := "fake.rtd", type := rtdtype->id ]);
   idfolder1->UpdateMetadata([indexdoc := testdoc1->id]);
   TestEq(testdoc1->id, idfolder1->indexdoc);
   idfolder1->UpdateMetadata([indexdoc := 0]);
@@ -580,11 +582,11 @@ MACRO IndexDocTest()
   idfolder1->UpdateMetadata(DEFAULT RECORD);
   TestEq(0, idfolder1->indexdoc);
 
-  OBJECT testhtml := idfolder1->CreateFile([name := "fake.js", type := 6 ]);
+  OBJECT testhtml := idfolder1->CreateFile([name := "fake.js", type := whconstant_whfstype_javascriptfile ]);
   TestEq(0, idfolder1->indexdoc);
   Testeq("http://www.webhare.net/xmlns/publisher/javascriptfile", testhtml->typens);
 
-  OBJECT testdoc2 := idfolder1->CreateFile([name := "fake.doc", type := 4 ]);
+  OBJECT testdoc2 := idfolder1->CreateFile([name := "fake.rtd", type := rtdtype->id ]);
   TestEq(0, idfolder1->indexdoc);
 
   OBJECT idfolder2 := testfolderobj->CreateFolder([ name := "idfolder2" ]);
@@ -593,7 +595,7 @@ MACRO IndexDocTest()
   testhtml->RecycleSelf();
   testdoc2->RecycleSelf();
 
-  testdoc1 := idfolder1->CreateFile([name := "fake.doc", type := 4 ], [setindex := TRUE]);
+  testdoc1 := idfolder1->CreateFile([name := "fake.rtd", type := rtdtype->id ], [setindex := TRUE]);
   TestEq(testdoc1->id, idfolder1->indexdoc);
 
   testdoc1->MoveTo(idfolder2, "");
@@ -603,7 +605,7 @@ MACRO IndexDocTest()
   TestEq(0, idfolder1->indexdoc);
   TestEq(testdoc1->id, idfolder2->indexdoc);
 
-  testhtml := idfolder1->CreateFile([name := "fake.js", type := 6 ]);
+  testhtml := idfolder1->CreateFile([name := "fake.js", type := whconstant_whfstype_javascriptfile ]);
 
   // testdoc1 was index, when moved will still be index
   testdoc1->MoveTo(idfolder1, "");
@@ -615,7 +617,7 @@ MACRO IndexDocTest()
   TestEq(0, idfolder2->indexdoc);
 
   idfolder1->UpdateMetadata([indexdoc := 0]);
-  OBJECT testhtml2 := idfolder2->CreateFile([name := "fake.js", type := 6 ]);
+  OBJECT testhtml2 := idfolder2->CreateFile([name := "fake.js", type := whconstant_whfstype_javascriptfile ]);
 
   // testdoc1 was no index, when moved to non-empty folder still won't be index
   testdoc1->MoveTo(idfolder2, "");

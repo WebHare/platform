@@ -170,53 +170,6 @@ MACRO TestErrorPages()
 
 }
 
-MACRO TestWordDoc()
-{
-  OBJECT doc;
-
-
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  OBJECT headingsdoc := siteroot->OpenByPath("headings.doc");
-
-  RECORD publishres := RunFilePublish(headingsdoc->id, FALSE);
-  IF(NOT publishres.success)
-    dumpvalue(publishres,'tree');
-
-  TestEq(TRUE, publishres.success);
-  TestEq(2,Length(publishres.files));
-
-  BLOB htmldoc := SELECT AS BLOB data FROM publishres.files WHERE name="index.html";
-  doc := MakeXMLDocumentFromHTML(htmldoc);
-
-  OBJECT contentdiv := doc->GetElementById("content");
-  TestEq(TRUE, ObjectExists(contentdiv));
-  TestEq("//" || Tokenize(siteroot->url,"//")[1] || "dynamic.shtml", contentdiv->GetAttribute("data-dynamiclink"));
-  TestWordDocContents(siteroot, contentdiv, "publishres.files: index.html");
-
-  BLOB textdoc := SELECT AS BLOB data FROM publishres.files WHERE name="test.txt";
-  TestEq(RepeatText("dit was een test\n", 10), BlobToString(textdoc,-1));
-
-  testfw->browser->GotoWebPage(GetFileSubpageURL(headingsdoc->id, "test.txt"));
-  TestEq(200, testfw->browser->GetHTTPStatusCode());
-  TestEq(RepeatText("dit was een test\n", 10), BlobToString(testfw->browser->content,-1));
-
-  TestEq(TRUE, GetFileSubpageURL(headingsdoc->id, "test.txt") LIKE GetFileSubpageURL(headingsdoc->id, "") || "*"); //consilio's filter relies on this too
-}
-
-MACRO TestWordDocContents(OBJECT siteroot, OBJECT contentdiv, STRING annotation)
-{
-  TestEq(TRUE, OBjectExists(contentdiv), "No contentdiv - " || annotation);
-  OBJECT ARRAY paras := contentdiv->GetChildElementsByTagName("*")->GetCurrentElements();
-  TestEq(7,Length(paras)); //7 elements, as one got aborsed
-  TestEq("h2",paras[0]->tagname); //mapped to H2 in this site profile
-  TestEq("script", paras[6]->tagname); //raw html
-
-  OBJECT firstspan := paras[0]->firstchild;
-
-  TestEq("span", firstspan->tagname);
-  TestEq(TRUE, firstspan->GetAttribute("style") LIKE "*font-family*");
-  TestEq(FALSE, firstspan->GetAttribute("style") LIKE "*font-size*");
-}
 MACRO TestDeletedLinkDest()
 {
   testfw->BeginWork();
@@ -306,7 +259,6 @@ RunTestframework([ PTR TestTestSite
                  , PTR Prepare
                  , PTR TestSimplePages
                  , PTR TestDynPage
-                 , PTR TestWordDoc
                  , PTR TestErrorPages
                  , PTR TestDeletedLinkDest
                  , PTR TestCaptureSubPaths

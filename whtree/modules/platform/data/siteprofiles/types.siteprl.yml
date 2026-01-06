@@ -107,18 +107,6 @@ types:
     requiresContent: true
     extension: .doc
     searchContentProvider: publisher:contentblob
-  filetypes.msword:
-    namespace: http://www.webhare.net/xmlns/publisher/mswordfile
-    icon: tollium:files/application_msword
-    metaType: upload
-    requiresContent: true
-    extension: .doc
-    isAcceptableIndex: true
-    useWebDesign: true
-    searchContentProvider: publisher:contentblob
-    apply:
-      bodyRenderer:
-        objectName: mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile
   filetypes.multimedia:
     namespace: http://www.webhare.net/xmlns/publisher/multimediafile
     comment: The multimedia file type uses the 'video' icon as we don't have a

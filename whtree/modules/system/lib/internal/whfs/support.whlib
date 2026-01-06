@@ -179,7 +179,8 @@ PUBLIC INTEGER FUNCTION MimetypeToFiletype(STRING mimetype)
     CASE "application/x-webhare-archive"        { RETURN TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/webharearchivefile"); }
     CASE "application/x-webhare-template"       { RETURN 28; }
     CASE "application/msword"
-       , "application/vnd.openxmlformats-officedocument.wordprocessingml.document" { RETURN  4; }
+       , "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                                { RETURN  TypeNamespaceToFiletype("http://www.webhare.net/xmlns/publisher/msworddownload"); }
     CASE "text/html"                            { RETURN  5; }
     CASE "application/javascript"
        , "application/x-javascript"             { RETURN  6; }
