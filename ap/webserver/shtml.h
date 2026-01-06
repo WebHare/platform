@@ -266,7 +266,7 @@ class Shtml
         /** Starts the SHTML content handler
             @return Whether an asynchronous script has been started
         */
-        bool ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket);
+        bool ContentHandler(WebServer::Connection *webcon, std::string const &path, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket);
 
         /// Logs all errors to the error log
         void LogErrors(std::string const &groupid, std::string const &externalsessiondata, std::string const &contextinfo, const HareScript::ErrorHandler &errors, WebServer::Request const &request);

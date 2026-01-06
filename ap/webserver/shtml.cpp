@@ -131,7 +131,7 @@ void Shtml::ExternalContentHandler(WebServer::Connection *webcon, std::string co
             return;
 
         ShtmlWebContext webcontext(webcon->GetRequestKeeper());
-        webcontext->shtml->ContentHandler(webcon, path, true, NULL, "", websocket);
+        webcontext->shtml->ContentHandler(webcon, path, NULL, "", websocket);
 }
 
 bool HandleRedirectSendfile(WebServer::Connection *webcon, HSVM *vm)
@@ -233,7 +233,7 @@ MagicHeader ReadMagicHeader(std::string const &path)
         return retval;
 }
 
-bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &path, bool path_is_direct, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket)
+bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &path, HareScript::ErrorHandler const *errors_for_errorpage, std::string const &errors_groupid, bool websocket)
 {
         (void)websocket;
 
@@ -244,9 +244,7 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         */
         SHTML_PRINT("Webcon " << webcon << " starting new script for path " << path);
 
-        MagicHeader magicinfo;
-        if(path_is_direct) //it's actually something on disk (apparently we can also run for other things?)
-            magicinfo = ReadMagicHeader(path);
+        MagicHeader magicinfo = ReadMagicHeader(path);
 
         // Print incoming request in debugmode
         if (debugmode)
@@ -309,9 +307,7 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         }
         else
         {
-                runpath = path;
-                if (path_is_direct)
-                    runpath = "direct::" + runpath;
+                runpath = "direct::" + runpath;
         }
 
         SHTML_PRINT("Loading script " << runpath);
@@ -554,7 +550,7 @@ bool Shtml::SendErrors(WebServer::Connection *webcon, std::string const &groupid
                 //Adopt failed HSVM (so we can keep it alive for the &errors reference)
                 SRHRunningAppPtr saveapp = webcontext->runningapp;
                 webcontext->runningapp.reset();
-                return ContentHandler(webcon, errorpage, true, &errors, groupid, false);
+                return ContentHandler(webcon, errorpage, &errors, groupid, false);
         }
         return false;
 }
