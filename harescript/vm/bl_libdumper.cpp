@@ -1,7 +1,6 @@
 #include <harescript/vm/allincludes.h>
 
 #include <blex/path.h>
-#include <blex/docfile.h>
 #include "hsvm_dllinterface_blex.h"
 #include "baselibs.h"
 

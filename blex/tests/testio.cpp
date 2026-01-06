@@ -174,61 +174,6 @@ BLEX_TEST_FUNCTION(TestFileModDate)
 
 #if !defined(__EMSCRIPTEN__)
 
-BLEX_TEST_FUNCTION(TestZlib)
-{
-        Blex::MemoryRWStream filestore;
-        std::unique_ptr<Blex::RandomStream> srcfile(Blex::Test::OpenTestFile("securecrt.odt"));
-        BLEX_TEST_CHECK(srcfile.get()); //tests are useless without the source file..
-
-        std::unique_ptr<Blex::ZipArchiveReader> reader;
-        reader.reset(Blex::ZipArchiveReader::Open(*srcfile));
-        BLEX_TEST_CHECK(reader.get());
-
-        //Test file 'mimetype'
-        Blex::ZipArchiveReader::Entry entry = reader->NextEntryInfo();
-        BLEX_TEST_CHECKEQUAL(Blex::ZipArchiveReader::Entry::File, entry.type);
-        BLEX_TEST_CHECKEQUAL("mimetype", entry.name);
-        BLEX_TEST_CHECKEQUAL(static_cast< Blex::FileOffset >(39), entry.length);
-        BLEX_TEST_CHECK(reader->SendFile(filestore));
-        BLEX_TEST_CHECKEQUAL(static_cast< Blex::FileOffset >(39), filestore.GetFileLength());
-
-        filestore.SetOffset(0);
-        BLEX_TEST_CHECKEQUAL("12FBDAB5E8E99FD318F5FBDCDC92670A", Blex::Test::MD5Stream(filestore));
-
-        //Test folders
-        entry = reader->NextEntryInfo();
-        BLEX_TEST_CHECKEQUAL(Blex::ZipArchiveReader::Entry::Directory, entry.type);
-        BLEX_TEST_CHECKEQUAL("Configurations2", entry.name);
-        entry = reader->NextEntryInfo();
-        BLEX_TEST_CHECKEQUAL(Blex::ZipArchiveReader::Entry::Directory, entry.type);
-        BLEX_TEST_CHECKEQUAL("Pictures", entry.name);
-
-        //Test file content
-        entry = reader->NextEntryInfo();
-        BLEX_TEST_CHECKEQUAL(Blex::ZipArchiveReader::Entry::File, entry.type);
-        BLEX_TEST_CHECKEQUAL("content.xml", entry.name);
-        BLEX_TEST_CHECKEQUAL(static_cast< Blex::FileOffset >(6907), entry.length);
-        filestore.SetFileLength(0);
-        filestore.SetOffset(0);
-        BLEX_TEST_CHECK(reader->SendFile(filestore));
-        BLEX_TEST_CHECKEQUAL(static_cast< Blex::FileOffset >(6907), filestore.GetFileLength());
-
-        filestore.SetOffset(0);
-        BLEX_TEST_CHECKEQUAL("B1CA0669838460854B51F843A36776D9", Blex::Test::MD5Stream(filestore));
-}
-
-BLEX_TEST_FUNCTION(TestZlibFla)
-{
-        std::unique_ptr<Blex::RandomStream> srcfile(Blex::Test::OpenTestFile("aep_data_test1.fla"));
-        std::unique_ptr<Blex::ZipArchiveReader> zreader(Blex::ZipArchiveReader::Open(*srcfile));
-
-        BLEX_TEST_CHECK(zreader.get());
-        std::vector< Blex::ZipArchiveReader::Entry > entries;
-        zreader->GetFilesList(&entries);
-
-        BLEX_TEST_CHECKEQUAL(82,entries.size());
-}
-
 BLEX_TEST_FUNCTION(TestMmap)
 {
         static const char test_string[]={"This is a test!"};

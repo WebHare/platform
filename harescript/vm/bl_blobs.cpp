@@ -3,7 +3,6 @@
 
 
 #include <blex/path.h>
-#include <blex/docfile.h>
 #include "hsvm_dllinterface_blex.h"
 #include "baselibs.h"
 
@@ -101,126 +100,6 @@ void SendBlobTo(VarId id_set, VirtualMachine *vm)
         HSVM_BooleanSet(*vm, id_set, success);
 }
 
-void DumpProp(VarId id_set, HSVM *vm, Blex::OlePropertySet const &ops, unsigned storeid)
-{
-        switch(ops.GetType(storeid))
-        {
-        case Blex::OlePropertySet::V_SignedInteger:
-                HSVM_IntegerSet(vm, id_set, (int32_t)ops.GetSigInteger(storeid));
-                break;
-        case Blex::OlePropertySet::V_UnsignedInteger:
-                HSVM_IntegerSet(vm, id_set, (int32_t)ops.GetUnsInteger(storeid));
-                break;
-        case Blex::OlePropertySet::V_Float:
-                HSVM_FloatSet(vm, id_set, ops.GetFloat(storeid));
-                break;
-        case Blex::OlePropertySet::V_DateTime:
-                GetVirtualMachine(vm)->GetStackMachine().SetDateTime(id_set, ops.GetDateTime(storeid));
-                break;
-        case Blex::OlePropertySet::V_String:
-                HSVM_StringSetSTD(vm, id_set, ops.GetString(storeid));
-                break;
-        case Blex::OlePropertySet::V_Array:
-                {
-                        HSVM_ColumnId coldata = HSVM_GetColumnId(vm, "DATA");
-                        HSVM_SetDefault(vm, id_set, HSVM_VAR_RecordArray);
-                        for (unsigned i=0;i<ops.GetArrayLength(storeid);++i)
-                        {
-                                HSVM_VariableId elementid = HSVM_ArrayAppend(vm, id_set);
-                                HSVM_VariableId cellid = HSVM_RecordCreate(vm, elementid, coldata);
-                                DumpProp(cellid, vm, ops, ops.GetArrayElement(storeid, i));
-                        }
-                        break;
-                }
-        default:
-                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-                break;
-        }
-}
-
-void DumpPropSet(VarId id_set, HSVM *vm, Blex::OlePropertySet const &ops, unsigned seqnum)
-{
-        HSVM_ColumnId colid = HSVM_GetColumnId(vm, "ID");
-        HSVM_ColumnId coldata = HSVM_GetColumnId(vm, "DATA");
-        HSVM_ColumnId colprops = HSVM_GetColumnId(vm, "PROPERTIES");
-        HSVM_ColumnId colformat = HSVM_GetColumnId(vm, "__FORMATID");
-
-        Blex::OlePropertySet::Section const &sect = ops.GetSection(seqnum);
-
-        HSVM_StringSet(vm,
-                       HSVM_RecordCreate(vm, id_set, colformat),
-                       reinterpret_cast<char const*>(sect.format_id),
-                       reinterpret_cast<char const*>(sect.format_id) + 16);
-
-        HSVM_VariableId var_props = HSVM_RecordCreate(vm, id_set, colprops);
-        HSVM_SetDefault(vm, var_props, HSVM_VAR_RecordArray);
-
-        typedef Blex::OlePropertySet::Section::PropertyMap PropMap;
-        for (PropMap::const_iterator itr=sect.props.begin(); itr !=sect.props.end(); ++itr)
-        {
-                HSVM_VariableId newrec = HSVM_ArrayAppend(vm, var_props);
-                HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, newrec, colid), itr->first);
-                DumpProp(HSVM_RecordCreate(vm, newrec, coldata), vm, ops, itr->second);
-        }
-}
-
-void DumpPropsDir(VarId id_set, HSVM *vm, Blex::Docfile &infile, Blex::Docfile::Directory const *dir)
-{
-        std::vector<std::string> files = infile.GetFiles(dir);
-        for (std::vector<std::string>::iterator itr=files.begin(); itr!=files.end(); ++itr)
-          if (!itr->empty() && itr->begin()[0]==5) //property set
-        {
-                try
-                {
-                        std::unique_ptr<Blex::RandomStream> str(infile.OpenOleFile(infile.FindFile(dir,*itr)));
-                        Blex::OlePropertySet ops;
-                        if (!str.get() || !ops.ParseProperties(*str))
-                            continue;
-
-                        HSVM_ColumnId colid = HSVM_GetColumnId(vm, "NAME");
-                        HSVM_ColumnId colprops = HSVM_GetColumnId(vm, "SECTIONS");
-
-                        HSVM_VariableId newrec = HSVM_ArrayAppend(vm, id_set);
-                        HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrec, colid), *itr);
-                        HSVM_VariableId recarray = HSVM_RecordCreate(vm, newrec, colprops);
-                        HSVM_SetDefault(vm, recarray, HSVM_VAR_RecordArray);
-
-                        for (unsigned i=0;i<ops.GetNumSections();++i)
-                            DumpPropSet(HSVM_ArrayAppend(vm, recarray), vm, ops, i);
-                }
-                catch (Blex::DocfileException &e)
-                {
-                        DEBUGPRINT("Ignoring OLE error on file " << *itr << ":" << e.what());
-                }
-        }
-}
-
-void HS_UnpackOleProps(VarId id_set, VirtualMachine *vm)
-{
-        HareScript::Interface::InputStream data(*vm, HSVM_Arg(0));
-
-        try
-        {
-                std::unique_ptr<Blex::Docfile> docfile;    //ADDME: Split: BCB work around
-                docfile.reset( new Blex::Docfile(data) );
-                uint8_t const *clsid = docfile->GetCLSID(docfile->GetRoot());
-
-                ColumnNameId colclsid = vm->columnnamemapper.GetMapping("__CLSID");
-                ColumnNameId colpropsets = vm->columnnamemapper.GetMapping("PROPSETS");
-
-                vm->GetStackMachine().RecordInitializeEmpty(id_set);
-                VarId clsidcell = vm->GetStackMachine().RecordCellCreate(id_set, colclsid);
-                VarId propsetscell = vm->GetStackMachine().RecordCellCreate(id_set, colpropsets);
-
-                vm->GetStackMachine().SetString(clsidcell, reinterpret_cast<char const*>(clsid), reinterpret_cast<char const*>(clsid+16));
-                vm->GetStackMachine().ArrayInitialize(propsetscell,0,VariableTypes::RecordArray);
-                DumpPropsDir(propsetscell, *vm, *docfile, docfile->GetRoot());
-        }
-        catch (Blex::DocfileException &)
-        {
-                vm->GetStackMachine().InitVariable(id_set, VariableTypes::Record); //return default record
-        }
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -637,8 +516,6 @@ void CloseZlibDecompressor(VirtualMachine *vm)
 
 void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 {
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_UNPACKOLEPROPS::R:X",HS_UnpackOleProps));
-
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SENDBLOBTO::B:IX",SendBlobTo));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEZLIBCOMPRESSOR::I:ISI",CreateZlibCompressor));

@@ -1,7 +1,6 @@
 #include <harescript/vm/allincludes.h>
 
 
-#include <blex/docfile.h>
 #include "baselibs.h"
 #include "hsvm_context.h"
 
