@@ -112,35 +112,18 @@ MACRO TestSimplePages()
   Testeq("test", bolds[0]->firstchild->nodevalue);
 
   testfw->browser->GotoWebPage(siteroot->url || "loadlib.shtml");
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "Trying " || siteroot->url || "loadlib.shtml");
-
-  STRING result := BlobToString(testfw->browser->content,-1);
-  TestEq("<!-- LOADING IT -->", Left(result,19));
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), "SHTML files on the output cannot be accessed as their location is untrusted");
 }
 
 MACRO TestDynPage()
 {
-
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
   STRING url := siteroot->url || "dynamicpage.shtml";
   testfw->browser->GotoWebPage(url);
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), testfw->browser->url);
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), testfw->browser->url);
 
-  //sendblobto(0,testfw->browser->content);
-
-  OBJECT contentdiv := testfw->browser->document->GetElementById("content");
-  IF(NOT ObjectExists(contentdiv))
-    print(siteroot->url || "bestaatniet\n");
-
-  OBJECT testdyn := testfw->browser->document->GetElementById("testdyn");
-  TestEq(TRUE, ObjectExists(testdyn));
-  TestEq("Dit is <b>bold</b><br/>volgende<br/>regel param:<i>Arg1</i>", testdyn->innerxml, url);
-  TestEq(siteroot->url || "dynamicpage.shtml", testdyn->GetAttribute("data-baseurl"));
-  TestEq("//" || Tokenize(siteroot->url,"//")[1] || "dynamic.shtml", contentdiv->GetAttribute("data-dynamiclink"));
-
-  OBJECT testarthur := testfw->browser->document->GetElementById("meaningoflife");
-  TestEq(TRUE, ObjectExists(testarthur));
-  TestEq("42", testarthur->innerxml);
+  testfw->browser->GotoWebPage(siteroot->url || "contentlink.shtml");
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), siteroot->url || "contentlink.shtml");
 }
 
 MACRO TestErrorPages()
@@ -156,34 +139,6 @@ MACRO TestErrorPages()
   TestEq(TRUE, ObjectExists(contentdiv), "Testing " || siteroot->url || "bestaatniet\n");
   TestEqLike("*The requested page could not be found*", contentdiv->innerxml);
   TestEq("//" || Tokenize(siteroot->url,"//")[1] || "dynamic.shtml", contentdiv->GetAttribute("data-dynamiclink"));
-
-  OBJECT compileerror := siteroot->OpenByPath("compileerror.shtml");
-  OBJECT runtimeerror := siteroot->OpenByPath("exception.shtml");
-
-  testfw->browser->GotoWebPage(siteroot->url || "compileerror.shtml");
-  TestEq(500, testfw->browser->GetHTTPStatusCode());
-  TestEqLike("*XYZ*", testfw->browser->document->body->textcontent);
-
-  testfw->browser->GotoWebPage(siteroot->url || "exception.shtml");
-  TestEq(500, testfw->browser->GetHTTPStatusCode());
-  TestEqLike("*this is an exception*", testfw->browser->document->body->textcontent);
-
-}
-
-MACRO TestDeletedLinkDest()
-{
-  testfw->BeginWork();
-
-  OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  siteroot->OpenByPath("dynamicpage.shtml")->RecycleSelf();
-  siteroot->OpenByPath("contentlink.shtml")->ScheduleRepublish();
-
-  testfw->CommitWork();
-  WaitForPublishCompletion(siteroot->id, [ accepterrors := TRUE ]);
-
-  testfw->browser->GotoWebPage(siteroot->url || "contentlink.shtml");
-  TestEq(500, testfw->browser->GetHTTPStatusCode(), siteroot->url || "contentlink.shtml");
-  TestEqLike("*links to deleted file*", BlobToString(testfw->browser->content), testfw->browser->href);
 }
 
 MACRO TestCaptureSubPaths()
@@ -260,6 +215,5 @@ RunTestframework([ PTR TestTestSite
                  , PTR TestSimplePages
                  , PTR TestDynPage
                  , PTR TestErrorPages
-                 , PTR TestDeletedLinkDest
                  , PTR TestCaptureSubPaths
                  ], [ profile := TRUE ]);

@@ -20,7 +20,7 @@ RECORD FUNCTION GetCacheableFileData(INTEGER fileid)
   IF(NOT info.success)
   {
     LogError("system:redirect", "GetCacheableFileData", info);
-    AbortWithHTTPError(404, "Not found - See notice log for details");
+    AbortWithHTTPError(CellExists(info,'errorcode') ? info.errorcode : 404, "Not found - See notice log for details");
   }
 
   // Invalidate on recompilation of siteprofiles, or on any modification of the (parent)folder

@@ -27,18 +27,8 @@ run({
 
     // Obsolete stuff
     const obsoleteStuff = [
-      //5.9 Delete visible version of cli-autocomplete.sock, it's .cli-autocomplete.sock now (dot prefixed)
-      backendConfig.dataRoot + "cli-autocomplete.sock",
-      //5.9 Delete misplaced run/ dir
-      backendConfig.dataRoot + "caches/run",
-      //5.9 Webserver pid file
-      backendConfig.dataRoot + ".webhare-webserver.pid",
-      //5.9 Discovered old stray files/directories
-      backendConfig.dataRoot + "lib", //no updates since 2023. held locally installed OCI libraries but we no longer support OCI in HareScript
-      backendConfig.dataRoot + ".envsettings", //no updates since 2019
-      backendConfig.dataRoot + ".last-monthly-cleanup", //no updates since 2020
-      backendConfig.dataRoot + "home", //old home dirs. root has /opt/whdata/root now and other apps have ephemeral homes
-      backendConfig.dataRoot + "serverconfig.xml", //no updates since 2021, old experiment with central server configuration
+      //6.0: Remove system.dbcode
+      backendConfig.dataRoot + "ephemeral/system.dbcode",
     ];
 
     for (const todelete of obsoleteStuff)

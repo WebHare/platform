@@ -272,6 +272,9 @@ struct BLEXLIB_PUBLIC ServerConfig
         // debug url tag
         std::string debugurltag;
 
+        /// Secure locations for code
+        std::vector<std::string> secure_code_locations;
+
         private:
         typedef std::map<std::string, int32_t, Blex::StrCaseLess<std::string> > ExactSiteMatches;
         typedef std::pair<std::string, int32_t> GlobMask;

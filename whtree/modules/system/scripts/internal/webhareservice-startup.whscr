@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 
 RECORD settings := ParseArguments(GetConsoleArguments()
@@ -60,8 +59,6 @@ IF(RecordExists(GetDiskFileProperties(old_webharebackend_dir)))
   DeleteDiskDirectoryRecursive(GetWebHareBackendServerFolder()); //delete any data in place. this may happen on dev servers if they updated WebHare without restarting
   MoveDiskPath(old_webharebackend_dir, GetWebHareBackendServerFolder());
 }
-
-__disable_compilable_lockmgr := TRUE;
 
 //Continu with the softreset path
 RunRestartReset(showinfo, FALSE);

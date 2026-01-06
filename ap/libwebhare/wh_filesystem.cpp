@@ -933,17 +933,6 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
                         break;
                 }
 
-        case FSSite:
-                {
-                        DEBUGPRINT("Mapping " << liburi);
-                        std::string filepath = Blex::MergePath(context->whconn->GetEphemeralRoot(), "system.dbcode");
-                        filepath += '/';
-                        Blex::ToLowercase(liburi.begin(), liburi.end());
-                        filepath += liburi;
-
-                        DEBUGPRINT("To " << filepath);
-                        file = GetDirectFile(keeper, filepath);
-                }
         default: ; // Ignore other prefixes
         }
 

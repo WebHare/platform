@@ -62,8 +62,6 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
     OBJECT internallinkemptyshtml := siteroot->CreateFile([name:="internallink-empty.shtml", type := 19, filelink := 0, publish := TRUE ]);
     OBJECT loadlibdoc := siteroot->CreateFile([name:="loadlib.html", data := StringToBlob("Een <b>loadlib</b> pagina"), publish := TRUE, type := 38 ]);
     OBJECT loadlibsdoc := siteroot->CreateFile([name:="loadlib.shtml", data := StringToBlob("Een <b>loadlib</b> pagina"), publish := TRUE, type := 38 ]);
-    OBJECT compileerror := siteroot->CreateFile([name:="compileerror.shtml", type := 25, data := StringToBlob('<?wh XYZ;'), publish := TRUE ]);
-    OBJECT runtimeerror := siteroot->CreateFile([name:="exception.shtml", type := 25, data := StringToBlob('<?wh THROW NEW Exception("this is an exception");'), publish := TRUE ]);
 
     OBJECT internallinkerrorsshtml := siteroot->CreateFile([name:="internallink-errors.shtml", type := 19, filelink := loadlibdoc->id, publish := TRUE ]);
   }
