@@ -7,15 +7,6 @@ done
 
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
-# Setup JAVA_HOME
-if [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
-else
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-fi
-
-export PATH=$PATH:$JAVA_HOME/bin
-
 # Ensure /tmp/ exists with sticky permissions. our podman builds showed up without /tmp. ?
 mkdir -p /tmp 2>/dev/null
 chmod 1777 /tmp 2>/dev/null

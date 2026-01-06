@@ -10,6 +10,8 @@ ARG WHBUILD_NODE_URL
 
 # Environment variables
 ENV LC_ALL=C \
+  JAVA_HOME=/usr/lib/jvm/java-21-openjdk \
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/lib/jvm/java-21-openjdk/bin:/usr/sbin:/usr/bin:/sbin:/bin: \
   WEBHARE_BASEPORT=13679 \
   WEBHARE_IN_CONTAINER=1 \
   WEBHARE_IN_DOCKER=1 \
@@ -22,8 +24,7 @@ ENV LC_ALL=C \
   WEBHARE_NODE_MAJOR=$WEBHARE_NODE_MAJOR \
   WEBHARE_NODE_BINARY=node \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
-  PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  PUPPETEER_CACHE_DIR=/opt/wh/whtree/libexec/puppeteer
 
 RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
     --mount=type=bind,source=addons/docker-build/setup-imagebase.sh,target=/setup-imagebase.sh \
