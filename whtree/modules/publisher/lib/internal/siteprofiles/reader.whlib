@@ -598,15 +598,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
 
   IF(finaltype = whconstant_whfstype_shtmlfile)
   {
-    OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
-
-    settings := [ startmacro := ""
-                , webpageobjectname := ""
-                , routerfunction := ""
-                , cachettl := 0
-                , pagefolder := ""
-                , shtmlfile := ObjectExists(dest) AND dest->isactive ? dest->GetResourceName() : ""
-                ];
+    RETURN [ success := FALSE, errorcode := 403, error := `Not allowed to execute #${fileid} - WH 6.0+ diallows running code directly from WHFS` ];
   }
   ELSE
   {
