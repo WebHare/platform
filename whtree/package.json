@@ -35,7 +35,6 @@
     "@xmldom/xmldom": "^0.9.8",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
-    "commander": "^12.0.0",
     "country-list-js": "^3.1.8",
     "diff": "^5.2.0",
     "esbuild": "^0.25.3",
