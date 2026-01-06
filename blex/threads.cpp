@@ -8,6 +8,7 @@
 #include "context.h"
 #include "pipestream.h"
 
+#include <atomic>
 #include <cerrno>
 #include <iostream>
 #include <csignal>
@@ -318,8 +319,8 @@ struct CoreConditionMutex::CMData
         pthread_cond_t cond;
 
         /// Number of pipe waiters (write under mutex lock, read everywhere)
-        volatile unsigned pipe_waiters;
-        volatile unsigned waiter_signalled;
+        std::atomic<unsigned> pipe_waiters;
+        std::atomic<unsigned> waiter_signalled;
 
         void EnterPipeWait(); // must have mutex lock
         void LeavePipeWait(); // must have mutex lock
@@ -655,13 +656,13 @@ void CoreConditionMutex::CMData::EnterPipeWait()
 
         waiter_signalled = 0;
         if(++pipe_waiters!=1)
-           throw std::runtime_error("EnterPipeWait: Invalid # of waiters: now " + Blex::AnyToString(const_cast<unsigned*>(&pipe_waiters)));
+           throw std::runtime_error("EnterPipeWait: Invalid # of waiters: now " + Blex::AnyToString(pipe_waiters.load()));
 }
 
 void CoreConditionMutex::CMData::LeavePipeWait()
 {
         if (--pipe_waiters != 0)
-           throw std::runtime_error("LeavePipeWait: Invalid # of waiters: now " + Blex::AnyToString(const_cast<unsigned*>(&pipe_waiters)));
+           throw std::runtime_error("LeavePipeWait: Invalid # of waiters: now " + Blex::AnyToString(pipe_waiters.load()));
 
         // Empty the pipe (read 16 bytes to pick up spurious signals)
         uint8_t buf[16];
