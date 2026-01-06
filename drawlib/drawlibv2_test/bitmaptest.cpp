@@ -11,7 +11,6 @@
 #include "../drawlibv2/bitmapmanip.h"
 #include "../drawlibv2/canvas.h"
 #include "../drawlibv2/drawobject.h"
-#include "../drawlibv2/wmfrenderer.h"
 
 BLEX_TEST_FUNCTION(FindTrimTest)
 {
@@ -118,34 +117,6 @@ BLEX_TEST_FUNCTION(StreamingResizerSSE2Test)
 
         // compare!
         //BLEX_TEST_CHECK(DoErrorCompare("ref-streamingresizetest_scenery.png", SmallBitmap, 3000, true)); //ADDME: Was 1.5 with old kernel
-}
-
-BLEX_TEST_FUNCTION(EmfTest)
-{
-        //Should be able to draw EMFs into resized viewports
-        std::unique_ptr<Blex::FileStream> emffile;
-        emffile.reset(Blex::Test::OpenTestFile("monkey.emf"));
-        BLEX_TEST_CHECK(emffile.get()!=NULL);
-
-        std::vector<uint8_t> imagedata;
-        ReadStreamIntoVector(*emffile, &imagedata);
-
-        //first one-on-one rendering
-        std::unique_ptr<DrawLib::Bitmap32> outbitmap(new DrawLib::Bitmap32(232,231));
-        DrawLib::RenderWmfEmf(*outbitmap, DrawLib::FPBoundingBox(0,0,232,231), &imagedata[0], imagedata.size(), DrawLib::XForm2D());
-
-        BLEX_TEST_CHECK(DoCompare ("monkey.png", *outbitmap, true));
-
-        //draw a 2x monkey into the lowerleft of a 4x canvas (test translation and scaling)
-        DrawLib::XForm2D ultimate(2,0,0,2,DrawLib::FPPoint(150,400));
-
-        outbitmap.reset(new DrawLib::Bitmap32(928,922));
-        //DrawLib::RenderWmfEmf(*outbitmap, DrawLib::FPBoundingBox(150,400,150+232*2,400+231*2), &imagedata[0], imagedata.size());
-        DrawLib::RenderWmfEmf(*outbitmap, DrawLib::FPBoundingBox(0,0,232,231), &imagedata[0], imagedata.size(), ultimate);
-        //crop and resize back to our part
-        outbitmap.reset(CreateCroppedBitmap(*outbitmap, DrawLib::IRect(150,400,150+232*2,400+231*2)));
-        outbitmap.reset(CreateResizedBitmap(*outbitmap, DrawLib::ISize(232,231)));
-        BLEX_TEST_CHECK(DoErrorCompare ("monkey.png", *outbitmap, 80, true));
 }
 
 //as I actually found a use for the Raw format (fast storage during photo
@@ -607,17 +578,9 @@ BLEX_TEST_FUNCTION(MagicReaderTest)
         tiffile.reset(Blex::Test::OpenTestFile("monkey.tif"));
         BLEX_TEST_CHECK(tiffile.get()!=NULL);
 
-        std::unique_ptr<Blex::FileStream> emffile;
-        emffile.reset(Blex::Test::OpenTestFile("monkey.emf"));
-        BLEX_TEST_CHECK(emffile.get()!=NULL);
-
         std::unique_ptr<DrawLib::Bitmap32 > my_bmp_8_bitmap;
         my_bmp_8_bitmap.reset(DrawLib::CreateBitmap32Magic(bmp_8file.get()));
         BLEX_TEST_CHECK(my_bmp_8_bitmap.get()!=NULL);
-
-        std::unique_ptr<DrawLib::Bitmap32 > my_emf_bitmap;
-        my_emf_bitmap.reset(DrawLib::CreateBitmap32Magic(emffile.get()));
-        BLEX_TEST_CHECK(my_emf_bitmap.get()!=NULL);
 
         std::unique_ptr<DrawLib::Bitmap32 > my_png_bitmap;
         my_png_bitmap.reset(DrawLib::CreateBitmap32Magic(pngfile.get()));
@@ -637,7 +600,6 @@ BLEX_TEST_FUNCTION(MagicReaderTest)
 
         BLEX_TEST_CHECK(DoCompare ("monkey.png", *(my_bmp_bitmap.get()), true));
         BLEX_TEST_CHECK(DoCompare ("monkey.png", *(my_tif_bitmap.get()), true));
-        BLEX_TEST_CHECK(DoCompare ("monkey.png", *(my_emf_bitmap.get()), true));
         BLEX_TEST_CHECK(DoCompare ("monkey.png", *(my_png_bitmap.get()), true));
 
         //change this to take jpg as comparemap to.

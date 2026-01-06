@@ -13,7 +13,7 @@
 
 namespace DrawLib
 {
-        enum GfxFileType {GFX_UNKNOWN, GFX_PNG, GFX_JPG, GFX_GIF, GFX_BMP, GFX_TIFF, GFX_EMF };
+        enum GfxFileType {GFX_UNKNOWN, GFX_PNG, GFX_JPG, GFX_GIF, GFX_BMP, GFX_TIFF };
 
         /** Save a DrawLib::Bitmap32 bitmap to a stream as a .TGA file. This is a debug format and
             will not save the alpha layer! This call will fail for bitmaps with height/width greater
@@ -91,8 +91,6 @@ namespace DrawLib
             @return pointer to a Bitmap32 object, may return NULL on error!
         */
         BLEXLIB_PUBLIC Bitmap32* CreateBitmap32FromRaw(Blex::Stream &stream, unsigned width, unsigned height, std::string const &format, bool premultiplied);
-
-        BLEXLIB_PUBLIC Bitmap32* CreateBitmap32FromEMF(Blex::RandomStream *stream);
 
         /** Save A DrawLib::Bitmap32 bitmap to a Raw-file on disk. This format supports
             alpha layers. It is stored as raw format.
