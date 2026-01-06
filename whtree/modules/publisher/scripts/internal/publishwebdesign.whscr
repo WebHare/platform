@@ -13,17 +13,6 @@ BOOLEAN did_output_rename;
 BOOLEAN opened_firstpage;
 INTEGER outputid;
 
-MACRO SwitchToIndexSHTML()
-{
-  IF(did_output_rename)
-    RETURN;
-  did_output_rename := TRUE;
-
-  //Verify some corner cases making this impossible
-  IF(NOT (separate_first_page OR firstmustbeindex) AND ToUppercase(file.name) NOT LIKE "*.SHTML")
-    THROW NEW Exception("This file needs to have an extension ending in 'shtml' to support dynamic code in webpages");
-}
-
 OBJECT applytester := GetApplyTesterForObject(file.id);
 IF(NOT ObjectExists(applytester))
   THROW NEW Exception("Unable to locate the webdesign for #" || publishfile.id);
