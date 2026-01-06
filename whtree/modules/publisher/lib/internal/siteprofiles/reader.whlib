@@ -598,7 +598,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
 
   IF(finaltype = whconstant_whfstype_shtmlfile)
   {
-    RETURN [ success := FALSE, errorcode := 403, error := `Not allowed to execute #${fileid} - WH 6.0+ diallows running code directly from WHFS` ];
+    RETURN [ success := FALSE, errorcode := 403, error := `Not allowed to execute #${fileid} - WH 6.0+ disallows running code directly from WHFS` ];
   }
   ELSE
   {
