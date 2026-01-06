@@ -9,7 +9,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT trans;
@@ -19,7 +18,6 @@ BOOLEAN webhare_started;
 MACRo HandleCompletions(RECORD ARRAY completions)
 {
   OBJECT torepub := CreateRepublishState();
-  INTEGER ARRAY checkscripts;
 
   trans->BeginWork();
 
@@ -52,8 +50,6 @@ MACRo HandleCompletions(RECORD ARRAY completions)
             torepub->AddDepsOf(folder.id, 2/*created*/);
           }
         }
-        IF(newfile.type IN whconstant_whfstypes_scriptsondisk)
-          INSERT newfile.id INTO checkscripts AT END;
     }
 
     // FIXME: unreachable? No mention of "updatefolder" in calls to completion
@@ -84,16 +80,11 @@ MACRo HandleCompletions(RECORD ARRAY completions)
 
       IF(RecordExists(parentsite)) //parent gone or out-of-site folder
         torepub->AddDepsOf(parentfolder.id, 3/*content deleted*/);
-
-      //FIXME rescan system.dbcode for deletable stuff?
     }
   }
 
   torepub->DoRepublishes();
   trans->CommitWork();
-
-  IF(Length(checkscripts)>0) //make sure scripts are on disk
-    ScanLimitedCompilables(checkscripts);
 }
 
 BOOLEAN log_eventcompletion := FALSE;

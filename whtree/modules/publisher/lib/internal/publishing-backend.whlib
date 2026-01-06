@@ -3,7 +3,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
-LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -673,16 +672,6 @@ STATIC OBJECTTYPE PublicationRun
               this->errordata := "Found untrusted HareScript code in the output code: '" || UCTruncate(res.first_script, 80) || "'";
               RETURN DEFAULT RECORD;
             }
-          }
-
-          IF(closedfile.isshtml)
-          {
-
-            //Fix currentsite::
-            //if there were substitutions, we'll also need to fix invocations of LOADLIB "currentsite::
-            STRING filesite := SELECT AS STRING sites.name FROM system.sites, system.fs_objects WHERE fs_objects.id=msg.fileid AND fs_objects.parentsite = sites.id;
-            //FIXME DIRTY need tokenizer help
-            filedata := RewriteCurrentSite(filedata, filesite);
           }
 
           // Send the final sanitized data to the disk outputfile

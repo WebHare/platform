@@ -40,7 +40,6 @@
     <task runat="29  * * * *" runtz="maintenance" script="scripts/tasks/cleanup_hourly.whscr" tag="cleanup_hourly" description="Hourly cleanup" />
     <task runat="39  * * * *" runtz="maintenance" script="scripts/tasks/uploadstatus.whscr" tag="uploadstatus" runatstartup="true" />
     <task runat="*/10 * * * *" runtz="maintenance" script="scripts/tasks/webserverusage.whscr" tag="webserverusage" description="Process webserver usage stats" />
-    <task runat="19 */4 * * *" runtz="maintenance" script="scripts/tasks/compileablestodisk.whscr" tag="compileablestodisk" description="Ensures database HareScript code is on disk" />
 
     <!-- Deprecation scans run on 'mondays'. we specifically want them at the start of the usual WebHare working day -->
     <task runat="0 8 * * 1" runtz="Europe/Amsterdam" script="scripts/tasks/autodeprecationscan.whscr" tag="autodeprecationscan" description="Scan for known future deprecations" />

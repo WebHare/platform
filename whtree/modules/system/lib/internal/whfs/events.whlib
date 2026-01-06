@@ -14,7 +14,6 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/fsctypes.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
 
 INTEGER counter;
 
@@ -31,7 +30,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   RECORD ARRAY analyzertasks;
 
   BOOLEAN checksitesettings;
-  BOOLEAN scancompilables;
 
   INTEGER64 ARRAY linkcheckedremovedsettings;
   INTEGER64 ARRAY linkcheckedsettings;
@@ -126,9 +124,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       DeleteCheckedObjectLinks(INTEGER64[], this->linkcheckedremovedsettings);
     IF (LENGTH(this->linkcheckedsettings) != 0)
       ProcessLinkCheckedSettings(this->linkcheckedsettings);
-
-    IF(this->scancompilables)
-      ScanAllCompilables(FALSE);
   }
 
   UPDATE PUBLIC MACRO OnRollback()
@@ -149,12 +144,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   {
     IF(IsDebugTagEnabled("que"))
       LogDebug("system:whfscommithandler", "commitbroadcasts", CELL[trace := GetStackTrace() ]);
-
-    //Script update completions must be handled before anything that could synchronously use them, and ideally, before even directly scheduled republished can run
-    TRY
-      ScanLimitedCompilables(SELECT AS INTEGER ARRAY DISTINCT id FROM this->completions WHERE type IN ["addfile","replacefile"]);
-    CATCH (OBJECT e)
-      this->firstexception := e;
 
     IF (uncommitted_fstypes_changes)
     {
@@ -425,10 +414,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       LogDebug("system:whfscommithandler", "triggersitesettingscheckoncommit", CELL[trace := GetStackTrace() ]);
 
     this->checksitesettings := TRUE;
-  }
-  PUBLIC MACRO TriggerScanCompilables()
-  {
-    this->scancompilables := TRUE;
   }
 
   PUBLIC MACRO RemoveLinkCheckedSettings(INTEGER64 ARRAY settingids)
