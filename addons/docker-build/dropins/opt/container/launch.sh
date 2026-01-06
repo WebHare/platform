@@ -32,7 +32,7 @@ fi
 
 # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
 # probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
-mkdir -p /opt/whdata/output /opt/whdata/installedmodules
+mkdir -p /opt/whdata/output /opt/whdata/installedmodules /opt/whdata/storage
 # Create tmp storage dir, webhare-docker-config.xml refers to this
 mkdir -p /opt/whdata/tmp
 
