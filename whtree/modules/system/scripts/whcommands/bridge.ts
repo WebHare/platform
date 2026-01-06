@@ -9,6 +9,8 @@ import * as child_process from "node:child_process";
 import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
 import { getInspectorURL } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
+import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
+import { throwError } from "@webhare/std";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -191,6 +193,13 @@ run({
           process.exitCode = 1;
           link.close();
         }
+      }
+    },
+    "get-compiled-version": {
+      description: "Get the compiled version of a script",
+      arguments: [{ name: "<scriptpath>", description: "Path to the script" }],
+      main: async ({ args }) => {
+        console.log(getCachePathForFile(process.env.WEBHARE_TSBUILDCACHE || throwError("No WEBHARE_TSBUILDCACHE environment variable set"), args.scriptpath));
       }
     },
     "findworker": {

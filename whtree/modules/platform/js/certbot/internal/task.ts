@@ -416,6 +416,7 @@ async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dn
     logError(e as Error);
     if (debug)
       logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
+    throw e;
   }
 }
 

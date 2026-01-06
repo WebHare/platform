@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::publisher/lib/template-v2.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 
@@ -15,10 +14,9 @@ IF (file.type=19) //internal link
 }
 
 RenamePage(1,'index.shtml');
-STRING url := MakeRelativeLinkFromURL(GetCurrentPageUrl(), file.url);
-IF(url = "")
+IF(file.url = "")
   __PUBLISHER_EXCEPTION(3003, "Cannot find linked file");
 
 INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
-PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([redirect := url])}\r\n`);
+PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([redirect := file.url])}\r\n`);
 PUBLISHER_CloseOutput(redirectoutputid);

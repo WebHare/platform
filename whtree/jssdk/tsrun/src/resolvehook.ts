@@ -18,7 +18,7 @@ type PatchedModule = InternalModule & {
 
 const Module = InternalModule as unknown as PatchedModule;
 
-function getCachePathForFile(cachepath: string, filename: string): string {
+export function getCachePathForFile(cachepath: string, filename: string): string {
   const hash = crypto
     .createHash("md5")
     .update(path.resolve(filename)) //ensures its absolute
