@@ -38,8 +38,8 @@ MACRO ConsilioTest()
 
   OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   OBJECT file_1 := siteroot->CreateFile([name:="testfile1.txt", data := StringToBlob("blabla check"), publish := TRUE]);
-  OBJECT file_2 := siteroot->CreateFile([name:="testfile2.whlib", data := StringToBlob("<?wh PUBLIC MACRO RunDynamicPage() { PRINT('blabla2'); }") ]);
-  OBJECT file_3 := siteroot->CreateFile([name:="testfile3.shtml", data := StringToBlob("<?wh LOADLIB 'relative::testfile2.whlib' EXPORT RunDynamicPage;"), publish := TRUE]);
+  OBJECT file_2 := siteroot->CreateFile([name:="testfile2.txt", data := StringToBlob("blabla2") ]);
+  OBJECT file_3 := siteroot->CreateFile([name:="testfile3.txt", data := StringToBlob("blabla2"), publish := TRUE]);
   OBJECT file_4 := siteroot->CreateFile([name:="testfile4.txt", data := StringToBlob("blabla4"), publish := TRUE]);
   OBJECT file_6 := siteroot->CreateFile([name:="testfile6.rtd", type := richdoctype->id, publish := TRUE, title := "6th file"]);
   OBJECT file_index := siteroot->CreateFile([name:="explicitly-no-title.rtd", type := richdoctype->id, publish := TRUE], [ setindex := TRUE ]);
