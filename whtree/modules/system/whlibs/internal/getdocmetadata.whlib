@@ -53,28 +53,6 @@ PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
       //FIXME: Close the file
     }
   }
-  IF(wrappedblob.mimetype IN ["application/msword", "application/vnd.ms-excel", "application/vnd.ms-powerpoint" ])
-  {
-    RECORD oleprops := __HS_UnpackOleProps(wrappedblob.data);
-    RECORD summaryinfo := SELECT * FROM oleprops.propsets WHERE name="\005SummaryInformation";
-    IF (RecordExists(summaryinfo))
-    {
-      RECORD titlefield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=2;
-      IF (RecordExists(Titlefield) AND TypeId(titlefield.data)=TypeId(STRING))
-        metadata.title := Substitute(titlefield.data,"\000","");
-
-      RECORD descrfield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=3;
-      IF (RecordExists(descrfield) AND TypeId(descrfield.data)=TypeId(STRING))
-        metadata.description := Substitute(descrfield.data,"\000","");
-
-      RECORD keywordsfield := SELECT * FROM summaryinfo.sections[0].properties WHERE id=5;
-      IF (RecordExists(keywordsfield) AND TypeId(keywordsfield.data)=TypeId(STRING))
-      {
-        STRING keywords := Substitute(keywordsfield.data,"\r\n",",");
-        metadata.keywords := Substitute(keywords,"\000","");
-      }
-    }
-  }
   IF(wrappedblob.mimetype LIKE "application/vnd.openxmlformats-officedocument.*")
   {
     OBJECT zip;

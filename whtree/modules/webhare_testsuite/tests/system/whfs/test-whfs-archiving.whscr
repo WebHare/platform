@@ -551,7 +551,7 @@ MACRO UnpackingSiteVsNonsite()
       [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
-      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
   RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = sitefolder->OpenByName("typetest.8")->id ORDER BY name;
