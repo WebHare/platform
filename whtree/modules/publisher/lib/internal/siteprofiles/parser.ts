@@ -1144,8 +1144,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         generatepreview: isWidget,
         indexversion: '',
         isacceptableindex: (settings as Sp.UploadType).isAcceptableIndex ?? settings.metaType === "page",
-        ispublishedassubdir: ((settings as Sp.PageType).isPublishedAsSubdir ?? settings.metaType === "page")
-          || settings.namespace === "http://www.webhare.net/xmlns/publisher/mswordfile", //The only uploadType we still accept as subdir published
+        ispublishedassubdir: ((settings as Sp.PageType).isPublishedAsSubdir ?? settings.metaType === "page"),
         ispublishable: ispublishable,
         /* in XML we have:
             ctype.filetype.initialpublish := ctype.filetype.ispublishable AND ParseXSBoolean(ftype->GetAttribute("initialpublish") ?? "true");

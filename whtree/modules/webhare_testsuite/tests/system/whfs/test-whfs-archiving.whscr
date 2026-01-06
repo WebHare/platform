@@ -122,8 +122,9 @@ dumpvalue(setversion,'tree');
   TestEq(6/*initial  test*/+4/*array test rows*/+11/*array test elements*/+rdelts+2/*instance*/+1/*record*/, GetNumSettings(typetestfolder->id));
 
   /* Create a subfolder. Give it an indexdoc. Give those metadata */
+  OBJECT rtdtype := OpenWHFSType("platform:filetypes.richdocument");
   OBJECT subfolder := typetestfolder->CreateFolder([name := "subfolder", ordering := 12]);
-  OBJECT cooldoc := subfolder->CreateFile([name:="test.doc",type:=4,publish:=TRUE,data:=GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/links.docx")]);
+  OBJECT cooldoc := subfolder->CreateFile([name:="test.rtd",type:=rtdtype->id,publish:=TRUE]);
   OBJECT cooltxt := subfolder->CreateFile([name:="test.txt",type:=21,data:=StringToBlob("Dit is de eerste test")]);
   subfolder->UpdateMetadata([indexdoc := cooldoc->id]);
   subfolder->UpdateMetadata(foldermeta);
@@ -138,7 +139,7 @@ dumpvalue(setversion,'tree');
   TestEq(cooldoc->id, subfolder->indexdoc);
 
   OBJECT subsubfolder := subfolder->CreateFolder([name := "subsubfolder"]);
-  OBJECT subsubfolderfile := subsubfolder->CreateFile([name:="index.doc", type := 4, publish := TRUE]); //adding a file to trigger an error when replacing the folder
+  OBJECT subsubfolderfile := subsubfolder->CreateFile([name:="index.rtd", type := rtdtype->id, publish := TRUE]); //adding a file to trigger an error when replacing the folder
 
   OBJECT contentlinkfile := subfolder->CreateFile([name:="test2.doc", type:=20, filelink:=cooldoc->id, ordering := 1]);
   OBJECT intlinkfile := subfolder->CreateFile([name:="test2.txt.lnk", type:=18, filelink:=cooltxt->id, ordering := 3, isunlisted := TRUE]);
@@ -401,14 +402,14 @@ MACRO ArchivingFIleOverFolder()
   OBJECT tt11 := firstfolder->CreateFolder([name := "typetest.11"]);
   OBJECT subf := tt11->CreateFolder([name := "subfolder"]);//create foreign folder over which we'll unpack
   subf->CreateFolder([name := "test.txt", type := 1]); //foreign folder. should NEVER be overwritten
-  subf->CreateFolder([name := "test.doc"]);
+  subf->CreateFolder([name := "test.rtd"]);
   subf->CreateFile([name := "subsubfolder"]); //FIXME archiver should report and publisher should tell that subsubfolder/index.html can't be created due to a file/folder conflict
 
   importer->Import(firstfolder->id);
 
   TestEq(TRUE, subf->OpenByPath('test.txt')->isfolder);
   TestEq(1, subf->OpenByPath('test.txt')->type);
-  TestEq(FALSE, subf->OpenByPath('test.doc')->isfolder);
+  TestEq(FALSE, subf->OpenByPath('test.rtd')->isfolder);
   TestEq(TRUE, subf->OpenByPath('subsubfolder')->isfolder);
 
   testfw->CommitWork();
@@ -629,24 +630,31 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
 
   OBJECT subfolder := destfolder->OpenByName("subfolder");
   TestEq(TRUE, ObjectExists(subfolder));
-  OBJECT cooldoc := subfolder->OpenByName("test.doc");
-  TestEq(TRUE, ObjectExists(cooldoc));
 
-  OBJECT cooldoc_org := typetestfolder->OpenByName("subfolder")->OpenByName("test.doc");
-  DateTimesMatch(cooldoc_org->modificationdate, cooldoc->modificationdate, timematchmode, mintime);
+  OBJECT cooldoc := subfolder->OpenByName("test.rtd");
+  IF(expectmeta) {
+    TestEq(TRUE, ObjectExists(cooldoc));
 
-  TestEq(4, cooldoc->type);
+    OBJECT cooldoc_org := typetestfolder->OpenByName("subfolder")->OpenByName("test.rtd");
+    DateTimesMatch(cooldoc_org->modificationdate, cooldoc->modificationdate, timematchmode, mintime);
+
+    OBJECT rtdtype := OpenWHFSType("platform:filetypes.richdocument");
+    TestEq(rtdtype->id, cooldoc->type);
+    TestEq(filemeta.title, cooldoc->title);
+    TestEq(filemeta.description, cooldoc->description);
+    TestEq(filemeta.keywords, cooldoc->keywords);
+
+    TestEq(cooldoc->id, subfolder->indexdoc);
+
+    OBJECT subsubfolder := subfolder->OpenByName("subsubfolder");
+    TestEq(TRUE, ObjectExists(subsubfolder));
+  } ELSE {
+    TestEq(FALSE, ObjectExists(cooldoc)); //unlike worddocs, RTDs can't be included in metadata-less ZIP files
+  }
   TestEq(expectmeta ? foldermeta.title : "", subfolder->title);
   TestEq(expectmeta ? foldermeta.description : "", subfolder->description);
   TestEq(expectmeta ? foldermeta.keywords : "", subfolder->keywords);
-  TestEq(expectmeta ? filemeta.title : "Doc met links", cooldoc->title);
-  TestEq(expectmeta ? filemeta.description : "", cooldoc->description);
-  TestEq(expectmeta ? filemeta.keywords : "", cooldoc->keywords);
 
-  TestEq(expectmeta ? cooldoc->id : 0, subfolder->indexdoc);
-
-  OBJECT subsubfolder := subfolder->OpenByName("subsubfolder");
-  TestEq(TRUE, ObjectExists(subsubfolder));
 
   OBJECT cooltxt := subfolder->OpenByName("test.txt");
   TestEq("Dit is een test", BlobToSTring(cooltxt->data,1000));
@@ -671,6 +679,7 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
     TestEq("http://www.webhare.net/", extlinkfile->externallink);
     TestEq(TRUE, intlinkfile->isunlisted);
     TestEq(FALSE, extlinkfile->isunlisted);
+    TestEq(TRUE, cooldoc->publish);
   }
   ELSE
   {
@@ -678,7 +687,6 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
     TestEq(FALSE, ObjectExists(intlinkfile));
     TestEq(FALSE, ObjectExists(extlinkfile));
   }
-  TestEq(TRUE, cooldoc->publish);
   TestEq(expectmeta ? FALSE : TRUE, cooltxt->publish); //without expectedmeta, reverts back to default
 
   OBJECT contentlinkfile_org := typetestfolder->OpenByName("subfolder")->OpenByName("test2.doc");
@@ -789,7 +797,8 @@ MACRO OverwriteIndexDocWithHTML()
 
   //Now create an indexdoc there
   indexhtml->RecycleSelf();
-  OBJECT indexdoc := overwritefolder->CreateFile([name := "index.doc", type := 4]);
+  OBJECT rtdtype := OpenWHFSType("platform:filetypes.richdocument");
+  OBJECT indexdoc := overwritefolder->CreateFile([name := "index.rtd", type := rtdtype->id]);
   overwritefolder->UpdateMetadata([indexdoc := indexdoc->id]);
 
   //Extract the original archive
@@ -797,11 +806,11 @@ MACRO OverwriteIndexDocWithHTML()
   RECORD imp := ImportWHFSArchive(firstfolder, arc, [ overwrite := TRUE ]);
   RECORD ARRAY rootfiles := SELECT * FROM system.fs_objects WHERE parent=overwritefolder->id ORDER BY name;
   TestEq(2,Length(rootfiles));
-  TestEq("index.doc", rootfiles[0].name);
-  TestEq("index.html", rootfiles[1].name);
+  TestEq("index.html", rootfiles[0].name);
+  TestEq("index.rtd", rootfiles[1].name);
 
   overwritefolder := OpenWHFSObject(overwritefolder->id); //RefreshMetadata();
-  TestEq(rootfiles[1].id, overwritefolder->indexdoc);
+  TestEq(rootfiles[0].id, overwritefolder->indexdoc);
 
   testfw->RollbackWork();
 }

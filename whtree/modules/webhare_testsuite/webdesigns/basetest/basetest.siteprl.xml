@@ -83,7 +83,6 @@
 
     <!-- Default types -->
     <denyfiletype typemask="*" />
-    <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/mswordfile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/imagefile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/pdffile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/externallink" />

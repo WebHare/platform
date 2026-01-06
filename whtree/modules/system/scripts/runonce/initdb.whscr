@@ -28,7 +28,7 @@ MACRO InitializeFileTypes()
   RECORD ARRAY ftypedata := [ [ id := 1, namespace := "http://www.webhare.net/xmlns/publisher/foreignfolder", isfoldertype := TRUE, isfiletype := FALSE ]
                             , [ id := 2, namespace := "http://www.webhare.net/xmlns/publisher/systemfolder",  isfoldertype := TRUE, isfiletype := FALSE ]
                             , [ id := 3, namespace := "http://www.webhare.net/xmlns/publisher/photoalbum",    isfoldertype := TRUE, isfiletype := FALSE ]
-                            , [ id := 4, namespace := "http://www.webhare.net/xmlns/publisher/mswordfile",  isfoldertype := FALSE, isfiletype := TRUE ]
+                            // , [ id := 4, namespace := "http://www.webhare.net/xmlns/publisher/mswordfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 5, namespace := "http://www.webhare.net/xmlns/publisher/htmlfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 6, namespace := "http://www.webhare.net/xmlns/publisher/javascriptfile",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 7, namespace := "http://www.webhare.net/xmlns/publisher/semidynamicfile",  isfoldertype := FALSE, isfiletype := TRUE ]

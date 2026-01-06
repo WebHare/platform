@@ -500,9 +500,9 @@ async function testLookup() {
   test.eq({ folder: null, file: null, site: null, webServer: root.outputWeb }, lookupresult);
 
   // test with ignored extension extension
-  const testfile2 = await testfolder.createFile('test-ignoreext.doc', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/mswordfile" });
+  const testfile2 = await testfolder.createFile('test-ignoreext.rtd', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
   await whdb.db<PlatformDB>().updateTable("system.fs_objects").set({ published: PublishedFlag_StripExtension }).where("id", "=", testfile2.id).execute();
-  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext.doc"));
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext.rtd"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
 
@@ -600,9 +600,9 @@ async function testLookup() {
 
   test.eq(testfile.id, lookupresult.file, "Looking up testdata.arraytest[1].blobcell.link");
 
-  testfile = await rootfolder.createFile("def.doc", { type: "http://www.webhare.net/xmlns/publisher/mswordfile", publish: true });
+  testfile = await rootfolder.createFile("def.rtd", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish: true });
   test.assert(testfile.link);
-  test.assert(!testfile.link.includes(".doc")); //shouldn't contain .doc anymore, given our strip code
+  test.assert(!testfile.link.includes(".rtd")); //shouldn't contain .rtd anymore, given our strip code
   lookupresult = await whfs.lookupURL(new URL(testfile.link));
   test.eq(testfile.id, lookupresult.file);
 

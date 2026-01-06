@@ -97,6 +97,12 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_systemfolder := 2;
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/photoalbum
 PUBLIC CONSTANT INTEGER whconstant_whfstype_photoalbum := 3;
 
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/htmlfile
+PUBLIC CONSTANT INTEGER whconstant_whfstype_htmlfile := 5;
+
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/javascriptfile
+PUBLIC CONSTANT INTEGER whconstant_whfstype_javascriptfile := 6;
+
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/pdffile
 PUBLIC CONSTANT INTEGER whconstant_whfstype_pdffile := 11;
 

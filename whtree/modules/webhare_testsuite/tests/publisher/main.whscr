@@ -152,10 +152,10 @@ MACRO LookupTest()
   TestEq(testfile->id, lookupresult.file);
 
   // test with ignored extension extension
-  OBJECT whfstype_doc := OpenWHFSType("http://www.webhare.net/xmlns/publisher/mswordfile");
-  OBJECT testfile2 := testfolder->CreateFile([name:='test-ignoreext.doc', published := PublishedFlag_StripExtension, type := whfstype_doc->id ]);
+  OBJECT whfstype_rtd := OpenWHFSType("platform:filetypes.richdocument");
+  OBJECT testfile2 := testfolder->CreateFile([name:='test-ignoreext.rtd', published := PublishedFlag_StripExtension, type := whfstype_rtd->id ]);
   TestEQ(testfile2->url, root->url || "testfolder/test-ignoreext/");
-  lookupresult := LookupPublisherURL(root->url || "testfolder/test-ignoreext.doc");
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test-ignoreext.rtd");
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(testfile2->id, lookupresult.file);
 
@@ -249,11 +249,6 @@ MACRO LookupTest()
   TestEq(testfolder->id, lookupresult.folder);
 
   TestEq(testfile->id, lookupresult.file, "Looking up testdata.arraytest[1].blobcell.link");
-
-  testfile := root->CreateFile([name:='def.doc',type := 4]);
-  TestEq(TRUE, testfile->url NOT LIKE "*.doc*"); //shouldn't contain .doc anymore, given our strip code
-  lookupresult := LookupPublisherURL(testfile->url);
-  TestEq(testfile->id, lookupresult.file);
 
   //Regression
   lookupresult := LookupPublisherURL(ResolveToAbsoluteURL(testfile->url, "/tollium_todd/download/iJTSMjXoVvWNNXrggqeq3g/"));
