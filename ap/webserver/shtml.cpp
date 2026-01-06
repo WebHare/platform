@@ -307,7 +307,20 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
         }
         else
         {
-                runpath = "direct::" + runpath;
+                //Ensure the file is in one of the secure locations.
+                for(auto root: webcon->GetConnection().config->secure_code_locations)
+                        // if(path.starts_with(root))
+                        if(path.size() >= root.size() && path.compare(0, root.size(), root) == 0)
+                        {
+                                runpath = "direct::" + path;
+                                break;
+                        }
+
+                if(runpath.empty())
+                {
+                        webcon->FailRequest(WebServer::StatusForbidden, "Untrusted path for script code: " + path);
+                        return true;
+                }
         }
 
         SHTML_PRINT("Loading script " << runpath);

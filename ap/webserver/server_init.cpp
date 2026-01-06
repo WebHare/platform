@@ -812,6 +812,7 @@ void WebHareServer::LoadConfig(HSVM *hsvm, HSVM_VariableId retval, HSVM_Variable
                 pxllog.SetRotates(HSVM_LoadCell<int32_t>(hsvm, config, "PXLLOG"));
                 newconfig->script_timeout = HSVM_LoadCell<int32_t>(hsvm, config, "SCRIPT_TIMEOUT");
                 HSVM_LoadIn(newconfig->stripextensions, hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "STRIPEXTENSIONS")));
+                HSVM_LoadIn(newconfig->secure_code_locations, hsvm, HSVM_RecordGetRef(hsvm, config, HSVM_GetColumnId(hsvm, "SECURE_CODE_LOCATIONS")));
         }
         catch(std::exception &e)
         {

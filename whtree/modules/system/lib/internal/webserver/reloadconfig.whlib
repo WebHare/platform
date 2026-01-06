@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
@@ -32,7 +33,12 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
     THROW NEW Exception("No valid configuration received");
 
   //Enforce the structure expected by the webserver fore more stability between upgrades - TODO also enforce structure for other subarrays than datastorage
+  RECORD config := GetWebhareConfiguration();
   configuration := EnforceStructure(GetBaseWebserverConfigRecord(), configuration);
+  configuration := CELL[
+    ...configuration,
+    secure_code_locations := config.moduledirs
+  ];
 
   FOREVERY(RECORD rule FROM configuration.rules)
   {

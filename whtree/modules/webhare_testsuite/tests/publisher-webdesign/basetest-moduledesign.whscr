@@ -112,10 +112,7 @@ MACRO TestSimplePages()
   Testeq("test", bolds[0]->firstchild->nodevalue);
 
   testfw->browser->GotoWebPage(siteroot->url || "loadlib.shtml");
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "Trying " || siteroot->url || "loadlib.shtml");
-
-  STRING result := BlobToString(testfw->browser->content,-1);
-  TestEq("<!-- LOADING IT -->", Left(result,19));
+  TestEq(403, testfw->browser->GetHTTPStatusCode(), "SHTML files on the output cannot be accessed as their location is untrusted");
 }
 
 MACRO TestDynPage()

@@ -1461,8 +1461,8 @@ MACRO TestDataStorage()
 
   CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/", TRUE);
   StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/file.shtml", StringToBlob(`<?wh PRINT("I'm a"); PRINT(" dynamic page");`));
-  TestEQ(TRUE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
-  TestEQLike("I'm a dynamic page*", BlobToString(browser->content));
+  TestEQ(FALSE, browser->GotoWebPage(testport.baseurl || "/.webhare_testsuite/datastorage/test/blue.html"));
+  Testeq(403, browser->GetHTTPStatusCode());
 
   CreateDiskDirectoryRecursive(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/", TRUE);
   StoreDiskFile(GetModuleStorageRoot("webhare_testsuite") || "tmp/foldersha_dir/9f8/6d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.html", StringToBlob(`I'm a dir hash page`));
