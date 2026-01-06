@@ -17,12 +17,6 @@ if [ -z "$WEBHARE_DIR" ]; then
   exit 1
 fi
 
-if [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
-else
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-fi
-
 echo "Max open files: $(ulimit -n)"
 
 OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))

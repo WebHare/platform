@@ -8,7 +8,7 @@ source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj
 
 if [ "$WEBHARE_PLATFORM" == "linux" ]; then
-  MAKE=/usr/local/bin/make #ensure we get make 4.4.1
+  MAKE=make
   read -r _ TOTALMEM _ <<< "$(grep ^MemTotal /proc/meminfo)"
   EXPECTMEMORY=3900000 #almost 4GB but give some tolerance
   # With too little memory the buildtoolchains will randomly segfault, and defaults for Docker/podman can be smaller than that. use eg podman machine set -m 4096
@@ -79,7 +79,8 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
   fi
 
 elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
-  REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel libpq-devel"
+  # FIXME get this list fro setup-builder.sh!
+  REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel postgresql17-libs"
   if ! which ccache > /dev/null 2>&1 ; then
     REQUIREPACKAGES="$REQUIREPACKAGES ccache"
   fi

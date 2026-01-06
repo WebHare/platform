@@ -857,7 +857,7 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   # cp doesn't work for tmpfs - https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases
   # RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
   RunDocker exec -i "$CONTAINERID" mkdir -p "$DESTCOPYDIR"
-  tar "${HOSTTAROPTIONS[@]}" -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
+  tar "${HOSTTAROPTIONS[@]}" -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar --warning=no-unknown-keyword -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
 
   if [ -n "$ISPLATFORMTEST" ] && [ -d "$BUILDDIR/build" ]; then
     RunDocker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"

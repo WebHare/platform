@@ -18,23 +18,27 @@
 set -eo pipefail
 PACKAGES=()
 
-export DEBIAN_FRONTEND=noninteractive
-export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+# Keep dnf downloads
+grep -q '^keepcache' /etc/dnf/dnf.conf && \
+  ( sed -i 's/^keepcache=.*/keepcache=1/' /etc/dnf/dnf.conf || \
+    sed -i '/^\[main\]/a keepcache=1' /etc/dnf/dnf.conf )
 
 # Drop in dirs used by the build
 mkdir -p /opt/wh/whtree/etc/startup.d /opt/whdata/installedmodules/
 
 # Setup users
-useradd --system --uid 20002 --user-group opensearch
-useradd --system --uid 20003 --user-group postgres
+## Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
+groupadd --gid 20000 whdata
+## User and group for Chrome. We really want to keep a browser far away from our data
+groupadd --gid 20001 chrome
 
-apt-get update
-apt-get install -y software-properties-common curl gnupg ca-certificates
-add-apt-repository universe
+## And the uses
+useradd --create-home --uid 20001 --gid 20001 --shell /bin/false chrome
+useradd --uid 20002 --user-group --groups whdata opensearch
+useradd --uid 20003 --user-group --groups whdata postgres
 
-# From https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md#example-cache-apt-packages
-rm -f /etc/apt/apt.conf.d/docker-clean
-echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+# Enable epel
+dnf install -y epel-release
 
 # Allow using a nightly build of node, eg:
 # WEBHARE_NODE_MAJOR=23 WHBUILD_NODE_URL=https://nodejs.org/download/nightly/v23.0.0-nightly202408194f94397650/node-v23.0.0-nightly202408194f94397650-linux-arm64.tar.xz wh buildcontainer
@@ -44,105 +48,77 @@ if [ -n "$WHBUILD_NODE_URL" ]; then
   ln -s /opt/node-*/bin/* /usr/local/bin/
   popd
 else
-  # nodesource key & repository
-  mkdir -p /etc/apt/keyrings
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${WEBHARE_NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
-
+  # Alma currently ships 22.x and we expect RL to always be a bit behind, only picking up LTS releases
+  curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
   PACKAGES+=(nodejs)
 fi
-
-# postgres key & repository
-apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
-add-apt-repository 'deb http://apt-archive.postgresql.org/pub/repos/apt/ focal-pgdg main'
-( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
 
 # Modify root to live in /opt/whdata/root/ so data there is preserved between restarts
 # usermod -d /opt/whdata/root root - doesn't work:  'usermod: user root is currently used by process 1'
 sed -e 's/:\/root:/:\/opt\/whdata\/root:/' /etc/passwd > /etc/passwd.new && mv /etc/passwd.new /etc/passwd
 
-# Group for WebHare's data directory. Not fully used yet, but keeps chrome out of it
-groupadd --gid 20000 whdata
-
-# User and group for Chrome. We really want to keep a browser far away from our data
-groupadd --gid 20001 chrome
-useradd --create-home --uid 20001 --gid 20001 --shell /bin/false chrome
-
-# User and group for opensearch. already created in dockerfile, we just need to make sure opensearch can access its data folder
-# ES has 20002
-adduser opensearch whdata
-
-# User and group for postgres. already created in dockerfile, we just need to make sure postgresql can access its data folder
-# postgres has 20003
-adduser postgres whdata
-
-# Verify recent CVEs are fixed. Sending through temp file to fix a 'E: Sub-process pager received signal 13.'
-TEMPCHANGELOG="/tmp/changelog-$$.txt"
-apt-get changelog openssl > $TEMPCHANGELOG
-if ! ( grep -q CVE-2021-3449 < $TEMPCHANGELOG ) ; then
-  echo CVE fixes not applied
-  exit 1
-fi
-echo Updates are verified
-
 # 2025-06-19: Add 'socat' because a lot of quick debugging connections depend on a forwarder
+# 2025-05-16: Converted from Ubuntu to RL 10 dependencies. Note that openjdk pulls in the most dependencies but both opensearch and pdfkit require it
+#             seeing if we can use java-21-openjdk-headless without breaking pdftk?
+
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for finalize-webhare (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version. But keep it for analyzing logs!
 # 2023-08-23: Restore openssh-server, our test_sftp needs it (and sftp needs a ssh client)
 
-PACKAGES+=(certbot
-    cron
-    fontconfig
-    libfreetype6
-    gettext-base
-    libgif7
-    git
-    inotify-tools
-    jq
-    openjdk-21-jre-headless
-    fonts-liberation
-    less
-    libaio1
-    lftp
-    libcurl4
-    libmaxminddb0
-    libicu66
-    libjpeg-turbo8
-    libpng16-16
-    libpq5
-    libssl1.1
-    libtiff5
-    locales-all
-    openssh-server
-    openssl
-    libpixman-1-0
-    postgresql-11
-    postgresql-client-11
-    postgresql-16
-    postgresql-client-16
-    postgresql-17
-    postgresql-client-17
-    procps
-    psmisc
-    runit
-    rsync
-    socat
-    software-properties-common
-    stunnel4
-    tar
-    unzip
-    valgrind
-    vim
-    zip)
+PACKAGES+=(
+ busybox # Needed for runsvdir
+ certbot #EPEL
+ fontconfig
+ freetype
+ gettext
+ giflib
+ git
+ inotify-tools #EPEL
+ jq
+ java-21-openjdk-headless
+ liberation-fonts
+ less
+ libaio
+ lftp
+ libmaxminddb
+ libicu
+ libjpeg-turbo
+ libpng
+ libtiff
+ openssl
+ pixman
+ procps-ng
+ psmisc
+ rsync
+ socat
+ stunnel
+ tar
+ unzip
+ valgrind
+ vim
+ zip
+)
 
-# Chrome specific deps
-PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libcups2)
+# Chrome deps
+PACKAGES+=(
+  atk
+  at-spi2-atk
+  libxcb
+  libxkbcommon
+  libX11
+  libXcomposite
+  libXdamage
+  libXext
+  libXfixes
+  libXrandr
+  libgbm
+  pango
+)
 
-if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
-  echo "APT-GET failed"
-  exit 1
-fi
+dnf install -y "${PACKAGES[@]}"
+
+source "${BASH_SOURCE%/*}/setup-base-shared.sh"
 
 
 # downgrade node if we meet a broken version
@@ -165,11 +141,16 @@ if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
-rm /etc/java-21-openjdk/accessibility.properties
+# rm /etc/java-21-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
 mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
+
+# setup busyboxs' version of runsv
+ln -s /usr/sbin/busybox /usr/sbin/sv
+ln -s /usr/sbin/busybox /usr/sbin/runsv
+ln -s /usr/sbin/busybox /usr/sbin/runsvdir
 
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then

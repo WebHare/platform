@@ -135,19 +135,6 @@ export PGUSER="root" #postgres user, must be locked for compatibility between de
 export PGHOST="$WEBHARE_DIR/currentinstall/pg/"
 export PGPORT=$((WEBHARE_BASEPORT + 8))
 
-# Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
-# to place additional libraries in $WEBHARE_DATAROOT/lib/
-if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-  if ! [[ $DYLD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
-    # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
-    export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
-  fi
-else
-  if ! [[ $LD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
-    export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$LD_LIBRARY_PATH"
-    fi
-fi
-
 export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
 
 # If you haven't set WEBHARE_TEMP, assume it to be $WEBHARE_DATAROOT/tmp

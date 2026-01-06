@@ -58,7 +58,18 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   # start chrome sa safe user. keep it away from stdin just in case.
   export HOME=/home/chrome
   chown -R chrome:chrome -- "$PROFILEDIR"
-  exec chpst -u chrome:chrome "$BROWSER" $ARGS "$@" < /dev/null
+
+  CHPST=""
+  if hash -r chpst 2>/dev/null; then
+    CHPST="chpst -u chrome:chrome"
+  elif hash -r setpriv 2>/dev/null; then
+    CHPST="setpriv --reuid=chrome --regid=chrome --init-groups "
+  else
+    echo "Error: neither chpst nor setpriv available" >&2
+    exit 1
+  fi
+
+  exec $CHPST "$BROWSER" $ARGS "$@" < /dev/null
 else
   # Starting chrome 'normally'
   exec "$BROWSER" $ARGS "$@"

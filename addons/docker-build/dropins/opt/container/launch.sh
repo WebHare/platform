@@ -7,15 +7,6 @@ done
 
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
-# Setup JAVA_HOME
-if [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
-else
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-fi
-
-export PATH=$PATH:$JAVA_HOME/bin
-
 # Ensure /tmp/ exists with sticky permissions. our podman builds showed up without /tmp. ?
 mkdir -p /tmp 2>/dev/null
 chmod 1777 /tmp 2>/dev/null
@@ -32,7 +23,7 @@ fi
 
 # If the database is referring to /opt/webhare/output, which is a symlink now to /opt/whdata/output, but /opt/whdata/output is missing, WebHare can't fix it
 # probably no longer relevant since we're now mostly converting database outputfolders to be fully relative to /opt/whdata/output/
-mkdir -p /opt/whdata/output /opt/whdata/installedmodules
+mkdir -p /opt/whdata/output /opt/whdata/installedmodules /opt/whdata/storage
 # Create tmp storage dir, webhare-docker-config.xml refers to this
 mkdir -p /opt/whdata/tmp
 
@@ -88,7 +79,7 @@ done
 #    but the container will SIGKILL everything once PID 1 goes away
 
 # If runsvdir receives a HUP signal, it sends a TERM signal to each runsv(8) process it is monitoring and then exits with 111.
-/usr/bin/runsvdir /etc/service &
+runsvdir /var/service &
 RUNSVDIR_PID=$!
 
 function shutdown()

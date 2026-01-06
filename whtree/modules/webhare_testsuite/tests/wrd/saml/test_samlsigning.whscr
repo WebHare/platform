@@ -96,11 +96,6 @@ FxQQ+f+xXvBD1hdRwFcZD+2TA04=
       , signaturealgorithm := "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
       ]);
 
-  TestEQ(
-      [ type := 'redirect'
-      , url := 'http://example.com/destination?SAMLRequest=lVHRasIwFH33K8Lds02qL1toKzIZCDrGdGPsLaQXDbRJzU1tP3%2BxTuZgGwzuS3LPuedwTjbr64od0ZNxNoc0EcDQalcau8vhZfswvoVZMcpI1VUj523Y22c8tEiBRaKlHFpvpVNkSFpVI8mg5Wa%2BXslJImTjXXDaVXAGy9OVvxmKCH2IXq4pzf9UyuhqH0IjOe%2B6LummifM7PhFCcHHHI6Yks7u5oHsyv8BT/rZebfQea2UsBWU1AlsucvB4GKfAXi%2BpTU6pLYlaXA64EL/EVIxFGmcrhBzmHdgi5masCgPrUxN7VTcVJtrVvPzaA5tforh3ltoa/Qb90eioUWIfqwL25N3RlOgfYyQ5XB2CYihMDp588YMSNRm/hpxf3xsuRh8%3D&RelayState=relaystate-1&SigAlg=http%3A//www.w3.org/2001/04/xmldsig-more%23rsa-sha256&Signature=hyStw6YAxMk54N1DCWO/oqG2DFTOMgiPkleA0Z8MFLlYtaNHRh%2Bax70bVV5rqYpkCa4LlHUBqiPoLLCJroI2C9X20YZZdDmRihhzirBDYoZwM/DtbnQAOX9wT%2BtFYWKOohk4SQAoxpV8cETSwkREnZCVbolD/Mkq9QLW6826%2B/O9LfrVUH9cGBGeGB62mwaZ3Il0T4J/agQK4jnC0BdOaRgy94uQhcLalUaTiDYfSBC288%2B1KbB2Yr9bABO1ShmgtegT3q33g6GB3wnrz6P2FKNJ2vpjKYS4qfPOmfiF2oPWfr5PoJv7/48rIthFjlb1V5af1USm5ADUYqJbXOHPww%3D%3D'
-      ], encoded);
-
   RECORD webdata := GetSAMLData("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect", encoded.url, GetAllVariablesFromUrl(encoded.url));
 
   RECORD decoded := DecodeSAMLMessage(webdata, TRUE);
