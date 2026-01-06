@@ -94,11 +94,12 @@ PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libpq
 PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
 PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 
-CPPFLAGS += -I$(SRCDIR)
-CPPFLAGS_WASM += -I$(SRCDIR)
+# Readding -fPIC because libblex_base failed with: /usr/bin/ld: /tmp/ccOLdR3h.ltrans2.ltrans.o: relocation R_AARCH64_ADR_PREL_PG_HI21 against symbol `__libc_single_threaded@@GLIBC_2.32' which may bind externally can not be used when making a shared object; recompile with -fPIC.  unresolvable R_AARCH64_ADR_PREL_PG_HI21 relocation against symbol `__libc_single_threaded@@GLIBC_2.32
+CPPFLAGS += -I$(SRCDIR) -fPIC
+CPPFLAGS_WASM += -I$(SRCDIR) -fPIC
 
 # AWS SDK disables exceptions via pkgconfig cflags, put in extra -fexceptions to re-enable
-CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden -Wno-switch
+CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -pedantic -fvisibility=hidden -Wno-switch
 # lots of #ifdefs make unused function checking a bit pointless for now
 CXXFLAGS_WASM += -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pedantic -fvisibility=hidden -Wno-unused-function -Wno-deprecated-declarations
 
@@ -147,14 +148,7 @@ else
 	CXXFLAGS += -DNDEBUG -O3
 	CXXFLAGS_WASM += -DNDEBUG -O3
 	ifeq ($(BUILDSYSTEM),gcc)
-		CXXFLAGS += -fno-implement-inlines -ffast-math -finline-functions
-	else
-		ifeq ($(BUILDSYSTEM),llvm)
-		  ifneq ($(WEBHARE_PLATFORM),linux)
-		    # -ffast-math gives compilation errors on Fedora 18
-		    CXXFLAGS += -ffast-math
-		  endif
-		endif
+		CXXFLAGS += -fno-implement-inlines -finline-functions
 	endif
 endif
 

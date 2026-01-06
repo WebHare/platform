@@ -42,9 +42,13 @@ load_postgres_settings()
   [ -n "$WEBHARE_DBASENAME" ] || die "WEBHARE_DBASENAME name not set"
   [ -n "$WEBHARE_DATAROOT" ] || die "WEBHARE_DATAROOT name not set"
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
+  if [ -n "$WEBHARE_IN_DOCKER" ] && [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
+    if hash -r chpst 2>/dev/null; then
       RUNAS="chpst -u postgres:whdata"
+    elif hash -r setpriv 2>/dev/null; then
+      RUNAS="setpriv --reuid=postgres --regid=whdata --init-groups "
+    else
+      die "Error: neither chpst nor setpriv available"
     fi
   fi
 
