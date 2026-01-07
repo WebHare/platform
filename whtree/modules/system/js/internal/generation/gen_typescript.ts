@@ -169,7 +169,7 @@ async function syncLinks(basepath: string, want: DataRootItem[], { clean = false
       await symlink(item.target, tempPath); //generate with unique name
       await rename(tempPath, itemPath); //and move atomically into place
     } else {
-      await mkdir(itemPath);
+      await mkdir(itemPath, { recursive: true }); //recursive also prevents an error if the directory was created in parallel
     }
   }
 
