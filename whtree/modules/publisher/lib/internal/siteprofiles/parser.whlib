@@ -914,6 +914,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
               INSERT [ path := MakeLegacyAbsoluteResourcePath(this->filename, node->GetAttribute("path"), "data")
                      , name := node->GetAttribute("name")
                      ] INTO apply.formdefinitions AT END;
+              IF(apply.formdefinitions[Length(apply.formdefinitions)-1].name = "")
+                this->AddWarning(node, "Anonymous <formdefinitions> are deprecated and ambiguous depending on siteprofile ordering. You should name all formdefinitions and move them to moduledefinition.yml, available since WebHare 5.9.1");
+              ELSE
+                this->AddHint(node, "Siteprofile <formdefinitions> are deprecated. You should move these sto moduledefinition.yml, available since WebHare 5.9.1");
               CONTINUE;
             }
             CASE "webdesign"
