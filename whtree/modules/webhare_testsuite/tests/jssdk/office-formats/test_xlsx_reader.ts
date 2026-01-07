@@ -36,6 +36,14 @@ async function testStreamingReader() {
     test.eq(Temporal.PlainDate.from("1986-09-27"), rows[1][1]);
     test.eq(20064, rows[1][2]);
   }
+  //but if needed, we can get at the raw String values. not a smart idea with dates but...
+  {
+    const workBookReader = await openXlsxFromDisk(path.join(__dirname, 'data/import.xlsx'), { rawStringCells: true });
+    const rows: XlsxRow[] = await Array.fromAsync(workBookReader.openSheet(0).rows());
+
+    test.eq('31682', rows[1][1]);
+    test.eq('20064', rows[1][2]);
+  }
   //it supports date formate 1904
   {
     const workBookReader = await openXlsxFromDisk(path.join(__dirname, 'data/date1904.xlsx'));

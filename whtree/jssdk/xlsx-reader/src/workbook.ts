@@ -4,16 +4,9 @@ import Sax from 'sax';
 import XlsxStreamReaderWorkSheet from './worksheet';
 import type { UnpackArchiveDirectory, UnpackArchiveFile, UnpackArchiveResult } from '@webhare/zip';
 import { throwError } from '@webhare/std';
+import type { OpenXlsxOptions } from '@webhare/xlsx-reader';
 
 type TmpNode = any;
-
-interface WorkBookOptions {
-  saxPosition?: boolean;
-  saxStrictEntities?: boolean;
-  saxStrict?: boolean;
-  normalize?: boolean;
-  verbose?: boolean;
-}
 
 interface WorkBookInfo {
   sheetRelationships: { [key: string]: string };
@@ -54,7 +47,7 @@ const XlsxBuiltinFormatCodes: { [key: number]: string } = {
 };
 
 class XlsxStreamReaderWorkBook {
-  options: WorkBookOptions;
+  options: OpenXlsxOptions;
   workBookSharedStrings: any[];
   workBookInfo!: WorkBookInfo; //loaded immediately at construction by xlsx-reader, so noone can publicly access it before it's ready
   parsedSharedStrings: boolean;
@@ -69,8 +62,7 @@ class XlsxStreamReaderWorkBook {
   ready;
   private _readyForStreamingPromise: Promise<void> | null = null;
 
-  constructor(public source: UnpackArchiveResult, options: WorkBookOptions = {}) {
-
+  constructor(public source: UnpackArchiveResult, options: OpenXlsxOptions = {}) {
     this.options = options;
     this.workBookSharedStrings = [];
     this.parsedSharedStrings = false;
@@ -159,14 +151,7 @@ class XlsxStreamReaderWorkBook {
     let tmpNode: TmpNode[] = [];
     let tmpNodeEmit = false;
 
-    const saxOptions: any = {
-      trim: trim,
-      position: this.options.saxPosition,
-      strictEntities: this.options.saxStrictEntities,
-      normalize: this.options.normalize
-    };
-
-    const parser = Sax.createStream(this.options.saxStrict, saxOptions);
+    const parser = Sax.createStream(true, { trim });
 
     parser.on('error', (error: Error) => {
       if (this.abortBook) return;
@@ -235,9 +220,6 @@ class XlsxStreamReaderWorkBook {
 
   _getSharedString(stringIndex: number) {
     if (stringIndex > this.workBookSharedStrings.length) {
-      if (this.options.verbose) {
-        console.error('missing shared string: ' + stringIndex);
-      }
       return;
     }
     return this.workBookSharedStrings[stringIndex];
