@@ -11,6 +11,7 @@ export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound, lowerB
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime, utcToLocal, localToUTC } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
 export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, importHSResourceDescriptor, type HareScriptRTD, type HareScriptResourceDescriptor } from "./richdocument";
+export { type HareScriptColumnFile, getSpreadsheetDataFromHareScript } from "./formats";
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
 export function decodeHSONorJSONRecord(input: string | null, { typed = false } = {}): object | null {
