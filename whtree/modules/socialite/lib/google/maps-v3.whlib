@@ -425,7 +425,7 @@ PUBLIC STATIC OBJECTTYPE GGeocoder EXTEND GGeocoderBase
     IF(locations.status="ZERO_RESULTS")
       RETURN DEFAULT OBJECT;
 
-    THROW NEW Exception(`GetLatLng failed: ${locations.status}: ${locations.error_message}`);
+    THROW NEW Exception(`GetLatLng failed: ${locations.status}${CellExists(locations,'error') ? `: ${locations.error}` : ""}`);
   }
 
   PUBLIC RECORD FUNCTION ReverseGeocode(OBJECT latlng)

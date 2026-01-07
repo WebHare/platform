@@ -8,15 +8,10 @@ import { activateHMR } from '@webhare/services/src/hmrinternal';
 import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { program } from 'commander';
 import { launchService } from './runner';
+import { run } from '@webhare/cli';
 
 const activeServices: Record<string, WebHareService> = {};
-
-program.name("nodeservices").
-  option("--debug", "Enable debugging").
-  option("--core", "Run core services").
-  parse(process.argv);
 
 class NodeServicesClient extends BackendServiceConnection {
   #suppressing = new Set<string>;
@@ -80,11 +75,11 @@ class NodeServiceManager {
     this.backendservices = getExtractedConfig("services").backendServices;
   }
 
-  async main() {
+  async main(opts: { core: boolean }) {
     void runBackendService(this.servicename, () => new NodeServicesClient(this), { dropListenerReference: true });
 
     for (const service of this.backendservices) {
-      if (service.coreService === Boolean(program.opts().core)) {
+      if (service.coreService === Boolean(opts.core)) {
         const srv = await launchService(service);
         if (srv)
           activeServices[service.name] = srv;
@@ -95,6 +90,13 @@ class NodeServiceManager {
 
 export type { NodeServicesClient };
 
-activateHMR();
-const mgr = new NodeServiceManager(program.opts().core ? "platform:coreservices" : "platform:nodeservices");
-void mgr.main();
+run({
+  flags: {
+    "core": "Run core services"
+  },
+  async main({ opts }) {
+    activateHMR();
+    const mgr = new NodeServiceManager(opts.core ? "platform:coreservices" : "platform:nodeservices");
+    await mgr.main(opts);
+  }
+});

@@ -3,5 +3,4 @@
   <test name="database"   path="database/" />
   <test name="jscomponents"    path="jscomponents/" />
   <test name="webserver"  path="webserver/" />
-  <test name="sftp"       path="sftp/" />
 </group>

@@ -1,4 +1,3 @@
-import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { backendConfig } from "@webhare/services/src/config";
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
@@ -6,11 +5,8 @@ import { whconstant_builtinmodules } from '@mod-system/js/internal/webhareconsta
 import { toResourcePath } from '@webhare/services';
 import { spawnSync } from 'node:child_process';
 import { storeDiskFile } from '@webhare/system-tools';
+import { run } from '@webhare/cli';
 
-program.name("platform:auditmodule")
-  .option("--outputfile <path>", "output file")
-  .argument("<module>", "module to audit")
-  .parse();
 
 function getPackageDirs(module: string): string[] {
   const pkgdirs = [];
@@ -53,46 +49,54 @@ export interface ModuleAuditFormat {
 
 }
 
-async function main() {
-  const module = program.args[0];
-  const retval: ModuleAuditFormat = {
-    module,
-    generated: new Date().toISOString(),
-    errors: [],
-    packageDirs: []
-  };
+run({
+  options: {
+    "outputfile": { description: "output file" },
+  },
+  arguments: [
+    {
+      name: "<module>", description: "module to audit"
+    }
+  ],
+  async main({ opts, args }) {
+    const module = args.module;
+    const retval: ModuleAuditFormat = {
+      module,
+      generated: new Date().toISOString(),
+      errors: [],
+      packageDirs: []
+    };
 
-  const pkgdirs = getPackageDirs(module);
-  for (const dir of pkgdirs) {
-    const reportDir = toResourcePath(dir, { keepUnmatched: true });
-    const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
-    if (!Object.keys(directDependencies).length)
-      continue; //no need to mention this dir, no modules
+    const pkgdirs = getPackageDirs(module);
+    for (const dir of pkgdirs) {
+      const reportDir = toResourcePath(dir, { keepUnmatched: true });
+      const directDependencies = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).dependencies || {}) as Record<string, string>;
+      if (!Object.keys(directDependencies).length)
+        continue; //no need to mention this dir, no modules
 
-    const auditResult = spawnSync("npm", ["audit", "--json"], { cwd: dir });
-    const output = auditResult.stdout.toString().trim();
-    if (!output) {
-      retval.errors.push({
-        message: (`npm audit failed: ${auditResult.status ?? auditResult.signal}\n` + output).trim(),
-        resource: reportDir
-      });
-      continue;
+      const auditResult = spawnSync("npm", ["audit", "--json"], { cwd: dir });
+      const output = auditResult.stdout.toString().trim();
+      if (!output) {
+        retval.errors.push({
+          message: (`npm audit failed: ${auditResult.status ?? auditResult.signal}\n` + output).trim(),
+          resource: reportDir
+        });
+        continue;
+      }
+
+      try {
+        retval.packageDirs.push({ dir: reportDir, npmAudit: JSON.parse(output), directDependencies });
+      } catch (e) {
+        retval.errors.push({
+          message: (`npm audit failed: ${e}`).trim(),
+          resource: reportDir
+        });
+      }
     }
 
-    try {
-      retval.packageDirs.push({ dir: reportDir, npmAudit: JSON.parse(output), directDependencies });
-    } catch (e) {
-      retval.errors.push({
-        message: (`npm audit failed: ${e}`).trim(),
-        resource: reportDir
-      });
-    }
+    if (opts.outputfile)
+      await storeDiskFile(opts.outputfile, JSON.stringify(retval), { overwrite: true });
+    else
+      console.log(JSON.stringify(retval, null, 2));
   }
-
-  if (program.opts().outputfile)
-    await storeDiskFile(program.opts().outputfile, JSON.stringify(retval), { overwrite: true });
-  else
-    console.log(JSON.stringify(retval, null, 2));
-}
-
-void main();
+});

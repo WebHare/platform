@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -57,13 +58,17 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   }
   ELSE
   {
-    INTEGER64 lastrun := GetDatetimeDifference(lastintervalrun.lastrun, GetCurrentDatetime()).totalmsecs;
+    RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
+    DATETIME boottime := startupdata.start;
+    //if the server recently booted consider that the last run time to prevent this check during startup. Ideally we could consider most-recent-wake time too
+    INTEGER64 lastrun := GetDatetimeDifference(MAX[]([boottime, lastintervalrun.lastrun]), GetCurrentDatetime()).totalmsecs;
+
     IF(lastrun > 10 * 60000) //it's scheduled every 5 minutes, so warn after 10
     {
       INSERT CELL[ ...baseissue
                  , message_text := `The periodic status checks have not been executed for more than ${lastrun / 60000} minutes`
                  , rowkey := -2
-                 , is_critical := TRUE
+                 , is_critical := GetDtapStage() != "development" //if we can't prevent the error triggering due to recent sleep, make it non-critical for dev servers (most likely to sleep)
                  ] INTO issues AT END;
 
     }

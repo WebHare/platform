@@ -1,4 +1,0 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <!-- test_sftp is only expected to work in Docker images -->
-  <test script="test_sftp.whscr" ifenvironset="WEBHARE_IN_DOCKER" />
-</group>

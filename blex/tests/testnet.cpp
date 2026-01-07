@@ -925,22 +925,26 @@ BLEX_TEST_FUNCTION(DispatSSLDataTest)
 
         Blex::SleepThread(100);
 
-        tcpsock.SendSSLShutdown();
-        tcpsock.Shutdown(false, true);
-
         // Wait for dispatcher to process & send a lot
         Blex::SleepThread(1000);
-
-        signed res = tcpsock.TimedReceive(toreceive, 19, Blex::DateTime::Max()).second;
 
         // Receive 8 meg
         unsigned left = 65536 * 128;
         while (left > 0)
         {
-                res = tcpsock.TimedReceive(toreceive, left, Blex::DateTime::Max()).second;
-                if (res <= 0)
-                    break;
-                left -= res;
+                std::pair<Blex::SocketError::Errors, int32_t> res = tcpsock.TimedReceive(toreceive, left, Blex::DateTime::Max());
+                if (res.second <= 0)
+                {
+                        if(res.first == Blex::SocketError::WouldBlock)
+                        {
+                                Blex::SleepThread(10);
+                                continue;
+                        }
+                        Blex::ErrStream() << "DispatSSLDataTest: receive error " << res.first << " " << Blex::SocketError::GetErrorText(res.first);
+                        BLEX_TEST_CHECKEQUAL(Blex::SocketError::NoError, res.first);
+                        break;
+                }
+                left -= res.second;
                 DEBUGPRINT("Still wanting " << left << " bytes");
         }
 
