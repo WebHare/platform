@@ -213,8 +213,7 @@ PUBLIC BOOLEAN FUNCTION WaitForTimedTask(STRING taskname, DATETIME deadline, REC
     DATETIME now := GetCurrentDatetime();
     IF (options.debug AND (((iter + 1) % 50) = 0 OR now >= deadline))
     {
-      PRINT(`** ${now >= deadline ? "timeout " : iter<50 ? "" : "still "}waiting for executetasks to finish (waited ${GetDateTimeDifference(start, now).msecs / 1000} secs)\n`);
-      PRINT(`Waiting for tags [${Detokenize(options.tags, ", ")}], scripts [${Detokenize(options.scripts, ", ")}]\n`);
+      PRINT(`** ${now >= deadline ? "timeout " : iter<50 ? "" : "still "}waiting for timed task '${taskname}' to finish (waited ${GetDateTimeDifference(start, now).msecs / 1000} secs)\n`);
       IF(RecordExists(retval))
       {
         PRINT(`Now running:\n${AnyToString((SELECT script, tag, starttime, ismatch := tag = VAR matchtag FROM retval.msg.processes ORDER BY starttime), "boxed")}`);
