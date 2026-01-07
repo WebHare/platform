@@ -32,7 +32,10 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: stri
   await page.waitForSelector('[name=login]');
   await page.type('[name=login]', user.login);
   await page.type('[name=password]', password);
-  await page.click('button[type=submit]');
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('button[type=submit]')
+  ]);
 
   if (options?.changePasswordTo) {
     await page.waitForSelector('.wh-form--allowsubmit #completeaccountpassword-passwordnew'); //wh-form--allowsubmit ensures the form is ready for to submit (and JS code is loaded)
@@ -41,8 +44,13 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: stri
     await page.click('button[type=submit]');
 
     await page.waitForSelector('[data-wh-form-action="exit"]');
-    await page.click('[data-wh-form-action="exit"]');
+    await Promise.all([
+      page.waitForNavigation(),
+      page.click('[data-wh-form-action="exit"]')
+    ]);
   }
+
+  //we must wait for the last navigation to complete or we might actually return to our caller before the login redirects have completed
 }
 
 async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string) {
@@ -92,7 +100,8 @@ async function setupOIDC() {
   await test.resetWTS({ //resetWTS also links platform:identityprovider to the testsiteJS which we need to see the testsiteJS .well-known/openid-configuration
     users: {
       sysop: { grantRights: ["system:sysop"] },
-      marge: {}
+      marge: {},
+      bart: {}
     },
     wrdSchema: "webhare_testsuite:testschema",
     schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
@@ -453,6 +462,9 @@ async function verifyCustomOpenIDFlow() {
     whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:marge$"),
     wrdLastName: "BLOCKME"
   });
+  await oidcAuthSchema.update("wrdPerson", test.getUser("bart").wrdId, {
+    whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:bart$"),
+  });
   await commitWork();
 
   const context = await puppeteer!.createBrowserContext(); //separate cookie storage
@@ -477,6 +489,25 @@ async function verifyCustomOpenIDFlow() {
     await test.wait(() => page.url().endsWith("/redirected-away"));
   } finally {
     await context.close();
+  }
+
+  { //Test user autocreation
+    const autocreateContext = await puppeteer!.createBrowserContext(); //separate cookie storage
+    try {
+      const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+      test.eq(null, await schemaSP.find("wrdPerson", { wrdContactEmail: test.getUser("bart").login }), "User bart should not exist yet");
+
+      const page = await autocreateContext.newPage();
+      const portal1LoginRequest = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
+      console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
+      await page.goto(portal1LoginRequest);
+
+      await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: changePasswordTo });
+      const newUser = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("bart").login).select(["wrdId", "wrdLastName", "whuserComment"]).executeRequireExactlyOne();
+      test.eq(testsite.webRoot + "portal1-oidc/wrdauthtest/", newUser.whuserComment, "Autocreated user should have final URL in whuserComment");
+    } finally {
+      await autocreateContext.close();
+    }
   }
 }
 

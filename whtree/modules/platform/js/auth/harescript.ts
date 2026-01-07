@@ -209,7 +209,7 @@ export async function verifyPasswordComplianceForHS(targetUrl: WRDAuthPluginSett
 }
 
 /** HS Callback into the customizer infrastructure that expects validation to already be done */
-export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string, client: number): Promise<number | null | NavigateInstruction | LoginDeniedInfo> {
+export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string, client: number, finalUrl: string): Promise<number | null | NavigateInstruction | LoginDeniedInfo> {
   loginfield ||= 'sub'; //fallback
 
   const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
@@ -223,6 +223,7 @@ export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id
       wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
       provider: client,
       jwtPayload,
+      finalUrl
     });
     if (typeof result === "number")
       return result; //FIXME ensure succesful login is audited. oidc.shtml LoginById probably does this
