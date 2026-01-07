@@ -277,7 +277,7 @@ STATIC OBJECTTYPE PublicationRun
         INTEGER pos := SearchElement(this->outputfilepipestack, handle);
         IF (pos >= 0)
         {
-          DEBUGPRINT("READING DATA (to: "||this->outstack[pos].handle||")");
+          DEBUGPRINT("READING DATA (to: "||this->outstack[pos].filehandle||")");
           WHILE (WaitForMultiple([ handle ], DEFAULT INTEGER ARRAY, 0) = handle)
           {
             STRING data := ReadFrom(handle, -4096); // Don't want to read until end of stream
@@ -286,7 +286,7 @@ STATIC OBJECTTYPE PublicationRun
 
             DEBUGPRINT("Read "||LENGTH(data)||" bytes");
             this->totalsize := this->totalsize + LENGTH(data);
-            PrintTo(this->outstack[pos].handle, data);
+            PrintTo(this->outstack[pos].filehandle, data);
           }
           IF (IsAtEndOfStream(handle))
           {
@@ -454,8 +454,7 @@ STATIC OBJECTTYPE PublicationRun
 
 //FIXME Use information table in publisher.whlib
       IF (ObjectExists(this->contentfiletype) AND
-          (this->contentfiletype->id = 29/*profile*/
-            OR this->contentfiletype->id = 28/*template*/
+          ( this->contentfiletype->id = 28/*template*/
             OR this->contentfiletype->id = 16/*harescript library*/
             OR (this->contentfiletype->id >= 18 AND this->contentfiletype->id <= 20)/*link*/))
       {
@@ -592,11 +591,7 @@ STATIC OBJECTTYPE PublicationRun
       CASE "OPENOUTPUT"
       {
         DEBUGPRINT("OpenOutput: file=" || msg.filename || ", dbfile=" || (msg.dbfile?'true':'false'));
-        INTEGER handle := msg.dbfile ? CreateStream() : this->outputmedia->OpenOutput(this->ToFSCase(msg.filename));
-        INTEGER filehandle := handle;
-
-        IF (NOT msg.dbfile AND (msg.sanitize_output OR msg.isshtml))
-          handle := CreateStream();
+        INTEGER filehandle := msg.dbfile ? CreateStream() : this->outputmedia->OpenOutput(this->ToFSCase(msg.filename));
 
         IF (this->outputmedia->AnyError())
         {
@@ -605,12 +600,9 @@ STATIC OBJECTTYPE PublicationRun
           RETURN DEFAULT RECORD;
         }
 
-        INSERT [ handle := handle
-               , filehandle := filehandle
+        INSERT [ filehandle := filehandle
                , dbfile := msg.dbfile
                , filename := msg.filename
-               , sanitize_output := msg.sanitize_output
-               , isshtml := msg.isshtml
                ] INTO this->outstack AT 0;
 
         RECORD pipeset := CreatePipeSet();
@@ -618,7 +610,7 @@ STATIC OBJECTTYPE PublicationRun
         SetPipeYieldThreshold(pipeset.write, 256*1024); // 256*1024 (yield at writes when more than 256 kb is in buffer)
         INSERT pipeset.read INTO this->outputfilepipestack AT 0; //ADDME merge outputfilepipestack into outstack
 
-        RETURN  [ id := handle
+        RETURN  [ id := filehandle
                 , pipe := CreatePipeMarshaller(pipeset.write)
                 ];
       }
@@ -627,7 +619,7 @@ STATIC OBJECTTYPE PublicationRun
       {
         DEBUGPRINT("CloseOutput: id=" || msg.id);
         // Flush all outstanding pipe data
-        INTEGER pos := (SELECT AS INTEGER #outstack + 1 FROM this->outstack AS outstack WHERE handle = msg.id) - 1;
+        INTEGER pos := (SELECT AS INTEGER #outstack + 1 FROM this->outstack AS outstack WHERE filehandle = msg.id) - 1;
         IF (pos = -1)
         {
           this->errordata := "Message format error with template";
@@ -657,33 +649,10 @@ STATIC OBJECTTYPE PublicationRun
           }
         }
 
-        BLOB filedata;
-        IF (closedfile.dbfile OR closedfile.sanitize_output OR closedfile.isshtml)
-        {
-          filedata := MakeBlobFromStream(closedfile.handle);
-
-          IF (closedfile.sanitize_output)
-          {
-            RECORD res := SanitizeOutput(filedata, msg.substitutions);
-            filedata := res.data;
-            IF (res.found_code)
-            {
-              this->errorcode := 3005; //io error achtig iets?
-              this->errordata := "Found untrusted HareScript code in the output code: '" || UCTruncate(res.first_script, 80) || "'";
-              RETURN DEFAULT RECORD;
-            }
-          }
-
-          // Send the final sanitized data to the disk outputfile
-          IF (NOT closedfile.dbfile)
-            SendBlobTo(closedfile.filehandle, filedata);
-        }
-
-
         IF(closedfile.dbfile)
         {
           INSERT [ filename := closedfile.filename
-                 , data := WrapBlob(filedata, closedfile.filename)
+                 , data := WrapBlob(MakeBlobFromStream(closedfile.filehandle), closedfile.filename)
                  ] INTO this->dbfiles AT END;
         }
         ELSE
@@ -713,39 +682,6 @@ STATIC OBJECTTYPE PublicationRun
         RETURN DEFAULT RECORD;
       }
 
-      CASE "OPENHARESCRIPTFILE"
-      {
-        IF (ObjectExists(this->contentfiletype) AND (this->contentfiletype->id = 7 /*HareScript*/ OR this->contentfiletype->id = 24/*placeholder filetype*/))
-        {
-          INTEGER scriptid := 0;
-          STRING scriptname;
-
-          IF (ObjectExists(this->contentfiletype) AND this->contentfiletype->id = 7)
-            scriptid := this->contentfileid;
-          ELSE //dus 24: placeholder filetype
-            scriptname := ReadRegistryKey("publisher.publication.defaultcontentlisting");
-
-          OBJECT ifr := NEW IndexFileRun(this->outputsettings, this->profile);
-          ifr->publicationrun := this;
-          BOOLEAN result := ifr->Run(scriptid, scriptname);
-
-          IF (NOT result)
-          {
-            this->errorcode := ifr->errorcode;
-            this->errordata := ifr->errordata;
-            this->hs_errors := ifr->hs_errors;
-            this->hs_groupid := ifr->hs_groupid;
-            RETURN DEFAULT RECORD;
-          }
-          RETURN [ parts := ifr->parts ];
-        }
-        ELSE
-        {
-          // FIXME: set error code!
-          RETURN DEFAULT RECORD;
-        }
-      }
-
       CASE "SETONPUBLISH"
       {
         this->setonpublish := this->setonpublish CONCAT msg.preppedonpublish;
@@ -770,313 +706,6 @@ STATIC OBJECTTYPE PublicationRun
     }
   }
 >;
-
-/** Removes all harescript tags, and performs substitutions on the code
-    (to reintroduce trusted harescript code)
-    @param file
-    @param substitutions
-    @cell substitutions.toreplace
-    @cell substitutions.replacewith
-*/
-RECORD FUNCTION SanitizeOutput(BLOB file, RECORD ARRAY substitutions)
-{
-  STRING data := BlobToString(file);
-
-  INTEGER first_script_tag_pos := SearchSubString(data, "<?wh");
-  STRING first_script;
-  IF (first_script_tag_pos != 1)
-  {
-    first_script := SubString(data, first_script_tag_pos);
-    first_script := Left(first_script, SearchSubString(first_script, "?>"));
-  }
-
-  BOOLEAN found_code := first_script_tag_pos != -1;
-
-  // Early out
-  IF (LENGTH(substitutions) = 0 AND NOT found_code)
-    RETURN [ found_code := FALSE, data := file, first_script := "" ];
-
-  data := SubStitute(data, "<?wh", "&lt;?wh");
-
-  FOREVERY (RECORD rec FROM substitutions)
-    data := SubStitute(data, rec.toreplace, rec.replacewith);
-
-  RETURN [ found_code := found_code, data := StringToBlob(data), first_script := first_script ];
-}
-
-STATIC OBJECTTYPE IndexFileRun
-<
-  PUBLIC INTEGER errorcode;
-  PUBLIC STRING errordata;
-  PUBLIC RECORD ARRAY hs_errors;
-  PUBLIC STRING hs_groupid;
-
-  PUBLIC BOOLEAN is_part_open;
-  PUBLIC RECORD ARRAY parts;
-
-  PUBLIC OBJECT indexfilejob;
-  PUBLIC INTEGER joboutput;
-  PUBLIC OBJECT port;
-
-  PUBLIC OBJECT publicationrun;
-  RECORD outputsettings;
-  BOOLEAN profile;
-
-  MACRO NEW(RECORD outputsettings, BOOLEAN profile)
-  {
-    this->outputsettings := outputsettings;
-    this->profile := profile;
-  }
-
-  PUBLIC BOOLEAN FUNCTION HandleMessage(OBJECT link, RECORD rec)
-  {
-    // Ain't gonna wait, we got the wait loop for that.
-    IF (rec.status != "ok")
-    {
-      this->errordata := "Communication error with index file: " || rec.status;
-      this->errorcode := 3003;
-      RETURN FALSE;
-    }
-    IF (TypeId(rec.msg) != TypeId(Record) OR NOT CellExists(rec.msg, "TYPE"))
-    {
-      this->errordata := "Message format error with template";
-      this->errorcode := 3003;
-      RETURN FALSE;
-    }
-    DEBUGPRINT("@Received index message " || rec.msg.type);
-    RECORD reply;
-    SWITCH (rec.msg.type)
-    {
-    CASE "OPENPART"
-        {
-          IF (this->is_part_open)
-          {
-            this->errordata := "Index file opened two parts at a time";
-            this->errorcode := 3003;
-            RETURN FALSE;
-          }
-          this->is_part_open := TRUE;
-          INSERT [ subs := DEFAULT RECORD ARRAY
-                 , anchor := STRING(rec.msg.pagename)
-                 , newpage := BOOLEAN(rec.msg.wantnewpage)
-                 ] INTO this->parts AT END;
-        }
-
-    CASE "CLOSEPART"
-        {
-          IF (NOT this->is_part_open)
-          {
-            this->errordata := "Index file tried to close a part while none was open";
-            this->errorcode := 3003;
-            RETURN FALSE;
-          }
-          this->is_part_open := FALSE;
-        }
-
-    CASE "INSERTPARTLINK"
-        {
-          IF (NOT this->is_part_open)
-          {
-            this->errordata := "Index file tried to insert a link while no part was open";
-            this->errorcode := 3003;
-            RETURN FALSE;
-          }
-          DEBUGPRINT("IFR:Writing link");
-          INTEGER part_pos := LENGTH(this->parts) - 1;
-          INSERT [ type := "LINK"
-                 , partname := STRING(rec.msg.partname)
-                 ] INTO this->parts[part_pos].subs AT END;
-        }
-
-    CASE "INSERTIMAGE"
-        {
-          IF (NOT this->is_part_open)
-          {
-            this->errordata := "Index file tried to insert an image while no part was open";
-            this->errorcode := 3003;
-            RETURN FALSE;
-          }
-          DEBUGPRINT("IFR:Writing image");
-          INTEGER part_pos := LENGTH(this->parts) - 1;
-          INSERT [ type := "IMAGE"
-                 , name := rec.msg.name
-                 , is_photo := rec.msg.is_photo
-                 , alttag := rec.msg.alttag
-                 , canvas := rec.msg.canvas
-                 ] INTO this->parts[part_pos].subs AT END;
-        }
-
-    CASE "OPENHARESCRIPTFILE"
-        {
-          this->errordata := "Index file tried to open another index file";
-          this->errorcode := 3003;
-          RETURN FALSE;
-        }
-
-    DEFAULT
-        {
-          ABORT("Illegal command given (" || rec.msg.type || ") while communicating with an index file");
-        }
-    }
-    rec := link->SendReply(reply, rec.msgid);
-/*      // The question is, do we mind? If the script crashed, we catch that via other, better ways.
-    IF (rec.status != "ok")
-    {
-      this->errordata := "Communication error with index file: " || rec.status;
-      this->errorcode := 3003;
-      RETURN FALSE;
-    }
-*/
-    RETURN TRUE;
-  }
-
-  // ----------------------------------------------------------------------------
-  //
-  // Index file
-  //
-  PUBLIC BOOLEAN FUNCTION LoadIndexFile(INTEGER scriptid, STRING scriptname)
-  {
-    IF (scriptid != 0)
-    {
-      scriptname := OpenWHFSObject(scriptid)->GetResourceName();
-    }
-
-    RECORD jobdata := CreateJob("mod::publisher/scripts/internal/publishjob.whscr");
-    OBJECT job := jobdata.job;
-    IF (NOT ObjectExists(job))
-    {
-      this->errorcode:=101;
-      this->errordata:="Could not start semi-dynamic harescript file";
-      this->hs_errors := jobdata.errors;
-      RETURN FALSE;
-    }
-
-    this->publicationrun->SetupJobEnvironment(job, FALSE, scriptname, this->profile);
-    this->indexfilejob := job;
-    this->joboutput := job->CaptureOutput();
-
-    RETURN TRUE;
-
-  }
-
-  PUBLIC BOOLEAN FUNCTION Run(INTEGER scriptid, STRING scriptname)
-  {
-    IF (NOT this->LoadIndexFile(scriptid, scriptname))
-      RETURN FALSE;
-
-    BOOLEAN retval;
-
-    this->indexfilejob->Start();
-    BOOLEAN have_joboutput_eof := FALSE;
-    WHILE (TRUE)
-    {
-      INTEGER ARRAY handles;
-      IF(NOT have_joboutput_eof)
-        handles := [ this->joboutput ];
-
-      handles := handles CONCAT [ INTEGER(this->indexfilejob->handle), this->indexfilejob->ipclink->handle ];
-
-      //DEBUGPRINT("IFR:Waiting (1)");
-      INTEGER handle := WaitForMultiple(handles, DEFAULT INTEGER ARRAY, -1);
-      //DEBUGPRINT("IFR:Waited (1), got handle: " || handle || "  job: "||this->indexfilejob->handle||", port: "||this->port->handle||", links:"||AnyToString(linkhandles, "tree"));
-
-      BOOLEAN have_error := FALSE;
-
-      WHILE (NOT have_joboutput_eof AND WaitForMultiple([ this->joboutput ], DEFAULT INTEGER ARRAY, 0) = this->joboutput)
-      {
-        STRING data := ReadFrom(this->joboutput, -16384); // Just read available output
-        IF (data = "")
-        {
-          have_joboutput_eof := TRUE;
-          BREAK;
-        }
-        IF (NOT this->HandleOutput(data))
-        {
-          retval := FALSE;
-          have_error := TRUE;
-          BREAK;
-        }
-      }
-      IF (have_error)
-        BREAK;
-
-      IF (handle = this->indexfilejob->handle)
-      {
-        this->hs_errors := this->indexfilejob->GetErrors();
-        this->hs_groupid := this->indexfilejob->groupid;
-        this->indexfilejob->Close();
-        IF (LENGTH(this->hs_errors) > 0)
-        {
-          STRING abortmsg;
-          BOOLEAN is_abort;
-          FOREVERY (RECORD error FROM this->hs_errors)
-          {
-            IF (error.code = 182)
-            {
-              is_abort := TRUE;
-              abortmsg := error.param1;
-            }
-            ELSE IF (error.code = 203) //exception
-            {
-              abortmsg := error.param1 || ": " || error.param2;
-            }
-          }
-          this->errorcode := is_abort ? 102 /*abort*/ : 101 /*harescript errors*/;
-          this->errordata := abortmsg;
-          //DEBUGPRINT(AnyToString(this->hs_errors, "boxed"));
-          retval := FALSE;
-          BREAK;
-        }
-        retval := TRUE;
-        BREAK;
-      }
-      ELSE IF (handle = this->indexfilejob->ipclink->handle)
-      {
-        RECORD res := this->indexfilejob->ipclink->ReceiveMessage(DEFAULT DATETIME);
-        SWITCH (res.status)
-        {
-        CASE "timeout"{ }
-        CASE "gone"   {
-                      }
-        CASE "ok"     {
-                        IF (NOT this->HandleMessage(this->indexfilejob->ipclink, res))
-                        {
-                          retval := FALSE;
-                          BREAK;
-                        }
-                      }
-        }
-      }
-    }
-
-    IF (this->joboutput != 0)
-    {
-      ClosePipe(this->joboutput);
-      this->joboutput := 0;
-    }
-
-    RETURN retval;
-  }
-
-  PUBLIC BOOLEAN FUNCTION HandleOutput(STRING data)
-  {
-    DEBUGPRINT("IFR:Writing text of length "||LENGTH(data));
-    IF (NOT this->is_part_open)
-      RETURN TRUE;
-
-    INTEGER part_pos := LENGTH(this->parts) - 1;
-    INTEGER sub_pos := LENGTH(this->parts[part_pos].subs) - 1;
-    IF (sub_pos < 0 OR this->parts[part_pos].subs[sub_pos].type != "TEXT")
-      INSERT [ type := "TEXT"
-             , data := data ] INTO this->parts[part_pos].subs AT END;
-    ELSE
-      this->parts[part_pos].subs[sub_pos].data := this->parts[part_pos].subs[sub_pos].data || data;
-    RETURN TRUE;
-  }
->;
-
-
-
 
 // ----------------------------------------------------------------------------
 //

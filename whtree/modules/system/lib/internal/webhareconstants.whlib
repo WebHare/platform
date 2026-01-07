@@ -340,7 +340,6 @@ PUBLIC CONSTANT STRING ARRAY whconstant_developertypes := STRING[
   "http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile",
   "http://www.webhare.net/xmlns/publisher/wittyfile",
   "http://www.webhare.net/xmlns/publisher/templatefile",
-  "http://www.webhare.net/xmlns/publisher/profilefile",
   "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents",
   "http://www.webhare.net/xmlns/wrd/schemaarchive"
 ];

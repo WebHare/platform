@@ -342,11 +342,11 @@ ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS) $(PREFIX)/bin $(PREFIX)/lib
 # BLEX - Configuration
 LIBBLEX_LIBXML2_NAMES=tree xmlstring HTMLparser xmlmemory xmlschemas xpath globals pattern xmlschemastypes xmlregexp parser valid xmlunicode parserInternals SAX2 xmlreader uri encoding error relaxng xmlIO xmlsave threads hash dict entities buf HTMLtree list chvalid debugXML c14n schematron
 
-LIBBLEX_SHARED_SOURCENAMES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime notificationevents path podvector socket stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml zstream
+LIBBLEX_SHARED_SOURCENAMES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat getopt lexer logfile mime notificationevents path podvector socket stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml zstream
 LIBBLEX_NATIVE_ADDSOURCENAMES=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl mmapfile
 LIBBLEX_WASM_ADDSOURCENAMES=
 
-LIBBLEX_SHARED_TESTNAMES=blextest testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
+LIBBLEX_SHARED_TESTNAMES=blextest testbitmanip testcontext testcrypto testgetopt testio testmime testnet testpath teststring testtypes testutils
 LIBBLEX_NATIVE_ADDTESTNAMES=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
 LIBBLEX_WASM_ADDTESTNAMES=
 
@@ -484,13 +484,9 @@ drawlib_CPPFILES = $(DRAWLIB_FILES) $(DRAWLIBTEST_FILES) $(DRAWLIBHSINTERFACE_FI
 drawlib_SRCDIRS = drawlibv2 harescript $(RUNDRAWLIBTEST)
 
 # PARSERS
-PARSERS_baselib = lib/libblex_parser_base$(DLL_SUFFIX)
-PARSERS_escherlib = lib/libblex_parser_office_escher$(DLL_SUFFIX)
 PARSERS_MODULES = $(filter-out .svn,$(notdir $(wildcard $(SRCDIR)/parsers/modules/*)))
-parsers_SRCDIRS = base office_escher modules $(addprefix modules/,$(PARSERS_MODULES))
+parsers_SRCDIRS = modules $(addprefix modules/,$(PARSERS_MODULES))
 parsers_DEPLOYABLES_HSENGINE = \
-	$(PARSERS_baselib) \
-	$(PARSERS_escherlib) \
 	$(addprefix lib/hsm_,$(addsuffix $(DLL_SUFFIX),$(PARSERS_MODULES)))
 
 parsers_DEPLOYABLES_WHAP = $(parsers_DEPLOYABLES_HSENGINE)
@@ -779,25 +775,8 @@ build.parsers: $(parsers_DEPLOYABLES)
 success.parsers: build.parsers
 	> success.parsers
 
-parsers_HsMod_parser_office_msword_AddDeps = $(PARSERS_escherlib)
-parsers_HsMod_parser_office_msword_AddLibs = blex_parser_office_escher
-
-parsers_baselib_CPPFILES = $(call GetSrcFiles,parsers/base/*.cpp)
-parsers_baselib_OBJFILES = $(call Src2ObjFiles, $(parsers_baselib_CPPFILES))
-
-parsers_office_escher_CPPFILES = $(call GetSrcFiles,parsers/office_escher/*.cpp)
-parsers_office_escher_OBJFILES = $(call Src2ObjFiles, $(parsers_office_escher_CPPFILES))
-
-$(PARSERS_baselib): $(parsers_baselib_OBJFILES) success.drawlib build.harescript
-	$(call LinkShared,$(parsers_baselib_OBJFILES),$@,$(DRAWLIB_LIBS) $(HS_LIBS))
-
-$(PARSERS_escherlib): $(parsers_office_escher_OBJFILES) $(PARSERS_baselib)
-	$(call LinkShared,$(parsers_office_escher_OBJFILES),$@,blex_parser_base $(DRAWLIB_LIBS) $(HS_LIBS))
-
-parsers_CPPFILES = $(parsers_baselib_OBJFILES) $(parsers_office_escher_OBJFILES)
-
-parsers_HsMod_AddDeps = $(PARSERS_baselib)
-parsers_HsMod_AddLibs = blex_parser_base $(DRAWLIB_LIBS) $(HS_LIBS)
+parsers_HsMod_AddDeps = lib/libblex_draw$(DLL_SUFFIX) build.harescript
+parsers_HsMod_AddLibs = $(DRAWLIB_LIBS) $(HS_LIBS)
 $(foreach mod,$(PARSERS_MODULES),$(eval $(call HsModTarget,$(mod),,parsers)))
 
 #
@@ -934,7 +913,6 @@ install: $(ALLINSTALLDIRS) postinstall | \
          success.ap \
          success.wasm
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumpcomplexfslog,dumprawtable} 2>/dev/null || true #cleanup old bins
-	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
 
 ifeq ($(WEBHARE_IN_DOCKER),1)
 
@@ -1016,7 +994,7 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_parser_format_hsxml hsm_parser_format_html
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_webhare hsm_parser_adobe_pdf
 WASM_ALIASES = harescript
 
 list-targets:    # List all available targets
@@ -1029,9 +1007,6 @@ list-targets:    # List all available targets
 
 
 #Convenience overwrite targets
-wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite  # Overwrite the word conversion related modules in the install dir
-wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall # Remove the word conversion related modules
-
 wasm-overwrite: $(addprefix $(PREFIX)/,$(wasm_DEPLOYABLES_WHAP))  #Overwrite WASM files in the install dir
 
 # Helper to add 'wh make list-targets' - https://stackoverflow.com/a/26339924 - a future make version should allow 'wh make --print-targets'

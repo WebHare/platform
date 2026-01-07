@@ -1379,22 +1379,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     INSERT [ filename := filename, callback := callback ] INTO dbfiles AT END;
   }
 
-  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
-  PUBLIC MACRO AddLoadlibToOutput(STRING libname)
-  {
-    IF(NOT this->IsStaticPublication())
-      THROW NEW Exception("Only static publications can add output loadlibs");
-    __publishwebdesign_callbacks.addloadlib(libname);
-  }
-
-  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
-  PUBLIC MACRO PrintTrustedCode(STRING code)
-  {
-    IF(NOT this->IsStaticPublication())
-      THROW NEW Exception("Only static publications can print HareScript code");
-    __publishwebdesign_callbacks.addcode(code);
-  }
-
   PUBLIC MACRO Close()
   {
     IF(NOT IsDTAPLive())

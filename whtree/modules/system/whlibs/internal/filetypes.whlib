@@ -57,14 +57,6 @@ STRING FUNCTION BinToStringCLSID(STRING binclsid)
   RETURN clsid;
 }
 
-RECORD FUNCTION UnpackOleProps(BLOB indata)
-{
-  RECORD retval := __HS_UnpackOleProps(indata); //FIXME Port to HareScript
-  IF (RecordExists(retval))
-    INSERT CELL clsid := BinToStringCLSID(retval.__clsid) INTO retval;
-  RETURN retval;
-}
-
 STRING FUNCTION ReadFromTIFF(INTEGER filehandle, INTEGER start, INTEGER length)
 {
   SetFilePointer(filehandle, start);
@@ -261,45 +253,6 @@ RECORD FUNCTION DetectZipFile(BLOB indata, STRING ext)
   RETURN filetype;
 }
 
-/** @short Detect an read docfile properties
-    @long This function opens docfiles (OLE structured storage files), such as Microsoft Word files,
-          and returns the class ID and property sets of the file
-    @param filedata File to analyze
-    @return A record describing the ole file, or a non-existing record if the properties could not be retrieved (eg. the file is corrupted or not a real OLE file)
-    */
-PRIVATE RECORD FUNCTION DetectOLEtype(BLOB filedata)
-{
-  RECORD ourfile := MakeFile("application/octet-stream");
-  RECORD oleprops := UnpackOleProps(filedata);
-  IF (RecordExists (oleprops))
-    ourfile.contenttype := LookupCLSID(oleprops.clsid).ctype;
-  RETURN ourfile;
-}
-RECORD FUNCTION LookupCLSID(STRING clsid)
-{
-  SWITCH(clsid)
-  {
-    CASE "{00020906-0000-0000-C000-000000000046}" //Word8
-        ,"{00020900-0000-0000-C000-000000000046}" //Word6
-    {
-      RETURN [ ctype := "application/msword" ];
-    }
-    CASE "{00020810-0000-0000-C000-000000000046}" //Excel5
-        ,"{00020820-0000-0000-C000-000000000046}" //Excel8
-    {
-      RETURN [ ctype := "application/vnd.ms-excel" ];
-    }
-    CASE "{64818D10-9B4F-CF11-86EA-00AA00B929E8}" //Powerpoint.Show.8
-    {
-      RETURN [ ctype := "application/vnd.ms-powerpoint" ];
-    }
-    DEFAULT
-    {
-      RETURN [ ctype := "application/octet-stream" ];
-    }
-  }
-}
-
 
 RECORD FUNCTION GuessXMLFile(STRING fileheader, STRING filename, STRINg ext)
 {
@@ -309,8 +262,6 @@ RECORD FUNCTION GuessXMLFile(STRING fileheader, STRING filename, STRINg ext)
     RETURN MakeFile("application/octet-stream");
 
   //ADDME: Do an initial abortable SAX parse and actually read the root element
-  IF(SearchSubstring(fileheader, 'xmlns="http://www.webhare.net/xmlns/publisher/conversionprofile"') != -1)
-    RETURN MakeFile("application/x-webhare-conversionprofile");
   IF(SearchSubstring(fileheader, 'xmlns="http://www.w3.org/2000/svg"') != -1)
     RETURN MakeFile("image/svg+xml");
 
@@ -438,8 +389,6 @@ PUBLIC RECORD FUNCTION __DetectFileType(BLOB filedata, STRING filename)
     }
     ELSE IF(Left(fileheader,3) IN [ "FWS", "CWS" ]) // http://www.digitalpreservation.gov/formats/fdd/fdd000130.shtml
       filetype := MakeFile("application/x-shockwave-flash");
-    ELSE IF(Left(fileheader,8) = "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1")
-      filetype := DetectOLEtype(filedata);
     ELSE IF(Left(fileheader,15) = "BEGIN:VCALENDAR")
       filetype := MakeFile("text/calendar");
 

@@ -426,7 +426,7 @@ async function testFetchResource() {
   const testsitejs = await test.getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const fetched = await services.fetchResource(snowbeagle.link!);
-  test.eq(17191, fetched.resource.size);
+  test.eq(45081, fetched.resource.size);
   test.eq("snowbeagle.jpg", fetched.fileName, "should extract nice file name from URL: " + snowbeagle.link!);
 
   const locinfo = await getCachePaths(snowbeagle.link!);
@@ -440,7 +440,7 @@ async function testFetchResource() {
   await test.sleep(2); //wait a tick! can't image us beating the clock though
   const fetched2 = await services.fetchResource(snowbeagle.link!);
   const meta2 = await readCacheMetadata(locinfo.metaloc);
-  test.eq(17191, fetched2.resource.size);
+  test.eq(45081, fetched2.resource.size);
   test.eq(meta.lastDownload, meta2.lastDownload);
 
 

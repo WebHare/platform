@@ -120,9 +120,6 @@ OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
 <
   MACRO NEW()
   {
-    IF(this->targetobject->name IN ["loadlib.html","loadlib.shtml"])
-      this->AddLoadlibToOutput(this->designfolder || "lib/basetest-loadlib.whlib");
-
     TestEq("mod::webhare_testsuite/webdesigns/basetest/", this->designfolder);
     TestEq("webhare_testsuite:basetest", this->assetpack);
     TestEqLike("20??????T??????Z", GetAssetPackBuildVersion(this->assetpack));

@@ -7,8 +7,6 @@
 #include "graphicsrw_jpeg.h"
 #include "streamingdecimator.h"
 #include "streamingresizer.h"
-#include "wmf_emfrecords.h"
-#include "wmfrenderer.h"
 
 namespace DrawLib {
 
@@ -280,12 +278,6 @@ GfxFileType DetectGfxFileType(Blex::RandomStream *stream)
                 DEBUGPRINT("MagicLoader found a TIFF");
                 return gfxtype;
         }
-        if (bytesread >= 4 && Blex::getu32lsb(&buf[0]) == 1 && memcmp(buf+40," EMF",4)==0)
-        {
-                gfxtype = GFX_EMF;
-                DEBUGPRINT("MagicLoader found a EMF");
-                return gfxtype;
-        }
         return gfxtype; // return GFX_UNKNOWN!
 }
 
@@ -366,13 +358,6 @@ GraphicsReader* GetDetectedGraphicsReader(Blex::RandomStream *stream, DrawLib::I
                         return gifbitmap.get() ? new Bitmap32Owning_GraphicsReader(*gifbitmap) : NULL;
                 }
 
-        case GFX_EMF:
-                {
-                        std::unique_ptr<Bitmap32Owning_GraphicsReader> myreader;
-                        std::unique_ptr<Bitmap32> gifbitmap;
-                        gifbitmap.reset(CreateBitmap32FromEMF(stream));
-                        return gifbitmap.get() ? new Bitmap32Owning_GraphicsReader(*gifbitmap) : NULL;
-                }
 
 
         default:
@@ -398,8 +383,6 @@ Bitmap32 * CreateBitmap32Magic(Blex::RandomStream *stream)
                 return CreateBitmap32FromGIF(stream);
         case GFX_TIFF:
                 return CreateBitmap32FromTIFF(stream);
-        case GFX_EMF:
-                return CreateBitmap32FromEMF(stream);
         default:
                 return NULL;
         }
@@ -561,37 +544,6 @@ Bitmap32* CreateBitmap32FromTIFF(Blex::RandomStream *stream)
         }
         TIFFClose(tif);
         return newbitmap.release();
-}
-
-Bitmap32* CreateBitmap32FromEMF(Blex::RandomStream *stream)
-{
-        std::vector<uint8_t> imagedata;
-        ReadStreamIntoVector(*stream, &imagedata);
-        if(imagedata.size() < WmfLib::EMFHeader::RecSizeEMF)
-        {
-                DEBUGPRINT("  imagedata only " << imagedata.size() << " bytes");
-                return NULL;
-        }
-
-        WmfLib::EMFHeader hdr;
-        hdr.ReadEMF(&imagedata[0]);
-
-        int32_t framewidth = hdr.frame.right - hdr.frame.left;
-        int32_t frameheight = hdr.frame.bottom - hdr.frame.top;
-
-        double xSrcPixSize = (double(hdr.device_width) / double(hdr.mms_width))/100.0;
-        double ySrcPixSize = (double(hdr.device_height) / double(hdr.mms_height))/100.0;
-
-        int finalwidth = int(framewidth * xSrcPixSize + 0.999);
-        int finalheight = int(frameheight * ySrcPixSize + 0.999);
-
-        DEBUGPRINT("  frame " << framewidth << "x" << frameheight);
-        DEBUGPRINT("  pixel sizes " << xSrcPixSize << "x" << ySrcPixSize);
-        DEBUGPRINT("  final dimensions " << finalwidth << "x" << finalheight);
-
-        std::unique_ptr<Bitmap32> outbitmap(new Bitmap32(finalwidth, finalheight));
-        RenderWmfEmf(*outbitmap, DrawLib::FPBoundingBox(0,0,finalwidth,finalheight), &imagedata[0], imagedata.size(), DrawLib::XForm2D());
-        return outbitmap.release();
 }
 
 } //namespace end;

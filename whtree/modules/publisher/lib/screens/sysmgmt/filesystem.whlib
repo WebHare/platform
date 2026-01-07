@@ -8,7 +8,6 @@ PUBLIC OBJECTTYPE FileSystem EXTEND TolliumScreenBase
   {
     this->maxpublishtime->value := ReadRegistryKey("publisher.publication.maxpublishtime");
     this->queueloglevel->SetValueIfValid(ReadRegistryKey("publisher.publication.loglevel"));
-    this->defaultcontentlisting->value := ReadRegistryKey("publisher.publication.defaultcontentlisting");
 
     this->trashcanexpire->value := ReadRegistryKey("publisher.trashcan.trashcanexpire");
     this->trashcanmaxsize->value := ReadRegistryKey("publisher.trashcan.trashcanmaxsize");
@@ -20,7 +19,6 @@ PUBLIC OBJECTTYPE FileSystem EXTEND TolliumScreenBase
 
     WriteRegistryKey("publisher.publication.maxpublishtime", this->maxpublishtime->value);
     WriteRegistryKey("publisher.publication.loglevel", this->queueloglevel->value);
-    WriteRegistryKey("publisher.publication.defaultcontentlisting", this->defaultcontentlisting->value);
 
     WriteRegistryKey("publisher.trashcan.trashcanexpire", this->trashcanexpire->value);
     WriteRegistryKey("publisher.trashcan.trashcanmaxsize", this->trashcanmaxsize->value);

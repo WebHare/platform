@@ -513,13 +513,6 @@ STRING FUNCTION ParseXMLModuleNamed(STRING module, OBJECT element, STRING attrna
   RETURN QualifyName(module, element->GetAttribute(attrname));
 }
 
-STRING FUNCTION GetTIDPtrFromTid(STRING module, STRING tid)
-{
-  IF(tid NOT LIKE "*:*")
-    tid := module || ":" || tid;
-  RETURN tid;
-}
-
 /** Parse a xs:list (%ParseXSList) and %QualifyName the entries
     @param qualification Prefix to add
     @param xmllist List to parse and qualify

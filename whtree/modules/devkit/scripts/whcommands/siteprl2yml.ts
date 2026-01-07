@@ -663,8 +663,7 @@ run({
         sourceRule = {
           ...sourceRule,
           customnodes: sourceRule.customnodes.filter(_ =>
-            _.namespaceuri !== "urn:xyz" //remove these when comparing, they're test nodes to verify the old SP compiler
-            && _.localname !== "mswordconversion") //there's no translation for these nodes so ignore
+            _.namespaceuri !== "urn:xyz") //remove these when comparing, they're test nodes to verify the old SP compiler
         };
 
         try {

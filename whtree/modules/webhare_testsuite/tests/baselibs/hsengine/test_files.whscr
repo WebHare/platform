@@ -289,46 +289,6 @@ MACRO ComposedBlobTest()
   CloseTest("TestFiles: ComposedBlobTest");
 }
 
-MACRO UnpackOleTest()
-{
-  OpenTest("TestFiles: UnpackOleTest");
-
-  STRING testfile := /*testdata_dir || */"testole_plaindoc.doc";
-  BLOB testblob := OpenTestFile(testfile);
-  IF(length(testblob)=0)
-    ABORT("Cannot open file " ||testfile);
-
-  RECORD props := ScanBlob(testblob, testfile);
-
-  //Ensure opening went succesful
-  TestEq(FALSE, Length(testblob)=0);
-
-  RECORD oleprops := __HS_UnpackOleProps(testblob);
-  TestEq(TRUE, RecordExists(oleprops));
-  //TestEq("{00020906-0000-0000-C000-000000000046}", oleprops.clsid);
-
-  RECORD ARRAY propsets := SELECT * FROM oleprops.propsets ORDER BY name;
-  TestEq(2, Length(propsets));
-  TestEq("\005DocumentSummaryInformation", propsets[0].name);
-  TestEq("\005SummaryInformation", propsets[1].name);
-
-  RECORD ARRAY docsumprops := SELECT * FROM propsets[0].sections[0].properties ORDER BY id;
-  RECORD ARRAY sumprops := SELECT * FROM propsets[1].sections[0].properties ORDER BY id;
-
-  TestEq( "Categorie", (SELECT * FROM docsumprops WHERE id=2).data);
-  TestEq( "B-Lex Information Technologies", (SELECT * FROM docsumprops WHERE id=15).data);
-  TestEq( "Handleiding WebHare Professional", (SELECT * FROM sumprops WHERE id=2).data);
-  TestEq( "keyword 1\r\nkeyword 2\r\nkeyword 3", (SELECT * FROM sumprops WHERE id=5).data);
-  TestEq(1, (SELECT * FROM sumprops WHERE id=14).data);
-  TestEq(MakeDatetime(2000,9,27,15,02,00), (SELECT * FROM sumprops WHERE id=13).data);
-
-  testblob := OpenTestFile("olepropscrash.doc");
-  props := ScanBlob(testblob, "");
-  TestEq("application/msword", props.mimetype);
-
-  CloseTest("TestFiles: UnpackOleTest");
-}
-
 MACRO MiscTest()
 {
   OpenTest("TestFiles: MiscTest");
@@ -880,7 +840,6 @@ FSTest();
 ArchiveTest();
 BlobManipTest();
 ComposedBlobTest();
-UnpackOleTest();
 MiscTest();
 RedirectTest();
 BufferFilepointertest();

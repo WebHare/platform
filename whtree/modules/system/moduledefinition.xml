@@ -1257,9 +1257,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
       <node name="publication">
         <integer name="maxpublishtime" description="Maximum publication time (seconds)" initialval="600" />
         <integer name="loglevel" description="Queuemanager logging level" />
-        <string name="defaultcontentlisting"
-                description="Default content listing file"
-                initialval="mod::publisher/scripts/defaultcontentlisting.whscr" />
+        <obsoletekey name="defaultcontentlisting" />
         <boolean name="scanoutputatstartup" description="Scan all output at startup" initialval="true" />
         <string name="stripextensions"
                 description="Extensions to strip from published-as-subfolder documents"

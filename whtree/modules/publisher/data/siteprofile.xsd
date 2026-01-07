@@ -820,7 +820,6 @@
       <xs:element name="bodyrenderer" type="BodyRenderer" />
       <xs:element name="webdesign" type="WebDesign" />
       <xs:element ref="urlhistory" />
-      <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
       <xs:element name="disablelegacysitesettings" />
@@ -1281,83 +1280,6 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:complexType name="MSWordConversion">
-    <xs:sequence>
-      <xs:element name="deletetextstyles" minOccurs="0" maxOccurs="1">
-        <xs:complexType>
-          <xs:sequence>
-            <xs:element name="deletetextstyle" minOccurs="0" maxOccurs="unbounded">
-              <xs:complexType>
-                <xs:attribute name="mask" />
-              </xs:complexType>
-            </xs:element>
-          </xs:sequence>
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="profile" minOccurs="0" maxOccurs="1">
-        <xs:complexType>
-          <xs:sequence>
-            <xs:element name="style" minOccurs="0" maxOccurs="unbounded">
-              <xs:complexType>
-                <xs:attribute name="mswordstyleid" />
-                <xs:attribute name="mswordcustomstyle" />
-                <xs:attribute name="split" />
-                <xs:attribute name="toclevel" />
-                <xs:attribute name="hide" />
-                <xs:attribute name="fgcolor" />
-                <xs:attribute name="bgcolor" />
-                <xs:attribute name="fontsize" />
-                <xs:attribute name="fontfamily" />
-                <xs:attribute name="bold" />
-                <xs:attribute name="italic" />
-                <xs:attribute name="underline" />
-                <xs:attribute name="showhiddentext" />
-                <xs:attribute name="vertspacebefore" />
-                <xs:attribute name="vertspaceafter" />
-                <xs:attribute name="leftindent" />
-                <xs:attribute name="rightindent" />
-                <xs:attribute name="firstindent" />
-                <xs:attribute name="hidenumbering" />
-                <xs:attribute name="smallcaps" />
-                <xs:attribute name="align" />
-                <xs:attribute name="tag" />
-                <xs:attribute name="istableheader" />
-                <xs:attribute name="embedtype">
-                  <xs:simpleType>
-                    <xs:restriction base="xs:string">
-                      <xs:enumeration value="rawhtml" />
-                    </xs:restriction>
-                  </xs:simpleType>
-                </xs:attribute>
-              </xs:complexType>
-            </xs:element>
-          </xs:sequence>
-          <xs:attribute name="emptydocobjects" type="xs:boolean" />
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-    <xs:attribute name="languageattributes" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          If true, add xml:lang attributes assuming the base document language is webdesign-&gt;languagecode
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="relativefontbase" type="xs:integer">
-      <xs:annotation>
-        <xs:documentation>
-          If set, create relative font sizes assuming 100% is the specified font size in pixels
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="webharecss" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          If true, generate a separate webhare.css file based on the Word document's stylesheet and the profile settings
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:complexType>
 
   <xs:complexType name="AllowDenyFormComponent">
     <xs:attribute name="type" type="xs:anyURI" />

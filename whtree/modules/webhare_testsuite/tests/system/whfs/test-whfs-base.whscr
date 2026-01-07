@@ -668,7 +668,7 @@ MACRO InsertPropertiesTest()
       [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
-      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
   RECORD ARRAY got_files := SELECT name, title FROM system.fs_objects WHERE parent = testsite->id ORDER BY name;
@@ -694,7 +694,7 @@ MACRO ExtendedZipTest()
       [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
-      , [ name := "lorum_ipsum.doc",        title := "Eerste gezamenlijke nieuwsbrief wordt binnenkort verstuurd, houd uw mailbox in de gaten" ]
+      , [ name := "lorum_ipsum.doc",        title := "" ]
       ];
 
   OBJECT finalfolder := testsite->OpenByName("no_metadata");
