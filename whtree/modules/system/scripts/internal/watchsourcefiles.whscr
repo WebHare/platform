@@ -72,14 +72,14 @@ OBJECT trans := OpenPrimary();
 */
 RECORD ARRAY actions :=
     [ [ name :=       "Regenerate compiled module siteprofiles"
-      , masks :=      [ "mod::*.siteprl", "mod::*.siteprl.xml", "mod::*.siteprl.yml", "mod::*/moduledefinition.xml" ]
+      , masks :=      [ "mod::*.siteprl", "mod::*.siteprl.xml", "mod::*.siteprl.yml", "mod::*/moduledefinition.xml", "mod::*/moduledefinition.yml" ]
       , skipmasks :=  DEFAULT STRING ARRAY
       , execute :=    PTR DoSiteProfileRecompile()
       , cb :=         0
       , delay :=      300
       ]
     , [ name :=       "wh:db file regeneration and siteprofiles recompile"
-      , masks :=      [ "mod::*/moduledefinition.xml" ]
+      , masks :=      [ "mod::*/moduledefinition.xml", "mod::*/moduledefinition.yml" ]
       , skipmasks :=  DEFAULT STRING ARRAY
       , execute :=    PTR HandleModuleDefinitionChange()
       , cb :=         0
