@@ -241,6 +241,10 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
           }
           case 'n':
           case undefined: { //it's a number
+            if (this.options.rawStringCells) {
+              this.workingRow.values[cellNum] = workingVal || '';
+              break;
+            }
             const formatId = workingCell.attributes.s ? Number(this.workBook.xfs[workingCell.attributes.s].attributes.numFmtId) : 0;
             const format = this.workBook.getFormat(formatId);
             const date1904 = this.workBook.workBookInfo.date1904;
@@ -260,6 +264,10 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
             break;
           }
           case 'b': { //boolean
+            if (this.options.rawStringCells) {
+              this.workingRow.values[cellNum] = workingVal || '';
+              break;
+            }
             this.workingRow.values[cellNum] = workingVal === '1' || workingVal === 'true';
             break;
           }
@@ -267,6 +275,10 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
           case 'str':
           case 'e'://not sure?
           default: {
+            if (this.options.rawStringCells) {
+              this.workingRow.values[cellNum] = workingVal || '';
+              break;
+            }
             this.workingRow.values[cellNum] = (workingVal || workingVal === 0) ? workingVal : '';
 
           }

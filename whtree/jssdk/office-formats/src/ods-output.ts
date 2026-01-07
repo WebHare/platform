@@ -1,9 +1,8 @@
 import { createArchive } from "@webhare/zip";
-import { byteStreamFromStringParts, ColumnTypes, getNameForCell, omitUndefined, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, getNameForCell, omitUndefined, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type SpreadsheetData, type WorkbookData, type SpreadsheetColumn, shouldShowCell } from "./support";
 import { encodeString, pick, stdTypeOf, stringify, type Money } from "@webhare/std";
 import type { ReadableStream } from "node:stream/web";
 
-export type GenerateODSOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
 /* To further improve styling read https://docs.oasis-open.org/office/v1.2/cd05/OpenDocument-v1.2-cd05-part1.html or
    - Create an ODS document with better styling, unzip it and reformat/open content.xml and styles.xml to get a practical styling definition
@@ -247,7 +246,7 @@ function createRow(row: Record<string, unknown>, cols: Array<SpreadsheetColumn &
   let result = `<table:table-row>`;
   for (const col of cols) {
     const value = row[col.name];
-    if (value === null || value === undefined) {
+    if (!shouldShowCell(value)) {
       result += `<table:table-cell/>`;
       continue;
     }
@@ -365,7 +364,7 @@ function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: 
 /** Generate an ODS file
     @returns Blob blob containing the ODS file
 */
-export async function generateODS(options: GenerateODSOptions): Promise<File> {
+export async function generateODS(options: SpreadsheetData | WorkbookData): Promise<File> {
   const inSheets = "sheets" in options ? options.sheets : [options];
   const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
   const mimetype = "application/vnd.oasis.opendocument.spreadsheet";

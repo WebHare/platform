@@ -5,7 +5,8 @@ import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { DOMParser, type Document } from "@xmldom/xmldom";
 import { isValidSheetName } from "@webhare/office-formats/src/support";
-import { defaultDateTime } from "@webhare/hscompat";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
+import { openXlsx } from "@webhare/xlsx-reader";
 
 const columns: SpreadsheetColumn[] =
   [
@@ -279,9 +280,34 @@ async function testXLSXMultipleSheets() {
   test.eq([[]], outrows3);
 }
 
+async function testXLSXRegressions() {
+  const output = await generateXLSX({
+    rows: [
+      { dt: defaultDateTime, marker: "A" },
+      { dt: maxDateTime, marker: "B" },
+      { dt: new Date("2015-12-11T12:00:00Z"), marker: "C" }
+    ],
+    columns: [
+      { name: "dt", title: "DateTime", type: "dateTime", storeUTC: true },
+      { name: "marker", title: "Marker", type: "string" }//just to ensure all cells are actually rendered
+    ],
+    timeZone: "UTC"
+  });
+
+  const readback = await Array.fromAsync((await openXlsx(output, { rawStringCells: true })).openSheet(0).rows());
+  test.eq([
+    ['DateTime', "Marker"],
+    [null, "A"],
+    [null, "B"],
+    ["42349.5", "C"]
+  ], readback, "Shouldn't see the extreme time values");
+
+}
+
 test.runTests([
   testSheetsApi,
   testXLSXColumnFiles,
   testAutoXLSXColumnFiles,
-  testXLSXMultipleSheets
+  testXLSXMultipleSheets,
+  testXLSXRegressions
 ]);

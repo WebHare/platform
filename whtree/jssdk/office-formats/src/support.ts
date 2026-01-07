@@ -1,4 +1,4 @@
-import type { Money, stdTypeOf } from "@webhare/std";
+import { isDate, type Money, type stdTypeOf } from "@webhare/std";
 import { ReadableStream } from "node:stream/web";
 
 interface ColumnTypeDef {
@@ -39,7 +39,7 @@ export type SpreadsheetColumn = {
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
 
-export type GenerateSpreadsheetOptions = ({
+export type SpreadsheetData = ({
   rows: SpreadsheetRow[];
   columns: SpreadsheetColumn[];
 } | {
@@ -64,8 +64,8 @@ export type FixedSpreadsheetOptions = {
   withAutoFilter?: boolean;
 };
 
-export type GenerateWorkbookProperties = {
-  sheets: GenerateSpreadsheetOptions[];
+export type WorkbookData = {
+  sheets: SpreadsheetData[];
   title?: string;
   timeZone?: string;
 };
@@ -88,7 +88,7 @@ export function isValidSheetName(sheetname: string): boolean {
 }
 
 /** Check columns and row consistency. */
-export function validateAndFixRowsColumns(options: GenerateSpreadsheetOptions): FixedSpreadsheetOptions {
+export function validateAndFixRowsColumns(options: SpreadsheetData): FixedSpreadsheetOptions {
   if (!("columns" in options)) {
     //Infer them!
     const cols: SpreadsheetColumn[] = [];
@@ -191,4 +191,16 @@ export type OmitUndefined<T extends object> = T extends object ? {
 
 export function omitUndefined<T extends object>(obj: T): OmitUndefined<T> {
   return Object.fromEntries(Object.entries(obj).filter(([_, value]) => value !== undefined)) as OmitUndefined<T>;
+}
+
+export function shouldShowCell(value: unknown): boolean {
+  if (value === null || value === undefined)
+    return false;
+  if (typeof value === "number")
+    return isFinite(value);
+  if (isDate(value)) {
+    const time = value.getTime();
+    return time > -719163 * 86400000 && time < 100000000 * 86400000 - 1;
+  }
+  return true;
 }

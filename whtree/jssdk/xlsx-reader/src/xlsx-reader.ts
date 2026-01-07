@@ -8,32 +8,21 @@ import XlsxStreamReaderWorkBook from './workbook';
 export type { XlsxRow, XlsxCellValue } from './worksheet';
 
 export interface OpenXlsxOptions {
-  verbose: boolean;
+  rawStringCells?: boolean;
 }
 
-async function XlsxReader(source: UnpackArchiveResult, options: Partial<OpenXlsxOptions> = {}): Promise<XlsxStreamReaderWorkBook> {
-  if (!options || typeof options !== 'object') {
-    options = {};
-  }
-
-  if (typeof options.verbose === 'undefined') options.verbose = true;
-
-  const instanceOptions = {
-    saxStrict: true,
-    verbose: options.verbose,
-  };
-
-  const workbook = new XlsxStreamReaderWorkBook(source, instanceOptions);
+async function XlsxReader(source: UnpackArchiveResult, options: OpenXlsxOptions = {}): Promise<XlsxStreamReaderWorkBook> {
+  const workbook = new XlsxStreamReaderWorkBook(source, options);
   await workbook.ready;
   return workbook;
 }
 
-export async function openXlsx(source: Blob, options?: Partial<OpenXlsxOptions>): Promise<XlsxStreamReaderWorkBook> {
+export async function openXlsx(source: Blob, options?: OpenXlsxOptions): Promise<XlsxStreamReaderWorkBook> {
   const unzipped = await unpackArchive(source);
   return XlsxReader(unzipped, options);
 }
 
-export async function openXlsxFromDisk(source: string, options?: Partial<OpenXlsxOptions>): Promise<XlsxStreamReaderWorkBook> {
+export async function openXlsxFromDisk(source: string, options?: OpenXlsxOptions): Promise<XlsxStreamReaderWorkBook> {
   const unzipped = await unpackArchiveFromDisk(source);
   return XlsxReader(unzipped, options);
 }
