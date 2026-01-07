@@ -32,14 +32,24 @@ async function main() {
 
   const entries = [];
   for (const dir of scandirs) {
-    entries.push(...fs.readdirSync(dir, { withFileTypes: true, recursive: true }).
-      filter(entry => !entry.isDirectory()).
-      map(entry => ({
-        parentPath: entry.parentPath,
-        name: entry.name,
-        fullPath: entry.parentPath + "/" + entry.name,
-        modtime: fs.statSync(entry.parentPath + "/" + entry.name).mtime.getTime()
-      })));
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: true })) {
+      if (entry.isDirectory())
+        continue;
+
+      try {
+        const stat = fs.statSync(entry.parentPath + "/" + entry.name);
+        entries.push({
+          parentPath: entry.parentPath,
+          name: entry.name,
+          fullPath: entry.parentPath + "/" + entry.name,
+          modtime: stat.mtime.getTime()
+        });
+      } catch (e) {
+        if (e.code === 'ENOENT') //disappeared during dirscan and seeing it here? some lingering compile request while tests were already finished?
+          continue;
+        throw e;
+      }
+    }
   }
 
   //TODO share with resolvehook.ts? but then we *do* need a precompile step (or experimental strip types..)

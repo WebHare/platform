@@ -315,7 +315,7 @@ PUBLIC STATIC OBJECTTYPE FormBase <
   OBJECT __directhookobject;
   OBJECT __formrenderer;
 
-  OBJECT __captchaquestion;
+  PUBLIC OBJECT __captchaquestion; //public so BuildFormConfig can see it
 
   // ---------------------------------------------------------------------------
   //

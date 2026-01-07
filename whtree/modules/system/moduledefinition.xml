@@ -17,12 +17,6 @@
     <!-- initialize core DB structure and create standard folders -->
     <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
 
-    <!-- late cleanups that shouldn't block startup -->
-    <runonce script="scripts/runonce/poststartcleanup.whscr" tag="poststartcleanup_2025_03_03" when="poststart" />
-
-    <!-- set lastUpdateDate for fsobjects that don't have it -->
-    <runonce script="scripts/runonce/fix_last_update.ts" tag="fix_last_update" when="poststart" />
-
     <task runat="*/5 * * * *" script="scripts/tasks/intervalchecks.whscr" tag="intervalchecks" description="Periodic status checks" runatstartup="true" />
     <task runat="13  0 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="system_maintenance_task" />
     <task runat="13  1 * * *" runtz="maintenance" script="scripts/tasks/poststartchecks.ts" tag="system_poststartchecks" runatstartup="true" />

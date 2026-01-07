@@ -11,9 +11,6 @@
   </meta>
 
   <servicemanager>
-    <!-- migrate_indices_v3: v5.02 database upgrade to prepare for opensearch managers -->
-    <runonce script="scripts/runonce/migrate_indices.whscr" tag="migrate_indices_v3" when="afterschemacreation" />
-
     <!-- setupopensearch: ensure the initial builtin opensearch is registered -->
     <runonce script="scripts/runonce/setupopensearch.whscr" tag="setupopensearch" when="afterregistryupdate" />
 
