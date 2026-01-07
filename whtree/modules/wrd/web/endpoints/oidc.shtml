@@ -73,7 +73,7 @@ MACRO RunOpenIDAuth() {
     THROW NEW Exception(`No authplugin found for target ` || decodedinfo.userdata.redirect);
 
   INTEGER userid;
-  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), decodedinfo.tokens.id_token, spinfo.loginfield, decodedinfo.userdata.provider);
+  VARIANT lookupresult := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), decodedinfo.tokens.id_token, spinfo.loginfield, decodedinfo.userdata.provider, decodedinfo.userdata.redirect);
   IF(TYPEID(lookupresult) = TYPEID(INTEGER))
     userid := lookupresult;;
 

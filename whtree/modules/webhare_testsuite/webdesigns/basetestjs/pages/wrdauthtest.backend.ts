@@ -43,7 +43,8 @@ export class OIDCTestCustomizer implements AuthCustomizer {
         wrdLastName: params.jwtPayload!.testfw_lastname + " (OIDC)",
         wrdContactEmail: params.jwtPayload!.testfw_email,
         whuserUnit: autounit,
-        wrdauthAccountStatus: { status: "active" }
+        wrdauthAccountStatus: { status: "active" },
+        whuserComment: params.finalUrl
       });
     });
   }
