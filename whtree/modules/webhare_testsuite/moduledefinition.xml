@@ -3,7 +3,7 @@
   <meta>
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <version>4.31.0</version>
-    <validation options="nowarnings">
+    <validation>
       <exclude mask="tests/wh/hscore/xml/generated/*" why="Don't validate generated code" />
 
       <!-- <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" /> -->
