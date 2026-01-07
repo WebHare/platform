@@ -1,11 +1,9 @@
-import { byteStreamFromStringParts, ColumnTypes, getNameForCell, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, getNameForCell, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type SpreadsheetData, type WorkbookData, type SpreadsheetColumn, shouldShowCell } from "./support";
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";
 import type { ReadableStream } from "node:stream/web";
 import { utcToLocal } from "@webhare/hscompat";
-
-export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
 function TemporalToExcel(x: Temporal.Instant | Temporal.ZonedDateTime): number {
   return x.epochMilliseconds / 86400_000 + 25569;
@@ -134,7 +132,7 @@ class WorksheetBuilder {
       let result = `<row r="${currow}">`;
       for (const [idx, col] of cols) {
         const value = row[col.name];
-        if (value === null || value === undefined || Number.isNaN(value))
+        if (!shouldShowCell(value))
           continue;
 
         const cellId = getNameForCell(idx + 1, currow);
@@ -256,7 +254,7 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
 /** Generate a XLSX file
     @returns Blob blob containing the XLSX file
 */
-export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> {
+export async function generateXLSX(options: SpreadsheetData | WorkbookData): Promise<File> {
   const inSheets = "sheets" in options ? options.sheets : [options];
   const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
 
