@@ -1,7 +1,10 @@
 import { isTemporalInstant, isTemporalZonedDateTime, Money } from '@webhare/std';
-import { type DataMappingOptions, type DataType, DataTypeOIDs, type SmartBuffer, parseDateTime } from './../vendor/postgrejs/src/index';
-import { numberBytesToString } from './../vendor/postgrejs/src/data-types/numeric-type';
+import { type DataMappingOptions, type DataType, DataTypeOIDs, type SmartBuffer, parseDateTime } from '../vendor/postgrejs/src/index';
+import { numberBytesToString } from '../vendor/postgrejs/src/data-types/numeric-type';
 import { defaultDateTime, maxDateTime } from '@webhare/hscompat/src/datetime';
+import { WebHareBlob } from '@webhare/services/src/webhareblob';
+import { uploadedblobs } from './blobbase';
+import { createPGBlob, createPGBlobByBlobRec } from './blobs';
 
 // const NUMERIC_NEG = 0x4000;
 const NUMERIC_NAN = 0xc000;
@@ -283,4 +286,75 @@ export const ArrayWHTimestampTzType: DataType = {
   name: "_timestamptz",
   oid: DataTypeOIDs._timestamptz,
   elementsOID: DataTypeOIDs.timestamptz,
+};
+
+
+export const BlobType: DataType = {
+  name: "webhare_internal.webhare_blob",
+  oid: 0, // we'll lookup after connecting
+  jsType: "object",
+
+  parseBinary(v: Buffer): WebHareBlob {
+    const numcols = v.readUInt32BE();
+    if (numcols !== 2)
+      throw new Error(`Expected 2 columns in WHDBBlob, got ${numcols}`);
+
+    const col1oid = v.readUInt32BE(4);
+    if (col1oid !== DataTypeOIDs.text)
+      throw new Error(`Expected OID.TEXT in WHDBBlob, got ${col1oid}`);
+
+    const col1len = v.readUInt32BE(8);
+    const col1 = v.toString("utf8", 12, 12 + col1len);
+
+    const col2oid = v.readUInt32BE(12 + col1len);
+    if (col2oid !== DataTypeOIDs.int8)
+      throw new Error(`Expected OID.INT8 in WHDBBlob, got ${col2oid}`);
+
+    const col2len = v.readUInt32BE(16 + col1len);
+    if (col2len !== 8)
+      throw new Error(`Expected 8 bytes in WHDBBlob, got ${col2len}`);
+
+    const col2 = Number(v.readBigInt64BE(20 + col1len));
+    return createPGBlobByBlobRec(col1, col2);
+  },
+
+  encodeAsNull(v: WebHareBlob): boolean {
+    return v.size === 0;
+  },
+
+  encodeBinary(buf: SmartBuffer, v: WebHareBlob): void {
+    const databaseid = uploadedblobs.get(v);
+    if (!databaseid)
+      throw new Error(`Attempting to insert a blob without uploading it first`);
+
+    // Blex::putu32msb(data, 2); // 2 columns
+    buf.writeUInt32BE(2);// 2 columns
+    // Blex::puts32msb(data + 4, static_cast< int32_t >(OID::TEXT)); // col 1, OID
+    buf.writeUInt32BE(DataTypeOIDs.text);
+    // Blex:: puts32msb(data + 8, context -> blobid.size()); // col 1, length of blobid
+    // std:: copy(context -> blobid.begin(), context -> blobid.end(), data + 12);
+    buf.writeLString(databaseid, 'utf8');
+    //Blex:: puts32msb(data + 12 + context -> blobid.size(), static_cast<int32_t>(OID:: INT8)); // col 2, OID
+    buf.writeUInt32BE(DataTypeOIDs.int8);
+    // Blex:: puts32msb(data + 16 + context -> blobid.size(), 8); // col 2, 8 bytes length
+    buf.writeUInt32BE(8); // col 2, 8 bytes length
+    // Blex:: puts64msb(data + 20 + context -> blobid.size(), context -> bloblength); // col 2, 8 bytes of length
+    buf.writeBigInt64BE(v.size);
+  },
+
+  encodeText(v: WebHareBlob): string {
+    const databaseid = uploadedblobs.get(v);
+    if (!databaseid)
+      throw new Error(`Attempting to insert a blob without uploading it first`);
+
+    return `(${databaseid}, ${v.size})`;
+  },
+
+  parseText(v: string): WebHareBlob {
+    return createPGBlob(v);
+  },
+
+  isType(v: unknown): boolean {
+    return WebHareBlob.isWebHareBlob(v);
+  },
 };

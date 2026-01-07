@@ -1,4 +1,4 @@
-import type { Connection } from "../vendor/postgrejs/src";
+import type { Connection } from "./connection.ts";
 import { createTableImmediately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
 
 /** Bootstraps the PostgreSQL database

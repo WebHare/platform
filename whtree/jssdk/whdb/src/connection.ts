@@ -9,8 +9,7 @@ import type {
 
 import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgrejs/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
-import { BlobType } from "./blobs";
-import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, ArrayWHTimestampTzType, Float8Type, MoneyType, TidType, WHTimestampType, WHTimestampTzType } from "./types";
+import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, ArrayWHTimestampTzType, Float8Type, MoneyType, TidType, WHTimestampType, WHTimestampTzType, BlobType } from "./types";
 import { getIntlConnection } from '../vendor/postgrejs/src/connection/intl-connection';
 import { ArrayVarcharType, VarcharType } from '../vendor/postgrejs/src/data-types/varchar-type';
 import { ArrayBoolType, BoolType } from '../vendor/postgrejs/src/data-types/bool-type';
@@ -24,6 +23,8 @@ import { ArrayCharType, CharType } from '../vendor/postgrejs/src/data-types/char
 import { getPGType } from './metadata';
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { ArrayUuidType, UuidType } from '../vendor/postgrejs/src/data-types/uuid-type';
+
+export { DatabaseError, type Connection } from "../vendor/postgrejs/src";
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;

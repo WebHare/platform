@@ -23,14 +23,13 @@ import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
-import { pgBindParam, WHDBPgClient } from './connection';
+import { DatabaseError, pgBindParam, WHDBPgClient } from './connection';
 import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
 import { isError, sleep } from '@webhare/std';
-import { DatabaseError } from '../vendor/postgrejs/src';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
