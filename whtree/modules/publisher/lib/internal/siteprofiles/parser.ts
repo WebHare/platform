@@ -1095,7 +1095,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
     const ns = settings.namespace ?? scopedtype;
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
-      cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
+      cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!),
       dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(context, rootParser, settings.dynamicExecution) : null,
       comment: settings.comment || '',
       filetype: null,

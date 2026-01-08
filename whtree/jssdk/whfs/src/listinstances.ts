@@ -1,6 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { db, sql } from "@webhare/whdb";
+import type { WHFSCloneMode } from "@webhare/whfs/src/contenttypes";
 
 export type ListInstancesOptions = {
   withOrphans?: boolean;
@@ -14,7 +15,7 @@ export type ListInstancesResult = {
   // Scoped type of the content type
   scopedType: string | null;
   /// Indicator whether this instance is cloned when copying or archiving
-  clone: "onCopy" | "onArchive" | "never";
+  clone: WHFSCloneMode;
   /// This instance is managed as part of a workflow (drafts/autosaves)
   workflow: boolean;
   /** True if this content type is not defined in the site profile configuration anymore (these instances are
@@ -56,9 +57,9 @@ export async function listInstances(objId: number | number[], options?: ListInst
       fsObject: inst.fsObject,
       namespace: inst.namespace,
       scopedType: inst.scopedType,
-      clone: inst.cloneOnCopy ? "onCopy" as const : (inst.cloneOnArchive ? "onArchive" as const : "never" as const),
+      clone: inst.cloneOnCopy ? "onCopy" : inst.cloneOnArchive ? "onArchive" : "never",
       workflow: inst.workflow,
       orphan: inst.orphan || !type,
-    });
+    } satisfies ListInstancesResult[number]);
   }).filter(_ => _ !== null);
 }

@@ -84,6 +84,7 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
     namespace: matchtype.namespace,
     scopedType: matchtype.scopedtype || null,
     title: matchtype.title,
+    clone: matchtype.cloneoncopy ? "onCopy" : matchtype.cloneonarchive ? "onArchive" : "never",
     members: members //mapMembers(matchtype.members)
   };
 
