@@ -7,6 +7,8 @@ import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob'
 import { storeDiskFile } from '@webhare/system-tools/src/fs';
 import { getWHType } from "@webhare/std/src/quacks";
 import { statSync } from "node:fs";
+import type { PostgresPoolClient } from "kysely";
+import { uploadedblobs } from "./blobbase";
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -30,14 +32,7 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
   return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
-const uploadedblobs = new WeakMap<WebHareBlob, string>();
-
-// Database connection type with query - we only need query here so no need to import the full postgresql client connection
-type DBConnection = {
-  query: (query: string, options: { params: unknown[] }) => Promise<unknown>;
-};
-
-export async function uploadBlobToConnection(pg: DBConnection, blob: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
+export async function uploadBlobToConnection(pg: PostgresPoolClient, blob: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
   if ("size" in blob && blob.size === 0)
     return blob; //never need to upload a 0-byter
 
@@ -75,7 +70,7 @@ export async function uploadBlobToConnection(pg: DBConnection, blob: WebHareBlob
   }
 
   //We ignore dupe inserts, that's just blob reuploading - but we can't skip this step in case we commit earlier than the original uploader
-  await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2)) ON CONFLICT (id) DO NOTHING", { params: [databaseid, finallength] });
+  await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2)) ON CONFLICT (id) DO NOTHING", [databaseid, finallength]);
   return blob as WebHareBlob; //both branches will have either ensured or converted it to a WebHareBlob
 }
 

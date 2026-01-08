@@ -13,7 +13,7 @@ import { HSVMSymbol } from "@webhare/harescript/src/wasm-support";
 import { setScopedResource } from "@webhare/services/src/codecontexts";
 import { sleep } from "@webhare/std";
 import { bootstrapPostgresWHDB } from "@webhare/whdb/src/bootstrap";
-import { getPGConnection } from "@webhare/whdb/src/connection";
+import { __createRawConnection } from "@webhare/whdb/src/impl";
 
 let verbose = debugFlags.startup;
 
@@ -37,14 +37,12 @@ async function bootstrapDatabase() {
   let firstTry = true;
   let pgclient;
   for (; ;) {
-    pgclient = getPGConnection();
     try {
-      await pgclient.connect();
+      pgclient = await __createRawConnection();
       break;
     } catch (e) {
       await sleep(50);
       firstTry = false;
-      await pgclient.close();
     }
   }
 

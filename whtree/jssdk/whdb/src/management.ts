@@ -214,7 +214,7 @@ export async function getDatabaseMonitorInfo() {
   return {
     translist,
     blockingLocks: finalBlockingLocks,
-    ownPid: (getConnection() as WHDBConnectionImpl).pgclient?.processID
+    ownPid: (getConnection() as WHDBConnectionImpl).client?.getBackendProcessId(),
   };
 }
 

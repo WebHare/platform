@@ -1,5 +1,6 @@
-import type { Connection } from "./connection.ts";
+//import type { Connection } from "./connection.ts";
 import { omit } from "@webhare/std";
+import type { PostgresPoolClient } from "kysely";
 
 export function escapePGIdentifier(str: string): string {
   const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
@@ -26,33 +27,33 @@ export function escapePGIdentifier(str: string): string {
   return retval;
 }
 
-export async function schemaExists(pg: Connection, schema: string) {
-  const result = await pg.query(`SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`, { params: [schema] });
+export async function schemaExists(pg: PostgresPoolClient, schema: string) {
+  const result = await pg.query(`SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`, [schema]);
   return Boolean(result.rows?.length);
 }
 
-export async function indexExists(pg: Connection, schema: string, table: string, index: string) {
-  const result = await pg.query(`SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 AND indexname = $3`, { params: [schema, table, index] });
+export async function indexExists(pg: PostgresPoolClient, schema: string, table: string, index: string) {
+  const result = await pg.query(`SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 AND indexname = $3`, [schema, table, index]);
   return Boolean(result.rows?.length);
 }
 
-export async function tableExists(pg: Connection, schema: string, table: string) {
-  const result = await pg.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2`, { params: [schema, table] });
+export async function tableExists(pg: PostgresPoolClient, schema: string, table: string) {
+  const result = await pg.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2`, [schema, table]);
   return Boolean(result.rows?.length);
 }
 
-export async function columnExists(pg: Connection, schema: string, table: string, column: string) {
-  const result = await pg.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3`, { params: [schema, table, column] });
+export async function columnExists(pg: PostgresPoolClient, schema: string, table: string, column: string) {
+  const result = await pg.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3`, [schema, table, column]);
   return Boolean(result.rows?.length);
 }
 
-export async function getPGType(pg: Connection, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
-  const result = await pg.query(`
+export async function getPGType(pg: PostgresPoolClient, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
+  const result = await pg.query<{ oid: number; typname: string }>(`
     SELECT t.oid, t.typname
       FROM pg_catalog.pg_type t
            JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
            JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-     WHERE nspname = $1 AND t.typname = $2 AND proname = 'record_in'`, { params: [schema, type], objectRows: true });
+     WHERE nspname = $1 AND t.typname = $2 AND proname = 'record_in'`, [schema, type]);
 
   return result.rows?.length ? result.rows[0] : null;
 }
@@ -91,7 +92,7 @@ type Command = {
 };
 
 class ChangeContext {
-  constructor(public pg: Connection) {
+  constructor(public pg: PostgresPoolClient) {
 
   }
 
@@ -335,7 +336,7 @@ function transformColumnDef(context: ChangeContext, table_schema: string, table_
   return colrec;
 }
 
-async function generateDependentSQLCommands(pg: Connection, schemadefs: SchemaDef[]) {
+async function generateDependentSQLCommands(pg: PostgresPoolClient, schemadefs: SchemaDef[]) {
   const context = new ChangeContext(pg);
   // const fkeys_to_update = [];
 
@@ -725,16 +726,16 @@ async function generateDependentSQLCommands(pg: Connection, schemadefs: SchemaDe
   return context.resultsSoFar();
 }
 
-export async function executeSQLUpdates(pg: Connection, cmds: Command[]) {
+export async function executeSQLUpdates(pg: PostgresPoolClient, cmds: Command[]) {
   for (const cmd of cmds) {
     //TODO: IF a command caused an error, store that with the command for better error reporting
-    await pg.query(cmd.cmd, { params: cmd.params });
+    await pg.query(cmd.cmd, cmd.params ?? []);
   }
   //TODO IF(Length(cmds) > 0)
   // TODO  ClearAllSchemaCaches();
 }
 
-export async function createTableImmediately(pg: Connection, schema: string, table: TableDef) {
+export async function createTableImmediately(pg: PostgresPoolClient, schema: string, table: TableDef) {
   // Translate to schema definition, run to table updater
   const schemadef = { name: schema, tables: [table] };
   const cmd = await generateDependentSQLCommands(pg, [schemadef]);

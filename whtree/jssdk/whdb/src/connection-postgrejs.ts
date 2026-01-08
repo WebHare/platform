@@ -4,12 +4,13 @@
 */
 import type {
   PostgresCursor,
+  PostgresPoolClient,
   PostgresQueryResult,
 } from 'kysely';
 
-import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgrejs/src/index';
+import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type FieldInfo, DataTypeMap } from '../vendor/postgrejs/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
-import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, ArrayWHTimestampTzType, Float8Type, MoneyType, TidType, WHTimestampType, WHTimestampTzType, BlobType } from "./types";
+import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, ArrayWHTimestampTzType, Float8Type, MoneyType, TidType, WHTimestampType, WHTimestampTzType, BlobType } from "./types-postgrejs";
 import { getIntlConnection } from '../vendor/postgrejs/src/connection/intl-connection';
 import { ArrayVarcharType, VarcharType } from '../vendor/postgrejs/src/data-types/varchar-type';
 import { ArrayBoolType, BoolType } from '../vendor/postgrejs/src/data-types/bool-type';
@@ -20,9 +21,10 @@ import { ArrayInt2Type, Int2Type } from '../vendor/postgrejs/src/data-types/int2
 import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgrejs/src/data-types/oid-type';
 import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgrejs/src/data-types/int2-vector-type';
 import { ArrayCharType, CharType } from '../vendor/postgrejs/src/data-types/char-type';
-import { getPGType } from './metadata';
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { ArrayUuidType, UuidType } from '../vendor/postgrejs/src/data-types/uuid-type';
+import type { WHDBClientInterface, WHDBPgClientOptions } from './connectionbase';
+import { RefTracker } from '@mod-system/js/internal/whmanager/refs';
 
 export { DatabaseError, type Connection } from "../vendor/postgrejs/src";
 
@@ -37,7 +39,45 @@ interface PGConnectionDebugEvent {
   args?: unknown[];
 }
 
+/// Type map without dynamic types (for bootstrap)
+let rawTypeMap: DataTypeMap | undefined;
+
 export const whdbTypeMap = new DataTypeMap();
+
+function baseInitTypeMap(typeMap: DataTypeMap): DataTypeMap {
+  typeMap.register([OidType, VectorOidType, ArrayOidType]);
+  typeMap.register([BoolType, ArrayBoolType]);
+  typeMap.register([Float8Type, ArrayFloat8Type]);
+  typeMap.register([MoneyType, ArrayMoneyType]);
+  typeMap.register([Int2Type, ArrayInt2Type]); //we don't use this type ourselves, but looks like the WHDB layer may pick it when sending id IN ... ?
+  typeMap.register([Int4Type, ArrayInt4Type]);
+  typeMap.register([Int8Type, ArrayInt8Type]);
+
+  typeMap.register([UuidType, ArrayUuidType]);
+  typeMap.register([ByteaType, ArrayByteaType]);
+  typeMap.register([Int2VectorType, ArrayInt2VectorType]);//needed to read PG catalogs
+  typeMap.register({ ...VarcharType, name: "name", oid: DataTypeOIDs.name }); //needed to read PG catalogs
+  typeMap.register({ ...VarcharType, name: "text", oid: DataTypeOIDs.text }); //I don't think we use 'text' columns in a WebHare DB, but we *do* cast to ::text on occassion
+  typeMap.register([CharType, ArrayCharType]); //needed to read PG catalogs
+  typeMap.register([VarcharType, ArrayVarcharType]);
+
+  typeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
+  typeMap.register([WHTimestampType, ArrayWHTimestampType]);
+  typeMap.register([WHTimestampTzType, ArrayWHTimestampTzType]);
+  return typeMap;
+}
+
+// Get the oid and typename of a type. Can't use meta.ts version because the calling conventions are different
+async function getPGTypeRaw(pg: Connection, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
+  const result = await pg.query(`
+    SELECT t.oid, t.typname
+      FROM pg_catalog.pg_type t
+           JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
+     WHERE nspname = $1 AND t.typname = $2 AND proname = 'record_in'`, { params: [schema, type], objectRows: true });
+
+  return result.rows?.length ? result.rows[0] : null;
+}
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: Connection): Promise<void> {
@@ -75,27 +115,9 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
        So, make sure that the most generic type is registered last!!!
     */
 
-    whdbTypeMap.register([OidType, VectorOidType, ArrayOidType]);
-    whdbTypeMap.register([BoolType, ArrayBoolType]);
-    whdbTypeMap.register([Float8Type, ArrayFloat8Type]);
-    whdbTypeMap.register([MoneyType, ArrayMoneyType]);
-    whdbTypeMap.register([Int2Type, ArrayInt2Type]); //we don't use this type ourselves, but looks like the WHDB layer may pick it when sending id IN ... ?
-    whdbTypeMap.register([Int4Type, ArrayInt4Type]);
-    whdbTypeMap.register([Int8Type, ArrayInt8Type]);
+    baseInitTypeMap(whdbTypeMap);
 
-    whdbTypeMap.register([UuidType, ArrayUuidType]);
-    whdbTypeMap.register([ByteaType, ArrayByteaType]);
-    whdbTypeMap.register([Int2VectorType, ArrayInt2VectorType]);//needed to read PG catalogs
-    whdbTypeMap.register({ ...VarcharType, name: "name", oid: DataTypeOIDs.name }); //needed to read PG catalogs
-    whdbTypeMap.register({ ...VarcharType, name: "text", oid: DataTypeOIDs.text }); //I don't think we use 'text' columns in a WebHare DB, but we *do* cast to ::text on occassion
-    whdbTypeMap.register([CharType, ArrayCharType]); //needed to read PG catalogs
-    whdbTypeMap.register([VarcharType, ArrayVarcharType]);
-
-    whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
-    whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
-    whdbTypeMap.register([WHTimestampTzType, ArrayWHTimestampTzType]);
-
-    const bloboidquery = await getPGType(pg, "webhare_internal", "webhare_blob");
+    const bloboidquery = await getPGTypeRaw(pg, "webhare_internal", "webhare_blob");
     if (bloboidquery) {
       configuration = { bloboid: bloboidquery.oid };
       BlobType.oid = configuration.bloboid;
@@ -135,19 +157,64 @@ export function getPGConnection() {
   return pgclient;
 }
 
-export class WHDBPgClient {
+class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
+  options;
   pgclient?;
-  connected = false;
-  connectpromise: Promise<void>;
+  reftracker: RefTracker;
+  dataTypeMap: DataTypeMap;
 
-  constructor() {
-    this.pgclient = getPGConnection();
+  constructor(pgclient: Connection, options?: WHDBPgClientOptions) {
+    this.options = options;
+    this.dataTypeMap = options?.raw ? (rawTypeMap ??= baseInitTypeMap(new DataTypeMap())) : whdbTypeMap;
+    this.pgclient = pgclient;
+    this.reftracker = new RefTracker(this.getRefObject(), { initialref: true });
+    this.reftracker.dropInitialReference();
+  }
 
-    const client = this.pgclient;
-    this.connectpromise = client.connect().then(() => configureWHDBClient(client));
+  private async executeSqlQuery<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<FullPostgresQueryResult<R>> {
+    using lock = this.reftracker.getLock("postgresql query");
+    void lock;
 
-    // Make sure that failed connections do not result in uncaught rejections when nobody calls connect()
-    this.connectpromise.catch(() => { });
+    const queryoptions: QueryOptions = {
+      params: [],
+      utcDates: true,
+      typeMap: this.dataTypeMap,
+      fetchCount: 4294967295 //TODO we should probably go for cursors instead
+    };
+
+    if (parameters)
+      for (const param of parameters) {
+        if (Array.isArray(param) && param.length === 0)
+          queryoptions.params!.push(new BindParam(DataTypeOIDs._int2, [])); //workaround for postgresql-client not detecting a type for this.
+        else if (typeof param === "string")
+          queryoptions.params!.push(new BindParam(DataTypeOIDs.text, param));
+        else
+          queryoptions.params!.push(param);
+      }
+
+    if (debugFlags["postgresql:logquery"])
+      console.log({ sqlquery, ...queryoptions });
+
+    const result = await this.pgclient!.query(sqlquery, queryoptions);
+    const rows = [];
+    if (result.rows && result.fields)
+      for (const row of result.rows) {
+        const newrow: R = {} as R;
+        for (let i = 0; i < result.fields.length; ++i) {
+          newrow[result.fields![i].fieldName as keyof R] = row[i];
+        }
+        rows.push(newrow);
+      }
+
+    if (debugFlags["postgresql:logquery"])
+      console.log("result", result);
+
+    return {
+      rows,
+      rowCount: rows.length || result.rowsAffected || 0,
+      command: result.command! as "UPDATE" | "DELETE" | "SELECT" | "INSERT", //apparently kysely assumes only these can appear in queries
+      fields: result.fields
+    };
   }
 
   query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
@@ -157,69 +224,43 @@ export class WHDBPgClient {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
 
-    if (typeof sqlquery === "string") {
-      const queryoptions: QueryOptions = {
-        params: [],
-        utcDates: true,
-        typeMap: whdbTypeMap,
-        fetchCount: 4294967295 //TODO we should probably go for cursors instead
-      };
 
-      if (parameters)
-        for (const param of parameters) {
-          if (Array.isArray(param) && param.length === 0)
-            queryoptions.params!.push(new BindParam(DataTypeOIDs._int2, [])); //workaround for postgresql-client not detecting a type for this.
-          else if (typeof param === "string")
-            queryoptions.params!.push(new BindParam(DataTypeOIDs.text, param));
-          else
-            queryoptions.params!.push(param);
-        }
+    if (typeof sqlquery === "string")
+      return this.executeSqlQuery<R>(sqlquery, parameters);
 
-      if (debugFlags["postgresql:logquery"])
-        console.log({ sqlquery, ...queryoptions });
-
-      return this.pgclient!.query(sqlquery, queryoptions).then((result: QueryResult): FullPostgresQueryResult<R> => {
-        const rows = [];
-        if (result.rows && result.fields)
-          for (const row of result.rows) {
-            const newrow: R = {} as R;
-            for (let i = 0; i < result.fields.length; ++i) {
-              newrow[result.fields![i].fieldName as keyof R] = row[i];
-            }
-            rows.push(newrow);
-          }
-
-        if (debugFlags["postgresql:logquery"])
-          console.log("result", result);
-
-        return {
-          rows,
-          rowCount: rows.length || result.rowsAffected || 0,
-          command: result.command! as "UPDATE" | "DELETE" | "SELECT" | "INSERT", //apparently kysely assumes only these can appear in queries
-          fields: result.fields
-        };
-      });
-    }
     return sqlquery;
   }
 
-
-  /// Allocates a PostgresPoolClient
-  async connect(): Promise<WHDBPgClient> {
-    if (!this.connected) {
-      if (!this.pgclient)
-        throw new Error(`Connection was already closed`);
-
-      await this.connectpromise;
-      this.connected = true;
-    }
-    return this;
+  release() {
+    this.options?.onRelease?.(this);
   }
 
   async close() {
+    using lock = this.reftracker.getLock("postgresql query");
+    void lock;
+
     await this.pgclient?.close();
     this.pgclient = undefined;
   }
+
+  getRefObject(): { ref(): void; unref(): void } {
+    const socket = getIntlConnection(this.pgclient!).socket["_socket"];
+    if (!socket)
+      throw new Error(`getPGConnection: could not get underlying socket`);
+    return socket;
+  }
+
+  getBackendProcessId(): number | undefined {
+    return this.pgclient?.processID;
+  }
+}
+
+export async function createConnection(options?: WHDBPgClientOptions): Promise<WHDBPgClient> {
+  const pgclient = getPGConnection();
+  await pgclient.connect();
+  if (!options?.raw)
+    await configureWHDBClient(pgclient);
+  return new WHDBPgClient(pgclient, options);
 }
 
 const bindables = {

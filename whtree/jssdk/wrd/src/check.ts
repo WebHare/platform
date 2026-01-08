@@ -69,7 +69,7 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
         if (conflict.type === currentAncestor.id) {
           onIssue({ message: `WRD type ${checkingType.tag} has internal duplicate attribute ${attr.fullTag} - attr #${attr.id} conflicts with attr #${conflict.id}` });
         } else {
-          onIssue({ message: `WRD type ${checkingType.tag} has inherited duplicate attribute ${attr.fullTag} from ancestor ${currentAncestor.tag} - attr #${attr.id} conflicts with inherited attr #${conflict.id}` });
+          onIssue({ message: `WRD type ${checkingType.tag} has inherited duplicate attribute ${attr.fullTag} from ancestor ${currentAncestor.tag} - attr #${conflict.id} conflicts with inherited attr #${attr.id}` });
         }
       }
     }
