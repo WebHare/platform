@@ -25,6 +25,9 @@ export type WHFSTypeName = keyof WHFSTypes;
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
+/** WHFS Type copy/clone mode */
+export type WHFSCloneMode = "onCopy" | "onArchive" | "never";
+
 /** Generic instance data format */
 export type InstanceData = { [key in string]: CodecGetMemberType };
 
@@ -69,6 +72,7 @@ export interface WHFSTypeBaseInfo {
   namespace: string;
   scopedType: string | null;
   members: WHFSTypeMember[];
+  clone: WHFSCloneMode;
 }
 
 /** The interface used for WHFS Types that only contain fields but don't explicitly implement a file, folder or widget type */
@@ -316,7 +320,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
 
     if (this.descr.namespace === "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
       whfsFinishHandler().checkSiteSettings();
-    if (options?.isVisibleEdit ?? true)
+    if (options?.isVisibleEdit ?? this.descr.clone !== "never")
       whfsFinishHandler().triggerEmptyUpdateOnCommit(id);
     else
       whfsFinishHandler().triggerReindexOnCommit(id);

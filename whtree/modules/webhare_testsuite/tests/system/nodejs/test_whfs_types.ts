@@ -647,18 +647,28 @@ async function testInstanceData() {
     test.eq(3, checked.length, "There should be 3 checked_objectlinks");
   }
 
-  {
+  const scenarios = [
+    { setVisibleEdit: true, cloneType: "onCopy", expectModDateChange: true },
+    { setVisibleEdit: false, cloneType: "onCopy", expectModDateChange: false },
+    { setVisibleEdit: undefined, cloneType: "onCopy", expectModDateChange: true }, //then the default takes over - modifying a cloneOnCopyable whfs typer will trigger a moddate change
+    { setVisibleEdit: true, cloneType: "never", expectModDateChange: true },
+    { setVisibleEdit: false, cloneType: "never", expectModDateChange: false },
+    { setVisibleEdit: undefined, cloneType: "never", expectModDateChange: false }, //then the default takes over - modifying a non-copying type will not trigger a moddate change
+  ] as const;
+
+  for (const scenario of scenarios) {
     await testfile.refresh();
     const oldModified = testfile.modified;
     await beginWork();
-    await testtype.set(testfile.id, {
-      url: "http://www.webhare.net/somepage",
-      myLink: new IntExtLink("http://www.webhare.net/otherpage"),
-      rich: await buildRTD([{ p: ["A link in a rich text document: ", { text: "link", link: "http://www.webhare.net/thirdpage" }] }])
-    }, { isVisibleEdit: false });
+    if (scenario.cloneType === "onCopy") {
+      await whfsType("webhare_testsuite:global.type_clone_only").set(testfile.id, { cloneOnlyString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
+    } else {
+      await whfsType("webhare_testsuite:global.type_no_clone").set(testfile.id, { noCloneString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
+    }
     await commitWork();
     await testfile.refresh();
-    test.assert(Temporal.Instant.compare(oldModified, testfile.modified) === 0, "File should not be modified");
+    const isModDateChanged = Temporal.Instant.compare(oldModified, testfile.modified) !== 0;
+    test.eq(scenario.expectModDateChange, isModDateChanged, `File modified date change expectation failed (setVisibleEdit=${scenario.setVisibleEdit}, cloneType=${scenario.cloneType})`);
   }
 
   {
