@@ -61,9 +61,9 @@ export async function runShortLivedContext(sleepMs: number) {
   const context = new CodeContext("shortContext 1");
 
   await context.run(async () => {
-    db();
+    void db().selectNoFrom(sql<number>`1`.as('one')).execute().catch(() => 0); //initializes connection. Don't care if fails
     // Wait for the db connection to become ready, after that the blobtype oid scan is started
-    await new Promise(resolve => (getConnection() as WHDBConnectionImpl).pgclient?.on("ready", resolve));
+    await (getConnection() as WHDBConnectionImpl).waitConnected();
     /* exit - this will kill the db connection. If queries aren't correctly closed when the context is
        closed, the blob oid scan will hang indefinately and subsequent connections will hang on it
     */

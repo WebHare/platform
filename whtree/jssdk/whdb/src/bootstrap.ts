@@ -1,56 +1,55 @@
-import type { Connection } from "../vendor/postgrejs/src";
+import type { PostgresPoolClient } from "kysely";
 import { createTableImmediately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
 
 /** Bootstraps the PostgreSQL database
 */
-export async function bootstrapPostgresWHDB(pg: Connection) {
-  await pg.query('START TRANSACTION READ WRITE');
+export async function bootstrapPostgresWHDB(pg: PostgresPoolClient) {
+  await pg.query('START TRANSACTION READ WRITE', []);
   await ensureExtensions(pg);
   await ensureSettings(pg);
   await ensureBlobTable(pg);
   await ensureStoredProcedures(pg);
   if (await tableExists(pg, "pg_catalog", "pg_pltemplate")) //PG < 12, we need to remove a grant that breaks upgrading
-    await pg.query(`REVOKE SELECT ON TABLE "pg_catalog"."pg_pltemplate" FROM "root";`);
+    await pg.query(`REVOKE SELECT ON TABLE "pg_catalog"."pg_pltemplate" FROM "root";`, []);
 
-  await pg.query("COMMIT");
+  await pg.query("COMMIT", []);
 }
 
-async function ensureExtensions(pg: Connection) {
+async function ensureExtensions(pg: PostgresPoolClient) {
   const required_extensions = [
     "plpgsql", // For stored procedures. Should be installed by default
     "pgcrypto" // Needed for digest(...) function, used by unique indexes on long varchars
   ];
 
-  const installed = await pg.query(
-    `SELECT extname FROM pg_extension`, { objectRows: true });
+  const installed = await pg.query<{ extname: string }>(`SELECT extname FROM pg_extension`, []);
 
   for (const ext of required_extensions)
     if (!installed.rows?.some(row => row.extname === ext)) {
-      await pg.query(`CREATE EXTENSION ${ext}`);
+      await pg.query(`CREATE EXTENSION ${ext}`, []);
     }
 }
 
-async function ensureSettings(pg: Connection) {
-  await pg.query(`alter user current_user set default_transaction_read_only = on`);
+async function ensureSettings(pg: PostgresPoolClient) {
+  await pg.query(`alter user current_user set default_transaction_read_only = on`, []);
   //Always block any password at startup, password-access to webhare's user should only be temporary
-  await pg.query(`alter user current_user password null`);
+  await pg.query(`alter user current_user password null`, []);
 }
 
-async function ensureBlobTable(pg: Connection) {
+async function ensureBlobTable(pg: PostgresPoolClient) {
   // Ensure the blob type exists
   const blobtype = await getPGType(pg, "webhare_internal", "webhare_blob");
 
   if (!blobtype) {
     if (!await schemaExists(pg, "webhare_internal"))
-      await pg.query(`CREATE SCHEMA webhare_internal`);
+      await pg.query(`CREATE SCHEMA webhare_internal`, []);
 
     const oldblobtype = await getPGType(pg, "public", "webhare_blob");
     if (oldblobtype) {
       //Pre 4.35 we created this type in public, but that makes a 'DROP SCHEMA public' terribly dangerous. Migrate it to our schema
       //We shouldn't ever be upgrading from pre-4.35 to a TypesScript WebHare, but just in case...
-      await pg.query(`ALTER TYPE public.webhare_blob SET SCHEMA webhare_internal`);
+      await pg.query(`ALTER TYPE public.webhare_blob SET SCHEMA webhare_internal`, []);
     } else {
-      await pg.query(`CREATE TYPE webhare_internal.webhare_blob AS (id text, size int8)`);
+      await pg.query(`CREATE TYPE webhare_internal.webhare_blob AS (id text, size int8)`, []);
     }
   }
 
@@ -64,11 +63,11 @@ async function ensureBlobTable(pg: Connection) {
 
     // Make sure an index exists on the ID part of the blob primary key (needed for blob cleanup)
     if (!await indexExists(pg, "webhare_internal", "blob", "id"))
-      await pg.query(`CREATE UNIQUE INDEX blob_id_id ON webhare_internal.blob(((id).id))`);
+      await pg.query(`CREATE UNIQUE INDEX blob_id_id ON webhare_internal.blob(((id).id))`, []);
   }
 }
 
-async function ensureStoredProcedures(pg: Connection) {
+async function ensureStoredProcedures(pg: PostgresPoolClient) {
   /* Stored procedures
 
      The parameter lists for most of these have been hard-coded into the
@@ -623,22 +622,22 @@ END;$$`
     }
   ];
 
-  await pg.query(`SET client_min_messages TO WARNING`); /* Prevent log noise if the function doesn't exist
+  await pg.query(`SET client_min_messages TO WARNING`, []); /* Prevent log noise if the function doesn't exist
    FIXME why can't we just check and then treat exceptions seriously?  why doesn't CREATE OR REPLACE remove the need for DROP
    ?*/
   for (const rec of stored_procedures) {
     try {
-      await pg.query(`SAVEPOINT sp`);
-      await pg.query(rec.code);
+      await pg.query(`SAVEPOINT sp`, []);
+      await pg.query(rec.code, []);
     } catch (e) {
       console.error("Creating stored procedure", rec.name, e);
-      await pg.query(`ROLLBACK TO SAVEPOINT sp`);
-      await pg.query(`DROP FUNCTION ${rec.name} CASCADE`); // triggers will be recreated later
-      await pg.query(rec.code);
+      await pg.query(`ROLLBACK TO SAVEPOINT sp`, []);
+      await pg.query(`DROP FUNCTION ${rec.name} CASCADE`, []); // triggers will be recreated later
+      await pg.query(rec.code, []);
     }
   }
 
   for (const re of obsolete_procedures) {
-    await pg.query(re.code);
+    await pg.query(re.code, []);
   }
 }

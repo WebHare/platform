@@ -5,22 +5,30 @@ import * as metadata from "./metadata";
 
 export async function schemaExists(schema: string) {
   const conn = getConnection() as WHDBConnectionImpl;
-  using lock = conn.reftracker.getLock("query lock: metadata query");
-  void (lock);
-  return await metadata.schemaExists((await conn.connect()).pgclient!, schema);
+  const client = await conn.pool.connect();
+  try {
+    return await metadata.schemaExists(client, schema);
+  } finally {
+    client.release();
+  }
 }
 
 export async function tableExists(schema: string, table: string) {
   const conn = getConnection() as WHDBConnectionImpl;
-  using lock = conn.reftracker.getLock("query lock: metadata query");
-  void (lock);
-  return await metadata.tableExists((await conn.connect()).pgclient!, schema, table);
+  const client = await conn.pool.connect();
+  try {
+    return await metadata.tableExists(client, schema, table);
+  } finally {
+    client.release();
+  }
 }
 
 export async function columnExists(schema: string, table: string, column: string) {
   const conn = getConnection() as WHDBConnectionImpl;
-  const pg = (await conn.connect()).pgclient!;
-  using lock = conn.reftracker.getLock("query lock: metadata query"); //TODO Get rid of these locks but we need to columnExists & co to invoke the WHDB Connection and not the lowlevel PG connection then?
-  void (lock);
-  return await metadata.columnExists(pg, schema, table, column);
+  const client = await conn.pool.connect();
+  try {
+    return await metadata.columnExists(client, schema, table, column);
+  } finally {
+    client.release();
+  }
 }

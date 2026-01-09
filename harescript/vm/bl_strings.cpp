@@ -7,10 +7,13 @@
 namespace //anonymous
 {
 
+// VS code & emscripten don't do char8_t very well yet with c++20, so use this helper to calc the return type of u8"x"
+using u8str_type = std::add_pointer_t<std::remove_extent_t<std::remove_reference_t<decltype(u8"x")>>>;
+
 struct EntityTextMap
 {
         const char *name;
-        const char *text;
+        u8str_type text;
 };
 
 /** HTML living standard entity references, retrieved from https://html.spec.whatwg.org/entities.json at 2018-12-03
@@ -2202,7 +2205,7 @@ void DecodeEntityToUtf8(std::string &entity)
                 auto pos = std::lower_bound(entitymap, entitymap + entity_count, compareto, EntityTextMapCompare());
                 if (pos != entitymap + entity_count && compareto == pos->name)
                 {
-                        entity = pos->text;
+                        entity = reinterpret_cast<const char *>(pos->text);
                 }
                 else
                 {

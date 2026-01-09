@@ -7,30 +7,31 @@ import {
   PostgresDialect,
   type Expression,
   type PostgresPool,
-  type PostgresPoolClient,
   type PostgresCursor,
   type PostgresQueryResult,
   type Selectable as KSelectable,
   type Insertable as KInsertable,
   type Updateable as KUpdateable,
+  type PostgresPoolClient,
 } from 'kysely';
 
 import type { ReadableStream } from "node:stream/web";
-import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
-import { pgBindParam, WHDBPgClient } from './connection';
+import * as PostgreJSConnectionLib from './connection-postgrejs';
 import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
-import { isError, sleep } from '@webhare/std';
-import { DatabaseError } from '../vendor/postgrejs/src';
+import { isError, isPromise, sleep } from '@webhare/std';
+import type { WHDBClientInterface } from './connectionbase';
+
+const connectionLib = PostgreJSConnectionLib;
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -164,23 +165,18 @@ class Work implements WorkObject {
   async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
     if (!this.open)
       throw new Error(`Work is already closed`);
-    if (!this.conn.pgclient)
+    if (!this.conn.client)
       throw new Error(`Connection was already closed`);
     if (debugFlags["db-readonly"])
       throw new DBReadonlyError();
 
-    const lock = this.conn.reftracker.getLock("query lock: UPLOADBLOB");
-    try {
-      return await uploadBlobToConnection(this.conn.pgclient, data);
-    } finally {
-      lock.release();
-    }
+    return await uploadBlobToConnection(this.conn.client, data);
   }
 
   async commit() {
     if (!this.open)
       throw new Error(`Work is already closed`);
-    if (!this.conn.pgclient)
+    if (!this.conn.client)
       throw new Error(`Connection was already closed`);
     if (debugFlags["db-readonly"])
       throw new DBReadonlyError();
@@ -200,10 +196,9 @@ class Work implements WorkObject {
     }
 
     this.open = false;
-    const lock = this.conn.reftracker.getLock("query lock: COMMIT");
     try {
-      const commitresult = await this.conn.pgclient.query("COMMIT");
-      if (commitresult.command !== "COMMIT")
+      const commitresult = await this.conn.client.query("COMMIT", []);
+      if (commitresult.command as string !== "COMMIT")
         throw new Error(`Commit failed (usually due to earlier errors on this transaction)`);
 
       this.commituniqueevents.forEach(event => broadcast(event));
@@ -211,7 +206,6 @@ class Work implements WorkObject {
       await this.invokeFinishHandlers(handlers, "onCommit");
     } finally {
       //TODO if (pre)commit fails we should
-      lock.release();
       this.__releaseMutexes();
       this.conn.openwork = undefined;
     }
@@ -233,17 +227,15 @@ class Work implements WorkObject {
   async rollback() {
     if (!this.open)
       throw new Error(`Work is already closed`);
-    if (!this.conn.pgclient)
+    if (!this.conn.client)
       throw new Error(`Connection was already closed`);
 
     this.open = false;
     using handlers = await this.prepareFinish(false);
-    const lock = this.conn.reftracker.getLock("query lock: ROLLBACK");
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
       await this.invokeFinishHandlers(handlers, "onRollback");
     } finally {
-      lock.release();
       this.__releaseMutexes();
       this.conn.openwork = undefined;
     }
@@ -278,6 +270,24 @@ class Work implements WorkObject {
   }
 }
 
+class WHDBPostgresPool implements PostgresPool {
+  conn: WHDBConnectionImpl;
+
+  constructor(conn: WHDBConnectionImpl) {
+    this.conn = conn;
+  }
+
+  async connect(): Promise<PostgresPoolClient> {
+    return this.conn.waitConnected();
+  }
+
+  async end() {
+  }
+}
+
+
+
+
 /* Every WHDBConnection uses one pgclient, and runs all the queries over that transaction, so
    no pooling is used within one connection.
 */
@@ -287,56 +297,61 @@ class Work implements WorkObject {
     script ends, don't want that.
     @typeParam T - Kysely database definition interface
 */
-export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, PostgresPool, PostgresPoolClient {
+export class WHDBConnectionImpl implements WHDBConnection {
+  pool;
+  connected: boolean;
   _db;
-  reftracker;
   openwork?: Work;
   lastopen?: Error;
+  client?: WHDBClientInterface;
+  clientPromise?: Promise<WHDBClientInterface>;
 
   constructor() {
-    super();
+    this.pool = new WHDBPostgresPool(this);
+    this.connected = false;
     this._db = this.buildKyselyClient();
-
-    type ExposeSocket = {
-      _intlCon: { socket: { _socket: { ref(): void; unref(): void } } };
-    };
-
-    this.reftracker = new RefTracker(checkIsRefCounted((this.pgclient! as unknown as ExposeSocket)._intlCon.socket._socket), { initialref: true });
-    this.reftracker.dropInitialReference();
   }
 
   buildKyselyClient() {
     return new Kysely<unknown>({
       // PostgresDialect requires the Cursor dependency
       dialect: new PostgresDialect({
-        pool: this
+        pool: this.pool,
       }),
       plugins: [new KyselyInToAnyPlugin],
     });
   }
 
-  /// Allocates a PostgresPoolClient
-  async connect(): Promise<WHDBConnectionImpl> {
-    if (this.connected)
-      return this;
-
-    const lock = this.reftracker.getLock("connect lock");
-    try {
-      await super.connect();
-    } finally {
-      lock.release();
-    }
-    return this;
+  waitConnected(): PostgresPoolClient | Promise<PostgresPoolClient> {
+    const client = this.client ?? this.getPoolClient();
+    if (isPromise(client))
+      return client.then(promisedClient => {
+        if (!promisedClient)
+          throw new Error(`Connection was already closed`);
+        return promisedClient;
+      });
+    if (!client)
+      throw new Error(`Connection was already closed`);
+    return client;
   }
 
-  async end() {
-    // is needed for PostgresPool implementation
+  private getPoolClient(): PostgresPoolClient | undefined | Promise<PostgresPoolClient | undefined> {
+    if (!this.connected) {
+      this.clientPromise ??= (async () => {
+        const client = await connectionLib.createConnection();
+        this.connected = true;
+        this.client = client;
+        return client;
+      })();
+      // don't return client from promise, but client from var - which is cleared when connection is closed
+      return this.clientPromise.then(() => this.client);
+    }
+    return this.client;
   }
 
   async execute(command: string) {
-    using lock = this.reftracker.getLock("query lock");
-    void (lock);
-    return await this.pgclient!.execute(command);
+    const client = await this.waitConnected();
+    return await client.query(command, []);
   }
 
   query<R extends object>(cursor: PostgresCursor<R>): PostgresCursor<R>;
@@ -344,20 +359,12 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
 
   query<R extends object>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
     if (typeof sqlquery !== "string")
-      return super.query(sqlquery);
+      throw new Error(`Cursors are not supported on WHDBConnection`);
 
-    return (async () => { //lock until the query starts returning or we may just abort the nodejs main loop.
-      using lock = this.reftracker.getLock("query lock");
-      void (lock);
-
-      await this.connectpromise;
-      return await super.query<R>(sqlquery, parameters);
-    })();
-  }
-
-  /// Releases the PostgresPoolClient
-  release() {
-    //
+    const client = this.waitConnected();
+    return isPromise(client) ?
+      client.then(c => c.query<R>(sqlquery, parameters || [])) :
+      client.query<R>(sqlquery, parameters || []);
   }
 
   /** kysely query builder */
@@ -379,11 +386,12 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
   private checkState(expectwork: undefined): Work | null;
 
   private checkState(expectwork: boolean | undefined): Work | null {
-    if (!this.pgclient)
-      throw new Error(`Connection was already closed`);
+    // Check work first - if work is open the connection must have been connected at some point, so no 'connection closed' error will be thrown during connecting
     if (expectwork !== undefined && this.isWorkOpen() !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
+    if (!this.client)
+      throw new Error(`Connection was already closed`);
     return this.openwork || null;
   }
 
@@ -397,7 +405,8 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
         throw new Error(`Invalid snapshot ID format`);
     }
 
-    let lock;
+    await this.waitConnected();
+
     let mutexes: Mutex[] | undefined = [];
     let newwork;
     let lastopen: Error | undefined;
@@ -414,7 +423,6 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
 
       this.checkState(false); //we must have the mutexes before checking work state otherwise code can't protect itself using the lock
 
-      lock = this.reftracker.getLock("work lock");
       newwork = new Work(this);
       for (const mutex of mutexes)
         newwork.addMutex(mutex);
@@ -424,7 +432,6 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
         this.lastopen = lastopen;
 
       const isolationLevel = options?.isolationLevel ?? "read committed";
-      await this.connectpromise;
       await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} ${options?.readOnly ? "READ ONLY" : "READ WRITE"}`);
       if (options?.useSnapshot) {
         await this.execute(`SET TRANSACTION SNAPSHOT '${options.useSnapshot}'`);
@@ -434,8 +441,6 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
       if (mutexes)
         mutexes.forEach(m => m.release());
       throw e;
-    } finally {
-      lock?.release();
     }
 
     this.openwork = newwork;
@@ -468,6 +473,18 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
 
   broadcastOnCommit(event: string, data?: BackendEventData) {
     this.checkState(true).broadcastOnCommit(event, data);
+  }
+
+  async close() {
+    if (this.client)
+      await this.client.close();
+    else if (this.clientPromise) {
+      void this.clientPromise.then(async client => {
+        this.client = undefined;
+        await client.close();
+      });
+    }
+    this.client = undefined;
   }
 }
 
@@ -665,8 +682,14 @@ export function __getNewConnection(): WHDBConnection {
   return new WHDBConnectionImpl();
 }
 
-export function isDatabaseError(e: unknown): e is DatabaseError {
-  return isError(e) && e instanceof DatabaseError;
+/** Get a new raw database connection (without codecs for dynamically created types like blobs)
+ */
+export function __createRawConnection(): Promise<WHDBClientInterface> {
+  return connectionLib.createConnection({ raw: true });
+}
+
+export function isDatabaseError(e: unknown): e is PostgreJSConnectionLib.DatabaseError {
+  return isError(e) && e instanceof connectionLib.DatabaseError;
 }
 
 interface NoTable {
@@ -748,7 +771,7 @@ type Bindables = {
  * @returns An expression that can be used in SQL queries
 */
 export function overrideValueType<T extends keyof Bindables>(value: Bindables[T][0], type: T): Expression<Bindables[T][1]> {
-  return sql`${pgBindParam(value, type)}`;
+  return sql`${connectionLib.pgBindParam(value, type)}`;
 }
 
 /** Overrides the type of a value for arguments of query() (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
@@ -757,5 +780,5 @@ export function overrideValueType<T extends keyof Bindables>(value: Bindables[T]
  * @returns The value wrapped in an objects that forces the encoding of that value to the specified type when used as argument to  query().
 */
 export function overrideQueryArgType<T extends keyof Bindables>(value: Bindables[T][0], type: T): unknown {
-  return pgBindParam(value, type);
+  return connectionLib.pgBindParam(value, type);
 }

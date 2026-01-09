@@ -1,6 +1,6 @@
 import { db } from "./impl";
+import { pgTypeOid_bit, pgTypeOid_bpchar, pgTypeOid_varbit, pgTypeOid_varchar } from "./oids";
 import type { PGMetaDB } from "./pgmetatables";
-import { DataTypeOIDs } from './../vendor/postgrejs/src/index';
 import { type RawBuilder, sql } from "kysely";
 
 export async function getSchemas(): Promise<Array<{ schemaName: string; isSystemSchema: boolean }>> {
@@ -152,9 +152,9 @@ export async function getColumns(schemaName: string, tableName: string): Promise
       }
     }
 
-    const characterMaximumLength = [DataTypeOIDs.bpchar, DataTypeOIDs.varchar].includes(rawColumn.atttypid) ?
+    const characterMaximumLength = [pgTypeOid_bpchar, pgTypeOid_varchar].includes(rawColumn.atttypid) ?
       rawColumn.atttypmod - 4 :
-      [DataTypeOIDs.bit, DataTypeOIDs.varbit].includes(rawColumn.atttypid) ?
+      [pgTypeOid_bit, pgTypeOid_varbit].includes(rawColumn.atttypid) ?
         rawColumn.atttypmod
         : 0; // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
 

@@ -1,7 +1,6 @@
 /** this function should use as little dependencies as possible, and no \@mod-... imports in the import tree
  */
 
-import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { decodeHSON } from "@webhare/hscompat/src/hson";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -10,8 +9,10 @@ import type { ConfigFile } from "@webhare/services/src/config";
 
 import { appendSlashWhenMissing, isValidDTAPStage, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
 import { reloadBackendConfig } from "../configuration";
+import { __createRawConnection } from "@webhare/whdb/src/impl";
+import type { WHDBClientInterface } from "@webhare/whdb/src/connectionbase";
 
-async function rawReadRegistryKey<T>(pgclient: WHDBPgClient, key: string): Promise<T | undefined> {
+async function rawReadRegistryKey<T>(pgclient: WHDBClientInterface, key: string): Promise<T | undefined> {
   const res = await pgclient.query<{ data: string }>("SELECT data FROM system.flatregistry WHERE name = $1", [key]);
   if (!res.rows?.[0])
     return undefined;
@@ -34,8 +35,7 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
     return finalconfig;
 
   try {
-    const pgclient = new WHDBPgClient;
-    await pgclient.connect();
+    const pgclient = await __createRawConnection();
     try {
       if (!process.env.WEBHARE_DTAPSTAGE || !isValidDTAPStage(process.env.WEBHARE_DTAPSTAGE)) {
         const dtapstage = await rawReadRegistryKey<string>(pgclient, "system.global.servertype");

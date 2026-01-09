@@ -127,9 +127,9 @@ endif
 GLOBALLDFLAGS += -Llib
 
 ifeq ($(BUILDSYSTEM),gcc)
-  CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
+  CXXFLAGS+=-std=c++20 -Wno-deprecated-declarations
 else
-	CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
+	CXXFLAGS+=-std=c++20 -Wno-deprecated-declarations
 	ifeq ($(WEBHARE_PLATFORM),darwin)
 		CXXFLAGS+=-stdlib=libc++ -Wno-nan-infinity-disabled
 		GLOBALLDFLAGS+=-stdlib=libc++
