@@ -211,33 +211,6 @@ PUBLIC MACRO   GfxRotateRightCanvas(INTEGER canvas_id)
        __Drawlib_v2_RotateCanvas    (canvas_id, TRUE);
 }
 
-/**
-@short          Rotate the canvas to the right
-@param          canvas_id  The ID of the canvas to resize
-*/
-PUBLIC MACRO   GfxRotateLeftCanvas(INTEGER canvas_id)
-{
-       ValidateDrawID(canvas_id);
-
-       __Drawlib_v2_RotateCanvas    (canvas_id, FALSE);
-}
-
-
-
-/**
-@short          Shear the canvas
-@param          canvas_id  The ID of the canvas to resize
-@param          scale_x    Horizontal scale factor
-@param          scale_y    Vertical scale factor
-*/
-PUBLIC MACRO   GfxShearCanvas(INTEGER canvas_id, FLOAT scale_x, FLOAT scale_y)
-{
-       ValidateDrawID(canvas_id);
-
-       __Drawlib_v2_ShearCanvas    (canvas_id, scale_x, scale_y);
-}
-
-
 
 /** @short Write the canvas to a blob in PNG format
     @param canvasid Canvas to convert to a PNG file
