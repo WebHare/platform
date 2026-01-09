@@ -24,12 +24,13 @@ const headless = !debugFlags["show-browser"];
 let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
+const newPassword = "pass$" + Math.random().toString(36).substring(2, 16);
 
 async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: string; password?: string; changePasswordTo?: string }) {
   const password = options?.password || test.getUser("sysop").password;
   const user = test.getUser(options?.user || "sysop");
   console.log("Login with ", user.login, "and password", password);
-  await page.waitForSelector('[name=login]');
+  await page.waitForSelector('.wh-wrdauth-login [name=login]');
   await page.type('[name=login]', user.login);
   await page.type('[name=password]', password);
   await Promise.all([
@@ -372,9 +373,8 @@ async function verifyAsOpenIDSP() {
       page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()')
     ]);
 
-    const changePasswordTo = "pass$" + Math.random().toString(36).substring(2, 16);
-    await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo });
-    console.log("Password changed to: " + changePasswordTo);
+    await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo: newPassword });
+    console.log("Password changed to: " + newPassword);
 
     { //wait for WebHare username
       const usernameNode = await page.waitForSelector("#dashboard-user-name");
@@ -426,7 +426,7 @@ async function verifyAsOpenIDSP() {
     const portal1LoginRequestWithPrompt = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=login";
     console.log(`portal1LoginRequestWithPrompt: ${portal1LoginRequestWithPrompt}`);
     await page.goto(portal1LoginRequestWithPrompt);
-    await runWebHareLoginFlow(page, { password: changePasswordTo });
+    await runWebHareLoginFlow(page, { password: newPassword });
     test.eq(String(wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
 
     await logoutRelyingParty(context);
@@ -445,7 +445,7 @@ async function verifyAsOpenIDSP() {
     const portal1LoginRequestBlocked = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
     console.log(`portal1LoginRequestBlocked: ${portal1LoginRequestBlocked}`);
     await page.goto(portal1LoginRequestBlocked);
-    await runWebHareLoginFlow(page, { password: changePasswordTo });
+    await runWebHareLoginFlow(page, { password: newPassword });
     test.eq(/The account has been disabled/, await (await (await page.waitForSelector("div.wh-wrdauth-extloginfailure"))?.getProperty("textContent"))?.jsonValue());
   } finally {
     await context.close();
@@ -457,7 +457,6 @@ async function verifyCustomOpenIDFlow() {
 
   //Setup test sysop user
   await beginWork();
-  const changePasswordTo = "pass$" + Math.random().toString(36).substring(2, 16);
   await oidcAuthSchema.update("wrdPerson", test.getUser("marge").wrdId, {
     whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:marge$"),
     wrdLastName: "BLOCKME"
@@ -476,7 +475,7 @@ async function verifyCustomOpenIDFlow() {
     console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
     await page.goto(portal1LoginRequest);
 
-    await runWebHareLoginFlow(page, { user: "marge", password: "marge$", changePasswordTo: changePasswordTo });
+    await runWebHareLoginFlow(page, { user: "marge", password: "marge$", changePasswordTo: newPassword });
 
     //We're blocked so this should show Login failed page
     const heading = await page.waitForSelector("h2");
@@ -502,7 +501,7 @@ async function verifyCustomOpenIDFlow() {
       console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
       await page.goto(portal1LoginRequest);
 
-      await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: changePasswordTo });
+      await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: newPassword });
       const newUser = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("bart").login).select(["wrdId", "wrdLastName", "whuserComment"]).executeRequireExactlyOne();
       test.eq(testsite.webRoot + "portal1-oidc/wrdauthtest/", newUser.whuserComment, "Autocreated user should have final URL in whuserComment");
     } finally {
@@ -511,6 +510,74 @@ async function verifyCustomOpenIDFlow() {
   }
 }
 
+async function verifySSOAPI() {
+  //ensure password is set even if earlier test is skipped
+  await runInWork(() => oidcAuthSchema.update("wrdPerson", test.getUser("bart").wrdId, {
+    whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:bart$"),
+  }));
+
+  { //Test SSO buton and user data
+    const context = await puppeteer!.createBrowserContext(); //separate cookie storage
+    try {
+      const testsite = await test.getTestSiteJS();
+      const page = await context.newPage();
+      const startUrl = testsite.webRoot + "portal1-oidc/wrdauthtest/";
+
+      console.log("Doing passive SSO login on ", startUrl);
+      await page.goto(startUrl);
+      test.eq("0", await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+      //Click passive SSO button
+      await page.click("#ssopassivebutton");
+      await test.wait(async () => {
+        try {
+          const result = await page.evaluate(`document.querySelector("#ssopassivestatus")?.textContent`) === "Completed passive SSO login";
+          return result;
+        } catch (e) { //sometimes the page is not ready yet
+          return false;
+        }
+      });
+
+      test.eq("0", await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+      console.log("Doing SSO login on ", startUrl);
+      await page.click("#ssobutton");
+      await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: newPassword });
+
+      const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+      const targetBart = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("bart").login).select(["wrdId", "wrdLastName", "whuserComment"]).executeRequireExactlyOne();
+      test.eq(String(targetBart.wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+      //Log out from this page
+      await page.click(".wh-wrdauth__logout");
+
+      await test.wait(async () => {
+        try {
+          const result = await page.evaluate(`document.querySelector("#userid")?.textContent`) === "0";
+          return result;
+        } catch (e) { //sometimes the page is not ready yet
+          return false;
+        }
+      });
+
+      console.log("Doing second passive SSO login on ", startUrl);
+      await page.goto(startUrl);
+      await page.click("#ssopassivebutton");
+      await test.wait(async () => {
+        try {
+          const result = await page.evaluate(`document.querySelector("#ssopassivestatus")?.textContent`) === "Completed passive SSO login";
+          return result;
+        } catch (e) { //sometimes the page is not ready yet
+          return false;
+        }
+      });
+
+      test.eq(String(targetBart.wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+    } finally {
+      await context.close();
+    }
+  }
+}
 
 test.runTests([
   setupOIDC, //implies test.reset
@@ -519,5 +586,6 @@ test.runTests([
   verifyOpenIDClient,
   verifyAsOpenIDSP,
   verifyCustomOpenIDFlow,
+  verifySSOAPI,
   async () => { await puppeteer?.close(); }
 ]);

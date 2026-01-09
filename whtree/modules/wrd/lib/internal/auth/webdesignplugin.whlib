@@ -1236,15 +1236,20 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
   */
   PUBLIC RECORD FUNCTION GenerateLoginRequest(STRING type, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
-    IF(type="oidc")
-      RETURN this->CreateOAuth2LoginRequest(serviceprovidertag, redirectto, options);
-
-    this->CheckNotFailed();
     options := ValidateOptions(CELL[ forcelogin := FALSE
                                    , passive := FALSE
                                    , action := "redirect"
                                    , prompt := ""
                                    ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]] ]);
+
+    IF(type="oidc") {
+      IF(options.passive AND options.prompt = "")
+        options.prompt := "none";
+
+      RETURN this->CreateOAuth2LoginRequest(serviceprovidertag, redirectto, PickCells(options, ["prompt"]));
+    }
+
+    this->CheckNotFailed();
     IF(type = "saml")
       RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, PickCells(options, ["forcelogin", "passive", "action"]));
     ELSE
