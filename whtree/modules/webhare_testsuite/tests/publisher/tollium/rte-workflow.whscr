@@ -7,6 +7,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -77,8 +78,32 @@ ASYNC MACRO EditRTD()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 
+ASYNC MACRO AssumeWriteAccess()
+{
+  // Revoke write access
+  testfw->BeginWork();
+  testfw->GetUserObject("lisa")->UpdateGrant("revoke", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+  testfw->CommitWork();
+
+  Print("[rte-workflow] opening editor with assumed access\n");
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectEditApplication(GetTestController(), testrtdfileid, [ assumereadaccess := TRUE, assumewriteaccess := TRUE, forceintegrated := TRUE ]));
+
+  OBJECT rte := TT("doceditor")->contents->rte;
+  Print("[rte-workflow] explicitly marking doc as dirty\n");
+  rte->__debug_simulatedirty();
+
+  // Save the changes
+  Print("[rte-workflow] save changes\n");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publish"));
+
+  // The application should close without the 'save changes' confirmation
+  Print("[rte-workflow] close app\n");
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
+}
+
 RunTestframework([ PTR PrepIt
                  , PTR EditRTD
+                 , PTR AssumeWriteAccess
                  ], [ testusers := [[ login := "lisa" ]
                                    ]
                     , profile := TRUE
