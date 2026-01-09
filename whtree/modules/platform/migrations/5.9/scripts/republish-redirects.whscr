@@ -1,0 +1,16 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+OpenPrimary()->BeginWork();;
+RECORD ARRAY redirects := SELECT id,whfspath
+                            FROM system.fs_objects
+                           WHERE type IN [ VAR whconstant_whfstype_internallink, VAR whconstant_whfstype_externallink ]
+                                 AND link != "";
+
+FOREVERY(RECORD torepublish FROM redirects)
+  ScheduleFileRepublish(torepublish.id);
+
+GetPrimary()->CommitWork();
