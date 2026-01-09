@@ -282,18 +282,11 @@ struct Module: public Node
         /// All object types
         std::vector<Symbol *> objecttypes;
 
-        /// Script property file id (ADDME: Generalize)
-        int32_t scriptproperty_fileid;
-        Blex::DateTime scriptproperty_filecreationdate;
-        bool scriptproperty_systemredirect;
 
         DEFINE_NODE_FUNCTIONS1(Module, Node)
 
         Module(LineColumn const &position)
         : Node(position)
-        , scriptproperty_fileid(0)
-        , scriptproperty_filecreationdate(0,0)
-        , scriptproperty_systemredirect(false)
         {
         }
 };

@@ -29,31 +29,6 @@ BLOB FUNCTION GetWebhareResource(STRING path)
   RETURN result.data;
 }
 
-STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
-{
-  IF(inlibrary LIKE "currentsite::*")
-  {
-    IF(__forcecurrentsite != "")
-    {
-      inlibrary := Substitute(inlibrary, "currentsite::", __forcecurrentsite);
-    }
-    ELSE
-    {
-      //scriptproperty FILEID is no longer always available ... witty loading still uses it for currentsite:: support
-      INTEGER baseid := __currentwhfsscriptid ?? GetStoredScriptProperty("FILEID");
-      IF(baseid=0)
-        THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - no scriptproperty fileid available");
-
-      STRING parentsitename := MakeFunctionPtr("mod::system/lib/database.whlib#__GetSiteNameForObjectId", TYPEID(STRING), [TYPEID(INTEGER)])(baseid);
-      IF(parentsitename="")
-        THROW NEW Exception("Cannot support load of library '" || inlibrary || "' - base file #" || baseid || " is not in a site");
-
-      inlibrary := Substitute(inlibrary, "currentsite::", "site::" || parentsitename || "/");
-    }
-  }
-  RETURN inlibrary;
-}
-
 MACRO OnDebugLog(STRING source, VARIANT msg)
 {
   INTEGER msglen := Length(EncodEJSON(msg));
@@ -259,7 +234,6 @@ MACRO Shutdown() __ATTRIBUTES__(DEINITMACRO)
 }
 
 __GetHSResourceCall := PTR GetWebhareResource;
-__LibraryLoadRemapper := PTR LibraryLoadRemapper;
 __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;

@@ -1034,10 +1034,6 @@ class BLEXLIB_PUBLIC VirtualMachine
         void ThrowException(VarId exception, bool skip_first_traceitem);
         void AbortForUncaughtException();
 
-        int32_t GetScriptParameter_FileId();
-        Blex::DateTime GetScriptParameter_FileCreationDate();
-        bool HasSystemRedirect();
-
         FileSystem & GetFileSystem() { return filesystem; }
         Environment& GetEnvironment() { return environment; }
   //      BlobSpaceManager& GetLocalBlobHandler() { return blobhandler; }

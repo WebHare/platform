@@ -172,9 +172,6 @@ PUBLIC STATIC OBJECTTYPE WittyTemplate
 
   INTEGER FUNCTION DoLoadLibrary(STRING name)
   {
-    IF(__LibraryLoadRemapper != DEFAULT FUNCTION PTR)
-      name := __LibraryLoadRemapper(name);
-
     BLOB data;
     TRY
     {

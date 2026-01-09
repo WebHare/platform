@@ -1766,19 +1766,6 @@ void EncodePacket(VarId id_set, VirtualMachine *vm)
         HSVM_StringSet(*vm, id_set, reinterpret_cast<const char*>(&retval[0]), reinterpret_cast<const char*>(&retval[retval.size()]));
 }
 
-void GetStoredScriptProperty(VarId id_set, VirtualMachine *vm)
-{
-        std::string priv = HSVM_StringGetSTD(*vm, HSVM_Arg(0));
-        Blex::ToUppercase(priv.begin(), priv.end());
-
-        if (priv == "FILECREATIONDATE")
-            HSVM_DateTimeSet(*vm, id_set, vm->GetScriptParameter_FileCreationDate().GetDays(), vm->GetScriptParameter_FileCreationDate().GetMsecs());
-        else if (priv == "FILEID")
-            HSVM_IntegerSet(*vm, id_set, vm->GetScriptParameter_FileId());
-        else
-            HSVM_BooleanSet(*vm, id_set, false);
-}
-
 void UnmangleFunctionName(VarId id_set, VirtualMachine *vm)
 {
         HSVM_ColumnId col_functionname = HSVM_GetColumnId(*vm, "FUNCTIONNAME");
@@ -3440,7 +3427,6 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_GETRAWFUNCTIONPROFILE::R:",GetFunctionProfileData));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_GETVMSTATISTICS::R:", GetVMStatistics));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_GETCALLTREESTATS::R:", GetCallTreeStats));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSTOREDSCRIPTPROPERTY::V:S",GetStoredScriptProperty));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETUCVALUE::I:S",GetUCValue));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISATENDOFSTREAM::B:I",IsAtEndOfStream));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("LENGTH::I:V",Length));

@@ -3,8 +3,6 @@
 
 LOADLIB "wh::internal/hsselftests.whlib";
 
-(* SCRIPTPROPERTY "FILEID" 1234 *)
-
 RECORD ARRAY errors;
 RECORD result;
 
@@ -452,13 +450,6 @@ MACRO EscapeTest()
   CloseTest("TestSyntax: EscapeTest");
 }
 
-MACRO ScriptingStuff()
-{
-  OpenTest("TestSyntax: ScriptingStuff");
-  TestEq(1234, GetStoredScriptProperty("FILEID"));
-  CloseTest("TestSyntax: ScriptingStuff");
-}
-
 PUBLIC MACRO AttributesTest()
 {
   OpenTest("TestSyntax: AttributesTest");
@@ -701,7 +692,6 @@ MacroTest();
 CommentsTest();
 StrConstTest();
 EscapeTest();
-ScriptingStuff();
 AttributesTest();
 EmptyStatementTest();
 ConditionalCompileTest();
