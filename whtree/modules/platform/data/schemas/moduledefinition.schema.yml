@@ -51,6 +51,10 @@ properties:
   formDefinitions:
     description: Form definition files (used in OpenForm calls)
     $ref: "#/$defs/FormDefinitions"
+  tasks:
+    description: Tasks
+    $ref: "#/$defs/Tasks"
+
 
 $defs:
   # Server DTAP stages
@@ -477,3 +481,23 @@ $defs:
     patternProperties:
       "^[a-z_][-a-z0-9_]*$": # Form definition name
         type: string
+
+  Tasks:
+    type: object
+    description: Declare the location of form definitions in this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Task tag
+        type: object
+        additionalProperties: false
+        required:  [runner]
+        properties:
+          runner:
+            type: string
+            description: "Path to the task script"
+          allowIfRestore:
+            type: boolean
+            description: "Whether to allow this task to run when WebHare is in restore mode. Defaults to false"
+          ifWebHare:
+            description: "Restrict task to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"

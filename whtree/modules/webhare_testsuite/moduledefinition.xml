@@ -60,7 +60,7 @@
                  cluster="testcluster"
                  taskrunner="tests/system/queues/data/testtasks.ts#doubleScheduleTaskJS" />
 
-    <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask" />
+    <ephemeraltask type="ping_ephemeral" objectname="lib/internal/tasks.whlib#ephpingtask" />
   </servicemanager>
 
   <portal>

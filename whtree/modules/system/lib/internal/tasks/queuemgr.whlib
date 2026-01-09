@@ -18,7 +18,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
     @cell(record array) return.value.clusters List of taskclusters
     @cell(string) return.value.clusters.tag Tag of the taskcluster
     @cell(integer) return.value.clusters.harescriptworkers Number of harescript workers
-    @cell(integer) return.value.clusters.javascriptworkers Number of javascript workers
 */
 RECORD FUNCTION GetCacheableAllTaskTypeInfo()
 {
@@ -30,29 +29,13 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
       [ [ tag :=                    "system:default"
         , harescriptworkers :=      1
         , harescriptworkerthreads := 1
-        , javascriptworkers :=      0 //DISABLED - no longer supporting runepehmeraltask.es and we may never have managed TS workers...
         , profile := FALSE
         ]
       ];
 
-  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
-  {
-    STRING resname := GetModuleDefinitionXMLResourceName(modulename);
-    INSERT resname INTO resources AT END;
-    TRY
-    {
-      OBJECT xmldoc := GetModuleDefinitionXML(modulename);
-
-      RECORD parsed := ParseModuleTasks(modulename, resname, xmldoc);
-      clusters := clusters CONCAT parsed.clusters;
-      tasktypes := tasktypes CONCAT parsed.tasktypes;
-    }
-    CATCH(OBJECT e)
-    {
-      LogHarescriptException(e);
-      CONTINUE; //Don't shut down the whole task system just because one XML file broke
-    }
-  }
+  RECORD taskinfo := __GetExtractedConfig("tasks");
+  clusters := clusters CONCAT SELECT AS RECORD ARRAY[...value, tag := ToLowercase(name)] FROM UnpackRecord(taskinfo.clusters);
+  tasktypes := SELECT AS RECORD ARRAY[...value, tasktype := ToLowercase(name)] FROM UnpackRecord(taskinfo.tasktypes) ORDER BY name, value.ephemeral;
 
   // Get overrides from system:config schema
   OBJECT configschema := OpenWRDSchema("system:config");

@@ -23,7 +23,7 @@ CONSTANT INTEGER restartdelay := 1000;
 INTEGER restart_workers_after := 15 * 60 * 1000; //restart workers after
 INTEGER nextworkeruid := 0;
 BOOLEAN debug, profileworkers;
-BOOLEAN manualjs, manualhs;
+BOOLEAN manualhs;
 OBJECT controller;
 
 INTEGER waitonline := 60000; //time for process to start
@@ -152,8 +152,8 @@ STATIC OBJECTTYPE TaskQueueItem EXTEND QueueItem
   }
 >;
 
-STATIC OBJECTTYPE ManagedWorker
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE ManagedWorker <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -190,6 +190,9 @@ STATIC OBJECTTYPE ManagedWorker
 
   /// Id for timeout callback
   INTEGER timeoutcb;
+
+  /// Number of worker threads
+  PUBLIC INTEGER threads;
 
   // ---------------------------------------------------------------------------
   //
@@ -236,7 +239,7 @@ STATIC OBJECTTYPE ManagedWorker
 
   MACRO FailWorker(STRING error)
   {
-    Print("Terminating " || this->GetType() || " worker #" || this->uid || ": " || error || "\n");
+    Print("Terminating worker #" || this->uid || ": " || error || "\n");
     this->CloseProcess(FALSE);
   }
 
@@ -257,7 +260,7 @@ STATIC OBJECTTYPE ManagedWorker
     IF(outp="" AND NOT this->proc->IsRunning())
     {
       IF(debug)
-        Print("Process for " || this->GetType() || " worker #" || this->uid || " ended with exitcode " || this->proc->exitcode||'\n');
+        Print("Process for worker #" || this->uid || " ended with exitcode " || this->proc->exitcode||'\n');
       IF(RecordExists(this->connectdefer))
       {
         this->connectdefer.reject(NEW Exception("Process exited before registering itself"));
@@ -265,12 +268,12 @@ STATIC OBJECTTYPE ManagedWorker
       }
 
       IF(debug)
-        Print("End of output of " || this->GetType() || " worker #" || this->uid || `, process terminated, active task: ${this->GetCurrentTaskId()}\n`);
+        Print("End of output of worker #" || this->uid || `, process terminated, active task: ${this->GetCurrentTaskId()}\n`);
 
       IF (ObjectExists(this->pvt_activetask))
       {
         IF(debug)
-          Print("Failing crashing task of " || this->GetType() || " worker #" || this->uid || `, active task: ${this->GetCurrentTaskId()}\n`);
+          Print("Failing crashing task of worker #" || this->uid || `, active task: ${this->GetCurrentTaskId()}\n`);
         RECORD out := ParseOutputForStackTrace(this->fulloutput);
         FailTask(this->pvt_activetask, out.output, out.trace, FALSE, DEFAUlT RECORD);
         this->pvt_activetask := DEFAULT OBJECT;
@@ -322,22 +325,23 @@ STATIC OBJECTTYPE ManagedWorker
     IF(debug)
       INSERT "--debug" INTO processinfo.args AT END;
 
-    IF (this->GetType() = "HareScript" AND profileworkers)
+    IF (profileworkers)
         INSERT "--profile" INTO processinfo.args AT END;
 
-    IF ((manualjs AND this->GetType() = "JavaScript") OR (manualhs AND this->GetType() = "HareScript"))
+    IF (manualhs)
     {
-      Print("** Please launch " || this->GetType() || "worker:\n  " || processinfo.process || " " || Detokenize(processinfo.args,' ') || '\n');
+      Print("** Please launch worker:\n  " || processinfo.process || " " || Detokenize(processinfo.args,' ') || '\n');
       RETURN;
     }
 
     this->proc := CreateProcess(processinfo.process, processinfo.args, FALSE, TRUE, TRUE, TRUE);
+    dumpvalue(processinfo);
     this->listener := RegisterHandleReadCallback(this->proc->output_handle, PTR this->GotOutput);
     IF(NOT this->proc->Start())
       this->connectdefer.reject(NEW Exception("Unable to start subworker"));
 
     IF(debug)
-      Print(`Launched ${this->GetType()} worker #${this->uid}, cluster '${this->cluster}'\n`);
+      Print(`Launched worker #${this->uid}, cluster '${this->cluster}'\n`);
 
     RegisterTimedCallback(AddTimeToDate(waitonline, GetCurrentDatetime()), PTR this->connectdefer.reject(NEW Exception("Timed out starting up")));
   }
@@ -371,28 +375,20 @@ STATIC OBJECTTYPE ManagedWorker
     }
   }
 
-  /** @return Worker type (0: harescript, 1: javascript)
-  */
-  PUBLIC INTEGER FUNCTION GetWorkerType()
-  {
-    THROW NEW Exception("Override me");
-  }
-
-  /** @return String describing the type of the worker
-  */
-  PUBLIC STRING FUNCTION GetType()
-  {
-    THROW NEW Exception("Override me");
-  }
 
   /** Return info needed to start the workerptocess
       @return Path to the executable and arguments
       @cell return.process Path to executable
       @cell return.args Arguments for the executable
   */
-  PUBLIC RECORD FUNCTION GetProcessInfo()
+  UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
   {
-    THROW NEW Exception("Override me");
+    STRING ARRAY args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ];
+    IF(this->threads > 1)
+      args := [ "--workerthreads", ToString(this->threads) ] CONCAT args;
+    RETURN [ process := GetInstallationRoot() || "bin/wh"
+           , args := STRING["run",...args]
+           ];
   }
 
   /// Called when the worker connects back to the manager
@@ -560,69 +556,6 @@ STATIC OBJECTTYPE ManagedWorker
   }
 >;
 
-STATIC OBJECTTYPE ManagedJSWorker EXTEND ManagedWorker
-<
-  /** @return Worker type (0: harescript, 1: javascript)
-  */
-  UPDATE PUBLIC INTEGER FUNCTION GetWorkerType()
-  {
-    RETURN 1;
-  }
-
-  /** @return String describing the type of the worker
-  */
-  UPDATE PUBLIC STRING FUNCTION GetType()
-  {
-    RETURN "JavaScript";
-  }
-
-  /** Return info needed to start the workerptocess
-      @return Path to the executable and arguments
-      @cell return.process Path to executable
-      @cell return.args Arguments for the executable
-  */
-  UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
-  {
-    RETURN [ process := GetInstallationRoot() || "bin/wh"
-           , args := [ "run", GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.ts" ]
-           ];
-  }
->;
-
-STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
-< /// Number of worker threads
-  PUBLIC INTEGER threads;
-
-  /** @return Worker type (0: harescript, 1: javascript)
-  */
-  UPDATE PUBLIC INTEGER FUNCTION GetWorkerType()
-  {
-    RETURN 0;
-  }
-
-  /** @return String describing the type of the worker
-  */
-  UPDATE PUBLIC STRING FUNCTION GetType()
-  {
-    RETURN "HareScript";
-  }
-
-  /** Return info needed to start the workerptocess
-      @return Path to the executable and arguments
-      @cell return.process Path to executable
-      @cell return.args Arguments for the executable
-  */
-  UPDATE PUBLIC RECORD FUNCTION GetProcessInfo()
-  {
-    STRING ARRAY args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ];
-    IF(this->threads > 1)
-      args := [ "--workerthreads", ToString(this->threads) ] CONCAT args;
-    RETURN [ process := GetInstallationRoot() || "bin/wh"
-           , args := STRING["run",...args]
-           ];
-  }
->;
-
 
 MACRO CheckMoreWorkers()
 {
@@ -663,7 +596,7 @@ MACRO CheckMoreWorkers()
       CONTINUE;
     }
 
-    IF (worker EXTENDSFROM ManagedHSWorker)
+    IF (worker EXTENDSFROM ManagedWorker)
     {
       IF (clusters[pos.position].harescriptworkers > 0)
         clusters[pos.position].harescriptworkers := clusters[pos.position].harescriptworkers - 1;
@@ -674,18 +607,6 @@ MACRO CheckMoreWorkers()
         worker->RequestShutdown();
       }
     }
-
-    ELSE IF (worker EXTENDSFROM ManagedJSWorker)
-    {
-      IF (clusters[pos.position].javascriptworkers > 0)
-        clusters[pos.position].javascriptworkers := clusters[pos.position].javascriptworkers - 1;
-      ELSE IF (worker->state != "terminating")
-      {
-        IF (debug)
-          PRINT(`Close superfluous javascript worker ${worker->uid} from cluster ${worker->cluster}\n`);
-        worker->RequestShutdown();
-      }
-    }
   }
 
   // Add missing workers for every cluster
@@ -693,7 +614,7 @@ MACRO CheckMoreWorkers()
   {
     FOR (INTEGER i := 0; i < cluster.harescriptworkers; i := i + 1)
     {
-      OBJECT worker := NEW ManagedHSWorker;
+      OBJECT worker := NEW ManagedWorker;
       worker->tags := [ "default" ];
       worker->cluster := cluster.tag;
       worker->threads := cluster.harescriptworkerthreads;
@@ -701,16 +622,6 @@ MACRO CheckMoreWorkers()
       worker->Launch();
       IF (debug)
         PRINT(`Added harescript worker ${worker->uid} to cluster ${worker->cluster}\n`);
-    }
-    FOR (INTEGER i := 0; i < cluster.javascriptworkers; i := i + 1)
-    {
-      OBJECT worker := NEW ManagedJSWorker;
-      worker->tags := [ "default" ];
-      worker->cluster := cluster.tag;
-      INSERT worker INTO managedworkers AT END;
-      worker->Launch();
-      IF (debug)
-        PRINT(`Added javascript worker ${worker->uid} to cluster ${worker->cluster}\n`);
     }
   }
 
@@ -750,6 +661,7 @@ STATIC OBJECTTYPE QueueMgr
     RegisterMultiEventCallback("system:softreset", PTR this->GotConfigUpdate);
     RegisterMultiEventCallback("system:clearcaches", PTR this->GotConfigUpdate);
     RegisterMultiEventCallback("system:modulesupdate", PTR this->GotConfigUpdate);
+    RegisterMultiEventCallback("platform:appliedconfig", PTR this->GotConfigUpdate);
     RegisterEventCallback("system:managedtasks.any.*", PTR this->OnTasksUpdate);
 
     CheckMoreWorkers(); //also loads settings from database
@@ -1228,8 +1140,7 @@ STATIC OBJECTTYPE QueueMgr
   /// Called on interrupt
   PUBLIC MACRO OnInterrupt()
   {
-    IF (manualjs OR manualhs)
-      TerminateScript();
+    TerminateScript();
 
     shuttingdown := TRUE;
     this->ScheduleCheckForWork();
@@ -1265,7 +1176,7 @@ OBJECTTYPE QueueMgrClientConnection
     RECORD tasktypeinfo := pos.found ? tasktypes[pos.position] : DEFAULT RECORD;
 
     IF (NOT RecordExists(tasktypeinfo))
-      THROW NEW Exception(`Nu such ephemeral task type ${tasktype}`);
+      THROW NEW Exception(`No such ephemeral task type ${tasktype}`);
     IF(IsRestoredWebHare() AND NOT tasktypeinfo.allowifrestore)
       THROW NEW Exception("WebHare is running in 'restore' mode and this task isn't allowed to run (allowifrestore)");
 
@@ -1383,19 +1294,17 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               , [ name := "debug", type := "switch" ]
                               , [ name := "profile", type := "switch" ]
                               , [ name := "profileworkers", type := "switch" ]
-                              , [ name := "manualjs", type := "switch" ]
                               , [ name := "manualhs", type := "switch" ]
                               ]);
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: managedqueuemgr [--maxfailreschedule <maxfailreschedule>] [--restartafter <secs>] [--debug] [--profile] [--profileworkers] [--manualjs] [--manualhs]\n");
+  Print("Syntax: managedqueuemgr [--maxfailreschedule <maxfailreschedule>] [--restartafter <secs>] [--debug] [--profile] [--profileworkers] [--manualhs]\n");
   SetConsoleExitCode(1);
   RETURN;
 }
 
 debug := args.debug OR IsRunningInEditor();
-manualjs := args.manualjs;
 manualhs := args.manualhs;
 profileworkers := args.profileworkers;
 

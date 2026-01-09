@@ -23,26 +23,26 @@ ASYNC MACRO TestEphemeralTasks()
   TestThrowsLike("No such ephemeral task type *webhare_testsuite:nosuchtask*", PTR ScheduleEphemeralTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
 
   testfw->BeginWork();
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ]);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping_ephemeral", [ ping := 43 ]);
   testfw->RollbackWork();
   TestThrowsLike("*was queued did not commit*", PTR WaitForPromise(ephtask)); //this task can never run because the transaction rolled back
 
   testfw->BeginWork();
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ])->Then(PTR StoreValue);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping_ephemeral", [ ping := 43 ])->Then(PTR StoreValue);
   testfw->CommitWork();
 
   TestEq(TRUE, ObjectExists(ephtask));
   WaitForPromise(ephtask);
   TestEq([ephpong := 43, managedtaskid := 0], val);
 
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("Y",10000) ] ] )->Then(PTR StoreValue);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping_ephemeral", [ ping := 1 ], [ auxdata := [ ping := RepeatText("Y",10000) ] ] )->Then(PTR StoreValue);
 
   WaitForPromise(ephtask);
   TestEq([ephpong := RepeatText("Y",10000), managedtaskid := 0 ],val);
 
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "ABORT" ]);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping_ephemeral", [ ping := "ABORT" ]);
   TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping_ephemeral", [ ping := "THROW" ]);
   TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
 }
 
