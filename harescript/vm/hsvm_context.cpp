@@ -637,19 +637,6 @@ void VirtualMachine::PrepareStackTrace(VMRuntimeError *error)
         }
 }
 
-int32_t VirtualMachine::GetScriptParameter_FileId()
-{
-        return execute_lib->GetWrappedLibrary().resident.scriptproperty_fileid;
-}
-Blex::DateTime VirtualMachine::GetScriptParameter_FileCreationDate()
-{
-        return execute_lib->GetWrappedLibrary().resident.scriptproperty_filecreationdate;
-}
-bool VirtualMachine::HasSystemRedirect()
-{
-        return execute_lib->GetWrappedLibrary().resident.scriptproperty_systemredirect;
-}
-
 Library const * VirtualMachine::GetLoadedLibrary(std::string const &uri, bool *fatal_error)
 {
         *fatal_error = false;

@@ -640,9 +640,6 @@ struct Module
 {
         std::string orgsrcname;                         ///< Name of original source file
         Variable *outsidestate;                         ///< Variable representing the world outside the language. Used to model const functions.
-        int32_t scriptproperty_fileid;
-        Blex::DateTime scriptproperty_filecreationdate;
-        bool scriptproperty_systemredirect;
         Symbol *deinitmacro;
         std::set<Variable *> globalvars;                ///< Global variables
         std::vector<CodedFunction *> functions;
@@ -651,9 +648,6 @@ struct Module
 
         inline Module()
         : outsidestate(0)
-        , scriptproperty_fileid(0)
-        , scriptproperty_filecreationdate(0,0)
-        , scriptproperty_systemredirect(false)
         , deinitmacro(0)
         {
         }

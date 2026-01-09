@@ -37,7 +37,6 @@ Parser::Parser(const uint8_t *_bufferstart, unsigned _bufferlength, CompilerCont
         withinfunction=false;
         currentfunction=0;
         currentcatchobj=0;
-        systemredirectallowed=true;
         in_bind_expression = false;
         within_base_constructor_call = false;
 }
@@ -528,12 +527,6 @@ ExpressionBlock* Parser::Try_Build_Lvalue(Rvalue *expr, Block* calcblock, Block*
 
 void Parser::GotContent()
 {
-        systemredirectallowed = false;
-        if (coder->GetRoot()->scriptproperty_systemredirect)
-        {
-                coder->GetRoot()->scriptproperty_systemredirect = false;
-                lexer.AddError(Error::NoContentWithSystemRedirect);
-        }
 }
 
 } // End of namespace Compiler

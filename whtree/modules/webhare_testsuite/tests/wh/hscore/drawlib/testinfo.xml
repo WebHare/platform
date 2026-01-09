@@ -10,10 +10,4 @@
     </test>
   </group>
 
-  <group name="fonts">
-    <test script="fonts.whscr">
-    </test>
-  </group>
-
-
 </group>

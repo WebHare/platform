@@ -279,7 +279,6 @@ namespace Error
                 IndependentGroupBy         = 235,
                 IndependentHaving          = 236,
                 ScriptAbortedManually      = 237,
-                NoContentWithSystemRedirect = 238,
                 TemporaryOnlyInSelectPhase = 239,
                 IndependentTemporary       = 240,
                 EqualityMayBeAssignment    = 241,

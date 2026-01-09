@@ -222,13 +222,6 @@ int UTF8Main(std::vector<std::string> const &args)
         else
                 std::cout << " deinit function:         none" << std::endl;
 
-        if (wlib.resident.scriptproperty_fileid != 0)
-            std::cout << " scriptproperty fileid:   " << wlib.resident.scriptproperty_fileid << std::endl;
-        if (wlib.resident.scriptproperty_filecreationdate != Blex::DateTime::Min())
-            std::cout << " scriptproperty filecreationdate: " << wlib.resident.scriptproperty_filecreationdate << std::endl;
-        if (wlib.resident.scriptproperty_systemredirect != 0)
-            std::cout << " scriptproperty systemredirect: " << (wlib.resident.scriptproperty_systemredirect ? "true" : "false") << std::endl;
-
         std::cout << std::endl;
 
         std::cout << "Libraries section"<<std::endl;

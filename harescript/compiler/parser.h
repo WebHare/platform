@@ -323,7 +323,6 @@ class Parser
 
         bool parserattoplevel;
         bool withinfunction;
-        bool systemredirectallowed;
         Symbol *currentfunction;
         Symbol *currentcatchobj;
 

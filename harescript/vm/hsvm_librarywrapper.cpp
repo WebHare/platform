@@ -105,9 +105,6 @@ void WrappedLibrary::DoReadLibrary(Blex::RandomStream *stream)
 
         resident.initfunction = stream->ReadLsb<int32_t>();
         resident.deinitfunction = stream->ReadLsb<int32_t>();
-        resident.scriptproperty_fileid = stream->ReadLsb<int32_t>();
-        resident.scriptproperty_filecreationdate = stream->ReadLsb<Blex::DateTime>();
-        resident.scriptproperty_systemredirect = stream->ReadLsb<uint8_t>();
 
         uint32_t start_code = stream->ReadLsb<uint32_t>();
         uint32_t start_libraries = stream->ReadLsb<uint32_t>();
@@ -201,9 +198,6 @@ void WrappedLibrary::DoWriteLibrary(Blex::RandomStream *orig_stream)
 
         stream->WriteLsb<uint32_t>(resident.initfunction);
         stream->WriteLsb<uint32_t>(resident.deinitfunction);
-        stream->WriteLsb<uint32_t>(resident.scriptproperty_fileid);
-        stream->WriteLsb<Blex::DateTime>(resident.scriptproperty_filecreationdate);
-        stream->WriteLsb<uint8_t>(resident.scriptproperty_systemredirect);
 
         unsigned sectionsptrs = (unsigned)stream->GetOffset();
 

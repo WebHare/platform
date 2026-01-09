@@ -42,7 +42,7 @@ RECORD FUNCTION GetCacheableFileData(INTEGER fileid)
 //
 // Main code
 //
-PUBLIC MACRO __Dummy() //exists only to make systemredirect.whlib happy
+PUBLIC MACRO __Dummy() //exists only to allow us to be loaded through MakeFunctionPtr
 {
 
 }

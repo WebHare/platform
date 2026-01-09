@@ -42,10 +42,6 @@ struct SectionResident
         int32_t initfunction;
         /// Function that must be called to de-initialize this library
         int32_t deinitfunction;
-        /// Script property file id (ADDME: Store as a constant)
-        int32_t scriptproperty_fileid;
-        Blex::DateTime scriptproperty_filecreationdate;
-        bool scriptproperty_systemredirect;
         ///Actual harescript opcodes and their paramters
         std::vector<uint8_t> code;
         ///Constant values

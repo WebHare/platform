@@ -248,77 +248,6 @@ OBJECTTYPE GraphicsCanvas
   }
 
 
-  /** @short Project another canvas onto this canvas within a projection frame, with correction for perspective
-      @param sourcecanvas Canvas to project
-      @param lt Position where the left top of the projected canvas must be drawn
-      @cell(float) lt.x
-      @cell(float) lt.y
-      @param rt Position where the right top of the projected canvas must be drawn
-      @cell(float) rt.x
-      @cell(float) rt.y
-      @param lb Position where the left bottom of the projected canvas must be drawn
-      @cell(float) rt.x
-      @cell(float) rt.y
-      @param rb Position where the right bottom of the projected canvas must be drawn
-      @cell(float) rt.x
-      @cell(float) rt.y
-      @param multiplier If higher than 1, the projection is sampled at multiple points for anti-aliasing.
-          (the effect is as if the projection is done on a canvas with both width and height both multiplied
-          with the multiplier, then scaled to the original size, then blended.)
-  */
-  PUBLIC MACRO ProjectCanvas(OBJECT sourcecanvas, RECORD lt, RECORD rt, RECORD lb, RECORD rb, INTEGER multiplier)
-  {
-    this->ValidateCanvas();
-
-    IF(sourcecanvas->canvasid=0)
-      THROW NEW Exception("Trying to draw the contents of a closed canvas");
-
-    IF(multiplier>1)
-    {
-      /* as multiplier overwrites the entire canvas (in contrast to the direct texture fill)
-         we cannot currently support any other blendmode than BLEND255 */
-      IF(this->blendmode != "BLEND255")
-        THROW NEW Exception("ProjectCanvas requires BLEND255 mode when using a multiplier");
-
-      lt.x := lt.x * multiplier;
-      lt.y := lt.y * multiplier;
-      rt.x := rt.x * multiplier;
-      rt.y := rt.y * multiplier;
-      lb.x := lb.x * multiplier;
-      lb.y := lb.y * multiplier;
-      rb.x := rb.x * multiplier;
-      rb.y := rb.y * multiplier;
-    }
-
-    // Get projection functions for the source canvas
-    RECORD projectionfuncs := GfxGetProjectionFunctionsFromProjectedCanvas(sourcecanvas->canvasid, lt, rt, lb, rb);
-
-    // Make a path outlining the projection
-    RECORD ARRAY path := [ [ type := "MOVETO", x := FLOAT(lt.x), y := FLOAT(lt.y) ]
-                         , [ type := "LINETO", x := FLOAT(rt.x), y := FLOAT(rt.y) ]
-                         , [ type := "LINETO", x := FLOAT(rb.x), y := FLOAT(rb.y) ]
-                         , [ type := "LINETO", x := FLOAT(lb.x), y := FLOAT(lb.y) ]
-                         , [ type := "LINETO", x := FLOAT(lt.x), y := FLOAT(lt.y) ]
-                         ];
-
-    //GfxFillPath(this->canvasid, ColorPaleMauve, 10, path);
-
-    IF(multiplier>1)
-    {
-      //Paint it to temp canvas, then copy temp canvas onto destination canvas
-      OBJECT tempcanvas := CreateEmptyCanvas(this->width * multiplier, this->height * multiplier, ColorWhiteTransparent);
-      Gfx3dTextureFillPath(tempcanvas->canvasid, sourcecanvas->canvasid, projectionfuncs, path);
-      tempcanvas->SetImageSize(this->width, this->height);
-
-      this->DrawCanvas(tempcanvas, 0, 0);
-
-      tempcanvas->Close();
-    }
-    ELSE
-    {
-      Gfx3dTextureFillPath(this->canvasid, sourcecanvas->canvasid, projectionfuncs, path);
-    }
-  }
 
   /** @short Create a cropped canvas from this canvas. Also copies the paint state.
       @param left
@@ -387,39 +316,6 @@ OBJECTTYPE GraphicsCanvas
     RETURN __DRAWLIB_V2_COMPARECANVASES(this->canvasid, against->canvasid);
   }
 
-  /** @short Creates a blob with the contents of this canvas, in GIF format
-      @return Image blob, in GIF format.
-  */
-  PUBLIC BLOB FUNCTION ExportAsGIF()
-  {
-    this->ValidateCanvas();
-    RETURN __DRAWLIB_V2_CREATEGIFBLOBFROMCANVAS(this->canvasid);
-  }
-
-  /** @short Creates a blob with the contents of this canvas, in RAW format
-      @param outputformat Output description
-      @cell output.pixelformat Format of the raw file (supported: 'RGBA', 'ARGB)
-      @cell output.premultiplied If true, interpret the alpha channel to be premultiplied
-      @return Image blob, in RAW format.
-  */
-  PUBLIC BLOB FUNCTION ExportAsRaw(RECORD outputformat)
-  {
-    this->ValidateCanvas();
-
-    IF(outputformat.pixelformat NOT IN ["RGBA","ARGB"])
-      THROW NEW Exception("Only pixelformats RGBA and ARGB are currently supported");
-
-    FOREVERY(RECORD cellrec FROM UnpackRecord(outputformat))
-      IF(cellrec.name NOT IN ["PIXELFORMAT", "PREMULTIPLIED"])
-        THROW NEW Exception("Unexpected outputformat property '" || cellrec.name || "'");
-
-    BOOLEAN premultiplied := CellExists(outputformat,"premultiplied") AND outputformat.premultiplied;
-    IF(premultiplied)
-      THROW NEW Exception("Premultiplied export is not supported yet");
-
-    RETURN __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(this->canvasid, outputformat.pixelformat);
-  }
-
   /** @short Creates a blob with the contents of this canvas, in paletted PNG format
       @param discard_transparancy Whether to discard transparancy
       @return Image blob, in paletted PNG format.
@@ -452,31 +348,6 @@ OBJECTTYPE GraphicsCanvas
     ELSE IF(quality > 100)
       quality := 100;
     RETURN __DRAWLIB_V2_CREATEJPGBLOBFROMCANVAS(this->canvasid, quality);
-  }
-
-  /** @short Returns the reference count for this canvas
-      @long This function returns the reference count for this canvas. Creating a duplicate canvas
-          using CreateDuplicateCanvas or CreateCroppedCanvas just increase the reference count for
-          the bitmap, instead of allocating new internal storeage. If a modifying operation is
-          executed, the canvas is unshared first.
-      @return Reference count
-  */
-  PUBLIC INTEGER FUNCTION GetReferenceCount()
-  {
-    this->ValidateCanvas();
-    RETURN __DRAWLIB_V2_GETREFCOUNT(this->pvt_canvasid);
-  }
-
-  /** @short Count the number of colors and alpha values in the canvas
-      @param minalpha Minimum alpha value that a pixel must have to be considered visible (range 0-255)
-      @return Record with color information
-      @cell return.alphas Number of transparant pixels
-      @cell return.colors Number of counted colors
-  */
-  PUBLIC RECORD FUNCTION CountColors(INTEGER minalpha)
-  {
-    this->ValidateCanvas();
-    RETURN GfxCountCanvasColors(this->pvt_canvasid, minalpha);
   }
 
   /** @short Calculate the dominant color on this canvas
@@ -544,16 +415,6 @@ OBJECTTYPE GraphicsCanvas
     __DRAWLIB_V2_MIRRORCANVAS(this->pvt_canvasid);
   }
 
-  /** @short Shear the canvas
-      @param scale_x Horizontal scale factor
-      @param scale_y Vertical scale factor
-  */
-  PUBLIC MACRO Shear(FLOAT scale_x, FLOAT scale_y)
-  {
-    this->ValidateCanvas();
-    __Drawlib_v2_ShearCanvas(this->pvt_canvasid, scale_x, scale_y);
-  }
-
   /** @short Get the current color and alpha of a pixel
       @long Gets the color of the pixel at (x,y). The upperleft corner is (0,0). The color
           consists of 3 levels, the level of red, the level of green, and the level of blue.
@@ -584,18 +445,6 @@ OBJECTTYPE GraphicsCanvas
     __DRAWLIB_V2_DrawPixel(this->pvt_canvasid, x, y, color);
   }
 
-/*  PUBLIC OBJECT FUNCTION __CloseAndMarshall() //ADDME make marshalling completely transparent
-  {
-    this->ValidateCanvas();
-    OBJECT marshaller := GfxGetCanvasMarshaller(this->canvasid);
-
-    this->pvt_canvasid:=-1;
-
-    DELETE FROM allocated_canvasses AT SearchElement(allocated_canvasses, this);
-    this->destruction_callstack := GetStackTrace();
-    RETURN marshaller;
-  }
-*/
 
   //Get the painted area
   PUBLIC RECORD FUNCTION GetBoundingBox()

@@ -23,10 +23,6 @@ MACRO PrintResourceRef(RECORD resref, FUNCTION PTR getresourceref)
 
 PUBLIC MACRO PrintHSErrors(RECORD ARRAY allerrors, FUNCTION PTR getresourceref)
 {
-  //Strip redirect from the stacktrace, it only confuses
-  IF(Length(allerrors)>2 AND allerrors[END-2].filename = "mod::system/lib/internal/webserver/systemredirect.whlib")
-    allerrors := ArraySlice(allerrors, 0, Length(allerrors)-2);
-
   RECORD fileerrormap;
   BOOLEAN seenexternal;
   FOREVERY(RECORD err FROM allerrors)

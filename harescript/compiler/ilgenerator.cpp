@@ -342,9 +342,6 @@ Module * ILGenerator::Execute(Module *&ilmodule, AST::Module* module, ASTVariabe
         mdl->globalvars.insert(GetVariable(module->outsidestate)->variable);
         mdl->exportedvars = module->exportedvars;
         mdl->loadlibs = module->loadlibs;
-        mdl->scriptproperty_fileid = module->scriptproperty_fileid;
-        mdl->scriptproperty_filecreationdate = module->scriptproperty_filecreationdate;
-        mdl->scriptproperty_systemredirect = module->scriptproperty_systemredirect;
         mdl->deinitmacro = NULL;
         Visit(module, Empty());
 

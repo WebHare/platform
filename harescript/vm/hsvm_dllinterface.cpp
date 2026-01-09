@@ -2835,14 +2835,6 @@ int HSVM_ClearCaches()
         return 0;
 }
 
-int HSVM_HasSystemRedirect(HSVM *vm)
-{
-        START_CATCH_VMEXCEPTIONS
-        return VM.HasSystemRedirect();
-        END_CATCH_VMEXCEPTIONS
-        return 0;
-}
-
 HSVM_PUBLIC void HSVM_DebugShowStackState(HSVM *vm) {
         START_CATCH_VMEXCEPTIONS
         VM.ShowStackState(false);

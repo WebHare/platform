@@ -71,9 +71,6 @@ void CodeLibraryWriter::Execute(IL::Module *_module, CodeBlockLinker *_cblinker,
         wrapper.resident.initfunction = -1;
         wrapper.resident.deinitfunction = -1;
         wrapper.resident.sourcetime = sourcetime;
-        wrapper.resident.scriptproperty_fileid = _module->scriptproperty_fileid;
-        wrapper.resident.scriptproperty_filecreationdate = _module->scriptproperty_filecreationdate;
-        wrapper.resident.scriptproperty_systemredirect = _module->scriptproperty_systemredirect;
 
         std::set< std::tuple< LineColumn, std::string > > unusedloadlibs;
 

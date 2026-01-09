@@ -3342,12 +3342,6 @@ PUBLIC MACRO CollectGarbage()
   __HS_COLLECTGARBAGE();
 }
 
-/** Returns the value of a stored script property for the top-level script
-    @param propertyname Name of the property ("fileid" or "filecreationdate")
-    @return Value of the stored script property
-*/
-PUBLIC VARIANT FUNCTION GetStoredScriptProperty(STRING propertyname) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
 RECORD ARRAY spothitcounts;
 
 /** Return the number of times this functions was called from, from the caller's location

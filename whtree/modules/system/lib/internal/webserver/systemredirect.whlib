@@ -1,5 +1,0 @@
-﻿<?wh
-// We need to ship this until we're sure that no SYSTEMREDIRECT files remain
-INTEGER fileid := GetStoredScriptProperty("FILEID");
-SetAuthenticationRecord(CELL[...GetAuthenticationRecord(), whfsexecute := fileid ]);
-MakeFunctionPtr("mod::system/scripts/internal/webserver/whfsexecute.whscr#__Dummy")();

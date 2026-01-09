@@ -510,18 +510,3 @@ PUBLIC OBJECT FUNCTION GetEffectiveUser()
 {
   RETURN effectiveuser;
 }
-
-PUBLIC STRING FUNCTION __GetSiteNameForObjectId(INTEGER objid)
-{
-  OBJECT trans;
-  IF(NOT HavePrimaryTransaction())
-    trans := OpenPrimary();
-
-  STRING name := SELECT AS STRING sites.name
-                   FROM system.sites, system.fs_objects
-                  WHERE sites.id = fs_objects.parentsite
-                          AND fs_objects.id = objid;
-  IF(ObjectExists(trans))
-    trans->Close();
-  RETURN name;
-}
