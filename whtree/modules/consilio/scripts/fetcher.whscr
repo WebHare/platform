@@ -96,7 +96,7 @@ noindexmodify := args.dryrun;
 
 
 
-IF(args.exec = "") { // Establish an IPC link to the QueueManager if not diredctly executing
+IF(args.exec = "") { // Establish an IPC link to the QueueManager if not executing directly
   FOR (INTEGER i := 0; i < 4; i := i + 1)
   {
     ipclink := GetCommandLink(workerid);
