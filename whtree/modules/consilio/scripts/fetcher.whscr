@@ -95,21 +95,22 @@ execlimit := ToInteger(args.execlimit,-1);
 noindexmodify := args.dryrun;
 
 
-// Establish an IPC link to the QueueManager
-FOR (INTEGER i := 0; i < 4; i := i + 1)
-{
-  ipclink := GetCommandLink(workerid);
-  IF (ObjectExists(ipclink))
-    BREAK;
-  Sleep(1000);
-}
-IF (NOT ObjectExists(ipclink))
-{
-  Print("Could not connect to queue manager\n");
-  SetConsoleExitCode(12);
-  RETURN;
-}
 
+IF(args.exec = "") { // Establish an IPC link to the QueueManager if not diredctly executing
+  FOR (INTEGER i := 0; i < 4; i := i + 1)
+  {
+    ipclink := GetCommandLink(workerid);
+    IF (ObjectExists(ipclink))
+      BREAK;
+    Sleep(1000);
+  }
+  IF (NOT ObjectExists(ipclink))
+  {
+    Print("Could not connect to queue manager\n");
+    SetConsoleExitCode(12);
+    RETURN;
+  }
+}
 
 fetcherdebuglevel := forceddebuglevel >= 0 ? forceddebuglevel : ReadRegistryKey("consilio.queuemanager.loglevel");
 
