@@ -484,7 +484,7 @@ $defs:
 
   Tasks:
     type: object
-    description: Declare the location of form definitions in this module
+    description: Declare managed tasks 
     additionalProperties: false
     patternProperties:
       "^[a-z_][-a-z0-9_]*$": # Task tag
