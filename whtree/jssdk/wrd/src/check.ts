@@ -39,17 +39,16 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
 
   const attrs = addFullTags(await db<PlatformDB>().selectFrom("wrd.attrs").selectAll().
     where("type", "in", types.map(_ => _.id)).execute());
-  const validAttributes = new Set(attrs.map(_ => _.id));
 
   for (const attr of attrs) {
     if (attr.domain && !types.find(t => t.id === attr.domain)) {
       onIssue({ message: `WRD type ${attr.title} refers to type #${attr.domain} in its domain field which is not in the same schema` });
     }
   }
-
   //Verify against duplicate attributes (TODO also detect collisions against built-in attributes, we may be able to make better use of existing WRD APIs if we're sure those won't hide issues)
   for (const checkingType of types) {
     const seenTags = new Map<string, typeof attrs[0]>();
+    const attrIds: number[] = [];
     const parents = [];
 
     for (let currentAncestor: typeof checkingType | undefined = checkingType; currentAncestor; currentAncestor = types.find(t => t.id === currentAncestor.parenttype)) {
@@ -60,6 +59,8 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
       parents.push(currentAncestor);
 
       for (const attr of attrs.filter(_ => _.type === currentAncestor!.id)) {
+        attrIds.push(attr.id);
+
         const conflict = seenTags.get(attr.fullTag);
         if (!conflict) {
           seenTags.set(attr.fullTag, attr);
@@ -72,6 +73,18 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
           onIssue({ message: `WRD type ${checkingType.tag} has inherited duplicate attribute ${attr.fullTag} from ancestor ${currentAncestor.tag} - attr #${attr.id} conflicts with inherited attr #${conflict.id}` });
         }
       }
+    }
+
+    if (!options?.metadataOnly && attrIds.length) { //also validate all entities of this type that their attributes are valid
+      const brokenSettings = await db<PlatformDB>().
+        selectFrom("wrd.entity_settings")
+        .select(["wrd.entity_settings.id", "wrd.entity_settings.entity", "wrd.entity_settings.attribute"])
+        .where("wrd.entity_settings.attribute", "not in", attrIds)
+        .leftJoin("wrd.entities", "wrd.entities.id", "wrd.entity_settings.entity")
+        .where("wrd.entities.type", "=", checkingType.id)
+        .execute();
+      for (const setting of brokenSettings)
+        onIssue({ message: `WRD type ${checkingType.tag} has entity setting #${setting.id} for entity #${setting.entity} that refers to invalid attribute #${setting.attribute}` });
     }
   }
 
@@ -91,18 +104,19 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
     }
   }
 
-  const settings = await db<PlatformDB>().selectFrom("wrd.entity_settings").select(["wrd.entity_settings.id", "wrd.entity_settings.entity", "wrd.entity_settings.attribute", "wrd.entity_settings.setting"])
-    .leftJoin("wrd.entities", "wrd.entities.id", "wrd.entity_settings.entity")
-    .where("wrd.entities.type", "in", types.map(_ => _.id))
-    .execute();
+  //Find entity settings pointing outside the schema
+  for (const attr of attrs.filter(_ => _.domain !== null)) {
+    //One query per attribute to cut back on DB/memory usage
+    const settings = await db<PlatformDB>().
+      selectFrom("wrd.entity_settings")
+      .select(["id", "entity", "attribute", "setting"])
+      .where("attribute", "=", attr.id)
+      .execute();
 
-  for (const setting of settings) {
-    if (!validAttributes.has(setting.attribute)) {
-      //FIXME group this by type (but consider parents) as you also shouldn't be cross-typing attribute references
-      onIssue({ message: `Setting #${setting.id} refers to attribute ${setting.attribute}  which is not in the same schema` });
-    }
-    if (setting.setting && !validEntities.has(setting.setting)) {
-      onIssue({ message: `Setting #${setting.id} of attribute ${setting.attribute} refers to entity #${setting.setting} which is not in the same schema` });
+    for (const setting of settings) {
+      if (setting.setting && !validEntities.has(setting.setting)) {
+        onIssue({ message: `Setting #${setting.id} of attribute ${setting.attribute} refers to entity #${setting.setting} which is not in the same schema` });
+      }
     }
   }
 }
