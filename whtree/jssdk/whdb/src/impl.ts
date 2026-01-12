@@ -23,6 +23,7 @@ import { debugFlags } from '@webhare/env/src/envbackend';
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import * as PostgreJSConnectionLib from './connection-postgrejs';
+import * as PostgreaseConnectionLib from './connection-postgrease';
 import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
@@ -31,7 +32,7 @@ import { escapePGIdentifier } from './metadata';
 import { isError, isPromise, sleep } from '@webhare/std';
 import type { WHDBClientInterface } from './connectionbase';
 
-const connectionLib = PostgreJSConnectionLib;
+const connectionLib = debugFlags["usepostgrejs"] ? PostgreJSConnectionLib : PostgreaseConnectionLib;
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -688,7 +689,7 @@ export function __createRawConnection(): Promise<WHDBClientInterface> {
   return connectionLib.createConnection({ raw: true });
 }
 
-export function isDatabaseError(e: unknown): e is PostgreJSConnectionLib.DatabaseError {
+export function isDatabaseError(e: unknown): e is InstanceType<typeof connectionLib["DatabaseError"]> {
   return isError(e) && e instanceof connectionLib.DatabaseError;
 }
 

@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_codecs.ts" />
+  <test script="test_connection.ts" />
+</group>

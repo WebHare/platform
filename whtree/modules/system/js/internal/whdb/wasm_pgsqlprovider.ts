@@ -4,7 +4,6 @@ import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type Sql
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import type { FullPostgresQueryResult } from "@webhare/whdb/src/connection-postgrejs";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
-import type { Tid } from "@webhare/whdb/src/types-postgrejs";
 import type { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import type { HareScriptVM, HSVM_VariableId, HSVM_VariableType } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
@@ -47,7 +46,8 @@ enum OID {
   INT2 = 21,
   INT4 = 23,
   REGPROC = 24,
-  OID = 26, // eslint-disable-line @typescript-eslint/no-shadow
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  OID = 26,
   TID = 27,
   XID = 28,
   CID = 29,
@@ -119,6 +119,12 @@ type Query = {
     match_double_null: boolean;
   }>;
 };
+
+// Tid data type, compatibile with postgrejs and postgrease
+interface Tid {
+  block: number;
+  offset: number;
+}
 
 function buildComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>): Expression<SqlBool> {
   switch (condition) {
