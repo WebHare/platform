@@ -32,6 +32,7 @@ export interface LoadedModuleDefs {
 export interface GenerateContext {
   verbose: boolean;
   moduledefs: LoadedModuleDefs[];
+  versionInfo: WebHareVersionInfo;
 }
 
 interface WebHareVersionInfo {

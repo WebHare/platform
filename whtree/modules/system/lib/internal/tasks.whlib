@@ -75,7 +75,6 @@ PUBLIC RECORD FUNCTION ParseModuleTasks(STRING modulename, STRING resname, OBJEC
         [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
         , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
         , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
-        , javascriptworkers :=    0 //ToInteger(clusternode->GetAttribute("javascriptworkers"), 0) DISABLED - no longer supporting runepehmeraltask.es and we may never have managed TS workers...
         ] INTO clusters AT END;
   }
 
