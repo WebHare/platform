@@ -11,7 +11,7 @@ export async function launchService(service: BackendServiceDescriptor, options?:
   try {
     if (service.controllerFactory) {
       const servicecontroller = await (await importJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))(options);
-      return runBackendService(service.name, (...args) => servicecontroller.createClient(...args));
+      return runBackendService(service.name, (...args) => servicecontroller.createClient(...args), { onClose: () => servicecontroller.close?.() });
     } else if (service.clientFactory)
       return runBackendService(service.name, (...args) => createServiceClient(service, args));
 

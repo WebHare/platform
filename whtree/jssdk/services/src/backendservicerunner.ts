@@ -11,6 +11,7 @@ export type ServiceClientFactoryFunction = (...args: any[]) => Promise<BackendSe
 
 export interface BackendServiceController {
   createClient(...args: unknown[]): Promise<BackendServiceConnection> | BackendServiceConnection;
+  close?: () => void;
 }
 
 /** Base class for service connections */
@@ -51,12 +52,14 @@ export class BackendServiceConnection implements Disposable {
 }
 
 export interface WebHareServiceOptions {
-  ///Enable automatic restart of the service when the source code changes. Defaults to true
+  /** Enable automatic restart of the service when the source code changes. Defaults to true */
   autoRestart?: boolean;
-  ///Immediately restart the service even if we stil have open connections.
+  /** Immediately restart the service even if we stil have open connections. */
   restartImmediately?: boolean;
-  //Don't keep a reference to the listening port, preventing this service from keeping the process alive
+  /** Don't keep a reference to the listening port, preventing this service from keeping the process alive */
   dropListenerReference?: boolean;
+  /** Callback to invoke when service is shut down */
+  onClose?: () => void;
 }
 
 
@@ -202,14 +205,17 @@ export class ServiceHandlerBase {
 
 class WebHareService extends ServiceHandlerBase implements Disposable { //EXTEND IPCPortHandlerBase
   private _port: WebHareServiceIPCLinkType["Port"];
+  #onClose;
 
   constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionFactory, options: WebHareServiceOptions) {
     super(servicename, constructor, options);
     this._port = port;
     this._port.on("accept", link => void this.addLink(link));
+    this.#onClose = options.onClose;
   }
 
   close() {
+    this.#onClose?.();
     this._port.close();
     super.close();
   }

@@ -69,7 +69,10 @@
             </div>
           [/if]
           <div style="flex:1">
-            <button type="button" id="customclaimbutton">Custom claim login</button>
+            <button type="button" id="customclaimbutton">Custom claim login</button><br>
+            <button type="button" id="ssobutton">SSO button</button><br>
+            <button type="button" id="ssopassivebutton">SSO passive button</button>
+            <span id="ssopassivestatus"></span><br>
           </div>
         </div>
     </fieldset>

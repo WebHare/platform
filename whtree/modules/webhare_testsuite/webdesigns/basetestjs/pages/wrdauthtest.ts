@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-frontend";
 import * as dompack from "@webhare/dompack";
 import { qR } from "@webhare/dompack";
-import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo, navigateTo } from "@webhare/frontend";
+import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo, navigateTo, startSSOLogin } from "@webhare/frontend";
 import { stringify } from "@webhare/std";
 import { rpc } from "@webhare/rpc";
 
@@ -36,5 +36,19 @@ if (params.get("navlesslogin") === "1")
 dompack.register("#customclaimbutton", node => node.addEventListener("click", () => {
   void rpc("webhare_testsuite:testapi").getCustomClaimAction().then(instr => navigateTo(instr));
 }));
+dompack.register("#ssobutton", node => node.addEventListener("click", () => {
+  void startSSOLogin("TESTFW_OIDC_SP");
+}));
+dompack.register("#ssopassivebutton", node => {
+  if (location.hash === "#passivelogin") {
+    qR("#ssopassivestatus").textContent = "Completed passive SSO login";
+    location.hash = "#";
+  }
+  node.addEventListener("click", () => {
+    qR("#ssopassivestatus").textContent = "Starting passive SSO login...";
+    location.hash = "#passivelogin";
+    void startSSOLogin("TESTFW_OIDC_SP", { passive: true });
+  });
+});
 
 setupWRDAuth(authopts);

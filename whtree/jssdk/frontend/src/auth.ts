@@ -7,7 +7,7 @@ import { rpc } from "@webhare/rpc/src/rpc";
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
 import { PublicCookieSuffix, type LoginErrorCode, type LoginResult, type LoginTweaks } from "@webhare/auth/src/shared";
-import { parseTyped } from "@webhare/std";
+import { parseTyped, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
 
 /** WRDAuth configuration */
@@ -220,10 +220,11 @@ export async function logout() {
 }
 
 export interface MyService {
-  startLogin2(urlpath: string, tag: string, options: { passive?: boolean }): Promise<NavigateInstruction>;
+  startLogin2(urlpath: string, tag: string, options: ToSnakeCase<SSOLoginOptions>): Promise<NavigateInstruction>;
 }
 
 interface SSOLoginOptions {
+  /** Passive/silent mode. Do not show a login prompt but just test if the user is logged in */
   passive?: boolean;
 }
 
@@ -232,7 +233,7 @@ export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Pro
 
   //Launch SSO login for the current page.
   //TODO also pass getLoginTweaks() at least to OIDC logins as soon as we've ported this to authservice
-  navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, { passive: options?.passive }));
+  navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, toSnakeCase(options) || {}));
 }
 
 /** Configure WebHare external auth buttons (even hidden ones) to listen for bookmarklet login requests */
