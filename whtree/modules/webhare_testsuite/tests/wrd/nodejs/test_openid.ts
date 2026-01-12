@@ -516,7 +516,7 @@ async function verifySSOAPI() {
     whuserPassword: AuthenticationSettings.fromPasswordHash("PLAIN:bart$"),
   }));
 
-  { //Test SSO buton and user data
+  { //Test SSO button and user data
     const context = await puppeteer!.createBrowserContext(); //separate cookie storage
     try {
       const testsite = await test.getTestSiteJS();
