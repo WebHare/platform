@@ -218,7 +218,7 @@ export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> 
 }
 
 export interface JWKS {
-  keys: JsonWebKey[];
+  keys: Array<JsonWebKey & { issuer: string; kid: string }>;
 }
 
 export interface JWTCreationOptions {
@@ -228,7 +228,7 @@ export interface JWTCreationOptions {
 }
 
 export interface JWTVerificationOptions {
-  audience?: string | RegExp | Array<string | RegExp>;
+  audience?: string | RegExp | [string | RegExp, ...(string | RegExp)[]];
 }
 
 export interface VerifyAccessTokenResult {
@@ -420,13 +420,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
   async getPublicJWKS(): Promise<JWKS> {
     const config = await this.getKeyConfig();
-    const keys: JsonWebKey[] = [];
+    const jwks: JWKS = { keys: [] };
     for (const key of config.signingKeys) {
       //Load the key
       const jwk = createPublicKey({ key: key.privateKey, format: 'jwk' }).export({ format: 'jwk' });
-      keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
+      jwks.keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
     }
-    return { keys };
+    return jwks;
   }
 
   private signJWT(payload: JwtPayload, keys: SigningKey[], restrictType: "EC" | "RSA" | null) {
