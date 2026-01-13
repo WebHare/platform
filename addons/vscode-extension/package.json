@@ -242,7 +242,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^20.11.7",
-		"@types/vscode": "^1.102.0",
-		"@vscode/vsce": "^3.6.0"
+		"@types/vscode": "^1.108.1",
+		"@vscode/vsce": "^3.7.1"
 	}
 }

@@ -69,6 +69,7 @@ node -e 'require("sharp")' || die "Sharp failed"
 
 ## download puppeteer
 logWithTime "Downloading puppeteer"
+export PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD=1 # we don't use chrome-headless-shell
 (cd node_modules/puppeteer && npm run postinstall)
 
 

@@ -658,7 +658,7 @@ PUBLIC STATIC OBJECTTYPE WHFSTypeFilter EXTEND BaseSearchFilter
             CELL[ ...value
                 , selectquery :=
                     [ whfstypes := (SELECT AS INTEGER ARRAY types.id FROM types)
-                    , showvalue := Detokenize((SELECT AS STRING ARRAY GetTid(types.title) FROM types), ", ")
+                    , showvalue := Detokenize((SELECT AS STRING ARRAY GetTid(types.title) ?? types.scopedtype ?? types.namespace FROM types), ", ")
                     ]
                 ];
     }
