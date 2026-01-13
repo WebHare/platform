@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/cache.whlib" EXPORT WrapImageField;
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT GetCloneableEntityFields, IsValidWRDGuid, WRDGuidToUUId, UUIdToWRDGuid, IsProperWRDTag;
+LOADLIB "mod::wrd/lib/internal/support.whlib" EXPORT GetCloneableEntityFields, IsValidWRDGuid, WRDGuidToUUId, UUIdToWRDGuid, IsProperWRDTag, IsValidUUID;
 LOADLIB "mod::wrd/lib/internal/support2.whlib" EXPORT GetCachedWRDImageURL, GetCachedWRDFileURL;
 LOADLIB "mod::wrd/lib/internal/wrdschema.whlib" EXPORT GetWRDSchemaSetting, SetWRDSchemaSetting, RemoveWRDSchemaSetting;
 LOADLIB "mod::wrd/lib/internal/payments/ordernrs.whlib";
