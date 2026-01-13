@@ -1557,7 +1557,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="contentfiletype" type="xs:string" />
     <xs:attribute name="filetype" type="xs:string" />
     <xs:attribute name="foldertype" type="xs:string" />
     <xs:attributeGroup ref="SiteFilter" />
