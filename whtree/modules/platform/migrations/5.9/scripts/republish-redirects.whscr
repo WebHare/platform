@@ -1,13 +1,20 @@
 <?wh
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+RECORD siteprofs := GetCachedSiteProfiles();
+INTEGER ARRAY repubtypes := [ VAR whconstant_whfstype_internallink, VAR whconstant_whfstype_externallink, VAR whconstant_whfstype_shtmlfile, whconstant_whfstype_dynamicfoldercontents];
+
+RECORD ARRAY dynamic_types := SELECT id, namespace FROM siteprofs.contenttypes WHERE RecordExists(filetype) AND RecordExists(dynamicexecution);
+repubtypes := repubtypes CONCAT SELECT AS INTEGER ARRAY id FROM dynamic_types;
+
 OpenPrimary()->BeginWork();;
 RECORD ARRAY redirects := SELECT id,whfspath
                             FROM system.fs_objects
-                           WHERE type IN [ VAR whconstant_whfstype_internallink, VAR whconstant_whfstype_externallink ]
+                           WHERE type IN repubtypes
                                  AND link != "";
 
 FOREVERY(RECORD torepublish FROM redirects)
