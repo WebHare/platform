@@ -49,13 +49,19 @@ PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __A
   }
 }
 
+/** Returns whether a tag is currently globally enabled
+    @param tag Tag to test for
+*/
+PUBLIC BOOLEAN FUNCTION IsDebugTagGloballyEnabled(STRING tag) {
+  RETURN RecordExists(__debugconfig) AND tag IN __debugconfig.tags;
+}
+
 /** Returns whether a tag is currently enabled in the current debugging configuration
     @param tag Tag to test for
     @return Whether the debug tag has been enabled
 */
-PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag)
-{
-  RETURN tag IN __webdebugsettings OR (RecordExists(__debugconfig) AND tag IN __debugconfig.tags);
+PUBLIC BOOLEAN FUNCTION IsDebugTagEnabled(STRING tag) {
+  RETURN tag IN __webdebugsettings OR IsDebugTagGloballyEnabled(tag);
 }
 
 PUBLIC RECORD FUNCTION ReadDebugSetting(STRING varcontent)
