@@ -1,7 +1,9 @@
 <?wh
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::socialite/lib/database.whlib";
 LOADLIB "mod::socialite/lib/google/maps-v3.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
 
 OBJECT FUNCTION MakeGeoCoder(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -14,25 +16,26 @@ MACRO TestGeoCoder()
     THROW NEW Exception("TestGeoCoder requires the TESTSECRET_GOOGLE_APIKEY envvar to set ");
 
   testfw->BeginWork();
-  DELETE FROM socialite.google_apikeys WHERE domain LIKE "*.testframework.beta.webhare.net";
-  INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("backend.testframework.beta.webhare.net", 2, GetTestSecret("GOOGLE_APIKEY"));
-  INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("any.testframework.beta.webhare.net", 0, GetTestSecret("GOOGLE_APIKEY"));
-  INSERT INTO socialite.google_apikeys(domain,scopetype,apikey)
-         VALUES("client.testframework.beta.webhare.net", 1, GetTestSecret("GOOGLE_APIKEY"));
+  testfw->CleanupWRDSchema(OpenWRDSchema("system:config"), [ [ type := "API_SECRET", tagmasks := [ "TESTFW_*" ] ]]);
+  OBJECT keytype := OpenWRDSchema("system:config")->^api_secret;
+
+  RECORD secret := [ api_key := GetTestSecret("GOOGLE_APIKEY") ];
+  keytype->CreateEntity(CELL[ wrd_tag := "TESTFW_KEY_1", comment := "Added by test_google", api_type := "platform:google.cloud.backend", masks := "https://backend.testframework.beta.webhare.net/*", secret]);
+  keytype->CreateEntity(CELL[ wrd_tag := "TESTFW_KEY_2", comment := "Added by test_google", api_type := "platform:google.cloud.backend", masks := "https://any.testframework.beta.webhare.net/*", secret]);
+  keytype->CreateEntity(CELL[ wrd_tag := "TESTFW_KEY_3", comment := "Added by test_google", api_type := "platform:google.cloud.frontend", masks := "https://client.testframework.beta.webhare.net/*", secret]);
+
   testfw->CommitWork();
 
   TestThrowsLike("*requires*API key*",PTR MakeGeoCoder);
-  TestThrowsLike("Unable to find the proper*",PTR MakeGeoCoder([ requesturl := "client.testframework.beta.webhare.net" ])); //keytype does not match
+  TestThrowsLike("No API key found*",PTR MakeGeoCoder([ requesturl := "https://client.testframework.beta.webhare.net/" ])); //keytype does not match
 
-  OBJECT geocoder := MakeGeoCoder([ requesturl := "backend.testframework.beta.webhare.net" ]);
+  OBJECT geocoder := MakeGeoCoder([ requesturl := "https://backend.testframework.beta.webhare.net/" ]);
   TestEq(GetTestSecret("GOOGLE_APIKEY"), geocoder->apikey);
   OBJECT pos := geocoder->GetLatLng("Enschede, nederland");
   TestEqFloat(pos->lat, 52.2215372, 0.0001);
   TestEqFloat(pos->lng, 6.89366190, 0.0001);
 
-  geocoder := NEW GGeocoder([ cache := NEW AdhocGeocodeCache, requesturl := "backend.testframework.beta.webhare.net" ]);
+  geocoder := NEW GGeocoder([ cache := NEW AdhocGeocodeCache, requesturl := "https://backend.testframework.beta.webhare.net/" ]);
   pos := geocoder->GetLatLng("Enschede, nederland");
   TestEqFloat(pos->lat, 52.2215372, 0.0001);
   TestEqFloat(pos->lng, 6.89366190, 0.0001);

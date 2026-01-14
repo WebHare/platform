@@ -12,11 +12,11 @@ PUBLIC RECORD FUNCTION GetCaptchaProvider(STRING url) {
   IF(IsWHDebugOptionSet("nsc")) //the mock for CI is currently provided by the google recaptcha code
     RETURN CELL[ name := "google-recaptcha", apikey := "mock" ];
 
-  RECORD keyinfo := LookupAPIKey("google-recaptcha,friendly-captcha", url, [ allowmissing := TRUE ]);
+  RECORD keyinfo := GetAPIKey(["platform:google.recaptcha","platform:friendlycaptcha"], url, [ allowmissing := TRUE ]);
   IF(RecordExists(keyinfo))
-    RETURN CELL[ name := keyinfo.keytype
-               , apikey := keyinfo.apikey
-               , privatekey := keyinfo.privatekey
+    RETURN CELL[ name := keyinfo.api_type = "platform:friendlycaptcha" ? "friendly-captcha" : "google-recaptcha"
+               , apikey := keyinfo.secret.site_key
+               , privatekey := keyinfo.secret.api_key
                ];
 
   RETURN DEFAULT RECORD;

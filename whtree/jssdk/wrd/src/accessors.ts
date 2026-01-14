@@ -1281,7 +1281,7 @@ function prepAllowedValues(allowedValues: string): AllowedValues {
 }
 
 function isAllowed(allowed: AllowedValues, value: string) {
-  return value.match(/^[-a-zA-Z0-9_:]+$/) && allowed.some(_ => _ === value || (_ instanceof RegExp && _.test(value)));
+  return value.match(/^[-a-zA-Z0-9_:.]+$/) && allowed.some(_ => _ === value || (_ instanceof RegExp && _.test(value)));
 }
 
 
@@ -1361,6 +1361,7 @@ abstract class WRDDBEnumValueBase<
     if (value) {
       if (this.attr.isunique)
         checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
+
       if (!checker.importMode && !isAllowed(prepAllowedValues(this.attr.allowedvalues), value))
         throw new Error(`Invalid value ${JSON.stringify(value)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
