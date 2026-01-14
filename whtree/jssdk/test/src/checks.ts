@@ -372,7 +372,7 @@ export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Pr
   throw new TestError("test.assert failed", options);
 }
 
-async function throwsAsync(expect: RegExp, promise: Promise<unknown>, options?: TestOptions): Promise<Error> {
+async function throwsAsync(expect: RegExp | ((error: Error) => boolean), promise: Promise<unknown>, options?: TestOptions): Promise<Error> {
   let retval;
   try {
     retval = await promise;
@@ -385,7 +385,7 @@ async function throwsAsync(expect: RegExp, promise: Promise<unknown>, options?: 
 }
 
 //handle the failure of throws(Async)
-function failThrows(expect: RegExp, retval: unknown, options?: TestOptions): never {
+function failThrows(expect: RegExp | ((error: Error) => boolean), retval: unknown, options?: TestOptions): never {
   //If we get here, no exception occurred
   const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, options);
 
@@ -398,14 +398,28 @@ function failThrows(expect: RegExp, retval: unknown, options?: TestOptions): nev
   throw error;
 }
 
-function verifyThrowsException(expect: RegExp, exception: unknown, options?: TestOptions): Error {
+function verifyThrowsException(expect: RegExp | ((error: Error) => boolean), exception: unknown, options?: TestOptions): Error {
   if (!isError(exception)) {
     console.error("Expected a proper Error but got:", exception);
     throw new TestError("test.throws failed - didn't get an Error object", options);
   }
 
   const exceptiontext = exception.message;
-  if (!exceptiontext.match(expect)) {
+
+  let res;
+  if (typeof expect === "function") {
+    try {
+      res = expect(exception) !== false;
+    } catch (e) {
+      onLog("Exception test function threw an exception:");
+      onLog(e);
+      throw new TestError("test.throws failed - error test function throw exception", { ...options, cause: e as Error });
+    }
+  } else {
+    res = exceptiontext.match(expect);
+  }
+
+  if (!res) {
     onLog("Expected exception: ", expect.toString());
     onLog("Got exception: ", exceptiontext);
     if (exception.stack)
@@ -421,12 +435,12 @@ function verifyThrowsException(expect: RegExp, exception: unknown, options?: Tes
  * @param func_or_promise - A function to call, or a promise to await
  *  @param options - Test compare options or annotation
  * @returns The Error object thrown */
-export function throws(expect: RegExp, func_or_promise: () => never, options?: Annotation | TestOptions): Error; // only picks up always-throwing functions
-export function throws(expect: RegExp, func_or_promise: Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
-export function throws(expect: RegExp, func_or_promise: () => Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
-export function throws(expect: RegExp, func_or_promise: () => unknown, options?: Annotation | TestOptions): Error;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => never, options?: Annotation | TestOptions): Error; // only picks up always-throwing functions
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => unknown, options?: Annotation | TestOptions): Error;
 
-export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), options?: Annotation | TestOptions): Error | Promise<Error> {
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown> | (() => unknown), options?: Annotation | TestOptions): Error | Promise<Error> {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
