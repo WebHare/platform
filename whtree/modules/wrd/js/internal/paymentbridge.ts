@@ -76,7 +76,7 @@ function mapAddress(address: HsAddressFormat): PSPAddressFormat | undefined {
   };
 }
 
-async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
+export async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
   let config;
   try {
     config = JSON.parse(configAsJSON);

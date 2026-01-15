@@ -21,6 +21,7 @@ import { isPromise } from "node:util/types";
 import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
+import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -2176,7 +2177,57 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
   encodeValue(value: object | null): AwaitableEncodedValue {
     return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
   }
+}
 
+class WRDDBPaymentProviderValue extends WRDAttributeUncomparableValueBase<object | null, PaymentProviderValue | null, PaymentProviderValue | null, PaymentProviderValue | null> {
+  getDefaultValue(): PaymentProviderValue | null {
+    return null;
+  }
+
+  isSet(value: object | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentProviderValue | null {
+    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    return data ? makePaymentProviderValueFromEntitySetting(decodeHSON(data) as object) : null;
+  }
+
+  validateInput(value: object | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+  }
+
+  encodeValue(value: PaymentProviderValue | null): AwaitableEncodedValue {
+    throw new Error(`No write support yet for PaymentProviderValue`);
+    // return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
+  }
+}
+
+class WRDDBPaymentValue extends WRDAttributeUncomparableValueBase<object | null, PaymentValue | null, PaymentValue | null, PaymentValue | null> {
+  getDefaultValue(): PaymentValue | null {
+    return null;
+  }
+
+  isSet(value: object | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentValue | null {
+    const rows = Array<{ ordering: number; data: unknown }>();
+    for (let idx = settings_start; idx < settings_limit; idx++) {
+      const data = this.decodeAsStringWithOverlow(entity_settings, idx, idx + 1);
+      rows.push({ ordering: entity_settings[idx].ordering, data: decodeHSON(data) });
+    }
+    rows.sort((a, b) => a.ordering - b.ordering);
+    return rows.length ? makePaymentValueFromEntitySetting(rows.map(r => r.data as object)) : null;
+  }
+
+  validateInput(value: object | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+  }
+
+  encodeValue(value: PaymentValue | null): AwaitableEncodedValue {
+    throw new Error(`No write support yet for PaymentValue`);
+    // return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
+  }
 }
 
 class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUncomparableValueBase<
@@ -2716,8 +2767,6 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Options extends { allowedValues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet
-class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 
 /// Map for all attribute types that have no options

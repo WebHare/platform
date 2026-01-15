@@ -12,6 +12,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -193,8 +194,7 @@ MACRO TestPaymentFields()
   TestThrowsLike('*is of type*PAYDATA2*we expect*PAYDATA*', PTR paymentapi->StartPayment(pdwrongtype->id, 15.94m, paymentmethod));
 }
 
-MACRO TestPaymentMethodTest() //test the 'test' method
-{
+MACRO TestPaymentMethodTest() { //test the 'test' method
   testfw->BeginWork();
 
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
@@ -344,6 +344,8 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   testfw->BeginWork();
   paymentapi->paymenttype->DeleteEntity(pd2throw->id); //prevent a throwing payment from interfering with other tests
   testfw->CommitWork();
+
+  CallJS("./data/testhelpers.ts#runFurtherPaymentTests", [ pm2 := pm2->id, completed_payment := pd2b->id ]);
 }
 
 MACRO TestPaymentBrokenMethodTest()
