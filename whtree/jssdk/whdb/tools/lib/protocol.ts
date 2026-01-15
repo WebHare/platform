@@ -3,11 +3,11 @@ function* rangeItr(start: number, steps: number, step: number) {
     yield start + i * step;
 }
 
-export function formatBufferDump(buf: Buffer | Uint8Array<ArrayBufferLike>): string {
+export function formatBufferDump(buf: Buffer | Uint8Array<ArrayBufferLike>, opts?: { linePrefix?: string }): string {
   let str = "";
   for (let i = 0; i < buf.length; ++i) {
     if ((i % 16) === 0) {
-      str += `${i.toString(16).padStart(4, "0")}: `;
+      str += `${opts?.linePrefix ?? ""}${i.toString(16).padStart(4, "0")}: `;
     } else if ((i % 8) === 0)
       str += " ";
     str += buf[i].toString(16).padStart(2, "0") + " ";
@@ -24,7 +24,7 @@ export function formatBufferDump(buf: Buffer | Uint8Array<ArrayBufferLike>): str
       str += "\n";
     }
   }
-  return str;
+  return str.trimEnd();
 }
 
 
@@ -401,6 +401,8 @@ export function parsePGProtocolMessage(code: string, data: Buffer, frontend: boo
         for (let i = 0; i < data.length;) {
           const errorCode = data.toString("utf8", i, i + 1);
           i += 1;
+          if (errorCode === `\x00`)
+            break;
           const next0 = data.indexOf(0, i);
           const value = data.toString("utf8", i, next0);
           i = next0 + 1;
