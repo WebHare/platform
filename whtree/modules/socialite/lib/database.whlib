@@ -28,17 +28,6 @@ PUBLIC SCHEMA
     , STRING "value"
     ; KEY id
     > applicationkeys
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , STRING "domain"
-    , STRING "apikey"
-    , INTEGER keytype
-    , STRING privatekey
-    , DATETIME creationdate
-    , STRING comment
-    , INTEGER scopetype
-    ; KEY id
-    > google_apikeys
   > socialite;
 
 MACRO BindSocialiteTables(INTEGER transaction)

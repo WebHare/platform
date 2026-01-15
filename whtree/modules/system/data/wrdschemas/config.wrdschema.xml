@@ -47,14 +47,24 @@
     </attributes>
   </object>
 
+  <!-- keep for 13 months, somewhat matching a yearly rotation. But deleted API keys shouldn't be kept too long in case credentials are still valid. Using 30 as any less is probably in a backup somewhere anyway -->
+  <object tag="api_secret" keephistorydays="400" deleteclosedafter="30">
+    <attributes>
+      <enum tag="api_type" required="true" comment="API for which this secret is used, in module:tag format" allowedvalues="?*:?*"/>
+      <free tag="masks" comment="Newline separated list of URL masks for which this secret is allowed to be used" />
+      <free tag="comment" comment="Room for user/sysop comment" />
+      <json tag="secret" comment="The key/secret" unsafetocopy="true" />
+    </attributes>
+  </object>
+
   <object tag="externalservice" keephistorydays="2600">
     <!-- list services we are allowed to connect with -->
     <attributes>
       <free tag="url" required="true" />
       <free tag="servicetype" required="true" />
-
-      <!-- TODO: once the 'tika' users are switched, <obsolete tag="type" /> .. we introduced servicetype in 4.34 -->
+      <free tag="comment" />
       <integer tag="priority" />
+      <obsolete tag="type" comment="Deprecated since 4.34, obsoleted in 6.0"/>
     </attributes>
   </object>
 

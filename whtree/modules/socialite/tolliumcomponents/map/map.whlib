@@ -429,7 +429,7 @@ PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
 
     RECORD settings := CELL
         [ this->provider
-        , "key" := this->provider = "googlemap" ? LookupAPIKey("google", this->owner->tolliumcontroller->baseurl, [ scope := "client" ]).apikey : ""
+        , "key" := this->provider = "googlemap" ? GetAPIKey(["platform:google.cloud.frontend"], this->owner->tolliumcontroller->baseurl).secret.api_key : ""
         , this->contexts->user->language
         , moveable := this->pvt_moveable
         , show_controls := this->pvt_showcontrols

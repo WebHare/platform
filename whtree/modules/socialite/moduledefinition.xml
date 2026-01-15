@@ -95,7 +95,7 @@
 
     <d:obsoletetable name="feedentries" />
 
-    <!-- TODO generalize this a bit, there are more things that need API keys that are bound to local urls. we should probably move it to a webhare configuration wrdschema -->
+    <!-- this table will be removed in the future. migrated to system:config in WebHare 6.0 -->
     <d:table name="google_apikeys" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="keytype" />  <!-- 0 = maps, 1 = recaptcha -->

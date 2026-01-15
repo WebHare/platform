@@ -24,6 +24,7 @@
 
     <runonce script="migrations/5.9/scripts/fix-snakecase-settings.ts" tag="fix_snakecase_settings_5_9" when="poststart" />
     <runonce script="migrations/5.9/scripts/migrate-seosettings.whscr" tag="migrate_seosettings_5_9" when="poststart" />
+    <runonce script="migrations/6.0/scripts/import_api_keys.ts" tag="import_api_keys" when="poststart" />
 
     <managedtask type="requestcertificate" taskrunner="js/certbot/internal/task.ts#requestCertificateTask" priority="background" />
   </servicemanager>

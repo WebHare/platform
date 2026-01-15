@@ -94,8 +94,8 @@ STATIC OBJECTTYPE GGeocoderBase
       IF(options.requesturl = "")
         THROW NEW Exception("Google Maps now requires an API key. Please set one or provide a requesturl");
 
-      RECORD keylookup := LookupAPIKey("google", options.requesturl, [ scope := "server" ]);
-      options.apikey := keylookup.apikey;
+      RECORD keylookup := GetAPIKey(["platform:google.cloud.backend"], options.requesturl);
+      options.apikey := keylookup.secret.api_key;
     }
 
     this->clientid := options.clientid;

@@ -3,13 +3,15 @@ import { type CaptchaProvider, type CaptchaSettings, captcharegistry } from "@mo
 
 //friendly captcha API: https://developer.friendlycaptcha.com/docs/v2/sdk/configuration
 let script = "https://cdn.jsdelivr.net/npm/@friendlycaptcha/sdk@0.1.31/site.min.js";
+let endpoint: string | undefined;
 let isLoaded = false;
 
 export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: HTMLElement, settings: CaptchaSettings): Promise<void> {
   const captcha = document.createElement('div');
   captcha.className = "frc-captcha";
   captcha.dataset.sitekey = provider.apikey;
-  captcha.dataset.apiEndpoint = "eu"; //https://developer.friendlycaptcha.com/docs/v2/sdk/configuration#data-api-endpoint
+  if (endpoint === "eu")
+    captcha.dataset.apiEndpoint = "eu"; //https://developer.friendlycaptcha.com/docs/v2/sdk/configuration#data-api-endpoint
   captcha.addEventListener("frc:widget.complete", ((evt: CustomEvent<{ response: string }>) => settings.onResponse(evt.detail.response)) as EventListener);
 
   injectInto.append(captcha);
@@ -26,12 +28,15 @@ export async function runFriendlyCaptcha(provider: CaptchaProvider, injectInto: 
   }
 }
 
-export function setupFriendlyCaptcha(options?: { script: string }) {
+/** Setup friendlycaptcha integration */
+export function setupFriendlyCaptcha(options?: { script?: string; endpoint?: "eu" }) {
   if (captcharegistry["friendly-captcha"])
     throw new Error("Duplicate friendly captcha initialization");
 
   if (options?.script)
     script = options.script;
+  if (options?.endpoint)
+    endpoint = options.endpoint;
 
   captcharegistry["friendly-captcha"] = { initialize: runFriendlyCaptcha };
 }
