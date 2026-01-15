@@ -9,3 +9,9 @@ backendServices:
 
 selfChecks:
   - checker: js/validation/checks.ts#checkModules
+
+assetPacks:
+  tolliumtools:
+    entryPoint: "webdesigns/tolliumtools/tolliumtools"
+    supportedLanguages: [en]
+    whPolyfills: false

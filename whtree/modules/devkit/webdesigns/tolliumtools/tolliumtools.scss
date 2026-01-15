@@ -1,0 +1,32 @@
+tollium-tools {
+  display: none;
+}
+
+html.dompack--debug-tolliumtools body
+{
+  grid-template-columns: [desktop] 6fr [tools] 2fr;
+
+  tollium-tools {
+    grid-row: desktop;
+    grid-column: tools;
+    display: block;
+    border-left: 1px solid black;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    background:#bbf;
+  }
+}
+
+
+::-webkit-resizer {
+  border: 2px solid yellow;
+  background: blue;
+  box-shadow: 0 0 2px 5px red;
+  outline: 2px dashed green;
+
+  /*size does not work*/
+  display:block;
+  width: 150px !important;
+  height: 150px !important;
+}
