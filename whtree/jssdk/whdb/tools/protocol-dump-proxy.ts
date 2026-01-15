@@ -214,15 +214,16 @@ run({
 
     let ctr = 0;
 
-    function dumpBuffer(buf: Buffer) {
-      log(formatBufferDump(buf));
-    }
 
     // This server listens on a Unix socket at /var/run/mysocket
     const unixServer = net.createServer(clientConn => {
       const pending = new Array<Buffer>;
       let connected = false;
       const id = ++ctr;
+
+      function dumpBuffer(buf: Buffer) {
+        log(formatBufferDump(buf, { linePrefix: `PG conn ${id}:     ` }));
+      }
 
       let clientBytes = 0;
       let clientCalls = 0;
@@ -300,7 +301,7 @@ run({
           ...process.env,
           WEBHARE_PGHOST: opts.socketDir,
         },
-        stdio: ["ignore", "inherit", "inherit"]
+        stdio: ["inherit", "inherit", "inherit"]
       });
 
       await new Promise<void>(resolve => child.on('close', (code) => {
