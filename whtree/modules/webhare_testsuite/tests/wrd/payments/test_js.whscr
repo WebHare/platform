@@ -783,7 +783,7 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #2"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{
+    , method := MakeJSPaymentProviderValue("platform:test", `{
       "methods":[{ "rowkey": "M1", "title": "Method 1" },
                  { "rowkey": "M2", "title": "Method 2" }
                 ]
@@ -793,7 +793,7 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_3 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #3"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{
+    , method := MakeJSPaymentProviderValue("platform:test", `{
       "methods":[{ "rowkey": "M1", "title": "Method 1" },
                  { "rowkey": "M2", "title": "Method 2" }
                 ]

@@ -169,3 +169,7 @@ formDefinitions:
   authpages: mod::wrd/data/forms/authpages.formdef.xml
   testpages: mod::publisher/lib/internal/forms/testpage.formdef.xml
   forum: mod::publisher/lib/internal/forum/forum.formdef.xml
+
+paymentProviders:
+  test:
+    driver: packages/psp-testdriver/testdriver.ts#TestDriver

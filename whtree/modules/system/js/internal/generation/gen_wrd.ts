@@ -69,8 +69,16 @@ interface ModuleWRDSchemaDef {
   autoCreate: boolean;
 }
 
+interface PaymentProviderDef {
+  /** module:tag */
+  tag: string;
+  /** path to driver */
+  driver: string;
+}
+
 export interface WRDSchemasExtract {
   schemas: ModuleWRDSchemaDef[];
+  psp: PaymentProviderDef[];
 }
 
 function parseXMLWRDSchemas(mod: string, doc: Document) {
@@ -137,13 +145,35 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
   return schemas;
 }
 
+export async function getModulePaymentProviders(context: GenerateContext, modulename: string): Promise<PaymentProviderDef[]> {
+  const providers = new Array<PaymentProviderDef>();
+  const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
+
+  for (const mod of context.moduledefs) {
+    if (!mods.includes(mod.name))
+      continue;
+    if (mod.modYml?.paymentProviders) {
+      for (const [tag, def] of Object.entries(mod.modYml.paymentProviders)) {
+        providers.push({
+          tag: `${mod.name}:${tag}`,
+          driver: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.driver)
+        });
+      }
+    }
+  }
+  return providers;
+}
+
 export async function getAllModuleWRDSchemas(context: GenerateContext): Promise<WRDSchemasExtract> {
   const extract: WRDSchemasExtract = {
-    schemas: []
+    schemas: [],
+    psp: []
   };
 
-  for (const mod of context.moduledefs)
+  for (const mod of context.moduledefs) {
     extract.schemas.push(...await getModuleWRDSchemas(context, mod.name));
+    extract.psp.push(...await getModulePaymentProviders(context, mod.name));
+  }
 
   return extract;
 }
