@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 
-// wh services debug dev:sourceindexservice
+// wh services debug devkit:sourceindexservice
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debug", type := "switch" ]
@@ -65,4 +65,4 @@ MACRO ScheduleFiles()
 
 OpenPrimary();
 RegisterMultiEventCallback("system:modulefolder.*", PTR OnSourceFileChange);
-RunWebHareService("dev:sourceindexservice", DEFAULT MACRO PTR);
+RunWebHareService("devkit:sourceindexservice", DEFAULT MACRO PTR);

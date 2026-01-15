@@ -1007,7 +1007,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
                     CASE "describer"
                     {
                       objectrec.describer := "mod::" || modulename || "/lib/" || ToLowercase(subsubchild->GetAttribute("library")) || "#" || ToLowercase(subsubchild->GetAttribute("objectname"));
-                      this->AddError(subsubchild, "<describer> will be removed in from WebHare, use <objecttype describer=…> (dev:rewrite can fix this!)");
+                      this->AddError(subsubchild, "<describer> will be removed in from WebHare, use <objecttype describer=…> (devkit:rewrite can fix this!)");
                     }
                   }
 
