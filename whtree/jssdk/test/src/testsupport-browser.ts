@@ -29,3 +29,7 @@ export function scheduleLingeringProcessCheck(): void {
 export async function triggerGarbageCollection() {
   throw new Error("triggerGarbageCollection not (yet) implemented for browser test environment");
 }
+
+export async function getActiveGenerators(): Promise<{ name: string; location: string; suspendedAt: string }[]> {
+  return [];
+}

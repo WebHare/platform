@@ -158,3 +158,5 @@ export async function triggerGarbageCollection() {
     });
   });
 }
+
+export { getActiveGenerators } from "./inspect-helpers";
