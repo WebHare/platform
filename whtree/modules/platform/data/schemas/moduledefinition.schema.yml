@@ -48,6 +48,9 @@ properties:
   acmeChallengeHandlers:
     description: Challenge handlers for ACME certificate challenges
     $ref: "#/$defs/ACMEChallengeHandlers"
+  paymentProviders:
+    description: JS-based payment providers
+    $ref: "#/$defs/PaymentProviders"
   formDefinitions:
     description: Form definition files (used in OpenForm calls)
     $ref: "#/$defs/FormDefinitions"
@@ -469,6 +472,20 @@ $defs:
           handlerFactory:
             type: string
             description: "Function that creates the challenge handler object, must resolve to a ACMEChallengeHandler object"
+
+  PaymentProviders:
+    type: object
+    description: Declare the location of payment providers in this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Payment provider  name
+        type: object
+        required: [driver]
+        additionalProperties: false
+        properties:
+          driver:
+            type: string
+            description: "Path to the payment provider driver"
 
   FormDefinitions:
     type: object
