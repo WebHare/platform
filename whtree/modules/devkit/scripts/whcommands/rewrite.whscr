@@ -36,7 +36,7 @@ MACRO Main()
   RECORD cmdargs:= ParseArguments(GetConsoleArguments(), options);
   IF(NOT RecordExists(cmdargs))
   {
-    Print("Syntax: wh dev:rewrite [--debug] <source> [dest]\n");
+    Print("Syntax: wh devkit:rewrite [--debug] <source> [dest]\n");
     TerminateScriptWithError("");
   }
 

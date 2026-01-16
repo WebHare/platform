@@ -2,7 +2,7 @@
 
 /* debug
 
-wh consilio:manualindex dev:sourcecodeindex
+wh consilio:manualindex devkit:sourcecodeindex
 */
 
 LOADLIB "wh::adhoccache.whlib";
