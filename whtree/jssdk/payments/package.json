@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/payments",
+  "version": "",
+  "description": "Payment processing",
+  "main": "src/payments.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/payments.ts"
+    ]
+  },
+  "dependencies": {},
+  "private": true
+}
