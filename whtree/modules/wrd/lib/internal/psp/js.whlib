@@ -67,16 +67,18 @@ STRING ARRAY FUNCTION MapRequirements(STRING ARRAY inrequirements) {
   RETURN SELECT AS STRING ARRAY MapRequirement(req) FROM ToRecordArray(inrequirements,'req');
 }
 
-PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
-
-<
+PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase <
   RECORD methodsettings;
   RECORD newtransdata; //data captured by __setupnewtransaction, most of it to be discarded
   PUBLIC STRING paymeta;
   STRING rejectreasonhtml;
 
-  MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:js", "redirect", settings)
-  {
+  //driver with '#' is a raw path, since 5.9.2 we'll support module-based names too
+  MACRO NEW(RECORD settings) : WRDPaymentProviderBase("wrd:js", "redirect", settings) {
+    IF(CellExists(settings,'pspoptions')) { //are we invoked for an explciit JS PSP, and not just 'wrd:js' with raw metadata?
+      this->pvt_psptype := settings.type;
+      settings := settings.pspoptions;
+    }
     this->methodsettings := settings;
     this->needspaymentref := TRUE;
   }

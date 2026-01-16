@@ -1,8 +1,7 @@
 <?wh
+LOADLIB "mod::system/lib/resources.whlib";
 
-
-PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
-{
+PUBLIC RECORD ARRAY FUNCTION GetAvailableHareScriptPSPs() {
   RETURN [[ tag := "wrd:external"
           , title := /*tid*/"wrd:tolliumapps.payments.external.methodtitle"
           , objectname := "mod::wrd/lib/internal/psp/external.whlib#ExternalPaymentProvider"
@@ -90,6 +89,25 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
          ];
 }
 
+PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs() {
+  RECORD pspinfo := __GetExtractedConfig("wrdschemas");
+  RECORD ARRAY psps :=
+      SELECT tag
+           , title := ":" || tag
+           , objectname := "mod::wrd/lib/internal/psp/js.whlib#JSPaymentProvider"
+           , payinfoscreen := paymentInfoScreen
+           , configextensions := configExtensions
+           , metadataoptions := [ driver := ""
+                               , configuration := ""
+                               , methods := DEFAULT RECORD ARRAY
+                               , islive := FALSE
+                               ]
+           , js := TRUE
+       FROM pspinfo.psp;
+
+  RETURN psps CONCAT SELECT *, js := FALSE FROM GetAvailableHareScriptPSPs();
+}
+
 PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
 {
   STRING searchtype := createtype;
@@ -113,5 +131,5 @@ PUBLIC OBJECT FUNCTION OpenPSPHandler(STRING createtype, RECORD metadata)
 
   RECORD pspoptions := ValidateOptions(methodinfo.metadataoptions, metadata, [ passthroughin := "__discard" ] );
   DELETE CELL __discard FROM pspoptions;
-  RETURN MakeObject(methodinfo.objectname, pspoptions);
+  RETURN methodinfo.js ? MakeObject(methodinfo.objectname, CELL[ type := createtype, pspoptions ]) : MakeObject(methodinfo.objectname, pspoptions);
 }

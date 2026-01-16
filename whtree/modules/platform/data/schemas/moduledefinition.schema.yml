@@ -490,6 +490,15 @@ $defs:
           driver:
             type: string
             description: "Path to the payment provider driver"
+          title:
+            type: string
+            description: "Title for the payment provider"
+          paymentInfoScreen:
+            type: string
+            description: "Tollium screen to show payment information"
+          configExtensions:
+            type: string
+            description: "Screen extensions to add configuration options for this payment provider"
 
   FormDefinitions:
     type: object

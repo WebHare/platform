@@ -173,3 +173,6 @@ formDefinitions:
 paymentProviders:
   test:
     driver: packages/psp-testdriver/testdriver.ts#TestDriver
+    title: Test Payment Provider
+    # paymentInfoScreen:
+    configExtensions: packages/psp-testdriver/testdriver.screens.xml#configtestdriver

@@ -79,7 +79,7 @@ function mapAddress(address: HsAddressFormat): PSPAddressFormat | undefined {
 export async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
   let config;
   try {
-    config = JSON.parse(configAsJSON);
+    config = parseTyped(configAsJSON);
   } catch (e) {
     return { error: "Invalid configuration: " + (e as Error)?.message };
   }

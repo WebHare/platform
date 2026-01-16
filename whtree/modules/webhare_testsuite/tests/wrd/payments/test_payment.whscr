@@ -14,10 +14,16 @@ LOADLIB "mod::wrd/lib/testfw/payments.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/psps.whlib";
 
 OBJECT paymentapi;
 STRING pm2_guidprefix;
 OBJECT pm2;
+
+MACRO TestBasePaymentAPIs() {
+  RECORD ARRAY psps := GetAvailablePSPs();
+  TestEqMembers([[ js:= TRUE ]], SELECT * FROM psps WHERE tag = "platform:test", '*');
+}
 
 MACRO Prep()
 {
@@ -770,7 +776,8 @@ ASYNC MACRO TestDashboard()
 }
 
 
-RunTestframework([ PTR CreateWRDTestSchema
+RunTestframework([ PTR TestBasePaymentAPIs
+                 , PTR CreateWRDTestSchema
                  , PTR Prep
                  , PTR TestPaymentFields
                  , PTR TestPaymentMethodTest

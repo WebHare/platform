@@ -72,8 +72,10 @@ interface ModuleWRDSchemaDef {
 interface PaymentProviderDef {
   /** module:tag */
   tag: string;
-  /** path to driver */
+  /** Path to driver */
   driver: string;
+  paymentInfoScreen: string;
+  configExtensions: string;
 }
 
 export interface WRDSchemasExtract {
@@ -156,7 +158,9 @@ export async function getModulePaymentProviders(context: GenerateContext, module
       for (const [tag, def] of Object.entries(mod.modYml.paymentProviders)) {
         providers.push({
           tag: `${mod.name}:${tag}`,
-          driver: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.driver)
+          driver: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.driver),
+          configExtensions: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.configExtensions || ''),
+          paymentInfoScreen: resolveResource(`mod::${mod.name}/moduledefinition.yml`, def.paymentInfoScreen || '')
         });
       }
     }
