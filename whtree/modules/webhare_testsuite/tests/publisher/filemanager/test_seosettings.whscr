@@ -14,6 +14,8 @@ LOADLIB "mod::consilio/lib/pagelists.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+OBJECT seotestroot, root, noindeximage, seotitlefile, noindexfolder, forced_noindex_nofollow_yesfollow_file, seotestfile, seoheadertitlefolder, noindexsubfolder, noindexsubfile,
+       noindexsubfolderindex, nofollowfolder, nofollowsubfolder, nofollowsubfile, forced_noindex_file, forced_nofollow_file, forced_noarchive_file, forced_noindex_nofollow_noarchive_file;
 
 MACRO PrepIt()
 {
@@ -23,42 +25,40 @@ MACRO PrepIt()
   testfw->CommitWork();
 }
 
-ASYNC MACRO TestSeoSettings()
-{
+ASYNC MACRO TestSeoSettings_AsLisa() {
   testfw->SetTestUser("lisa");
 
   testfw->BeginWork();
 
-  OBJECT root := OpenTestsuiteSite()->rootobject;
   OBJECT usetype := OpenWHFSType("platform:filetypes.contentlisting"); //no doceditor but *does* have a webdesign and can publish SEO met atags
 
-  OBJECT seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
-  OBJECT seotestfile := seotestroot->CreateFile([name := "seotestfile", type := usetype->id, publish := TRUE ]);
-  OBJECT seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := usetype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
-  OBJECT seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
-  OBJECT protectedseotestfile := seotestroot->CreateFile([name := "seotestfile-protected-seotab", type := usetype->id, publish := TRUE ]);
+  root := OpenTestsuiteSite()->rootobject;
+  seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
+  seotestfile := seotestroot->CreateFile([name := "seotestfile", type := usetype->id, publish := TRUE ]);
+  seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := usetype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
+  seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
 
-  OBJECT noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
+  noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
   noindexfolder->SetInstanceData("platform:web.config", [no_index := TRUE]);
-  OBJECT noindexsubfolder := noindexfolder->CreateFolder([name := "noindexsub"]);
-  OBJECT noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := usetype->id, publish := TRUE ]);
-  OBJECT noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
+  noindexsubfolder := noindexfolder->CreateFolder([name := "noindexsub"]);
+  noindexsubfile := noindexsubfolder->CreateFile([name := "noindexsubfile", type := usetype->id, publish := TRUE ]);
+  noindeximage := noindexsubfolder->CreateFile([name:="img.jpg", data := GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
 
   //we were ignoring settings on index documents as they weren't in the path used for breadcrumbs and we were sharing that. fixing that
-  OBJECT noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := usetype->id, publish := TRUE ], [ setindex := TRUE ]);
+  noindexsubfolderindex := noindexsubfolder->CreateFile([name := "index", type := usetype->id, publish := TRUE ], [ setindex := TRUE ]);
   noindexsubfolderindex->SetInstanceData("platform:web.config", [ no_archive := TRUE]);
 
-  OBJECT nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
+  nofollowfolder := seotestroot->CreateFolder([name := "nofollow"]);
   nofollowfolder->SetInstanceData("platform:web.config", [no_follow := TRUE]);
-  OBJECT nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
-  OBJECT nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := usetype->id, publish := TRUE ]);
+  nofollowsubfolder := nofollowfolder->CreateFolder([name := "nofollowsub"]);
+  nofollowsubfile := nofollowsubfolder->CreateFile([name := "nofollowsubfile", type := usetype->id, publish := TRUE ]);
   nofollowsubfile->SetInstanceData("platform:web.config", [ canonical := noindexsubfile->id ]);
 
-  OBJECT forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := usetype->id, publish := TRUE ]);
-  OBJECT forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := usetype->id, publish := TRUE ]);
-  OBJECT forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := usetype->id, publish := TRUE ]);
-  OBJECT forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := usetype->id, publish := TRUE ]);
-  OBJECT forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := usetype->id, publish := TRUE ]);
+  forced_noindex_file := seotestroot->CreateFile([name := "robots-noindex", type := usetype->id, publish := TRUE ]);
+  forced_nofollow_file := seotestroot->CreateFile([name := "robots-nofollow", type := usetype->id, publish := TRUE ]);
+  forced_noarchive_file := seotestroot->CreateFile([name := "robots-noarchive", type := usetype->id, publish := TRUE ]);
+  forced_noindex_nofollow_noarchive_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-noarchive", type := usetype->id, publish := TRUE ]);
+  forced_noindex_nofollow_yesfollow_file := seotestroot->CreateFile([name := "robots-noindex-nofollow-yesfollow", type := usetype->id, publish := TRUE ]);
 
   testfw->CommitWork();
 
@@ -95,10 +95,59 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be invisible to Lisa");
+  TestEq(FALSE, TTIsVisible("no_index"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexsubfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TTIsVisible("no_index"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  //Should not have modified the noindex setting
+  TestEq(FALSE, noindexsubfolder->GetInstanceData("platform:web.config").no_index);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ nofollowsubfolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TTIsVisible("no_index"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+}
+
+ASYNC MACRO TestSeoSettings_AsMarge() {
+  testfw->SetTestUser("marge");
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindeximage->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should NOT appear for objects that aren't templated");
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ seotitlefile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(TRUE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TT("seotitle")->value := "The Seo Title";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ seoheadertitlefolder->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -106,8 +155,7 @@ ASYNC MACRO TestSeoSettings()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ noindexfolder->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should appear!");
-  TestEq("SEO", TT("maintabs")->pages[1]->title);
+  TestEq(TRUE, TTIsVisible("no_index"));
 
   TestEq(TRUE, TT("no_index")->value);
   TestEq(TRUE, TT("no_index")->enabled);
@@ -146,20 +194,9 @@ ASYNC MACRO TestSeoSettings()
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+}
 
-  ///////////////////////////////////
-  //
-  // As Marge, we can see the protected seo tab Lisa couldn't see
-  //
-  testfw->SetTestUser("marge");
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ protectedseotestfile->whfspath ] ]));
-  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
-
-  TestEq(TRUE, ObjectExists(TT(":SEO", [ allowmissing := TRUE ])), "The SEO tab should be visible to Marge");
-
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
-
+ASYNC MACRO TestSeoSettings_AsSysop() {
   ///////////////////////////////////
   //
   // Open nofollow/nofollowsub as sysop, set a customrobots value
@@ -281,9 +318,11 @@ ASYNC MACRO TestSeoSettings()
 }
 
 RunTestframework([ PTR PrepIt
-                 , PTR TestSeoSettings
+                 , PTR TestSeoSettings_AsLisa
+                 , PTR TestSeoSettings_AsMarge
+                 , PTR TestSeoSettings_AsSysop
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
-                                   ,[ login := "marge", grantrights := ["system:supervisor"] ]
+                                   ,[ login := "marge", grantrights := ["publisher:advanced"] ]
                                    ]
                     ]);
