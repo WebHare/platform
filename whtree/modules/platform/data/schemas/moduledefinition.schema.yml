@@ -482,7 +482,7 @@ $defs:
     description: Declare the location of payment providers in this module
     additionalProperties: false
     patternProperties:
-      "^[a-z_][-a-z0-9_]*$": # Payment provider  name
+      "^[a-z_][-a-z0-9_]*$": # Payment provider name
         type: object
         required: [driver]
         additionalProperties: false
