@@ -785,6 +785,9 @@ STATIC OBJECTTYPE PaymentAPI
 PUBLIC RECORD FUNCTION MakePaymentProviderValue(STRING type, RECORD metadata DEFAULTSTO DEFAULT RECORD)
 {
   RECORD pspinfo := GetPSPInfo(type);
+  IF(pspinfo.js)
+    RETURN MakeJSPaymentProviderValue(type, EncodeJSON(metadata, DEFAULT RECORD, [ camelcase := TRUE, typed := TRUE ]));
+
   RECORD metaoptionsoptions := CellExists(pspinfo, 'metadataoptionsoptions') ? pspinfo.metadataoptionsoptions : DEFAULT RECORD;
   RECORD meta := ValidateOptions(pspinfo.metadataoptions, metadata, metaoptionsoptions);
   RETURN [ __paymentprovider := CELL[ type, meta ] ];
@@ -800,12 +803,17 @@ PUBLIC RECORD FUNCTION MakeJSPaymentProviderValue(STRING driver, STRING configur
     ELSE
       THROW NEW Exception(result.error);
 
-  RETURN MakePaymentProviderValue("wrd:js", CELL[
-        methods := result.methods,
-        islive := result.islive,
-        driver,
-        configuration
-      ]);
+  RETURN CELL[ __paymentprovider :=
+  //driver with '#' is a raw path, since 5.9.2 we'll support module-based names
+    CELL[ type := driver LIKE "*#*" ? "wrd:js" : driver
+        , meta := CELL[
+              methods := result.methods,
+              islive := result.islive,
+              driver,
+              configuration
+            ]
+        ]
+  ];
 }
 
 /** @short Open the payment api

@@ -162,6 +162,9 @@ PUBLIC OBJECTTYPE PaymentProvider EXTEND TolliumScreenBase
       IF(RecordExists(paymentprovider)) {
         paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
         DELETE CELL __discard FROM paymentprovider;
+        IF(this->pspinfo.js) //decode the embedded configuration
+          paymentprovider := DecodeJSON(paymentprovider.configuration, DEFAULT RECORD, CELL[ camelcase := TRUE, typed := TRUE ]);
+
         this->paymentextension->SetPaymentProviderValue(paymentprovider);
       }
     }
