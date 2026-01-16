@@ -127,7 +127,7 @@ STATIC OBJECTTYPE PaymentAPI
   PUBLIC OBJECT FUNCTION __InstantiatePSP(INTEGER paymentprovider)
   {
     IF(paymentprovider = 0)
-      RETURN OpenPSPHandler(GetAvailablePSPs()[0].tag, DEFAULT RECORD);
+      RETURN OpenPSPHandler("wrd:external", DEFAULT RECORD);
 
     RECORD paymententity := this->pvt_providertype->GetEntityFields(paymentprovider, [STRING(this->providerattribute)]);
     IF(NOT RecordExists(paymententity))

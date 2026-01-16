@@ -3,7 +3,6 @@
 
 PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
 {
-  //external -must- be the first payment method - it is used for builtin payments too
   RETURN [[ tag := "wrd:external"
           , title := /*tid*/"wrd:tolliumapps.payments.external.methodtitle"
           , objectname := "mod::wrd/lib/internal/psp/external.whlib#ExternalPaymentProvider"
