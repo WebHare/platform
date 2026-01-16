@@ -1837,7 +1837,6 @@
           <text tid="opts-propsafterupload">Open the properties screen after uploading one file</text>
           <text tid="opts-showforeignfolders">Show foreign folders</text>
           <text tid="opts-showmenubar">Show menu bar</text>
-          <text tid="opts-sidetabs">Left-side tabs in the properties screen (beta)</text>
           <text tid="prefs">Preferences</text>
           <text tid="showwebharebackend">Show the 'WebHare backend' site</text>
           <text tid="showwhfsprivate">Show the internal WebHare folders</text>

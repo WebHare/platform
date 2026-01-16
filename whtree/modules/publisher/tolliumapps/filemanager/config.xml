@@ -8,7 +8,6 @@
         <option rowkey="groupfolders" />
         <option rowkey="showforeignfolders" />
         <option rowkey="showmenubar" />
-        <option rowkey="sidetabs" />
       </select>
       <select name="autotitles" type="radio" rowkeytype="boolean">
         <option rowkey="false" />
