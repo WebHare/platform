@@ -42,7 +42,7 @@ type PaymentDataRow = {
   a: Money;
   d: Date;
   h: string;
-  /** Driver specific payment metadtata */
+  /** Driver specific payment metadata */
   m: {
     paymeta?: string;
   } | null;
