@@ -1,0 +1,20 @@
+{
+  "name": "@webhare/postgrease",
+  "version": "",
+  "description": "Postgrease('d lightning) quick PostgreSQL client for Node.js",
+  "main": "src/postgrease.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/postgrease.ts"
+    ]
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@webhare/cli": "",
+    "@webhare/system-tools": ""
+  },
+  "private": true
+}

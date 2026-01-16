@@ -1,7 +1,7 @@
 import { sleep } from "@webhare/std";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { db, beginWork, commitWork, sql, query } from "@webhare/whdb";
-import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
+import { getConnection, isDatabaseError, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import * as test from "@webhare/test";
@@ -91,8 +91,11 @@ export async function runAndKillTransaction() {
   await beginWork(); //work is needed to prevent crash but also makes us safer if we start to pool
   const pid = (await query<{ pg_backend_pid: number }>('select pg_backend_pid()')).rows[0].pg_backend_pid;
   const promised = query('select pg_sleep(10)');
+  const promised2 = query('select pg_sleep(10)');
   promised.catch(() => { });
+  promised2.catch(() => { });
   await sleep(100); //give the PG driver time to start the query
   process.kill(pid, 'SIGTERM');
-  await test.throws(/Connection closed/, promised);
+  await test.throws(e => (isDatabaseError(e) && e.code === "57P01"), promised);
+  await test.throws(e => (isDatabaseError(e) && e.code === "57P01"), promised2);
 }
