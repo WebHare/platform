@@ -8,18 +8,6 @@ import * as dompack from "dompack";
 
 const toddrpc = createClient<TolliumToddService>("tollium:todd");
 
-// Canvas pixel ratio
-const canvasRatio = (function () {
-  const ctx = document.createElement("canvas").getContext("2d");
-  const devicePixelRatio = window.devicePixelRatio || 1,
-    backingStoreRatio = ctx.webkitBackingStorePixelRatio ||
-      ctx.mozBackingStorePixelRatio ||
-      ctx.msBackingStorePixelRatio ||
-      ctx.oBackingStorePixelRatio ||
-      ctx.backingStorePixelRatio || 1;
-  return devicePixelRatio / backingStoreRatio;
-})();
-
 // The images to load
 const imagequeue = new Map();
 
@@ -204,7 +192,7 @@ async function processImage(key, images, data) {
   }
 
   // Base image and overlays are drawn on a canvas, taking pixel ratio into account
-  const canvaswidth = data.width * canvasRatio, canvasheight = data.height * canvasRatio;
+  const canvaswidth = data.width * window.devicePixelRatio, canvasheight = data.height * window.devicePixelRatio;
 
   // imgnodes is the list of img nodes that are drawn on the composite canvas
   // imgloads is the list of promises that resolve for each loaded img node (or rejected for broken overlays)
@@ -296,7 +284,7 @@ async function processImage(key, images, data) {
         ctx.imageSmoothingEnabled = false;
 
         // For very large images (> 192 pixels), widen the knockout outline
-        const range = Math.max(Math.round(canvaswidth / canvasRatio) / 128, Number(canvasRatio));
+        const range = Math.max(Math.round(canvaswidth / window.devicePixelRatio) / 128, Number(window.devicePixelRatio));
         for (let x = -range; x <= range; ++x)
           for (let y = -range; y <= range; ++y)
             ctx.drawImage(layercanvas, x, y);
