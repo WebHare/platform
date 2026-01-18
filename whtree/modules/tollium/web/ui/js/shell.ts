@@ -47,7 +47,7 @@ require('../css/apps.scss');
 require('../skins/default/skin.scss');
 require('../skins/default/controls.scss');
 
-const toddImages = require("@mod-tollium/js/icons");
+import * as toddImages from "@mod-tollium/js/icons";
 
 import TowlNotifications from './shell/towl';
 

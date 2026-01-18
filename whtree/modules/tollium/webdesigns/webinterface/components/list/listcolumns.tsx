@@ -31,7 +31,7 @@ function setIcon(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HT
   if (overlayicon)
     icon = icon + "+" + overlayicon;
 
-  const existingicon = cell.firstChild;
+  const existingicon = cell.firstElementChild as HTMLImageElement | null;
   if (icon) {
     //We're requesting the color version, the server will fallback to the black icon if needed
     if (existingicon)

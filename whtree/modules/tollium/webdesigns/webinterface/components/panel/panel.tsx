@@ -10,7 +10,7 @@ import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./panel.scss";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-require("@mod-tollium/js/icons");
+
 
 /* Tollium inline layouting
    - The 'gr' unit is defined to be logically a 'grid line', but has to be calculated differently based on context...

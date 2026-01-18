@@ -12,7 +12,7 @@ import type ObjForward from '@mod-tollium/webdesigns/webinterface/components/act
 
 // Allow components to set propTodd as a backwards pointer to their code
 declare global {
-  interface HTMLElement {
+  interface Element {
     propTodd?: ToddCompBase;
   }
 }

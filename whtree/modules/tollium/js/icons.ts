@@ -1,10 +1,36 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import type { TolliumToddService } from "@mod-tollium/web/ui/js/types";
+import type { RetrievedImagePart, TolliumToddService } from "@mod-tollium/web/ui/js/types";
+import type { UIBusyLock } from "@webhare/dompack";
 import { debugFlags } from "@webhare/env";
 import { createClient } from "@webhare/jsonrpc-client";
+import { throwError } from "@webhare/std";
 import * as dompack from "dompack";
+
+declare global {
+  interface HTMLImageElement { //FIXME clean up, don't extend global interfaces as it'll leak through everywhere
+    knockout: boolean;
+    translatex: number;
+    translatey: number;
+  }
+}
+
+type ImageOptions = {
+  className?: string;
+  title?: string;
+};
+
+type ImageCacheData = {
+  width: number;
+  height: number;
+  color: string;
+};
+
+type ImageCacheEntry = {
+  key: string;
+  data: ImageCacheData;
+  imgs: HTMLImageElement[];
+  /** (Data?) URL for the image */
+  result?: string;
+};
 
 const toddrpc = createClient<TolliumToddService>("tollium:todd");
 
@@ -12,13 +38,13 @@ const toddrpc = createClient<TolliumToddService>("tollium:todd");
 const imagequeue = new Map();
 
 // The images that are already loaded
-const imagecache = new Map();
+const imagecache = new Map<string, ImageCacheEntry>();
 
 // Used to coalesce image loading
-let loadimgtimeout = null, loadimglock = null;
+let loadimgtimeout: number | null = null, loadimglock: UIBusyLock | null = null;
 
 // Load the image(s) and apply to an <img> node src
-export function updateCompositeImage(imgnode, imgnames, width, height, color) {
+function updateCompositeImage(imgnode: HTMLImageElement, imgnames: string[], width: number, height: number, color: string) {
   // If a white image is requested, fallback to (inverted) black if white not directly available
   if (color === "w")
     color = "w,b";
@@ -27,8 +53,7 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
     color = "c,b";
 
   const data = { imgnames, width, height, color: color || "" };
-  imgnames = imgnames.join("+");
-  const key = `${imgnames}|${data.width}|${data.height}|${data.color}`;
+  const key = `${imgnames.join("+")}|${data.width}|${data.height}|${data.color}`;
   const cached = imagecache.get(key);
 
   // The data-toddimg attribute is used to reload the image after the cache is cleared
@@ -58,7 +83,7 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
   if (!cached)
     imagecache.set(key, { key, data, imgs: [] });
   if (imgnode)
-    imagecache.get(key).imgs.push(imgnode);
+    imagecache.get(key)!.imgs.push(imgnode);
 
   if (!imagequeue.has(key)) {
     imagequeue.set(key, data);
@@ -71,13 +96,13 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
     if (debugFlags.ild)
       console.log("Setting image loading timeout");
     loadimglock = dompack.flagUIBusy();
-    loadimgtimeout = window.setTimeout(loadImages, 1);
+    loadimgtimeout = window.setTimeout(() => void loadImages(), 1);
   }
 }
 
 async function loadImages() {
   loadimgtimeout = null;
-  loadimglock.release();
+  loadimglock?.release();
   loadimglock = null;
 
   const lock = dompack.flagUIBusy();
@@ -87,7 +112,7 @@ async function loadImages() {
   if (debugFlags.ild)
     console.warn("Image queue size: " + imagequeue.size);
   for (const [key, data] of imagequeue) {
-    const cached = imagecache.get(key);
+    const cached = imagecache.get(key) ?? throwError(`Image ${key} missing in cache`);
     if (debugFlags.ild)
       console.log(key, cached);
     // If nobody is waiting for this image, or if it's already loaded, skip it
@@ -112,7 +137,7 @@ async function loadImages() {
     // Store the loaded images
     const loaded = await Promise.all(result.images.map(res => {
       // Get the cache entry
-      const cached = imagecache.get(res.key);
+      const cached = imagecache.get(res.key) ?? throwError(`Image ${res.key} missing in cache`);
 
       // Process the image (invert, apply overlays)
       return processImage(res.key, res.images, cached.data);
@@ -126,7 +151,7 @@ async function loadImages() {
       if (!loadedimg)
         return;
       // Get the cache entry
-      const cached = imagecache.get(loadedimg.key);
+      const cached = imagecache.get(loadedimg.key) ?? throwError(`Image ${loadedimg.key} missing in cache`);
 
       if (!cached.imgs.length)
         return;
@@ -147,7 +172,7 @@ async function loadImages() {
   }
 }
 
-function applyLoadedResult(cached) {
+function applyLoadedResult(cached: ImageCacheEntry) {
   if (cached.imgs.length && debugFlags.ild)
     console.log("Applying " + cached.key + " to " + cached.imgs.length + " images");
 
@@ -156,13 +181,13 @@ function applyLoadedResult(cached) {
   cached.imgs = [];
 }
 
-function applyLoadedResultToImage(cached, img) {
+function applyLoadedResultToImage(cached: ImageCacheEntry, img: HTMLImageElement) {
   img.width = cached.data.width;
   img.height = cached.data.height;
-  img.src = cached.result;
+  img.src = cached.result ?? throwError(`Image ${cached.key} has no result`);
 }
 
-async function processImage(key, images, data) {
+async function processImage(key: string, images: Array<RetrievedImagePart>, data: ImageCacheData) {
   // Check if the base image was found (a default record is returned for broken images)
   if (!images.length || !images[0]) {
     console.error("Broken " + (images.length > 1 ? "base " : "") + "image " + key);
@@ -196,7 +221,7 @@ async function processImage(key, images, data) {
 
   // imgnodes is the list of img nodes that are drawn on the composite canvas
   // imgloads is the list of promises that resolve for each loaded img node (or rejected for broken overlays)
-  const imgnodes = [], imgloads = [];
+  const imgnodes: HTMLImageElement[] = [], imgloads: Array<Promise<number>> = [];
   images.forEach((overlayimg, idx) => {
     // Check if the overlay image (idx > 0) was found (a default record is returned for broken imagesw)
     if (idx && !overlayimg) {
@@ -231,7 +256,7 @@ async function processImage(key, images, data) {
         resolve(idx);
       };
       imgnode.onerror = function (e) {
-        reject("Error reading image " + idx + " for " + key + " (" + imgsrc + ")");
+        reject(new Error("Error reading image " + idx + " for " + key + " (" + imgsrc + ")"));
       };
       imgnode.src = imgsrc;
     }));
@@ -248,7 +273,7 @@ async function processImage(key, images, data) {
     let canvas = document.createElement("canvas");
     canvas.width = canvaswidth;
     canvas.height = canvasheight;
-    let ctx = canvas.getContext("2d");
+    let ctx = canvas.getContext("2d") ?? throwError("Could not get canvas 2D context");
     let layercanvas, layerctx;
     const canvasstack = [canvas];
 
@@ -264,16 +289,9 @@ async function processImage(key, images, data) {
         layerctx = layercanvas.getContext("2d");
       }
 
-      try {
-        layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
-      } catch (e) {
-        // IE 11 sometimes doesn't want to render SVG on load event, wait a millisecond sometimes fixes it
-        await new Promise(resolve => setTimeout(resolve, 1));
-        layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
-      }
+      layerctx!.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
 
-      if (idx && knockout) // Knockout overlay
-      {
+      if (idx && knockout) { // Knockout overlay
         if (debugFlags.ild)
           console.info("Knockout overlay " + idx);
 
@@ -287,13 +305,13 @@ async function processImage(key, images, data) {
         const range = Math.max(Math.round(canvaswidth / window.devicePixelRatio) / 128, Number(window.devicePixelRatio));
         for (let x = -range; x <= range; ++x)
           for (let y = -range; y <= range; ++y)
-            ctx.drawImage(layercanvas, x, y);
+            ctx.drawImage(layercanvas!, x, y);
 
         ctx.restore();
       }
 
       // Draw the image
-      ctx.drawImage(layercanvas, 0, 0);
+      ctx.drawImage(layercanvas!, 0, 0);
 
       if (imgnode.knockout) {
         // Next layer can knockout this layer
@@ -307,7 +325,7 @@ async function processImage(key, images, data) {
         canvas = document.createElement("canvas");
         canvas.width = canvaswidth;
         canvas.height = canvasheight;
-        ctx = canvas.getContext("2d");
+        ctx = canvas.getContext("2d") ?? throwError("Could not get canvas 2D context");
         canvasstack.push(canvas);
       }
 
@@ -322,7 +340,7 @@ async function processImage(key, images, data) {
     canvas = document.createElement("canvas");
     canvas.width = canvaswidth;
     canvas.height = canvasheight;
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext("2d") ?? throwError("Could not get canvas 2D context");
     for (layercanvas of canvasstack)
       ctx.drawImage(layercanvas, 0, 0);
 
@@ -334,7 +352,7 @@ async function processImage(key, images, data) {
   }
 }
 
-function invertImage(svgdata) {
+function invertImage(svgdata: string) {
   svgdata = window.atob(svgdata);
   //console.log(svgdata);
   // Switch '#4a4a4a' and '#f3f3f3', adding a space to prevent double substitution
@@ -357,7 +375,10 @@ export function resetImageCache() {
 
   imagequeue.clear();
   imagecache.clear();
-  loadimgtimeout = window.clearTimeout(loadimgtimeout);
+  if (loadimgtimeout) {
+    window.clearTimeout(loadimgtimeout);
+    loadimgtimeout = null;
+  }
   if (loadimglock) {
     loadimglock.release();
     loadimglock = null;
@@ -366,8 +387,8 @@ export function resetImageCache() {
   loadMissingImages({ force: true });
 }
 
-export function loadMissingImages({ force, node }) {
-  for (const img of (node || document).querySelectorAll("[data-toddimg]")) {
+export function loadMissingImages({ force, node }: { force?: boolean; node?: HTMLElement } = {}) {
+  for (const img of (node || document).querySelectorAll<HTMLImageElement>("img[data-toddimg]")) {
     if ((!img.src || force) && img.dataset.toddimg) {
       const data = img.dataset.toddimg.split("|");
       img.dataset.toddimg = data.slice(0, 4).join("|") + "|reloading";
@@ -376,16 +397,16 @@ export function loadMissingImages({ force, node }) {
   }
 }
 
-export function createImage(imgname, width, height, color, eloptions?) {
+export function createImage(imgname: string, width: number, height: number, color: "b" | "c" | "w", eloptions?: ImageOptions) {
   return createCompositeImage(imgname.split("+"), width, height, color, eloptions);
 }
 
-export function createCompositeImage(imgnames, width, height, color, eloptions?) {
+function createCompositeImage(imgnames: string[], width: number, height: number, color: "b" | "c" | "w", eloptions?: ImageOptions) {
   const imgnode = dompack.create('img', { width, height, ...eloptions });
   updateCompositeImage(imgnode, imgnames, width, height, color);
   return imgnode;
 }
 
-export function updateImage(imgnode, imgname, width, height, color) {
+export function updateImage(imgnode: HTMLImageElement, imgname: string, width: number, height: number, color: "b" | "c" | "w") {
   return updateCompositeImage(imgnode, imgname.split("+"), width, height, color);
 }

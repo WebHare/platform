@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
-const toddImages = require("@mod-tollium/js/icons");
+import * as toddImages from "@mod-tollium/js/icons";
 import { getTid } from "@webhare/gettid";
 import { ToddImage } from "../components/jsx";
 import type IndyShell from '../shell';
