@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import { ObjText } from '../text/text';
@@ -10,6 +7,10 @@ import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./panel.scss";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
+import type { AcceptType, EnableOnRule } from '@mod-tollium/web/ui/js/types';
+import type { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import { isTruthy, throwError } from '@webhare/std';
 
 
 /* Tollium inline layouting
@@ -30,8 +31,15 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
    "n<gr>"" - 5px space.
 */
 
+type BackgroundImage = {
+  src: string;
+  position: string[];
+  size: string;
+  repeat: string;
+};
+
 // Set the node's background color and images, based on the component's backgroundcolor resp. backgroundimages properties
-export function updateNodeBackground(panel) {
+export function updateNodeBackground(panel: ObjPanel) {
   // Create a background string, see https://developer.mozilla.org/en-US/docs/Web/CSS/background#formal_syntax
   const backgroundlayers = [];
 
@@ -80,22 +88,70 @@ export function updateNodeBackground(panel) {
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+export type PanelLine = {
+  title: string;
+  target: string;
+  layout: string;
+  labelfor: string;
+  items: Array<{
+    title: string;
+    labelfor: string;
+    item: string;
+  }>;
+};
+
+export interface PanelAttributes extends ComponentStandardAttributes {
+  backgroundcolor: string;
+  backgroundimages: BackgroundImage[];
+  isfooter: boolean;
+  vscroll: boolean;
+  spacers: toddtools.Spacers;
+  borders: toddtools.Borders;
+  frame: string;
+  visibleons: EnableOnRule[];
+  lines: Array<PanelLine>;
+  acceptdrops: { accepttypes: AcceptType[] } | null;
+}
+
 
 export class ObjPanel extends ComponentBase {
 
   /****************************************************************************************************************************
   * Initialization
   */
-  visibleons = [];
+  visibleons: EnableOnRule[] = [];
   widthOverhead = 0;
+  isbodypanel = false;
+  spacers: toddtools.Spacers = {};
+  borders: toddtools.Borders = {};
+  vscroll = false;
+  isfooter = false;
+  // Saved minwidth/height for scroll (when scrolling, the minwidth/height is overwritten with 32)
+  realminwidth = 0;
+  realminheight = 0;
+  draggingentered: number;
+  preventertarget: EventTarget | null = null;
+  backgroundcolor: string;
+  backgroundimages: BackgroundImage[];
+  framename: string;
+  boundOnDragEnter: (evt: DragEvent) => dragdrop.CurrentDragData | null | undefined;
+  boundOnDragLeave: (evt: DragEvent) => void;
+  boundOnDragOver: (evt: DragEvent) => true | undefined;
+  boundOnDrop: (evt: DragEvent) => boolean;
+  lines: ObjPanelLine[] = [];
+  titlecomp: ObjText | null = null;
+  droptypes: AcceptType[] = [];
+  nodearea!: HTMLDivElement;
+  innerwidth = 0;
+  innerheight = 0;
+  heightOverhead = 0;
+  flags: Record<string, boolean> = {};
 
-  constructor(parentcomp, data) {
+  constructor(parentcomp: ToddCompBase, data: PanelAttributes) {
     super(parentcomp, data);
 
     this.componenttype = "panel";
     this.isbodypanel = false;
-    this.spacers = {};
-    this.borders = {};
     /*
       this.topborder = false;
       this.rightborder = false;
@@ -105,12 +161,8 @@ export class ObjPanel extends ComponentBase {
     this.vscroll = false;
     this.isfooter = false;
 
-    // Saved minwidth/height for scroll (when scrolling, the minwidth/height is overwritten with 32)
-    this.realminwidth = 0;
-    this.realminheight = 0;
 
     this.draggingentered = 0; // A subcomponent has been entered while dragging (so we can check if we entered a new subcomponent when leaving another subcomponent)
-    this.preventertarget = null;
 
     this.backgroundcolor = data.backgroundcolor;
     this.backgroundimages = data.backgroundimages;
@@ -123,7 +175,6 @@ export class ObjPanel extends ComponentBase {
 
     this.vscroll = data.vscroll;
 
-    this.title = data.title;
     this.spacers = data.spacers;
     this.borders = data.borders;
 
@@ -134,11 +185,10 @@ export class ObjPanel extends ComponentBase {
 
 
     //ADDME can't we embed Block items directly instead of wrapping them into lines?
-    this.lines = [];
     if (data.lines)
-      data.lines.forEach(function (srcline, i) {
+      data.lines.forEach((srcline, i) => {
         srcline.target = this.name + "#line$" + i;
-        srcline.destroywithparent = true;
+        // srcline.destroywithparent = true;
         const line = new ObjPanelLine(this, srcline);
         this.lines.push(line);
 
@@ -157,7 +207,7 @@ export class ObjPanel extends ComponentBase {
         }
 
         if (srcline.items)
-          srcline.items.forEach(function (srcitem, idx) {
+          srcline.items.forEach((srcitem, idx) => {
             let newcomp;
             if (srcitem.title) {
               newcomp = new ObjText(line, {
@@ -173,10 +223,10 @@ export class ObjPanel extends ComponentBase {
             if (newcomp) {
               line.items.push(newcomp);
             }
-          }, this);
+          });
       }, this);
 
-    if (this.parentcomp.componenttype !== "split") {
+    if (this.parentcomp?.componenttype !== "split") {
       this.setMinToAbs(this.height);
       this.setMinToAbs(this.width);
     }
@@ -184,9 +234,9 @@ export class ObjPanel extends ComponentBase {
     // Build our DOM
     this.buildNode();
 
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
 
-    this.setDropTypes(data.acceptdrops ? data.acceptdrops.accepttypes : []);
+    this.setDropTypes(data.acceptdrops?.accepttypes || []);
   }
 
   allowScroll() {
@@ -200,7 +250,7 @@ export class ObjPanel extends ComponentBase {
   * Component management
   */
 
-  readdComponent(comp) {
+  readdComponent(comp: ToddCompBase) {
     for (let i = 0; i < this.lines.length; ++i)
       if (this.lines[i].items.indexOf(comp) !== -1) {
         this.lines[i].readdComponent(comp);
@@ -213,7 +263,7 @@ export class ObjPanel extends ComponentBase {
   * Property getters & setters
   */
 
-  setTitle(value) {
+  setTitle(value: string) {
     if (value !== this.title) {
       this.title = value;
       if (this.titlecomp)
@@ -221,7 +271,7 @@ export class ObjPanel extends ComponentBase {
     }
   }
 
-  setDropTypes(droptypes) {
+  setDropTypes(droptypes: AcceptType[]) {
     this.droptypes = droptypes;
     if (this.droptypes.length) {
       this.node.addEventListener("dragenter", this.boundOnDragEnter);
@@ -256,7 +306,7 @@ export class ObjPanel extends ComponentBase {
       this.spacers.bottom = true;
     }
 
-    for (const dir of ['top', 'bottom', 'left', 'right']) {
+    for (const dir of ['top', 'bottom', 'left', 'right'] as const) {
       if (this.spacers && this.spacers[dir])
         this.node.classList.add("spacer-" + dir);
       if (this.borders && this.borders[dir])
@@ -282,8 +332,7 @@ export class ObjPanel extends ComponentBase {
     return children;
   }
 
-  getLabelAreaWidth() //figure out the longest form-layout line label, and apply it to all lines. as labelwidth isn't open to discussion, apply immediately
-  {
+  getLabelAreaWidth() { //figure out the longest form-layout line label, and apply it to all lines. as labelwidth isn't open to discussion, apply immediately
     // Calculate the width of the label area if we have form lines.
     let labelareawidth = 0;
     for (const line of this.lines)
@@ -327,10 +376,10 @@ export class ObjPanel extends ComponentBase {
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
 
-    this.height.overhead = toddtools.getSpacerHeight(this.spacers) + toddtools.getBorderHeight(this.borders);
+    this.heightOverhead = toddtools.getSpacerHeight(this.spacers) + toddtools.getBorderHeight(this.borders);
 
-    this.height.min += this.height.overhead;
-    this.height.calc += this.height.overhead;
+    this.height.min += this.heightOverhead;
+    this.height.calc += this.heightOverhead;
 
     if (this.allowScroll()) {
       this.realminheight = this.height.min;
@@ -339,7 +388,7 @@ export class ObjPanel extends ComponentBase {
   }
 
   applySetHeight() {
-    this.innerheight = this.height.set - this.height.overhead;
+    this.innerheight = this.height.set - this.heightOverhead;
     if (this.allowScroll() && this.height.set < this.realminheight)
       this.innerheight = this.height.calc;
 
@@ -353,8 +402,7 @@ export class ObjPanel extends ComponentBase {
 
     // Set outer width, including border (we have box-sizing: border-box!)
     dompack.setStyles(this.node, { width: this.width.set, height: this.height.set });
-    if (this.allowScroll()) //we're creating a scrollable inner layer
-    {
+    if (this.allowScroll()) { //we're creating a scrollable inner layer
       // Set inner size to scrolling div
       dompack.setStyles(this.nodearea, {
         width: this.innerwidth,
@@ -376,7 +424,7 @@ export class ObjPanel extends ComponentBase {
   // Event handlers
   //
 
-  onDragEnter(event) {
+  onDragEnter(event: DragEvent) {
     if (event.target === this.preventertarget)
       return; // Entering the same element as before
     this.preventertarget = event.target;
@@ -392,16 +440,15 @@ export class ObjPanel extends ComponentBase {
     return res;
   }
 
-  onDragLeave(event) {
-    if (this.draggingentered === 1) // leaving the last subcomponent, remove hover state
-    {
+  onDragLeave(event: DragEvent) {
+    if (this.draggingentered === 1) { // leaving the last subcomponent, remove hover state
       this.node.classList.remove("droptarget--hover");
       this.preventertarget = null;
     }
     --this.draggingentered;
   }
 
-  onDragOver(event) {
+  onDragOver(event: DragEvent) {
     //    this.debugLog('dimensions', 'PANEL dragover', event);
     const res = this.owner.checkDropTarget(event, this.droptypes, this.flags, null, "ontarget");
     if (res) {
@@ -411,7 +458,7 @@ export class ObjPanel extends ComponentBase {
     }
   }
 
-  onDrop(event) {
+  onDrop(event: DragEvent) {
     this.node.classList.remove("droptarget--hover");
     this.preventertarget = null;
     this.draggingentered = 0;
@@ -422,12 +469,12 @@ export class ObjPanel extends ComponentBase {
       return false;
     }
 
-    toddupload.uploadFilesForDrop(this, dragdata, function (msg, dialogclosecallback) {
+    void toddupload.uploadFilesForDrop(this, dragdata, (msg, dialogclosecallback) => {
       // Upload successfully (or no files)
       msg.droplocation = "ontarget";
 
-      this.asyncMessage("acceptdrop", msg).then(dialogclosecallback);
-    }.bind(this));
+      void this.asyncMessage("acceptdrop", msg).then(dialogclosecallback);
+    });
 
     return true;
   }
@@ -437,15 +484,27 @@ export class ObjPanel extends ComponentBase {
  * Single line in a panel
  */
 
-export class ObjPanelLine extends ComponentBase //needed by inlineblock
-{
-  constructor(parentcomp, line, options) {
+export class ObjPanelLine extends ComponentBase { //needed by inlineblock too
+  declare parentcomp: ObjPanel;
+  titlelabelfor: string;
+  layout: string;
+  titlecomp: ObjText | null = null;
+  items: ToddCompBase[] = [];
+  options;
+  spacerswidth: number;
+  block: boolean;
+  paddingtop: number;
+  paddingbottom: number;
+  fillcomponents = '';
+
+  constructor(parentcomp: ObjPanel, line: PanelLine, options?: {
+    removetopmargin?: boolean;
+    removebottommargin?: boolean;
+  }) {
     super(parentcomp, line);
 
     this.options = { ...options }; //configuration from inlinepanel;
     this.componenttype = "panel.line";
-    this.items = [];
-    this.titlecomp = null;
     this.spacerswidth = 0;
 
     this.title = line.title || '';
@@ -458,17 +517,17 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     this.paddingbottom = !this.block && !this.options.removebottommargin ? $todd.gridlineBottomMargin : 0;
   }
   getVisibleChildren(): ToddCompBase[] {
-    return [this.titlecomp].filter(node => Boolean(node)).concat(this.getVisibleItems());
+    return [this.titlecomp, ...this.getVisibleItems()].filter(isTruthy);
   }
-  getVisibleItems() {
+  getVisibleItems(): ToddCompBase[] {
     return this.items.filter(item => item.getVisible());
   }
   buildNode() {
     this.node = <div class={this.layout + (this.layout !== "block" ? " line" : "")} />;
     if (this.paddingtop)
       this.node.style.paddingTop = this.paddingtop + 'px';
-    if (this.paddingBottom)
-      this.node.style.paddingBottom = this.paddingtop + 'px';
+    if (this.paddingbottom)
+      this.node.style.paddingBottom = this.paddingbottom + 'px';
 
     this.fillNode();
   }
@@ -486,7 +545,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
 
     this.node.append(...this.getVisibleItems().map(item => this._getLineItemNode(item)));
   }
-  _getLineItemNode(item) {
+  _getLineItemNode(item: ToddCompBase): HTMLElement {
     if (!item.wrapinlineblock) //note: sliders set this. it has nothing to do, at least now, with the actual inlineblock element. perhaps it could be or perhaps its just broken/unncessary styling?
       return item.getNode();
 
@@ -494,7 +553,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     if (!item.nodewrapper)
       item.nodewrapper = <div class="panelitem__lineblock">{item.getNode()}</div>;
 
-    return item.nodewrapper;
+    return item.nodewrapper!;
   }
   getSpacersOverhead() {
     return $todd.settings.spacerwidth * ((this.layout === 'form' && this.parentcomp.getLabelAreaWidth() ? 1 : 0) + this.getVisibleItems().length - 1);
@@ -543,19 +602,22 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     this.getVisibleItems().forEach(comp => comp.setHeight(lineheight));
   }
 
-  readdComponent(comp) {
+  readdComponent(comp: ToddCompBase) {
     //console.log("Replace panel item '" +comp.name + "'");
     if (!this.owner) {
       console.error("CANNOT READD NODE: owner === null! " + comp.name, this);
       return; //FIXME
     }
-    const newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name) ?? throwError(`Unable to readd component ${comp.name} to panel line ${this.name}`);
     const newel = this._getLineItemNode(newcomp);
 
     // If already rendered, live replace
     this._getLineItemNode(comp).replaceWith(newel);
 
-    this.items[this.items.indexOf(comp)] = newcomp;
+    const idx = this.items.indexOf(comp);
+    if (idx === -1)
+      throw new Error("Component " + comp.name + " not found in panel line " + this.name);
+    this.items[idx] = newcomp;
   }
 
   relayout() {
@@ -574,7 +636,7 @@ export class ObjPanelLine extends ComponentBase //needed by inlineblock
     this.getVisibleItems().forEach((item, idx) => {
       if (item.nodewrapper)
         dompack.setStyles(item.nodewrapper, { width: item.width.set, height: item.height.set });
-      item.relayout(!this.block);
+      item.relayout();
     });
   }
 }
