@@ -1,7 +1,6 @@
 import * as dompack from "@webhare/dompack";
-import { getUTF8Length, limitUTF8Length } from "@webhare/std";
+import { getUTF8Length, limitUTF8Length, pick, throwError } from "@webhare/std";
 import "./counter.css";
-import { pick, throwError } from "@webhare/std";
 
 interface CounterOptions {
   lengthmeasure: "characters" | "bytes";

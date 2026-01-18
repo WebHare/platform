@@ -14,7 +14,6 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
-LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
