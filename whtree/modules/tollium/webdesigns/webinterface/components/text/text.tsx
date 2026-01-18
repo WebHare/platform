@@ -9,21 +9,22 @@ const linetextTopMargin = 5; //keep in sync with t-text.scss
 
 interface TextAttributes extends ComponentStandardAttributes, TextStyles {
   labelfor: string;
-  transparenttoclicks: boolean;
-  selectable: boolean;
-  action: string;
-  linkactions: Array<{ url: string; action: string }>;
+  transparenttoclicks?: boolean;
+  selectable?: boolean;
+  action?: string;
+  linkactions?: Array<{ url: string; action: string }>;
   isheading?: boolean;
   value: string;
-  ishtml: boolean;
+  ishtml?: boolean;
+  destroywithparent?: boolean;
 }
 
 interface TextStyles {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  wordwrap: boolean;
-  ellipsis: boolean;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  wordwrap?: boolean;
+  ellipsis?: boolean;
 }
 
 /****************************************************************************************************************************
@@ -56,15 +57,14 @@ export class ObjText extends ComponentBase {
   constructor(parentcomp: ToddCompBase, data: TextAttributes) {
     super(parentcomp, data);
 
-    this.transparenttoclicks = data.transparenttoclicks;
+    this.transparenttoclicks = data.transparenttoclicks ?? false;
 
     this.setLabelFor(data.labelfor);
 
     this.setStyles(data);
     this.isheading = Boolean(data.isheading);
-    this.action = data.action;
 
-    this.ismouseselectable = data.selectable;
+    this.ismouseselectable = data.selectable ?? false;
     this.linkactions = data.linkactions || [];
 
     this.setInterestingActions([this.action]);
@@ -204,7 +204,7 @@ export class ObjText extends ComponentBase {
   onClick(event: dompack.DocEvent<MouseEvent>) {
     const anchor = event.target.closest('a');
     if (anchor) {
-      const rec = this.linkactions.find(action => action.url === anchor.href);
+      const rec = this.linkactions?.find(action => action.url === anchor.href);
       if (rec)
         this.owner.executeAction(rec.action);
       else if (this.isEventUnmasked("clicklink"))

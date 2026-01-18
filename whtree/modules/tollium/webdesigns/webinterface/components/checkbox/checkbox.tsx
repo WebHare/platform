@@ -18,7 +18,7 @@ export class ObjCheckbox extends ComponentBase { // ----------------------------
 
     this.setValue(data.value, data.indeterminate);
     this.setReadOnly(data.readonly);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   // ---------------------------------------------------------------------------

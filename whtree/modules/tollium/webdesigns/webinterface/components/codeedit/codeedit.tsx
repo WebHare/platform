@@ -108,7 +108,7 @@ export default class ObjCodeEdit extends ComponentBase {
 
     this.syncMarkers();
 
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
     this.executeActions(data.actions);
 
     setTimeout(() => this.syncMarkers(), 1);

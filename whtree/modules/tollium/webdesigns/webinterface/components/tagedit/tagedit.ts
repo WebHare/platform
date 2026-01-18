@@ -31,7 +31,7 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
     this.buildNode();
 
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   /****************************************************************************************************************************

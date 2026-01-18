@@ -12,7 +12,7 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
-import { isTruthy, toCamelCase } from '@webhare/std';
+import { isTruthy, throwError, toCamelCase } from '@webhare/std';
 import type { ObjTabs } from '../tabs/tabs';
 import ActionForwardBase, { type ActionForwardAttributes } from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
@@ -191,7 +191,7 @@ export class ObjFrame extends ToddCompBase {
 
     // Component relation initialization
 
-    this.screenname = data.window;
+    this.screenname = data.window || throwError("Frame needs a window/screenname");
 
     this.nodes = {};
     this.node = this.nodes.root =
@@ -942,7 +942,7 @@ export class ObjFrame extends ToddCompBase {
   }
 
   setupAllProperties(data: FrameAttributes) {
-    this.setTitle(data.title);
+    this.setTitle(data.title || '');
 
     if (data.screenname)
       this.nodes.root.setAttribute('data-tolliumscreen', data.screenname);
