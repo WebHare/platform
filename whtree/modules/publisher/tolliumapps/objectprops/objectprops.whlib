@@ -207,9 +207,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   */
   RECORD ARRAY scheduledmessageboxes;
 
-  // is the sidetabs experiment activated?
-  BOOLEAN sidetabs;
-
   // ---------------------------------------------------------------------------
   //
   // Public properties and variables
@@ -235,7 +232,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO Init(RECORD data) {
     this->startdata := data;
-    this->sidetabs := data.sidetabs;
     this->isduplicate := this->startdata.why = "duplicate";
     this->pending_errors := SELECT AS STRING ARRAY `Extension '${extension}' is not loaded, because it caused an error while loading:\n${error}`
                               FROM data.faultypropeditors;
@@ -367,15 +363,12 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     this->UpdatePinned();
 
-    IF(this->sidetabs)
+    ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
+    ^tablist->selection := ^tablist->rows[0];
+    FOREVERY(OBJECT page FROM ^maintabs->pages)
     {
-      ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
-      ^tablist->selection := ^tablist->rows[0];
-      FOREVERY(OBJECT page FROM ^maintabs->pages)
-      {
-        page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
-        page->vscroll := TRUE;
-      }
+      page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
+      page->vscroll := TRUE;
     }
   }
 
@@ -559,11 +552,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     {
       ^objectpinned->visible := TRUE;
       ^objectpinned->value := this->isfolder ? this->GetTid(".folderispinned") : this->GetTid(".fileispinned");
-    }
-    ELSE
-    {
-      IF(NOT this->sidetabs)
-        ^restrictions->visible := FALSE;
     }
 
     IF(this->showdeveloperoptions)
@@ -880,37 +868,19 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors)
   {
-    IF(this->sidetabs)
-    {
-      //we'll point all settings to the end of their tab (for 'General' tab we ignore the readonly properties)
-      ^maintabs->insertpoints := [ [ name := "name", component := ^insertpoint_generalsettings ]
-                                 , [ name := "title", component := ^insertpoint_generalsettings ]
-                                 , [ name := "description", component := ^insertpoint_generalsettings ]
-                                 , [ name := "keywords", component := ^insertpoint_generalsettings ]
-                                 , [ name := "publicationsettings", component := ^insertpoint_generalsettings ]
-                                 , [ name := "tasksettings", component := ^insertpoint_tasksettings ]
-                                 , [ name := "settings", component := ^insertpoint_generalsettings ]
-                                 , [ name := "properties", component := ^insertpoint_generalsettings ]
-                                 , [ name := "seosettings", component := ^insertpoint_generalsettings ]
-                                 , [ name := "advancedsettings", component := ^insertpoint_advancedsettings ]
-                                 ];
-      ^maintabs->extendposition := 1; //site tabs come after "general"
-    }
-    ELSE
-    {
-      ^maintabs->insertpoints := [ [ name := "name", component := ^name ]
-                                 , [ name := "title", component := ^title ]
-                                 , [ name := "description", component := ^description ]
-                                 , [ name := "keywords", component := ^keywords ]
-                                 , [ name := "publicationsettings", component := ^publicationsettings ]
-                                 , [ name := "tasksettings", component := ^insertpoint_tasksettings ]
-                                 , [ name := "settings", component := ^insertpoint_generalsettings ]
-                                 , [ name := "properties", component := ^properties ]
-                                 , [ name := "seosettings", component := ^seotabinsertpoint ]
-                                 , [ name := "advancedsettings", component := ^insertpoint_generalsettings ]
-                                 ];
-      ^maintabs->extendposition := 2; //site tabs come after "general" and "seo"
-    }
+    //we'll point all settings to the end of their tab (for 'General' tab we ignore the readonly properties)
+    ^maintabs->insertpoints := [ [ name := "name", component := ^insertpoint_generalsettings ]
+                                , [ name := "title", component := ^insertpoint_generalsettings ]
+                                , [ name := "description", component := ^insertpoint_generalsettings ]
+                                , [ name := "keywords", component := ^insertpoint_generalsettings ]
+                                , [ name := "publicationsettings", component := ^insertpoint_generalsettings ]
+                                , [ name := "tasksettings", component := ^insertpoint_tasksettings ]
+                                , [ name := "settings", component := ^insertpoint_generalsettings ]
+                                , [ name := "properties", component := ^insertpoint_generalsettings ]
+                                , [ name := "seosettings", component := ^insertpoint_generalsettings ]
+                                , [ name := "advancedsettings", component := ^insertpoint_advancedsettings ]
+                                ];
+    ^maintabs->extendposition := 1; //site tabs come after "general"
 
     IF (ObjectExists(this->webcontext))
     {
@@ -1639,27 +1609,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   {
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
 
-    //we delayed setting the title so other extending tabs don't merge into us
-    IF(NOT this->sidetabs)
-    {
-      IF(NOT (this->basesettings.seotab AND (this->isfolder OR needstemplate)))
-      {
-        ^seotab->visible := FALSE;
-        RETURN;
-      }
-
-      ^seotab->title := this->GetTid(".seotab");
-    }
-    ELSE
-    {
-      ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
-      ^seocustomization->visible := this->basesettings.seotab;
-      ^canonical->visible := this->basesettings.seotab;
-      ^no_index->visible := this->basesettings.seotab;
-      ^no_follow->visible := this->basesettings.seotab;
-      ^no_archive->visible := this->basesettings.seotab;
-      ^customrobots->visible := this->basesettings.seotab;
-    }
+    ^advancedtab->visible := this->contexts->user->HasRight("publisher:advanced");
+    ^seocustomization->visible := this->basesettings.seotab;
+    ^canonical->visible := this->basesettings.seotab;
+    ^no_index->visible := this->basesettings.seotab;
+    ^no_follow->visible := this->basesettings.seotab;
+    ^no_archive->visible := this->basesettings.seotab;
+    ^customrobots->visible := this->basesettings.seotab;
 
     IF(this->contexts->applytester->objsite != this->contexts->objectpropsapi->targetid)
     {

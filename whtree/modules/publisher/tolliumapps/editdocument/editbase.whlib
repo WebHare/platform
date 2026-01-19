@@ -104,18 +104,11 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   MACRO SetupBaseSettings()
   {
     this->basesettings := GetBaseProperties(this->contexts->applytester);
-    IF(this->basesettings.seotabrequireright != "" AND NOT this->contexts->applytester->HasRequiredRight(this->contexts->user, this->basesettings.seotabrequireright))
-    {
-      this->basesettings.seotitle := FALSE;
-      this->basesettings.seotab := FALSE;
-    }
-
     ^description->visible := this->basesettings.description;
     ^keywords->visible := this->basesettings.keywords;
     ^isunlisted->visible := this->basesettings.isunlisted;
     ^title->required := this->basesettings.requiretitle;
 
-    //FIXME restore seotabrequireright. see objectprops.whlib
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle;

@@ -272,7 +272,6 @@ export type CSPBaseProperties = {
   isunlisted: boolean;
   keywords: boolean;
   seotab: boolean;
-  seotabrequireright: string;
   noindex: boolean;
   nofollow: boolean;
   noarchive: boolean;

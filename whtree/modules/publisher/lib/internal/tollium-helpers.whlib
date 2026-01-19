@@ -299,7 +299,6 @@ PUBLIC MACRO AddCopyMoveExceptionToWork(OBJECT work, OBJECT e, OBJECT destfolder
 PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
 {
   RECORD ARRAY faultypropeditors;
-  BOOLEAN sidetabs;
 
   IF(dialogname = "site")
   {
@@ -307,15 +306,14 @@ PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRI
   }
   ELSE IF (dialogname = "objectprops")
   {
-    sidetabs := parent->contexts->user->GetRegistryKey("publisher.prefs.sidetabs", FALSE);
-    dialogname := sidetabs ? "mod::publisher/tolliumapps/objectprops/objectprops-v2.xml" : "mod::publisher/tolliumapps/objectprops/objectprops.xml";
+    dialogname := "mod::publisher/tolliumapps/objectprops/objectprops-v2.xml";
   }
 
   WHILE (TRUE)
   {
     TRY
     {
-      RETURN parent->RunScreen(dialogname, CELL[...data, faultypropeditors, sidetabs ]);
+      RETURN parent->RunScreen(dialogname, CELL[...data, faultypropeditors ]);
     }
     CATCH (OBJECT<PropertyEditorException> e)
     {
