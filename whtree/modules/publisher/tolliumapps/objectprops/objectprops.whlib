@@ -159,9 +159,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   /// Whether to show pinning
   BOOLEAN showpinning;
 
-  /// Submit handlers to call for extensions
-  MACRO PTR ARRAY onsubmits;
-
   /// Errors that happened during the loading of extensions (displayed when developer options are shown)
   STRING ARRAY pending_errors;
 
@@ -744,17 +741,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       ELSE
         this->ResetSiteprofExtensions(parentfolderid, this->startdata.type);
     }
-
-    //Set up any extensions
-    RECORD extensions := [ owner := this
-                         , propertytabs := ^maintabs
-                         , objectid := this->itemid
-                         , typens := this->curtype.namespace
-                         , onsubmits := DEFAULT MACRO PTR ARRAY
-                         ];
-
-    extensions := RunModuleHookTarget("publisher:publisher_objectprops_extensions", extensions);
-    this->onsubmits := extensions.onsubmits;
 
     ^maintabs->RunExtensionsPostInit();
     this->InitSeoSettings(); //setup the SEO Tab and the 2 additional title fields
@@ -1475,9 +1461,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       } ELSE {
         this->sourceitem->UpdateMetadata(metadata); //FIXME: Avoid this if nothing really changed (ie need to check contenttypes)
       }
-
-      FOREVERY(MACRO PTR onsubmit FROM this->onsubmits)
-        onsubmit(work);
 
       IF(work->HasFailed()) {
         work->Finish();
