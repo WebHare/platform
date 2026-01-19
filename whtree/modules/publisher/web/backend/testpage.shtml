@@ -81,4 +81,6 @@ IF(fsobject=0)
   AbortWithHTTPError(404, "Cannot decrypt fsobject");
 
 OpenPrimary();
+//TODO ideally we copy he CSP from the target object..
+AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE);
 NEW DynamicPage->RunPageForWHFSId(fsobject);
