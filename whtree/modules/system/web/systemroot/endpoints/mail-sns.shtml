@@ -45,17 +45,16 @@ IF(data.type!="Notification")
 
 //Notification is actual SNS content.
 RECORD snsmessage := DecodeJSON(data.message);
-IF(snsmessage.notificationtype = "AmazonSnsSubscriptionSucceeded")
+IF(CellExists(snsmessage,'notificationtype') AND snsmessage.notificationtype = "AmazonSnsSubscriptionSucceeded")
   RETURN;
 
-STRING ourmessageid;
-IF(CellExists(snsmessage.mail.commonheaders,'messageid'))
+STRING ourmessageid := SELECT AS STRING value FROM snsmessage.mail.headers WHERE ToUppercase(name) = "MESSAGE-ID";
+IF(ourmessageid = "") //Since SESv2 Amazon seems to put its own messageid into commonheaders, so we only fallback to it
   ourmessageid := snsmessage.mail.commonheaders.messageid; //NOTE Apparently AWS doesn't always send it..
-ELSE
-  ourmessageid := SELECT AS STRING value FROM snsmessage.mail.headers WHERE ToUppercase(name) = "MESSAGE-ID";
 
-
-RECORD typedmessage := GetCell(snsmessage, snsmessage.notificationtype);
+//SES event publishing uses eventType, old format uses notificationType
+STRING type := CellExists(snsmessage, "eventtype") ? snsmessage.eventtype : snsmessage.notificationtype;
+RECORD typedmessage := GetCell(snsmessage, type);
 RECORD basicobject := [ timestamp    := MakeDateFromText(typedmessage.timestamp)
                       , remotemtaip  := CellExists(typedmessage,'remotemtaip') ? typedmessage.remotemtaip : ''
                       , reportingmta := CellExists(typedmessage,'reportingmta') ? typedmessage.reportingmta : ''
@@ -63,7 +62,7 @@ RECORD basicobject := [ timestamp    := MakeDateFromText(typedmessage.timestamp)
                       ];
 STRING basictype;
 
-IF(snsmessage.notificationtype = "Bounce")
+IF(type = "Bounce")
 {
   basicobject := CELL[ ...basicobject
                      , ispermanent := typedmessage.bouncetype="Permanent"
@@ -76,7 +75,7 @@ IF(snsmessage.notificationtype = "Bounce")
                      ];
   basictype := "bounce";
 }
-ELSE IF (snsmessage.notificationtype = "Complaint")
+ELSE IF (type = "Complaint")
 {
   basicobject := CELL[ ...basicobject
                      , complaintfeedbacktype :=  CellExists(snsmessage.complaint,'complaintFeedbackType') ? snsmessage.complaint.complaintFeedbackType : ""
@@ -85,16 +84,16 @@ ELSE IF (snsmessage.notificationtype = "Complaint")
                      ];
   basictype := "complaint";
 }
-ELSE IF(snsmessage.notificationtype = "Delivery")
+ELSE IF(type = "Delivery")
 {
   basicobject := CELL[ ...basicobject
                      , smtpresponse := typedmessage.smtpresponse
                      ];
   basictype := "delivery";
 }
-ELSE
+ELSE //TODO Handle Open, Send ?
 {
-  ABORT(snsmessage);
+  RETURN; //ignoring -  we have many more message types now but don't proces msot
 }
 
 STRING recipient := snsmessage.mail.destination[0];
