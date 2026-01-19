@@ -10,11 +10,11 @@ import type { AnyCodec, Codec } from "./types/codec-types";
 import { CodecRegistry } from "./codec-registry";
 
 
-type PGConnectionOptions = {
-  host: string;
-  port: number;
-  user: string;
-  database: string;
+export type PGConnectionOptions = {
+  host?: string;
+  port?: number;
+  user?: string;
+  database?: string;
   ssl?: tls.ConnectionOptions;
   codecRegistry?: CodecRegistry;
 };
@@ -67,7 +67,7 @@ export class DatabaseError extends Error implements ErrorResponse {
   }
 }
 
-export async function connect(connectionOptions: PGConnectionOptions) {
+export async function connect(connectionOptions: PGConnectionOptions = {}) {
   // Connect to the socket
   const socket = await connectSocket(connectionOptions);
 
@@ -82,8 +82,9 @@ export async function connect(connectionOptions: PGConnectionOptions) {
         // No SSL, continue as normal
       } else if (byteResponse === 83 satisfies Code.EncryptionResponseSSL) {
         const tlsOptions: tls.ConnectionOptions = connectionOptions.ssl ?? {};
-        if (!net.isIP(connectionOptions.host) && !tlsOptions.servername)
-          tlsOptions.servername = connectionOptions.host;
+        const host = connectionOptions.host || process.env.PGHOST || "localhost";
+        if (!net.isIP(host) && !tlsOptions.servername)
+          tlsOptions.servername = host;
         await socket.switchToTLS(tlsOptions);
       } else
         throw new Error(`Unexpected response to SSL request: ${byteResponse}`);
@@ -96,7 +97,7 @@ export async function connect(connectionOptions: PGConnectionOptions) {
     let backendKeyData: BackendKeyData | null = null;
 
     // Write the startup message and read the response
-    socket.write(b => b.startupMessage(connectionOptions.user, connectionOptions.database));
+    socket.write(b => b.startupMessage(connectionOptions.user || process.env.PGUSER || "postgres", connectionOptions.database || process.env.PGDATABASE || "postgres"));
     while (true) {
       { const res = socket.readPacket(); if (res) await res; }
 
@@ -199,14 +200,14 @@ export class PGConnection {
   }
 
   private parseRowDescription(packet: SocketResponse, columns: { fieldName: string; dataTypeId: number; codec: Codec<any, any> }[], codecRegistry: CodecRegistry): RowDecoderData {
-    const fieldCount = packet.buffer.readUInt16BE(packet.dataStart);
+    const fieldCount = packet.dataview.getUint16(packet.dataStart);// buffer.readUInt16BE(packet.dataStart);
     let offset = packet.dataStart + 2;
     columns.splice(0, columns.length);
     for (let i = 0; i < fieldCount; i++) {
       const fieldNameEnd = packet.buffer.indexOf(0, offset);
       const fieldName = packet.buffer.utf8Slice(offset, fieldNameEnd);
       offset = fieldNameEnd + 1;
-      const dataTypeOid = packet.buffer.readUInt32BE(offset + 6);
+      const dataTypeOid = packet.dataview.getUint32(offset + 6); // buffer.readUInt32BE(offset + 6);
       offset += 18;
       const codec = codecRegistry.getCodecByOid(dataTypeOid) ?? DataTypeFallbackDecoder as AnyCodec;
       columns.push({ fieldName, dataTypeId: dataTypeOid, codec });

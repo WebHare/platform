@@ -12,11 +12,18 @@ export const DataTypeOid: Codec<number, number> = {
     if (!Number.isInteger(value) || value < 0 || value >= 4294967296)
       throw new Error(`Invalid oid value ${value}`);
     builder.alloc(4);
-    builder.idx = builder.buffer.writeUInt32BE(value, builder.idx);
+    builder.dataview.setUint32(builder.idx, value);
+    builder.idx += 4;
   },
   decodeBinary: (buffer, dataview, offset, len) => dataview.getUint32(offset),
   jitDecoder: retval => `${retval}=dataview.getUint32(offset);`,
   test: { type: "number", integer: true, signed: false, bits: 32 },
+};
+
+export const DataTypeRegProc: Codec<number, number> = {
+  ...DataTypeOid,
+  name: "regproc",
+  oid: DataTypeOids.regproc,
 };
 
 export const DataTypeBool: Codec<boolean, boolean> = {
@@ -26,7 +33,7 @@ export const DataTypeBool: Codec<boolean, boolean> = {
     if (value !== true && value !== false)
       throw new Error(`Invalid bool value ${value}`);
     builder.alloc(1);
-    builder.idx = builder.buffer.writeUInt8(value ? 1 : 0, builder.idx);
+    builder.dataview.setUint8(builder.idx++, value ? 1 : 0);
   },
   decodeBinary: (buffer, dataview, offset, len) => buffer[offset] !== 0,
   jitDecoder: retval => `${retval}=buffer[offset]!==0;`,
@@ -40,7 +47,8 @@ export const DataTypeFloat4: Codec<number, number> = {
     if (typeof value !== "number")
       throw new Error(`Invalid float4 value ${value}`);
     builder.alloc(4);
-    builder.idx = builder.buffer.writeFloatBE(value, builder.idx);
+    builder.dataview.setFloat32(builder.idx, value);
+    builder.idx += 4;
   },
   decodeBinary: (buffer, dataview, offset, len) => dataview.getFloat32(offset),
   jitDecoder: retval => `${retval}=dataview.getFloat32(offset);`,
@@ -54,7 +62,8 @@ export const DataTypeFloat8: Codec<number, number> = {
     if (typeof value !== "number")
       throw new Error(`Invalid float8 value ${value}`);
     builder.alloc(8);
-    builder.idx = builder.buffer.writeDoubleBE(value, builder.idx);
+    builder.dataview.setFloat64(builder.idx, value);
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => dataview.getFloat64(offset),
   jitDecoder: retval => `${retval}=dataview.getFloat64(offset);`,
@@ -68,7 +77,8 @@ export const DataTypeInt2: Codec<number, number> = {
     if (!Number.isInteger(value) || value < -32768 || value > 32767)
       throw new Error(`Invalid int2 value ${value}`);
     builder.alloc(2);
-    builder.idx = builder.buffer.writeInt16BE(value, builder.idx);
+    builder.dataview.setInt16(builder.idx, value);
+    builder.idx += 2;
   },
   decodeBinary: (buffer, dataview, offset, len) => dataview.getInt16(offset),
   jitDecoder: retval => `${retval}=dataview.getInt16(offset);`,
@@ -82,7 +92,8 @@ export const DataTypeInt4: Codec<number, number> = {
     if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647)
       throw new Error(`Invalid int4 value ${value}`);
     builder.alloc(4);
-    builder.idx = builder.buffer.writeInt32BE(value, builder.idx);
+    builder.dataview.setInt32(builder.idx, value);
+    builder.idx += 4;
   },
   decodeBinary: (buffer, dataview, offset, len) => dataview.getInt32(offset),
   jitDecoder: retval => `${retval}=dataview.getInt32(offset);`,
@@ -96,7 +107,8 @@ export const DataTypeInt8: Codec<bigint | number, bigint | number> = {
     if (!Number.isInteger(value) && (typeof value !== "bigint" || value < -9223372036854775808n || value > 9223372036854775807n))
       throw new Error(`Invalid int8 value ${value}`);
     builder.alloc(8);
-    builder.idx = builder.buffer.writeBigInt64BE(BigInt(value), builder.idx);
+    builder.dataview.setBigInt64(builder.idx, BigInt(value));
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => { const v = dataview.getBigInt64(offset); return Number.isSafeInteger(Number(v)) ? Number(dataview.getBigInt64(offset)) : v; },
   jitDecoder: (retval, codecExpr) => `{const v=dataview.getBigInt64(offset);const n=Number(v);${retval}=Number.isSafeInteger(n)?n:v}`,
@@ -138,8 +150,12 @@ export const DataTypeBytea: Codec<Buffer, Buffer> = {
     builder.buffer.set(value, builder.idx);
     builder.idx += value.byteLength;
   },
-  decodeBinary: (buffer, dataview, offset, len) => Buffer.copyBytesFrom(buffer, offset, len),
-  jitDecoder: retval => `${retval}=Buffer.copyBytesFrom(buffer,offset,len);`,
+  decodeBinary: (buffer, dataview, offset, len) => {
+    const retval = Buffer.allocUnsafe(len);
+    buffer.copy(retval, 0, offset, offset + len);
+    return retval;
+  },
+  jitDecoder: retval => `${retval}=Buffer.allocUnsafe(len);buffer.copy(${retval},0,offset,offset+len);`,
   test: { type: "object", priority: 0, test: (value: object): boolean => Buffer.isBuffer(value) },
 };
 
@@ -171,7 +187,7 @@ export const DataTypeChar: Codec<string, string> = {
     value = (value + " ")[0];
     const len = Buffer.byteLength(value);
     builder.alloc(len);
-    builder.idx += builder.buffer.write(value, builder.idx, "utf-8");
+    builder.idx += builder.buffer.utf8Write(value, builder.idx);
   },
   decodeBinary: (buffer, dataview, offset, len) => buffer.utf8Slice(offset, offset + len),
   jitDecoder: retval => `${retval}=buffer.utf8Slice(offset,offset+len);`,
@@ -185,8 +201,9 @@ export const DataTypeTid: Codec<Tid, Tid> = {
     if (value?.block === undefined || value?.offset === undefined)
       throw new Error(`Invalid tid value`);
     builder.alloc(6);
-    builder.idx = builder.buffer.writeUInt32BE(value.block, builder.idx);
-    builder.idx = builder.buffer.writeUInt16BE(value.offset, builder.idx);
+    builder.dataview.setUint32(builder.idx, value.block);
+    builder.dataview.setUint16(builder.idx + 4, value.offset);
+    builder.idx += 6;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     return new Tid(dataview.getUint32(offset), dataview.getUint16(offset + 4));
@@ -221,14 +238,16 @@ export const DataTypeTimeStamp: Codec<Date | Temporal.Instant | number, Date | n
   encodeBinary: (builder, v: Date | Temporal.Instant | number) => {
     if (v === Infinity) {
       builder.alloc(8);
-      builder.idx = builder.buffer.writeInt32BE(0x7fffffff, builder.idx); // hi
-      builder.idx = builder.buffer.writeUInt32BE(0xffffffff, builder.idx);
+      builder.dataview.setInt32(builder.idx, 0x7fffffff); // hi
+      builder.dataview.setUint32(builder.idx + 4, 0xffffffff);
+      builder.idx += 8;
       return;
     }
     if (v === -Infinity) {
       builder.alloc(8);
-      builder.idx = builder.buffer.writeInt32BE(-0x80000000, builder.idx); // hi
-      builder.idx = builder.buffer.writeUInt32BE(0x00000000, builder.idx);
+      builder.dataview.setInt32(builder.idx, -0x80000000); // hi
+      builder.dataview.setUint32(builder.idx + 4, 0x00000000);
+      builder.idx += 8;
       return;
     }
     let n = isDate(v) ?
@@ -240,7 +259,8 @@ export const DataTypeTimeStamp: Codec<Date | Temporal.Instant | number, Date | n
           throwError(`Invalid timestamp value ${v}`);
     n = (n - timeShiftMs) * 1000n;
     builder.alloc(8);
-    builder.idx = builder.buffer.writeBigInt64BE(n, builder.idx);
+    builder.dataview.setBigInt64(builder.idx, n);
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     const microSeconds = dataview.getBigInt64(offset);
@@ -257,14 +277,16 @@ export const DataTypeTimeStampTz: Codec<Date | Temporal.Instant | number, Date |
   encodeBinary: (builder, v: Date | Temporal.Instant | number) => {
     if (v === Infinity) {
       builder.alloc(8);
-      builder.idx = builder.buffer.writeInt32BE(0x7fffffff, builder.idx); // hi
-      builder.idx = builder.buffer.writeUInt32BE(0xffffffff, builder.idx);
+      builder.dataview.setInt32(builder.idx, 0x7fffffff); // hi
+      builder.dataview.setUint32(builder.idx + 4, 0xffffffff);
+      builder.idx += 8;
       return;
     }
     if (v === -Infinity) {
       builder.alloc(8);
-      builder.idx = builder.buffer.writeInt32BE(-0x80000000, builder.idx); // hi
-      builder.idx = builder.buffer.writeUInt32BE(0x00000000, builder.idx);
+      builder.dataview.setInt32(builder.idx, -0x80000000); // hi
+      builder.dataview.setUint32(builder.idx + 4, 0x00000000);
+      builder.idx += 8;
       return;
     }
     let n = isDate(v) ?
@@ -276,7 +298,8 @@ export const DataTypeTimeStampTz: Codec<Date | Temporal.Instant | number, Date |
           throwError(`Invalid timestamp value ${v}`);
     builder.alloc(8);
     n = (n - timeShiftMs) * 1000n;
-    builder.idx = builder.buffer.writeBigInt64BE(n, builder.idx);
+    builder.dataview.setBigInt64(builder.idx, n);
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     const microSeconds = dataview.getBigInt64(offset);
@@ -313,7 +336,8 @@ export const DataTypeTimeStampTemporal: Codec<Temporal.Instant | Date | number |
         throw new Error(`Invalid timestamp value ${v}`);
       val = (val - timeShiftNs) / 1000n;
     }
-    builder.idx = builder.buffer.writeBigInt64BE(val, builder.idx);
+    builder.dataview.setBigInt64(builder.idx, val);
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     const microSeconds = dataview.getBigInt64(offset);
@@ -351,7 +375,8 @@ export const DataTypeTimeStampTzTemporal: Codec<Temporal.Instant | Date | number
         throw new Error(`Invalid timestamp value ${v}`);
       val = (val - timeShiftNs) / 1000n;
     }
-    builder.idx = builder.buffer.writeBigInt64BE(val, builder.idx);
+    builder.dataview.setBigInt64(builder.idx, val);
+    builder.idx += 8;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     const microSeconds = dataview.getBigInt64(offset);
@@ -374,7 +399,7 @@ export const DataTypeJSON: Codec<any, any> = {
       throw new Error(`Invalid json value`);
     const len = Buffer.byteLength(json);
     builder.alloc(len);
-    builder.idx += builder.buffer.write(json, builder.idx, "utf-8");
+    builder.idx += builder.buffer.utf8Write(json, builder.idx);
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     if (!len)
@@ -394,8 +419,8 @@ export const DataTypeJSONB: Codec<any, any> = {
       throw new Error(`Invalid jsonb value`);
     const len = Buffer.byteLength(json) + 1;
     builder.alloc(len);
-    builder.idx = builder.buffer.writeUInt8(1, builder.idx); // version
-    builder.idx += builder.buffer.write(json, builder.idx, "utf-8");
+    builder.dataview.setUint8(builder.idx++, 1); // version
+    builder.idx += builder.buffer.utf8Write(json, builder.idx);
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     if (len < 2)
@@ -415,8 +440,9 @@ export const DataTypePoint: Codec<Point, Point> = {
     if (value?.x === undefined || value?.y === undefined)
       throw new Error(`Invalid point value`);
     builder.alloc(16);
-    builder.idx = builder.buffer.writeDoubleBE(value.x, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y, builder.idx);
+    builder.dataview.setFloat64(builder.idx, value.x);
+    builder.dataview.setFloat64(builder.idx + 8, value.y);
+    builder.idx += 16;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     return {
@@ -437,10 +463,11 @@ export const DataTypeBox: Codec<Box, Box> = {
     if (value?.x1 === undefined || value?.y1 === undefined || value?.x2 === undefined || value?.y2 === undefined)
       throw new Error(`Invalid box value`);
     builder.alloc(32);
-    builder.idx = builder.buffer.writeDoubleBE(value.x1, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y1, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.x2, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y2, builder.idx);
+    builder.dataview.setFloat64(builder.idx, value.x1);
+    builder.dataview.setFloat64(builder.idx + 8, value.y1);
+    builder.dataview.setFloat64(builder.idx + 16, value.x2);
+    builder.dataview.setFloat64(builder.idx + 24, value.y2);
+    builder.idx += 32;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     return new Box(
@@ -462,10 +489,11 @@ export const DataTypeLSeg: Codec<LSeg, LSeg> = {
     if (value?.x1 === undefined || value?.y1 === undefined || value?.x2 === undefined || value?.y2 === undefined)
       throw new Error(`Invalid lseg value`);
     builder.alloc(32);
-    builder.idx = builder.buffer.writeDoubleBE(value.x1, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y1, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.x2, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y2, builder.idx);
+    builder.dataview.setFloat64(builder.idx, value.x1);
+    builder.dataview.setFloat64(builder.idx + 8, value.y1);
+    builder.dataview.setFloat64(builder.idx + 16, value.x2);
+    builder.dataview.setFloat64(builder.idx + 24, value.y2);
+    builder.idx += 32;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     return new LSeg(
@@ -487,9 +515,10 @@ export const DataTypeCircle: Codec<Circle, Circle> = {
     if (value?.x === undefined || value?.y === undefined || value?.r === undefined)
       throw new Error(`Invalid circle value`);
     builder.alloc(24);
-    builder.idx = builder.buffer.writeDoubleBE(value.x, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.y, builder.idx);
-    builder.idx = builder.buffer.writeDoubleBE(value.r, builder.idx);
+    builder.dataview.setFloat64(builder.idx, value.x);
+    builder.dataview.setFloat64(builder.idx + 8, value.y);
+    builder.dataview.setFloat64(builder.idx + 16, value.r);
+    builder.idx += 24;
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     return new Circle(
@@ -510,9 +539,11 @@ export const DataTypeFallbackDecoder: Codec<never, Buffer> = {
     throw new Error(`Cannot encode value with the fallback decoder`);
   },
   decodeBinary: (buffer, dataview, offset, len) => {
-    // Return a copy of the raw buffer
-    return Buffer.copyBytesFrom(buffer, offset, len);
+    const retval = Buffer.allocUnsafe(len);
+    buffer.copy(retval, 0, offset, offset + len);
+    return retval;
   },
+  jitDecoder: retval => `${retval}=Buffer.allocUnsafe(len);buffer.copy(${retval},0,offset,offset+len);`,
   test: { type: "object", priority: null, test: (value: object) => false },
 };
 
@@ -539,6 +570,18 @@ export const DataTypeTimeStampTzTemporalArray = buildArrayCodec(DataTypeTimeStam
 export const DataTypeCircleArray = buildArrayCodec(DataTypeCircle, DataTypeOids._circle, "_circle");
 export const DataTypeBoxArray = buildArrayCodec(DataTypeBox, DataTypeOids._box, "_box");
 export const DataTypePointArray = buildArrayCodec(DataTypePoint, DataTypeOids._point, "_point");
+
+// Generate the codecs for reg* types
+const regOidCodesNames = ["regclass", "regcollation", "regconfig", "regdictionary", "regnamespace", "regoper", "regoperator", "regproc", "regprocedure", "regrole", "regtype"] as const;
+export const DataTypeRegOidCodecs = regOidCodesNames.map(name => {
+  const eltCodec = {
+    ...DataTypeOid,
+    name,
+    oid: DataTypeOids[name],
+  };
+  const arrayCodec = buildArrayCodec(eltCodec, DataTypeOids[`_${name}`], `_${name}`);
+  return [eltCodec, arrayCodec];
+}).flat();
 
 export const nonDateCodecs: Codec<any, any>[] = [
   DataTypeOid,
@@ -577,6 +620,7 @@ export const nonDateCodecs: Codec<any, any>[] = [
   DataTypeVarCharArray,
   DataTypeTextArray,
   DataTypeTidArray,
+  ...DataTypeRegOidCodecs,
 ];
 
 export const defaultCodecs: Codec<any, any>[] = [
