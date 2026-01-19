@@ -93,7 +93,7 @@ ELSE IF(type = "Delivery")
 }
 ELSE //TODO Handle Open, Send ?
 {
-  RETURN; //ignoring -  we have many more message types now but don't proces msot
+  RETURN; //ignoring -  we have many more message types now but don't proces most
 }
 
 STRING recipient := snsmessage.mail.destination[0];
