@@ -1,5 +1,7 @@
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { openPSP } from "@mod-wrd/js/internal/paymentbridge";
 import type { PSPDriver } from "@webhare/psp-base";
+import { throwError } from "@webhare/std";
 import type { PaymentProviderValue, PaymentValue } from "@webhare/wrd/src/paymentstore";
 import { WRDSchema } from "@webhare/wrd/src/schema";
 
@@ -34,11 +36,19 @@ class PaymentApi {
     if (!provider)
       throw new Error(`Payment provider with id ${providerEntityId} has no payment provider configured`); //TODO or return a wrd:unavailable equivalent ?
 
-    if (provider.__paymentData.type !== "wrd:js") //The JS version will only support JS handlers
-      throw new Error(`Payment provider with id ${providerEntityId} has unsupported type '${provider.__paymentData.type}'`);
+    const data = provider.__paymentData.data as { meta?: { configuration?: string; driver?: string } };
+    let driver: string;
+    if (provider.__paymentData.type === "wrd:js") {
+      driver = data?.meta?.driver ?? throwError(`Payment provider with id ${providerEntityId} is missing driver information`);
+    } else {
+      const psp = getExtractedConfig("wrdschemas").psp.find(_ => _.tag === provider.__paymentData.type);
+      if (!psp)
+        throw new Error(`Payment provider with id ${providerEntityId} has unsupported type '${provider.__paymentData.type}'`);
 
-    const data = provider.__paymentData.data as { meta: { configuration: string; driver: string } };
-    const result = await openPSP(data.meta.driver, data.meta.configuration);
+      driver = psp.driver;
+    }
+
+    const result = await openPSP(driver, data?.meta?.configuration ?? throwError(`Payment provider with id ${providerEntityId} is missing configuration`), { paymentId: String(providerEntityId) });
     if ("error" in result)
       throw new Error(`Failed to connect to payment provider with id ${providerEntityId}: ${result.error}`);
 

@@ -1,0 +1,16 @@
+<?wh
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+PUBLIC STATIC OBJECTTYPE ConfigTestDriver EXTEND PSPSettingsExtensionBase <
+  UPDATE PUBLIC RECORD FUNCTION GetPaymentProviderValue() {
+    RECORD val := ^methodsettings->value;
+    val.methods := SELECT *, rowkey := value, DELETE value FROM val.methods;
+    RETURN val;
+  }
+  UPDATE PUBLIC MACRO SetPaymentProviderValue(RECORD settings) {
+    //remap rowkey to value to avoid conflicts with arrayedit which wants to create numbers
+    settings := EnforceStructure(CELL[ methods := RECORD[]], settings);
+    settings.methods := SELECT *, value := rowkey, DELETE rowkey FROM settings.methods;
+    ^methodsettings->value := settings;
+  }
+>;
