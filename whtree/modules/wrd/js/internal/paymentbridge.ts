@@ -1,3 +1,4 @@
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { PSPAddressFormat, PSPDriver, PSPDriverContext, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
@@ -75,10 +76,10 @@ function mapAddress(address: HsAddressFormat): PSPAddressFormat | undefined {
   };
 }
 
-async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
+export async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
   let config;
   try {
-    config = JSON.parse(configAsJSON);
+    config = parseTyped(configAsJSON);
   } catch (e) {
     return { error: "Invalid configuration: " + (e as Error)?.message };
   }
@@ -88,6 +89,13 @@ async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?
       logDebug("wrd:payments", { driver, type, paymentId: meta?.paymentId, data });
     }
   };
+
+  if (!driver.includes('#')) { //not a full object path
+    const pspInfo = getExtractedConfig("wrdschemas").psp.find(psp => psp.tag === driver);
+    if (!pspInfo)
+      return { error: `Unknown payment provider '${driver}'` };
+    driver = pspInfo.driver;
+  }
 
   return await importJSObject(driver, config, context) as PSPDriver;
 }

@@ -12,6 +12,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -193,17 +194,16 @@ MACRO TestPaymentFields()
   TestThrowsLike('*is of type*PAYDATA2*we expect*PAYDATA*', PTR paymentapi->StartPayment(pdwrongtype->id, 15.94m, paymentmethod));
 }
 
-MACRO TestPaymentMethodTest() //test the 'test' method
-{
+MACRO TestPaymentMethodTest() { //test the 'test' method
   testfw->BeginWork();
 
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{
-      "methods":[{ "rowkey": "M1", "title": "Method 1", "maxAmount": 12.5 },
-                 { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250, "images": [{ "link": "/.wh/ea/p/branding/webhare.svg", "mimeType": "image/svg+xml" }]}
-                ]
-      }`)
+    , method := MakePaymentProviderValue("platform:test", CELL[
+        methods:= [[ rowkey := "M1", title := "Method 1", max_amount := 12.5 ],
+                   [ rowkey := "M2", title := "Method 2", min_amount := 25, max_amount := 250, images := [[ link := "/.wh/ea/p/branding/webhare.svg", mime_type := "image/svg+xml" ]]]
+                  ]
+      ])
     ]);
   pm2_guidprefix := "__" || ToUppercase(Substring(pm2->guid,4));
 
@@ -344,6 +344,8 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   testfw->BeginWork();
   paymentapi->paymenttype->DeleteEntity(pd2throw->id); //prevent a throwing payment from interfering with other tests
   testfw->CommitWork();
+
+  CallJS("./data/testhelpers.ts#runFurtherPaymentTests", [ pm2 := pm2->id, completed_payment := pd2b->id ]);
 }
 
 MACRO TestPaymentBrokenMethodTest()
@@ -680,22 +682,30 @@ ASYNC MACRO TestPaymentProvidersDialog()
   topscreen->providers->selection := rows[3];
   AWAIT ExpectAndAnswerMessageBox("yes", PTR topscreen->deleteprovider->TolliumClick);
 
-  //Receate it TestNoIssuer, TestWithIssuer - FIXME rebuild to actually use the JS TestDriver, not wrd:test
+  //Create a testdriver instane
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
-  topscreen->methods->value := "wrd:test";
+  topscreen->methods->value := "platform:test";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TT(":Tag")->value := "newmethod";
-  topscreen->paymentextension->disablewithissuer->value := TRUE;
   AWAIT ExpectWorkErrors(PTR TTClick(":Ok"));
+
   topscreen->contextextension->wrd_title->value := "Nieuwe Titel";
+  TT(":Dummy Value")->value := "Should survive roundtripds";
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT(":Rowkey")->value := "FIRSTMETHOD";
+  TT(":Title")->value := "First method";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq(4, Length(TT("providers")->rows));
-  TestEq("TestNoIssuer, Mandate", topscreen->providers->selection.title);
+  TestEq("First method", topscreen->providers->selection.title);
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->editprovider->TolliumClick);
   TestEq("Nieuwe Titel", topscreen->contextextension->wrd_title->value);
   TestEq("NEWMETHOD", TT(":Tag")->value);
+  TestEq("Should survive roundtripds", TT(":Dummy Value")->value);
+  TestEqMembers([[ value := "FIRSTMETHOD", title := "First method" ]], topscreen->paymentextension->^methods->value, "*");
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   //Attempt to edit the broken provider
@@ -783,21 +793,21 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #2"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{
-      "methods":[{ "rowkey": "M1", "title": "Method 1" },
-                 { "rowkey": "M2", "title": "Method 2" }
-                ]
-      }`)
+    , method := MakePaymentProviderValue("platform:test", [
+        methods :=  [[ rowkey := "M1", title := "Method 1" ],
+                     [ rowkey := "M2", title := "Method 2" ]
+                    ]
+      ])
     , wrd_ordering := 9
     ]);
 
   OBJECT pm_3 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #3"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{
-      "methods":[{ "rowkey": "M1", "title": "Method 1" },
-                 { "rowkey": "M2", "title": "Method 2" }
-                ]
-      }`)
+    , method := MakePaymentProviderValue("platform:test", [
+       methods :=  [[ rowkey := "M1", title := "Method 1" ],
+                    [ rowkey := "M2", title := "Method 2" ]
+                    ]
+      ])
     , wrd_ordering := 10
     ]);
 

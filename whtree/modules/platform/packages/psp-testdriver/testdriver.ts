@@ -8,14 +8,16 @@ interface TestDriverConfig {
     rowkey: string;
     title: string;
     requirements?: PSPRequirement[];
-    minAmount?: number;
-    maxAmount?: number;
+    minAmount?: Money | number;
+    maxAmount?: Money | number;
     images?: Array<{
       mimeType: "image/png" | "image/svg+xml";
       link: string;
     }>;
   }>;
   sleep?: number;
+  /** Dummy value to test serialization */
+  dummyValue?: string;
 }
 
 interface TestDriverPayMeta {
@@ -38,13 +40,14 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
         rowkey: method.rowkey,
         title: method.title,
         requirements: method.requirements || [],
-        minAmount: method.minAmount ? Money.fromNumber(method.minAmount) : undefined,
-        maxAmount: method.maxAmount ? Money.fromNumber(method.maxAmount) : undefined,
+        minAmount: typeof method.minAmount === "number" ? Money.fromNumber(method.minAmount) : method.minAmount,
+        maxAmount: typeof method.maxAmount === "number" ? Money.fromNumber(method.maxAmount) : method.maxAmount,
         images: method.images?.map(img => ({
           mimeType: img.mimeType,
           link: img.link
         })) || []
       });
+    console.log(methods);
     return { methods, isLive: false };
   }
 

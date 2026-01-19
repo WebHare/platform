@@ -1,0 +1,26 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="testdriver.screens.whlib">
+
+  <tabsextension name="configtestdriver" implementation="lib">
+    <compositions>
+      <record name="methodsettings" />
+    </compositions>
+    <insert position="providertab" where="atend">
+      <arrayedit composition="methodsettings" cellname="methods" roweditscreen="#editmethod" name="methods">
+        <column name="value" type="text" title="Rowkey" />
+        <column name="title" type="text" title="Title" />
+      </arrayedit>
+      <textedit composition="methodsettings" cellname="dummy_value" title="Dummy Value" />
+    </insert>
+  </tabsextension>
+
+  <screen name="editmethod" implementation="rowedit" footerbuttons="ok cancel">
+    <compositions>
+      <record name="row" />
+    </compositions>
+    <body>
+      <textedit composition="row" cellname="value" title="Rowkey" />
+      <textedit composition="row" cellname="title" title="Title" />
+    </body>
+  </screen>
+
+</screens>
