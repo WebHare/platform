@@ -1,14 +1,14 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { prepareUpload } from '@webhare/test-frontend';
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/richdoc.main'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/richdoc.main");
     },
 
     {
@@ -273,7 +273,7 @@ test.runTests(
 
     "Copy paste with <style>",
     async function () {
-      await test.load(test.getTestScreen('tests/richdoc.main'));
+      await tt.loadWTSTestScreen('tests/richdoc.main');
       await test.wait('ui');
 
       const rte = rtetest.getRTE(test.getWin(), 'editor');

@@ -2,6 +2,7 @@
 
 import * as dompack from "dompack";
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 import * as domfocus from 'dompack/browserfix/focus';
 
 /* WARNING
@@ -24,9 +25,8 @@ function getToddFocusedComponent() {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/basecomponents.focustest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.focustest");
     },
 
     {

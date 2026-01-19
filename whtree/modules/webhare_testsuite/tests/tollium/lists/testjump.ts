@@ -1,12 +1,11 @@
 import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
-
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/lists.basetest,prepjump'),
-      waits: ["ui"]
+    async function () {
+      await tt.loadWTSTestScreen('tests/lists.basetest,prepjump');
     },
     {
       name: 'scrollfirst', //manually scroll first. setting a manual scroll may break scroll restoration
@@ -31,9 +30,8 @@ test.runTests(
       }
     },
 
-    {
-      loadpage: test.getTestScreen('tests/lists.basetest,jumpnow'),
-      waits: ["ui"]
+    async function () {
+      await tt.loadWTSTestScreen('tests/lists.basetest,jumpnow');
     },
     {
       test: function () {

@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 function getexpanded(row) {
   if (row.querySelector(".fa-caret-down"))
@@ -24,9 +25,8 @@ function getListRowCells(list, findtext) {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/lists.basetest'),
-      waits: ["ui"]
+    async function () {
+      await tt.loadWTSTestScreen('tests/lists.basetest');
     },
     {
       name: 'statictree-headersize',

@@ -13,9 +13,8 @@ function getListContents() {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/lists.columntypes'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/lists.columntypes");
     },
     {
       name: 'statictree',

@@ -1,12 +1,12 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/basecomponents.menutest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.menutest");
     },
 
     {

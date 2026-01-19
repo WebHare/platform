@@ -481,7 +481,6 @@ export { setTodd };
 export { testClickTolliumButton };
 export { testClickTolliumLabel };
 export { $screen };
-export function getGridVsize() { return 28; }
 export { getOpenSelectList };
 export { getSelectListVisibleItems };
 export { getTolliumButton };

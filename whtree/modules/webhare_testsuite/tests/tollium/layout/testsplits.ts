@@ -1,6 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 
 
 const splithgap = 1; //split gap to expect, in pixels
@@ -8,9 +9,8 @@ const splitvgap = 1;
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/layout.layouttest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/layout.layouttest");
     },
 
     {

@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import { sleep } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
 ///@ts-ignore -- not yet ported (and currently being refactored externally)
@@ -16,7 +17,7 @@ async function clearState() {
 test.runTests(
   [
     async function () {
-      await test.load(test.getTestScreen('tests/dirty.dirtytest'));
+      await tt.loadWTSTestScreen('tests/dirty.dirtytest');
       await test.wait('ui');
 
       // Get general components

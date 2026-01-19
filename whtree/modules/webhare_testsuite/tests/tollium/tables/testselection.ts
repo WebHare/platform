@@ -1,6 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 
 
 function getSelection(node_tbl) {
@@ -14,9 +15,8 @@ function hasFocus(node) {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/tables.selectiontest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/tables.selectiontest");
     },
 
     {

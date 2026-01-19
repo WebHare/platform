@@ -1,10 +1,11 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
     "update sort",
     async function () {
-      await test.load(test.getTestScreen('tests/lists.multirow'));
+      await tt.loadWTSTestScreen('tests/lists.multirow');
 
       const baselist = test.compByName("layout");
       const senderheader = test.qSA(baselist, '.listheader span').filter(span => span.textContent?.includes("Sender"))[0];
