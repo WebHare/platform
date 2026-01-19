@@ -30,6 +30,7 @@ PACKAGES="automake
     autoconf
     ccache
     libfreetype6-dev
+    gawk
     g++
     libgif-dev
     git
