@@ -296,17 +296,14 @@ PUBLIC MACRO AddCopyMoveExceptionToWork(OBJECT work, OBJECT e, OBJECT destfolder
     }
   }
 }
-PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname)
-{
+
+PUBLIC INTEGER FUNCTION __RunHistoryPropsDialog(OBJECT parent, RECORD data, STRING dialogname) {
   RECORD ARRAY faultypropeditors;
 
-  IF(dialogname = "site")
-  {
+  IF(dialogname = "site") {
     dialogname := "mod::publisher/screens/commondialogs/siteprops.xml";
-  }
-  ELSE IF (dialogname = "objectprops")
-  {
-    dialogname := "mod::publisher/tolliumapps/objectprops/objectprops-v2.xml";
+  } ELSE IF (dialogname = "objectprops") {
+    dialogname := "mod::publisher/tolliumapps/objectprops/objectprops.xml";
   }
 
   WHILE (TRUE)
