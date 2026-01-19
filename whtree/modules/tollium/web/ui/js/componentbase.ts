@@ -492,7 +492,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   dim(horizontal: boolean) {
     return horizontal ? this.width : this.height;
   }
-  // If the dim should be calculated (because the dim of this component or any child components is dirty)
+  /** If the specified dimension should be recalculated (because the dimension of this component or any child components is dirty) */
   isDimensionDirty(horizontal: boolean): boolean {
     return this.dim(horizontal).dirty || this.getVisibleChildren().some(child => child.isDimensionDirty(horizontal));
   }
@@ -505,8 +505,8 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   checkActionEnablers() {
     this.getVisibleChildren().forEach(child => child.checkActionEnablers());
   }
+  /** Recalculate the specified dimensions of any dimension-dirty part of the tree */
   calculateDimension(horizontal: boolean) {
-    //beginWidth|Height
     const prop = this.dim(horizontal);
     if (!this.isDimensionDirty(horizontal)) {
       if (isDebugTypeEnabled("dimensions"))

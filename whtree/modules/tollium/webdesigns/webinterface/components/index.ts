@@ -24,6 +24,7 @@ import proxy from './frame/proxy';
 import pulldown from './pulldown/pulldown';
 import radiobutton from './radiobutton/radiobutton';
 import rte from './rte/rte';
+import section from './section/section';
 import slider from './slider/slider';
 import spacer from './spacer/spacer';
 import split from './split/split';
@@ -65,6 +66,7 @@ export function getComponents(): Record<string, { new(parentcomp: ToddCompBase, 
     pulldown,
     radiobutton,
     rte,
+    section,
     slider,
     spacer,
     split,

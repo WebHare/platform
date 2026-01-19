@@ -8,6 +8,7 @@
   <jstest file="testmargins.ts"/>
   <jstest file="testboxesingrid.ts"/>
   <jstest file="testwizard.ts"/>
+  <jstest file="testsections.ts" />
   <jstest file="testtabs.ts"/>
   <jstest file="testtabs_visibleon.ts"/>
   <jstest file="testtable.ts"/>

@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 PUBLIC OBJECTTYPE LayoutTest EXTEND TolliumScreenBase
@@ -17,6 +19,11 @@ PUBLIC OBJECTTYPE LayoutTest EXTEND TolliumScreenBase
   MACRO DoOpenTabs()
   {
     OBJECT wtest := this->LoadScreen (".layouttest_tabs");
+    wtest->RunModal();
+  }
+  MACRO DoOpenSections()
+  {
+    OBJECT wtest := this->LoadScreen (".layouttest_sections");
     wtest->RunModal();
   }
   MACRO DoOpenSplit()
@@ -141,6 +148,12 @@ PUBLIC OBJECTTYPE LayoutTest_Wizard EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     RETURN this->BeginWork()->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE LayoutTest_Sections EXTEND TolliumScreenBase <
+  MACRO Init() {
+    TestEq(^section3->panel, ^isunlisted->parent, "Verify proper parenting of XML added elements");
   }
 >;
 
@@ -325,4 +338,3 @@ PUBLIC OBJECTTYPE DynamicAutosuggest EXTEND TolliumAutoSuggestBase
     RETURN vals;
   }
 >;
-
