@@ -11,7 +11,7 @@ export default abstract class ActionForwardBase<Attributes extends ActionForward
   constructor(parentcomp: ToddCompBase | null, data: Attributes) {
     super(parentcomp, data);
     this.shortcut = data.shortcut;
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   destroy() {

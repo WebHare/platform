@@ -42,10 +42,9 @@ export default class ObjMenuItem extends ComponentBase {
   constructor(parentcomp: ToddCompBase | null, data: MenuItemAttributes) {
     super(parentcomp, data);
 
-    this.title = data.title;
     this.hint = data.hint;
     this.action = data.action;
-    this.enabled = data.enabled;
+    this.enabled = data.enabled ?? true;
     this.checked = data.checked;
     this.selected = data.selected;
     this.menulevel = this.parentcomp instanceof ObjMenuItem ? this.parentcomp.menulevel + 1 : 1;

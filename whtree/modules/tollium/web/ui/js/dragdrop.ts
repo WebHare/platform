@@ -1,4 +1,3 @@
-/* eslint-disable */
 // @ts-nocheck -- needs porting!
 
 import * as browser from 'dompack/extra/browser';

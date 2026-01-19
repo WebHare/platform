@@ -12,7 +12,7 @@ import type ObjForward from '@mod-tollium/webdesigns/webinterface/components/act
 
 // Allow components to set propTodd as a backwards pointer to their code
 declare global {
-  interface HTMLElement {
+  interface Element {
     propTodd?: ToddCompBase;
   }
 }
@@ -22,11 +22,12 @@ declare global {
 let urlgencounter = 0;
 
 export interface ComponentStandardAttributes extends $todd.XMLWidthAttributes, $todd.XMLHeightAttributes { //see ComponentBase::GetStandardAttributes
-  window: string;
-  type: string;
+  window?: string;
+  type?: string;
   target: string;
-  title: string;
-  enabled: boolean;
+  action?: string;
+  title?: string;
+  enabled?: boolean;
   //toddname of the default button, if set
   defaultbutton?: string;
   unmasked_events?: string[];
@@ -105,6 +106,9 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
 
   dirtylistener: DirtyListener | null = null;
 
+  wrapinlineblock?: boolean;
+  nodewrapper?: HTMLDivElement;
+
   /****************************************************************************************************************************
   * Initialization
   */
@@ -133,7 +137,8 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     if (parentcomp === null && data === null)
       return; //the table subcomponents don't fully initialize their subs, so this is a hack for them
 
-    this.title = data.title;
+    this.action = data.action || '';
+    this.title = data.title || '';
     this.parentcomp = parentcomp;
     this.destroywithparent = parentcomp && data.destroywithparent || false;
 
@@ -665,11 +670,11 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
      assigned to sizeobjs[leftoverobj], or distributed evenly over the sizeobjs if leftoverobj < 0.
 
      sizeobjs should be created by ReadXMLWidths/ReadXMLHeights */
-  distributeSizes(available: number, sizeobjs: SizeObj[], horizontal: boolean, leftoverobj: number) {
+  distributeSizes(available: number, sizeobjs: SizeObj[], horizontal: boolean, leftoverobj?: number) {
     return distributeSizes(available, sizeobjs, horizontal, leftoverobj);
   }
 
-  distributeSizeProps(property: "width" | "height", available: number, items: ToddCompBase[], horizontal: boolean, leftoverobj: number) {
+  distributeSizeProps(property: "width" | "height", available: number, items: ToddCompBase[], horizontal: boolean, leftoverobj?: number) {
     const sizeobjs: SizeObj[] = [];
     items.forEach(item => sizeobjs.push(item[property]));
     return this.distributeSizes(available, sizeobjs, horizontal, leftoverobj);
@@ -740,7 +745,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
 }
 
-export function distributeSizes(available: number, sizeobjs: SizeObj[], horizontal: boolean, leftoverobj: number, options: { intolerant?: boolean } = {}) {
+export function distributeSizes(available: number, sizeobjs: SizeObj[], horizontal: boolean, leftoverobj?: number, options: { intolerant?: boolean } = {}) {
   const intolerant = dompack.debugflags.col || options?.intolerant;
 
   if (!(available >= 0)) { //guard against negative or non-number availables
@@ -865,7 +870,7 @@ export function distributeSizes(available: number, sizeobjs: SizeObj[], horizont
 
   let remaining = available - total_pixels;
   if (remaining) {
-    if (leftoverobj >= 0 && leftoverobj < sizeobjs.length) {
+    if (leftoverobj && leftoverobj >= 0 && leftoverobj < sizeobjs.length) {
       if (logdistribute)
         console.log("We have " + (available - total_pixels) + " unassigned pixels, assign to child #" + leftoverobj);
       tempsizes[leftoverobj].pref += remaining;
@@ -905,7 +910,7 @@ export class ActionableComponent<Attributes extends ActionableAttributes> extend
     super(parentcomp, data);
   }
   afterConstructor(data: ActionableAttributes) {
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
     this.setAction(data.action);
     super.afterConstructor(data);
   }

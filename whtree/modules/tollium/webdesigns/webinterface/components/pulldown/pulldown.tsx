@@ -49,7 +49,7 @@ export default class ObjPulldown extends ToddCompBase {
     this.buildNode();
     this.node.addEventListener("tollium:magicmenu", e => this.onMagicMenu(e));
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   getValue() {

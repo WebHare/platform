@@ -53,7 +53,7 @@ export default class DirtyListener extends ComponentBase {
     // Register the dirty listener with the application if it can make the application dirty
     if (data.makeappdirty)
       this.owner.hostapp.registerDirtyListener(this);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   /****************************************************************************************************************************

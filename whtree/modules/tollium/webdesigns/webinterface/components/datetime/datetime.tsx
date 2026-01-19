@@ -47,7 +47,7 @@ export default class ObjDateTime extends ComponentBase {
     this.node.addEventListener("change", this._reportChangesCallback.bind(this));
 
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   // ---------------------------------------------------------------------------

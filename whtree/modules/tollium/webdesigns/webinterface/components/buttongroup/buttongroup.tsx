@@ -1,10 +1,11 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import './buttongroup.scss';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import { throwError } from '@webhare/std';
+import type { ObjPanelLine } from '../panel/panel';
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -12,22 +13,33 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+interface ButtonGroupAttributes extends ComponentStandardAttributes {
+  borders: toddtools.Borders;
+  layout: "horizontal" | "vertical";
+  buttons: string[];
+}
 
 export default class ObjButtonGroup extends ComponentBase {
+  componenttype = "buttongroup";
+  borders: toddtools.Borders;
+  layout: "horizontal" | "vertical";
+  buttons: ToddCompBase[] = [];
+  tabsspacecheat = false;
+  widthOverhead = 0;
+  heightOverhead = 0;
 
   /****************************************************************************************************************************
   * Initialization
   */
 
-  constructor(parentcomp, data) {
+  constructor(parentcomp: ToddCompBase, data: ButtonGroupAttributes) {
     super(parentcomp, data);
 
-    this.componenttype = "buttongroup";
     this.layout = data.layout;
     this.borders = data.borders;
     this.buttons = [];
     data.buttons.forEach(button => {
-      const comp = this.owner.addComponent(this, button);
+      const comp = this.owner.addComponent(this, button) ?? throwError('Failed to create buttongroup button ' + button);
       if (!comp.getNode())
         return; //ignore this component for further consideration
 
@@ -35,7 +47,7 @@ export default class ObjButtonGroup extends ComponentBase {
     });
 
     //we *almost* have the whole layout sorted out, but buttongroups are inline components that want to take up more vertical space. so for now, we cheat... if this is the only showstopper it won't stop us now
-    this.tabsspacecheat = parentcomp && parentcomp.layout === "tabs-space";
+    this.tabsspacecheat = parentcomp && (parentcomp as ObjPanelLine).layout === "tabs-space";
 
     this.buildNode();
   }
@@ -45,13 +57,13 @@ export default class ObjButtonGroup extends ComponentBase {
   * Component management
   */
 
-  readdComponent(comp) {
+  readdComponent(comp: ToddCompBase) {
     // Replace the offending component
     //if(!comp.parentsplititem)
     if (comp.parentcomp !== this)
       return console.error('Child ' + comp.name + ' not inside the buttongroup is trying to replace itself');
 
-    const newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name) ?? throwError('Failed to re-add buttongroup button ' + comp.name);
     this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
     comp.getNode().replaceWith(newcomp.getNode());
   }
@@ -74,7 +86,7 @@ export default class ObjButtonGroup extends ComponentBase {
       this.node.style.marginTop = (-$todd.gridlineTopMargin) + "px";
     }
 
-    ['top', 'bottom', 'left', 'right'].forEach(dir => {
+    (['top', 'bottom', 'left', 'right'] as const).forEach(dir => {
       if (this.borders && this.borders[dir])
         this.node.classList.add("border-" + dir);
     });
@@ -93,35 +105,35 @@ export default class ObjButtonGroup extends ComponentBase {
 
     if (this.layout === "horizontal") {
       const divideroverhead = Number(Math.max(0, this.buttons.length - 1));
-      this.width.overhead = divideroverhead + borderwidth;
-      this.setSizeToSumOf('width', this.buttons, this.width.overhead);
+      this.widthOverhead = divideroverhead + borderwidth;
+      this.setSizeToSumOf('width', this.buttons, this.widthOverhead);
     } else {
-      this.width.overhead = borderwidth;
-      this.setSizeToMaxOf('width', this.buttons, this.width.overhead);
+      this.widthOverhead = borderwidth;
+      this.setSizeToMaxOf('width', this.buttons, this.widthOverhead);
     }
   }
   calculateDimHeight() {
     const borderheight = toddtools.getBorderHeight(this.borders);
 
     if (this.layout === "horizontal") {
-      this.height.overhead = borderheight;
-      this.setSizeToMaxOf('height', this.buttons, this.height.overhead);
+      this.heightOverhead = borderheight;
+      this.setSizeToMaxOf('height', this.buttons, this.heightOverhead);
     } else {
       const divideroverhead = Number(Math.max(0, this.buttons.length - 1));
-      this.height.overhead = divideroverhead + borderheight;
-      this.setSizeToSumOf('height', this.buttons, this.height.overhead);
+      this.heightOverhead = divideroverhead + borderheight;
+      this.setSizeToSumOf('height', this.buttons, this.heightOverhead);
     }
   }
 
   applySetWidth() {
-    const setwidth = this.width.set - this.width.overhead;
+    const setwidth = this.width.set - this.widthOverhead;
     if (this.layout === "horizontal")
       this.distributeSizeProps('width', setwidth, this.buttons, true);
     else
       this.buttons.forEach(button => button.setWidth(setwidth));
   }
   applySetHeight() {
-    const setheight = this.height.set - this.height.overhead;
+    const setheight = this.height.set - this.heightOverhead;
     if (this.layout === "horizontal")
       this.buttons.forEach(button => button.setHeight(setheight));
     else
@@ -129,10 +141,8 @@ export default class ObjButtonGroup extends ComponentBase {
   }
 
   relayout() {
-    dompack.setStyles(this.node, {
-      "width": this.width.set,
-      "height": this.height.set + (this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
-    });
+    this.node.style.width = this.width.set + 'px';
+    this.node.style.height = (this.height.set + (this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)) + 'px';
     this.buttons.forEach(button => button.relayout());
   }
 }

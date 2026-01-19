@@ -181,7 +181,7 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
       this.inputnode.dataset.opIgnore = ""; //tells 1password to not offer suggestions to plain field. it'll otherwise try to put your full name into file "name:" fields
 
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   // ---------------------------------------------------------------------------

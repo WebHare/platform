@@ -48,6 +48,17 @@ export type TolliumCondition = {
   value: boolean; //TODO | string | integer | ... ?
 };
 
+export type RetrievedImagePart = {
+  type: string;
+  data: string;
+  invertable: boolean;
+  color: string;
+  knockout: boolean;
+  translatex: number;
+  translatey: number;
+  imgname: string;
+};
+
 export interface TolliumToddService {
   //mod::tollium/lib/todd/internal/service.whlib
   runToddComm(req: {
@@ -63,6 +74,9 @@ export interface TolliumToddService {
       imgnames: string[];
     };
   }>, nocache: boolean): Promise<{
-    images: unknown[];
+    images: Array<{
+      key: string;
+      images: RetrievedImagePart[];
+    }>;
   }>;
 }

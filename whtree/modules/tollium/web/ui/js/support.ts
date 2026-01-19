@@ -329,12 +329,12 @@ function readXMLSize(min: string, set: string, iswidth: boolean, inline: boolean
 }
 
 export interface XMLWidthAttributes {
-  minwidth: string;
-  width: string;
+  minwidth?: string;
+  width?: string;
 }
 export interface XMLHeightAttributes {
-  minheight: string;
-  height: string;
+  minheight?: string;
+  height?: string;
 }
 
 //ADDME why can't we receive widths already in the proper format as much as possible?

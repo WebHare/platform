@@ -29,7 +29,7 @@ export default class ObjSlider extends ComponentBase {
     this.buildNode();
     this.setValue(data.value);
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   /****************************************************************************************************************************

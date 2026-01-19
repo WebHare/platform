@@ -71,7 +71,7 @@ export default class ObjTextArea extends ComponentBase {
     new Keyboard(this.node, {}, { dontpropagate: ['Enter'] });
 
     this.setRequired(data.required);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
 

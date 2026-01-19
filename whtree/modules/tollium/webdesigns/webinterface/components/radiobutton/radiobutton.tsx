@@ -28,7 +28,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
     this.buildNode();
 
     this.setReadOnly(data.readonly);
-    this.setEnabled(data.enabled);
+    this.setEnabled(data.enabled ?? true);
   }
 
   // ---------------------------------------------------------------------------

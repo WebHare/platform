@@ -329,7 +329,7 @@ export default class ObjIFrame extends ComponentBase {
   handleTypedMessage(msg: GuestMessage, origin: string) {
     switch (msg.tollium_iframe) {
       case "createImage": {
-        const img = createImage(msg.imgname, msg.width, msg.height, msg.color, null);
+        const img = createImage(msg.imgname, msg.width, msg.height, msg.color);
         img.addEventListener("load", () => {
           this.postTypedMessage({ tollium_iframe: "createdImage", id: msg.id, src: img.src, width: msg.width, height: msg.height });
         });
@@ -481,7 +481,7 @@ export default class ObjIFrame extends ComponentBase {
         break;
 
       case "createimage": {
-        const img = createImage(data.imgname, data.width, data.height, data.color, null);
+        const img = createImage(data.imgname, data.width, data.height, data.color);
         img.addEventListener("load", () => {
           this.queuedmessages.push({
             type: "postmessage",
