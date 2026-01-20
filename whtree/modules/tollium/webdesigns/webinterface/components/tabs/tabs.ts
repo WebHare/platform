@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
@@ -7,7 +6,14 @@ import { ObjText } from '../text/text';
 
 import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
-import type ObjPanel from '../panel/panel';
+import type { ObjPanel } from '../panel/panel';
+import { html } from '@webhare/dompack/src/html';
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "t-tabs": HTMLElement;
+  }
+}
 
 /****************************************************************************************************************************
 * Global tabs settings
@@ -144,8 +150,7 @@ export class ObjTabs extends ComponentBase {
           if (this.pages[i].dynamicvisible)
             break;
 
-        if (i >= this.pages.length) //out of tabs
-        {
+        if (i >= this.pages.length) { //out of tabs
           console.log("There are no visible tabs");
           i = -1;
         }
@@ -265,28 +270,34 @@ export class ObjTabs extends ComponentBase {
   buildNode() {
     if (this.tabtype === "regular") {
       this.nodes = {};
-      this.nodes.root = <t-tabs class="regular" data-name={this.name} propTodd={this}>
-        <nav>
-          {this.nodes.nav = <div class="nav" />}
-          {this.nodes["nav-left"] =
-            <span class="nav-left fa fa-angle-left"
-              onMouseenter={evt => this.onNavScrollEnter(evt)}
-              onMouseleave={evt => this.onNavScrollLeave(evt)}
-              onMousedown={evt => this.onNavScrollClick(evt)} />
-          }
-          {this.nodes["nav-right"] =
-            <span class="nav-right fa fa-angle-right"
-              onMouseenter={evt => this.onNavScrollEnter(evt)}
-              onMouseleave={evt => this.onNavScrollLeave(evt)}
-              onMousedown={evt => this.onNavScrollClick(evt)} />
-          }
-          {this.nodes["nav-tabs"] =
-            <span class="nav-tabs fa fa-ellipsis-v"
-              onClick={evt => this.onNavMenuClick(evt)} />
-          }
-        </nav>
-        {this.nodes.pagesmenu = <ul class="wh-menu wh-menulist pagesmenu" />}
-      </t-tabs>;
+      this.nodes.root = html(`t-tabs`, { className: "regular", dataset: { name: this.name }, propTodd: this }, [
+        html(`nav`, {}, [
+          this.nodes.nav = html(`div`, { className: "nav" }),
+          this.nodes["nav-left"] = html(`span`, {
+            className: "nav-left fa fa-angle-left",
+            on: {
+              mouseenter: evt => this.onNavScrollEnter(evt),
+              mouseleave: () => this.onNavScrollLeave(),
+              mousedown: () => this.onNavScrollClick()
+            }
+          }),
+          this.nodes["nav-right"] = html(`span`, {
+            className: "nav-right fa fa-angle-right",
+            on: {
+              mouseenter: evt => this.onNavScrollEnter(evt),
+              mouseleave: () => this.onNavScrollLeave(),
+              mousedown: () => this.onNavScrollClick()
+            }
+          }),
+          this.nodes["nav-tabs"] = html(`span`, {
+            className: "nav-tabs fa fa-ellipsis-v",
+            on: {
+              click: () => this.onNavMenuClick()
+            }
+          })
+        ]),
+        this.nodes.pagesmenu = html(`ul`, { className: "wh-menu wh-menulist pagesmenu" })
+      ]);
 
       this.node = this.nodes.root;
       this.nodes.nav.addEventListener('keydown', this.onTabKeyDown.bind(this), true);
@@ -294,23 +305,21 @@ export class ObjTabs extends ComponentBase {
       this.nodes.nav.tabIndex = 0;
 
       this.pages.forEach(page => {
-        page.labelnode = dompack.create("div", {
+        page.labelnode = html("div", {
           dataset: { tab: page.name }, //TODO remove this? but tests are probably relying on it
-          onClick: evt => this.selectTab(evt, page.name),
-          childNodes: [page.titlecomp.getNode()]
-        });
+          on: { click: evt => this.selectTab(evt, page.name) },
+        }, page.titlecomp ? [page.titlecomp.getNode()] : []);
         this.nodes.nav.appendChild(page.labelnode);
 
-        page.menunode = dompack.create("li", {
+        page.menunode = html("li", {
           textContent: page.comp.getTitle() || '\u00a0', //fallback to NBSP to reserve height
           dataset: { tab: page.name }, //TODO remove this? but tests are probably relying on it
-          onClick: evt => this.selectTab(evt, page.name)
+          on: { click: evt => this.selectTab(evt, page.name) }
         });
         this.nodes.pagesmenu.appendChild(page.menunode);
-        page.contentnode = dompack.create("div", {
+        page.contentnode = html("div", {
           className: "tabsheet",
-          childNodes: [page.comp.getNode()]
-        });
+        }, [page.comp.getNode()]);
         this.nodes.root.appendChild(page.contentnode);
 
         // Initially hidden: set visibility to hidden (and opacity to 0 if we transitions are enabled)
@@ -320,7 +329,7 @@ export class ObjTabs extends ComponentBase {
       return;
     }
 
-    this.node = dompack.create("t-tabs", { dataset: { name: this.name } });
+    this.node = html("t-tabs", { dataset: { name: this.name } });
     this.node.propTodd = this;
     switch (this.tabtype) {
       case "regular": break;
@@ -328,10 +337,9 @@ export class ObjTabs extends ComponentBase {
         this.node.classList.add("server");
 
         this.pages.forEach(page => {
-          page.contentnode = dompack.create("div", {
+          page.contentnode = html("div", {
             className: "tabsheet invisible",
-            childNodes: [page.comp.getNode()]
-          });
+          }, [page.comp.getNode()]);
           this.node.appendChild(page.contentnode);
 
           // Initially hidden: set visibility to hidden (and opacity to 0 if we transitions are enabled)
@@ -500,19 +508,19 @@ export class ObjTabs extends ComponentBase {
     this.setSelected(tabname, true);
   }
 
-  onNavScrollEnter(event) {
+  onNavScrollEnter(event: MouseEvent) {
     this.scrollNav(tab_labelanimation_start * event.target.classList.contains("nav-left") ? -1 : 1);
   }
 
-  onNavScrollLeave(event) {
+  onNavScrollLeave() {
     this.navscroll.timer = clearTimeout(this.navscroll.timer);
   }
 
-  onNavScrollClick(event) {
+  onNavScrollClick() {
     this.navscroll.timer = clearTimeout(this.navscroll.timer);
   }
 
-  onNavMenuClick(event) {
+  onNavMenuClick() {
     // ADDME: let the menu component handle keeping the list in view and making it scrollable
     menus.openAt(this.nodes.pagesmenu, this.nodes["nav-tabs"], { direction: 'down', align: 'right' });
   }
