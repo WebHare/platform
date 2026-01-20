@@ -203,9 +203,6 @@ BLOB badsignaturexsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 BLOB moduledefissues := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta/>
-  <hooking>
-    <intercept name="managedependencies" target="publisher_objectprops_extensions" interceptfunction="lib/internal/webdesign/hooks.whlib#PublisherObjectPropsExtensions" />
-  </hooking>
   <backend>
     <webruleset name="dynamicsendpoint">
       <webrule path="/---x-trigger-a-warning-please---/" match="initial" />
@@ -266,16 +263,16 @@ MACRO TestBasicValidate()
 
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
-  TestEqMembers([[ line := 10, message := "Cannot find authscript \'mod::webhare_testsuite/missing-authscript\'" ]
-                ,[ line := 19, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
-                ,[ line := 22 ]
-                ,[ line := 25, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
+  TestEqMembers([[ line := 7, message := "Cannot find authscript \'mod::webhare_testsuite/missing-authscript\'" ]
+                ,[ line := 16, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
+                ,[ line := 19 ]
+                ,[ line := 22, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
                 ], SELECT * FROM res.messages WHERE type="error", "*");
   TestEqLike('Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource*', (SELECT * FROM res.messages WHERE type="error")[2].message);
 
   TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
-         ,[ line := 9, message := "This path triggered a warning" ]
-         ,[ line := 15, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
+         ,[ line := 6, message := "This path triggered a warning" ]
+         ,[ line := 12, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
          ], (SELECT line, message FROM res.messages WHERE type="warning" ORDER BY line));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
