@@ -1,11 +1,9 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import { ObjText } from '../text/text';
 
 import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
-import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { ObjPanel } from '../panel/panel';
 import { html } from '@webhare/dompack/src/html';
 
@@ -46,17 +44,25 @@ interface TabItem {
   contentnode?: HTMLElement;
 }
 
+type TabsUpdate = {
+  type: "selectsheet";
+  sheet: string;
+} | ComponentBaseUpdate;
+
 export class ObjTabs extends ComponentBase {
   componenttype = "tabs";
-  pendingselect?: TabItem;
-  selected?: TabItem;
+  pendingselect: TabItem | null = null;
+  selected: TabItem | null = null;
   tabtype: TabsAttributes["tabtype"];
   pages = new Array<TabItem>;
   visibletabs = 0;
-  navscroll?: {
+  navscroll: {
     timer: NodeJS.Timeout | null;
     left: number;
   };
+  navBar!: HTMLElement;
+  navBarHeight = 0;
+  tabkeydown = false;
 
   /****************************************************************************************************************************
   * Initialization
@@ -92,13 +98,12 @@ export class ObjTabs extends ComponentBase {
     });
 
     this.buildNode();
-    if (this.tabtype === "regular")
-      this.navscroll = {
-        timer: null,
-        left: 0
-      };
+    this.navscroll = {
+      timer: null,
+      left: 0
+    };
 
-    this.pendingselect = this.pages.find(page => page.name === data.selected);
+    this.pendingselect = this.pages.find(page => page.name === data.selected) || null;
     this.owner.tabcontrols.push(this); //register last, to prevent callbacks into unfinished components   //ADDME addEvent?
   }
 
@@ -119,17 +124,17 @@ export class ObjTabs extends ComponentBase {
       //console.log("Tab control " + this.name + " child #" + i + " (" + this.pages[i].comp.name + ") (" + this.pages[i].comp.visibleons.length + " checks) visibility = " + (newshow?'true':'false'));
 
       if (this.tabtype !== 'server') {
-        //        console.log(this.pages[i]);
+        // TODO restructure to fix the many !s needed here
         if (newshow && !this.pages[i].dynamicvisible) { //Make the tab visible?
-          this.pages[i].labelnode.style.display = this.pages[i].savetabdisplay;
+          this.pages[i].labelnode!.style.display = this.pages[i].savetabdisplay!;
           if (this.pages[i].menunode)
-            this.pages[i].menunode.style.display = "";
+            this.pages[i].menunode!.style.display = "";
         } else if (!newshow && this.pages[i].dynamicvisible) {//Make the tab invisible?
-          this.pages[i].savetabdisplay = this.pages[i].labelnode.style.display;
+          this.pages[i].savetabdisplay = this.pages[i].labelnode!.style.display;
           //ADDME?          this.pages[i].comp.OnHide();
-          this.pages[i].labelnode.style.display = 'none';
+          this.pages[i].labelnode!.style.display = 'none';
           if (this.pages[i].menunode)
-            this.pages[i].menunode.style.display = "none";
+            this.pages[i].menunode!.style.display = "none";
         }
       }
 
@@ -165,11 +170,11 @@ export class ObjTabs extends ComponentBase {
   * Communications
   */
 
-  applyUpdate(data) {
+  applyUpdate(data: TabsUpdate) {
     switch (data.type) {
       case "selectsheet":
         {
-          this.setSelected(data.sheet);
+          this.setSelected(data.sheet, false);
         } break;
       default:
         {
@@ -218,7 +223,7 @@ export class ObjTabs extends ComponentBase {
       return;
 
     if (this.pendingselect) {
-      this.pendingselect = this.pages.find(page => page.name === value);
+      this.pendingselect = this.pages.find(page => page.name === value) || null;
       return;
     }
 
@@ -238,7 +243,7 @@ export class ObjTabs extends ComponentBase {
       // Make the new tab visible (its opacity will still be 0 if transitions are enabled)
       this.selected.contentnode.classList.remove("invisible");
       if (prevselected)
-        prevselected.contentnode.classList.add("invisible");
+        prevselected.contentnode!.classList.add("invisible");
 
       if (this.selected.labelnode)
         this.scrollNavToSelected();
@@ -271,7 +276,7 @@ export class ObjTabs extends ComponentBase {
     if (this.tabtype === "regular") {
       this.nodes = {};
       this.nodes.root = html(`t-tabs`, { className: "regular", dataset: { name: this.name }, propTodd: this }, [
-        html(`nav`, {}, [
+        this.navBar = html(`nav`, {}, [
           this.nodes.nav = html(`div`, { className: "nav" }),
           this.nodes["nav-left"] = html(`span`, {
             className: "nav-left fa fa-angle-left",
@@ -332,7 +337,6 @@ export class ObjTabs extends ComponentBase {
     this.node = html("t-tabs", { dataset: { name: this.name } });
     this.node.propTodd = this;
     switch (this.tabtype) {
-      case "regular": break;
       case "server":
         this.node.classList.add("server");
 
@@ -349,10 +353,10 @@ export class ObjTabs extends ComponentBase {
         break;
     }
   }
-  onTabKeyUp(ev) {
+  onTabKeyUp() {
     this.tabkeydown = false;
   }
-  onTabKeyDown(ev) {
+  onTabKeyDown(ev: KeyboardEvent) {
     if (this.tabkeydown)
       return;
 
@@ -365,12 +369,12 @@ export class ObjTabs extends ComponentBase {
       this.nextTab();
   }
   previousTab() {
-    const i = this.pages.indexOf(this.getSelectedTab());
+    const i = this.pages.indexOf(this.getSelectedTab()!);
     if (i > 0)
       this.selectTab(null, this.pages[i - 1].name);
   }
   nextTab() {
-    const i = this.pages.indexOf(this.getSelectedTab());
+    const i = this.pages.indexOf(this.getSelectedTab()!);
     if (i > -1 && i < this.pages.length - 1)
       this.selectTab(null, this.pages[i + 1].name);
   }
@@ -380,9 +384,10 @@ export class ObjTabs extends ComponentBase {
   */
 
   getVisibleChildren(): ToddCompBase[] {
-    const comps = [];
-    this.pages.forEach(function (page) {
-      comps.push(page.titlecomp);
+    const comps: ToddCompBase[] = [];
+    this.pages.forEach(page => {
+      if (page.titlecomp)
+        comps.push(page.titlecomp);
       comps.push(page.comp);
     });
     return comps.filter(node => Boolean(node));
@@ -422,21 +427,21 @@ export class ObjTabs extends ComponentBase {
 
     switch (this.tabtype) {
       case "regular":
-        this.height.tab = this.nodes.nav.parentNode.getBoundingClientRect().height;
+        this.navBarHeight = this.navBar.getBoundingClientRect().height;
         break;
       case "server":
-        this.height.tab = 0;
+        this.navBarHeight = 0;
         break;
     }
 
     // Calculate needed size
-    this.height.min = contentminheight + this.height.tab;
-    this.height.calc = contentheight + this.height.tab;
+    this.height.min = contentminheight + this.navBarHeight;
+    this.height.calc = contentheight + this.navBarHeight;
   }
 
   applySetHeight() {
-    const setheight = Math.max(this.height.min, this.height.set) - this.height.tab;
-    this.debugLog("dimensions", "min=" + this.height.min + ", calc=" + this.height.calc + ", set height=" + this.height.set + ", tab height=" + this.height.tab + ", setheight=" + setheight);
+    const setheight = Math.max(this.height.min, this.height.set) - this.navBarHeight;
+    this.debugLog("dimensions", "min=" + this.height.min + ", calc=" + this.height.calc + ", set height=" + this.height.set + ", tab height=" + this.navBarHeight + ", setheight=" + setheight);
 
     this.pages.forEach(page => {
       if (page.titlecomp)
@@ -452,7 +457,7 @@ export class ObjTabs extends ComponentBase {
     this.node.style.height = Math.max(this.height.min, this.height.set) + 'px';
 
     if (this.nodes.nav) {
-      this.nodes.nav.parentNode.style.width = this.width.set + 'px';
+      this.navBar.style.width = this.width.set + 'px';
       this.navscroll.left = this.nodes.nav.scrollLeft;
     }
 
@@ -479,7 +484,7 @@ export class ObjTabs extends ComponentBase {
     if (this.pendingselect) {
       const toselect = this.pendingselect;
       this.pendingselect = null;
-      this.setSelected(toselect.name);
+      this.setSelected(toselect.name, false);
     }
   }
 
@@ -509,15 +514,17 @@ export class ObjTabs extends ComponentBase {
   }
 
   onNavScrollEnter(event: MouseEvent) {
-    this.scrollNav(tab_labelanimation_start * event.target.classList.contains("nav-left") ? -1 : 1);
+    this.scrollNav(tab_labelanimation_start * (event.target === this.nodes["nav-left"] ? -1 : 1));
   }
 
   onNavScrollLeave() {
-    this.navscroll.timer = clearTimeout(this.navscroll.timer);
+    clearTimeout(this.navscroll.timer!);
+    this.navscroll.timer = null;
   }
 
   onNavScrollClick() {
-    this.navscroll.timer = clearTimeout(this.navscroll.timer);
+    clearTimeout(this.navscroll.timer!);
+    this.navscroll.timer = null;
   }
 
   onNavMenuClick() {
@@ -529,13 +536,14 @@ export class ObjTabs extends ComponentBase {
   * Internal
   */
 
-  getTabWithName(name) {
+  getTabWithName(name: string): TabItem | null {
     const selected = this.pages.filter(function (page) { return page.name === name; });
     return selected.length ? selected[0] : null;
   }
 
-  scrollNav(amount) {
-    this.navscroll.timer = clearTimeout(this.navscroll.timer);
+  scrollNav(amount: number) {
+    clearTimeout(this.navscroll.timer!);
+    this.navscroll.timer = null;
 
     const newleft = Math.max(Math.min(this.navscroll.left + Math.round(amount), this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
     if (newleft === this.navscroll.left)
@@ -552,7 +560,7 @@ export class ObjTabs extends ComponentBase {
     this.navscroll.timer = setTimeout(this.scrollNav.bind(this, amount), tab_labelanimation_timeout);
   }
 
-  scrollNavTo(scrollto) {
+  scrollNavTo(scrollto: number) {
     const newleft = Math.max(Math.min(scrollto, this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
     if (newleft === this.navscroll.left)
       return;
@@ -569,7 +577,7 @@ export class ObjTabs extends ComponentBase {
     if (this.tabtype !== "regular")
       return;
 
-    this.selected.labelnode?.scrollIntoView();
+    this.selected!.labelnode?.scrollIntoView();
 
     this.navscroll.left = this.nodes.nav.scrollLeft;
     this.nodes["nav-left"].classList.toggle('show', this.navscroll.left > 0);
