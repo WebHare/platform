@@ -28,8 +28,8 @@ interface MetaTabs {
     sections: MetadataSection[];
   }>;
   extendProps: Array<{
+    title: string;
     whfsType: string;
-    requireRight?: string;
     extension: string;
   }>;
   /** Issues - for now simply strings */
@@ -104,13 +104,45 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
   };
 }
 
-async function getFilteredExtendProps(applytester: WHFSApplyTester, user: AuthorizationInterface | undefined) {
-  const extensions: MetaTabs['extendProps'] = [];
+async function getFilteredExtendProps(applytester: WHFSApplyTester, user: AuthorizationInterface | undefined, editWorkflowMetadata: boolean, isObjectProps: boolean): Promise<Pick<MetaTabs, 'extendProps' | 'issues'>> {
+  const extendProps: MetaTabs['extendProps'] = [];
+  const issues: string[] = [];
+
   for (const prop of await applytester.getExtendProps()) {
-    if (!prop.requireRight || (user && await user.hasRightOn(prop.requireRight, applytester.getRightsTarget() ?? "all")))
-      extensions.push(prop);
+    if (prop.requireRight && (!user || !await user.hasRightOn(prop.requireRight, applytester.getRightsTarget() ?? "all"))) {
+      issues.push(`No rights to extendProps editor for type ${prop.whfsType}`);
+      continue;
+    }
+
+    if (!prop.whfsType) {
+      issues.push(`Not considering property editor '${prop.extension}' without a whfsType`);
+      continue; //when not working for objectprops we require a type
+    }
+
+    const matchtype = getType(prop.whfsType);
+    if (!matchtype) {
+      issues.push(`No such type ${prop.whfsType}`);
+      continue;
+    }
+
+    if (matchtype.workflow && !editWorkflowMetadata) {
+      issues.push(`Type ${prop.whfsType} is defined for workflow, but this context cannot edit workflow controlled fields`);
+      continue;
+    }
+
+    if (!isObjectProps //then assuming we're in document editor
+      && matchtype.workflow === false) { //type is explicitly non-workflow
+      issues.push(`Type ${prop.whfsType} is not defined for workflow, but this context requires workflow`);
+      continue;
+    }
+
+    extendProps.push({
+      whfsType: prop.whfsType,
+      extension: prop.extension,
+      title: matchtype.title || `:${matchtype.scopedtype || matchtype.namespace}`
+    });
   }
-  return extensions;
+  return { extendProps, issues };
 }
 
 /** @param options.isObjectProps - requesting metadata for objectprops screen */
@@ -128,21 +160,23 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
       pertype[extend.contenttype].push(extend);
     }
 
+  //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
+  const setObjectEditor = await applytester.getObjectEditor();
+
+  // objectprops is not allowed to edit workflow fields when editing existing files which have a document editor
+  const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps || !setObjectEditor?.documentEditor;
+  const aboutExtendProps = await getFilteredExtendProps(applytester, options?.user, editWorkflowMetadata, options?.isObjectProps || false);
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
-    extendProps: await getFilteredExtendProps(applytester, options?.user),
+    extendProps: aboutExtendProps.extendProps,
+    issues: aboutExtendProps.issues,
     [hsinfo]: applytester.__getHSInfo(),
-    issues: [],
     workflowEditor: null
   };
 
-  //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
-  const setObjectEditor = await applytester.getObjectEditor();
+
   if (setObjectEditor?.documentEditor)
     metasettings.workflowEditor = {};
-
-  // objectprops is not allowed to edit workflow fields when editing existing files which have a true workflow (and thus a document editor)
-  const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps;
 
   for (const [contenttype, extendproperties] of Object.entries(pertype)) {
     const matchtype = getType(contenttype);

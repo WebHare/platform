@@ -170,6 +170,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(mustloadrte)
       this->ReloadRTEContents();
 
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      extendprop.tabs->RunExtensionsPostInit();
+
     // Can start autosaving when RTE is initialized (not before, would save empty document)
     this->canautosave := NOT this->readonly;
 
@@ -196,9 +199,88 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     // dumpvalue(ListObjectHistory(this->itemid), 'boxed');
   }
 
+  MACRO AddTypesSections() { //Insert metadata sheets as new sections
+    INTEGER insertpos := 1;
+
+    IF(RecordExists(this->renderer->metatabsconfig)) {
+      FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+        FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
+          OBJECT newsection := this->CreateTolliumComponent("section");
+          newsection->title := section.title;
+          newsection->open := TRUE;
+
+          FOREVERY(RECORD line FROM section.lines) {
+            newsection->panel->layout := line.layout;
+            newsection->panel->InsertComponentAfter(line.line, DEFAULT OBJECT, TRUE);
+          }
+          ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
+        }
+      }
+    }
+
+    this->RefreshMetaTabsReadonly();
+  }
+
+  MACRO AddLegacyExtensions() {
+    IF(NOT RecordExists(this->renderer->metatabsconfig))
+      RETURN;
+
+    //Legacy extensions expect to be loaded into a tab. Build tabs to make them happy
+    FOREVERY(RECORD ext FROM this->renderer->metatabsconfig.extend_props) {
+      //Build a tabs container and an instance to exchange whfstype data
+      OBJECT tabs := this->CreateTolliumComponent("tabs");
+      OBJECT whfsinstance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
+      whfsinstance->type := OpenWHFSType(ext.whfs_type);
+      //TODO setup whfsinstance->basefsobject like objectprops does? but objectprops seems a bit dangerous for New Item and Duplicate Item, where sourceitem does not point to the target
+
+      tabs->extendcomponents := [[ name := "contentdata", component := whfsinstance ]];
+      tabs->width := "1pr";
+
+      //'Dummy' main tab for compoonents which expect an insertpoint to exist there
+      OBJECT maintab := tabs->InsertTabAt(0, GetTid("publisher:tolliumapps.objectprops.objectprops.maintab"));
+      OBJECT insertpoint := this->CreateTolliumComponent("spacer");
+      insertpoint->visible := FALSE;
+      maintab->InsertComponentAfter(insertpoint, DEFAULT OBJECT, TRUE);
+      FOREVERY(STRING name FROM [ "name", "title", "description", "keywords", "publicationsettings", "settings", "properties", "seosettings", "advancesettings" ])
+        INSERT CELL[ name, component := insertpoint ] INTO tabs->insertpoints AT END;
+
+      RECORD loadresult := tabs->LoadTabsExtension(ext.extension);
+      IF(Length(maintab->GetChildComponents()) = 1) //no inserts
+        maintab->visible := FALSE;
+
+      OBJECT ARRAY visiblepages := SELECT AS OBJECT ARRAY page FROM ToRecordArray(tabs->pages,"page") WHERE page->visible;
+      IF(Length(visiblepages) = 1) {
+        tabs->selectedtab := visiblepages[0];
+        visiblepages[0]->spacers := DEFAULT RECORD;
+        tabs->type := "server";
+      }
+
+      //Add the tabs as a section
+      OBJECT newsection := this->CreateTolliumComponent("section");
+      //Copy only tab's title unless its just the General tab
+      newsection->title := tabs->type = "server" AND maintab->visible = FALSE? visiblepages[0]->title : GetTid(ext.title);
+      newsection->open := TRUE;
+      newsection->panel->InsertComponentAfter(tabs, DEFAULT OBJECT, TRUE);
+      ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
+
+      FOREVERY(OBJECT comp FROM loadresult.components) {
+        IF(MemberExists(comp,'dirtylistener')) //TODO recursive dirty event capturing would be nicer
+          comp->dirtylistener := ^dirtylistener;
+      }
+
+      INSERT CELL[ ext.whfs_type
+                 , loadresult.components
+                 , loadresult.fragment
+                 , whfsinstance
+                 , tabs
+                 ] INTO this->extendprops AT END;
+    }
+  }
+
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
   {
-    this->AddTypesTabs();
+    this->AddTypesSections();
+    this->AddLegacyExtensions();
     ^metapart->visible := TRUE;
 
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
@@ -222,8 +304,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         [ contexts := this->contexts
         , objectid := objectid
         ]);
-
-    ^maintabs->RunExtensionsPostInit();
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
@@ -282,7 +362,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RETURN;
 
     this->LoadBaseData(this->workflowmgr); //TODO should be instance object once versioning works
-    this->LoadMetadata(this->workflowmgr);
+    this->LoadMetadata(this->workflowmgr, FALSE);
     this->RefreshState();
   }
 

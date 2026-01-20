@@ -303,3 +303,9 @@ PUBLIC STATIC OBJECTTYPE WidgetBlockWidget EXTEND WidgetBase
                               ] );
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE LegacyTab EXTEND TolliumTabsExtensionBase <
+>;
+
+PUBLIC STATIC OBJECTTYPE LegacyProps EXTEND TolliumTabsExtensionBase <
+>;

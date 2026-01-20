@@ -118,15 +118,11 @@ OBJECTTYPE ObjectPropsAPI
       @param whfstype WHFS type managed by the extension
       @param taboptions Extra options which will be passed as extensionoptions to the loaded tab */
 
-  PUBLIC MACRO AddTabsExtension(STRING extension, STRING whfstype, RECORD taboptions DEFAULTSTO DEFAULT RECORD)
-  {
-    STRING extensionsname := GetScreenNameFromScreenPath(extension);
-    this->objectprops->__DoAddTab( CELL[ contenttype := whfstype
-                                       , tabsextension := extension
-                                       , mask := ""
-                                       , name := extensionsname
-                                       , selector := extensionsname
-                                       , taboptions := taboptions
+  PUBLIC MACRO AddTabsExtension(STRING extension, STRING whfs_type, RECORD taboptions DEFAULTSTO DEFAULT RECORD) {
+    this->objectprops->__DoAddTab( CELL[ whfs_type
+                                       , extension
+                                       , title := ""
+                                       , taboptions
                                        ]);
   }
 
@@ -178,21 +174,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   /**@}*/
 
-  /** Customfields from siteprofile for this object
-      @cell(string array) errors
-      @cell(record array) propertyeditors
-  */
-  RECORD sp_customfields;
-
-  /** @cell(string) name Name of the property editor
-      @cell(object) Node XML node (&lt;extendproperties&gt;)
-      @cell(object) siteprof Siteprofile object
-      @cell(object array) components
-      @cell(object) fragment Fragment object (only when it extends PropertyEditorBase)
-      @cell(boolean) islegacypropertyeditor
-      @cell(object) instance Instance object for tab extensions
-  */
-  RECORD ARRAY extendprops;
+  RECORD ARRAY addtabs;
 
   /** Messageboxes that need to be shown in the next submit round
   */
@@ -345,9 +327,11 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     // Tasks
     ^tasksettings->visible := canschedule;
     this->ReloadTaskList();
+    this->SetupObjectProps();
 
     // Extensions
     this->InitializeExtensions();
+    this->InitSeoSettings(); //setup the SEO Tab and the 2 additional title fields
 
     this->PrepareDialog();
 
@@ -470,7 +454,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->SetupBaseSettings();
 
     this->renderer->RegisterMetaController(^webconfig->type, ^webconfig);
-}
+  }
 
   // ---------------------------------------------------------------------------
   //
@@ -694,6 +678,20 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
   }
 
+  MACRO AddTypesTabs() { //Insert metadata sheets as tabs
+    INTEGER insertpos := 1;
+
+    IF(RecordExists(this->renderer->metatabsconfig)) {
+      FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+        RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
+        insertpos := insertpos + insertresult.sections;
+      }
+    }
+
+    this->RefreshMetaTabsReadonly();
+  }
+
+
   // ---------------------------------------------------------------------------
   //
   // Helper functions - extensions
@@ -707,14 +705,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     IF (this->CanWriteCurrentItem())
     {
       INTEGER parentfolderid := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
-      this->SetupObjectProps();
-
-      this->sp_customfields := [
-        propertyeditors := (SELECT tabsextension := extension, contenttype := whfs_type FROM this->renderer->metatabsconfig.extend_props),
-        errors := STRING[]
-      ];
-      DELETE FROM this->sp_customfields.propertyeditors WHERE tabsextension = "";
-      this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
       this->SetupSiteProfileExtensions(this->startdata.faultypropeditors);
 
       //For now we'll just append metatabs (assuming existing tabs are for eg. folders too and thus perserve order?), but we could attempt to insert them at the original positions
@@ -724,65 +714,17 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         this->MarkSiteProfileExtensionsReadonly();
 
       IF(ObjectExists(this->sourceitem))
-      {
-        this->FillSiteprofExtensions();
-        this->LoadMetadata(this->sourceitem);
-      }
+        this->LoadMetadata(this->sourceitem, this->isduplicate);
       ELSE
         this->ResetSiteprofExtensions(parentfolderid, this->startdata.type);
     }
 
     ^maintabs->RunExtensionsPostInit();
-    this->InitSeoSettings(); //setup the SEO Tab and the 2 additional title fields
-  }
-
-
-  /// Marks all siteprofile extension components as readonly
-  MACRO MarkSiteProfileExtensionsReadonly()
-  {
-    FOREVERY(RECORD propeditor FROM this->extendprops)
-      FOREVERY(OBJECT comp FROM propeditor.components)
-        comp->readonly := TRUE;
-  }
-
-  /// Disables all siteprofile extension components as readonly
-  MACRO MarkSiteProfileExtensionsDisabled()
-  {
-    FOREVERY(RECORD propeditor FROM this->extendprops)
-      FOREVERY(OBJECT comp FROM propeditor.components)
-        comp->enabled := FALSE;
-  }
-
-  MACRO FillSiteprofExtensions()
-  {
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-    {
-      STRING compname := "contentdata";
-      TRY
-      {
-        // Read current contenttype from (source)file or use default (in case of a new file)
-        // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
-        IF (ObjectExists(extendprop.instance) AND (NOT this->isduplicate OR extendprop.instance->type->cloneoncopy))
-          extendprop.instance->ReadInstanceFromFSObject();
-      }
-      CATCH (OBJECT<TolliumException> e)
-      {
-        LogHarescriptException(e);
-        THROW NEW PropertyEditorException(extendprop.tabsextension, e);
-      }
-      CATCH (OBJECT e)
-      {
-        // Unknown exception, just continue to next composition
-        Print("Could not set instance data for whfsinstance '" || compname || "' because of exception '" || e->what || "' from:\n");
-        Print(AnyToString(e->trace, "boxed"));
-        CONTINUE;
-      }
-    }
   }
 
   MACRO ResetSiteprofExtensions(INTEGER parentid, INTEGER newtype) {
     FOREVERY(RECORD extendprop FROM this->extendprops) {
-      OBJECT comp := extendprop.instance;
+      OBJECT comp := extendprop.whfsinstance;
       IF(ObjectExists(comp)) {
         TRY {
           comp->SetDefaultInstanceDataForParent(parentid, this->isfolder, newtype);
@@ -827,47 +769,41 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         , [ name := "fsobject_keywords", component := ^keywords ]
         ];
 
-    this->extendprops := SELECT *
-                              , components := DEFAULT OBJECT ARRAY
-                              , fragment := DEFAULT OBJECT
-                              , instance := DEFAULT OBJECT
-                           FROM this->sp_customfields.propertyeditors;
-
     STRING ARRAY seen_members;
-    FOREVERY(RECORD propeditor FROM this->extendprops)
-    {
+    FOREVERY(RECORD propeditor FROM this->renderer->metatabsconfig.extend_props CONCAT this->addtabs) {
       // If we're not supposed to load the property editor because of an error, continue to the next
-      RECORD skipreason := SELECT error FROM skipeditors WHERE extension = propeditor.tabsextension;
+      RECORD skipreason := SELECT error FROM skipeditors WHERE extension = propeditor.extension;
       IF (RecordExists(skipreason))
         CONTINUE;
 
-      TRY
-      {
+      TRY {
         STRING selector;
         RECORD ARRAY extendcomponents := default_extendcomponents;
+        OBJECT whfsinstance;
 
-        IF (propeditor.contenttype != "") //this was a tabsextension inserted by <extendproperties> with a contenttype. (they can also be added with AddTabsExtension and those may not have ae contenttype)
-        {
-          propeditor.instance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
-          propeditor.instance->type := OpenWHFSType(propeditor.contenttype);
-          IF(NOT ObjectExists(propeditor.instance->type))
-            THROW NEW Exception(`<tabsextension> is trying to handle unregistered type '${propeditor.contenttype}'`);
+        IF (propeditor.whfs_type != "") { //this was a tabsextension inserted by <extendproperties> with a contenttype. (they can also be added with AddTabsExtension and those may not have ae contenttype)
+          whfsinstance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
+          whfsinstance->type := OpenWHFSType(propeditor.whfs_type);
+          IF(NOT ObjectExists(whfsinstance->type))
+            THROW NEW Exception(`<tabsextension> is trying to handle unregistered type '${propeditor.whfs_type}'`);
           IF (ObjectExists(this->sourceitem))
-          {
-            propeditor.instance->basefsobject := this->sourceitem;
-          }
-          INSERT [ name := "contentdata", component := propeditor.instance ] INTO extendcomponents AT END;
+            whfsinstance->basefsobject := this->sourceitem;
+
+          INSERT [ name := "contentdata", component := whfsinstance ] INTO extendcomponents AT END;
         }
 
         ^maintabs->extendcomponents := extendcomponents;
 
-        RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.tabsextension
+        RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.extension
                                                          ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
 
-        propeditor.components := loadresult.components;
-        propeditor.fragment := loadresult.fragment;
-
-        this->extendprops[#propeditor] := propeditor;
+        IF(ObjectExists(whfsinstance))
+          INSERT CELL[ propeditor.whfs_type
+                     , loadresult.components
+                     , loadresult.fragment
+                     , whfsinstance
+                     , tabs := DEFAULT OBJECT
+                     ] INTO this->extendprops AT END;
       }
       CATCH (OBJECT e)
       {
@@ -1095,15 +1031,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
   }
 
-
-  MACRO WriteExtensionData(OBJECT work, INTEGER objid) {
-    //Grab siteprofile stuff
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-      IF (ObjectExists(extendprop.instance)) // <tabsextention> ??
-        OpenWHFSType(extendprop.contenttype)->SetInstanceData(objid, extendprop.instance->GetUpdateValue());
-
-    this->SaveMetadata(objid);
-  }
 
   /** Calculate index actions
       @return
@@ -1389,7 +1316,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         this->UpdateTasks(objid);
 
       // Write extension data
-      this->WriteExtensionData(work, objid);
+      this->SaveMetadata(objid);
       ^maintabs->SubmitExtensions(work);
 
       IF(NOT this->isnew AND this->isfolder AND this->curtype.id = whconstant_whfstype_photoalbum) { //photoalbums?      {
@@ -1443,13 +1370,13 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
   PUBLIC MACRO __DoAddTab(RECORD tabinfo)
   {
-    INSERT tabinfo INTO this->sp_customfields.propertyeditors AT END;
+    INSERT tabinfo INTO this->addtabs AT END;
   }
 
   PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname) {
     FOREVERY(RECORD extendprop FROM this->extendprops)
-      IF(extendprop.contenttype = whfstype) {
-        OBJECT cellobj := extendprop.instance->GetComponent(cellname);
+      IF(extendprop.whfs_type = whfstype) {
+        OBJECT cellobj := extendprop.whfsinstance->GetComponent(cellname);
         IF(ObjectExists(cellobj))
           RETURN cellobj;
       }

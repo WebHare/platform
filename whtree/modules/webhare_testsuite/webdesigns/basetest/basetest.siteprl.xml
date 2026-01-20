@@ -224,6 +224,28 @@
     <extendproperties extension="#nocopyprops" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" />
   </apply>
 
+  <!-- test type added for test-rtdedit-savepublish -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/legacytab" workflow="true">
+    <string name="legacytab_prop" />
+  </contenttype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="legacytab" implementation="lib" library="lib/basetest.whlib">
+    <newtab title="LegacyTab">
+      <textedit composition="contentdata" cellname="legacytab_prop" title="Legacy Tab Prop" />
+    </newtab>
+  </tabsextension>
+
+  <!-- test type added for test-rtdedit-savepublish -->
+  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/legacyprops" workflow="true">
+    <string name="legacyprop" />
+  </contenttype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="legacyprops" implementation="lib" library="lib/basetest.whlib">
+    <insert position="settings">
+      <textedit composition="contentdata" cellname="legacyprop" title="Legacyprop" />
+    </insert>
+  </tabsextension>
+
   <!-- Capture subpath tests -->
   <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/capturesubpath/staticcontent"
             blobiscontent="false"
@@ -886,7 +908,7 @@
 
   <!-- This is mostly propertyeditor/objectprops basic testing. Not sure if it really adds anything anymore on top of all
        our other tests ...  -->
-  <contenttype namespace="http://www.webhare.net/xmlns/beta/test">
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test" workflow="true" title="Beta Test Contenttype">
     <string name="stringtest" />
     <array name="arraytest">
       <string name="textcell" />
@@ -941,7 +963,15 @@
   </tabsextension>
 
   <apply>
-    <to type="file" parentmask="/*/*" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <and>
+      <to type="file" parentmask="/*/*" />
+      <not> <!-- Keep away from formeditor, it confuses editor app tests -->
+        <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
+      </not>
+      <not>
+        <to type="file" filetype="http://www.webhare.net/xmlns/webhare_testsuite/customform2" />
+      </not>
+    </and>
     <extendproperties extension="#testeditor" contenttype="http://www.webhare.net/xmlns/beta/test" />
   </apply>
 

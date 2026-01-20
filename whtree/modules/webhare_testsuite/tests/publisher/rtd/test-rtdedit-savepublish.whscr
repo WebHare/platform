@@ -31,6 +31,8 @@ INTEGER round;
 MACRO ExpectWorkflowFieldsPresent(BOOLEAN expect_present) {
   TestEq(expect_present, TTIsVisible(":Meta title", [ allowmissing := TRUE ]));
   TestEq(expect_present, TTIsVisible(":A number field", [ allowmissing := TRUE ]));
+  TestEq(expect_present, TTIsVisible(":stringtest", [ allowmissing := TRUE ]));
+  TestEq(expect_present, TTIsVisible(":Legacyprop", [ allowmissing := TRUE ]));
 }
 
 ASYNC FUNCTION TestMetaFields(BOOLEAN readonly) //shared MetaTabs and ObjectProps stuff
@@ -47,6 +49,7 @@ ASYNC FUNCTION TestMetaFields(BOOLEAN readonly) //shared MetaTabs and ObjectProp
   TestAssert(ObjectExists(anumberfield));
   TestEq("integer", anumberfield->valuetype);
   TestEq(42 + round, anumberfield->value);
+  TestEq("legacy-" || anumberfield->value, TT(":Legacyprop")->value);
 
   OBJECT selectuserfield := TT(":Username"); //note that this finds the embedded textedit
   TestAssert(ObjectExists(selectuserfield));
@@ -63,6 +66,9 @@ ASYNC FUNCTION TestMetaFields(BOOLEAN readonly) //shared MetaTabs and ObjectProp
     // Update and save props
     anumberfield->value := anumberfield->value + 1;
     anumberfield->SetDirty(); //pretend the client did it
+
+    TT(":Legacyprop")->value := "legacy-" || (anumberfield->value);
+    TT(":Legacyprop")->SetDirty(); //pretend the client did it
   }
 
   RECORD multifieldline := SELECT * FROM anumberfield->parent->__ExplainLines() WHERE linetitle = "Multi field";
@@ -113,10 +119,16 @@ ASYNC MACRO TestMetaTab()
       multi_field := [ num1 := 10, num2 := 20 ]
       ]);
   testfile->SetInstanceData("platform:web.metadata", [ seo_title := "Se-o, se-e-e-e-o!" ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/legacyprops", [ legacyprop := "legacy-42" ]);
 
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+
+  // We should see the following legacy sections:
+  TestEq(TRUE, TTIsVisible("{section}:Beta Test Contenttype"), "we see the type's title because is tabs are shown - generally not desired but restructure your extension then!");
+  TestEq(TRUE, TTIsVisible("{section}:LegacyTab"), "because this is the title of its only tab");
+  TestEq(TRUE, TTIsVisible("{section}:http://www.webhare.net/xmlns/webhare_testsuite/legacyprops"), "because it's an untitled type without a titled only tab");
 
   TestEq(FALSE, topscreen->frame->flags.isdirty);
   TestEq(FALSE, topscreen->frame->flags.canpublish);

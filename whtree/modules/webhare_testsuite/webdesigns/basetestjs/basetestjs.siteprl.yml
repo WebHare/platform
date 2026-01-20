@@ -107,6 +107,13 @@ apply:
               enabledOn:
                 field: $type.checkIt
                 value: true
+        # legacy tabs to test their workflow integration
+      - tabsExtension: mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor
+        type: http://www.webhare.net/xmlns/beta/test
+      - tabsExtension: mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#legacytab
+        type: http://www.webhare.net/xmlns/webhare_testsuite/legacytab
+      - tabsExtension: mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#legacyprops
+        type: http://www.webhare.net/xmlns/webhare_testsuite/legacyprops
 
   - to:
       whfsPath: "*metaoverride1*"
