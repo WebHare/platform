@@ -154,9 +154,6 @@ export class ObjTabs extends ComponentBase {
         this.setSelected(i >= 0 ? this.pages[i].name : '', false);
       }
     }
-
-    if (!this.firstlayout && anychange)//we have been rendered before..
-      this.Relayout();
   }
 
   /****************************************************************************************************************************
