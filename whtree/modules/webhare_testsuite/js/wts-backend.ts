@@ -46,7 +46,7 @@ export async function resetWTS(options?: test.ResetOptions) {
   const testroot = await openFolder(whconstant_whfsid_webhare_tests);
   for (const item of await (await openFolder(whconstant_whfsid_webhare_tests)).list(["parentSite", "modified"])) {
     if (!["webhare_testsuite.testfolder", "webhare_testsuite.testfolder2"].includes(item.name) || !item.isFolder)
-      continue; //only clean our own testfolders and only if they turned iinto a site
+      continue; //only clean our own testfolders and only if they turned into a site
 
     const obj = await openFolder(item.id);
     if (!(await obj.list()).length && !item.parentSite)
