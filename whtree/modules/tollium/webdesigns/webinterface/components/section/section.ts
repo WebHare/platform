@@ -1,4 +1,5 @@
 import * as dompack from '@webhare/dompack';
+import { html } from '@webhare/dompack/src/html';
 
 import './section.css';
 import { type ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
@@ -33,12 +34,13 @@ export default class ObjSection extends ToddCompBase {
   buildNode() {
     this.node = dompack.create('t-section', { dataset: { name: this.name } },
       [
-        this.detailsNode = dompack.create('details', {
-          onToggle: () => this.onToggle(),
-          open: this.open
+        this.detailsNode = html('details', {
+          open: this.open,
         },
           [
-            dompack.create('summary', {}, [this.title]),
+            dompack.create('summary', {
+              on: { click: evt => this.onClick(evt) },
+            }, [this.title]),
             this.panel.getNode()
           ],
 
@@ -50,7 +52,11 @@ export default class ObjSection extends ToddCompBase {
     return [this.panel];
   }
 
-  onToggle() {
+  onClick(evt: MouseEvent) {
+    //We're intercepting onClick as onToggle runs *after* opening/closing and our relayout will cause flicker
+
+    dompack.stop(evt);
+    this.detailsNode.open = !this.detailsNode.open;
     this.height.dirty = true;
     this.owner.recalculateDimensions();
     this.owner.relayout();
