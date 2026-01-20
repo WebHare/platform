@@ -193,7 +193,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       @cell(object) Node XML node (&lt;extendproperties&gt;)
       @cell(object) siteprof Siteprofile object
       @cell(object array) components
-      @cell(object array) compositions
       @cell(object) fragment Fragment object (only when it extends PropertyEditorBase)
       @cell(boolean) islegacypropertyeditor
       @cell(object) instance Instance object for tab extensions
@@ -774,41 +773,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
         IF (ObjectExists(extendprop.instance) AND (NOT this->isduplicate OR extendprop.instance->type->cloneoncopy))
           extendprop.instance->ReadInstanceFromFSObject();
-
-        FOREVERY(OBJECT comp FROM extendprop.compositions)
-        {
-          IF (NOT (comp EXTENDSFROM WHFSInstance))
-            CONTINUE;
-
-          compname := comp->name;
-          comp->basefsobject := this->sourceitem;
-
-          // If olddata is defined, we have to migrate the old photoalbum settings
-          RECORD olddata;
-          IF(comp->type->namespace = "http://www.webhare.net/xmlns/publisher/photoalbum")
-          {
-            olddata := comp->type->GetInstanceData(comp->basefsobject->id);
-
-            // If there are no legacy settings or there are already new settings defined, we don't have to convert
-            IF (olddata.picturesize = "" OR olddata.thumbnailsize = ""
-              OR olddata.picturewidth > 0 OR olddata.pictureheight > 0
-              OR olddata.thumbnailwidth > 0 OR olddata.thumbnailheight > 0)
-              olddata := DEFAULT RECORD;
-          }
-
-          // Read current contenttype from (source)file or use default (in case of a new file)
-          // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
-          IF (NOT this->isduplicate OR comp->type->cloneoncopy)
-            comp->ReadInstanceFromFSObject();
-
-          IF (RecordExists(olddata))
-          {
-            comp->GetComponent("picturewidth")->value := ToInteger(olddata.picturesize, 600);
-            comp->GetComponent("pictureheight")->value := ToInteger(olddata.picturesize, 600);
-            comp->GetComponent("thumbnailwidth")->value := ToInteger(olddata.thumbnailsize, 100);
-            comp->GetComponent("thumbnailheight")->value := ToInteger(olddata.thumbnailsize, 100);
-          }
-        }
       }
       CATCH (OBJECT<TolliumException> e)
       {
@@ -825,35 +789,26 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
   }
 
-  MACRO ResetSiteprofExtensions(INTEGER parentid, INTEGER newtype)
-  {
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-      FOREVERY(OBJECT comp FROM OBJECT[extendprop.instance, ...extendprop.compositions])
-      {
-        IF (NOT (comp EXTENDSFROM WHFSInstance))
-          CONTINUE;
-
-        TRY
-        {
+  MACRO ResetSiteprofExtensions(INTEGER parentid, INTEGER newtype) {
+    FOREVERY(RECORD extendprop FROM this->extendprops) {
+      OBJECT comp := extendprop.instance;
+      IF(ObjectExists(comp)) {
+        TRY {
           comp->SetDefaultInstanceDataForParent(parentid, this->isfolder, newtype);
-        }
-        CATCH (OBJECT<TolliumException> e)
-        {
+        } CATCH (OBJECT<TolliumException> e) {
           LogHarescriptException(e);
           THROW NEW PropertyEditorException(extendprop.tabsextension, e);
-        }
-        CATCH (OBJECT e)
-        {
+        } CATCH (OBJECT e) {
           // Unknown exception, just continue to next composition
           Print("Could not set instance data for " || comp->name || " because of exception '" || e->what || "' from:\n");
           Print(AnyToString(e->trace, "boxed"));
           CONTINUE;
         }
       }
+    }
   }
 
-  MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors)
-  {
+  MACRO SetupSiteProfileExtensions(RECORD ARRAY skipeditors) {
     //we'll point all settings to the end of their tab (for 'General' tab we ignore the readonly properties)
     ^maintabs->insertpoints := [ [ name := "name", component := ^insertpoint_generalsettings ]
                                 , [ name := "title", component := ^insertpoint_generalsettings ]
@@ -882,7 +837,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         ];
 
     this->extendprops := SELECT *
-                              , compositions := DEFAULT OBJECT ARRAY
                               , components := DEFAULT OBJECT ARRAY
                               , fragment := DEFAULT OBJECT
                               , instance := DEFAULT OBJECT
@@ -919,19 +873,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         RECORD loadresult := ^maintabs->LoadTabsExtension(propeditor.tabsextension
                                                          ,CellExists(propeditor, 'taboptions') ? propeditor.taboptions : DEFAULT RECORD);
 
-        FOREVERY(OBJECT comp FROM loadresult.compositions)
-          IF (comp EXTENDSFROM WHFSInstance AND comp->typens != "")
-          {
-            FOREVERY(OBJECT cellobj FROM comp->cells)
-            {
-              STRING fullname := comp->typens || ":" || cellobj->cellname;
-              IF(fullname IN seen_members) //ADDME can Tabs do this validation on loaded components ?
-                THROW NEW Exception("Multiple property editors are trying to handle field '" || fullname || "'");
-              INSERT fullname INTO seen_members AT END;
-            }
-          }
-
-        propeditor.compositions := loadresult.compositions;
         propeditor.components := loadresult.components;
         propeditor.fragment := loadresult.fragment;
 
@@ -1549,22 +1490,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     INSERT tabinfo INTO this->sp_customfields.propertyeditors AT END;
   }
 
-  PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname)
-  {
+  PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname) {
     FOREVERY(RECORD extendprop FROM this->extendprops)
-      FOREVERY(OBJECT comp FROM extendprop.compositions)
-      {
-        IF(comp EXTENDSFROM WHFSInstance AND comp->type->namespace = whfstype)
-        {
-          OBJECT cellcomp := comp->GetComponent(cellname);
-          IF(ObjectExists(cellcomp))
-            RETURN cellcomp;
-        }
-      }
-
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-      IF(extendprop.contenttype = whfstype)
-      {
+      IF(extendprop.contenttype = whfstype) {
         OBJECT cellobj := extendprop.instance->GetComponent(cellname);
         IF(ObjectExists(cellobj))
           RETURN cellobj;
