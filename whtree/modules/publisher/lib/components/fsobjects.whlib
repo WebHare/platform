@@ -16,7 +16,6 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   // Variables
   //
 
-  BOOLEAN transform_touppercase;
   INTEGER ARRAY _limittypes;
 
 
@@ -67,12 +66,6 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
     this->showhidden := def.showhidden;
     this->type := def.type;
     this->mask := def.mask;
-
-    IF(this->rowkeycell LIKE "*:touppercase") //needed for @campus portability which didn't use siteprofiles (only contenteditor) and touppercased folder names
-    {
-      this->transform_touppercase := TRUE;
-      this->rowkeycell := Left(this->rowkeycell, Length(this->rowkeycell)-12);
-    }
   }
 
   UPDATE MACRO PreInitComponent()
@@ -187,9 +180,6 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
 
     IF (Length(options) > 0)
     {
-      IF(this->transform_touppercase)
-        UPDATE options SET rowkey := ToUppercase(rowkey);
-
       IF(this->orderby != "")
       {
         INTEGER orderby_type := TypeID(options[0].ordercell);
