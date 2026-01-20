@@ -6,6 +6,7 @@ import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } f
 import { toCamelCase, toSnakeCase, type ToSnakeCase, nameToSnakeCase } from "@webhare/std";
 import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride, CustomFieldsLayout } from "@webhare/whfs/src/siteprofiles";
 import { parseYamlComponent } from "./parser";
+import { getAuthorizationInterface, type AuthorizationInterface } from "@webhare/auth";
 
 interface MetadataSection {
   title: string;
@@ -25,6 +26,11 @@ interface MetaTabs {
     namespace: string;
     layout?: string[];
     sections: MetadataSection[];
+  }>;
+  extendProps: Array<{
+    whfsType: string;
+    requireRight?: string;
+    extension: string;
   }>;
   /** Issues - for now simply strings */
   issues: string[];
@@ -98,8 +104,20 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
   };
 }
 
+async function getFilteredExtendProps(applytester: WHFSApplyTester, user: AuthorizationInterface | undefined) {
+  const extensions: MetaTabs['extendProps'] = [];
+  for (const prop of await applytester.getExtendProps()) {
+    if (!prop.requireRight || (user && await user.hasRightOn(prop.requireRight, applytester.getRightsTarget() ?? "all")))
+      extensions.push(prop);
+  }
+  return extensions;
+}
+
 /** @param options.requireWorkflow - only return tabs that support workflow (ie: we are the document editor */
-export async function describeMetaTabs(applytester: WHFSApplyTester, options?: { requireWorkflow?: boolean }): Promise<MetaTabs> {
+export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
+  requireWorkflow?: boolean;
+  user?: AuthorizationInterface;
+}): Promise<MetaTabs> {
   const cf = await applytester.__getCustomFields();
   const pertype: Record<string, ExtendProperties[]> = {};
 
@@ -112,6 +130,7 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
 
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
+    extendProps: await getFilteredExtendProps(applytester, options?.user),
     [hsinfo]: applytester.__getHSInfo(),
     issues: [],
     workflowEditor: null
@@ -234,6 +253,7 @@ interface MetaTabsForHS {
   }>;
   __hsinfo: unknown;
   issues: string[];
+  extend_props: ToSnakeCase<MetaTabs['extendProps']>;
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -251,12 +271,13 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
       }))
     })),
     __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo],
-    issues: metatabs.issues
+    issues: metatabs.issues,
+    extend_props: toSnakeCase(metatabs.extendProps)
   };
   return translated;
 }
 
-export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; requireworkflow: boolean }): Promise<MetaTabsForHS | null> {
+export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; requireworkflow: boolean; user: number }): Promise<MetaTabsForHS | null> {
   try {
     let applytester;
     if (obj.objectid) {
@@ -266,7 +287,7 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
       applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
     }
 
-    const metatabs = await describeMetaTabs(applytester, { requireWorkflow: obj.requireworkflow });
+    const metatabs = await describeMetaTabs(applytester, { requireWorkflow: obj.requireworkflow, user: obj.user ? getAuthorizationInterface(obj.user) : undefined });
     return remapForHs(metatabs);
   } catch (e) {
     if ((e as Error)?.message.startsWith('No recycle info found for'))

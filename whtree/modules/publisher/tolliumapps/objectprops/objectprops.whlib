@@ -725,7 +725,10 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       INTEGER parentfolderid := ObjectExists(this->parentfolder) ? this->parentfolder->id : 0;
       this->SetupObjectProps();
 
-      this->sp_customfields := this->contexts->applytester->GetCustomFields(this->tolliumuser, this->tolliumuser->language);
+      this->sp_customfields := [
+        propertyeditors := (SELECT tabsextension := extension, contenttype := whfs_type FROM this->renderer->metatabsconfig.extend_props),
+        errors := STRING[]
+      ];
       DELETE FROM this->sp_customfields.propertyeditors WHERE tabsextension = "";
       this->pending_errors := this->pending_errors CONCAT this->sp_customfields.errors;
       this->SetupSiteProfileExtensions(this->startdata.faultypropeditors);

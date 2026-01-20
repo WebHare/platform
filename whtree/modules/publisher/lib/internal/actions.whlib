@@ -640,7 +640,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
     IF (RecordExists(folderindex.file))
     {
       STRING filename := folderindex.newfilename ?? folderindex.file.name;
-      IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
+      IF(filename LIKE "*.rtd")
         filename := Left(filename, Length(filename) - 4);
 
       parentfolderobj->CreateFile([ typens := "http://www.webhare.net/xmlns/publisher/contentlink"
@@ -655,7 +655,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
   ELSE IF (folderindex.indexfile = "newfile")
   {
     STRING filename := folderindex.newfilename ?? "index";
-    IF(filename LIKE "*.rtd" AND GetBaseProperties(applytester).striprtdextension)
+    IF(filename LIKE "*.rtd")
       filename := Left(filename, Length(filename) - 4);
 
     parentfolderobj->CreateFile( [ typens := folderindex.newfiletype

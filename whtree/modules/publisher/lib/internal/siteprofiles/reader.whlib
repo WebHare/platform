@@ -1403,28 +1403,6 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN IsRightGlobal(rightname) ? user->HasRight(rightname) : user->HasRightOn(rightname, 0);
   }
 
-  //Tollium Publisher version of GetCustomFields
-  PUBLIC RECORD FUNCTION GetCustomFields(OBJECT user, STRING langcode)
-  {
-    //ADDME: Gettext the error messages!
-    RECORD retval := [ propertyeditors := DEFAULT RECORD ARRAY
-                     , errors := DEFAULT STRING ARRAY
-                     ];
-
-    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("EXTENDPROPERTIES"))
-      FOREVERY(RECORD extendprops FROM apply.extendproperties)
-      {
-        IF(NOT this->HasRequiredRight(user, extendprops.requireright))
-          CONTINUE;
-
-        INSERT CELL[ ...extendprops
-                   , tabsextension := extendprops.extension
-                   ] INTO retval.propertyeditors AT END;
-      }
-
-    RETURN retval;
-  }
-
   PUBLIC RECORD FUNCTION GetFolderSettings()
   {
     RECORD settings := GetDefaultFolderSettings();

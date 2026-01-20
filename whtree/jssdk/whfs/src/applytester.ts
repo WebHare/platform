@@ -11,6 +11,7 @@ import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
+import type { GlobalRight, TargettedRight } from "@webhare/auth";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -359,6 +360,11 @@ export class WHFSApplyTester {
     };
   }
 
+  /** Get target object for rights checks */
+  getRightsTarget(): number | null {
+    return this.objinfo.obj?.id || this.objinfo.parent?.id || null;
+  }
+
   isMocked() {
     return !this.objinfo.obj;
   }
@@ -457,6 +463,24 @@ export class WHFSApplyTester {
           rows.push(plugin.data);
 
     return rows.length ? buildPluginData(rows) : null;
+  }
+
+  async getExtendProps() {
+    const extendProps: Array<{
+      whfsType: string;
+      requireRight?: GlobalRight | TargettedRight;
+      extension: string;
+    }> = [];
+    for (const apply of await this.getMatchingRules('extendproperties')) {
+      for (const extend of apply.extendproperties)
+        if (extend.extension)
+          extendProps.push({
+            whfsType: extend.contenttype || '',
+            extension: extend.extension,
+            ...extend.requireright ? { requireRight: extend.requireright } : undefined,
+          });
+    }
+    return extendProps;
   }
 
   async getObjectEditor() {

@@ -3,11 +3,6 @@ import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare
 import { openFile, openFolder } from "@webhare/whfs";
 import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
-import { loadlib } from "@webhare/harescript/src/contextvm";
-
-async function prep() {
-  await loadlib("mod::system/lib/testframework.whlib").runTestFramework([]);
-}
 
 async function testIgnoreMetatabsForOldContent() {
   //watches for global triggers of new metadata screens. we need to avoid that for now, don't surprise existing users
@@ -18,9 +13,21 @@ async function testIgnoreMetatabsForOldContent() {
 }
 
 async function testMetadataReader() {
-  const imgfile = await openFile("site::webhare_testsuite.testsitejs/testpages/imgeditfile.jpeg");
+  const imgfile = await openFile("site::webhare_testsuite.testsite/testpages/imgeditfile.jpeg");
   const imgfileMetatabs = await describeMetaTabs(await getApplyTesterForObject(imgfile));
   test.eq(null, imgfileMetatabs.workflowEditor);
+  test.eq([
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" }
+  ], imgfileMetatabs.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
+
+  const imgfileMetatabsAsSysop = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("marge").auth });
+  test.eq([
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" }
+  ], imgfileMetatabsAsSysop.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
 
   const richdocfile = await openFile("site::webhare_testsuite.testsitejs/testpages/staticpage");
   const applyester = await getApplyTesterForObject(richdocfile);
@@ -224,7 +231,12 @@ async function testAllTypes() {
 }
 
 test.runTests([
-  prep,
+  () => test.resetWTS({
+    users: {
+      sysop: { grantRights: ["system:sysop", "platform:api"] },
+      marge: {},
+    }
+  }),
   testIgnoreMetatabsForOldContent,
   testMetadataReader,
   testOverrides,

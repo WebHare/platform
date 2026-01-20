@@ -7,7 +7,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -332,7 +331,8 @@ PUBLIC OBJECT FUNCTION CreateMetatabsRenderer(RECORD objdata) {
     parent := 0,
     isfolder := FALSE,
     type := -1,
-    requireworkflow := FALSE
+    requireworkflow := FALSE,
+    user := GetEffectiveUser()->entityid //TODO FIX for overrideuser, has no entityid
   ], objdata, [
     required := STRING[ "objectid", "parent", "isfolder", "type", "requireworkflow" ]
   ]);
