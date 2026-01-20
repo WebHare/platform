@@ -70,6 +70,7 @@ test.runTests(
     },
 
     {
+      //NOTE Tabs are no longer actually stacked, but the tests till pass so can't hurt to keep them
       name: 'stackedtabs',
       test: async function (doc, win) {
         test.fill(test.compByName('type_imagetext_title').querySelector('input'), 'Test Title');

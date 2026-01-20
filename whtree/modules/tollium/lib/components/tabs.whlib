@@ -25,7 +25,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   /// Types of state to save
   STRING ARRAY pvt_savestate;
 
-  /// Type of tabs (possible values: "regular", "server", "stacked")
+  /// Type of tabs (possible values: "regular", "server")
   STRING pvt_type;
 
   /// List of tabs
@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   */
   PUBLIC PROPERTY pages(pvt_pages, -);
 
-  /** Type of this component (possible values: "regular", "server", "stacked")
+  /** Type of this component (possible values: "regular", "server")
   */
   PUBLIC PROPERTY type(pvt_type, SetType);
 
@@ -116,7 +116,8 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
   {
     TolliumComponentBase::StaticInit(def);
     this->pvt_pages := SELECT AS OBJECT ARRAY component FROM def.pages;
-    this->pvt_type := def.type;
+    //stacked tabs will be removed per 6.0, but we'll silently remap to regular to not break existing XML immediately
+    this->pvt_type := def.type = "stacked" ? "regular" : def.type;
     this->onselect := def.onselect;
     this->savestate := def.savestate;
     this->pvt_selected_page := def.selectedtab;
@@ -263,10 +264,13 @@ PUBLIC STATIC OBJECTTYPE TolliumTabs EXTEND TolliumComponentBase
 
   MACRO SetType(STRING newtype)
   {
+    IF(newtype = "stacked")
+      newtype := "regular";
+
     IF (this->pvt_type != newtype)
     {
-      IF (newtype NOT IN [ "regular", "server", "stacked" ])
-        THROW NEW TolliumException(this, "Illegal tabs type '"||newtype||"' selected (allowed: regular, server and stacked)");
+      IF (newtype NOT IN [ "regular", "server" ])
+        THROW NEW TolliumException(this, "Illegal tabs type '"||newtype||"' selected (allowed: regular, server)");
 
       this->pvt_type := newtype;
       this->ExtUpdatedComponent();

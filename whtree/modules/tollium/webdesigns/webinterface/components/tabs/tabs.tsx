@@ -23,7 +23,7 @@ const tab_labelanimation_timeout = 20;
 const regulartab_overheadx = 20;
 
 interface TabsAttributes extends ComponentStandardAttributes {
-  tabtype: "regular" | "stacked" | "server";
+  tabtype: "regular" | "server";
   pages: string[];
   selected: string;
 }
@@ -232,54 +232,14 @@ export class ObjTabs extends ComponentBase {
       if (this.selected.labelnode)
         this.selected.labelnode.classList.add("active");
 
-      if (this.tabtype === "stacked") {
-        /* The currently selected sheet is hidden, the new sheet is shown. If the new sheet is located below the current
-           sheet, the current sheet is shrunk to 0 height, while the new sheet directly gets the contentheight. If the
-           new sheet is above the current sheet, the new sheet is grown to the contentheight, while the current sheet
-           directly gets 0 height. All sheets below the last relevant sheet are absolute positioned if height transition
-           is enabled, so they stay in place (the absolute position is removed when the transition ends). */
-        this.selected.contentnode.style.display = "";
-        let heightnode, newheight;
-        //var absolute = false; // not used atm
-        this.pages.forEach((page, i) => {
-          if (prevselected && page.name === prevselected.name) {
-            // This is the currently selected sheet
-            if (!heightnode) {
-              // We haven't seen the new sheet, this sheet will shrink
-              heightnode = page.contentnode;
-              newheight = 0;
-            } else {
-              // All following sheets will be absolute positioned
-              //absolute = true;
-            }
-          } else if (page.name === this.selected.name) {
-            // This is the new selected sheet
-            if (!heightnode) {
-              // We haven't seen the current sheet, this sheet will grow
-              heightnode = page.contentnode;
-              newheight = this.contentheight;
-            } else {
-              // All following sheets will be absolute positioned
-              //absolute = true;
-              // Apply contentheight directly, the sheet will be revealed when the old sheet shrinks
-              page.contentnode.style.height = this.contentheight + 'px';
-            }
-          }
-        });
-        if (prevselected) {
-          prevselected.contentnode.style.display = "none";
-        }
-        // Apply new height to height node
-        heightnode.style.height = newheight + 'px';
-      } else {
-        // Make the new tab visible (its opacity will still be 0 if transitions are enabled)
-        this.selected.contentnode.classList.remove("invisible");
-        if (prevselected)
-          prevselected.contentnode.classList.add("invisible");
 
-        if (this.selected.labelnode)
-          this.scrollNavToSelected();
-      }
+      // Make the new tab visible (its opacity will still be 0 if transitions are enabled)
+      this.selected.contentnode.classList.remove("invisible");
+      if (prevselected)
+        prevselected.contentnode.classList.add("invisible");
+
+      if (this.selected.labelnode)
+        this.scrollNavToSelected();
 
       // Send a select event
       if (sendevents && this.isEventUnmasked("select")) {
@@ -367,30 +327,6 @@ export class ObjTabs extends ComponentBase {
     this.node.propTodd = this;
     switch (this.tabtype) {
       case "regular": break;
-      case "stacked":
-        this.node.classList.add("stacked");
-
-        this.pages.forEach(page => {
-          if (page.titlecomp) {
-            page.labelnode = dompack.create("div", {
-              dataset: { tab: page.name },
-              onClick: evt => this.selectTab(evt, page.name),
-              childNodes: [page.titlecomp.getNode()],
-              className: "tablabel"
-            });
-            this.node.appendChild(page.labelnode);
-          }
-
-          // Initially hidden: set height to 0 and display to none
-          page.contentnode = dompack.create("div", {
-            className: "tabsheet",
-            style: { height: 0 },
-            childNodes: [page.comp.getNode()]
-          });
-          this.node.appendChild(page.contentnode);
-        });
-        break;
-
       case "server":
         this.node.classList.add("server");
 
@@ -418,17 +354,10 @@ export class ObjTabs extends ComponentBase {
     const info = dompack.normalizeKeyboardEventData(ev);
 
     this.tabkeydown = true;
-    if (this.tabtype === "stacked") {
-      if (info.key === 'ArrowUp')
-        this.previousTab();
-      else if (info.key === 'ArrowDown')
-        this.nextTab();
-    } else {
-      if (info.key === 'ArrowLeft')
-        this.previousTab();
-      else if (info.key === 'ArrowRight')
-        this.nextTab();
-    }
+    if (info.key === 'ArrowLeft')
+      this.previousTab();
+    else if (info.key === 'ArrowRight')
+      this.nextTab();
   }
   previousTab() {
     const i = this.pages.indexOf(this.getSelectedTab());
@@ -490,13 +419,6 @@ export class ObjTabs extends ComponentBase {
       case "regular":
         this.height.tab = this.nodes.nav.parentNode.getBoundingClientRect().height;
         break;
-      case "stacked":
-        this.height.tab = this.pages.length * 28; //28 is enforced by t-tabs.stacked > div.tablabel
-        //was: (titleheight + $todd.settings.tab_stacked_vpadding_inactive);
-        /*        // Have an active page?
-                if (this.pages.length)
-                  this.height.tab -= $todd.settings.tab_stacked_vpadding_inactive;*/
-        break;
       case "server":
         this.height.tab = 0;
         break;
@@ -516,9 +438,6 @@ export class ObjTabs extends ComponentBase {
         page.titlecomp.setHeight(page.titlecomp.height.calc);
       page.comp.setHeight(setheight);
     });
-
-    if (this.tabtype === "stacked")
-      this.contentheight = setheight;
   }
 
   relayout() {
@@ -556,12 +475,6 @@ export class ObjTabs extends ComponentBase {
       const toselect = this.pendingselect;
       this.pendingselect = null;
       this.setSelected(toselect.name);
-    }
-
-    if (this.tabtype === "stacked") {
-      const s = this.getSelectedTab();
-      if (s && s.contentnode)
-        s.contentnode.style.height = this.contentheight + 'px';
     }
   }
 

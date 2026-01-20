@@ -3483,8 +3483,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="type" default="regular">
       <xs:annotation>
         <xs:documentation>
-          The type of this tab. Possible values are "regular" (default), "server" (invisible tabs) and "stacked"
-             (vertical tabs).
+          The type of this tab. Possible values are "regular" (default) and "server" (invisible tabs).
         </xs:documentation>
       </xs:annotation>
       <xs:simpleType>
