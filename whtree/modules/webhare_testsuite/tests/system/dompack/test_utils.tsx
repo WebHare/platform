@@ -2,6 +2,7 @@ import * as test from "@mod-system/js/wh/testframework";
 
 import * as dompack from "dompack";
 import * as create from "dompack/src/create";
+import { html } from '@webhare/dompack/src/html';
 import * as webhare_dompack from "@webhare/dompack";
 
 let eventcount = 0;
@@ -75,6 +76,43 @@ test.runTests(
       const node1 = <div id="div1" />;
       node1.append(<><div id="div2" /><div id="div3" /></>);
       test.eq('<div id="div2"></div><div id="div3"></div>', node1.innerHTML);
+    },
+
+    "html - create successor",
+    async function () {
+      html("li", { className: "divider" });
+      html("details");
+      //@ts-expect-error -- open is valid on details but not on li
+      html("li", { open: true });
+      html("details", { open: true });
+
+      //verify event handler inference
+      html("li", { on: { click: evt => { evt satisfies MouseEvent; } } });
+      //@ts-expect-error -- event is a MouseEvent, not something else
+      html("li", { on: { click: evt => { evt satisfies DragEvent; } } });
+
+      //@ts-expect-error -- no top level event handlers yet
+      html("li", { onclick: () => { } });
+      //@ts-expect-error -- no top level event handlers yet
+      html("li", { onClick: () => { } });
+
+      //@ts-expect-error -- should not be able to set functionss
+      html("li", { click: () => { } });
+      //@ts-expect-error -- should not be able to set functionss
+      html("li", { append: undefined });
+
+      //@ts-expect-error -- should not be able to set childNodes
+      html("li", { childNodes: [] });
+
+      try {
+        //@ts-expect-error -- should not be able to set constants, recognizable by being uppercase
+        html("li", { ATTRIBUTE_NODE: 2 }); //note that it also throws at runtime because ATTRIBUTE_NODE is readonly
+      } catch (ignore) { }
+
+      //allow style setting, object style
+      html("li", { style: { display: "none", marginTop: "5px" } });
+      //@ts-expect-error -- but not string style (unsafe-inline)
+      html("li", { style: "display:none" });
     },
 
     "Array/String.prototype.at polyfill",
