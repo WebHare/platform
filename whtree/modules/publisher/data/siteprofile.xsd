@@ -73,6 +73,7 @@
       <xs:extension base="Members">
         <xs:attribute name="namespace" type="xs:anyURI" />
         <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
+        <xs:attributeGroup ref="sc:TidOrTitle" />
         <xs:attributeGroup ref="TypeAttrs" />
       </xs:extension>
     </xs:complexContent>
