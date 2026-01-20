@@ -1,12 +1,12 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/regressions.test_fragment_visibility'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/regressions.test_fragment_visibility");
     },
 
     {

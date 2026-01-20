@@ -13,9 +13,8 @@ function getListContents() {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/lists.hscroll'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/lists.hscroll");
     },
     {
       name: 'statictree',

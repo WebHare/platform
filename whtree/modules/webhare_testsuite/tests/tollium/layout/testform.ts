@@ -1,10 +1,10 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/layout.layouttest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/layout.layouttest");
     },
 
     {
@@ -56,7 +56,7 @@ test.runTests(
         test.eq(nolabeltext.offsetWidth, nolabeltext_crs.offsetWidth);
 
         //split and snappedpanel should be aligned to the grid ( we align the whole panel)
-        test.eq(0, (test.compByName('layouttest_splitrow2').getBoundingClientRect().top - test.compByName('snappedpanel').getBoundingClientRect().top) % test.getGridVsize(), 'splitrow2 and nolabeltext_wrapped did not align to the grid');
+        test.eq(0, (test.compByName('layouttest_splitrow2').getBoundingClientRect().top - test.compByName('snappedpanel').getBoundingClientRect().top) % tt.metrics.gridRowHeight, 'splitrow2 and nolabeltext_wrapped did not align to the grid');
 
         //no overlapping
         test.assert(nolabeltext_wrapped.getBoundingClientRect().bottom <= nolabeltext_crs.getBoundingClientRect().top, 'nolabeltext_wrapped and nolabeltext_crs overlapped (' + nolabeltext_wrapped.getBoundingClientRect().bottom + "," + nolabeltext_crs.getBoundingClientRect().top + ')');

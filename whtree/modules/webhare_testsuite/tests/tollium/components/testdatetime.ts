@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 function getDump(which: number) {
   return test.compByName("dump").querySelector("textarea").value.split('\n')[which];
@@ -101,7 +102,7 @@ test.runTests(
 
     "Initial tests",
     async function () {
-      await test.load(test.getTestScreen('tests/basecomponents.datetimetest'));
+      await tt.loadWTSTestScreen('tests/basecomponents.datetimetest');
       await test.wait("ui");
     },
 

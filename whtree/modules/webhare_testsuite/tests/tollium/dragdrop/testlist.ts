@@ -1,13 +1,12 @@
 import * as test from '@mod-tollium/js/testframework';
-import * as tt from "@mod-tollium/js/tolliumtest";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 const gesture_time = 200;
 
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/dragdrop.listtest'),
-      waits: ["ui"]
+    async function () {
+      await tt.loadWTSTestScreen('tests/dragdrop.listtest');
     },
 
     // ---------------------------------------------------------------------------

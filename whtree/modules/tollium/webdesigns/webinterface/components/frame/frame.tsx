@@ -1098,6 +1098,7 @@ export class ObjFrame extends ToddCompBase {
    * Dimensions
    */
 
+  /** Recalculate and apply all dirty dimensions in the frame */
   recalculateDimensions() {
     this.beforeRelayout();
 

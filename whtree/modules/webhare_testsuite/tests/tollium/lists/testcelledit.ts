@@ -1,9 +1,10 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
     async function () {
-      await test.load(test.getTestScreen("tests/lists.celleditlist"));
+      await tt.loadWTSTestScreen("tests/lists.celleditlist");
       await test.wait('ui');
 
       // The first row should not be selected

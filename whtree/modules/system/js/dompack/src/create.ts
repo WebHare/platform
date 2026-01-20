@@ -70,7 +70,7 @@ function attrHasBooleanValue(propname: string) {
   return ['disabled', 'checked', 'selected', 'readonly', 'multiple', 'ismap'].includes(propname);
 }
 
-function createElement(elementname: string, attributes?: CreateAttributes, toattrs?: boolean) {
+export function createElement(elementname: string, attributes?: CreateAttributes, toattrs?: boolean) {
   const node = document.createElement(elementname);
   if (attributes) {
     Object.keys(attributes).forEach(attrname => {

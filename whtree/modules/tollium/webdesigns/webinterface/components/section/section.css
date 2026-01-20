@@ -1,0 +1,5 @@
+t-section {
+  & > details > summary {
+    height: 23px; /* FIXME avoid hardcoding, but we won't be 23px once the design is implemented anyway */
+  }
+}

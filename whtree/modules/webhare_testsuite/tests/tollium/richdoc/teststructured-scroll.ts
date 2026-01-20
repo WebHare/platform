@@ -3,15 +3,15 @@
 
 import * as dompack from 'dompack';
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 
 let htmlnode;
 let savescrollpos;
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/richdoc.main,bigstructure'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/richdoc.main,bigstructure");
     },
 
     {

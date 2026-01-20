@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { encodeString } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
@@ -17,9 +18,8 @@ async function setRawHTML(code: string) {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/richdoc.main'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/richdoc.main");
     },
 
     {
@@ -507,7 +507,7 @@ test.runTests(
 
     "Test RTE with failing CSS loads",
     async function () {
-      await test.load(test.getTestScreen('tests/richdoc.main,loadfailingcss'));
+      await tt.loadWTSTestScreen('tests/richdoc.main,loadfailingcss');
       await test.wait("ui");
 
       // should be visible

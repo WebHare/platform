@@ -1,12 +1,12 @@
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/basecomponents.windowtest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/basecomponents.windowtest");
     },
 
     {

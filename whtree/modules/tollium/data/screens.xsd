@@ -1930,6 +1930,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="accountstatus" type="AccountStatus" />
 
       <!-- <xs:element name="rte" type="RTE"/> -->
+      <xs:element name="section" type="Section" />
       <xs:element name="split" type="Split" />
       <xs:element ref="statuspanel" />
       <xs:element name="table" type="Table" />
@@ -3370,6 +3371,22 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
+
+  <xs:complexType name="Section">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent objecttype="/lib/components/section.whlib#TolliumSection" placement="block" />
+        <!-- <tai:extraparser type="lines" field="lines" target="./*" /> -->
+        <!-- <tai:childcomponents adoptfields="height width minheight minwidth" field="children" target="./s:part" /> -->
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="Panel">
+        <xs:attributeGroup ref="sc:TidOrTitle" />
+        <xs:attribute name="open" type="xs:boolean" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
 
   <xs:complexType name="Split">
     <xs:annotation>
@@ -5876,6 +5893,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="spacer" type="Spacer" />
 
   <xs:element name="statuspanel" type="StatusPanel" />
+
+  <xs:element name="section" type="Section" />
 
   <xs:element name="split" type="Split" />
 

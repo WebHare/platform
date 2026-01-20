@@ -1,0 +1,46 @@
+<?wh
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/internal/components.whlib";
+
+PUBLIC OBJECTTYPE TolliumSection EXTEND TolliumComponentBase <
+  OBJECT pvt_panel;
+  BOOLEAN pvt_open;
+
+  PUBLIC PROPERTY open(this->pvt_open, this->pvt_open);
+  PUBLIC PROPERTY panel(this->pvt_panel, -);
+
+  MACRO NEW() {
+    this->pvt_blockelement := TRUE;
+    this->componenttype := "section";
+    this->pvt_panel := this->owner->CreateTolliumComponent("panel");
+    this->pvt_panel->pvt_parent := this;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetDefaultWidth() {
+    RETURN "1pr";
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def) {
+    TolliumComponentBase::StaticInit(def);
+    this->open := def.open;
+    this->panel->StaticInit(def);
+
+    //Repair children's parents
+    FOREVERY(OBJECT child FROM this->panel->GetChildComponents())
+      child->pvt_parent := this->panel;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents() {
+    RETURN OBJECT[ this->panel ];
+  }
+
+  UPDATE PUBLIC MACRO TolliumWebRender() {
+    RECORD sectioninfo := CELL[ this->title
+                              , panel := GetComponentName(this->panel)
+                              , open := this->pvt_open
+                              ];
+
+    this->owner->tolliumcontroller->SendComponent(this, sectioninfo);
+    TolliumComponentBase::TolliumWebRender();
+  }
+>;

@@ -74,6 +74,32 @@
     </body>
   </screen>
 
+  <screen name="layouttest_sections" title="Layouttest: sections">
+    <body>
+      <textedit name="outside_textedit" title="textedit" />
+      <textarea name="outside_textarea" title="textarea" />
+      <section title="section 1" name="section1">
+        <text value="subitem 1 of section 1" />
+        <text value="subitem 2 of section 1" />
+      </section>
+      <section title="section 2" name="section2">
+        <text value="subitem 1 of section 2" />
+        <text value="subitem 2 of section 2" />
+        <textedit name="s2_textedit" title="textedit" />
+        <textarea name="s2_textarea" title="textarea" />
+      </section>
+      <section title="section 3" name="section3" open="true">
+        <text value="subitem 1 of section 3" />
+        <text value="subitem 2 of section 3" />
+        <!-- Test issues with components receiving the wrong panel, breaking subcomponents -->
+        <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
+          <option rowkey="false" title="False" />
+          <option rowkey="true" title="True" />
+        </select>
+      </section>
+    </body>
+  </screen>
+
   <screen name="layouttest_tabs" menubar="menubar" title="Layouttest: tabs">
     <actions>
       <action name="showappholder" onexecute="doshowappholder" title="A01 Show app holder" />
@@ -939,4 +965,3 @@
   </screen>
 
 </screens>
-

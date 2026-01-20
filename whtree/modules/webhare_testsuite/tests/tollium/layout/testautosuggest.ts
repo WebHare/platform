@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from '@mod-webhare_testsuite/js/tolliumtest-wts';
 import * as dompack from 'dompack';
 
 function getTags(node) {
@@ -10,9 +11,8 @@ function getTags(node) {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/layout.layouttest,autosuggest'),
-      waits: ['ui']
+    async function () {
+      await tt.loadWTSTestScreen("tests/layout.layouttest,autosuggest");
     },
 
     'legacy combobox',

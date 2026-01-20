@@ -1,10 +1,10 @@
 import * as test from '@mod-tollium/js/testframework';
-import * as tt from "@mod-tollium/js/tolliumtest";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
     async function () {
-      await test.load(test.getTestScreen("tests/lists.columnselection"));
+      await tt.loadWTSTestScreen("tests/lists.columnselection");
       await test.wait('ui');
 
       // Click the first cell in the first row (the second cell has an e-mail link)

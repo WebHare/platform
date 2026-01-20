@@ -1,6 +1,6 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import { debugFlags } from '@webhare/env/src/envbackend';
-
 
 const gesture_time = 200;
 
@@ -29,9 +29,8 @@ function logAllDragEvents() {
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/dragdrop.multitest'),
-      waits: ["ui"]
+    async function () {
+      await tt.loadWTSTestScreen('tests/dragdrop.multitest');
     },
     async function mainTest() {
       test.compByName('log').querySelector('textarea').value = '';
