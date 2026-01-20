@@ -21,7 +21,7 @@ type CreateAttributesFor<K extends keyof HTMLElementTagNameMap> = CleanupAttribu
 };
 
 export function html<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes?: CreateAttributesFor<K>, children?: Array<Node | string>): HTMLElementTagNameMap[K] {
-  //TODO consider making second parameteer optional?
+  //TODO consider making second parameter optional?
   const el = createElement(elementname, attributes, false);
   if (children?.length)
     el.append(...children);
