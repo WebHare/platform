@@ -76,7 +76,7 @@ INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER 
   RECORD ARRAY snapshot_current_instances := ListInstances(baseobjectid);
   FOREVERY(RECORD inst FROM snapshot_current_instances)
     IF(inst.cloneonarchive) {
-      OBJECT typeobj := OpenWHFSType(inst.namespace);
+      OBJECT typeobj := OpenWHFSType(inst.namespace, [ openorphans := TRUE ]);
       typeobj->SetInstanceData(destid, typeobj->GetInstanceData(baseobjectid), [ ifreadonly := "update", isvisibleedit := FALSE, workflow := FALSE ]);
     }
 

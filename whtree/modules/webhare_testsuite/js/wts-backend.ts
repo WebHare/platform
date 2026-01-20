@@ -1,5 +1,6 @@
 /* wts-backend extends @webhare/test-backend with resources that only exist in webhare_testsuite, eg the webhare_testsuite.testsite* sites */
 import { WebServer } from "@mod-platform/js/webserver/webserver";
+import { whconstant_whfsid_webhare_tests } from "@mod-system/js/internal/webhareconstants";
 import { generateRandomId } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 export * from "@webhare/test-backend";
@@ -37,9 +38,22 @@ export async function resetWTS(options?: test.ResetOptions) {
       for (const item of await tmpfolder.list()) {
         //FIXME openObjects would still be very useful
         const obj = await openFileOrFolder(item.id);
-        await obj.delete(); //FIXME we desire recyle
+        await obj.recycle();
       }
     }
+  }
+
+  const testroot = await openFolder(whconstant_whfsid_webhare_tests);
+  for (const item of await (await openFolder(whconstant_whfsid_webhare_tests)).list(["parentSite", "modified"])) {
+    if (!["webhare_testsuite.testfolder", "webhare_testsuite.testfolder2"].includes(item.name) || !item.isFolder)
+      continue; //only clean our own testfolders and only if they turned into a site
+
+    const obj = await openFolder(item.id);
+    if (!(await obj.list()).length && !item.parentSite)
+      continue; //empty folder
+
+    await obj.recycle();
+    await testroot.createFolder(item.name);
   }
 
   //reset testsitejs to well known feature set (Some tests may modify it but crash and not restore it)

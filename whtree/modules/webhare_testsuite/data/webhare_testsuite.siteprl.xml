@@ -105,6 +105,12 @@
     <xyz:testyaml data="applytest-throughglobal" />
   </apply>
 
+  <apply>
+    <to type="folder" pathmask="/surely/this/mask/cannot/ever/match/anything" />
+    <xyz:test data="applytest-pathmask-test" />
+    <xyz:testyaml data="applytest-pathmask-test" />
+  </apply>
+
   <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
               renderobjectname="mod::webhare_testsuite/lib/rte/testcomp.whlib#RTDInstanceTestObj">
     <members>

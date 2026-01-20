@@ -325,7 +325,7 @@ export class WHFSApplyTester {
   }
 
   private async testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): Promise<boolean> {
-    if (rec.pathmask && isNotLikeMask(this.getPath("sitePath"), rec.pathmask))
+    if (rec.pathmask && (!this.objinfo.site || isNotLikeMask(this.getPath("sitePath"), rec.pathmask)))
       return false;
     if (rec.parentmask && (!parentitem || isNotLikeMask(parentitem.sitePath, rec.parentmask)))
       return false;
