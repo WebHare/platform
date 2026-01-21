@@ -72,6 +72,9 @@ export WEBHARE_HSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.harescript/${WE
 export WEBHARE_TSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.typescript/"
 export PUPPETEER_CACHE_DIR="${WEBHARE_DIR}/libexec/puppeteer"
 
+# prepend "${WEBHARE_DIR}/bin" to PATH if it doesn't start with it
+case "$PATH:" in "${WEBHARE_DIR}/bin":*) ;; *) export PATH="${WEBHARE_DIR}/bin:${PATH}" ;; esac
+
 mkdir -p "$WEBHARE_HSBUILDCACHE" "$WEBHARE_TSBUILDCACHE"
 
 # Allow hooks, eg. to launch podman for container builds

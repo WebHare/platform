@@ -68,11 +68,28 @@ export class PGPacketSocket {
     });
   }
 
-  /// Ensures the next buffer is available for reading. Only called when the current buffer is exhausted.
-  private async readBuffer() {
-    if (this.closed)
-      throw new Error("PostgreSQL socket closed");
+  /** Ensures the next buffer is available for reading. Only called when the current buffer is exhausted. Returns null
+   *  if a packet is immediately available, or a promise that resolves when data is available.
+   */
+  private readBuffer() {
+    const buf = this.socket.read() as UndocumentedBuffer | null;
+    if (buf?.length) {
+      // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
+      this.buffer = buf;
+      this.bufferIdx = 0;
+      this.bufferEnd = buf.length;
+      return null;
+    }
+    return this.asyncReadBuffer();
+  }
+
+  private async asyncReadBuffer() {
     while (true) {
+      this.wait = Promise.withResolvers<void>();
+      await this.wait?.promise;
+
+      if (this.closed)
+        throw new Error("PostgreSQL socket closed");
       const buf = this.socket.read() as UndocumentedBuffer | null;
       if (buf?.length) {
         // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
@@ -81,8 +98,6 @@ export class PGPacketSocket {
         this.bufferEnd = buf.length;
         return;
       }
-      this.wait = Promise.withResolvers<void>();
-      await this.wait?.promise;
     }
   }
 
@@ -217,8 +232,8 @@ export class PGPacketSocket {
 
 /** Connect to a PostgreSQL server */
 export async function connectSocket(connectionOptions: {
-  host: string;
-  port: number;
+  host?: string;
+  port?: number;
   keepAlive?: boolean;
   timeoutMs?: number;
 }) {
@@ -229,12 +244,15 @@ export async function connectSocket(connectionOptions: {
     setTimeout(() => defer.reject(new Error(`Timeout connecting to PostgreSQL`)), connectionOptions.timeoutMs);
   socket.on('error', (err) => defer.reject(err));
 
-  if (connectionOptions.host.startsWith('/')) {
+  const host = (connectionOptions.host ?? process.env.WEBHARE_PGHOST ?? process.env.PGHOST) || "localhost";
+  const port = (connectionOptions.port ?? Number(process.env.PGPORT)) || (5432 satisfies DefaultPostgreSQLPort);
+
+  if (host.startsWith('/')) {
     // Unix socket
-    const socketPath = path.join(connectionOptions.host, ".s.PGSQL." + (connectionOptions.port ?? 5432 satisfies DefaultPostgreSQLPort));
+    const socketPath = path.join(host, ".s.PGSQL." + port);
     socket.connect(socketPath, defer.resolve);
   } else {
-    socket.connect(connectionOptions.port ?? 5432 satisfies DefaultPostgreSQLPort, connectionOptions.host, defer.resolve);
+    socket.connect(port, host, defer.resolve);
   }
 
   if (connectionOptions.keepAlive)

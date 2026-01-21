@@ -11,7 +11,8 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
     for (const element of data) {
       if (element === null) {
         builder.alloc(4);
-        builder.idx = builder.buffer.writeInt32BE(-1, builder.idx);
+        builder.dataview.setInt32(builder.idx, -1);
+        builder.idx += 4;
         anyNullHolder.anyNull ||= 1;
       } else {
         const lenIdx = builder.idx;
@@ -19,7 +20,7 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
         builder.idx += 4;
         const oldIdx = builder.idx;
         const res = eltCodec.encodeBinary(builder, element);
-        builder.buffer.writeInt32BE(res === null ? -1 : builder.idx - oldIdx, lenIdx);
+        builder.dataview.setInt32(lenIdx, res === null ? -1 : builder.idx - oldIdx);
         if (res === null)
           anyNullHolder.anyNull ||= 1;
       }
@@ -54,15 +55,17 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
       builder.alloc(12);
       const start = builder.idx;
       // defer writing the number of dimensions and whether nulls present
-      builder.idx = builder.buffer.writeInt32BE(eltCodec.oid, builder.idx + 8); // element type OID
+      builder.dataview.setInt32(builder.idx + 8, eltCodec.oid); // element type OID
+      builder.idx += 12;
 
       if (!Array.isArray(value))
         throw new Error(`Array binary encoder expected array value, got ${typeof value}`);
       if (value.length === 0 || !Array.isArray(value[0])) { // dimension 1
-        builder.buffer.writeInt32BE(1, start);
+        builder.dataview.setInt32(start, 1);
         builder.alloc(8);
-        builder.idx = builder.buffer.writeInt32BE(value.length, builder.idx); // length of dimension
-        builder.idx = builder.buffer.writeInt32BE(0, builder.idx); // lower bound, always 0
+        builder.dataview.setInt32(builder.idx, value.length); // length of dimension
+        builder.dataview.setInt32(builder.idx + 4, 0); // lower bound, always 0
+        builder.idx += 8;
         writeLeaf(builder, value, anyNullHolder);
       } else {
         // Calculate dimensions
@@ -75,13 +78,14 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
           dims.push(dimTestValue.length);
           dimTestValue = dimTestValue[0];
 
-          builder.idx = builder.buffer.writeInt32BE(dimTestValue.length, builder.idx); // length of dimension
-          builder.idx = builder.buffer.writeInt32BE(0, builder.idx); // lower bound, always 0
+          builder.dataview.setInt32(builder.idx, dimTestValue.length); // length of dimension
+          builder.dataview.setInt32(builder.idx + 4, 0); // lower bound, always 0
+          builder.idx += 8;
         }
-        builder.buffer.writeInt32BE(dims.length, start);
+        builder.dataview.setInt32(start, dims.length);
         writeLevel(builder, dims, value, anyNullHolder, 0);
       }
-      builder.buffer.writeInt32BE(anyNullHolder.anyNull, start + 4);
+      builder.dataview.setInt32(start + 4, anyNullHolder.anyNull);
     },
     decodeBinary: (buffer, dataview, offset, len) => {
       if (len < 12)
