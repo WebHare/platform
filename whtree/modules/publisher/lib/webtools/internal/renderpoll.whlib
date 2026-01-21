@@ -2,7 +2,7 @@
 LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
 
-PUBLIC OBJECTTYPE PollWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE PollWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

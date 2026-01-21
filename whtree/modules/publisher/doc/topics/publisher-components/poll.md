@@ -96,7 +96,7 @@ Use cases
   - Option A) Have the widget instance the poll object and let it render itself
 
 ```harescript
-PUBLIC OBJECTTYPE PollWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE PollWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {
@@ -112,7 +112,7 @@ PUBLIC OBJECTTYPE PollWidget EXTEND WidgetBase
   - Option B) Have the widget instance the poll object, request the witty data and use your own template
 
 ```harescript
-PUBLIC OBJECTTYPE PollWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE PollWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

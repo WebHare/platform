@@ -7,7 +7,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
 
-PUBLIC OBJECTTYPE ResultsFieldWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE ResultsFieldWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

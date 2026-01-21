@@ -5,7 +5,7 @@ LOADLIB "mod::publisher/lib/widgets.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
-PUBLIC OBJECTTYPE ConfirmFieldWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE ConfirmFieldWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

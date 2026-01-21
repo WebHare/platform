@@ -12,7 +12,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 /** @short Embedded slideshow widget
     @long Implements slideshow widget (http://www.webhare.net/xmlns/publisher/widgets/slideshow)
 */
-PUBLIC OBJECTTYPE SlideshowWidgetBase EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE SlideshowWidgetBase EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {
