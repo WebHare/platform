@@ -159,7 +159,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
 }
 
 /* Suggest a SEO friendly name. Allows us to centralize any needed tuning and logic (eg the limitutf8bytes line)
-   fsobject - Currnet object, which will be used for typeinfo and ignoring conflicts with itself
+   fsobject - Current object, which will be used for typeinfo and ignoring conflicts with itself
     parentfolder - Parent folder to use for checking name uniqueness
     type - Content type to use, needed when fsobject is not provided
     isfolder - Whether the new object is a folder, needed when fsobject is not provided

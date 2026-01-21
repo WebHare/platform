@@ -492,7 +492,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     // When saving as draft we shouldn't validate fields - "required" and other constraints shouldn't be blocking Save.
     OBJECT work := this->BeginWork([ validate := withpublish ? [this->frame] : OBJECT[] ]);
-    OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
+    OBJECT finalitem := OpenWHFSObject(this->itemid);
     this->CheckNameConflict(work);
 
     iF(withpublish AND finalitem->publish = FALSE AND finalitem->ispinned)
