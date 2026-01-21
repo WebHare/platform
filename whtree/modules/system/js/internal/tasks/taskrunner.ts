@@ -20,6 +20,11 @@ async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Ma
   if (!isWorkOpen())
     throw new Error("Task did not open work");
 
+  if (updates.auxdata)
+    await uploadBlob(updates.auxdata);
+  if (updates.longretval)
+    await uploadBlob(updates.longretval);
+
   await db<PlatformDB>()
     .updateTable("system.managedtasks")
     .where("id", "=", taskinfo.dbid)
