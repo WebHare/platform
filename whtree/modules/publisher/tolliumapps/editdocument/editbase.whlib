@@ -175,7 +175,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type) {
     this->isnew := TRUE;
-    // ^title->required := TRUE; //as we don't go through LoadBaseData we need to set this ourselves
     this->__SetupEditBase(0, parent, isfolder, type, DEFAULT RECORD);
   }
 
@@ -281,7 +280,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     // Read current contenttype from (source)file or use default (in case of a new file)
     // If this is a duplication action we must only read data if cloneoncopy hasn't been set to FALSE
     FOREVERY(RECORD controller FROM this->renderer->metacontrollers)
-      IF(NOT (isduplicate AND NOT controller.type->Cloneoncopy))
+      IF(NOT (isduplicate AND NOT controller.type->cloneoncopy))
         controller.fsinstance->value := sourceobject->GetInstanceData(controller.type->namespace);
 
     FOREVERY(RECORD extendprop FROM this->extendprops)
@@ -367,7 +366,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
         comp->readonly := TRUE;
   }
 
-  /// Disables all siteprofile extension components as readonly
+  /// Disables all siteprofile extension components
   MACRO MarkSiteProfileExtensionsDisabled() {
     FOREVERY(RECORD propeditor FROM this->extendprops)
       FOREVERY(OBJECT comp FROM propeditor.components)

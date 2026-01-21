@@ -1494,7 +1494,7 @@ PUBLIC OBJECT FUNCTION TT(STRING compname, RECORD options DEFAULTSTO DEFAULT REC
 PUBLIC BOOLEAN FUNCTION TTIsVisible(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD) {
   OBJECT target := TT(compname, CELL[...options, findinvisible := TRUE ]);
   //target may not exist if allowmissing was passed
-  RETURN OBjectExists(target) and target->isnowvisible;
+  RETURN ObjectExists(target) and target->isnowvisible;
 }
 
 PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)

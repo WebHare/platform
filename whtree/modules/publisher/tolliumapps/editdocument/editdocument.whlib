@@ -200,8 +200,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   }
 
   MACRO AddTypesSections() { //Insert metadata sheets as new sections
-    INTEGER insertpos := 1;
-
     FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
       FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
         OBJECT newsection := this->CreateTolliumComponent("section");
@@ -231,7 +229,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       tabs->extendcomponents := [[ name := "contentdata", component := whfsinstance ]];
       tabs->width := "1pr";
 
-      //'Dummy' main tab for compoonents which expect an insertpoint to exist there
+      //'Dummy' main tab for components which expect an insertpoint to exist there
       OBJECT maintab := tabs->InsertTabAt(0, GetTid("publisher:tolliumapps.objectprops.objectprops.maintab"));
       OBJECT insertpoint := this->CreateTolliumComponent("spacer");
       insertpoint->visible := FALSE;
@@ -356,7 +354,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(this->tolliumresult != "") //onloaddata may have cancelled us
       RETURN;
 
-    this->LoadBaseData(this->workflowmgr); //TODO should be instance object once versioning works
+    this->LoadBaseData(this->workflowmgr);
     this->LoadMetadata(this->workflowmgr, FALSE);
     this->RefreshState();
   }
@@ -458,7 +456,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     ^canceldraftmenu->visible := NOT this->readonly;
     ^publishbutton->visible := NOT this->readonly;
     ^saveasdraftbutton->visible := NOT this->readonly;
-
   }
 
   MACRO OnDraftmodeclick(STRING link)
@@ -493,9 +490,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(this->contexts->editdocumentapi->onprechecksave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onprechecksave(withpublish))
       RETURN FALSE; //aborted because some warning was scary enough
 
-    //When just saving there's no need to validate - it would even be extremely annoying if there's a lot of required metadata
+    // When saving as draft we shouldn't validate fields - "required" and other constraints shouldn't be blocking Save.
     OBJECT work := this->BeginWork([ validate := withpublish ? [this->frame] : OBJECT[] ]);
-    OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenHWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
+    OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
     this->CheckNameConflict(work);
 
     iF(withpublish AND finalitem->publish = FALSE AND finalitem->ispinned)

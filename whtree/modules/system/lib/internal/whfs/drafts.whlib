@@ -285,7 +285,10 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
     typeobj->SetInstancedata(destid, CELL[ metadata.name ], [ ifreadonly := "update", isvisibleedit := FALSE ]);
   }
 
-  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
+  // Fire events
+  OBJECT commithandler := GetWHFSCommitHandler();
+  commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id);
+  commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
 
   OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobject->id);
   RETURN draft;

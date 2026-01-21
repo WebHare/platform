@@ -397,7 +397,14 @@ MACRO TestEvents() {
         [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
       ]
     ]
-  ], ExpectWHFSEvents(1));
+  , [
+      folder := subfile->parent,
+      events := STRING[],
+      files := [
+        [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+      ]
+    ]
+  ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
   metamgr->UpdateMetadata([ title := "updated title" ]);
@@ -417,7 +424,7 @@ MACRO TestEvents() {
 
   INTEGER snapshotfolder;
   {
-    RECORD ARRAY events := ExpectWHFSEvents(3);
+    RECORD ARRAY events := ExpectWHFSEvents(4);
     INTEGER finalsnapshot := events[0].files[1].file;
 
     snapshotfolder := events[1].files[0].file; // The snapshot parent folder
@@ -438,6 +445,10 @@ MACRO TestEvents() {
         files := [
           [ file := snapshotfolder, isfolder := TRUE, events := [ "create" ] ]
         ]
+      ], [
+        folder := testfolder->id,
+        events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ] ]
       ], [
         folder := testfolder->id,
         events := STRING[],
@@ -462,8 +473,13 @@ MACRO TestEvents() {
       files := [
                 [ file := draft3->id, isfolder := FALSE, events := [ "create", "update" ] ]
               ]
+    ],
+    [
+      folder := testfolder->id,
+      events := STRING[],
+      files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
   metamgr->Save([ publish := TRUE]);
@@ -473,7 +489,7 @@ MACRO TestEvents() {
   WaitForPublishCompletion(subfile->parent);
 
   {
-    RECORD ARRAY events := ExpectWHFSEvents(4, [ minmsgcount := 3 ]);
+    RECORD ARRAY events := ExpectWHFSEvents(5, [ minmsgcount := 4 ]);
     TestEQ([
       [
         folder := whconstant_whfsid_autosaves,
@@ -484,9 +500,13 @@ MACRO TestEvents() {
       ], [
         folder := testfolder->id,
         events := STRING[],
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ] ]
+      ],[
+        folder := testfolder->id,
+        events := STRING[],
         files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ],
-      ...(LENGTH(events) = 4 ? [ // if output analyzer runs after publish no 'rep' is issued
+      ...(LENGTH(events) = 5 ? [ // if output analyzer runs after publish no 'rep' is issued
           [
             folder := testfolder->id,
             events := STRING[],

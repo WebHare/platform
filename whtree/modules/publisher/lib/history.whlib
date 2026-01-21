@@ -350,7 +350,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     //FIXME require a locked transaction with the proper source file locked ?
     //Get next version#
     RECORD curversion := GetLastSnapshotVersion(this->baseobject->id);
-    STRINg setversion := `${curversion.major}.${curversion.minor + 1}`;
+    STRING setversion := `${curversion.major}.${curversion.minor + 1}`;
 
     //Move our version to the draft folder
     this->FinishAutosave(now, whconstant_historytype_saved, "", setversion);
@@ -369,6 +369,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     UPDATE system.fs_objects
         SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, TRUE)
       WHERE id = this->baseobject->id;
+
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectUpdate(sourcefiledata.parentsite, sourcefiledata.parent, this->baseobject->id);
   }
 
   /** @short Save the current version (autosave or draft) as the final version */
@@ -437,5 +441,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     UPDATE system.fs_objects
         SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, FALSE)
       WHERE id = this->baseobject->id;
+
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id);
   }
+
 >;
