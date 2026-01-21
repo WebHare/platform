@@ -690,7 +690,11 @@ ASYNC MACRO ViewHistory() {
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectVersionsDialog(GetTestController(), unpublishedfile->id));
   TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.1"; //this one lacks a snapshot and may crash
 
-  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.2"; //this one contained temporary data
+  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.3"; //this one got the first real name
+  TestEq("test2.html", TT("name")->value);
+
+  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="0.2"; //this one contains a mocked name
+  TestEq("an-even-newer-title.html", TT("name")->value);
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Copy to"));
   TT("folders")->value := GetTestsuiteTempFolder()->id;
