@@ -190,9 +190,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, this->isobjectprops ]);
     this->metatabsconfig := this->renderer->metatabsconfig;
     this->workfloweditor := RecordExists(this->metatabsconfig) ? this->metatabsconfig.workfloweditor : DEFAULT RECORD;
-    this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
-    IF(NOT ObjectExists(this->contexts->applytester))
-      THROW NEW TolliumException(this, "No applytester found for this object");
+    this->contexts->applytester := this->renderer->applytester;
 
     //We currently need this->parentfolder to be set so we can run UpdatePinned which will be triggered below by ^pinobject->value :=
     this->parentfolder := this->contexts->applytester->objparent = 0 ? OpenWHFSRootObject() : OpenWHFSObject(this->contexts->applytester->objparent);
@@ -478,13 +476,18 @@ PUBLIC OBJECT FUNCTION CreateMetatabsRenderer(RECORD objdata) {
   ]);
 
   RECORD metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", objdata);
-  IF(RecordExists(metatabsconfig)) {
-    metatabsconfig := EnforceStructure(
-      CELL[ extend_props := RECORD[] ], metatabsconfig
-    );
-  }
-
   OBJECT applytester := RecordExists(metatabsconfig) ? GetApplyTesterForHSInfo(metatabsconfig.__hsinfo) : GetApplyTesterForObject(objdata.objectid); //fallback. test-whfs-history-v4 triggers it
+  IF(NOT ObjectExists(applytester))
+    THROW NEW Exception("No applytester found for this object");
+
+  metatabsconfig := EnforceStructure(
+    CELL[ extend_props := RECORD[]
+        , workfloweditor := DEFAULT RECORD
+        , types := RECORD[]
+        ], metatabsconfig
+  );
+
+  DELETE CELL __hsinfo FROM metatabsconfig;
 
   RETURN NEW MetatabsRenderer(metatabsconfig, applytester);
 }

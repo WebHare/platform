@@ -202,19 +202,17 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO AddTypesSections() { //Insert metadata sheets as new sections
     INTEGER insertpos := 1;
 
-    IF(RecordExists(this->renderer->metatabsconfig)) {
-      FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
-        FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
-          OBJECT newsection := this->CreateTolliumComponent("section");
-          newsection->title := section.title;
-          newsection->open := TRUE;
+    FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+      FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
+        OBJECT newsection := this->CreateTolliumComponent("section");
+        newsection->title := section.title;
+        newsection->open := TRUE;
 
-          FOREVERY(RECORD line FROM section.lines) {
-            newsection->panel->layout := line.layout;
-            newsection->panel->InsertComponentAfter(line.line, DEFAULT OBJECT, TRUE);
-          }
-          ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
+        FOREVERY(RECORD line FROM section.lines) {
+          newsection->panel->layout := line.layout;
+          newsection->panel->InsertComponentAfter(line.line, DEFAULT OBJECT, TRUE);
         }
+        ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
       }
     }
 
@@ -222,9 +220,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   }
 
   MACRO AddLegacyExtensions() {
-    IF(NOT RecordExists(this->renderer->metatabsconfig))
-      RETURN;
-
     //Legacy extensions expect to be loaded into a tab. Build tabs to make them happy
     FOREVERY(RECORD ext FROM this->renderer->metatabsconfig.extend_props) {
       //Build a tabs container and an instance to exchange whfstype data

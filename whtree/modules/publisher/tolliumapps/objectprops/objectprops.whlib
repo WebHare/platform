@@ -681,11 +681,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   MACRO AddTypesTabs() { //Insert metadata sheets as tabs
     INTEGER insertpos := 1;
 
-    IF(RecordExists(this->renderer->metatabsconfig)) {
-      FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
-        RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
-        insertpos := insertpos + insertresult.sections;
-      }
+    FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+      RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
+      insertpos := insertpos + insertresult.sections;
     }
 
     this->RefreshMetaTabsReadonly();
