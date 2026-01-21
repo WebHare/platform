@@ -2,11 +2,14 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
@@ -153,4 +156,40 @@ PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
   RETURN SELECT AS INTEGER ARRAY id
            FROM GetCachedSiteProfiles().contenttypes
           WHERE RecordExists(foldertype) AND RecordExists(dynamicexecution);
+}
+
+/* Suggest a SEO friendly name. Allows us to centralize any needed tuning and logic (eg the limitutf8bytes line)
+   fsobject - Currnet object, which will be used for typeinfo and ignoring conflicts with itself
+    parentfolder - Parent folder to use for checking name uniqueness
+    type - Content type to use, needed when fsobject is not provided
+    isfolder - Whether the new object is a folder, needed when fsobject is not provided
+    language - Language to use for getting the title tid if empty
+*/
+PUBLIC STRING FUNCTION SuggestSeoNameFromTitle(STRING title, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([
+    fsobject := DEFAULT OBJECT,
+    parentfolder := 0,
+    typeinfo := DEFAULT RECORD,
+    type := 0,
+    isfolder := FALSE,
+    language := ""
+  ], options);
+
+  INTEGER ignoreobject := ObjectExists(options.fsobject) ? options.fsobject->id : 0;
+  INTEGER parentfolder := options.parentfolder ?? (ObjectExists(options.fsobject) ? options.fsobject->parent : 0);
+  RECORD typeinfo := options.typeinfo;
+  IF(NOT RecordExists(typeinfo)) {
+    typeinfo := ObjectExists(options.fsobject) ? DescribeContentTypeById(options.fsobject->type, CELL[ options.fsobject->isfolder, mockifmissing := TRUE ])
+                                               : DescribeContentTypeById(options.type, CELL[ options.isfolder, mockifmissing := TRUE ]);
+  }
+
+  STRING extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions);
+  IF(title = "" AND options.language != "")
+    title := GetTidForLanguage(options.language, "platform:tolliumapps.publisher.common.newobject-name", GetTidForLanguage(options.language, typeinfo.title));
+
+  STRING suggestedname := GetSafeName(LimitUTF8Bytes(title,200)) || extension;
+  IF(options.parentfolder != 0)
+    suggestedname := GenerateUniqueName(options.parentfolder, suggestedname, CELL[ ignoreobject]);
+
+  RETURN suggestedname;
 }

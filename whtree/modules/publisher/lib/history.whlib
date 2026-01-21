@@ -357,13 +357,11 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     IF(NOT this->IsNameExplicit()) { //then we still want filemanager to follow temporary titles for clarity
       RECORD meta := SELECT title FROM system.fs_objects WHERE id = this->currentautosave_version.snapshot;
-      RECORD typeinfo := DescribeContentTypeById(this->baseobject->type, CELL[ isfolder := this->baseobject->isfolder, mockifmissing := TRUE]);
-      STRING extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions);
 
       IF(RecordExists(meta) AND meta.title != "")
         this->baseobject->UpdateMetadata(CELL[
           title := meta.title,
-          name := SuggestSeoNameFromTitle(meta.title, CELL[ parentfolder := this->baseobject->parent, ignoreobject := this->baseobject->id, extension ])
+          name := SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject ])
         ]);
     }
 
@@ -384,9 +382,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RECORD baseversion := (this->currentautosave_version ?? this->currentdraft_version);
     RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = baseversion.snapshot;
 
-    RECORD typeinfo := DescribeContentTypeById(this->baseobject->type, CELL[ isfolder := this->baseobject->isfolder, mockifmissing := TRUE]);
-    STRING extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions);
-
     //take the version suggested name first
     STRING setname := baseversion.currentname;
     IF(setname = "") {
@@ -394,7 +389,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       IF(this->IsNameExplicit()) {
         setname := this->baseobject->name;
       } ELSE IF(sourcedata.title != "") {
-        setname := SuggestSeoNameFromTitle(sourcedata.title, CELL[ parentfolder := this->baseobject->parent, ignoreobject := this->baseobject->id, extension ]);
+        setname := SuggestSeoNameFromTitle(sourcedata.title, CELL[ fsobject := this->baseobject ]);
       } ELSE {
         setname := this->baseobject->name;
       }

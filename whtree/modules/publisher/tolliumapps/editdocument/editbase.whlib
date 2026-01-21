@@ -8,6 +8,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -235,7 +236,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
   STRING FUNCTION GetSuggestedSlug() {
     //FIXME don't select from database, we should just load this info at startup. we need it for the titlebar anyway
-    RETURN ^title->value != "" ? SuggestSeoNameFromTitle(^title->value) : SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;;
+    RETURN ^title->value != "" ? SuggestSeoNameFromTitle(^title->value, [ typeinfo := this->curtype ]) : SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;
   }
 
   MACRO SyncNameWithTitle()  {

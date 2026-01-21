@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/objecteditor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/results.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -178,9 +179,8 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
     IF(RecordExists(applytester->GetWorkflowEditor())) {
       GetPrimary()->BeginWork();
       OBJECt parentobj := OpenWHFSObject(parentfolder);
-      RECORD typeinfo := DescribeContentTypeById(createres.createtype, [isfolder := FALSE, mockifmissing := TRUE ]);
       OBJECT newfile := parentobj->CreateFile(
-        [ name := SuggestSeoNameFromTitle("New " || GetTid(typeinfo.title), [ parentfolder := parentfolder ])
+        [ name := SuggestSeoNameFromTitle("", CELL[ parentfolder, type := createres.createtype, isfolder := FALSE, language := GetTidLanguage() ])
         , type := createres.createtype
         , ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = VAR parentfolder)
         ], [ createdby := parentscreen->contexts->user, implicit_name := TRUE ]);
