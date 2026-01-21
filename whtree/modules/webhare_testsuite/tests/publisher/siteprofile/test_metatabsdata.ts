@@ -16,22 +16,69 @@ async function testMetadataReader() {
   const imgfile = await openFile("site::webhare_testsuite.testsite/testpages/imgeditfile.jpeg");
   const imgfileMetatabs = await describeMetaTabs(await getApplyTesterForObject(imgfile));
   test.eq(null, imgfileMetatabs.workflowEditor);
-  test.eq([
+  test.eqPartial([
     { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
-    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" },
     { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" }
   ], imgfileMetatabs.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
 
-  const imgfileMetatabsAsSysop = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("marge").auth });
-  test.eq([
+  const imgfileMetatabsAsMarge = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("marge").auth });
+  test.eqPartial([
     { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
-    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops" },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" }
+  ], imgfileMetatabsAsMarge.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
+
+  const imgfileMetatabsAsMargeForObjectProps = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("marge").auth, isObjectProps: true });
+  test.eqPartial([
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
+    { extension: 'mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops', whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops', },
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" },
+  ], imgfileMetatabsAsMargeForObjectProps.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
+
+  const imgfileMetatabsAsSysop = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("sysop").auth });
+  test.eqPartial([
+    { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops", whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/basetestprops" },
     { extension: "mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor", whfsType: "http://www.webhare.net/xmlns/beta/test" }
   ], imgfileMetatabsAsSysop.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
+
+  const imgfileMetatabsAsSysopForObjectProps = await describeMetaTabs(await getApplyTesterForObject(imgfile), { user: test.getUser("sysop").auth, isObjectProps: true });
+  test.eqPartial([
+    {
+      whfsType: 'platform:publisher.lifecycle',
+      extension: 'mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle',
+      title: ':platform:publisher.lifecycle'
+    },
+    {
+      whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/basetestprops',
+      extension: 'mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#basetestprops',
+      title: ':WTS base test'
+    },
+    {
+      whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops',
+      extension: 'mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#nocopyprops',
+      title: ':http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops'
+    },
+    {
+      whfsType: 'http://www.webhare.net/xmlns/beta/test',
+      extension: 'mod::webhare_testsuite/webdesigns/basetest/basetest.siteprl.xml#testeditor',
+      title: ':Beta Test Contenttype'
+    }
+  ], imgfileMetatabsAsSysopForObjectProps.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
 
   const richdocfile = await openFile("site::webhare_testsuite.testsitejs/testpages/staticpage");
   const applyester = await getApplyTesterForObject(richdocfile);
   const metatabs = await describeMetaTabs(applyester);
+
+  const richdocfileMetatabsAsMargeForObjectProps = await describeMetaTabs(await getApplyTesterForObject(richdocfile), { user: test.getUser("marge").auth, isObjectProps: true });
+  test.eqPartial([], richdocfileMetatabsAsMargeForObjectProps.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
+
+  const richdocfileMetatabsAsSysopForObjectProps = await describeMetaTabs(await getApplyTesterForObject(richdocfile), { user: test.getUser("sysop").auth, isObjectProps: true });
+  test.eqPartial([
+    {
+      whfsType: 'platform:publisher.lifecycle',
+      extension: 'mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle',
+      title: ':platform:publisher.lifecycle'
+    }
+  ], richdocfileMetatabsAsSysopForObjectProps.extendProps.toSorted((a, b) => a.extension.localeCompare(b.extension)));
 
   test.assert(metatabs.workflowEditor);
 
@@ -202,7 +249,7 @@ async function getMockTestApplyTester(name: string) {
 }
 
 async function testAllTypes() {
-  const allpropsTabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
+  const allpropsTabs = await describeMetaTabs(await getMockTestApplyTester("allprops"), { isObjectProps: true });
   test.eq([":WTS base test", ":Folksonomy tags", ":WTS Generic", ":rich"], allpropsTabs?.types.map(t => t.sections.map(s => s.title)).flat());
 
   const wtsgenerictab = allpropsTabs!.types[1].sections[0];

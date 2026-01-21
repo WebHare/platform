@@ -78,9 +78,6 @@
         <textgroup gid="mp3audio">   <!-- siteprofiles.types.filetypes.mp3audio -->
           <text tid="mp3audio">MP3 Audio File</text>
         </textgroup>
-        <textgroup gid="msword">   <!-- siteprofiles.types.filetypes.msword -->
-          <text tid="msword">Word Document</text>
-        </textgroup>
         <textgroup gid="msworddownload">   <!-- siteprofiles.types.filetypes.msworddownload -->
           <text tid="msworddownload">Downloadable Word Document</text>
         </textgroup>
@@ -190,7 +187,7 @@
       </textgroup>
     </textgroup>
   </textgroup>
-  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+  <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->
       <textgroup gid="checks">   <!-- tolliumapps.dashboard.checks -->
         <textgroup gid="errors" limitlanguages="en">   <!-- tolliumapps.dashboard.checks.errors -->
@@ -200,6 +197,11 @@
           <text tid="postgresql-switchdb">Your database server needs to be restarted to activate a restored/migrated database in <param p="1"/></text>
           <text tid="postgresql-unuseddb">An unused database appears to exist in <param p="1"/>. Delete it to save space</text>
         </textgroup>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="publisher">   <!-- tolliumapps.publisher -->
+      <textgroup gid="common">   <!-- tolliumapps.publisher.common -->
+        <text tid="newobject-name">New <param p="1"/></text>
       </textgroup>
     </textgroup>
   </textgroup>

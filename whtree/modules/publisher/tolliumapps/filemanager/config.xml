@@ -9,10 +9,6 @@
         <option rowkey="showforeignfolders" />
         <option rowkey="showmenubar" />
       </select>
-      <select name="autotitles" type="radio" rowkeytype="boolean">
-        <option rowkey="false" />
-        <option rowkey="true" />
-      </select>
       <box name="tweaks" hr="false" layout="left">
         <checkbox name="showwebharebackend" labeltid=".showwebharebackend" title="" />
         <checkbox name="showwhfsprivate" labeltid=".showwhfsprivate" title="" />

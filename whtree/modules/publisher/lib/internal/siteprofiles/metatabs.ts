@@ -28,8 +28,8 @@ interface MetaTabs {
     sections: MetadataSection[];
   }>;
   extendProps: Array<{
+    title: string;
     whfsType: string;
-    requireRight?: string;
     extension: string;
   }>;
   /** Issues - for now simply strings */
@@ -104,18 +104,50 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
   };
 }
 
-async function getFilteredExtendProps(applytester: WHFSApplyTester, user: AuthorizationInterface | undefined) {
-  const extensions: MetaTabs['extendProps'] = [];
+async function getFilteredExtendProps(applytester: WHFSApplyTester, user: AuthorizationInterface | undefined, editWorkflowMetadata: boolean, isObjectProps: boolean): Promise<Pick<MetaTabs, 'extendProps' | 'issues'>> {
+  const extendProps: MetaTabs['extendProps'] = [];
+  const issues: string[] = [];
+
   for (const prop of await applytester.getExtendProps()) {
-    if (!prop.requireRight || (user && await user.hasRightOn(prop.requireRight, applytester.getRightsTarget() ?? "all")))
-      extensions.push(prop);
+    if (prop.requireRight && (!user || !await user.hasRightOn(prop.requireRight, applytester.getRightsTarget() ?? "all"))) {
+      issues.push(`No rights to extendProps editor for type ${prop.whfsType}`);
+      continue;
+    }
+
+    if (!prop.whfsType) {
+      issues.push(`Not considering property editor '${prop.extension}' without a whfsType`);
+      continue; //when not working for objectprops we require a type
+    }
+
+    const matchtype = getType(prop.whfsType);
+    if (!matchtype) {
+      issues.push(`No such type ${prop.whfsType}`);
+      continue;
+    }
+
+    if (matchtype.workflow && !editWorkflowMetadata) {
+      issues.push(`Type ${prop.whfsType} is defined for workflow, but this context cannot edit workflow controlled fields`);
+      continue;
+    }
+
+    if (!isObjectProps //then assuming we're in document editor
+      && matchtype.workflow === false) { //type is explicitly non-workflow
+      issues.push(`Type ${prop.whfsType} is not defined for workflow, but this context requires workflow`);
+      continue;
+    }
+
+    extendProps.push({
+      whfsType: prop.whfsType,
+      extension: prop.extension,
+      title: matchtype.title || `:${matchtype.scopedtype || matchtype.namespace}`
+    });
   }
-  return extensions;
+  return { extendProps, issues };
 }
 
-/** @param options.requireWorkflow - only return tabs that support workflow (ie: we are the document editor */
+/** @param options.isObjectProps - requesting metadata for objectprops screen */
 export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
-  requireWorkflow?: boolean;
+  isObjectProps?: boolean;
   user?: AuthorizationInterface;
 }): Promise<MetaTabs> {
   const cf = await applytester.__getCustomFields();
@@ -128,16 +160,21 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
       pertype[extend.contenttype].push(extend);
     }
 
+  //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
+  const setObjectEditor = await applytester.getObjectEditor();
+
+  // objectprops is not allowed to edit workflow fields when editing existing files which have a document editor
+  const editWorkflowMetadata = applytester.isMocked() || !options?.isObjectProps || !setObjectEditor?.documentEditor;
+  const aboutExtendProps = await getFilteredExtendProps(applytester, options?.user, editWorkflowMetadata, options?.isObjectProps || false);
   const metasettings: MetaTabsWithHSInfo = {
     types: [],
-    extendProps: await getFilteredExtendProps(applytester, options?.user),
+    extendProps: aboutExtendProps.extendProps,
+    issues: aboutExtendProps.issues,
     [hsinfo]: applytester.__getHSInfo(),
-    issues: [],
     workflowEditor: null
   };
 
-  //Find out if we have a workflow editor (documenteditor supporting Publish and Save, which implies workflow fields move from objectprops to the editor)
-  const setObjectEditor = await applytester.getObjectEditor();
+
   if (setObjectEditor?.documentEditor)
     metasettings.workflowEditor = {};
 
@@ -151,7 +188,12 @@ export async function describeMetaTabs(applytester: WHFSApplyTester, options?: {
       metasettings.issues.push(`Type ${contenttype} must be defined by a YAML siteprofile`);
       continue;
     }
-    if (options?.requireWorkflow && !matchtype.workflow) {
+    if (matchtype.workflow && !editWorkflowMetadata) {
+      metasettings.issues.push(`Type ${contenttype} is defined for workflow, but this context cannot edit workflow controlled fields`);
+      continue;
+    }
+    if (!options?.isObjectProps //then assuming we're in document editor
+      && matchtype.workflow === false) { //type is explicitly non-workflow
       metasettings.issues.push(`Type ${contenttype} is not defined for workflow, but this context requires workflow`);
       continue;
     }
@@ -254,6 +296,8 @@ interface MetaTabsForHS {
   __hsinfo: unknown;
   issues: string[];
   extend_props: ToSnakeCase<MetaTabs['extendProps']>;
+  //TODO do we need this? just inform the objecteditor about baseprops/edit_workflow_metadata
+  workfloweditor: Record<never, never> | null;
 }
 
 export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
@@ -270,6 +314,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
         }))
       }))
     })),
+    workfloweditor: metatabs.workflowEditor,
     __hsinfo: (metatabs as MetaTabsWithHSInfo)[hsinfo],
     issues: metatabs.issues,
     extend_props: toSnakeCase(metatabs.extendProps)
@@ -277,7 +322,7 @@ export function remapForHs(metatabs: MetaTabs): MetaTabsForHS {
   return translated;
 }
 
-export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; requireworkflow: boolean; user: number }): Promise<MetaTabsForHS | null> {
+export async function describeMetaTabsForHS(obj: { objectid: number; parent: number; isfolder: boolean; type: number; isobjectprops: boolean; user: number }): Promise<MetaTabsForHS | null> {
   try {
     let applytester;
     if (obj.objectid) {
@@ -287,7 +332,7 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
       applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
     }
 
-    const metatabs = await describeMetaTabs(applytester, { requireWorkflow: obj.requireworkflow, user: obj.user ? getAuthorizationInterface(obj.user) : undefined });
+    const metatabs = await describeMetaTabs(applytester, { isObjectProps: obj.isobjectprops, user: obj.user ? getAuthorizationInterface(obj.user) : undefined });
     return remapForHs(metatabs);
   } catch (e) {
     if ((e as Error)?.message.startsWith('No recycle info found for'))

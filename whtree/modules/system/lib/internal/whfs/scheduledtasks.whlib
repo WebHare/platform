@@ -56,7 +56,7 @@ MACRO DoStartPublish(RECORD task)
   FOREVERY(INTEGER tocheck FROM check_for_drafts) {
     OBJECT mgr := NEW WorkflowManager(task.file, [ useworkflow := TRUE, assumewriteaccess := TRUE ]);
     IF(RecordExists(mgr->GetCurrentDraft()))
-      mgr->Save(TRUE, CELL[updatemetadatafields := STRING[]]); //don't copy title etc until those props are visible to all
+      mgr->Save([ finalize := TRUE, updatemetadatafields := STRING[]]); //don't copy title etc until those props are visible to all
   }
 
   IF(fsobj.isfolder)
@@ -214,7 +214,8 @@ MACRO DoReplaceWith(RECORD task)
 
   OBJECT workflowmgr := NEW WorkflowManager(task.file,
       [ useworkflow := TRUE,
-        workflowtypes := SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type")
+        workflowtypes := (SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type"))
+      , assumewriteaccess := TRUE
       ]);
 
   FOREVERY(OBJECT typeobj FROM clonetypes)
@@ -226,7 +227,7 @@ MACRO DoReplaceWith(RECORD task)
                                   , replacewith.description
                                   , replacewith.keywords
                                   ]);
-  workflowmgr->Save(TRUE);
+  workflowmgr->Save([ finalize := TRUE ]);
   toreplace->UpdateMetadata(CELL[ replacewith.filelink
                                 , replacewith.externallink
                                 ]);

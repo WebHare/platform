@@ -29,9 +29,10 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 CONSTANT RECORD createoptions :=
   CELL[ instances := RECORD[]
       , createdby := DEFAULT OBJECT
+      , implicit_name := FALSE
       ];
 
-MACRO ApplyCreationOptions(RECORD metadata, RECORD options) {
+MACRO ApplyCreationOptions(RECORD metadata, RECORD options, BOOLEAN metadata_had_name) {
   FOREVERY(RECORD instance FROM options.instances) {
       IF(NOT CellExists(instance,'whfstype'))
         THROW NEW Exception(`Instance #${#instance} has no cell 'whfstype'`);
@@ -39,13 +40,14 @@ MACRO ApplyCreationOptions(RECORD metadata, RECORD options) {
     }
 
   IF(ObjectExists(options.createdby)) {
-    RECORD userinfo := options.createdby->GetUserDataForLogging();
+    //Note that we can only record whether the name was implicitly generated if you create a version.
     INSERT CELL[ fs_object := metadata.id
-               , user := options.createdby->authobjectid
-               , userdata := EncodeHSON(userinfo)
+               , user := ObjectExists(options.createdby) ? options.createdby->authobjectid : 0
+               , userdata := ObjectExists(options.createdby) ? EncodeJSON(options.createdby->GetUserDataForLogging(), [ typed := TRUE ]) : ""
                , type := whconstant_historytype_created
                , when := metadata.creationdate
                , version := "0.1"
+               , currentname := metadata_had_name AND NOT options.implicit_name ? metadata.name : ""
                ] INTO system_internal.fs_history;
   }
 }
@@ -1217,12 +1219,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       THROW NEW WHFSException("OTHER","The parent object is already deleted");
     IF(NOT CellExists(metadata,"name")) {
       IF(CellExists(metadata,'title') AND metadata.title != "") {
-        //NOTE DescribeContentTypeById is dangerous, it crashes during WH bootstrap if siteprofiles have never been compiled yet
-        RECORD typeinfo := DescribeContentTypeById(type, CELL[isfolder,mockifmissing := TRUE]);
-        STRING suggestname := SuggestSeoNameFromTitle(metadata.title,
-            [ parentfolder := this->id
-            , extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions)
-            ]);
+        STRING suggestname := SuggestSeoNameFromTitle(metadata.title, CELL[ parentfolder := this->id, type, isfolder ]);
         metadata := CELL[ ...metadata, name := suggestname ];
       } ELSE {
         THROW NEW WHFSException("OTHER","Missing cell 'name' for new object and no title was set. Use implicit_name if you need to set up a temporary name for an upcoming draft");
@@ -1319,11 +1316,12 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
           CELL[ ...createoptions
               ], options);
 
+    BOOLEAN metadata_had_name := CellExists(metadata,'name');
     metadata := VerifyMetadata(metadata, TRUE);
     metadata := this->FixupNewObjectMetadata(metadata, TRUE);
 
     INSERT metadata INTO system.fs_objects;
-    ApplyCreationOptions(metadata, options);
+    ApplyCreationOptions(metadata, options, metadata_had_name);
 
     OBJECT commithandler := GetWHFSCommitHandler();
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
@@ -1359,6 +1357,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
                                 , setindex := FALSE
                                 ], options);
 
+    BOOLEAN metadata_had_name := CellExists(metadata,'name');
     metadata := VerifyMetadata(metadata, FALSE);
     metadata := FixupDataAndType(metadata, DEFAULT RECORD);
     metadata := this->FixupNewObjectMetadata(metadata, FALSE);
@@ -1376,7 +1375,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       metadata := CELL[ ...metadata, contentmodificationdate := metadata.creationdate ];
 
     INSERT metadata INTO system.fs_objects;
-    ApplyCreationOptions(metadata, options);
+    ApplyCreationOptions(metadata, options, metadata_had_name);
     commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.

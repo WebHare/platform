@@ -21,6 +21,7 @@
         <enableon source="tasks" min="1" max="1" />
       </action>
       <action name="gotopublishedurl" onexecute="dogotopublishedurl" title="" />
+      <action name="refreshname" onexecute="dorefreshname" tid="tolliumapps.objectprops.objectprops.refreshname" />
     </actions>
 
     <compositions>
@@ -46,14 +47,19 @@
           <tabs name="maintabs" type="server" height="1pr">
             <tab name="maintab" tid=".maintab">
               <heading name="maintab_heading" doclink="publisher:objectprops/nametitle" tid=".nametitle" />
-              <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
               <line>
-                <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+                <textedit name="title" width="1pr" maxlength="256" tid="~title"/>
                 <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
                   <option rowkey="false" tid=".isunlisted-false" />
                   <option rowkey="true" tid=".isunlisted-true" />
                 </select>
               </line>
+              <textedit name="name" width="1pr" maxlength="256" tid="~name" validationchecks="whfsname">
+                <button name="refreshnamebutton"
+                        action="refreshname"
+                        icon="tollium:actions/refresh"
+                        tid="tolliumapps.objectprops.objectprops.refreshname" />
+              </textedit>
               <heading name="seotab_heading" doclink="publisher:objectprops/seo" />
               <textedit composition="webmetadata"
                         cellname="seo_title"

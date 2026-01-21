@@ -9,7 +9,6 @@ LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
@@ -398,7 +397,14 @@ MACRO TestEvents() {
         [ file := draft2->id, isfolder := FALSE, events := [ "create", "update" ] ]
       ]
     ]
-  ], ExpectWHFSEvents(1));
+  , [
+      folder := subfile->parent,
+      events := STRING[],
+      files := [
+        [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ]
+      ]
+    ]
+  ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
   metamgr->UpdateMetadata([ title := "updated title" ]);
@@ -413,15 +419,15 @@ MACRO TestEvents() {
   ], ExpectWHFSEvents(1));
 
   testfw->BeginWork();
-  metamgr->Save(FALSE);
+  metamgr->Save();
   testfw->CommitWork();
 
   INTEGER snapshotfolder;
   {
-    RECORD ARRAY events := ExpectWHFSEvents(5);
+    RECORD ARRAY events := ExpectWHFSEvents(4);
     INTEGER finalsnapshot := events[0].files[1].file;
 
-    snapshotfolder := events[2].files[0].file; // The snapshot parent folder
+    snapshotfolder := events[1].files[0].file; // The snapshot parent folder
 
     // Draft is moved from autosaves to drafts, so we get a moved event
     // Draft2 is deleted (autosaeve cleanup)
@@ -432,12 +438,6 @@ MACRO TestEvents() {
         files := [
           [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ],
           [ file := finalsnapshot, isfolder := FALSE, events := [ "create" ] ]
-        ]
-      ], [
-        folder := whconstant_whfsid_drafts,
-        events := STRING[],
-        files := [
-          [ file := draft2->id, isfolder := FALSE, events := [ "move", "update" ] ]
         ]
       ], [
         folder := whconstant_whfsid_whfs_snapshots,
@@ -473,18 +473,23 @@ MACRO TestEvents() {
       files := [
                 [ file := draft3->id, isfolder := FALSE, events := [ "create", "update" ] ]
               ]
+    ],
+    [
+      folder := testfolder->id,
+      events := STRING[],
+      files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
     ]
-  ], ExpectWHFSEvents(1));
+  ], ExpectWHFSEvents(2));
 
   testfw->BeginWork();
-  metamgr->Save(TRUE);
+  metamgr->Save([ publish := TRUE]);
   testfw->CommitWork();
 
   WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
   WaitForPublishCompletion(subfile->parent);
 
   {
-    RECORD ARRAY events := ExpectWHFSEvents(6, [ minmsgcount := 5 ]);
+    RECORD ARRAY events := ExpectWHFSEvents(5, [ minmsgcount := 4 ]);
     TestEQ([
       [
         folder := whconstant_whfsid_autosaves,
@@ -493,21 +498,15 @@ MACRO TestEvents() {
           [ file := draft3->id, isfolder := FALSE, events := [ "moved" ] ]
         ]
       ], [
-        folder := whconstant_whfsid_drafts,
-        events := STRING[],
-        files := [
-          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ]
-        ]
-      ], [
         folder := testfolder->id,
         events := STRING[],
-        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep", "update" ] ] ]
-      ], [
+        files := [ [ file := subfile->id, isfolder := FALSE, events := [ "update" ] ] ]
+      ],[
         folder := testfolder->id,
         events := STRING[],
         files := [ [ file := subfile->id, isfolder := FALSE, events := [ "history" ] ] ]
       ],
-      ...(LENGTH(events) = 6 ? [ // if output analyzer runs after publish no 'rep' is issued
+      ...(LENGTH(events) = 5 ? [ // if output analyzer runs after publish no 'rep' is issued
           [
             folder := testfolder->id,
             events := STRING[],
@@ -517,8 +516,7 @@ MACRO TestEvents() {
         folder := snapshotfolder,
         events := STRING[],
         files := [
-          [ file := draft2->id, isfolder := FALSE, events := [ "move" ] ],
-          [ file := draft3->id, isfolder := FALSE, events := [ "move" ] ]
+          [ file := draft3->id, isfolder := FALSE, events := [ "move","update" ] ]
         ]
       ]
     ], events);

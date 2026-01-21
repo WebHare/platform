@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" ;
@@ -14,7 +15,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
-CONSTANT STRING ARRAY workflow_controlled_fields := ["DATA", "TITLE", "DESCRIPTION", "KEYWORDS" ];
+PUBLIC CONSTANT STRING ARRAY workflow_controlled_fields := ["DATA", "TITLE", "DESCRIPTION", "KEYWORDS" ];
 
 CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_recycled
                                     , "saved"      //1 whconstant_historytype_saved
@@ -27,10 +28,6 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
                                     , "final"      //8 whconstant_historytype_final
                                     ];
 
-RECORD FUNCTION ValidateSaveOptions(RECORD options) {
-  RETURN ValidateOptions(CELL[ updatemetadatafields := STRING["title", "description", "keywords"] ], options);
-}
-
 RECORD FUNCTION StringVersionToParts(STRING stringversion)
 {
   STRING ARRAY toks := Tokenize(stringversion, '.');
@@ -42,7 +39,7 @@ RECORD FUNCTION StringVersionToParts(STRING stringversion)
              ];
 }
 
-RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
+PUBLIC RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
 {
   RECORD ARRAY currentversions := SELECT version, userdata
                                     FROM system_internal.fs_history
@@ -51,7 +48,7 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
   currentversions := SELECT *, parts := StringVersionToParts(version) FROM currentversions;
   RETURN (SELECT AS RECORD CELL[ parts.major
                                , parts.minor
-                               , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
+                               , userdata := DecodeHSONOrJSONRecord(userdata)
                                ] FROM currentversions
                                 WHERE RecordExists(parts)
                                 ORDER parts.major DESC, parts.minor DESC
@@ -59,7 +56,7 @@ RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
          ?? [ userdata := DEFAULT RECORD, major := 0, minor := 0 ];
 }
 
-INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER modifiedby) {
+PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER modifiedby) {
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
   RECORD objinfo := SELECT name, filelink, parent, parentsite, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR baseobjectid;
   INSERT CELL [ id := destid
@@ -104,14 +101,15 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
      SELECT id
           , type := type >= 0 AND type < Length(eventnames) ? eventnames[type] : "#" || type
           , user
-          , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
+          , userdata := DecodeHSONOrJSONRecord(userdata)
           , when
           , snapshot
           , version
           , isactive :=     snapshot = objid
+          , name := currentname
        FROM system_internal.fs_history
       WHERE fs_object = objid
-   ORDER BY when;
+   ORDER BY when, id;
 
   INTEGER lastapproved := SELECT AS INTEGER id FROM historyitems WHERE type IN [ "approved", "created" ] ORDER BY when DESC LIMIT 1;
   RETURN
@@ -120,7 +118,7 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
         FROM historyitems;
 }
 
-MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRAY addworkflowtypes, BOOLEAN isfinal) {
+PUBLIC MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRAY addworkflowtypes, BOOLEAN isfinal) {
   RECORD ARRAY instances := ListInstances(instancesource);
   INTEGER ARRAY copiedtypes;
 
@@ -146,59 +144,6 @@ MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRA
     }
 }
 
-RECORD ARRAY FUNCTION GetDraftableInstanceTypes(INTEGER ARRAY forobjects) {
-  // Get all workflow: true types that exist on the object
-  // FIXME might be more robust to set workflow to the database so we can't forget to copy due to siteprofile corruption, but figure out schema first
-  RECORD ARRAY cloneable := SELECT id, namespace
-                              FROM GetCachedSiteProfiles().contenttypes
-                             WHERE workflow = TRUE;
-
-  //TODO doesn't this incorrectly pick up instance-in-instances? It probably won't hurt though as GetInstanceData/SetInstanceData still filter the actual results
-  INTEGER ARRAY activetypes := SELECT AS INTEGER ARRAY DISTINCT fs_type
-                                 FROM system.fs_instances
-                                WHERE fs_instances.fs_object IN forobjects;
-
-  RETURN SELECT * FROM cloneable WHERE id IN activetypes;
-}
-
-MACRO RefreshDraftStatus(INTEGER fsobjectid)
-{
-  INTEGER publicdraft := SELECT AS INTEGER id FROM system.fs_objects WHERE filelink = fsobjectid AND parent = whconstant_whfsid_drafts;
-  INTEGER curpublished := SELECT AS INTEGER published FROM system.fs_objects WHERE id = fsobjectid;
-  IF((publicdraft != 0) != TestFlagFromPublished(curpublished, PublishedFlag_HasPublicDraft))
-  {
-    RECORD file := SELECT id, parent, parentsite FROM system.fs_objects WHERE id = fsobjectid;
-    IF (RecordExists(file))
-    {
-      UPDATE system.fs_objects
-         SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, publicdraft != 0)
-       WHERE id = fsobjectid;
-
-      GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, fsobjectid);
-    }
-  }
-}
-
-
-/** @param requestinguser User requesting the drafts
-    @param forsource For which source file (if 0, requesting all drafts for current user) */
-RECORD ARRAY FUNCTION GetSomeDrafts(INTEGER requestinguser, INTEGER forsource)
-{
-  INTEGER me := GetEffectiveUserId();
-  RECORD ARRAY versions := SELECT id
-                                , ispublic := parent = whconstant_whfsid_drafts
-                                , parent
-                                , user := modifiedby
-                                , mine := modifiedby = VAR me
-                                , creationdate
-                             FROM system.fs_objects
-                            WHERE (forsource != 0 ? filelink = forsource : modifiedby = requestinguser)
-                                  AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts]
-                         ORDER BY creationdate;
-  RETURN versions;
-}
-
-
 PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid)
 {
   RECORD versioninfo := SELECT id, parent, filelink FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];//17 no longer exists
@@ -206,10 +151,6 @@ PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid)
     RETURN DEFAULT OBJECT;
 
   RETURN NEW WHFSDraft(versioninfo.id, versioninfo.parent = whconstant_whfsid_drafts, versioninfo.filelink);
-}
-PUBLIC RECORD ARRAY FUNCTION ListUserWHFSDrafts(INTEGER userid)
-{
-  RETURN GetSomeDrafts(userid, 0);
 }
 
 STATIC OBJECTTYPE WHFSDraft <
@@ -300,156 +241,6 @@ STATIC OBJECTTYPE WHFSDraft <
     this->pvt_fsobject->SetInstanceData(typens, data, [ ifreadonly := "update" ]);
   }
 
-  /** @short Save this draft to a new public draft
-      @return The public draft into which this draft was merged */
-  PUBLIC MACRO SaveAsNewPublicDraft(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
-    options := ValidateSaveOptions(options);
-
-    IF(this->pvt_source = 0)
-      THROW NEW Exception("This draft no longer exists");
-    IF(this->ispublic)
-      THROW NEW Exception("This draft is already public");
-
-    RECORD sourcefiledata := SELECT isfolder, parent, parentsite FROM system.fs_objects WHERE id = this->source;
-    INTEGER snapshotparent := EnsureSnapshotsFolder(sourcefiledata.parentsite);
-    DATETIME now := GetCurrentDatetime();
-    //Move older drafts to the snapshot folder for safe keeping
-    INTEGER ARRAY olderdrafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE filelink = this->source AND parent = whconstant_whfsid_drafts;
-    UPDATE system.fs_objects SET parent := snapshotparent WHERE id IN olderdrafts;
-    //Move our version to the draft folder
-    INTEGER oldparent := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = this->id;
-    UPDATE system.fs_objects SET parent := whconstant_whfsid_drafts
-                               , modificationdate := now
-                           WHERE id = this->id;
-    INTEGER ARRAY todeleteautosaves := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->source;
-    DELETE FROM system.fs_objects WHERE id IN todeleteautosaves;
-
-    /* TODO we shouldn't need to copy non-workflow instance data if renderers like draft preview are always smart enough to look at the
-            the right object for instances. let's see if we can do without */
-
-    //FIXME require a locked transaction with the proper source file locked ?
-    //Get next version#
-    RECORD curversion := GetLastSnapshotVersion(this->source);
-
-    INSERT CELL [ fs_object := this->source
-                , user := user->authobjectid
-                , userdata := EncodeHSON(user->GetUserDataForLogging())
-                , type := whconstant_historytype_saved
-                , when := now
-                , snapshot := this->id
-                , version := `${curversion.major}.${curversion.minor + 1}`
-                ] INTO system_internal.fs_history;
-
-    RefreshDraftStatus(this->source);
-
-    // Fire events
-    OBJECT commithandler := GetWHFSCommitHandler();
-    FOREVERY (INTEGER id FROM olderdrafts) {
-      commithandler->ObjectMoved(0, whconstant_whfsid_drafts, id);
-      commithandler->ObjectMove(0, snapshotparent, id);
-    }
-    IF (oldparent != whconstant_whfsid_drafts) {
-      commithandler->ObjectMoved(0, oldparent, this->id);
-      commithandler->ObjectMove(0, whconstant_whfsid_drafts, this->id);
-    }
-    commithandler->ObjectUpdate(0, whconstant_whfsid_drafts, this->id);
-    FOREVERY (INTEGER id FROM todeleteautosaves)
-      commithandler->ObjectDelete(0, whconstant_whfsid_autosaves, id);
-
-    commithandler->ObjectHistoryChange(sourcefiledata.parentsite, sourcefiledata.parent, this->source);
-    this->pvt_ispublic := TRUE;
-  }
-
-  /** @short Save this draft as the final version
-      @param options
-       */
-  PUBLIC MACRO SaveAsFinal(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
-    IF(this->pvt_source = 0)
-      THROW NEW Exception("This draft no longer exists");
-
-    options := ValidateSaveOptions(options);
-
-    DATETIME now := GetCurrentDatetime();
-    //Move the draft and any older public drafts to snapshots for safe keeping
-    RECORD sourcefiledata := SELECT isfolder, parent, parentsite FROM system.fs_objects WHERE id = this->source;
-    INTEGER snapshotparent := EnsureSnapshotsFolder(sourcefiledata.parentsite);
-    INTEGER oldparent := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = this->id;
-    RECORD ARRAY olddrafts :=
-        SELECT id
-             , parent
-          FROM system.fs_objects
-         WHERE filelink = this->source
-               AND parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ];
-
-    // Move this draft to snapshots for safe keeping
-    UPDATE system.fs_objects
-       SET parent := snapshotparent
-         , modificationdate := now
-     WHERE id = this->id;
-
-    // Move old public drafts and autosaves to snapshots for safe keeping
-    UPDATE system.fs_objects
-       SET parent := snapshotparent
-     WHERE id IN (SELECT AS INTEGER ARRAY id FROM olddrafts);
-
-    //Copy managed data from this the draft to the final
-    CopyWorkflowInstances(this->id, this->source, INTEGER[], TRUE);
-
-    //And reapply managed fields
-    RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->id;
-    RECORD updates := PickCells(sourcedata, STRING["data", ...options.updatemetadatafields]);
-    OpenWHFSObject(this->source)->UpdateMetadata(CELL[...updates, modificationdate := now ]);
-
-    // Duplicate the final as a snapshot
-    INTEGER finalsnapshot := CreateFullSnapshot(now, this->source, GetEffectiveUserID());
-
-    RefreshDraftStatus(this->source);
-
-    //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
-    RECORD curversion := GetLastSnapshotVersion(this->source);
-    STRING nextversion := `${curversion.major + 1}.0`;
-    RECORD userinfo := ObjectExists(user) ? user->GetUserDataForLogging() : DEFAULT RECORD;
-
-    //Add history record
-    INSERT CELL [ fs_object := this->source
-                , user := ObjectExists(user) ? user->authobjectid : 0
-                , userdata := EncodeHSON(userinfo)
-                , type := whconstant_historytype_final
-                , when := now
-                , version := nextversion
-                , snapshot := finalsnapshot
-                ] INTO system_internal.fs_history;
-
-    // Fire events
-    OBJECT commithandler := GetWHFSCommitHandler();
-    IF (oldparent != snapshotparent) {
-      commithandler->ObjectMoved(0, oldparent, this->id);
-      commithandler->ObjectMove(0, snapshotparent, this->id);
-    }
-    FOREVERY (RECORD olddraft FROM olddrafts) {
-      commithandler->ObjectMoved(0, olddraft.parent, olddraft.id);
-      commithandler->ObjectMove(0, snapshotparent, olddraft.id);
-    }
-    commithandler->ObjectHistoryChange(sourcefiledata.parentsite, sourcefiledata.isfolder ? this->source : sourcefiledata.parent, this->source);
-    this->UnlinkThis(); //disable this object
-  }
-
-  PUBLIC MACRO DeleteSelf()
-  {
-    IF(this->pvt_source = 0)
-      THROW NEW Exception("This draft no longer exists");
-
-    INTEGER sourceid;
-    IF(this->ispublic)
-      sourceid := SELECT AS INTEGER filelink FROM system.fs_objects WHERE id = this->id;
-
-    DELETE FROM system.fs_objects WHERE id = this->id;
-    IF(sourceid != 0)
-      RefreshDraftStatus(sourceid);
-
-    this->UnlinkThis();
-  }
-
   /** Returns the event masks for broadcasts fired for this object
   */
   PUBLIC STRING ARRAY FUNCTION GetEventMasks()
@@ -458,43 +249,10 @@ STATIC OBJECTTYPE WHFSDraft <
   }
 >;
 
-
-/** Returns all drafts for this file
-    @return List of drafts
-    @cell(integer) return.id Id of the draft
-    @cell(boolean) return.ispublic Whether the draft is a public draft
-    @cell(integer) return.parent Parent folder of the draft
-    @cell(integer) return.user User that created the draft
-    @cell(boolean) return.mine Whether the current user created the draft
-    @cell(datetime) return.creationdate Creation date of the draft
-*/
-PUBLIC RECORD ARRAY FUNCTION GetDrafts(INTEGER objid)
-{
-  RETURN GetSomeDrafts(GetEffectiveUserID(), objid);
-}
-
-PUBLIC OBJECT FUNCTION OpenDraft(INTEGER objid, INTEGER draftid)
-{
-  OBJECT draft := OpenWHFSDraft(draftid);
-  RETURN ObjectExists(draft) AND draft->source = objid ? draft : DEFAULT OBJECT;
-}
-
 /** Start a workflow update (create an autosave to have an object that can receive a RTD being updated)
     @param objid - The ID of the object we're updating. Draft or final object id */
-PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ user := DEFAULT OBJECT, workflowtypes := INTEGER[] ], options);
-
-  // Determine the base object for the draft we're going to update
-  INTEGER baseobjectid;
-  RECORD objinfo := SELECT name, filelink, parent, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR objid;
-  IF(objinfo.parent = whconstant_whfsid_drafts)
-    baseobjectid := objinfo.filelink;
-  ELSE IF(IsRecycleOrHistoryWHFSPath(objinfo.whfspath))
-    THROW NEW Exception(`Cannot create a draft version from file #${objid} as it is in internal WHFS folder ${objinfo.whfspath}`);
-  ELSE IF(objinfo.isfolder)
-    THROW NEW Exception("Cannot create a draft version from a folder");
-  ELSE
-    baseobjectid := objid;
 
   // Set up the new object (the 'autosave', or at least it will be an autosave as soon as we start writing data from editdocument here)
   DATETIME now := GetCurrentDateTime();
@@ -504,21 +262,35 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULT
               , name := ToString(destid)
               , creationdate := now
               , modificationdate := now
-              , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
-              , filelink := baseobjectid
+              , ...PickCells(metadata, workflow_controlled_fields)
+              , type := baseobject->type
+              , filelink := baseobject->id
               , modifiedby := ObjectExists(options.user) ? options.user->authobjectid : 0
-             ] INTO system.fs_objects;
+              ] INTO system.fs_objects;
 
   CopyWorkflowInstances(objid, destid, options.workflowtypes, FALSE);
 
-  OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
-  typeobj->SetInstancedata(destid,
-      [ name :=       baseobjectid = objid ? objinfo.name : typeobj->GetInstanceData(objid).name
-      ], [ ifreadonly := "update" ]);
+  INSERT CELL [ fs_object := baseobject->id
+              , user := ObjectExists(options.user) ? options.user->authobjectid : 0
+              , userdata := EncodeHSON(ObjectExists(options.user) ? options.user->GetUserDataForLogging() : DEFAULT RECORD)
+              , type := whconstant_historytype_autosave
+              , when := now
+              , snapshot := destid
+              , currentname := metadata.name
+              ] INTO system_internal.fs_history;
 
-  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
 
-  OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobjectid);
+  IF(metadata.name != "" ) {
+    OBJECT typeobj := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata");
+    typeobj->SetInstancedata(destid, CELL[ metadata.name ], [ ifreadonly := "update", isvisibleedit := FALSE ]);
+  }
+
+  // Fire events
+  OBJECT commithandler := GetWHFSCommitHandler();
+  commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id);
+  commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
+
+  OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobject->id);
   RETURN draft;
 }
 

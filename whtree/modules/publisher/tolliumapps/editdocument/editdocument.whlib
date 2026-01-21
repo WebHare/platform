@@ -21,6 +21,8 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
 /* Saving logic:
    Always:
     autosave -> save to private draft
@@ -73,8 +75,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   //
   // Init
   //
+  MACRO NEW() : PublisherEditorBase(FALSE) {
 
-  MACRO Init(RECORD data)  {
+  }
+
+  MACRO Init(RECORD data) {
     data := EnforceStructure( [ assumewriteaccess := FALSE, objeditor := DEFAULT RECORD ], data);
 
     IF(NOT RecordExists(data.objeditor))
@@ -165,6 +170,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(mustloadrte)
       this->ReloadRTEContents();
 
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      extendprop.tabs->RunExtensionsPostInit();
+
     // Can start autosaving when RTE is initialized (not before, would save empty document)
     this->canautosave := NOT this->readonly;
 
@@ -191,12 +199,82 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     // dumpvalue(ListObjectHistory(this->itemid), 'boxed');
   }
 
+  MACRO AddTypesSections() { //Insert metadata sheets as new sections
+    FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
+      FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
+        OBJECT newsection := this->CreateTolliumComponent("section");
+        newsection->title := section.title;
+        newsection->open := TRUE;
+
+        FOREVERY(RECORD line FROM section.lines) {
+          newsection->panel->layout := line.layout;
+          newsection->panel->InsertComponentAfter(line.line, DEFAULT OBJECT, TRUE);
+        }
+        ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
+      }
+    }
+
+    this->RefreshMetaTabsReadonly();
+  }
+
+  MACRO AddLegacyExtensions() {
+    //Legacy extensions expect to be loaded into a tab. Build tabs to make them happy
+    FOREVERY(RECORD ext FROM this->renderer->metatabsconfig.extend_props) {
+      //Build a tabs container and an instance to exchange whfstype data
+      OBJECT tabs := this->CreateTolliumComponent("tabs");
+      OBJECT whfsinstance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
+      whfsinstance->type := OpenWHFSType(ext.whfs_type);
+      //TODO setup whfsinstance->basefsobject like objectprops does? but objectprops seems a bit dangerous for New Item and Duplicate Item, where sourceitem does not point to the target
+
+      tabs->extendcomponents := [[ name := "contentdata", component := whfsinstance ]];
+      tabs->width := "1pr";
+
+      //'Dummy' main tab for components which expect an insertpoint to exist there
+      OBJECT maintab := tabs->InsertTabAt(0, GetTid("publisher:tolliumapps.objectprops.objectprops.maintab"));
+      OBJECT insertpoint := this->CreateTolliumComponent("spacer");
+      insertpoint->visible := FALSE;
+      maintab->InsertComponentAfter(insertpoint, DEFAULT OBJECT, TRUE);
+      FOREVERY(STRING name FROM [ "name", "title", "description", "keywords", "publicationsettings", "settings", "properties", "seosettings", "advancesettings" ])
+        INSERT CELL[ name, component := insertpoint ] INTO tabs->insertpoints AT END;
+
+      RECORD loadresult := tabs->LoadTabsExtension(ext.extension);
+      IF(Length(maintab->GetChildComponents()) = 1) //no inserts
+        maintab->visible := FALSE;
+
+      OBJECT ARRAY visiblepages := SELECT AS OBJECT ARRAY page FROM ToRecordArray(tabs->pages,"page") WHERE page->visible;
+      IF(Length(visiblepages) = 1) {
+        tabs->selectedtab := visiblepages[0];
+        visiblepages[0]->spacers := DEFAULT RECORD;
+        tabs->type := "server";
+      }
+
+      //Add the tabs as a section
+      OBJECT newsection := this->CreateTolliumComponent("section");
+      //Copy only tab's title unless its just the General tab
+      newsection->title := tabs->type = "server" AND maintab->visible = FALSE? visiblepages[0]->title : GetTid(ext.title);
+      newsection->open := TRUE;
+      newsection->panel->InsertComponentAfter(tabs, DEFAULT OBJECT, TRUE);
+      ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
+
+      FOREVERY(OBJECT comp FROM loadresult.components) {
+        IF(MemberExists(comp,'dirtylistener')) //TODO recursive dirty event capturing would be nicer
+          comp->dirtylistener := ^dirtylistener;
+      }
+
+      INSERT CELL[ ext.whfs_type
+                 , loadresult.components
+                 , loadresult.fragment
+                 , whfsinstance
+                 , tabs
+                 ] INTO this->extendprops AT END;
+    }
+  }
+
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
   {
-    IF(this->AddTypesTabs() )
-    {
-      ^metapart->visible := TRUE;
-    }
+    this->AddTypesSections();
+    this->AddLegacyExtensions();
+    ^metapart->visible := TRUE;
 
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 
@@ -219,8 +297,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         [ contexts := this->contexts
         , objectid := objectid
         ]);
-
-    ^maintabs->RunExtensionsPostInit();
   }
 
   MACRO MergeIntoMainMenu(OBJECT mymenu, RECORD ARRAY newitems)
@@ -273,25 +349,13 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->RefreshState();
   }
 
-  MACRO SyncNameWithTitle()
-  {
-    ^name->placeholder := ^title->value != "" ? GetSafeName(^title->value) : "";
-  }
-
   MACRO ReloadRTEContents() {
     this->contexts->editdocumentapi->onloaddata();
     IF(this->tolliumresult != "") //onloaddata may have cancelled us
       RETURN;
 
-    this->LoadBaseData(this->GetBaseFSObject()); //TODO should be instance object once versioning works
-    this->LoadMetadata(this->workflowmgr);
-
-    RECORD meta := this->workflowmgr->GetMetadata();
-    ^name->value := meta.name;
-    ^title->value := meta.title;
-    ^keywords->value := meta.keywords;
-    ^description->value := meta.description;
-
+    this->LoadBaseData(this->workflowmgr);
+    this->LoadMetadata(this->workflowmgr, FALSE);
     this->RefreshState();
   }
 
@@ -382,7 +446,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     BOOLEAN havesomethingtopublish := RecordExists(currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
     //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
     this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
-    this->frame->title := this->filedata.name;
+    this->frame->title := SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;
 
     ^filestatusicon->SetImageSrc(state.icon);
     ^filestatustext->value := state.text;
@@ -426,8 +490,14 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(this->contexts->editdocumentapi->onprechecksave != DEFAULT FUNCTION PTR AND NOT this->contexts->editdocumentapi->onprechecksave(withpublish))
       RETURN FALSE; //aborted because some warning was scary enough
 
-    OBJECT work := this->BeginWork();
-    OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenHWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
+    // When saving as draft we shouldn't validate fields - "required" and other constraints shouldn't be blocking Save.
+    OBJECT work := this->BeginWork([ validate := withpublish ? [this->frame] : OBJECT[] ]);
+    OBJECT finalitem := OpenWHFSObject(this->itemid);
+    this->CheckNameConflict(work);
+
+    iF(withpublish AND finalitem->publish = FALSE AND finalitem->ispinned)
+      work->AddError(this->GetTid(".cannotpublishpinnedfile"));
+
 
     IF (NOT work->HasFailed()) {
       //As we can't apply external changes yet (CatchupWithChanges) just don't apply changes to fields that aren't controlled xurrently
@@ -439,16 +509,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       IF(^keywords->visible AND ^metapart->visible)
         INSERT "keywords" INTO updatemetadatafields AT END;
 
-      this->workflowmgr->Save(withpublish, CELL[updatemetadatafields]);
+      this->workflowmgr->Save(CELL[ finalize := withpublish, publish := withpublish, updatemetadatafields ]);
 
-      IF (withpublish) {
-        //Warn if publishing to an unpublished site (but not if publishing outside a site)
-        IF(finalitem->parentsite !=0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
-          work->AddWarning(this->GetTid(".sitenotpublished"));
-        IF(finalitem->publish = FALSE AND finalitem->ispinned)
-          work->AddError(this->GetTid(".cannotpublishpinnedfile"));
-        finalitem->UpdateMetadata([ publish := TRUE ]);
-      }
+      //Warn if publishing to an unpublished site (but not if publishing outside a site)
+      IF (withpublish AND finalitem->parentsite != 0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
+        work->AddWarning(this->GetTid(".sitenotpublished"));
     }
 
     IF (NOT work->HasFailed() AND this->contexts->editdocumentapi->onsave != DEFAULT FUNCTION PTR)
@@ -459,6 +524,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     ^dirtylistener->ClearDirty();
     //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
+    this->LoadBaseData(this->workflowmgr); //this also updates name/title requirements
     this->RefreshState();
 
     RETURN TRUE;
@@ -548,17 +614,8 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   // Actions
   //
 
-  MACRO DoSave()
-  {
-    IF(^name->value = "" AND ^title->value = "") {
-      this->RunSimpleScreen("error", this->GetTid(".missingtitleorname"));
-      RETURN;
-    }
-
-    IF (NOT this->ExecuteSave(FALSE))
-      RETURN;
-
-    this->RefreshState();
+  MACRO DoSave() {
+    this->ExecuteSave(FALSE);
   }
 
   MACRO DoPublish() { //Save and publish the file

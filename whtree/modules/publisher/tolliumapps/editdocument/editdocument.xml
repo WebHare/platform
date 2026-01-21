@@ -39,6 +39,7 @@
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
       <action name="inspectmetatabs" frameflags="isdeveloper" onexecute="doinspectmetatabs" />
+      <action name="refreshname" onexecute="dorefreshname" tid="tolliumapps.objectprops.objectprops.refreshname" />
     </actions>
 
     <menus>
@@ -110,45 +111,51 @@
         <part name="doceditor" width="2pr" />
         <part name="metapart" width="1pr" visible="false">
           <tabs name="filetabs" height="1pr">
-            <tab tid=".metadata" vscroll="true">
-              <tabs name="maintabs" type="stacked" height="1pr">
-                <tab name="maintab" tid="tolliumapps.objectprops.objectprops.maintab">
-                  <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
-                  <textedit name="name"
+            <tab name="metadatatab" tid=".metadata" vscroll="true">
+              <section name="mainsection" tid="tolliumapps.objectprops.objectprops.maintab" open="true">
+                <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
+                <line>
+                  <textedit name="title"
                             width="1pr"
                             maxlength="256"
                             dirtylistener="dirtylistener"
-                            tid="~name"
-                            validationchecks="whfsname"
-                            required="true" />
-                  <line>
-                    <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
-                    <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
-                      <option rowkey="false" tid="tolliumapps.objectprops.objectprops.isunlisted-false" />
-                      <option rowkey="true" tid="tolliumapps.objectprops.objectprops.isunlisted-true" />
-                    </select>
-                  </line>
-                  <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
-                  <textedit composition="webmetadata"
-                            cellname="seo_title"
-                            name="seotitle"
-                            width="1pr"
-                            maxlength="256"
-                            dirtylistener="dirtylistener"
-                            placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
-                            showcounter="true"
-                            tid="platform:siteprofiles.types.web.metadata.seo_title" />
-                  <textarea name="description"
-                            height="3gr"
-                            dirtylistener="dirtylistener"
-                            maxlength="2048"
-                            placeholdertid="tolliumapps.objectprops.objectprops.description-placeholder"
-                            showcounter="true"
-                            tid="~description" />
-                  <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
-                  <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
-                </tab>
-              </tabs>
+                            tid="~title"/>
+                  <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
+                    <option rowkey="false" tid="tolliumapps.objectprops.objectprops.isunlisted-false" />
+                    <option rowkey="true" tid="tolliumapps.objectprops.objectprops.isunlisted-true" />
+                  </select>
+                </line>
+                <textedit name="name"
+                          width="1pr"
+                          maxlength="256"
+                          dirtylistener="dirtylistener"
+                          tid="~name"
+                          validationchecks="whfsname">
+                  <button name="refreshnamebutton"
+                          action="refreshname"
+                          icon="tollium:actions/refresh"
+                          tid="tolliumapps.objectprops.objectprops.refreshname" />
+                </textedit>
+                <heading name="seotab_heading" tid="tolliumapps.objectprops.objectprops.seotab_heading" />  <!-- doclink="publisher:objectprops/seo" -->
+                <textedit composition="webmetadata"
+                          cellname="seo_title"
+                          name="seotitle"
+                          width="1pr"
+                          maxlength="256"
+                          dirtylistener="dirtylistener"
+                          placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
+                          showcounter="true"
+                          tid="platform:siteprofiles.types.web.metadata.seo_title" />
+                <textarea name="description"
+                          height="3gr"
+                          dirtylistener="dirtylistener"
+                          maxlength="2048"
+                          placeholdertid="tolliumapps.objectprops.objectprops.description-placeholder"
+                          showcounter="true"
+                          tid="~description" />
+                <textarea name="keywords" height="1gr" maxlength="1024" showcounter="true" tid="~keywords" />
+                <checkbox name="pinobject" onchange="updatepinned" title="" visible="false" />
+              </section>
             </tab>
           </tabs>
         </part>

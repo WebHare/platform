@@ -1491,9 +1491,10 @@ PUBLIC OBJECT FUNCTION TT(STRING compname, RECORD options DEFAULTSTO DEFAULT REC
 }
 
 /// Check whether the requested component is visible */
-PUBLIC BOOLEAN FUNCTION TTIsVisible(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN TT(compname, CELL[...options, findinvisible := TRUE ])->isnowvisible;
+PUBLIC BOOLEAN FUNCTION TTIsVisible(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  OBJECT target := TT(compname, CELL[...options, findinvisible := TRUE ]);
+  //target may not exist if allowmissing was passed
+  RETURN ObjectExists(target) and target->isnowvisible;
 }
 
 PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1633,6 +1634,8 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
       ], options);
 
   OBJECT comp := TT(compname);
+  IF(NOT comp->enabled)
+    THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
   STRING ARRAY extendnames := GetObjectExtendNames(comp);
   IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
   {

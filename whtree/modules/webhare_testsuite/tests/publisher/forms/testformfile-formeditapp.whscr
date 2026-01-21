@@ -9,6 +9,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/rtetesthelpers.whlib";
@@ -32,14 +33,16 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "WebHare testsuite customform2 type";
   TestEq(TRUE, RecordExists(TT("types")->selection));
-  AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
-  TT("name")->value := "customform2";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel()); //closes publisher
 
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp());
+  TT("name")->value := "customform2";
+
   //Open form editor
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform2" ], target := DEFAULT RECORD ]));
-  customformfile := webtoolsfolder->OpenByName("customform2");
+  // AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform2" ], target := DEFAULT RECORD ]));
+  customformfile := OpenWHFSObject(topscreen->__GetTargetId());
 
   TestEq(FALSE, TTClick("save", [ allowfailure := TRUE ]), "Doc should not be dirty yet");
 

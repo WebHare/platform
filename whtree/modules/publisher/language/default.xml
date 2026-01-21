@@ -1631,6 +1631,7 @@
     </textgroup>
     <textgroup gid="editdocument">   <!-- tolliumapps.editdocument -->
       <text tid="newdocument">New document</text>
+      <text tid="refreshname-no-title">Title must be set to generate a name</text>
       <textgroup gid="editdocumentapp">   <!-- tolliumapps.editdocument.editdocumentapp -->
         <text tid="canceldraft">reset to the published version</text>
         <text tid="canceldraftmenu">Cancel draft</text>
@@ -1827,9 +1828,6 @@
       </textgroup>
       <textgroup gid="config">   <!-- tolliumapps.filemanager.config -->
         <textgroup gid="prefs">   <!-- tolliumapps.filemanager.config.prefs -->
-          <text tid="autotitles">File names</text>
-          <text tid="autotitles-false">Choose file and folder names yourself</text>
-          <text tid="autotitles-true">Let WebHare create names for new files and folders</text>
           <text tid="confirmenabletweak">Making incorrect modifications to hidden folders may break this WebHare installation.<br/><br/>Are you sure you want to enable these tweaks?</text>
           <text tid="opts">General settings</text>
           <text tid="opts-groupfolders">Group folders in file list</text>
@@ -2239,6 +2237,7 @@
         <text tid="meta-title-placeholder">Overwrite title used in search results/browser title</text>
         <text tid="modified">Modified</text>
         <text tid="modifiedtext"><param p="1"/><ifparam p="2" value=""><else/> by <param p="2"/></ifparam></text>
+        <text tid="nameortitle">You must enter a <ifparam p="1" value="folder">folder name<else/>file name</ifparam> or a title.</text>
         <text tid="nametitle">Name and title</text>
         <text tid="newfile-name">New <param p="1"/></text>
         <text tid="newfile-title">New file</text>
@@ -2252,6 +2251,7 @@
         <text tid="pinfolder">Protect this folder (it may not be renamed or deleted)</text>
         <text tid="publicationsettings">Publication settings</text>
         <text tid="publish">Publish this file</text>
+        <text tid="refreshname">Refresh file name</text>
         <text tid="requestapproval">Submit for approval</text>
         <text tid="restrictions">Restrictions</text>
         <text tid="robottags">Robot tags</text>

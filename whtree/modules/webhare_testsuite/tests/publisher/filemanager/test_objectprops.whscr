@@ -3,7 +3,6 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -97,6 +96,8 @@ ASYNC MACRO ObjectProps()
     TT("wh_fs_cell")->value := staticfile;
 
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new row
+    AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*file name or a title*" ]);
+    TT(":Title")->value := "My pagelist title";
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new file
   }
 
@@ -104,13 +105,11 @@ ASYNC MACRO ObjectProps()
     // - Create RTD
     AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
     TTFillByTitle("types", "Rich text document");
-    AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
-    TT("name")->value := "rtdtitletest";
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); // close it
 
     // - Have it save a draft
     RECORD newfile := TT("filelist")->selection;
-    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(newfile.id) ], target := DEFAULT RECORD ]));
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp());
     TT("doceditor")->contents->rte->TolliumWeb_FormUpdate('<p class="normal">This is the document</p>');
     TT("doceditor")->contents->rte->__debug_simulatedirty(); //ADDME why doesn't the above command imply this?
     TTClick(":Save");
@@ -118,15 +117,14 @@ ASYNC MACRO ObjectProps()
 
     // TT("richtexteditor")->value := "<p>Some content</p>";
     AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
-    // - Change title in props
-    TT(":Title")->value := "New RTD Title";
+    TestEq(FALSE, TT(":Title")->enabled);
     AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-    AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(newfile.id) ], target := DEFAULT RECORD ]));
+    TT("filelist")->openaction->TolliumClick();
+
+    AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp());
     AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publish"));
     AWAIT ExpectScreenChange(-1, PTR TTEscape);
-
-    TestEq("New RTD Title", SELECT AS STRING title FROM system.fs_objects WHERE id = newfile.id, "The RTD title change was not preserved after publish");
   }
 
   AWAIT ExpectScreenChange(-1, PTR TTescape);
@@ -138,8 +136,8 @@ ASYNC MACRO TestRenameSiteConflict()
 
   topscreen->frame->focused := TT("foldertree");
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
-  TestEq(OpenTestsuiteSite()->rootobject->name, TT(":Name")->value);
-  TT(":Name")->value := "WebHare Backend";
+  TestEq(OpenTestsuiteSite()->rootobject->name, TT(":Folder name")->value);
+  TT(":Folder name")->value := "WebHare Backend";
 
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":Ok"), [ messagemask := "*site*WebHare Backend*exists*" ]);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

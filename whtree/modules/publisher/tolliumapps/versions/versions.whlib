@@ -24,6 +24,7 @@ LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/inspect.whlib";
@@ -143,7 +144,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
 
     ^pinobject->value := ObjectExists(sourceobject) AND sourceobject->ispinned;
 
-    ^name->value := draftmeta.name;
+    ^name->value := draftmeta.name ?? SuggestSeoNameFromTitle(sourceobject->title, CELL[fsobject := sourceobject]);
 
     FOREVERY (STRING field FROM ["title", "description", "keywords" ])
     {
@@ -187,7 +188,7 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
         parent := this->liveobject->parent,
         isfolder := this->liveobject->isfolder,
         type := this->liveobject->type,
-        requireworkflow := FALSE
+        isobjectprops := FALSE
       ]);
 
       renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);

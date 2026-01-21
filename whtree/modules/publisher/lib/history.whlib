@@ -1,7 +1,9 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -9,7 +11,9 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" EXPORT StartWorkflowUpdate, ListObjectHistory;
+LOADLIB "mod::system/lib/internal/whfs/history.whlib" ;
 
 /** Manage the draft/autosave/publish workflow for an editor */
 PUBLIC STATIC OBJECTTYPE WorkflowManager <
@@ -21,6 +25,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   /// Current draft object
   OBJECT currentdraft;
+
+  RECORD currentautosave_version;
+  RECORD currentdraft_version;
+  RECORD relevant_created_version;
 
   RECORD options;
 
@@ -81,12 +89,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   //exported for some legacy preview code, but GetPreview should be used
   PUBLIC OBJECT FUNCTION __GetAutosavedObject() {
     this->LoadDrafts();
-    RETURN ObjectExists(this->currentautosave) ? this->currentautosave->fsobject : this->__GetDraftObject();
+    RETURN this->currentautosave ?? this->currentdraft ?? this->baseobject;
   }
 
   PUBLIC OBJECT FUNCTION __GetDraftObject() {
     this->LoadDrafts();
-    RETURN ObjectExists(this->currentdraft) ? this->currentdraft->fsobject : this->baseobject;
+    RETURN this->currentdraft ?? this->baseobject;
   }
 
   /** Register additional types. This is okay as long as we haven't started working on the autosave yet */
@@ -123,9 +131,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
   MACRO EnsureAutosave() {
     this->LoadDrafts();
-    IF(NOT ObjectExists(this->currentautosave))   //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
-      this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
+    IF(ObjectExists(this->currentautosave))
+      RETURN;
+
+    //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
+    OBJECT autosave := StartWorkflowUpdate(this->baseobject, ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
+          this->GetMetadata(),
           [ user := this->options.user, workflowtypes := SELECT AS INTEGER ARRAY id FROM this->workflowtypes ]);
+
+    this->LoadDrafts();
+    IF(autosave->id != this->currentautosave->id)
+      THROW NEW Exception("Failed to create an autosave object");
   }
   PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
     IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
@@ -133,66 +149,76 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     this->EnsureAutosave();
     //TODO workflow validation?
-    this->currentautosave->fsobject->SetInstanceData(whfstype, data, [ ifreadonly := "update", workflow := TRUE ]);
+    this->currentautosave->SetInstanceData(whfstype, data, [ ifreadonly := "update", workflow := TRUE ]);
   }
   PUBLIC RECORD FUNCTION GetMetadata() {
-    OBJECT historicobj := this->currentautosave ?? this->currentdraft;
-    IF(ObjectExists(historicobj)) {
-      RETURN historicobj->GetMetadata();
-    } ELSE {
-      RETURN SELECT name, title, keywords, description, data FROM system.fs_objects WHERE id = this->baseobject->id;
-    }
+    this->LoadDrafts();
+
+    RECORD activeversion := this->currentautosave_version ?? this->currentdraft_version ?? this->relevant_created_version;
+
+    //Take the fields from the snapshot (or live version if this version has no snapshot)
+    INTEGER metabaseid := (RecordExists(activeversion) ? activeversion.snapshot : 0) ?? this->baseobject->id;
+    RECORD metadata := SELECT name, title, keywords, description, data FROM system.fs_objects WHERE id = metabaseid;
+
+    //But if a specific version is associated we can take the file name from there
+    IF(RecordExists(activeversion))
+      metadata.name := activeversion.currentname;
+
+    RETURN metadata;
   }
 
   PUBLIC MACRO UpdateData(BLOB newdata) {
-    this->EnsureAutosave();
-    this->currentautosave->fsobject->UpdateMetadata(CELL[data := newdata ], [ ifreadonly := "update" ]);
+    this->UpdateMetadata(CELL[ data := newdata ]);
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD updates) {
     this->EnsureAutosave();
-    this->currentautosave->UpdateMetadata(updates);
-    /* TODO is the drafts.whlib API really adding something useful... will there be other API users or is WorkflowManager more useful for everyone?
-    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "" ], updates, [ optional := ["*"], title := "updates" ] );
 
-    IF(CellExists(updates,'name'))
-      this->currentautosave->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
+    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "", data := DEFAULT BLOB, isunlisted := FALSE ], updates, [ optional := ["*"], title := "updates" ] );
 
-    RECORD directupdates :=  PickCells(updates, ["title","description","keywords"]);
+    DATETIME now := GetCurrentDateTime();
+    RECORD histupdate := CELL[ when := GetCurrentDateTime(), ...CellExists(updates,'name') ? CELL[ currentname := updates.name ] : CELL[]];
+    UPDATE system_internal.fs_history SET RECORD histupdate WHERE id = this->currentautosave_version.id;
+
+    RECORD directupdates :=  PickCells(updates, ["title","description","keywords","data"]);
     IF(Length(UnpackRecord(directupdates))>0)
-      this->currentautosave->UpdateMetadata(directupdates);
-    */
+      this->currentautosave->UpdateMetadata(CELL[...directupdates, modificationdate := now ], [ ifreadonly := "update" ] );
   }
 
-  RECORD ARRAY FUNCTION LoadDrafts() {
-    IF(this->IsReadOnly()) //when readonly only the finals are relevant to you
-      RETURN RECORD[];
-
+  MACRO LoadDrafts() {
     //TODO skip if our cached info should be up to date
-    RECORD ARRAY drafts := GetDrafts(this->baseobject->id);
-    RECORD lastautosave := SELECT * FROM drafts WHERE ispublic = FALSE ORDER BY creationdate DESC LIMIT 1;
-    RECORD lastdraft := SELECT * FROM drafts WHERE ispublic = TRUE ORDER BY creationdate DESC LIMIT 1;
+    RECORD ARRAY history;
+    IF(NOT this->IsReadonly()) { //readonly users cannot access history
+      history := SELECT id, snapshot, type, when, user, currentname
+                   FROM system_internal.fs_history
+                  WHERE fs_object = this->baseobject->id
+               ORDER BY when, id;
+    }
 
-    this->currentautosave := RecordExists(lastautosave) AND lastautosave.mine ? OpenDraft(this->baseobject->id, lastautosave.id) : DEFAULT OBJECT;
-    this->currentdraft := RecordExists(lastdraft) ? OpenDraft(this->baseobject->id, lastdraft.id) : DEFAULT OBJECT;
+    RECORD lastautosave := SELECT * FROM history WHERE type = whconstant_historytype_autosave ORDER BY when DESC LIMIT 1;
+    RECORD lastdraftpublish := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final] ORDER BY when DESC LIMIT 1;
+    //FIXME SUPPORT FALLBACK TO HISTORY ITEM WITHOUT ASSOCIATED AUTOSAVE - need for WH5.9 upgrade
 
-    RETURN drafts;
+    //TODO ReplaceWith tasks trigger autosaves without an owner/user. (see test-lifecycle). Should we optimize that path?
+    INTEGER currentuser := ObjectExists(this->options.user) ? this->options.user->authobjectid : 0;
+    this->currentautosave_version := RecordExists(lastautosave) AND lastautosave.user = currentuser ? lastautosave : DEFAULT RECORD;
+    this->currentdraft_version := RecordExists(lastdraftpublish) AND lastdraftpublish.type = whconstant_historytype_saved ? lastdraftpublish : DEFAULT RECORD;
+
+    this->currentautosave := RecordExists(this->currentautosave_version) ? OpenWHFSObject(this->currentautosave_version.snapshot) : DEFAULT OBJECT;
+    this->currentdraft := RecordExists(this->currentdraft_version) ? OpenWHFSObject(this->currentdraft_version.snapshot) : DEFAULT OBJECT;
+    this->relevant_created_version := Length(history) = 1 AND history[0].type = whconstant_historytype_created ? history[0] : DEFAULT RECORD;
   }
 
   PUBLIC RECORD FUNCTION GetCurrentDraft() {
     IF(NOT this->options.useworkflow)
       THROW NEW Exception("Draft management requires setting 'useworkflow'");
 
-    //FIXME this currently sets this->currentdraft but the APIs shouldn't rely on a user invoking GetCompetingDraft
-    RECORD ARRAY drafts := this->LoadDrafts();
-
-    RECORD activedraft := SELECT * FROM drafts WHERE ispublic  ORDER BY creationdate DESC LIMIT 1;
-    IF(NOT this->IsReadOnly() AND RecordExists(activedraft)) {
-      RETURN CELL[ user_auth_object := activedraft.user
-                 , draft_saved := activedraft.creationdate //FIXME is this right? isn't this when autosaving would have started instead of draft's last save?
-                 , mine := activedraft.mine
+    this->LoadDrafts();
+    IF(RecordExists(this->currentdraft_version))
+      RETURN CELL[ user_auth_object := this->currentdraft_version.user
+                 , draft_saved := this->currentdraft_version.when
+                 , mine := ObjectExists(this->options.user) AND this->currentdraft_version.user = this->options.user->authobjectid
                  ];
-    }
     RETURN DEFAULT RECORD;
   }
 
@@ -200,8 +226,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     IF(NOT this->options.useworkflow)
       THROW NEW Exception("Draft management requires setting 'useworkflow'");
 
-    RECORD ARRAY drafts := this->LoadDrafts();
-    IF(ObjectExists(this->currentautosave))
+    this->LoadDrafts();
+    IF(RecordExists(this->currentautosave_version))
       RETURN CELL[]; //no useful metadata yet to report (TODO last mod date?
 
     RETURN DEFAULT RECORD;
@@ -213,7 +239,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
 
   PUBLIC MACRO DiscardDraftAndAutosavedChanges() {
-    IF (ObjectExists(this->currentautosave))     {
+    IF (ObjectExists(this->currentautosave)) {
       this->currentautosave->DeleteSelf();
       this->currentautosave := DEFAULT OBJECT;
     }
@@ -240,6 +266,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     }
   }
 
+  /** True if the name is explicitly set and should no longer follow the SEO-ified title. This is false until the document has been published (ie its URL has been potentially visible) */
+  PUBLIC BOOLEAN FUNCTION IsNameExplicit() {
+    //this->baseobject->isfolder OR FIXME SHOULDNT TEST CARSH ON THIS
+    RETURN this->baseobject->publish OR RecordExists(SELECT FROM publisher.urlhistory WHERE fsobject = this->baseobject->id LIMIT 1);
+  }
+
   PUBLIC BOOLEAN FUNCTION HaveAutosavedChanges() {
     RETURN ObjectExists(this->currentautosave);
   }
@@ -248,23 +280,171 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN ObjectExists(this->currentautosave ?? this->currentdraft);
   }
 
-  PUBLIC MACRO Save(BOOLEAN withpublish, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  PUBLIC MACRO Save(RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions(CELL[ finalize := FALSE, publish := FALSE, updatemetadatafields := STRING["title", "description", "keywords"]  ], options);
     this->LoadDrafts();
 
-    IF(Length(ListObjectHistory(this->baseobject->id)) = 0)
+    IF(Length(SELECT * FROM ListObjectHistory(this->baseobject->id) WHERE type != "autosave") = 0)
       ImportCurrentState(this->baseobject->id);  //Import the current final state
 
-    IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
-      this->currentautosave->SaveAsNewPublicDraft(this->options.user, options);
-    } ELSE { // commit or publish
-      OBJECT source := this->currentautosave ?? this->currentdraft;
-      IF (ObjectExists(source)) {
-        // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
-        source->SaveAsFinal(this->options.user, options);
-      }
+    IF(NOT options.finalize) {
+      IF(NOT RecordExists(this->currentautosave_version))
+        RETURN; //nothing to save
+      this->SaveAsNewPublicDraft();
+    } ELSE {
+      IF(NOT RecordExists(this->currentautosave_version) AND NOT RecordExists(this->currentdraft_version))
+        RETURN; //nothing to finalize
+      this->SaveAsFinal(options);
     }
     this->LoadDrafts();
   }
 
+  //Finish an autosave - move it to a snapshot and patch its history
+  INTEGER FUNCTION FinishAutosave(DATETIME now, INTEGER savetype, STRING setname, STRING setversion) {
+    //We're cleaning this->currentautosave_version by definition
+    INTEGER autosavedoc := this->currentautosave_version.snapshot;
+    //Are we publishing to the final location?
+    BOOLEAN isfinalize := savetype = whconstant_historytype_final;
+    INTEGER setparent := EnsureSnapshotsFolder(this->baseobject->parentsite);
+
+    INTEGER oldparent := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = autosavedoc;
+    IF(oldparent = setparent)
+      THROW NEW Exception("This autosave is already finished");
+
+    UPDATE system.fs_objects
+           SET parent := setparent
+             , modificationdate := now
+         WHERE id = autosavedoc;
+
+    INTEGER ARRAY todeleteautosaves := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->baseobject->id;
+    DELETE FROM system.fs_objects WHERE id IN todeleteautosaves;
+
+    //Patch the existing autosave entry. The autosave will remain the associated snapshot
+    UPDATE system_internal.fs_history
+       SET when := now
+         , type := savetype
+         , version := setversion
+         , currentname := setname ?? this->currentautosave_version.currentname
+     WHERE id = this->currentautosave_version.id;
+
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectMoved(0, oldparent, autosavedoc);
+    commithandler->ObjectMove(0, setparent, autosavedoc);
+    commithandler->ObjectUpdate(0, setparent, autosavedoc);
+    FOREVERY (INTEGER id FROM todeleteautosaves)
+      commithandler->ObjectDelete(0, whconstant_whfsid_autosaves, id);
+
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id);
+
+    RETURN this->currentautosave_version.id;
+  }
+
+  /** @short Save this draft to a new public draft */
+  MACRO SaveAsNewPublicDraft() {
+    DATETIME now := GetCurrentDateTime();
+    INTEGER draftid := this->currentautosave_version.snapshot;
+    RECORD sourcefiledata := SELECT isfolder, parent, parentsite FROM system.fs_objects WHERE id = this->baseobject->id;
+    INTEGER snapshotparent := EnsureSnapshotsFolder(sourcefiledata.parentsite);
+
+    //FIXME require a locked transaction with the proper source file locked ?
+    //Get next version#
+    RECORD curversion := GetLastSnapshotVersion(this->baseobject->id);
+    STRING setversion := `${curversion.major}.${curversion.minor + 1}`;
+
+    //Move our version to the draft folder
+    this->FinishAutosave(now, whconstant_historytype_saved, "", setversion);
+
+    IF(NOT this->IsNameExplicit()) { //then we still want filemanager to follow temporary titles for clarity
+      RECORD meta := SELECT title FROM system.fs_objects WHERE id = this->currentautosave_version.snapshot;
+
+      IF(RecordExists(meta) AND meta.title != "")
+        this->baseobject->UpdateMetadata(CELL[
+          title := meta.title,
+          name := SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject ])
+        ]);
+    }
+
+    //Set draft flag
+    UPDATE system.fs_objects
+        SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, TRUE)
+      WHERE id = this->baseobject->id;
+
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectUpdate(sourcefiledata.parentsite, sourcefiledata.parent, this->baseobject->id);
+  }
+
+  /** @short Save the current version (autosave or draft) as the final version */
+  MACRO SaveAsFinal(RECORD options) {
+    DATETIME now := GetCurrentDateTime();
+
+    //Update version info (this is a copy of the other version code, but technically it should usually suffice to only look at the source file?)
+    RECORD curversion := GetLastSnapshotVersion(this->baseobject->id);
+    STRING setversion := `${curversion.major + 1}.0`;
+
+    RECORD baseversion := (this->currentautosave_version ?? this->currentdraft_version);
+    RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = baseversion.snapshot;
+
+    //take the version suggested name first
+    STRING setname := baseversion.currentname;
+    IF(setname = "") {
+      //There is no name yet. Have we ever been published?
+      IF(this->IsNameExplicit()) {
+        setname := this->baseobject->name;
+      } ELSE IF(sourcedata.title != "") {
+        setname := SuggestSeoNameFromTitle(sourcedata.title, CELL[ fsobject := this->baseobject ]);
+      } ELSE {
+        setname := this->baseobject->name;
+      }
+    }
+
+    INTEGER final_history_entry;
+    IF(RecordExists(this->currentautosave_version)) {
+      //We have an autosave that didn't make it into a draft. Avoid seemingly double version entries (an unrequested save and the explicit finalization) and reuse the autosave
+      final_history_entry := this->FinishAutosave(now, whconstant_historytype_final, setname, setversion);
+    } ELSE {
+      //We have a draft (explicitly saved) so we'll add a new history entry
+      RECORD userinfo := ObjectExists(this->options.user) ? this->options.user->GetUserDataForLogging() : DEFAULT RECORD;
+      final_history_entry := MakeAutonumber(system_internal.fs_history, "id");
+      INSERT CELL [ fs_object := this->baseobject->id
+                  , user := ObjectExists(this->options.user) ? this->options.user->authobjectid : 0
+                  , userdata := RecordExists(userinfo) ? EncodeJSON(userinfo, [typed := TRUE]) : ""
+                  , type := whconstant_historytype_final
+                  , when := now
+                  , version := setversion
+                  , snapshot := baseversion.snapshot
+                  , currentname := setname
+                  , id := final_history_entry
+                  ] INTO system_internal.fs_history;
+    }
+
+    //Copy managed data from this the draft to the final
+    CopyWorkflowInstances(baseversion.snapshot, this->baseobject->id, INTEGER[], TRUE);
+
+    //And reapply managed fields
+    RECORD updates := PickCells(sourcedata, workflow_controlled_fields);
+
+    this->baseobject->UpdateMetadata(CELL[
+      ...updates,
+      modificationdate := now,
+      name := setname,
+      //FIXME what if file is not publishable? test workflow against those too that publish is ignored
+      ...options.publish ? CELL[ publish := TRUE ] : CELL[]
+    ]);
+
+    // Duplicate the final as a snapshot
+    INTEGER finalsnapshot := CreateFullSnapshot(now, this->baseobject->id, GetEffectiveUserID());
+    UPDATE system_internal.fs_history SET snapshot := finalsnapshot WHERE id = final_history_entry;
+
+    //Clear draft flag
+    UPDATE system.fs_objects
+        SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, FALSE)
+      WHERE id = this->baseobject->id;
+
+    // Fire events
+    OBJECT commithandler := GetWHFSCommitHandler();
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id);
+  }
 
 >;

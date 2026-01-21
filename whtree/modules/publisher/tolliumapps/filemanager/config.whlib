@@ -30,8 +30,6 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
 
     ^opts->value := opts;
 
-    ^autotitles->value := this->tolliumuser->GetRegistryKey("publisher.prefs.autotitles", ReadRegistryKey("publisher.filemgr.defaultautotitles"));
-
     ^tweaks->visible := this->tolliumuser->HasRight("system:sysop");
     ^showwhfsprivate->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwhfsprivate", FALSE);
     ^showwebharebackend->value := this->tolliumuser->GetRegistryKey("publisher.filemgr.showwebharebackend", FALSE);
@@ -55,7 +53,6 @@ PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
     this->tolliumuser->SetRegistryKey("publisher.prefs.groupfolders", "groupfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showforeignfolders", "showforeignfolders" IN opts);
     this->tolliumuser->SetRegistryKey("publisher.prefs.showmenubar", "showmenubar" IN opts);
-    this->tolliumuser->SetRegistryKey("publisher.prefs.autotitles", ^autotitles->value);
 
     IF(^tweaks->visible)
     {

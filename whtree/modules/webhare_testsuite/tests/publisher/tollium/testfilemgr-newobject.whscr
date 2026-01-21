@@ -131,6 +131,9 @@ ASYNC MACRO CreateUsingTemplates()
   TestEq(TRUE, ObjectExists(created));
   TestEq(TRUE, created->publish); //marked as 'publish'
 
+  // TestEqMembers([[ name := "sub", type := "created", user := testfw->GetUserAuthobjectId("sysop"), when := testfolderobj2->creationdate, userdata := [ login := "sysop@beta.webhare.net" ] ]],
+  //                 ListObjectHistory(testfolderobj2->id), "*");
+
   //Create a folder from 'foldertemplate'
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Testsuite Folder Template";
