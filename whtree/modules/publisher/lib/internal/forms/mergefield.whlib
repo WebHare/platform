@@ -15,7 +15,7 @@ PUBLIC STATIC OBJECTTYPE EditMergeField EXTEND TolliumTabsExtensionBase
   }
 >;
 
-PUBLIC OBJECTTYPE MergeFieldWidget EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE MergeFieldWidget EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

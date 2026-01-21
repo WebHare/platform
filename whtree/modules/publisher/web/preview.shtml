@@ -26,6 +26,9 @@ LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 
 OpenPrimary();
 
+AddHTTPHeader("Content-Security-Policy", "", FALSE);
+AddHTTPHeader("X-Frame-Options", "", FALSE);
+
 PUBLIC OBJECTTYPE PreviewPage EXTEND DynamicPageBase
 <
   PUBLIC RECORD data;
@@ -207,6 +210,4 @@ IF(getmostrecentversion) {
 }
 
 //TODO or copy the actual targets CSP ?
-AddHTTPHeader("Content-Security-Policy", "", FALSE);
-AddHTTPHeader("X-Frame-Options", "", FALSE);
 RunPublisherPreview(targetobject, contentobject, ispublicobject);

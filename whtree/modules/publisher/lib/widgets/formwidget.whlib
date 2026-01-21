@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 /** @short Webtool form widget
     @long Implements embedded forms (http://www.webhare.net/xmlns/publisher/formwidget)
 */
-PUBLIC OBJECTTYPE FormWidgetBase EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE FormWidgetBase EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {

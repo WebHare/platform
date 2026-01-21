@@ -8,7 +8,7 @@ LOADLIB "mod::publisher/lib/widgets.whlib";
 /** @short Two columns widget
     @long Implements a two-column widget (http://www.webhare.net/xmlns/publisher/widgets/twocolumns)
 */
-PUBLIC OBJECTTYPE TwoColumnsWidgetBase EXTEND WidgetBase
+PUBLIC STATIC OBJECTTYPE TwoColumnsWidgetBase EXTEND WidgetBase
 <
   UPDATE PUBLIC MACRO Render()
   {
@@ -19,7 +19,7 @@ PUBLIC OBJECTTYPE TwoColumnsWidgetBase EXTEND WidgetBase
   }
   UPDATE PUBLIC MACRO RenderLive()
   {
-    this->EmbedWittyComponent([ rtdleft := this->GetRTDBody(this->data.rtdleft)
+    this->EmbedComponent([ rtdleft := this->GetRTDBody(this->data.rtdleft)
                               , rtdright := this->GetRTDBody(this->data.rtdright)
                               ]);
   }
