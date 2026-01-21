@@ -514,54 +514,6 @@ t-tabs > div.tabsheet.transition {
   transition: opacity 150ms;
 }
 
-/****************************************************************************************************************************
- * Stacked stabs */
-t-tabs.stacked
-{
-  overflow: hidden;
-  top: 0px;
-  left: 0px;
-}
-
-t-tabs.stacked > div.tablabel
-{
-  cursor: pointer;
-  padding: 6px 8px;
-  z-index: 2;
-  position: relative;
-}
-
-t-tabs.stacked > div.tablabel > t-text
-{
-  color: rgba(68, 68, 68, 0.5);
-}
-.t-screen.active t-tabs.stacked > div.tablabel > t-text
-{
-  color: #444444;
-}
-
-t-tabs.stacked > div.tablabel.active
-{
-  background-color: #fafafa;
-  background-image: none;
-}
-
-.t-screen.active t-tabs.stacked > div.tablabel.active > t-text
-{
-  color: #48a1c3;
-}
-
-t-tabs.stacked > div.tabsheet
-{
-  border-bottom-width: 0;
-  position: static;
-  z-index: 1;
-}
-
-t-tabs.stacked > div.tabsheet.transition
-{
-  transition: width 75ms ease-out, height 75ms ease-out;
-}
 /* line 840, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
 t-tabs.server > div {
   border: none !important;
