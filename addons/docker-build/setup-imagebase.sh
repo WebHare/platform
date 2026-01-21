@@ -40,6 +40,8 @@ useradd --uid 20003 --user-group --groups whdata postgres
 # Enable epel
 dnf install -y epel-release
 
+[ -z "$WEBHARE_NODE_MAJOR" ] && echo "Missing WEBHARE_NODE_MAJOR" >&2 && exit 1
+
 # Allow using a nightly build of node, eg:
 # WEBHARE_NODE_MAJOR=23 WHBUILD_NODE_URL=https://nodejs.org/download/nightly/v23.0.0-nightly202408194f94397650/node-v23.0.0-nightly202408194f94397650-linux-arm64.tar.xz wh buildcontainer
 if [ -n "$WHBUILD_NODE_URL" ]; then
@@ -49,7 +51,7 @@ if [ -n "$WHBUILD_NODE_URL" ]; then
   popd
 else
   # Alma currently ships 22.x and we expect RL to always be a bit behind, only picking up LTS releases
-  curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+  curl -fsSL https://rpm.nodesource.com/setup_${WEBHARE_NODE_MAJOR}.x | bash -
   PACKAGES+=(nodejs)
 fi
 
