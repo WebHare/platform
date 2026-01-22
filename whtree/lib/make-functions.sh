@@ -90,6 +90,8 @@ estimate_buildj()
 
 wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a servicemanager.ts, they will all inherit the discovered setting
 {
+  [ -n "$__DONE_GETNODE" ] && return
+
   if [ -z "$WEBHARE_NODE_MAJOR" ]; then # Not locked in the (docker) environment
     WEBHARE_NODE_MAJOR="$(grep ^node_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
     [ -n "$WEBHARE_NODE_MAJOR" ] || die "Could not set WEBHARE_NODE_MAJOR from $WEBHARE_DIR/etc/platform.conf"
@@ -103,14 +105,11 @@ wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a s
 
       # prepend "$NODEBINPATH" to PATH if it doesn't start with it
       case "$PATH:" in "${NODEBINPATH}":*) ;; *) export PATH="${NODEBINPATH}:${PATH}" ;; esac
-
-      WEBHARE_NODE_BINARY="node"
     fi
   fi
 
-  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
-
-  export WEBHARE_NODE_MAJOR WEBHARE_NODE_BINARY
+  export WEBHARE_NODE_MAJOR
+  __DONE_GETNODE=1
 }
 
 setup_builddir()

@@ -110,7 +110,7 @@ WHBUILD_PROFILE=1 wh make wasm-overwrite
 For MacOS:
 - Download a nightly from nodejs.org/download/nightly/. You will want the `node-XXX-darwin-arm64.tar.xz` file.
 - Unpack it, eg `tar -Jxf node-v23.0.0-nightly202409243c5ceff85f-darwin-arm64.tar.xz`
-- Run it: `WEBHARE_NODE_BINARY=~/Downloads/node-v23.0.0-nightly202409243c5ceff85f-darwin-arm64/bin/node wh console`
+- Run it: `PATH="$HOME/Downloads/node-v23.0.0-nightly202409243c5ceff85f-darwin-arm64/bin:$PATH" __DONE_GETNODE="1" wh console`
 
 Dealing with Gatekeeper is left as an exercise for the reader.
 

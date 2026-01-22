@@ -59,9 +59,6 @@ on macOS: `ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | sed -r 's/^([^.]+).*$/\1
 ### WEBHARE_PLATFORM
 Our build/run platform. `linux` or `darwin`
 
-### WEBHARE_NODE_BINARY
-Which process to invoke for 'node' (needed sometimes to lock in the proper version)
-
 ### WEBHARE_NODE_MAJOR
 Major nodejs version for WebHare to use
 

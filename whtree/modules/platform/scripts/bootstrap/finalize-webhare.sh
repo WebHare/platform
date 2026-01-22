@@ -12,7 +12,7 @@ set -eo pipefail
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 source "lib/wh-functions.sh"
 
-[ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+wh_getnodeconfig
 
 export WEBHARE_HARESCRIPT_OFF=1 # Avoid any invocation of HareScript to ensure as much of finalization is safely HS-free
 

@@ -37,17 +37,15 @@ reportVersions() {
     COMMIT="$BRANCH@$COMMIT"
   fi
   MAKEVERSION="$($MAKE --version 2>/dev/null | head -n 1 | sed -e 's/^[^0-9]*//')"
-  WHNODEVERSION="$(${WEBHARE_NODE_BINARY} -v 2>/dev/null)"
-  OSNODEVERSION="$(node -v 2>/dev/null)"
-  echo "Versions: procs=$WHBUILD_NUMPROC wh=$WEBHARE_VERSION commit=${COMMIT:unknown} make=${MAKEVERSION} npm=${NPMVERSION} arch=$(uname -m)/$(uname -o)/$(uname -r) whnode=$WHNODEVERSION systemnode=$OSNODEVERSION"
+  NODEVERSION="$(node -v 2>/dev/null)"
+  echo "Versions: procs=$WHBUILD_NUMPROC wh=$WEBHARE_VERSION commit=${COMMIT:unknown} make=${MAKEVERSION} node=$NODEVERSION npm=${NPMVERSION} arch=$(uname -m)/$(uname -o)/$(uname -r)"
   "${EMCC:-emcc}" -v
   set -e # restore fail on error
 }
 
 # Setup the build system
 getwebhareversion
-
-[ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+wh_getnodeconfig
 
 function fixPackages() {
   if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
@@ -70,11 +68,12 @@ function fixPackages() {
       if ! brew bundle --quiet --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" check ; then
         echo "Installing required Homebrew packages..."
         brew bundle --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" install
+        __DONE_GETNODE=""
         wh_getnodeconfig # reload config, brew may have updated node
       fi
     fi
 
-    if [ ! -x "$WEBHARE_NODE_BINARY" ]; then
+    if ! hash -r node 2>/dev/null; then
       echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
       exit 1
     fi
