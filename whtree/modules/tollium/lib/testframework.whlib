@@ -1733,13 +1733,13 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
       ], options);
 
   OBJECT comp := TT(compname);
-  IF(NOT comp->enabled)
-    THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
 
   STRING ARRAY extendnames := GetObjectExtendNames(comp);
   IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
     FillListLikeByTtile(compname, comp, val, options);
   ELSE IF ("TOLLIUMTEXTEDIT" IN extendnames OR "TOLLIUMTEXTAREA" IN extendnames) {
+    IF(NOT comp->enabled)
+      THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
     comp->value := val;
   }
   ELSE IF ("TOLLIUMTABS" IN extendnames)
