@@ -40,8 +40,7 @@ export interface CLIArgumentType<ValueType> {
 }
 
 /** Type of options - with type or without. Options with type can have any default, but the
- * default will be coerced to the value type of the type. All options take an argument, except boolean options
- * without type.
+ * default will be coerced to the value type of the type. All options take an argument.
  */
 type OptionsTemplate = {
   default?: unknown;
@@ -52,7 +51,12 @@ type OptionsTemplate = {
   default?: string;
   description?: string;
   type?: never;
-  multiple?: boolean;
+  multiple?: false;
+} | {
+  default?: string[];
+  description?: string;
+  type?: never;
+  multiple: true;
 } | string;
 
 type FlagTemplate = {
@@ -102,7 +106,7 @@ type OptArgBase = {
 
 // Ensures the defaults of options with type are compatible with the return type of the type.
 type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: "default" extends keyof Options[Key] ?
-  Simplify<Omit<OptionsTemplate & object, "default"> & { default: GetParsedType<Options[Key], string, false> }> :
+  Simplify<Omit<OptionsTemplate & object, "default"> & { default: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> }> :
   OptionsTemplate;
 };
 
@@ -149,12 +153,14 @@ type GetOptionListStoreName<K extends string> = K extends `${string},${infer E}`
 // Gets rid of the intersections within a type
 type Simplify<A extends object> = A extends object ? { [K in keyof A]: A[K] } : never;
 
-type IsMultiple<O extends OptionsTemplate> = O extends { multiple: true } ? true : false;
+type IsMultiple<O extends OptionsTemplate> = O extends object ? O["multiple"] extends true ? true : false : false;
+
+type OptionValueAlwaysPresent<O extends OptionsTemplate> = IsMultiple<O> extends true ? true : O extends object ? "default" extends keyof O ? true : false : false;
 
 /// Calculate the resulting values record for options
 type OptionsResult<Options extends Record<string, OptionsTemplate>, Flags extends Record<string, FlagTemplate>> = Simplify<
-  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? GetOptionListStoreName<Key> : never)]-?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
-  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? never : GetOptionListStoreName<Key>)]?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
+  { -readonly [Key in keyof Options & string as (OptionValueAlwaysPresent<Options[Key]> extends true ? GetOptionListStoreName<Key> : never)]-?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
+  { -readonly [Key in keyof Options & string as (OptionValueAlwaysPresent<Options[Key]> extends true ? never : GetOptionListStoreName<Key>)]?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
   { -readonly [Key in keyof Flags & string as GetOptionListStoreName<Key>]: boolean } &
   object>;
 
@@ -289,11 +295,12 @@ function registerOptsAndFlags(optMap: OptMap, parsedOpts: Record<string, unknown
       for (const key of keys.split(",")) {
         optMap.set(key, { storeName, isFlag: false, isGlobal, rec: optionRec });
       }
-      if (typeof optionRec === "object" && "default" in optionRec) {
+      if (typeof optionRec === "object" && ("default" in optionRec || optionRec.multiple)) {
+        const defaultValue = "default" in optionRec ? optionRec.default : [];
         if (parsedOpts)
-          parsedOpts[storeName] = optionRec.default;
+          parsedOpts[storeName] = defaultValue;
         if (isGlobal && parsedGlobalOpts)
-          parsedGlobalOpts[storeName] = optionRec.default;
+          parsedGlobalOpts[storeName] = defaultValue;
       }
     }
   }
@@ -360,9 +367,12 @@ export function parse<
         }
 
         const { storeName, isFlag, isGlobal, rec } = optionRef;
-        specifiedOpts.push(storeName);
-        if (isGlobal)
-          specifiedGlobalOpts.push(storeName);
+        const isFirst = !specifiedOpts.includes(storeName);
+        if (isFirst) {
+          specifiedOpts.push(storeName);
+          if (isGlobal)
+            specifiedGlobalOpts.push(storeName);
+        }
 
         if (isFlag) {
           if (parts.length > 1)
@@ -379,9 +389,12 @@ export function parse<
             strValue = argv[i];
           }
 
-          const storeValue = typeof rec === "object" && rec.type ?
+          let storeValue = typeof rec === "object" && rec.type ?
             rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
             strValue;
+
+          if (typeof rec === "object" && rec.multiple)
+            storeValue = isFirst ? [storeValue] : [...parsedOpts[storeName] as [], storeValue];
 
           parsedOpts[storeName] = storeValue;
           if (isGlobal)
@@ -404,9 +417,12 @@ export function parse<
           }
 
           const { storeName, isFlag, isGlobal, rec } = optionRef;
-          specifiedOpts.push(storeName);
-          if (isGlobal)
-            specifiedGlobalOpts.push(storeName);
+          const isFirst = !specifiedOpts.includes(storeName);
+          if (isFirst) {
+            specifiedOpts.push(storeName);
+            if (isGlobal)
+              specifiedGlobalOpts.push(storeName);
+          }
 
           if (isFlag) {
             parsedOpts[storeName] = true;
@@ -423,9 +439,12 @@ export function parse<
               strValue = argv[++i];
             }
 
-            const storeValue = typeof rec === "object" && rec.type ?
+            let storeValue = typeof rec === "object" && rec.type ?
               rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
               strValue;
+
+            if (typeof rec === "object" && rec.multiple)
+              storeValue = isFirst ? [storeValue] : [...parsedOpts[storeName] as [], storeValue];
 
             parsedOpts[storeName] = storeValue;
             if (isGlobal)
