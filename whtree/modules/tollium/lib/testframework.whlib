@@ -1621,7 +1621,7 @@ PUBLIC MACRO TTEscape()
 }
 
 //Handle list, select and list/arrayedit
-MACRO FillListLikeByTtile(STRING compname, OBJECT comp, VARIANT val, RECORD options) {
+MACRO FillListLikeByTitle(STRING compname, OBJECT comp, VARIANT val, RECORD options) {
   IF (NOT IsTypeIdArray(TypeID(val)))
     val := IsDefaultValue(val) ? VARIANT[] : VARIANT[ val ];
 
@@ -1736,7 +1736,7 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
 
   STRING ARRAY extendnames := GetObjectExtendNames(comp);
   IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
-    FillListLikeByTtile(compname, comp, val, options);
+    FillListLikeByTitle(compname, comp, val, options);
   ELSE IF ("TOLLIUMTEXTEDIT" IN extendnames OR "TOLLIUMTEXTAREA" IN extendnames) {
     IF(NOT comp->enabled)
       THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
