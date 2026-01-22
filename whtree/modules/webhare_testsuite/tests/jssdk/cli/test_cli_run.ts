@@ -223,6 +223,58 @@ async function testCLISubCommandParse() {
   test.throws(/Illegal value "d" specified for argument "f1"/, () => parse({
     arguments: [{ name: "<f1>", type: enumOption(["a", "b", "c"]) }]
   }, ["d"]));
+
+  test.eq({
+    cmd: undefined,
+    args: {},
+    opts: { a: [], b: ["a"], c: [], d: [3] },
+    specifiedOpts: [],
+    globalOpts: { a: [], b: ["a"], c: [], d: [3] },
+    specifiedGlobalOpts: [],
+  }, parse({
+    options: {
+      a: { multiple: true },
+      b: { default: ["a"], multiple: true },
+      c: { multiple: true, type: intOption() },
+      d: { default: [3], multiple: true, type: intOption() },
+    },
+    flags: {},
+  }, []));
+
+  test.eq({
+    cmd: undefined,
+    args: {},
+    opts: { a: ["1", "2"], b: ["1", "2"], c: [1, 2], d: [1, 2] },
+    specifiedOpts: ["a", "b", "c", "d"],
+    globalOpts: { a: ["1", "2"], b: ["1", "2"], c: [1, 2], d: [1, 2] },
+    specifiedGlobalOpts: ["a", "b", "c", "d"],
+  }, parse({
+    options: {
+      a: { multiple: true },
+      b: { default: ["a"], multiple: true },
+      c: { multiple: true, type: intOption() },
+      d: { default: [3], multiple: true, type: intOption() },
+    },
+    flags: {},
+  }, ["-a", "1", "-a", "2", "-b", "1", "-b", "2", "-c", "1", "-c", "2", "-d", "1", "-d", "2"]));
+
+  test.eq({
+    cmd: undefined,
+    args: {},
+    opts: { aa: ["1", "2"], bb: ["1", "2"], cc: [1, 2], dd: [1, 2] },
+    specifiedOpts: ["aa", "bb", "cc", "dd"],
+    globalOpts: { aa: ["1", "2"], bb: ["1", "2"], cc: [1, 2], dd: [1, 2] },
+    specifiedGlobalOpts: ["aa", "bb", "cc", "dd"],
+  }, parse({
+    options: {
+      aa: { multiple: true },
+      bb: { default: ["a"], multiple: true },
+      cc: { multiple: true, type: intOption() },
+      dd: { default: [3], multiple: true, type: intOption() },
+    },
+    flags: {},
+  }, ["--aa", "1", "--aa", "2", "--bb", "1", "--bb", "2", "--cc", "1", "--cc", "2", "--dd", "1", "--dd", "2"]));
+
 }
 
 
@@ -305,7 +357,7 @@ async function testCLITypes() {
           },
           "cmd2": {
             flags: { b: { default: false } },
-            options: { s: {}, m: { multiple: true } },
+            options: { s: {}, m: { multiple: true, description: "16" } },
             arguments: [{ name: "<f2>", type: enumOption(["y"]) }],
           },
           "cmd3": {
@@ -326,7 +378,7 @@ async function testCLITypes() {
       } | {
         cmd: "cmd2";
         args: { f2: "y" };
-        opts: { b: boolean; s?: string; m?: string[] };
+        opts: { b: boolean; s?: string; m: string[] };
         specifiedOpts: Array<"b" | "s" | "m">;
         globalOpts: object;
         specifiedGlobalOpts: never[];
@@ -362,6 +414,28 @@ async function testCLITypes() {
         specifiedGlobalOpts: Array<"a" | "b">;
       }, typeof res>>();
     }
+
+    {
+      const res = parse({
+        options: {
+          a: { multiple: true },
+          b: { default: ["a"], multiple: true },
+          c: { default: 3, type: intOption() },
+          d: { default: [3], multiple: true, type: intOption() },
+        }
+      }, []);
+      void res;
+
+      test.typeAssert<test.Equals<{
+        cmd?: undefined;
+        args: object;
+        opts: { a: string[]; b: string[]; c: number; d: number[] };
+        specifiedOpts: Array<"a" | "b" | "c" | "d">;
+        globalOpts: { a: string[]; b: string[]; c: number; d: number[] };
+        specifiedGlobalOpts: Array<"a" | "b" | "c" | "d">;
+      }, typeof res>>();
+    }
+
     parse({
       // @ts-expect-error default has the wrong type
       options: { a: { type: intOption({ start: 0, end: 10 }), default: "a" } },
@@ -372,12 +446,23 @@ async function testCLITypes() {
         a: {
           // @ts-expect-error default has the wrong type
           default: true,
-        }
+        },
+        c: {
+          // @ts-expect-error default has the wrong type
+          default: "a",
+          multiple: true,
+        },
+        d: {
+          // @ts-expect-error default has the wrong type
+          default: 3,
+          type: intOption(),
+          multiple: true,
+        },
       }, flags: {
         b: {
           // @ts-expect-error default has the wrong type
           default: "a",
-        }
+        },
       }
     }, []);
   });
