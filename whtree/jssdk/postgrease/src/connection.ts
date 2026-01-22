@@ -97,7 +97,7 @@ export async function connect(connectionOptions: PGConnectionOptions = {}) {
     let backendKeyData: BackendKeyData | null = null;
 
     // Write the startup message and read the response
-    socket.write(b => b.startupMessage(connectionOptions.user || process.env.PGUSER || "postgres", connectionOptions.database || process.env.PGDATABASE || "postgres"));
+    const startupIdx = socket.write(b => b.startupMessage(connectionOptions.user || process.env.PGUSER || "postgres", connectionOptions.database || process.env.PGDATABASE || "postgres"));
     while (true) {
       { const res = socket.readPacket(); if (res) await res; }
 
@@ -136,6 +136,8 @@ export async function connect(connectionOptions: PGConnectionOptions = {}) {
       } else
         throw new Error(`Unexpected message type ${String.fromCharCode(packet.code)}`);
     }
+
+    socket.ackWrite(startupIdx);
 
     if (!connectionOptions.codecRegistry) {
       connectionOptions.codecRegistry = defaultCodecRegistry ??= new CodecRegistry(defaultCodecs);
@@ -186,8 +188,9 @@ export class PGConnection {
     response: PromiseWithResolvers<PGQueryResult>;
     desc: CachedDescription;
     codecRegistry: CodecRegistry;
-    resolveDesc?: (arg: Required<CachedDescription>) => void;
+    resolveDesc?: (arg: Required<CachedDescription> | null) => void;
     onError?: (err: Error) => void;
+    writeIdx?: number;
   }[] = [];
   private querySignal = Promise.withResolvers<void>();
 
@@ -346,8 +349,12 @@ export class PGConnection {
           rows,
           fields: query.desc.columns,
         });
+
+        if (query.writeIdx)
+          this.socket.ackWrite(query.writeIdx);
       } catch (err) {
-        query.onError?.(err as Error);
+        // Let the query writer know about the error, so it can send a Sync if needed
+        query.resolveDesc?.(null);
         query.response.reject(err);
 
         try {
@@ -374,7 +381,6 @@ export class PGConnection {
     this.closeError = error;
     for (const q of this.queries) {
       q.response.reject(error);
-      q.onError?.(error);
     }
     this.socket.close();
   }
@@ -457,7 +463,7 @@ export class PGConnection {
     // no blocks. Do we have a cached description or are all paramCodecs known?
     query.haveRowDescription = query.desc.decoder !== undefined;
     if (!query.haveMissingParamCodec) {
-      this.socket.write(b => {
+      query.writeIdx = this.socket.write(b => {
         b.parse("", query.sql, paramOids);
         b.bind("", "", params, query.desc?.params ?? paramCodecs as Codec<unknown, unknown>[]);
         if (!query.haveRowDescription)
@@ -487,23 +493,27 @@ export class PGConnection {
       query.resolveDesc = newDesc => {
         // TODO: revalidate params with newly selected codecs
         query.resolveDesc = undefined; // prevent multiple calls
-        this.descriptionMap.set(queryKey, newDesc);
-        this.socket.write(b => {
-          try {
-            b.bind("", "", params, newDesc.params);
-            b.execute("", 0);
-            b.sync();
-          } catch (e) {
-            // Error constructing the rest of the query. Send a Sync to recover the connection handler
-            b.reset();
-            b.sync();
-            query.response.reject(e as Error);
-            throw e;
-          }
-        });
+        if (!newDesc) {
+          query.writeIdx = this.socket.write(b => b.sync());
+        } else {
+          this.descriptionMap.set(queryKey, newDesc);
+          query.writeIdx = this.socket.write(b => {
+            try {
+              b.bind("", "", params, newDesc.params);
+              b.execute("", 0);
+              b.sync();
+            } catch (e) {
+              // Error constructing the rest of the query. Send a Sync to recover the connection handler
+              b.reset();
+              b.sync();
+              query.response.reject(e as Error);
+              res.resolve(undefined);
+              throw e;
+            }
+          });
+        }
         res.resolve(undefined);
       };
-      query.onError = res.reject;
       return res.promise;
     }
   }
