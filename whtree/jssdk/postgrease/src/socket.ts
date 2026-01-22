@@ -166,15 +166,23 @@ export class PGPacketSocket {
     this.socket.addListener("error", (err) => this.wait?.reject(err));
   }
 
-  /** Calls a callback with a requestbuilder to build a request synchronously, and sends it immediately
+  /** Calls a callback with a requestbuilder to build a request synchronously, and sends it immediately.
+   * Returns the new index in the request builder after writing. WHen a response is received, call signalAnswered
+   * with that index.
   */
   write(cb: (builder: RequestBuilder) => void) {
     const startIdx = this.requestBuilder.idx;
     cb(this.requestBuilder);
     // Write the built request to the socket
     const buf = this.requestBuilder.buffer.subarray(startIdx, this.requestBuilder.idx);
-    // If the write completes immediately, the request builder data can be reset
-    if (this.socket.write(buf))
+    // Just write the buffer directly, don't expect too many writes at the same time
+    this.socket.write(buf);
+    return this.requestBuilder.idx;
+  }
+
+  /** Call when an answer has been received for a query, so the requestbuilder knows its buffer can be reused. */
+  ackWrite(idx: number) {
+    if (this.requestBuilder.idx === idx)
       this.requestBuilder.reset();
   }
 
