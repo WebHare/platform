@@ -1620,122 +1620,126 @@ PUBLIC MACRO TTEscape()
   topscreen->TolliumExecuteCancel();
 }
 
+//Handle list, select and list/arrayedit
+MACRO FillListLikeByTitle(STRING compname, OBJECT comp, VARIANT val, RECORD options) {
+  IF (NOT IsTypeIdArray(TypeID(val)))
+    val := IsDefaultValue(val) ? VARIANT[] : VARIANT[ val ];
+
+  VARIANT ARRAY rowkeys;
+
+  STRING searchcell;
+  RECORD ARRAY rows;
+  BOOLEAN selectmultiple;
+  STRING detokenizedvalueseparator;
+
+  STRING ARRAY extendnames := GetObjectExtendNames(comp);
+  IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames)
+  {
+    IF (options.cellname = "" OR options.cellname LIKE ":*")
+    {
+      IF (options.cellname != "" AND NOT comp->columnheaders)
+        THROW NEW Exception(`Cannot search column name when these those hidden on list '${compname}'`);
+
+      searchcell :=
+          SELECT AS STRING name
+            FROM comp->columns
+            WHERE type = "text"
+              AND (options.cellname = "" ? TRUE : ToUppercase(title) LIKE ToUppercase(SubString(options.cellname, 1)));
+
+      IF (searchcell = "")
+        THROW NEW Exception(`Cannot find text column '${options.cellname}' in list '${compname}'`);
+    }
+    ELSE
+      searchcell := options.cellname;
+
+    IF (comp->columns[0].tree)
+    {
+      FOR (INTEGER i := 0; i < options.expandtreelevels; i := i + 1)
+      {
+        VARIANT expanded := comp->expanded, orgexpanded := expanded;
+        FOREVERY (RECORD row FROM comp->rows)
+          IF (row.expandable)
+            INSERT row.rowkey INTO expanded AT END;
+        expanded := GetSortedSet(expanded);
+        IF (LENGTH(expanded) = LENGTH(orgexpanded))
+          BREAK;
+        comp->expanded := expanded;
+      }
+    }
+
+    rows := comp->rows;
+    selectmultiple := comp->selectmode = "multiple";
+  }
+  ELSE
+  {
+    IF (options.cellname LIKE ":*")
+      THROW NEW Exception(`Cannot search by column name in select component ${compname}`);
+
+    searchcell := options.cellname ?? "title";
+    rows := comp->options;
+    selectmultiple := comp->type = "checkbox";
+    detokenizedvalueseparator := comp->detokenizedvalueseparator;
+  }
+
+  FOREVERY (VARIANT v FROM val)
+  {
+    RECORD rec :=
+        SELECT *
+          FROM rows
+          WHERE TypeID(v) = TypeID(STRING)
+                  ? GetCell(rows, searchcell) LIKE v
+                  : GetCell(rows, searchcell) = v;
+
+    IF (NOT RecordExists(rec))
+    {
+      IF (TypeID(v) = TypeID(STRING))
+      {
+        STRING bestmatch := GetBestMatch(v, SELECT AS STRING ARRAY GetCell(rows, searchcell) FROM rows);
+        IF (bestmatch != "")
+          THROW NEW Exception(`Could not find value '${EncodeValue(v)}' in cell ${searchcell} in list '${compname}', did you mean '${EncodeValue(bestmatch)}'`);
+      }
+      VARIANT items := SELECT AS VARIANT ARRAY GetCell(rows, searchcell) FROM rows LIMIT 20;
+      DumpValue(items, [ name := `First ${LENGTH(items)} items` ]);
+      THROW NEW Exception(`Could not find value ${EncodeHSON(v)} in cell ${searchcell} in list '${compname}'`);
+    }
+
+    INSERT rec.rowkey INTO rowkeys AT END;
+  }
+
+  IF (selectmultiple)
+  {
+    IF (detokenizedvalueseparator = "")
+      comp->value := CastTo(rowkeys, TypeID(comp->value));
+    ELSE
+      comp->value := Detokenize(STRING ARRAY(rowkeys), detokenizedvalueseparator);
+  }
+  ELSE IF (LENGTH(rowkeys) = 0)
+    comp->value := GetTypeDefaultValue(TypeID(comp->value));
+  ELSE
+    comp->value := rowkeys[0];
+}
+
+
 /** Sets a component value
     @param compname Component to set the value of
     @param val Title/value of the value to set
     @cell options.cellname Cell to search the value in. Defaults to the title for selects, the first text column for lists.
     @cell(integer) options.expandtreelevels Expand this nr of tree levels before searching
 */
-PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(
       [ cellname :=         ""
       , expandtreelevels := 0
       ], options);
 
   OBJECT comp := TT(compname);
-  IF(NOT comp->enabled)
-    THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
+
   STRING ARRAY extendnames := GetObjectExtendNames(comp);
   IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
-  {
-    IF (NOT IsTypeIdArray(TypeID(val)))
-      val := IsDefaultValue(val) ? VARIANT[] : VARIANT[ val ];
-
-    VARIANT ARRAY rowkeys;
-
-    STRING searchcell;
-    RECORD ARRAY rows;
-    BOOLEAN selectmultiple;
-    STRING detokenizedvalueseparator;
-
-    IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames)
-    {
-      IF (options.cellname = "" OR options.cellname LIKE ":*")
-      {
-        IF (options.cellname != "" AND NOT comp->columnheaders)
-          THROW NEW Exception(`Cannot search column name when these those hidden on list '${compname}'`);
-
-        searchcell :=
-            SELECT AS STRING name
-              FROM comp->columns
-             WHERE type = "text"
-               AND (options.cellname = "" ? TRUE : ToUppercase(title) LIKE ToUppercase(SubString(options.cellname, 1)));
-
-        IF (searchcell = "")
-          THROW NEW Exception(`Cannot find text column '${options.cellname}' in list '${compname}'`);
-      }
-      ELSE
-        searchcell := options.cellname;
-
-      IF (comp->columns[0].tree)
-      {
-        FOR (INTEGER i := 0; i < options.expandtreelevels; i := i + 1)
-        {
-          VARIANT expanded := comp->expanded, orgexpanded := expanded;
-          FOREVERY (RECORD row FROM comp->rows)
-            IF (row.expandable)
-              INSERT row.rowkey INTO expanded AT END;
-          expanded := GetSortedSet(expanded);
-          IF (LENGTH(expanded) = LENGTH(orgexpanded))
-            BREAK;
-          comp->expanded := expanded;
-        }
-      }
-
-      rows := comp->rows;
-      selectmultiple := comp->selectmode = "multiple";
-    }
-    ELSE
-    {
-      IF (options.cellname LIKE ":*")
-        THROW NEW Exception(`Cannot search by column name in select component ${compname}`);
-
-      searchcell := options.cellname ?? "title";
-      rows := comp->options;
-      selectmultiple := comp->type = "checkbox";
-      detokenizedvalueseparator := comp->detokenizedvalueseparator;
-    }
-
-    FOREVERY (VARIANT v FROM val)
-    {
-      RECORD rec :=
-          SELECT *
-            FROM rows
-           WHERE TypeID(v) = TypeID(STRING)
-                    ? GetCell(rows, searchcell) LIKE v
-                    : GetCell(rows, searchcell) = v;
-
-      IF (NOT RecordExists(rec))
-      {
-        IF (TypeID(v) = TypeID(STRING))
-        {
-          STRING bestmatch := GetBestMatch(v, SELECT AS STRING ARRAY GetCell(rows, searchcell) FROM rows);
-          IF (bestmatch != "")
-            THROW NEW Exception(`Could not find value '${EncodeValue(v)}' in cell ${searchcell} in list '${compname}', did you mean '${EncodeValue(bestmatch)}'`);
-        }
-        VARIANT items := SELECT AS VARIANT ARRAY GetCell(rows, searchcell) FROM rows LIMIT 20;
-        DumpValue(items, [ name := `First ${LENGTH(items)} items` ]);
-        THROW NEW Exception(`Could not find value ${EncodeHSON(v)} in cell ${searchcell} in list '${compname}'`);
-      }
-
-      INSERT rec.rowkey INTO rowkeys AT END;
-    }
-
-    IF (selectmultiple)
-    {
-      IF (detokenizedvalueseparator = "")
-        comp->value := CastTo(rowkeys, TypeID(comp->value));
-      ELSE
-        comp->value := Detokenize(STRING ARRAY(rowkeys), detokenizedvalueseparator);
-    }
-    ELSE IF (LENGTH(rowkeys) = 0)
-      comp->value := GetTypeDefaultValue(TypeID(comp->value));
-    ELSE
-      comp->value := rowkeys[0];
-  }
-  ELSE IF ("TOLLIUMTEXTEDIT" IN extendnames OR "TOLLIUMTEXTAREA" IN extendnames)
-  {
+    FillListLikeByTitle(compname, comp, val, options);
+  ELSE IF ("TOLLIUMTEXTEDIT" IN extendnames OR "TOLLIUMTEXTAREA" IN extendnames) {
+    IF(NOT comp->enabled)
+      THROW NEW Exception(`Cannot modify value on disabled compoment '${compname}'`);
     comp->value := val;
   }
   ELSE IF ("TOLLIUMTABS" IN extendnames)
