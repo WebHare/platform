@@ -765,7 +765,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->DoInspect("draft");
   }
   MACRO DoInspectFinal() {
-    this->DoInspect("final");
+    this->DoInspect("live");
   }
   MACRO DoInspect(STRING which) {
     INTEGER inspectid := this->workflowmgr->GetObjectIdForInspect(which);

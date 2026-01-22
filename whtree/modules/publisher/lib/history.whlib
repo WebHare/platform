@@ -63,7 +63,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   PUBLIC INTEGER FUNCTION GetObjectIdForInspect(STRING version) {
     SWITCH(version) {
-      CASE "final" {
+      CASE "live" {
         RETURN this->baseobject->id;
       }
       CASE "draft" {
