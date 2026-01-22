@@ -4,17 +4,17 @@ set -eo pipefail
 REQUIRENPMVERSION="7.13.0"
 
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
-source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
+source "${BASH_SOURCE%/*}/../whtree/lib/make-functions.sh"
 estimate_buildj
 
 if [ "$WEBHARE_PLATFORM" == "linux" ]; then
-  MAKE=make
+  MAKE="make"
   read -r _ TOTALMEM _ <<< "$(grep ^MemTotal /proc/meminfo)"
   EXPECTMEMORY=3900000 #almost 4GB but give some tolerance
   # With too little memory the buildtoolchains will randomly segfault, and defaults for Docker/podman can be smaller than that. use eg podman machine set -m 4096
   [ "$TOTALMEM" -lt "$EXPECTMEMORY" ] && die "You need at least 4GB of memory to build WebHare ($TOTALMEM < $EXPECTMEMORY)"
 else
-  MAKE=gmake
+  MAKE="gmake"
 fi
 
 setup_builddir
@@ -49,82 +49,86 @@ getwebhareversion
 
 [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
 
-if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
-  if ! which brew >/dev/null 2>&1 ; then
-    echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
-    exit 1
-  fi
-
-  if [ -z "$NOBREW" ]; then
-    # Cleanup legacy pre-wh5.9 approach
-    rm -rf "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb" "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb.ok"
-
-    # Get versions the Brewfile needs
-    POSTGRES_MAJOR="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
-
-    export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR"
-    export HOMEBREW_POSTGRES_MAJOR="$POSTGRES_MAJOR"
-
-    # Update if needed
-    if ! brew bundle --quiet --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" check ; then
-      echo "Installing required Homebrew packages..."
-      brew bundle --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" install
-      wh_getnodeconfig # reload config, brew may have updated node
+function fixPackages() {
+  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
+    if ! which brew >/dev/null 2>&1 ; then
+      echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
+      exit 1
     fi
-  fi
 
-  if [ ! -x "$WEBHARE_NODE_BINARY" ]; then
-    echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
-    exit 1
-  fi
+    if [ -z "$NOBREW" ]; then
+      # Cleanup legacy pre-wh5.9 approach
+      rm -rf "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb" "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb.ok"
 
-elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
-  # FIXME get this list fro setup-builder.sh!
-  REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel postgresql17-libs"
-  if ! which ccache > /dev/null 2>&1 ; then
-    REQUIREPACKAGES="$REQUIREPACKAGES ccache"
-  fi
-  MISSINGPACKAGES=
-  for P in $REQUIREPACKAGES; do
-    ASSUME=0
-    for Q in $WEBHARE_ASSUMEPACKAGES ; do
-      if [ "$P" == "$Q" ]; then
-        ASSUME=1
+      # Get versions the Brewfile needs
+      POSTGRES_MAJOR="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+
+      export HOMEBREW_WEBHARE_NODE_MAJOR="$WEBHARE_NODE_MAJOR"
+      export HOMEBREW_POSTGRES_MAJOR="$POSTGRES_MAJOR"
+
+      # Update if needed
+      if ! brew bundle --quiet --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" check ; then
+        echo "Installing required Homebrew packages..."
+        brew bundle --file="$WEBHARE_CHECKEDOUT_TO/addons/darwin/Brewfile" install
+        wh_getnodeconfig # reload config, brew may have updated node
+      fi
+    fi
+
+    if [ ! -x "$WEBHARE_NODE_BINARY" ]; then
+      echo "'node' still not available, please install it ('brew link node' or 'brew link node@<version>'?)"
+      exit 1
+    fi
+
+  elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
+    # FIXME get this list fro setup-builder.sh!
+    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel postgresql17-libs"
+    if ! which ccache > /dev/null 2>&1 ; then
+      REQUIREPACKAGES="$REQUIREPACKAGES ccache"
+    fi
+    MISSINGPACKAGES=
+    for P in $REQUIREPACKAGES; do
+      ASSUME=0
+      for Q in $WEBHARE_ASSUMEPACKAGES ; do
+        if [ "$P" == "$Q" ]; then
+          ASSUME=1
+        fi
+      done
+      if [ "$ASSUME" == "1" ]; then
+        continue
+      fi
+      if ! rpm -q $P >/dev/null ; then
+        MISSINGPACKAGES="$MISSINGPACKAGES $P"
       fi
     done
-    if [ "$ASSUME" == "1" ]; then
-      continue
-    fi
-    if ! rpm -q $P >/dev/null ; then
-      MISSINGPACKAGES="$MISSINGPACKAGES $P"
-    fi
-  done
 
-  if [ -n "$MISSINGPACKAGES" ]; then
-    echo ""
-    echo "We need to install the following packages:"
-    echo "$MISSINGPACKAGES"
-    echo ""
-    if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
-      die "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
-    fi
-    if [ "$FORCE" != "1" ]; then
-      echo "If you want me to install them, type YES"
+    if [ -n "$MISSINGPACKAGES" ]; then
       echo ""
-      read answer
-      if [ "$answer" != "YES" ]; then
-        die "Then I fear you're on your own"
+      echo "We need to install the following packages:"
+      echo "$MISSINGPACKAGES"
+      echo ""
+      if [ "$WEBHARE_IN_DOCKER" == "1" ]; then
+        die "WEBHARE_IN_DOCKER set, aborting build. You probably want to update your Dockerfile"
       fi
-    fi
+      if [ "$FORCE" != "1" ]; then
+        echo "If you want me to install them, type YES"
+        echo ""
+        read answer
+        if [ "$answer" != "YES" ]; then
+          die "Then I fear you're on your own"
+        fi
+      fi
 
-    sudo dnf install -y $MISSINGPACKAGES
+      sudo dnf install -y $MISSINGPACKAGES
+    fi
   fi
-fi
+}
+
+[ -z "$WHBUILD_FASTMAKE" ] && fixPackages
 
 NPMVERSION="$(npm -v)"
 vercomp "$NPMVERSION" "$REQUIRENPMVERSION" ||:
 if [ "$?" == "2" ]; then
-  echo "You have npm $(npm -v), we desire $REQUIRENPMVERSION or higher"
+  echo "You have npm $NPMVERSION, we desire $REQUIRENPMVERSION or higher"
   echo "You may need to update nodejs or manually install npm (eg npm install -g npm)"
   exit 1
 fi
@@ -207,6 +211,8 @@ export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
 export WEBHARE_PLATFORM
 
 retval=0
+
+[ -z "$WHBUILD_FASTMAKE" ] && reportVersions
 "$MAKE" -rj"$WHBUILD_NUMPROC" -f "$WEBHARE_CHECKEDOUT_TO/builder/base_makefile" "$@" || retval=$?
 
 if [ "$retval" != "0" ]; then
