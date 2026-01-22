@@ -9,6 +9,11 @@
 
 set -eo pipefail
 
+cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
+source "lib/wh-functions.sh"
+
+[ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+
 export WEBHARE_HARESCRIPT_OFF=1 # Avoid any invocation of HareScript to ensure as much of finalization is safely HS-free
 
 UPDATE_PACKAGES=
@@ -21,9 +26,6 @@ while [ "$1" != "" ]; do
     exit 1
   fi
 done
-
-cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
-source "lib/wh-functions.sh"
 
 [ -f package.json ] || die "Failed to navigate to whtree directory"
 [ -n "$WEBHARE_HSBUILDCACHE" ] || die "WEBHARE_HSBUILDCACHE not set"

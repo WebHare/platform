@@ -99,7 +99,12 @@ wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a s
     BREWPREFIX="$(brew --prefix)"
     [ -n "$BREWPREFIX" ] || die "Could not find brew (brew --prefix), is Homebrew properly installed and is 'brew' in the PATH?"
     if [ -x "${BREWPREFIX}/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then # See if our preferred version is available
-      WEBHARE_NODE_BINARY="${BREWPREFIX}/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
+      NODEBINPATH="${BREWPREFIX}/opt/node@${WEBHARE_NODE_MAJOR}/bin"
+
+      # prepend "$NODEBINPATH" to PATH if it doesn't start with it
+      case "$PATH:" in "${NODEBINPATH}":*) ;; *) export PATH="${NODEBINPATH}:${PATH}" ;; esac
+
+      WEBHARE_NODE_BINARY="node"
     fi
   fi
 
