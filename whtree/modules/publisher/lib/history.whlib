@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib" EXPORT StartWorkflowUpdate, ListObjectHistory;
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/history.whlib" ;
 
 /** Manage the draft/autosave/publish workflow for an editor */
@@ -448,3 +448,13 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
 
 >;
+
+
+/** Get the last public draft of an object - ie the draft editdocument would open */
+PUBLIC INTEGER FUNCTION GetLastPublicDraft(INTEGER objid) {
+  RECORD ARRAY history := ListObjectHistory(objid);
+  IF(Length(history) > 0 AND history[END-1].type = "saved")
+    RETURN history[END-1].snapshot;
+  ELSE
+    RETURN 0;
+}

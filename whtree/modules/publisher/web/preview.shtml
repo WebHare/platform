@@ -23,6 +23,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 OpenPrimary();
 
