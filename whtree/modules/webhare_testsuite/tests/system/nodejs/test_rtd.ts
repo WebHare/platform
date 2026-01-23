@@ -562,7 +562,7 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { inlineWidget: test.expectInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { inlineWidget: test.expectInstance("platform:widgets.mergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
         widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
@@ -589,7 +589,7 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           {
             inlineWidget: {
-              whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
+              whfsType: "platform:widgets.mergefield",
               data: {
                 fieldname: "bu_field"
               }

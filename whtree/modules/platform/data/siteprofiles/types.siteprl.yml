@@ -40,6 +40,41 @@ types:
     useWebDesign: false
     apply:
       usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
+  filetypes.form:
+    namespace: http://www.webhare.net/xmlns/publisher/formwebtool
+    icon: tollium:files/application_x-webhare-survey
+    metaType: page
+    workflow: true
+    dynamicExecution:
+      webPageObjectName: mod::publisher/lib/forms/base.whlib#WebtoolFormPage
+    searchContentProvider: publisher:webtoolform
+    members:
+      disablecaptcha:
+        title: Disable captcha verification
+        type: boolean
+      storeresults:
+        title: How long to store form results (in days)
+        type: integer
+        comment: Because the default value is 0 and the default should be "use the server default retention period", the value -1 (or any value < 0) is used to signify 0 days (don't store at all)
+      maxsignups:
+        title: Maximum number of signups allowed
+        type: integer
+      data:
+        title: Form contents
+        type: composedDocument
+      unavailable:
+        title: The form is unavailable
+        type: boolean
+      unavailabletext:
+        title: Text to show when the form is unavailable
+        type: richTextDocument
+    deleteMembers:
+      - fixformoptions #archived original remapping in case we ever needed it. Deleted in WH6.0
+    apply:
+      setObjectEditor:
+        separateApp: true
+        name: publisher:webtoolform
+
   filetypes.html:
     namespace: http://www.webhare.net/xmlns/publisher/htmlfile
     icon: tollium:files/text_html
