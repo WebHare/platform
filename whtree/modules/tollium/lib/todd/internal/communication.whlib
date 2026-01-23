@@ -19,7 +19,6 @@ PUBLIC CONSTANT RECORD appstartoptions :=
       , hasconnect := FALSE
       , goparam := ""
       , browser := ""
-      , isloginapp := FALSE
       , protocolversion := 0
       , app := ""
       , launchuserinfo := [ loggedin := 0
