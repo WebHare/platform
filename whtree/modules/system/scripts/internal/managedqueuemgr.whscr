@@ -335,7 +335,6 @@ STATIC OBJECTTYPE ManagedWorker <
     }
 
     this->proc := CreateProcess(processinfo.process, processinfo.args, FALSE, TRUE, TRUE, TRUE);
-    dumpvalue(processinfo);
     this->listener := RegisterHandleReadCallback(this->proc->output_handle, PTR this->GotOutput);
     IF(NOT this->proc->Start())
       this->connectdefer.reject(NEW Exception("Unable to start subworker"));
