@@ -665,6 +665,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
     finaldoc->documentelement->AppendChild(body);
 
     // Rewrite instanceref before cleaning the html
+    RECORD ARRAY org_instance_mapping := this->org_instance_mapping;
     RECORD ARRAY instances;
 
     IF(RecordExists(this->rtdtype)) //clean up embedded objects, and filter the instances that are actually used by an embedded object
@@ -686,11 +687,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
         IF (instanceref != "")
         {
           // Ref unchanged? If so, we can reuse the original instanceid
-          RECORD pos := RecordLowerBound(this->org_instance_mapping, [ instanceref := instanceref ], [ "INSTANCEREF" ]);
+          RECORD pos := RecordLowerBound(org_instance_mapping, [ instanceref := instanceref ], [ "INSTANCEREF" ]);
           IF (pos.found)
           {
-            instanceid := this->org_instance_mapping[pos.position].instanceid;
-            DELETE FROM this->org_instance_mapping AT pos.position;
+            instanceid := org_instance_mapping[pos.position].instanceid;
+            DELETE FROM org_instance_mapping AT pos.position;
           }
           ELSE
           {
