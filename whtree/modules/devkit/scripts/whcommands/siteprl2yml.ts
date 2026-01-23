@@ -460,7 +460,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
   return rule;
 }
 
-function myCSPRuleCompare(expect: unknown, actual: unknown, path: string) {
+function myCSPRuleCompare(renamedTypes: Map<string, string>, expect: unknown, actual: unknown, path: string) {
   if (path.endsWith(".line") || path.endsWith(".col")) //positions are uncomparable
     return true;
   if (path.endsWith(".applynodetype") || path.endsWith(".applyindex")) //XML locators are useless with YAML
@@ -471,6 +471,9 @@ function myCSPRuleCompare(expect: unknown, actual: unknown, path: string) {
     return true;
   if (path.endsWith(".siteprofile"))
     return true;
+  if (path.endsWith(".whfstype") && typeof expect === "string" && renamedTypes.get(expect) === actual)
+    return true;
+
   //these are double imported, we only check those in webtoolsformrules
   if (path.match(/\.yml_forms\[\d+\]\.(components|handlers|rtdTypes)$/))
     return true;
@@ -537,6 +540,9 @@ run({
     const modulesInScope = args.module === "platform" ? whconstant_builtinmodules : [args.module];
     const toWrite = new Map<string, string | null>;
     const matchName = opts.mask ? regExpFromWildcards(opts.mask, { caseInsensitive: true }) : /.*/;
+    //Renames we've done
+    const renamedTypes = new Map<string, string>();
+    //Maps XML based types to shorter scoped types
     const remapTypes = new Map(csp.allcontenttypes.filter(_ => _.scopedtype && _.scopedtype !== _.namespace).map(_ => [_.namespace, _.scopedtype]));
 
     const profilesToConvert = csp.siteprofiles.filter(sp => {
@@ -583,8 +589,11 @@ run({
       if (sp.siteprofile.contenttypes.length) {
         outsiteprofile.types = {};
         for (const ct of sp.siteprofile.contenttypes) {
-          const subName = uniqueName(suggestTypeName(args.module, ct.namespace), seenScopedTypes);
-          outsiteprofile.types![subName.substring(args.module.length + 1)] = importCtype(ctxt, ct);
+          //in platform module we need to take the actual modulename or relative references will fail
+          const spModule = parseResourcePath(sp.resourcename)?.module || args.module;
+          const subName = uniqueName(suggestTypeName(spModule, ct.namespace), seenScopedTypes);
+          outsiteprofile.types![subName.substring(spModule.length + 1)] = importCtype(ctxt, ct);
+          renamedTypes.set(ct.namespace, subName);
         }
       }
 
@@ -665,7 +674,7 @@ run({
         };
 
         try {
-          test.eq(sourceRule, finalRule, { onCompare: myCSPRuleCompare });
+          test.eq(sourceRule, finalRule, { onCompare: (lhs, rhs, path) => myCSPRuleCompare(renamedTypes, lhs, rhs, path) });
         } catch (e) {
           errors = true;
           spSuccess = false;
@@ -741,6 +750,7 @@ run({
       for (const rt of parsedYaml.contenttypes)
         if (rt.scopedtype !== rt.namespace)
           remapTypes.set(rt.namespace, rt.scopedtype);
+
     } //for (const sp of profilesToConvert)
 
     const renameMap = new Map<string, string>;
