@@ -512,6 +512,13 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE() : "";
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  {
+    // Also return true if the RTE is readonly with editable instances, so its value will be updated (through
+    // TolliumWeb_FormUpdate) if the editable instance is actually edited
+    RETURN TolliumComponentBase::IsUpdateable() OR (this->isnowvisible AND this->enabled AND Length(this->editableinstanceids) > 0);
+  }
+
   PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
   {
     this->editable->SetHTMLFromClientRTE(indata);
