@@ -104,7 +104,22 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
 
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
 
-export async function list<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
+export interface ListFSOptions {
+}
+
+export interface ListFSRecursiveOptions extends ListFSOptions {
+  //How deep to list items recursively. Infinite if not set
+  maxDepth?: number;
+}
+
+export type ListFSResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">;
+
+export type ListFSRecursiveResult<K extends keyof ListableFsObjectRow> = Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "parent"> & {
+  /** Path starting from the base of the request, eg. "file" or "folder/file" */
+  path: string;
+};
+
+export async function list<K extends keyof ListableFsObjectRow = never>(parents: number[] | null, keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
   const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
   const selectkeys = new Set<keyof FsObjectRow>;
 
@@ -117,7 +132,7 @@ export async function list<K extends keyof ListableFsObjectRow = never>(start: n
 
   const retval = await db<PlatformDB>()
     .selectFrom("system.fs_objects")
-    .where(qb => start ? qb.eb("parent", "=", start) : qb.eb("parent", "is", null))
+    .where(qb => parents ? qb.eb("parent", "in", parents) : qb.eb("parent", "is", null))
     .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
     .$if(getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
     .$if(getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
@@ -152,4 +167,31 @@ export async function list<K extends keyof ListableFsObjectRow = never>(start: n
   }
 
   return mappedrows;
+}
+
+export async function listRecursive<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
+  let workList: number[] | null = start ? [start] : null;
+
+  const rows: ListFSRecursiveResult<K>[] = [];
+  const getKeys: Array<K | "parent"> = [...keys || []];
+  if (!getKeys.includes("parent"))
+    getKeys.push("parent");
+
+  const prefixMap = new Map<number, string>();
+  for (let levelsLeft = Math.min(options?.maxDepth ?? Infinity, 32); levelsLeft >= 1; --levelsLeft) {
+    const newWorkList: number[] = [];
+    const curLevel = await list(workList, getKeys, options);
+    for (const item of curLevel) {
+      const parentPath = item.parent ? prefixMap.get(item.parent) ?? "" : "";
+      const itemPath = parentPath + item.name;
+      if (item.isFolder) {
+        newWorkList.push(item.id);
+        prefixMap.set(item.id, itemPath + "/");
+      }
+      rows.push({ ...item, path: itemPath });
+    }
+    workList = newWorkList.length ? newWorkList : null;
+  }
+
+  return rows;
 }

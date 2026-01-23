@@ -128,6 +128,19 @@ async function testWHFS() {
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name === markdownfile.name), "Verify list() works with empty keys");
 
+  const listPlain = await testsitejs.list([], {});
+  test.assert(!("parent" in listPlain[0]), "without keys, no extra properties should be present");
+  test.assert(!("path" in listPlain[0]), "path is never returend by list()");
+
+  const listDepth1 = await testsitejs.listRecursive([], { maxDepth: 1 });
+  test.eqPartial([{ parent: testsitejs.id, path: "photoalbum", name: "photoalbum" }], listDepth1.filter(_ => _.name === "photoalbum"));
+  test.eq([], listDepth1.filter(_ => _.name === "landscape_5.jpg"));
+
+  const listDepth2 = await testsitejs.listRecursive([], { maxDepth: 2 });
+  const photoalbum = listDepth2.filter(_ => _.name === "photoalbum");
+  test.eqPartial([{ parent: testsitejs.id, path: "photoalbum", name: "photoalbum" }], photoalbum);
+  test.eqPartial([{ parent: photoalbum[0].id, path: "photoalbum/landscape_5.jpg", name: "landscape_5.jpg" }], listDepth2.filter(_ => _.name === "landscape_5.jpg"));
+
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
   test.eq(markdownfile.id, (await whfs.openFile(markdownfile.id)).id);
