@@ -20,6 +20,11 @@ properties:
       "^[a-z][0-9a-z_.]+[0-9a-z]$":
         $ref: "#/$defs/Type"
         type: object
+  deleteTypes:
+    description: "WHFS types that are obsolete and safe to delete."
+    type: array
+    items:
+      type: string
   rtdTypes:
     type: object
     additionalProperties:
@@ -88,6 +93,11 @@ $defs:
         type: string
       members:
         $ref: "#/$defs/TypeMembers"
+      deleteMembers:
+        description: Members that are obsolete and safe to delete.
+        type: array
+        items:
+          type: string
       metaType:
         description: Enables this type as a potential WHFS object, eg a file, folder or widget.
         oneOf:
@@ -300,6 +310,11 @@ $defs:
         description: "A developer's comment on this member. Not shown to unprivileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/$defs/TypeMembers"
+      deleteMembers:
+        description: Members that are obsolete and safe to delete.
+        type: array
+        items:
+          type: string
       constraints:
         $ref: "#/$defs/ValueConstraints"
       component:

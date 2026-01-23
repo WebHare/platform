@@ -142,10 +142,10 @@ types:
     workflow: true
     searchContentProvider: publisher:rtd
     members:
-      original:
-        type: file
       data:
         type: richTextDocument
+    deleteMembers:
+      - original # Stored original Word documents. Deleted in WH6.0
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
@@ -326,7 +326,8 @@ types:
         type: whfsRef
         comment: Points to the canonical URL of this page. No defined effect yet on folders
 
-  # FIXME obsolete type:  http://www.webhare.net/xmlns/publisher/version - redundant with fs_history table
+deleteTypes:
+  - http://www.webhare.net/xmlns/publisher/version # redundant with fs_history table. Deleted in WH6.0
 
 apply:
   - to: all
