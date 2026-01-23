@@ -39,7 +39,10 @@ export default class ObjSplit extends ComponentBase {
     this.horizontal = data.horizontal;
     this.splitter = data.splitter;
 
-    this.parts = data.items.map(item => this.owner.addComponent(this, item) ?? throwError(`No such component '${item}`));
+    this.parts = [];
+    for (const item of data.items)
+      this.parts.push(this.owner.addComponent(this, item, { allowMissing: false }));
+
     this.buildNode();
   }
 
