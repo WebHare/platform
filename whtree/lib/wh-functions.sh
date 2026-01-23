@@ -57,10 +57,10 @@ wh_runjs()
     NODE_OPTIONS="--enable-source-maps $NODE_OPTIONS"
   fi
 
-  [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
+  wh_getnodeconfig
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  "${RUNPREFIX[@]}" "${WEBHARE_NODE_BINARY}" --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"

@@ -665,7 +665,7 @@ build.wasm-blex:
 	> build.wasm-blex
 
 success.wasm-blex: build.wasm-blex bin/blex-test-wasm
-	ulimit -n 1024 && $(WEBHARE_NODE_BINARY) --experimental-wasm-stack-switching --openssl-legacy-provider bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
+	ulimit -n 1024 && node --experimental-wasm-stack-switching --openssl-legacy-provider bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
 	> success.wasm-blex
 
 wasm-test: success.wasm-blex
