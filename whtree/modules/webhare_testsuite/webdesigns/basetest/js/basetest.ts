@@ -2,7 +2,6 @@
 import * as dompack from 'dompack';
 import * as dialog from 'dompack/components/dialog';
 import * as dialogapi from 'dompack/api/dialog';
-import PollWebtool from "@mod-publisher/js/webtools/poll";
 import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
 import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
 import * as formrpc from '@mod-publisher/js/forms/rpc';
@@ -60,7 +59,6 @@ dompack.register('.wh-gallery', node => setupGallery(node));
 /////////////////////////////////////////////////////////
 // Forms
 
-dompack.register('.wh-poll', node => new PollWebtool(node));
 dompack.register('.wh-forumcomments', node => new ForumCommentsWebtool(node));
 
 // used by /staticlogin/ for the webserver.accessrules test

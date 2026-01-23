@@ -528,8 +528,6 @@ $defs:
         $ref: "#/$defs/ApplySiteLanguage"
       debugSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#debugsettings
         $ref: "#/$defs/ApplyDebugSettings"
-      pollSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#pollsettings
-        $ref: "#/$defs/ApplyPollSettings"
       mailTemplates:
         $ref: "#/$defs/ApplyMailTemplates"
       setWidget:

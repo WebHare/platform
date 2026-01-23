@@ -85,14 +85,6 @@ PUBLIC RECORD FUNCTION GetDebugSettingsAsYaml(OBJECT node) {
   RETURN setting;
 }
 
-PUBLIC RECORD FUNCTION GetPollSettingsAsYaml(OBJECT node) {
-  RECORD pollsettings := CELL[];
-  STRING voteafter := node->GetAttribute("allowvotingagainafter");
-  IF(voteafter != "")
-    pollsettings := CELL[ revote_after := `PT${voteafter}M` ];
-  RETURN pollsettings;
-}
-
 PUBLIC RECORD FUNCTION GetFormIntegrationAsYaml(OBJECT node) {
   RECORD formintegration := CELL[];
 

@@ -1,4 +1,0 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="poll.whlib">
-  <test script="test_poll_core.whscr" />
-  <jstest file="test_poll_frontend.ts" />
-</group>
