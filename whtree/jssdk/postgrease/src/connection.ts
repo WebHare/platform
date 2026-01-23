@@ -61,6 +61,9 @@ export class DatabaseError extends Error implements ErrorResponse {
   line?: string;
   routine?: string;
 
+  query?: string;
+  parameterTypes?: string[];
+
   constructor(data: ErrorResponse) {
     super(data.message ?? "Unknown error, no message specified");
     Object.assign(this, data);
@@ -316,6 +319,8 @@ export class PGConnection {
           if (packet.code === 69 satisfies Code.CodeErrorResponse) {
             processedAny = true;
             const error = new DatabaseError(parseErrorResponse(packet));
+            error.query = query.sql;
+            error.parameterTypes = query.params.map((p, i) => query.desc.params?.[i]?.name ?? typeof p);
             query.response.reject(error);
             if (error.severity === "FATAL" || error.severity === "PANIC") {
               this.terminateConnection(error);
