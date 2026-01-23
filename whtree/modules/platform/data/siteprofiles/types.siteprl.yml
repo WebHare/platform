@@ -158,6 +158,14 @@ types:
     extension: .html
     isAcceptableIndex: true
     useWebDesign: true
+  filetypes.sitemap:
+    icon: tollium:files/text_xml
+    metaType: page
+    isPublishedAsSubdir: false
+    workflow: false
+    isAcceptableIndex: false # should have XML extension and cannot be renamed to index.html
+    apply:
+      usePublishTemplate: mod::publisher/scripts/internal/publishsitemap.whscr
   filetypes.shtml:
     namespace: http://www.webhare.net/xmlns/publisher/shtmlfile
     icon: tollium:files/application_x-webhare-whscript

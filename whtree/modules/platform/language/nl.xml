@@ -107,6 +107,9 @@
         <textgroup gid="shtmlwithdesign">   <!-- siteprofiles.types.filetypes.shtmlwithdesign -->
           <text tid="shtmlwithdesign">Dynamische serverpagina in design</text>
         </textgroup>
+        <textgroup gid="sitemap">   <!-- siteprofiles.types.filetypes.sitemap -->
+          <text tid="sitemap">Sitemap</text>
+        </textgroup>
         <textgroup gid="tag">   <!-- siteprofiles.types.filetypes.tag -->
           <text tid="belongstorepos">Hoort bij repositories</text>
           <text tid="tag">Tagbestand</text>

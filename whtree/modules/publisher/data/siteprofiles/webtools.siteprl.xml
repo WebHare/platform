@@ -246,16 +246,4 @@
       <textstyle tag="NORMAL" containertag="p" textstyles="b i u a-href" />
     </blockstyles>
   </rtdtype>
-
-  <!-- Sitemap files -->
-  <filetype namespace="platform:filetypes.sitemap"
-            blobiscontent="false"
-            extensions=".xml"
-            isacceptableindex="true"
-            ispublishable="true"
-            title="Sitemap"
-            tolliumicon="tollium:files/text_xml">
-    <usepublishtemplate script="mod::publisher/scripts/internal/publishsitemap.whscr" />
-  </filetype>
-
 </siteprofile>
