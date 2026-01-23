@@ -12,7 +12,7 @@
 		"url": "https://gitlab.com/webhare/platform"
 	},
 	"engines": {
-		"vscode": "^1.102.0"
+		"vscode": "^1.108.1"
 	},
 	"activationEvents": [
 		"onStartupFinished",
@@ -151,11 +151,11 @@
 			},
 			{
 				"command": "webhare.copyResourcePath",
-				"title": "Copy WebHare Resource path"
+				"title": "WebHare: Copy WebHare Resource path"
 			},
 			{
 				"command": "webhare.run",
-				"title": "Run this script"
+				"title": "WebHare: Run this script"
 			}
 		],
 		"keybindings": [
@@ -167,16 +167,13 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "webhare.getStackTrace",
-					"when": "editorLangId == harescript"
+					"command": "webhare.getStackTrace"
 				},
 				{
-					"command": "webhare.showStackTrace",
-					"when": "editorLangId == harescript"
+					"command": "webhare.showStackTrace"
 				},
 				{
-					"command": "webhare.getLastStackTraces",
-					"when": "editorLangId == harescript"
+					"command": "webhare.getLastStackTraces"
 				},
 				{
 					"command": "webhare.run",
