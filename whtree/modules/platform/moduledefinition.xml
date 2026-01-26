@@ -29,6 +29,12 @@
     <managedtask type="requestcertificate" taskrunner="js/certbot/internal/task.ts#requestCertificateTask" priority="background" />
   </servicemanager>
 
+  <portal>
+    <application name="applicationlink" startmacro="tolliumapps/applicationlink/applicationlink.whlib#runApplicationLink" allowuntrustedparams="true">
+      <accesscheck />
+    </application>
+  </portal>
+
   <backend>
     <!--
     All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
