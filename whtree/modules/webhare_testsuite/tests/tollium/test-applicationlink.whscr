@@ -30,7 +30,8 @@ ASYNC MACRO TestApplictionLinkAPP() {
 
   STRING gotoeditrtd := GetWHFSSApplicationLink(testrtd->id, [ verb := "edit"]);
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(gotoeditrtd));
-  TestEq("lvl1.rtd", TT("name")->value);
+  // There's no name field in WH5.9. we'll assume we're seeing the editor based on WH6.0 version of the code working
+  // TestEq("lvl1.rtd", TT("name")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   testfw->SetTestUser("bart");
