@@ -32,6 +32,6 @@ function globalKeyHander(ev: KeyboardEvent, shell: IndyShell) {
   }
 }
 
-export async function setupKeyboardHandling(shell: IndyShell) {
+export function setupKeyboardHandling(shell: IndyShell) {
   document.body.addEventListener("keydown", evt => globalKeyHander(evt, shell));
 }

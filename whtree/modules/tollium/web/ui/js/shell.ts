@@ -30,7 +30,8 @@ import * as storage from 'dompack/extra/storage';
 import * as whintegration from '@mod-system/js/wh/integration';
 import './debugging/magicmenu';
 
-const EventServerConnection = require('@mod-system/js/net/eventserver');
+//@ts-ignore there are no typings for eventserver and might never be worth
+import EventServerConnection from '@mod-system/js/net/eventserver';
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 import { setupKeyboardHandling } from "./shell/keyboardhandling";
@@ -42,24 +43,24 @@ import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/oauth";
 import "../css/vars.scss";
-require('../css/shell.css');
-require('../css/apps.scss');
-require('../skins/default/skin.scss');
-require('../skins/default/controls.scss');
+import '../css/shell.css';
+import '../css/apps.scss';
+import '../skins/default/skin.scss';
+import '../skins/default/controls.scss';
 
 import * as toddImages from "@mod-tollium/js/icons";
 
 import TowlNotifications from './shell/towl';
 
 import { getTid } from "@webhare/gettid";
-require("../common.lang.json");
+import "../common.lang.json";
 
 import TolliumShell, { type AppStartResponse } from "@mod-tollium/shell/platform/shell";
 import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup } from '@mod-platform/js/tollium/types';
 import { logout } from '@webhare/frontend';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
-function preventNavigation(event) {
+function preventNavigation(event: BeforeUnloadEvent) {
   // For Safari and Firefox, preventDefault triggers the confirmation dialog
   event.preventDefault();
   // For Chrome, setting the returnValue to anything triggers the confirmation dialog
@@ -135,7 +136,7 @@ class IndyShell extends TolliumShell {
     if ($todd.applications.length >= 1)
       $todd.applications[0].queueEvent("$appmessage", { message: { go: decodeURIComponent(location.hash.substr(4).split('&')[0]) }, onlynonbusy: false }, false);
 
-    history.replaceState({}, null, location.href.split('#')[0]);
+    history.replaceState({}, "", location.href.split('#')[0]);
   }
 
   /****************************************************************************************************************************
@@ -153,7 +154,7 @@ class IndyShell extends TolliumShell {
    * Application management
    */
 
-  startFrontendApplication(appname, parentapp, options) {
+  startFrontendApplication(appname: string, parentapp, options) {
     const application = new FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
     $todd.applications.push(application);
 
@@ -166,7 +167,7 @@ class IndyShell extends TolliumShell {
 
     return application;
   }
-  startBackendApplication(appname, parentapp, options?) {
+  startBackendApplication(appname: string, parentapp, options?) {
     if (appname === '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
@@ -184,9 +185,9 @@ class IndyShell extends TolliumShell {
       webvars: webvars
     };
 
-    if (!options.isloginapp && location.hash.startsWith('#go=')) {
+    if (location.hash.startsWith('#go=')) {
       options.goparam = decodeURIComponent(location.hash.substr(4).split('&')[0]);
-      history.replaceState({}, null, location.href.split('#')[0]);
+      history.replaceState({}, "", location.href.split('#')[0]);
     }
 
     const application = new BackendApplication(this, appname, (options && options.target) || {}, parentapp, options);
@@ -218,8 +219,8 @@ class IndyShell extends TolliumShell {
 
   // If callback is not defined, loading new components is not allowed
   // Returns a list of unloaded components
-  checkComponentsLoaded(compnames, callback) {
-    const unloaded_components = [];
+  checkComponentsLoaded(compnames: string[]) {
+    const unloaded_components: string[] = [];
     compnames.forEach(item => {
       if (!todd_components[item] && !unloaded_components.includes(item))
         unloaded_components.push(item);
@@ -231,11 +232,11 @@ class IndyShell extends TolliumShell {
     return unloaded_components;
   }
 
-  createComponent(type, parentcomp, data): ToddCompBase {
+  createComponent(type: string, parentcomp, data): ToddCompBase {
     return new (this.getComponentType(type))(parentcomp, data);
   }
 
-  getComponentType(type) {
+  getComponentType(type: string) {
     if (todd_components[type])
       return todd_components[type];
 
@@ -287,34 +288,6 @@ class IndyShell extends TolliumShell {
     this.applyShellSettings(data.settings);
     setInterval(() => this.checkVersion(), 5 * 60 * 1000); //check for version updates etc every 5 minutes
 
-    this.invitetype = (new URL(location.href)).searchParams.get("wrd_pwdaction");
-    const runinviteapp = ["resetpassword"].includes(this.invitetype);
-
-    if (runinviteapp || !data.isloggedin) {
-      if (runinviteapp)
-        this.loginapp = this.startBackendApplication("system:" + this.invitetype, null,
-          {
-            onappbar: false,
-            //, src: '/.tollium/ui/js/login.js'
-            //, target: data.loginconfig
-            isloginapp: true
-          });
-      else
-        this.loginapp = this.startFrontendApplication("tollium:builtin.login", null,
-          {
-            onappbar: false,
-            target: data.loginconfig,
-            isloginapp: true
-          });
-
-      if (this.placeholderapp) { //we can close it now
-        this.placeholderapp.terminateApplication();
-        this.placeholderapp = undefined;
-      }
-      this.startuplock.release();
-      return;
-    }
-
     if (!this.dashboardapp && data.settings.dashboard)
       this.dashboardapp = this.startFrontendApplication('tollium:builtin.dashboard', null, { src: '/.tollium/ui/js/dashboard.js', fixedonappbar: true });
 
@@ -357,12 +330,8 @@ class IndyShell extends TolliumShell {
     if (this.isloggingoff) //do not interfere with the normal closing of apps
       return;
 
-    if ($todd.applications.length === 0) //no dashboard and no way to open an app?
-    {
-      if (this.invitetype)  //reload without invite vars
-        location.href = location.href.split('?')[0];
-      else
-        window.close();
+    if ($todd.applications.length === 0) {  //no dashboard and no way to open an app?
+      window.close();
     } else if (!this.anyConnectedApplications()) {
       this.checkVersion(); //poll for new version when all apps are closed
     }

@@ -187,7 +187,7 @@ export class ObjPanel extends ComponentBase {
 
     //ADDME can't we embed Block items directly instead of wrapping them into lines?
     if (data.lines)
-      data.lines.forEach((srcline, i) => {
+      for (const [i, srcline] of data.lines.entries()) {
         srcline.target = this.name + "#line$" + i;
         //Without this we get "Multiple elements with name 'todd0000000001:filelistbuttonsholder#line$0'" errors. Probably points to a deeper problem..
         srcline.destroywithparent = true;
@@ -209,7 +209,7 @@ export class ObjPanel extends ComponentBase {
         }
 
         if (srcline.items)
-          srcline.items.forEach((srcitem, idx) => {
+          for (const [idx, srcitem] of srcline.items.entries()) {
             let newcomp;
             if (srcitem.title) {
               newcomp = new ObjText(line, {
@@ -225,8 +225,8 @@ export class ObjPanel extends ComponentBase {
             if (newcomp) {
               line.items.push(newcomp);
             }
-          });
-      }, this);
+          }
+      }
 
     if (this.parentcomp?.componenttype !== "split") {
       this.setMinToAbs(this.height);
