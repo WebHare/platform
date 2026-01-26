@@ -208,7 +208,7 @@
       <text tid="invalidlink">This link is no longer valid</text>
       <text tid="noaccess">You do not have access to the target of this link</text>
       <textgroup gid="sharelink">   <!-- tolliumapps.applicationlink.sharelink -->
-        <text tid="explain_applicationlink">An application link allows you or another user to directly open an application or document in WebHare. The user following the link needs to have a valid WebHare account which has access to the application</text>
+        <text tid="explain_applicationlink">An application link allows you or another user to directly open an application or document in WebHare. The user following the link needs to have a valid WebHare account which has access to the application or document.</text>
         <text tid="link">Link</text>
         <text tid="sharelink">Share an application link</text>
       </textgroup>
