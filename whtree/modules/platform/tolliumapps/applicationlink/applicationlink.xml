@@ -1,0 +1,12 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.applicationlink" library="applicationlink.whlib">
+
+  <screen name="sharelink" footerbuttons="close" gid=".sharelink">
+    <body>
+      <line layout="left">
+        <text valuetid=".explain_applicationlink" wordwrap="true"/>
+      </line>
+      <url name="link" width="1pr" minwidth="90x" />
+    </body>
+  </screen>
+
+</screens>

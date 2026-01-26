@@ -5,6 +5,9 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
+LOADLIB "mod::platform/lib/dialogs.whlib";
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -756,6 +759,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   MACRO DoOpenInPublisher()
   {
     RunPublisherFileManager(this, this->itemid);
+  }
+
+  MACRO DoShareApplicationLink() {
+    RunShareApplicationLinkDialog(this, GetWHFSSApplicationLink(this->itemid, [ verb := "edit" ]));
   }
 
   MACRO DoInspectAutosave() {

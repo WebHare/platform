@@ -5,6 +5,7 @@
 
   <test script="test-tollium-testframework.whscr" />
   <test script="test-tollium-base.whscr" />
+  <test script="test-applicationlink.whscr" />
   <test script="communication.whscr" />
   <test script="tolliumwork.whscr" />
   <test script="contexts.whscr" />

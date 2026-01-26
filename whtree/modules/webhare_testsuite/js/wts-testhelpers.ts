@@ -10,6 +10,10 @@ export type TestSetupData =
     overridetoken: string;
     rtdid: number;
     peerserver: string;
+    links: {
+      rtdpublisher?: string;
+      rtdedit?: string;
+    };
   };
 
 

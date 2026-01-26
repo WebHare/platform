@@ -1279,6 +1279,20 @@ PUBLIC ASYNC MACRO TTLaunchApp(STRING appname, RECORD options DEFAULTSTO DEFAULT
   GetTestController()->LaunchApplication(appname, options);
 }
 
+PUBLIC ASYNC MACRO TTLaunchApplicationLink(STRING applink) {
+  STRING hash := Tokenize(applink || "#","#")[1];
+  IF(hash = "")
+    THROW NEW Exception(`No hash fragment found in application link '${applink}'`);
+
+  hash := Tokenize(hash,'?')[0];
+  hash := DecodeURL(hash);
+
+  IF(hash NOT LIKE "applink/*")
+    THROW NEW Exception(`Hash fragment '${hash}' is not an application link`);
+
+  AWAIT TTLaunchApp("platform:applicationlink", CELL [ params := [ Substring(hash,8) ]]);
+}
+
 /** Launch the most recently requested application (eg after a click) */
 PUBLIC ASYNC MACRO TTLaunchStartedApp()
 {
