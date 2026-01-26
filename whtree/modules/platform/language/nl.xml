@@ -188,6 +188,20 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="common">   <!-- tolliumapps.common -->
+      <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
+        <text tid="shareapplicationlink">Deel applicatielink</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="applicationlink">   <!-- tolliumapps.applicationlink -->
+      <text tid="invalidlink">Deze link is niet langer geldig</text>
+      <text tid="noaccess">Je hebt geen toegang tot het doel van deze link</text>
+      <textgroup gid="sharelink">   <!-- tolliumapps.applicationlink.sharelink -->
+        <text tid="explain_applicationlink">Een applicatielink stelt jou of een andere gebruiker in staat om direct een applicatie of document in WebHare te openen. De gebruiker die de link volgt moet een geldig WebHare-account hebben met toegang tot de applicatie.</text>
+        <text tid="link">Link</text>
+        <text tid="sharelink">Deel een applicatielink</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="publisher">   <!-- tolliumapps.publisher -->
       <textgroup gid="common">   <!-- tolliumapps.publisher.common -->
         <text tid="newobject-name">Nieuw <param p="1"/></text>

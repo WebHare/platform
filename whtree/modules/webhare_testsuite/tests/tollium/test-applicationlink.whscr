@@ -1,0 +1,51 @@
+<?wh
+
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+ASYNC MACRO TestApplictionLinkAPP() {
+  OBJECT testsite := OpenTestsuiteSite();
+
+  testfw->BeginWork();
+  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
+  OBJECT otherloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "otherloc" ]);
+  OBJECT testrtd := testloc->CreateFile( [ name := "lvl1.rtd", typens := "platform:filetypes.richdocument", publish := TRUE ]);
+
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_fullaccess", testsite->id, testfw->GetUserObject("marge"));
+  //give bart 'some' access so he can at least open the publisher
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "system:fs_browse", otherloc->id, testfw->GetUserObject("bart"));
+  testfw->CommitWork();
+
+  testfw->SetTestUser("marge");
+
+  STRING gototestsite := GetWHFSSApplicationLink(testsite->id);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(gototestsite));
+  TestEq("webhare_testsuite.testsite", TT("foldertree")->selection.name);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  STRING gotoeditrtd := GetWHFSSApplicationLink(testrtd->id, [ verb := "edit"]);
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(gotoeditrtd));
+  TestEq("lvl1.rtd", TT("name")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->SetTestUser("bart");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTLaunchApplicationLink(gototestsite), [ messagemask := "*not have access*"]);
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTLaunchApplicationLink(gotoeditrtd), [ messagemask := "*not have access*"]);
+
+  testfw->SetTestUser("homer");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTLaunchApplicationLink(gototestsite), [ messagemask := "*not have access*"]);
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTLaunchApplicationLink(gotoeditrtd), [ messagemask := "*not have access*"]);
+}
+
+RunTestFramework( [ PTR TestApplictionLinkAPP
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "marge" ]
+                                    ,[ login := "bart" ]
+                                    ,[ login := "homer" ]
+                     ]
+                 ]);

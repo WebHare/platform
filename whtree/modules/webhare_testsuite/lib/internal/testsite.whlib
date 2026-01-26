@@ -6,6 +6,8 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
@@ -1524,8 +1526,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupConsilioTest(RECORD options DEFAULTSTO DE
   RETURN CELL[];
 }
 
-PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ createsysop := FALSE
                              , preprtd := FALSE
                              , requirealternatesite := FALSE
@@ -1556,16 +1557,22 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
                    , rtdid         := 0
                    , alternatesite := ""
                    , peerserver    := ReadRegistryKey("webhare_testsuite.tests.secondhareinterface")
+                   , links := CELL[]
                    ];
 
-  IF(options.preprtd)
-  {
+  IF(options.preprtd) {
     GetPrimary()->BeginWork();
 
     OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
     retval.rtdid := GetTestsuiteTempFolder()->CreateFile( [ name := "testapp-editrtd.rtd", type := richdoctype->id ])->id;
     richdoctype->SetInstanceData(retval.rtdid, [ data := [ htmltext := StringToBlob("<h1>Hi! This is a h1!</h1>") ] ]);
     GetPrimary()->CommitWork();
+
+    retval.links := CELL[
+        ...retval.links
+      , rtdpublisher := GetWHFSSApplicationLink(retval.rtdid, [ baseurl := retval.testportalurl ])
+      , rtdedit := GetWHFSSApplicationLink(retval.rtdid, [ baseurl := retval.testportalurl, verb := "edit" ])
+      ];
   }
 
   IF(options.requirealternatesite)

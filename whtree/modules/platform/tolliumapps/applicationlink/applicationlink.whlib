@@ -1,0 +1,40 @@
+<?wh
+
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
+
+MACRO RunApplicationLinkWHFS(OBJECT controller, RECORD part) {
+  IF(NOT controller->contexts->user->HasRightOn("system:fs_browse", part.fsobjid)) {
+    controller->RunSimpleScreen("error", GetTid("platform:tolliumapps.applicationlink.noaccess"));
+    RETURN;
+  }
+
+  IF(part.verb = "edit") {
+    controller->LaunchApplicationInsideApp("publisher:edit", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]));
+  } ELSE {
+    controller->LaunchApplicationInsideApp("publisher:app", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]));
+  }
+}
+
+PUBLIC MACRO RunApplicationLink(OBJECT controller, RECORD init) {
+  IF(Length(init.params) = 0)
+    RETURN;
+
+  STRING applinkparam := init.params[0];
+  RECORD part := __DecodeWHFSApplicationLink(applinkparam);
+  IF(RecordExists(part) AND part.type = "whfs") {
+    RunApplicationLinkWHFS(controller, part);
+  } ELSE {
+    controller->RunSimpleScreen("error", GetTid("platform:tolliumapps.applicationlink.invalidlink"));
+    RETURN;
+  }
+}
+
+PUBLIC STATIC OBJECTTYPE ShareLink EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data) {
+    ^link->value := data.link;
+  }
+>;

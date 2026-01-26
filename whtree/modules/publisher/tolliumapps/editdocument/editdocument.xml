@@ -35,6 +35,7 @@
                         onwindowopen="dopreviewcurrentcontent"
                         target="webhare_publisher_editdocument" />
       <action name="openinpublisher" onexecute="doopeninpublisher" tid="tolliumapps.common.actions.revealinpublisher" />
+      <action name="shareapplicationlink" onexecute="DoShareApplicationLink" tid="platform:tolliumapps.common.actions.shareapplicationlink" />
       <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
@@ -62,6 +63,8 @@
         <item name="canceldraftmenu" action="canceldraft" />
         <divider />
         <item title="#####" visible="false" />  <!-- The insertion point for document editor menu items -->
+        <divider />
+        <item action="shareapplicationlink" />
         <divider />
         <item name="developersmenu">
           <item title="#####" visible="false" />  <!-- The insertion point for document editor menu items -->

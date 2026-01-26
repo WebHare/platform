@@ -320,6 +320,13 @@ class IndyShell extends TolliumShell {
 
     data.settings.initialinstructions.forEach(instr => this.executeInstruction(instr));
 
+    if (location.hash.startsWith('#applink/')) {
+      //Start an application to handle the #applink/ link
+      const param = decodeURIComponent(location.hash.substr(9).split('&')[0]);
+      //should we remove it? refreshing is nice ... history.replaceState({}, null, location.href.split('#')[0]);
+      this.startBackendApplication(`platform:applicationlink(${param})`);
+    }
+
     if (this.placeholderapp) { //we can close it now
       this.placeholderapp.terminateApplication();
       this.placeholderapp = undefined;
