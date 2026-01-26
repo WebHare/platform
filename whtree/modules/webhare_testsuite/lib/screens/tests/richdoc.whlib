@@ -378,10 +378,8 @@ PUBLIC OBJECTTYPE AllowFormat EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE WritableWidgets EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
+PUBLIC OBJECTTYPE WritableWidgets EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data) {
     ^rte->value :=
         [ htmltext := StringToBlob(`
             <html><body>
@@ -406,5 +404,10 @@ PUBLIC OBJECTTYPE WritableWidgets EXTEND TolliumScreenBase
           ]
         ];
     ^rte->editableinstanceids := [ "writable" ];
+  }
+
+  MACRO DoSomeAction() {
+    // Regression: this would crash on non-TolliumRichDocument rich editors (i.e. TolliumRichArea)
+    OBJECT ARRAY comps := this->frame->GetTopDownUpdatableComponents();
   }
 >;
