@@ -6,6 +6,10 @@ export async function devkitRouter(req: WebRequest): Promise<WebResponse> {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return (require("./swagger")).instantSwagger(req); //split to avoid loading the whole swagger bundle for all /wh-devkit URLs
     }
+    case "flags": {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return (require("./flags")).handleFlags(req);
+    }
   }
   return createWebResponse("", { status: 404 });
 }
