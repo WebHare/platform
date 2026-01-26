@@ -410,6 +410,8 @@ ASYNC MACRO TestWritableWidgets()
 
   //FIXME: Can we actually test that only the second widget is editable (and not deletable), while the rest of the RTE is readonly?
 
+  TTClick("somebutton");
+
   // Close rich document editor
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 }

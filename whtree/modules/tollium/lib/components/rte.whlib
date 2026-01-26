@@ -512,13 +512,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE() : "";
   }
 
-  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
-  {
-    // Also return true if the RTE is readonly with editable instances, so its value will be updated (through
-    // TolliumWeb_FormUpdate) if the editable instance is actually edited
-    RETURN TolliumComponentBase::IsUpdateable() OR (this->isnowvisible AND this->enabled AND Length(this->editableinstanceids) > 0);
-  }
-
   PUBLIC MACRO TolliumWeb_FormUpdate(STRING indata)
   {
     this->editable->SetHTMLFromClientRTE(indata);
@@ -1136,6 +1129,13 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     this->ExtUpdatedText();
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsUpdateable()
+  {
+    // Also return true if the RTE is readonly with editable instances, so its value will be updated (through
+    // TolliumWeb_FormUpdate) if the editable instance is actually edited
+    RETURN TolliumComponentBase::IsUpdateable() OR (this->isnowvisible AND this->enabled AND Length(this->editableinstanceids) > 0);
+  }
+
   UPDATE PUBLIC MACRO PreinitComponent()
   {
     IF(NOT RecordExists(this->rtdtypeinfo))
@@ -1219,7 +1219,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
   // Updated to support editable instances
   UPDATE PUBLIC STRING FUNCTION GetRenderValue() //FIXME: make private, but then the selftests need a way to capture the outbound messages to verify innerhtml
   {
-    RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE([ editableinstanceids := this->__editableinstanceids ]) : "";
+    RETURN ObjectExists(this->editable) ? this->editable->GetHTMLForClientRTE(CELL[ this->editableinstanceids ]) : "";
   }
 
   // Updated to support editable instances
@@ -1229,7 +1229,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     RETURN CELL
         [ ...preview
           // Check if this widget is still editable
-        , canwrite := preview.instanceid IN this->__editableinstanceids
+        , canwrite := preview.instanceid IN this->editableinstanceids
         ];
   }
 >;
