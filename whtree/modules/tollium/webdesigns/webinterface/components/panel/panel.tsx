@@ -98,7 +98,7 @@ export type PanelLine = {
     labelfor: string;
     item: string;
   }>;
-  destroywithparent?: boolean; //not passed by the server, used interally
+  destroywithparent?: boolean; //not passed by the server, used internally
 };
 
 export interface PanelAttributes extends ComponentStandardAttributes {
