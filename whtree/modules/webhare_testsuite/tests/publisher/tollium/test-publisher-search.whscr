@@ -151,7 +151,7 @@ ASYNC MACRO SearchDirectly()
     AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", target := [ search := [ widgettype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock" ]]]));
 
     RECORD ARRAY rows := TT("filelist")->rows;
-    TestEq(TRUE, RecordExists(SELECT * FROM rows WHERE name = "pollholder")); //should find the testuite pollholder files
+    TestEq(TRUE, RecordExists(SELECT * FROM rows WHERE name = "widgetholder")); //should find the testuite widgetholder files
 
     AWAIT ExpectScreenChange(-1, PTR TTEscape);
   }

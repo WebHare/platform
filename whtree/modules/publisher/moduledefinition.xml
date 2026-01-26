@@ -220,74 +220,9 @@
     <!-- NOTE: options are added on demand upon voting.
                This prevents issue due not covering all routes through which a poll(file) could be created.
     -->
-    <d:table name="polloptions" primarykey="id">
-      <d:documentation>This table is for internal use (for the poll API) and can also not be relied on to have the complete list of options.
-        Poll options which are votes on are created here by demand (upon voting) to track the amount of votes.
-        The pollwebtool contenttype data contains the full list of options.
-        The amount of votes for each option are cached here.</d:documentation>
-      <d:integer name="id" autonumberstart="1">
-        <d:documentation>id used to group pollvotes</d:documentation>
-      </d:integer>
-      <d:boolean name="hide">
-        <d:documentation>If set to TRUE this option won't be published and votes on it won't be accepted
-          (any vote casted which includes this option will be result in an exception being thrown.</d:documentation>
-      </d:boolean>
-      <d:varchar name="title" maxlength="2048">
-        <d:documentation>Title (to aid in debugging and being able to recognize orphaned options and their votes).
-          An orphaned can be orphaned when returning a poll file to an old/other version by replacing the file by extracting an archive. (and therefore circumventing the 'not allowed to delete a polloption which has votes' policy which is enforced in the poll edit dialog.</d:documentation>
-      </d:varchar>
-      <d:integer name="poll_fsobject" nullable="false" ondelete="cascade" references="system.fs_objects">
-        <d:documentation>The fs_object which is the poll file
-          (used so upon permanently deleting fs_objects, associated poll options will also be deleted and for quick lookup of all poll statistics without a guid string lookup)</d:documentation>
-      </d:integer>
-
-      <!-- FIXME: do we want to add a unique check for the poll_fsobject + guid field? -->
-      <d:varchar name="guid" maxlength="60" nullable="false">
-        <!-- fixme: maxlength -->
-        <d:documentation>GUID of the associated option has in the poll file contenttype.
-          It must be unique within the poll.
-          (copying a poll file will result in options with the same GUID, but this is no issue)
-          (FIXME: any rules? can we use a WRD_GUID here for some custom polls which use WRD data?)</d:documentation>
-      </d:varchar>
-      <d:integer name="votes">
-        <d:documentation>Total amount of votes for this option</d:documentation>
-      </d:integer>
-    </d:table>
-
-    <d:table name="pollvoters" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="poll_fsobject" nullable="false" ondelete="cascade" references="system.fs_objects">
-        <d:documentation>The fs_object which is the poll file
-          (so permanently deleting fs_objects will cleanup poll voters and we can also very quickly lookup who and how many people voted for the poll)</d:documentation>
-      </d:integer>
-      <d:varchar name="ipaddress" maxlength="64">
-        <d:documentation>Under which IP address did we receive the vote?</d:documentation>
-      </d:varchar>
-      <d:varchar name="useragent" maxlength="512">
-        <d:documentation>What useragent was specified (in the HTTP headers) while casting the vote?</d:documentation>
-      </d:varchar>
-      <d:bytea name="idhash" maxlength="32">
-        <d:documentation>Hashed of identifying vote field, for example based on e-mail address or login name</d:documentation>
-      </d:bytea>
-      <d:datetime name="when" nullable="false">
-        <d:documentation>When did we receive this vote?</d:documentation>
-      </d:datetime>
-      <d:index name="voteridindex" columns="poll_fsobject idhash(32)" nonullstores="true">
-        <d:documentation>Prevent duplicate votes, fast check if someone voted before</d:documentation>
-      </d:index>
-    </d:table>
-
-    <d:table name="pollvotes" parentlinkcolumn="option" primarykey="id">
-      <d:documentation>Poll votes are temporary stored for checking and fixing abuse.
-        They may be thrown away after a certain amount of time.</d:documentation>
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="voter" nullable="false" ondelete="cascade" references="publisher.pollvoters">
-        <d:documentation>The voter</d:documentation>
-      </d:integer>
-      <d:integer name="option" nullable="false" ondelete="cascade" references="publisher.polloptions">
-        <d:documentation>The poll option this vote is casted on</d:documentation>
-      </d:integer>
-    </d:table>
+    <d:obsoletetable name="polloptions" />
+    <d:obsoletetable name="pollvoters" />
+    <d:obsoletetable name="pollvotes" />
 
     <d:table name="formresults" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
@@ -595,7 +530,6 @@
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />
-    <customnode name="pollsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="pollSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetPollSettingsAsYaml"  />
     <customnode name="extendformeditor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="allowwidgettype" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
 
@@ -752,11 +686,6 @@
                 transports="jsonrpc">
       <accesscheck />
     </webservice>
-    <webservice name="poll"
-                library="lib/webtools/internal/pollrpc.whlib"
-                prefix="RPC_"
-                primarytrans="none"
-                transports="jsonrpc" />
     <webservice name="forum" library="lib/internal/forum/rpc.whlib" prefix="RPC_" primarytrans="none" transports="jsonrpc" />
     <webservice name="authorservice"
                 library="lib/internal/authormode/authorservice.whlib"

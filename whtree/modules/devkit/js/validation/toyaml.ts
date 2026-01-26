@@ -22,7 +22,10 @@ export function suggestTypeName(module: string, scopedtype: string): string {
   if (grabPostOriginSuffix)
     return preventDoubleName(module + ":" + grabPostOriginSuffix[1].replaceAll("/", '.'));
 
-  return fallbacknameTypeName;
+  if (scopedtype.match(/^[^:]+:[^:]+\.[^:]+$/)) //it's already a module:group.type format
+    return scopedtype;
+
+  return `${module}:${fallbacknameTypeName}`;
 }
 
 export function importApplyTo(tos: CSPApplyTo[]): ApplyTo {

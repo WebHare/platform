@@ -1,12 +1,6 @@
 @use "~dompack/components/dialog/mixins" as dialog;
 @use "~dompack/components/pulldown/mixins" as pulldown;
-@use "~@mod-publisher/js/webtools/pollstyles" as pollstyles;
 
-@at-root
-{
-  @include pollstyles.wh-poll-flex;
-  @include pollstyles.wh-poll-results-percentage;
-}
 
 /* Global page, HTML5 setup, style reset */
 html, body, p, h1, h2, h3, h4, h5, h6, form { padding:0; margin:0; }

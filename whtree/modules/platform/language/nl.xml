@@ -56,6 +56,9 @@
         <textgroup gid="externallink">   <!-- siteprofiles.types.filetypes.externallink -->
           <text tid="externallink">Externe link</text>
         </textgroup>
+        <textgroup gid="form">   <!-- siteprofiles.types.filetypes.form -->
+          <text tid="form">Formulier</text>
+        </textgroup>
         <textgroup gid="html">   <!-- siteprofiles.types.filetypes.html -->
           <text tid="html">HTML-bestand</text>
         </textgroup>
@@ -106,6 +109,9 @@
         </textgroup>
         <textgroup gid="shtmlwithdesign">   <!-- siteprofiles.types.filetypes.shtmlwithdesign -->
           <text tid="shtmlwithdesign">Dynamische serverpagina in design</text>
+        </textgroup>
+        <textgroup gid="sitemap">   <!-- siteprofiles.types.filetypes.sitemap -->
+          <text tid="sitemap">Sitemap</text>
         </textgroup>
         <textgroup gid="tag">   <!-- siteprofiles.types.filetypes.tag -->
           <text tid="belongstorepos">Hoort bij repositories</text>

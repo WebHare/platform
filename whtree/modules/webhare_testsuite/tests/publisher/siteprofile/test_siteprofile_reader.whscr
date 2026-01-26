@@ -25,7 +25,7 @@ MACRO TestWHFSType()
   TestEq("http://www.webhare.net/xmlns/publisher/htmlfile", htmlfile.namespace);
 
   OBJECT rtdtype := OpenWHFStype("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  TestEQ([[name:="data",type:=15],[name :="original", type := 5]], SELECT name,type FROM rtdtype->members ORDER BY name);
+  TestEQ([[name:="data",type:=15]], SELECT name,type FROM rtdtype->members ORDER BY name);
   TestEq(TRUE, rtdtype->cloneoncopy);
   TestEq(TRUE, rtdtype->cloneonarchive);
 

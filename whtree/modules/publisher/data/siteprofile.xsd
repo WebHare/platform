@@ -849,18 +849,6 @@
       <xs:element name="gtm" type="GTMPlugin" />
       <xs:element name="googleanalytics" type="GoogleAnalyticsPlugin" />
       <xs:element name="googleanalytics4" type="GoogleAnalytics4Plugin" />
-      <xs:element name="pollsettings">
-        <xs:complexType>
-          <xs:attribute name="allowvotingagainafter" type="xs:integer">
-            <xs:annotation>
-              <xs:documentation>
-                The amount of minutes after which voting is allowed again.
-                (this check is cookie based, so it can be circumvented by any user which clears his cookies)
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-        </xs:complexType>
-      </xs:element>
       <xs:element name="userdata">
         <xs:complexType>
           <xs:attribute name="key" type="ModuleNamespacedName" use="required">

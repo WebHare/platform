@@ -94,27 +94,27 @@ async function verifyWidgetRoundTrip(widget: Instance) {
 }
 
 async function testReader() {
-  const pollHolder = await (await test.getTestSiteJS()).openFile("/webtools/pollholder");
-  const aboutAFish = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(pollHolder.id, { export: true });
+  const widgetHolder = await (await test.getTestSiteJS()).openFile("/testpages/widgetholder");
+  const aboutAFish = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(widgetHolder.id, { export: true });
 
   test.eq([
     {
-      tag: 'p', items: [{ text: 'polltest:' }]
+      tag: 'p', items: [{ text: 'html widget:' }]
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
         data: {
-          widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest"]
+          widgets: ["site::webhare_testsuite.testsitejs/TestPages/htmlwidget"]
         }
       }
     }, {
       tag: 'p',
-      items: [{ text: 'polltest:' }]
+      items: [{ text: 'html widget 2:' }]
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
         data: {
-          widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest2"]
+          widgets: ["site::webhare_testsuite.testsitejs/TestPages/htmlwidget2"]
         }
       }
     }, {
@@ -562,7 +562,7 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { inlineWidget: test.expectInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { inlineWidget: test.expectInstance("platform:widgets.mergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
         widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
@@ -589,7 +589,7 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           {
             inlineWidget: {
-              whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
+              whfsType: "platform:widgets.mergefield",
               data: {
                 fieldname: "bu_field"
               }

@@ -1,0 +1,43 @@
+types:
+  forms.condition:
+    namespace: http://www.webhare.net/xmlns/publisher/formcondition
+    workflow: false
+    members:
+      data:
+        type: hson
+      fixformoptions:
+        type: hson
+        comment: archived original condition in case we ever need it. at some point we
+          can drop this member
+  forms.stats:
+    namespace: http://www.webhare.net/xmlns/publisher/formstats
+    workflow: false
+    clone: never
+    members:
+      firstresult:
+        type: instant
+      numresults:
+        type: integer
+  forms.mailhandlerattachments:
+    namespace: http://www.webhare.net/xmlns/publisher/mailhandlerattachments
+    comment: The contenttype used to store mail handler attachments in an instance
+    workflow: false
+    members:
+      attachments:
+        type: array
+        members:
+          file:
+            type: file
+
+rtdTypes:
+  http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype:
+    comment: The default type that is used for editing rtd fields
+    defaultBlockStyle: normal
+    blockStyles:
+      normal:
+        containerTag: p
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href

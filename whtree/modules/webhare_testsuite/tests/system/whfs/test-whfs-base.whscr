@@ -828,7 +828,7 @@ MACRO TestWHFSResourceNameMapper()
 
   OBJECT testsuite_site := OpenTestsuiteSite();
   TestEQ(`site::${testsuite_site->name}/index.rtd`, mapper->MapWHFSRef(testsuite_site->OpenByPath("index.rtd")->id));
-  TestEQ(`site::${testsuite_site->name}/webtools/polltest`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/polltest")->id));
+  TestEQ(`site::${testsuite_site->name}/webtools/mailresult.html.witty`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/mailresult.html.witty")->id));
 
   OBJECT testroot := testfw->GetWHFSTestRoot();
   OBJECT idfolder1_fakejs := testroot->OpenByPath("idfolder1/fake.js");
@@ -837,15 +837,15 @@ MACRO TestWHFSResourceNameMapper()
   // check twice for caching
   TestEQ(`whfs::${idfolder1_fakejs->whfspath}`, mapper->MapWHFSRef(testroot->OpenByPath("idfolder1/fake.js")->id));
   TestEQ(`site::${testsuite_site->name}/index.rtd`, mapper->MapWHFSRef(testsuite_site->OpenByPath("index.rtd")->id));
-  TestEQ(`site::${testsuite_site->name}/webtools/polltest`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/polltest")->id));
+  TestEQ(`site::${testsuite_site->name}/webtools/mailresult.html.witty`, mapper->MapWHFSRef(testsuite_site->OpenByPath("webtools/mailresult.html.witty")->id));
 
   // Unmapping
   TestEQ(testroot->OpenByPath("idfolder1/fake.js")->id,       mapper->UnMapWHFSRef(`whfs::${idfolder1_fakejs->whfspath}`));
   TestEQ(testsuite_site->OpenByPath("index.rtd")->id,         mapper->UnMapWHFSRef(`site::${testsuite_site->name}/index.rtd`));
-  TestEQ(testsuite_site->OpenByPath("webtools/polltest")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/polltest`));
+  TestEQ(testsuite_site->OpenByPath("webtools/mailresult.html.witty")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/mailresult.html.witty`));
   TestEQ(testroot->OpenByPath("idfolder1/fake.js")->id,       mapper->UnMapWHFSRef(`whfs::${idfolder1_fakejs->whfspath}`));
   TestEQ(testsuite_site->OpenByPath("index.rtd")->id,         mapper->UnMapWHFSRef(`site::${testsuite_site->name}/index.rtd`));
-  TestEQ(testsuite_site->OpenByPath("webtools/polltest")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/polltest`));
+  TestEQ(testsuite_site->OpenByPath("webtools/mailresult.html.witty")->id, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/webtools/mailresult.html.witty`));
 
   TestEQ(0, mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
 

@@ -1,6 +1,0 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         gid="webtools.editpoll"
-         library="mod::publisher/lib/screens/objectprops/webtools-poll.whlib">
-
-  <!-- FIXME: move editpoll to here when possible -->
-</screens>

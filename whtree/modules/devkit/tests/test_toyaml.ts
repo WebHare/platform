@@ -11,6 +11,9 @@ function testNaming() {
   test.eq("platform:publisher.shtmlfile", suggestTypeName("platform", "http://www.webhare.net/xmlns/publisher/shtmlfile"));
   test.eq("othermodule:webhare_testsuite.webdesign_dynfolder", suggestTypeName("othermodule", "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder"));
   test.eq("webhare_testsuite:webdesign_dynfolder", suggestTypeName("webhare_testsuite", "http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder"));
+  test.eq("platform:publisher.siteprofile", suggestTypeName("platform", "platform:publisher.siteprofile"));
+  test.eq("publisher:publisher.siteprofile", suggestTypeName("platform", "publisher:publisher.siteprofile"));
+  test.eq("platform:whfstype", suggestTypeName("platform", "weirdstuff"));
 }
 
 function testToRoundtrip(finalTo: ApplyTo, sourceTo: CSPApplyTo[]) {

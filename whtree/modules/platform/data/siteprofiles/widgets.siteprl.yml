@@ -1,0 +1,54 @@
+types:
+  widgets.form:
+    namespace: http://www.webhare.net/xmlns/publisher/formwidget
+    tid: publisher:siteprofile.widgets.formwidget
+    comment: form as widget we can't set the standard form as a widget,
+      because we can't control the widget preview then
+    icon: tollium:files/widget
+    metaType: blockWidget
+    renderer: mod::publisher/lib/widgets/formwidget.whlib#FormWidgetBase
+    apply:
+      setObjectEditor:
+        separateApp: true
+        name: publisher:webtoolform
+  widgets.confirmfield:
+    namespace: http://www.webhare.net/xmlns/publisher/formconfirmfield
+    tid: publisher:webtools.confirmfield.widgettitle
+    icon: tollium:files/widget
+    metaType: inlineWidget
+    editor:
+      tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editconfirmfield
+    renderer: mod::publisher/lib/internal/forms/confirmfield.whlib#ConfirmFieldWidget
+    requireMergeFieldsContext: true
+    group: http://www.webhare.net/xmlns/publisher/mailwidgets
+    members:
+      linktext:
+        type: string
+  widgets.mergefield:
+    namespace: http://www.webhare.net/xmlns/publisher/formmergefield
+    tid: publisher:webtools.mergefield.widgettitle
+    icon: tollium:files/widget
+    metaType: inlineWidget
+    editor:
+      tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editmergefield
+    renderer: mod::publisher/lib/internal/forms/mergefield.whlib#MergeFieldWidget
+    requireMergeFieldsContext: true
+    group: http://www.webhare.net/xmlns/publisher/mailwidgets
+    members:
+      fieldname:
+        type: string
+  widgets.resultsfield:
+    namespace: http://www.webhare.net/xmlns/publisher/formresultsfield
+    tid: publisher:webtools.resultsfield.widgettitle
+    comment: This embedded object embeds the form results within the mail. We're not
+      exposing it to all users for now, so the form's mailrtdtype should
+      explicity allow this widgettype to use it.
+    icon: tollium:files/widget
+    metaType: blockWidget
+    renderer: mod::publisher/lib/internal/forms/resultsfield.whlib#ResultsFieldWidget
+    requireMergeFieldsContext: true
+    group: http://www.webhare.net/xmlns/publisher/mailwidgets
+
+widgetGroups:
+  http://www.webhare.net/xmlns/publisher/mailwidgets:
+    tid: publisher:siteprofile.widgets.mail

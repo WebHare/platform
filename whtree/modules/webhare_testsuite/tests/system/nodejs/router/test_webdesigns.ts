@@ -96,7 +96,7 @@ async function testPublishedJSSite() {
 
 async function testCaptureJSDesign() {
   //Test capturing a JS WebDesign for reuse in a HareScript page
-  const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
+  const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/widgetholder");
   const resultpage = await captureJSDesign(targetpage.id);
   test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
   test.eq(/.*<html.*<body.*<div id="content"[^>]+> *$/, resultpage.parts[0].replaceAll("\n", " "));

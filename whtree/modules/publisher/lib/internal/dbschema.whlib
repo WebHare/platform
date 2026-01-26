@@ -52,38 +52,6 @@ PUBLIC SCHEMA
 
     ///////////////////////////////////////////////////////////////
     //
-    //  Webtools / Polls
-
-  , TABLE
-    < INTEGER  "id" NULL := 0
-    , INTEGER  "poll_fsobject" NULL := 0
-    , STRING   "guid"
-    , INTEGER  "votes"
-    , BOOLEAN  "hide"  // not meant to publish and not available to cast votes on
-    , STRING   "title"
-    ; KEY id
-    > polloptions
-
-  , TABLE
-    < INTEGER  "id" NULL := 0
-    , INTEGER  "poll_fsobject" NULL := 0
-    , STRING   "ipaddress"
-    , STRING   "useragent"
-    , STRING   "idhash" __ATTRIBUTES__(BINARY)
-    , DATETIME "when"
-    ; KEY id
-    > pollvoters
-
-  , TABLE
-    < INTEGER  "id" NULL := 0
-    , INTEGER  "voter" NULL := 0
-    , INTEGER  "option" NULL := 0
-    ; KEY id
-    > pollvotes
-
-
-    ///////////////////////////////////////////////////////////////
-    //
     //  Webtools / Forms
 
   , TABLE
