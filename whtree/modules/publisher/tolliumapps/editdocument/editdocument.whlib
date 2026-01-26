@@ -191,15 +191,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->RefreshState();
 
-    IF(NOT this->readonly AND this->workflowmgr->HaveDraftOrAutosavedChanged())
-      this->CatchupWithChanges();
-
     RegisterTimedCallback(AddTimeToDate(1, GetCurrentDatetime()), PTR this->CalculateInitialDirty);
-  }
-
-  MACRO CatchupWithChanges() {
-    //FIXME compare previous and current published versions for title/description - update or warn if these differ from the draft
-    // dumpvalue(ListObjectHistory(this->itemid), 'boxed');
   }
 
   MACRO AddTypesSections() { //Insert metadata sheets as new sections
@@ -503,7 +495,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
 
     IF (NOT work->HasFailed()) {
-      //As we can't apply external changes yet (CatchupWithChanges) just don't apply changes to fields that aren't controlled xurrently
       STRING ARRAY updatemetadatafields;
       IF(^title->visible AND ^metapart->visible)
         INSERT "title" INTO updatemetadatafields AT END;

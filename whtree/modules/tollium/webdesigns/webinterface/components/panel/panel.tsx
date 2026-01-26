@@ -98,6 +98,7 @@ export type PanelLine = {
     labelfor: string;
     item: string;
   }>;
+  destroywithparent?: boolean; //not passed by the server, used internally
 };
 
 export interface PanelAttributes extends ComponentStandardAttributes {
@@ -188,7 +189,8 @@ export class ObjPanel extends ComponentBase {
     if (data.lines)
       data.lines.forEach((srcline, i) => {
         srcline.target = this.name + "#line$" + i;
-        // srcline.destroywithparent = true;
+        //Without this we get "Multiple elements with name 'todd0000000001:filelistbuttonsholder#line$0'" errors. Probably points to a deeper problem..
+        srcline.destroywithparent = true;
         const line = new ObjPanelLine(this, srcline);
         this.lines.push(line);
 

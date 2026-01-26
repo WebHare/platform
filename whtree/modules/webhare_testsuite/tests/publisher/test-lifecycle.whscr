@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";

@@ -5,6 +5,7 @@ import { excludeKeys, formatPathOrId } from "./support";
 import { openType, whfsType, type TypedInstanceData } from "./contenttypes";
 import { createAppliedPromise } from "@webhare/services/src/applyconfig.ts";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { list, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -92,6 +93,14 @@ export class Site {
   async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions) {
     return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
+  }
+
+  list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
+    return list([this.id], keys, options);
+  }
+
+  listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
+    return listRecursive(this.id, keys, options);
   }
 
   /** Get the webdesign for this site */

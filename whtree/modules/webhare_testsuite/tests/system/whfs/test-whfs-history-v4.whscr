@@ -99,6 +99,7 @@ MACRO DraftingTest() {
   TestEq(TRUE, ObjectExists(testfile));
 
   TestEq(["created"], (SELECT AS STRING ARRAY type FROM ListObjectHistory(testfile->id)), "And no additional history yet");
+  TestEq(0, GetLastPublicDraft(testfile->id));
 
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
   testfw->CommitWork();
@@ -130,6 +131,7 @@ MACRO DraftingTest() {
   TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
                 , [ name := "", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
                 ], ListObjectHistory(testfile->id), "*");
+  TestEq(0, GetLastPublicDraft(testfile->id), "An autosave is not a draft");
 
   //Unclaimed instances cannot be managed through the workflow
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
@@ -201,6 +203,7 @@ MACRO DraftingTest() {
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge"), userdata := [ login := "marge@beta.webhare.net" ], snapshot := workflowmgr->__GetDraftObject()->id ]
                 ], history, "*");
+  TestEq(ListObjectHistory(testfile->id)[1].snapshot, GetLastPublicDraft(testfile->id));
 
   // Original file is still untouched
   TestEq([ no_clone_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_no_clone"));
@@ -297,6 +300,7 @@ MACRO DraftingTest() {
                 , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved", version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
                 ], history, "*");
+  TestEq(ListObjectHistory(testfile->id)[2].snapshot, GetLastPublicDraft(testfile->id));
 
   TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq([ with_workflow_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -353,6 +357,7 @@ MACRO DraftingTest() {
                 , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
                 , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge"), when := testfile->modificationdate ]
                 ], history, "*");
+  TestEq(0, GetLastPublicDraft(testfile->id));
 
   //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
   //FIXME where did created_0_1 go ?
