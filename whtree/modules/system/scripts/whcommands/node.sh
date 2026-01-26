@@ -6,7 +6,7 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-export NODE_REPL_EXTERNAL_MODULE="@mod-platform/js/cli/repl.ts"
+export NODE_REPL_EXTERNAL_MODULE="@mod-platform/js/cli/repl-launch.ts"
 
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then
