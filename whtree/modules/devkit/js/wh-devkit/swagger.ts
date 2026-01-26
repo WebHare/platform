@@ -17,7 +17,8 @@ export async function instantSwagger(req: WebRequest): Promise<WebResponse> {
     return renderOpenAPIJSON(service.bundled, req.url, { filterxwebhare: true, indent: false });
 
   const apidata = {
-    speclink: new URL("instant-swagger/spec?service=" + encodeURIComponent(serviceName), req.url).toString()
+    speclink: new URL("instant-swagger/spec?service=" + encodeURIComponent(serviceName), req.url).toString(),
+    options: {}
   };
 
   const witty = await loadWittyResource("mod::system/js/internal/openapi/openapi.witty");
