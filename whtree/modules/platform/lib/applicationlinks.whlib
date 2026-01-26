@@ -1,0 +1,47 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+CONSTANT RECORD shareopts := CELL[ verb := "", baseurl := ""];
+
+STRING FUNCTION GetWebHareApplicationLink(STRING objectpath, RECORD options) {
+  STRING url := (options.baseurl ?? GetPrimaryWebHareInterfaceURL()) || "#applink/" || EncodeURL(objectpath) || (options.verb != "" ? "/-/" || EncodeURL(options.verb) : "");
+  RETURN url;
+}
+
+STRING FUNCTION GetFullWHFSObjLink(INTEGER objid) {
+  RECORD cd := SELECT creationdate FROM system.fs_objects WHERE id = objid;
+  IF(NOT RecordExists(cd))
+    THROW NEW Exception(`No such object #${objid}`);
+
+  STRING tohash := objid || "-" || GetUnixTimestamp(cd.creationdate);
+  RETURN objid || "-" || Right(EncodeUFS(GetSHA1Hash(tohash)),8);
+}
+
+/** Implement platform object links */
+PUBLIC STRING FUNCTION GetWHFSSApplicationLink(INTEGER fsobjid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(shareopts, options, CELL [ enums := CELL [ verb := [ "" , "edit"] ] ]);
+
+  RETURN GetWebHareApplicationLink("whfs/" || GetFullWHFSObjLink(fsobjid), options);
+}
+
+PUBLIC RECORD FUNCTION __DecodeWHFSApplicationLink(STRING applink) {
+  STRING ARRAY parts := Tokenize(applink, "/-/");
+  STRING verb := Length(parts) > 1 ? parts[1] : "";
+
+  IF(parts[0] LIKE "whfs/*") {
+    STRING fsobjpart := Substring(parts[0], 5); //"whfs/"
+
+    INTEGER objid := ToInteger(Tokenize(fsobjpart, "-")[0],0);
+    IF(objid = 0 OR fsobjpart != GetFullWHFSObjLink(objid))
+      RETURN DEFAULT RECORD;
+
+    RETURN CELL [ type := "whfs", fsobjid := objid, verb ];
+  }
+
+  RETURN DEFAULT RECORD;
+}

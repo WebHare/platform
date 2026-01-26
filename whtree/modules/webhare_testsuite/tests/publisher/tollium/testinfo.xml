@@ -17,4 +17,5 @@
   <test script="test-libraryobjects.whscr" />
   <test script="test-backend-hooks.whscr" />
   <jstest file="testapp-editrtd.ts" tags="rte" />
+  <jstest file="testapp-applinks.ts" />
 </group>

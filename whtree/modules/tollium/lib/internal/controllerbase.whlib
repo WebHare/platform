@@ -2173,14 +2173,17 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     ELSE
       THROW NEW Exception(`Argument passed to CloseUploadFor is not an uploaded or dropped file`);
   }
-  MACRO LaunchTheApplication(STRING apppath, RECORD data)
-  {
+  MACRO LaunchTheApplication(STRING apppath, RECORD data) {
     BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?
 
     this->ValidateControllerSetup();
     IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug())
       this->pvt_inapppath := STRING[];
 
+    this->LaunchApplicationInsideApp(apppath,data);
+  }
+
+  PUBLIC MACRO LaunchApplicationInsideApp(STRING apppath, RECORD data) {
     RECORD app := GetApplicationToLaunch(apppath);
     IF(NOT RecordExists(app))
     {
