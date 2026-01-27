@@ -70,7 +70,7 @@
       </accesscheck>
     </linkapp>
 
-    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen">
+    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true">
       <accesscheck />
     </application>
     <application name="runyamlscreen" startmacro="lib/tollium.whlib#RunYamlScreenApp">

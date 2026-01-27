@@ -50,6 +50,7 @@ INTEGER no_forward_progress_wait := 2000; // wait 2 seconds for forward progress
 INTEGER gc_waitperiod := 60000; // collect garbage every 1 minute after a wait has been started
 BOOLEAN debug_logcontroller := IsDebugTagEnabled("tollium:logcontroller");
 
+STRING debugflag_trustparams := "tollium:trustparams";
 
 PUBLIC RECORD FUNCTION GetApplicationToLaunch(STRING apppath)
 {
@@ -1686,7 +1687,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   PUBLIC BOOLEAN FUNCTION IsTrustedToDebug()
   {
     //TODO  trust non-sysops being impersonated by sysops too ?
-    RETURN GetDtapStage()="development" OR GetEffectiveUser()->HasRight("system:sysop");
+    RETURN GetEffectiveUser()->HasRight("system:sysop") OR IsDebugTagEnabled(debugflag_trustparams);
   }
 
   /** Setup dynamic embedded documentation
@@ -2147,14 +2148,14 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     RETURN didwork;
   }
 
-  PUBLIC MACRO LaunchApplication(STRING appname, RECORD data)
+  PUBLIC MACRO LaunchApplication(STRING appname, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     data := FixupLaunchAppOptions(data);
 
     RECORD previousapplication := this->currentapplication;
     this->currentapplication := DEFAULT RECORD;
 
-    TRY this->LaunchTheApplication(appname, data);
+    TRY this->LaunchTheApplication(appname, data, options);
     FINALLY this->currentapplication := previousapplication;
 
     //Cleanup uncleaned upload session. Note that even if we forget, executemaintenance.ts will eventually pick them up
@@ -2173,14 +2174,14 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     ELSE
       THROW NEW Exception(`Argument passed to CloseUploadFor is not an uploaded or dropped file`);
   }
-  MACRO LaunchTheApplication(STRING apppath, RECORD data) {
+  MACRO LaunchTheApplication(STRING apppath, RECORD data, RECORD options) {
     BOOLEAN errorhandled; // sysop-only warning given so no need to give a generic applaunchfailure message?
 
     this->ValidateControllerSetup();
     IF(Length(this->pvt_inapppath) > 0 AND NOT this->IsTrustedToDebug())
       this->pvt_inapppath := STRING[];
 
-    this->LaunchApplicationInsideApp(apppath,data);
+    this->LaunchApplicationInsideApp(apppath,data,options);
   }
 
   PUBLIC MACRO LaunchApplicationInsideApp(STRING apppath, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD) {
@@ -2195,7 +2196,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
     IF(Length(data.params) >0 AND NOT options.allowuntrustedparams AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
     {
-      this->RunSimpleScreen("error", GetTid("tollium:shell.controller.untrustedparams"));
+      STRING message := GetTid("tollium:shell.controller.untrustedparams");
+      IF(GetDtapStage() = "development")
+        message := message || "\n\n" || GetTid("tollium:shell.controller.untrustedparams_debugflag", debugflag_trustparams);
+
+      this->RunSimpleScreen("error", message);
       RETURN;
     }
 
