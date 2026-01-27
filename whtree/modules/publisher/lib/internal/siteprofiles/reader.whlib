@@ -992,8 +992,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
 
     IF(NOT ObjectExists(this->clink_applytester)) {
       this->clink_applytester := GetApplyTesterForObject(this->objinfo.obj.filelink);
-      IF(NOT ObjectExists(this->clink_applytester) OR this->clink_applytester->__Deprecated_GetObjInfo().obj.type = whconstant_whfstype_contentlink)
-        THROW NEW Exception(`Unable to open a valid applytester for contentlink target #${this->objinfo.obj.filelink} - it is either missing or a contentlink itself`);
+      IF(NOT ObjectExists(this->clink_applytester) OR this->clink_applytester->__Deprecated_GetObjInfo().obj.type = whconstant_whfstype_contentlink) {
+        // This may happen during new content link file creation. Just use the original then
+        this->clink_applytester := this;
+      }
     }
     RETURN this->clink_applytester;
   }
