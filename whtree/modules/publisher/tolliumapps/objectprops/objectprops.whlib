@@ -339,10 +339,15 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     ^tablist->rows := SELECT tab := page->title, page FROM ToRecordArray(^maintabs->pages,"page") WHERE page->visible;
     ^tablist->selection := ^tablist->rows[0];
-    FOREVERY(OBJECT page FROM ^maintabs->pages)
-    {
+    FOREVERY(OBJECT page FROM ^maintabs->pages) {
       page->spacers := [ top :=true, bottom :=true, left:=true, right:= true];
       page->vscroll := TRUE;
+    }
+
+    // this must be the LAST thing we do or users will a) see an incomplete screen and b) not see spacers as changing that dynamically doesn't seem to work
+    IF(this->showdeveloperoptions AND Length(this->pending_errors)>0) {
+      Print("The following errors occured processing the site profiles:\n"||Detokenize(this->pending_errors,"\n"));
+      this->RunSimpleScreen("warning", this->GetTid(".messageboxes.siteprofileerrors", Detokenize(this->pending_errors,"\n\n")));
     }
   }
 
@@ -526,15 +531,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     {
       ^objectpinned->visible := TRUE;
       ^objectpinned->value := this->isfolder ? this->GetTid(".folderispinned") : this->GetTid(".fileispinned");
-    }
-
-    IF(this->showdeveloperoptions)
-    {
-      IF(Length(this->pending_errors)>0)
-      {
-        Print("The following errors occured processing the site profiles:\n"||Detokenize(this->pending_errors,"\n"));
-        this->RunSimpleScreen("warning", this->GetTid(".messageboxes.siteprofileerrors", Detokenize(this->pending_errors,"\n\n")));
-      }
     }
 
     ^name->required := NOT this->isnew; //name becomes required as soon as you're done editing
@@ -808,7 +804,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         LogHarescriptException(e);
         // Tab could not be inserted. We'll throw an exception containing the name of the propertyeditor which created
         // the component, so we can skip this propertyeditor in the next initialization.
-        THROW NEW PropertyEditorException(propeditor.tabsextension, e);
+        THROW NEW PropertyEditorException(propeditor.extension, e);
       }
     }
   }

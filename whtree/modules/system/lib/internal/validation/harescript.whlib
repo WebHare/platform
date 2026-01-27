@@ -379,7 +379,9 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
 
   RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[], eventmasks := STRING[], icons := RECORD[] ];
 
-  OBJECT scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
+  OBJECT scanresult;
+  IF(NOT options.onlytids)
+    scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
 
   OBJECT devcheck;
   IF(NOT options.onlytids)
@@ -399,7 +401,11 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
       __SYSTEM_RECOMPILELIBRARY(resourcename, FALSE);
   }
 
-  RECORD scaninfo := WaitForPromise(scanresult);
+  RECORD scaninfo;
+  IF(options.onlytids)
+    scaninfo := __ScanLib(doc_blob, resourcename);
+  ELSE
+    scaninfo := WaitForPromise(scanresult);
 
   UPDATE scaninfo.texts SET tid := FixSpacesInTid(tid) WHERE tid LIKE "* *";
   retval.tids := scaninfo.texts;
