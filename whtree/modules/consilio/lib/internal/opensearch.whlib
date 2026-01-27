@@ -182,8 +182,10 @@ PUBLIC RECORD FUNCTION SendRawJSONToOpenSearch(INTEGER indexmgrid, STRING method
   }
   CATCH(OBJECT e)
   {
-    IF (running_in_fetcher AND print_defer_connection)
+    IF (running_in_fetcher AND print_defer_connection) {
+      Sleep(1000); //ugly hack to reduce logspam when looping on an unavailable search engine
       Print("Defer:connection\n");
+    }
 
     THROW NEW SearchUnavailableException(`Search unavailable (${e->what}) ${cause}`);
   }
