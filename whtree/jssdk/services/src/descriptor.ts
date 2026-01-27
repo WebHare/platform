@@ -29,7 +29,7 @@ declare module "@webhare/services" {
 }
 
 
-const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
+const MaxImageScanSize = 50 * 1024 * 1024; //Size above which we don't trust images. Now 50MB starting with WH5.9.2/WH6.0
 const BlobLinkValidity = 86400_000; //one day
 
 //cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
