@@ -441,11 +441,11 @@ MACRO TimeZoneTests()
   TestEq("+0100", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "offset", "en"));
   TestEq("+0200", GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "offset", "nl"));
   TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "short",  "nl") IN ["UTC","GMT"]); //UTC = 59.1/2017b
-  TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "short",  "en"));
+  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              TRUE,  "short",  "en") IN ["GMT","GMT+0"]); //GMT+0 = 78.2/2025c
   TestEq("GMT+1", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "short",  "en"));
   TestEq("CEST",  GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "short",  "nl"));
   TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "long",   "nl") IN ["GMT", "Geco\u00F6rdineerde wereldtijd", "geco\u00F6rdineerde wereldtijd"]); //Geco..tijd = 59.1/2017b, geco...=68.2/2020d
-  TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "long",   "en"));
+  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              TRUE,  "long",   "en") IN ["GMT","GMT+00:00"]); //GMT+00:00 = 78.2/2025c
   TestEq("Central European Standard Time", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "long", "en"));
   TestEq("Midden-Europese zomertijd",      GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "long", "nl"));
 
