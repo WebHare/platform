@@ -72,8 +72,8 @@ RECORD FUNCTION CalculateAbsoluteDimension(STRING newdim, STRING parentdim)
 /////////////////////////////////////////////////////////////////////
 // The image edit component
 
-PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -564,11 +564,10 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   // Property getters/setters
   //
 
-  MACRO SetValue(RECORD newval)
-  {
-    IF (RecordExists(newval))
-    {
-      RECORD value := WrapBlob(newval.data, newval.filename, [ extractdominantcolor := TRUE ]);
+  MACRO SetValue(RECORD newval) {
+    IF (RecordExists(newval)) {
+      //Rewrap only if data appears incomplete:
+      RECORD value := CellExists(newval,"filename") AND CellExists(newval, "dominantcolor") ? newval : WrapBlob(newval.data, newval.filename);
 
       IF (CellExists(newval, "SOURCE_FSOBJECT"))
         value.source_fsobject := newval.source_fsobject;

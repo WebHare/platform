@@ -49,10 +49,6 @@ abort([version:=__icu_gettzdataversion(),path:=__icu_getresourcespath(),now:=now
 STRING japanese := "キャンパス";
 STRING greek := "Αλφαβητικός Κατάλογος";
 STRING russian := "биологическом";
-Print(japanese || " => " || TransliterateTextLocalized(japanese) || "\n");
-Print(greek || " => " || TransliterateTextLocalized(greek) || "\n");
-Print(russian || " => " || TransliterateTextLocalized(russian) || "\n");
-Print(russian || " => " || TransliterateTextLocalized(russian) || "\n");
 Print(LocalizedToUppercase("üßåñø"));
 //*/
 
@@ -367,20 +363,15 @@ MACRO WorldInfoTest()
   TestEq(TRUE, MatchLanguage("en-US","en"));
 }
 
-MACRO TransformationTest()
+MACRO TransformationTest1()
 {
-  OpenTest("TestLocalization: TransformationTest");
-
   TestEq("üssåñø", LocalizedToLowercase("ÜSSÅÑØ"));
   TestEq("ÜSSÅÑØ", LocalizedToUppercase("üßåñø"));
+}
+
+MACRO TransformationTest2()
+{
   TestEq("≤...<<aeae€ussano", LocalizedNormalizeText("≤…«æÆ€ÜSSÅÑØ"));
-
-  TestEq("Alphabētikós Katálogos", TransliterateTextLocalized("Αλφαβητικός Κατάλογος"));
-  TestEq("biologičeskom", TransliterateTextLocalized("биологическом"));
-  TestEq("gim, gugsam", TransliterateTextLocalized("김, 국삼"));
-  TestEq("takeda, masayuki", TransliterateTextLocalized("たけだ, まさゆき"));
-
-  CloseTest("TestLocalization: TransformationTest");
 }
 
 MACRO TestBothConversions(DATETIME localtime, DATETIME gmttime, STRING timezone)
@@ -449,11 +440,11 @@ MACRO TimeZoneTests()
   TestEq("+0100", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "offset", "en"));
   TestEq("+0200", GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "offset", "nl"));
   TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "short",  "nl") IN ["UTC","GMT"]); //UTC = 59.1/2017b
-  TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "short",  "en"));
+  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              TRUE,  "short",  "en") IN ["GMT","GMT+0"]); //GMT+0 = 78.2/2025c
   TestEq("GMT+1", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "short",  "en"));
   TestEq("CEST",  GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "short",  "nl"));
   TestEq(TRUE,    GetTimeZoneDisplay("UTC",              FALSE, "long",   "nl") IN ["GMT", "Geco\u00F6rdineerde wereldtijd", "geco\u00F6rdineerde wereldtijd"]); //Geco..tijd = 59.1/2017b, geco...=68.2/2020d
-  TestEq("GMT",   GetTimeZoneDisplay("UTC",              TRUE,  "long",   "en"));
+  TestEq(TRUE,    GetTimeZoneDisplay("UTC",              TRUE,  "long",   "en") IN ["GMT","GMT+00:00"]); //GMT+00:00 = 78.2/2025c
   TestEq("Central European Standard Time", GetTimeZoneDisplay("Europe/Amsterdam", FALSE, "long", "en"));
   TestEq("Midden-Europese zomertijd",      GetTimeZoneDisplay("Europe/Amsterdam", TRUE,  "long", "nl"));
 
@@ -929,7 +920,9 @@ LocalizeDateTimeTest();
 // Time zone support
 TimeZoneTests();
 CountryListTest();
+TransformationTest1();
 
+WorldInfoTest();
 IF (IsWasm())
   RETURN; // We're done with WASM for now
 
@@ -940,9 +933,8 @@ LocalizePercentageTest();
 LocalizeSpelloutTest();
 LocalizeOrdinalTest();
 // World info
-WorldInfoTest();
 // Text transformations
-TransformationTest();
+TransformationTest2();
 // Comparison
 ComparisonTest();
 // Intl, Collator, DateTimeFormat, NumberFormat

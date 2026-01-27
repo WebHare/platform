@@ -1,0 +1,85 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+//TODO Port this to TypeScript and invoke puppeteer directly @webhare/deps, not internal platform libs
+RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFAULTSTO CELL[]) {
+  options := ValidateOptions([ withalpha := FALSE
+                             , screenwidth := 1920
+                             , screenheight := 1080
+                             ], options);
+
+
+  STRING res := CallJS("mod::platform/js/services/puppeteer.ts#generateBrowserScreenshot", url, options);
+  RETURN [ screenshot := WrapBlob(StringToBlob(DecodeBase64(res)), "screenshot.png")
+         ];
+}
+
+
+STRING ARRAY cmdlineargs := GetConsoleArguments();
+
+RECORD args := ParseArguments(cmdlineargs,
+    [ [ name := "dimensions", type := "param", required := TRUE ]
+    , [ name := "classbase", type := "param", required := TRUE ]
+    , [ name := "outputbase", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(args))
+{
+  Print("Syntax: wh devkit:generate-flags <dimensions> <classbase> <outputbase>\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+IF(args.dimensions NOT LIKE "?*x?*x?*")
+  TerminateScriptWithError("Dimensions must be of the form <width>x<height>x<pixelratio>, eg 24x32x1");
+
+INTEGER width := ToInteger(Tokenize(args.dimensions,'x')[0],0);
+INTEGER height := ToInteger(Tokenize(args.dimensions,'x')[1],0);
+INTEGER pixelratio := ToInteger(Tokenize(args.dimensions,'x')[2],0);
+
+BOOLEAN debug := TRUE;
+
+//FIXME use dimensions to determine when to switch to 4x3
+STRING flagdir := "common/countryflags/1x1/";
+STRING flagbasedir := MergePath(GetInstallationRoot(), "node_modules/flag-icons/flags/1x1/");
+RECORD ARRAY flags := SELECT name := GetBasenameFromPath(name)
+                        FROM ReadDiskDirectory(flagbasedir, "*.svg")
+                    ORDER BY ToUppercase(name);
+
+flags := SELECT *
+              , position := -width * #flags
+           FROM flags;
+
+STRING flagurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.wh/devkit/flags/");
+flagurl := UpdateURLVariables(flagurl, CELL[ width := ToString(width), height := ToString(height), pixelratio := ToString(pixelratio), flags := Detokenize((SELECT AS STRING ARRAY name FROM flags),'.')]);
+Print("Flag URL: " || flagurl || '\n');
+
+RECORD screenshotresult := GenerateBrowserScreenshot(flagurl, [ screenwidth := width * pixelratio * Length(flags), screenheight := height*pixelratio]).screenshot;
+StoreDiskFile(`${args.outputbase}.png`, screenshotresult.data, [overwrite := TRUE]);
+Print(`Written ${args.outputbase}.png\n`);
+
+OBJECT csswitty := LoadWittyLibrary("mod::devkit/lib/internal/flags/flags.css.witty","HTML-NI");
+OBJECT witty := LoadWittyLibrary("mod::devkit/lib/internal/flags/flags.html.witty","HTML-NI");
+RECORD wittydata := CELL[ filebase := GetBasenameFromPath(args.outputbase)
+                        , classbase := args.classbase
+                        , flags
+                        , cmdline := `wh devkit:generate-flags ${args.dimensions}`
+                        , when := FormatISO8601Datetime(GetCurrentDatetime())
+                        , onversion := GetWebhareVersionNumber()
+                        , width
+                        , height
+                        , renderwidth := width * Length(flags)
+                        , renderheight := height
+                        ];
+
+StoreDiskFile(`${args.outputbase}.css`,  csswitty->RunComponentToBlob("flagcss", wittydata), [overwrite := TRUE]);
+Print(`Written ${args.outputbase}.css\n`);
+
+StoreDiskFile(`${args.outputbase}.html`, witty->RunComponentToBlob("flagtest", wittydata), [overwrite := TRUE]);
+Print(`Written test page ${args.outputbase}.html\n`);

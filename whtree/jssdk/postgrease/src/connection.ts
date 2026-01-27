@@ -93,7 +93,7 @@ export async function connect(connectionOptions: PGConnectionOptions = {}) {
         throw new Error(`Unexpected response to SSL request: ${byteResponse}`);
     }
 
-    // We're now connected and will receiuve only packets (code + length + data )
+    // We're now connected and will receive only packets (code + length + data)
     const packet = socket.curPacket;
 
     const parameters: Record<string, string> = {};

@@ -58,18 +58,6 @@
     <body spacers="none">
       <tabs height="1pr">
         <tab name="routestab">
-          <heading tid=".mailservers" />
-          <wrd:entitiesedit name="mailservers"
-                            height="1pr"
-                            deletemode="delete-denyreferred"
-                            emptytid=".serversempty"
-                            entityeditscreen="#editmailserver"
-                            onmaprows="onmapservers"
-                            requestcolumns="wrd_tag wrd_title serverurl"
-                            wrdtype="mailserver">
-            <column name="wrd_title" type="text" width="2pr" tid="~title" />
-            <column name="serverurl" type="text" width="2pr" tid=".serverurl" />
-          </wrd:entitiesedit>
           <heading tid=".mailroutes" />
           <wrd:entitiesedit name="routes"
                             height="1pr"
@@ -84,6 +72,18 @@
             <column name="recipientmasks" type="text" width="2pr" tid=".mask" />
             <column name="rewritemailaddress" type="text" width="2pr" tid=".outgoingmailaddress" />
             <column name="server" type="text" width="2pr" tid=".server" />
+          </wrd:entitiesedit>
+          <heading tid=".mailservers" />
+          <wrd:entitiesedit name="mailservers"
+                            height="1pr"
+                            deletemode="delete-denyreferred"
+                            emptytid=".serversempty"
+                            entityeditscreen="#editmailserver"
+                            onmaprows="onmapservers"
+                            requestcolumns="wrd_tag wrd_title serverurl"
+                            wrdtype="mailserver">
+            <column name="wrd_title" type="text" width="2pr" tid="~title" />
+            <column name="serverurl" type="text" width="2pr" tid=".serverurl" />
           </wrd:entitiesedit>
           <heading tid=".integrations" />
           <textedit name="snsendpoint" width="1pr" enabled="false" />

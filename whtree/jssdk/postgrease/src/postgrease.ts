@@ -2,12 +2,9 @@
 declare module "@webhare/postgrease" {
 }
 
-export type * from "./types/node-types";
-export type * from "./types/codec-types";
-export * from "./types/oids";
-export * from "./codec-registry";
-export { buildArrayCodec } from "./codec-support";
-export * from "./codecs";
-export * from "./connection";
-export * from "./request-builder";
-export * from "./socket";
+export { defaultCodecs } from "./codecs";
+export type { Codec } from "./types/codec-types";
+export { DataTypeOids } from "./types/oids";
+export { CodecRegistry } from "./codec-registry";
+export { nonDateCodecs, DataTypeTimeStampTzTemporal, DataTypeTimeStampTzTemporalArray } from "./codecs";
+export { bindParam, DatabaseError, type PGBoundParam, connect, type PGConnection, type PGQueryOptions, type PGQueryResult } from "./connection";
