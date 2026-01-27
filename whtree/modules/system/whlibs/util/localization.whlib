@@ -60,7 +60,6 @@ RECORD ARRAY FUNCTION __ICU_GetLanguageList(STRING ARRAY locales) __ATTRIBUTES__
 STRING FUNCTION __ICU_ToUppercase(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 STRING FUNCTION __ICU_ToLowercase(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 STRING FUNCTION __ICU_NormalizeText(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-STRING FUNCTION __ICU_TransliterateText(STRING value, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 STRING ARRAY FUNCTION __ICU_GetTimeZoneIDs() __ATTRIBUTES__(EXTERNAL, CONSTANT);
 RECORD ARRAY FUNCTION __ICU_GetAllTimeZones(STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -651,23 +650,6 @@ PUBLIC STRING FUNCTION LocalizedNormalizeText(STRING value)
   RETURN __ICU_NormalizeText(value, "en");
 }
 
-
-
-/** @short   Transliterate a string to latin characters
-    @param   text The text to transliterate
-    @return  The normalized text, or an empty string in case of an unrecognized language code
-    @example
-// example1 = "kyanpasu"
-STRING example1 := TransliterateTextLocalized("キャンパス");
-
-// example2 = "Alphabētikós Katálogos"
-STRING example2 := TransliterateTextLocalized("Αλφαβητικός Κατάλογος");
-*/
-PUBLIC STRING FUNCTION TransliterateTextLocalized(STRING value)
-{
-  //ADDME: Setting the locale doesn't seem to have any effect, so we're not exposing the parameter (yet)
-  RETURN __ICU_TransliterateText(value, "en");
-}
 
 
 

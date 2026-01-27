@@ -893,11 +893,6 @@ void NormalizeText(HSVM *hsvm, HSVM_VariableId id_set)
         doTransliterate(hsvm, id_set, UnicodeString("Any-Latin; Latin-ASCII; Lower"));
 }
 
-void TransliterateText(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        doTransliterate(hsvm, id_set, UnicodeString("Any-Latin"));
-}
-
 void GetTimeZoneIDs(HSVM *hsvm, HSVM_VariableId id_set)
 {
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_StringArray);
@@ -1199,7 +1194,6 @@ BLEXLIB_PUBLIC int ICUEntryPoint(HSVM_RegData *regdata, void *)
         HSVM_RegisterFunction(regdata, "__ICU_TOUPPERCASE::S:SS", HareScript::ICU::ToUppercase);
         HSVM_RegisterFunction(regdata, "__ICU_TOLOWERCASE::S:SS", HareScript::ICU::ToLowercase);
         HSVM_RegisterFunction(regdata, "__ICU_NORMALIZETEXT::S:SS", HareScript::ICU::NormalizeText);
-        HSVM_RegisterFunction(regdata, "__ICU_TRANSLITERATETEXT::S:SS", HareScript::ICU::TransliterateText);
 
         HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDS::SA:", HareScript::ICU::GetTimeZoneIDs);
         HSVM_RegisterFunction(regdata, "__ICU_GETALLTIMEZONES::RA:S", HareScript::ICU::GetAllTimeZones);

@@ -49,10 +49,6 @@ abort([version:=__icu_gettzdataversion(),path:=__icu_getresourcespath(),now:=now
 STRING japanese := "キャンパス";
 STRING greek := "Αλφαβητικός Κατάλογος";
 STRING russian := "биологическом";
-Print(japanese || " => " || TransliterateTextLocalized(japanese) || "\n");
-Print(greek || " => " || TransliterateTextLocalized(greek) || "\n");
-Print(russian || " => " || TransliterateTextLocalized(russian) || "\n");
-Print(russian || " => " || TransliterateTextLocalized(russian) || "\n");
 Print(LocalizedToUppercase("üßåñø"));
 //*/
 
@@ -375,10 +371,6 @@ MACRO TransformationTest()
   TestEq("ÜSSÅÑØ", LocalizedToUppercase("üßåñø"));
   TestEq("≤...<<aeae€ussano", LocalizedNormalizeText("≤…«æÆ€ÜSSÅÑØ"));
 
-  TestEq("Alphabētikós Katálogos", TransliterateTextLocalized("Αλφαβητικός Κατάλογος"));
-  TestEq("biologičeskom", TransliterateTextLocalized("биологическом"));
-  TestEq("gim, gugsam", TransliterateTextLocalized("김, 국삼"));
-  TestEq("takeda, masayuki", TransliterateTextLocalized("たけだ, まさゆき"));
 
   CloseTest("TestLocalization: TransformationTest");
 }
