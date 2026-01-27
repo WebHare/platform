@@ -570,12 +570,12 @@ PUBLIC STATIC OBJECTTYPE WebBrowser <
       IF(isasync)
         THROW NEW Exception(`The async Webbrowser API is not supported in the WASM engine - you should use wh::internet/fetch.whlib as a cross-engine alternative`);
 
-      RECORD reqopts := CELL[ method := ToLowercase(method)
+      RECORD reqopts := CELL[ method := ToUppercase(method)
                             , headers := this->PackHeaders(headers)
                             ];
       IF(Length(request_body) > 0)
       {
-        IF(reqopts.method IN ["get","head"])
+        IF(reqopts.method IN ["GET","HEAD"])
           THROW NEW Exception(`GET/HEAD requests with a body are not supported in the WASM engine. Your service probably supports a POST alternative API too`);
 
         INSERT CELL body := request_body INTO reqopts;
@@ -584,6 +584,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser <
       BOOLEAN retry_for_login;
       WHILE(TRUE) {
         RECORD unpacked := UnpackURL(url);
+        this->pvt_url := url;
         BOOLEAN forcedauth;
         STRING requesturl := url;
 

@@ -6,7 +6,8 @@
   <test name="email" path="email/" />
   <test script="test_asynctools.whscr" />
   <test script="test_registry.whscr" />
-  <test script="test_virtualfs.whscr" />
+  <test name="test_virtualfs-native" script="test_virtualfs.whscr" engine="native" />
+  <test name="test_virtualfs-wasm" script="test_virtualfs.whscr" engine="wasm" />
   <test script="test_adhoccache.whscr" runmode="process" engine="native" /> <!-- Needs isolation because adhoccache is per-process -->
   <test script="test_adhoccache.whscr" runmode="process" engine="wasm" /> <!-- Needs isolation because adhoccache is per-process -->
   <test script="test_adhoccache_wasm.ts" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
