@@ -456,8 +456,6 @@
                  schemalocation="data/schemadefinition.xsd"
                  validator="lib/internal/schemadef.whlib#WRDSchemaDefinitionFile" />
     <debugflag name="forcehistory" description="Keep WRD history for all types for at least 1 day and record stack traces" />
-    <debugflag name="usewasmvm" description="Use WASM VMs for WRD operations instead of the bridge VMs" />
-    <debugflag name="usejsengine" description="Use the experimental WRD engine for selections in JS" />
     <debugflag name="checkjsonfields" description="Check the contents of JSON fields with type declarations in HareScript" />
   </development>
 
