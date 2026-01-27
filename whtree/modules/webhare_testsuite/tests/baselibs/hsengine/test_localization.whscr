@@ -363,16 +363,15 @@ MACRO WorldInfoTest()
   TestEq(TRUE, MatchLanguage("en-US","en"));
 }
 
-MACRO TransformationTest()
+MACRO TransformationTest1()
 {
-  OpenTest("TestLocalization: TransformationTest");
-
   TestEq("üssåñø", LocalizedToLowercase("ÜSSÅÑØ"));
   TestEq("ÜSSÅÑØ", LocalizedToUppercase("üßåñø"));
+}
+
+MACRO TransformationTest2()
+{
   TestEq("≤...<<aeae€ussano", LocalizedNormalizeText("≤…«æÆ€ÜSSÅÑØ"));
-
-
-  CloseTest("TestLocalization: TransformationTest");
 }
 
 MACRO TestBothConversions(DATETIME localtime, DATETIME gmttime, STRING timezone)
@@ -921,7 +920,9 @@ LocalizeDateTimeTest();
 // Time zone support
 TimeZoneTests();
 CountryListTest();
+TransformationTest1();
 
+WorldInfoTest();
 IF (IsWasm())
   RETURN; // We're done with WASM for now
 
@@ -932,9 +933,8 @@ LocalizePercentageTest();
 LocalizeSpelloutTest();
 LocalizeOrdinalTest();
 // World info
-WorldInfoTest();
 // Text transformations
-TransformationTest();
+TransformationTest2();
 // Comparison
 ComparisonTest();
 // Intl, Collator, DateTimeFormat, NumberFormat

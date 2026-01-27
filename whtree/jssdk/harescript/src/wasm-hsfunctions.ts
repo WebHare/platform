@@ -570,6 +570,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       id_set.copyFrom(var_date);
     }
   });
+  wasmmodule.registerExternalFunction("__ICU_TOLOWERCASE::S:SS", (vm, id_set, var_text, var_lang) => {
+    id_set.setString(var_text.getString().toLocaleLowerCase(var_lang.getString()));
+  });
+  wasmmodule.registerExternalFunction("__ICU_TOUPPERCASE::S:SS", (vm, id_set, var_text, var_lang) => {
+    id_set.setString(var_text.getString().toLocaleUpperCase(var_lang.getString()));
+  });
   wasmmodule.registerExternalFunction("POSTGRESQLESCAPEIDENTIFIER::S:S", (vm, id_set, var_str) => {
     id_set.setString(escapePGIdentifier(var_str.getString()));
   });

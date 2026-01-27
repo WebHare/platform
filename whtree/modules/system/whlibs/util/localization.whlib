@@ -575,6 +575,9 @@ PUBLIC RECORD ARRAY FUNCTION GetLanguageList(VARIANT locale)
   ELSE
     THROW NEW Exception("Expected a single locale or a list of locales");
 
+  IF(IsWASM())
+    RETURN EM_Syscall("getLanguageList", CELL[locales]);
+
   RETURN __ICU_GetLanguageList(locales);
 }
 
