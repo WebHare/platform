@@ -2183,7 +2183,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     this->LaunchApplicationInsideApp(apppath,data);
   }
 
-  PUBLIC MACRO LaunchApplicationInsideApp(STRING apppath, RECORD data) {
+  PUBLIC MACRO LaunchApplicationInsideApp(STRING apppath, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions(CELL[ allowuntrustedparams := FALSE ], options);
+
     RECORD app := GetApplicationToLaunch(apppath);
     IF(NOT RecordExists(app))
     {
@@ -2191,7 +2193,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       RETURN;
     }
 
-    IF(Length(data.params) >0 AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
+    IF(Length(data.params) >0 AND NOT options.allowuntrustedparams AND NOT app.allowuntrustedparams AND NOT this->IsTrustedToDebug())
     {
       this->RunSimpleScreen("error", GetTid("tollium:shell.controller.untrustedparams"));
       RETURN;
