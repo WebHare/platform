@@ -614,6 +614,9 @@ async function testLookup() {
   test.eq(testfile.parentSite, lookupresult.site);
   test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
 
+  lookupresult = await whfs.lookupURL(new URL("c:\\windows\\win.ini"));
+  test.eq(null, lookupresult.site);
+
   const webharetestsuitesite = await whfs.openSite("webhare_testsuite.testsite");
   lookupresult = await whfs.lookupURL(new URL(new URL("/testoutput/webhare_testsuite.testsite/testpages/formtest/", backendConfig.backendURL).toString()));
   test.eq(webharetestsuitesite.id, lookupresult.site);
