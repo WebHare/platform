@@ -93,7 +93,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs() {
   RECORD pspinfo := __GetExtractedConfig("wrdschemas");
   RECORD ARRAY psps :=
       SELECT tag
-           , title := ":" || tag
+           , title
            , objectname := "mod::wrd/lib/internal/psp/js.whlib#JSPaymentProvider"
            , payinfoscreen := paymentInfoScreen
            , configextensions := configExtensions
