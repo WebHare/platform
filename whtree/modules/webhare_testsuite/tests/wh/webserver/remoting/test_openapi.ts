@@ -19,6 +19,7 @@ async function testService() {
   //whitebox try the service directly for more useful traces etc
   using serviceFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice");
   const service = createOpenAPIClient<"webhare_testsuite:testservice">(serviceFetch);
+  const serviceUsingGlobalFetch = createOpenAPIClient<"webhare_testsuite:testservice">(services.backendConfig.backendURL + ".webhare_testsuite/openapi/testservice/");
 
   using serviceNoValidationFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice_novalidation");
   const serviceNoValidation = new OpenAPITestserviceClient(serviceNoValidationFetch);
@@ -32,11 +33,14 @@ async function testService() {
   {
     const res = await service.get("/users");
     test.eq(HTTPSuccessCode.Ok, res.status);
-    console.log(res);
     test.eq([
       { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
       { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
     ], res.body);
+
+    const resGlobal = await serviceUsingGlobalFetch.get("/users");
+    test.eq(HTTPSuccessCode.Ok, resGlobal.status);
+    test.eq(res.body, resGlobal.body);
   }
 
   {
