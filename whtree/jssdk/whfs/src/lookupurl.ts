@@ -114,6 +114,14 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
   /* We specifically want a URL object (and not a string) so callers get to deal with Invalid URLs and
      will not be tempted to throw away all exceptions from lookupURL if they're passing untrusted input, eg referrers from a log file */
 
+  if (!["http:", "https:"].includes(url.protocol))
+    return {
+      site: null,
+      folder: null,
+      file: null,
+      webServer: null
+    };
+
   //Find the matching webserver
   const webserver = options?.clientWebServer === undefined ?
     await lookupWebserver(url.hostname, getActualPort(url)) :
