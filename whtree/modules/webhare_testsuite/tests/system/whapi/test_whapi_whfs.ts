@@ -217,6 +217,49 @@ async function testWHFSAPI() {
       }
     ]
   }, { params: { path: tempPath + "/newfolder" } }));
+
+  // Make it the index
+  test.eqPartial({
+    status: 200,
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { indexDoc: "newfile" }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
+
+  { // Verify it
+    const updatedFolder = await api.get("/whfs/object", { params: { path: tempPath + "/newfolder", instances: "*" } });
+    test.assert(updatedFolder.status === 200);
+    test.eq({
+      title: "",
+      description: "",
+      indexDoc: "newfile"
+    }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  }
+
+  // Unset it the index
+  test.eqPartial({
+    status: 200,
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { indexDoc: "" }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
+
+  { // Verify it
+    const updatedFolder = await api.get("/whfs/object", { params: { path: tempPath + "/newfolder", instances: "*" } });
+    test.assert(updatedFolder.status === 200);
+    test.eq({
+      title: "",
+      description: "",
+    }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  }
 }
 
 
