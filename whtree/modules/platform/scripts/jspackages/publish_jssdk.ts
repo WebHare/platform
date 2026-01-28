@@ -23,7 +23,7 @@ import type { PackageJson } from "../../js/devsupport/jspackages";
 import { tmpdir } from "os";
 
 run({
-  description: "Validate/lint the WebHaer JSSDK packages",
+  description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },
     "publish-alpha": { description: "Publish alpha packages" },

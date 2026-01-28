@@ -17,7 +17,7 @@ import { listDirectory } from '@webhare/system-tools';
 import type { PackageJson } from "../../js/devsupport/jspackages";
 
 run({
-  description: "Validate/lint the WebHaer JSSDK packages",
+  description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },
     "fix": { description: "Attempt automated fixes" },
