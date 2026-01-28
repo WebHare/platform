@@ -126,9 +126,9 @@
     <openapiservice name="testservice_novalidation"
                     inputvalidation="never"
                     outputvalidation="never"
-                    spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+                    spec="tests/wh/webserver/remoting/openapi/testservice.yml" />
 
-    <openapiclient name="testclient_xml" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+    <openapiclient name="testclient_xml" spec="tests/wh/webserver/remoting/openapi/testservice.yml" />
 
     <webservice name="test"
                 library="lib/webservicetest.whlib"
