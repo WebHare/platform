@@ -684,7 +684,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
 
   //Create a testdriver instane
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
-  topscreen->methods->value := "platform:test";
+  topscreen->^methods->value := "platform:test";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TT(":Tag")->value := "newmethod";
   AWAIT ExpectWorkErrors(PTR TTClick(":Ok"));
