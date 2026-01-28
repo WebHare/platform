@@ -23,7 +23,7 @@
   <test script="test_devsupport.ts" />
   <test script="test_rtd.ts" />
   <test script="test_bridge_from_harescript.whscr" />
-  <test script="test_nodewasmjspi.ts" />
+  <test script="test_node_regressions.ts" />
   <test script="test_tests.ts" />
   <test script="test_whfs.ts" />
   <test script="test_whfs_types.ts" />

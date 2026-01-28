@@ -152,7 +152,23 @@ async function testAsyncContextLoss() {
     throw new Error(`Lost the AsyncLocalStorage context, got ${retval}`);
 }
 
+function testTextDecoder() {
+  // https://github.com/nodejs/node/issues/56542
+  const decoded = new TextDecoder("Windows-1252").decode(new Uint8Array([146])).charCodeAt(0);
+  test.eq(8217, decoded);
+}
+
+function testBufferOptimize() {
+  // https://github.com/nodejs/node/issues/54521
+  for (let i = 0; i < 100_000; ++i) {
+    const asHex = Buffer.from("\x80").toString("hex");
+    test.eq("c280", asHex, `Failed after ${i}th iteration`);
+  }
+}
+
 test.runTests([
   testWasmSpawn,
-  testAsyncContextLoss
+  testAsyncContextLoss,
+  testTextDecoder,
+  testBufferOptimize,
 ]);
