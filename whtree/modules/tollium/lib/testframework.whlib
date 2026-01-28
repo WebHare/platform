@@ -1276,7 +1276,7 @@ PUBLIC OBJECT FUNCTION GetTestController()
 /** Launch an application */
 PUBLIC ASYNC MACRO TTLaunchApp(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  GetTestController()->LaunchApplication(appname, options);
+  GetTestController()->LaunchApplication(appname, options, [ allowuntrustedparams := TRUE]);
 }
 
 PUBLIC ASYNC MACRO TTLaunchApplicationLink(STRING applink) {
@@ -1290,7 +1290,7 @@ PUBLIC ASYNC MACRO TTLaunchApplicationLink(STRING applink) {
   IF(hash NOT LIKE "applink/*")
     THROW NEW Exception(`Hash fragment '${hash}' is not an application link`);
 
-  AWAIT TTLaunchApp("platform:applicationlink", CELL [ params := [ Substring(hash,8) ]]);
+  GetTestController()->LaunchApplication("platform:applicationlink", CELL [ params := [ Substring(hash,8) ]]);
 }
 
 /** Launch the most recently requested application (eg after a click) */

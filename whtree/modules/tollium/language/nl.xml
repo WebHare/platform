@@ -632,6 +632,7 @@
       <text tid="rightsproblem">U heeft geen toegang tot deze applicatie (ingelogd als '<param p="1"/>')</text>
       <text tid="sessionexpired">Uw inlogsessie is verlopen. U moet opnieuw inloggen om deze applicatie te herstarten.</text>
       <text tid="untrustedparams">U mag deze applicatie niet openen met URL parameters.</text>
+      <text tid="untrustedparams_debugflag">Schakel de '<param p="1"/>' debug flag in om elke gebruiker willekeurige applicaties te laten openen met parameters</text>
     </textgroup>
     <textgroup gid="criticalissues">   <!-- shell.criticalissues -->
       <text tid="dashboard">Er zijn kritieke fouten die  direct aandacht vereisen. Zie het Dashboard</text>

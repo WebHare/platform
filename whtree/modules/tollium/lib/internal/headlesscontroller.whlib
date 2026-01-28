@@ -63,7 +63,7 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
     this->overrideurl := isvalidation ? "" : RunInSeparatePrimary(PTR GetOrExtendOverrideURL(24*60*60*1000, AddTimeToDate(60*60*1000, GetCurrentdatetime())));
   }
 
-  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data DEFAULTSTO DEFAULT RECORD)
+  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     data := FixupLaunchAppOptions(data);
 
@@ -88,7 +88,7 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
       appurl := UpdateURLVariables(appurl || this->overrideurl, [ app := app, openas := this->user->login ]);
       Print(`Opening APP: ${appurl}\n`);
     }
-    TolliumControllerBase::LaunchApplication(appname, data);
+    TolliumControllerBase::LaunchApplication(appname, data, options);
   }
 
   // ---------------------------------------------------------------------------

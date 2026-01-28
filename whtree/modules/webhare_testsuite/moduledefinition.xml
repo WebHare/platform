@@ -70,10 +70,10 @@
       </accesscheck>
     </linkapp>
 
-    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen">
+    <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true">
       <accesscheck />
     </application>
-    <application name="runyamlscreen" startmacro="lib/tollium.whlib#RunYamlScreenApp">
+    <application name="runyamlscreen" startmacro="lib/tollium.whlib#RunYamlScreenApp" allowuntrustedparams="true">
       <accesscheck />
     </application>
     <application name="testdocs" startmacro="tests/tollium/shell/data/testdocs.whlib#starttestdocs">
@@ -82,7 +82,7 @@
     <application name="uploadtest" screen="/tolliumapps/components/uploadtest.xml">
       <accesscheck />
     </application>
-    <application name="anycomponent" startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent">
+    <application name="anycomponent" startmacro="lib/screens/tests/anycomponent.whlib#RunAnyComponent" allowuntrustedparams="true">
       <accesscheck />
     </application>
     <application name="appstarttest" screen="/screens/tests/comm.xml#appstart">

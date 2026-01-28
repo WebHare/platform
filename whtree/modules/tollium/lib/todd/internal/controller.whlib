@@ -462,7 +462,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
   // Public API - user actions
   //
 
-  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data)
+  UPDATE PUBLIC MACRO LaunchApplication(STRING appname, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->applicationtarget := data.target;
     this->laststartedapp := appname;
@@ -472,7 +472,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWebController EXTEND TolliumControllerBase
     IF(RecordExists(this->currentapplication))
       THROW NEW Exception("Cannot launch an application inside an application"); //it would mess up appcontext scopes
 
-    TolliumControllerBase::LaunchApplication(appname, data);
+    TolliumControllerBase::LaunchApplication(appname, data, options);
   }
 
   /** Activate this web application, stealing focus from any other open Todd application */
