@@ -1,7 +1,7 @@
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import type { AuthorizedWRDAPIUser, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
-import { listInstances, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from "@webhare/whfs";
+import { listInstances, openFile, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from "@webhare/whfs";
 import type { FileTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
@@ -34,6 +34,7 @@ async function getInstances(obj: WHFSObject) {
         ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
         ...obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
         ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
+        ...obj.isFolder && obj.indexDoc ? { indexDoc: (await openFile(obj.indexDoc)).name } : {},
       }
     }
   ];
@@ -92,16 +93,17 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   }
 }
 
-function mapVirtualMetaData(data: Record<string, unknown>): {
+async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>): Promise<{
   title?: string;
   description?: string;
   keywords?: string;
   isUnlisted?: boolean;
   publish?: boolean;
   type?: string;
-} | null {
+  indexDoc?: number | null;
+} | null> {
 
-  const retval: ReturnType<typeof mapVirtualMetaData> = {};
+  const retval: Awaited<ReturnType<typeof mapVirtualMetaData>> = {};
   for (const key of Object.keys(data)) {
     switch (key) {
       case "title":
@@ -111,6 +113,20 @@ function mapVirtualMetaData(data: Record<string, unknown>): {
         if (typeof data[key] !== "string")
           throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a string`, 400);
         retval[key] = data[key] as string;
+        break;
+      case "indexDoc":
+        if (typeof data.indexDoc !== "string")
+          throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' must be a string or null`, 400);
+        else if (!data.indexDoc)
+          retval.indexDoc = null;
+        else {
+          if (!target?.isFolder)
+            throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' can only be set on (existing) folders`, 400);
+          const targetDoc = await target.openFile(data.indexDoc as string, { allowMissing: true });
+          if (!targetDoc)
+            throw new WHFSAPIError(`Invalid virtual metadata: indexDoc file ${data.indexDoc}' not found`, 400);
+          retval.indexDoc = targetDoc.id;
+        }
         break;
       case "isUnlisted":
       case "publish":
@@ -151,7 +167,7 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
 
       const newObj = await parentFolder[typeinfo.foldertype ? "createFolder" : "createFile"](req.body.name, {
         type: req.body.type,
-        ...virtualMetadata && mapVirtualMetaData(virtualMetadata) || {}
+        ...virtualMetadata && await mapVirtualMetaData(null, virtualMetadata) || {}
       });
       await applyInstanceUpdates(newObj, req.body.instances);
       return req.createJSONResponse(201, {});
@@ -170,7 +186,7 @@ export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
     return await runInWork(async () => {
       const virtualMetadata = req.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
       if (virtualMetadata) {
-        const updates = mapVirtualMetaData(virtualMetadata);
+        const updates = await mapVirtualMetaData(targetObject, virtualMetadata);
         if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
           await targetObject.update(updates);
         }
