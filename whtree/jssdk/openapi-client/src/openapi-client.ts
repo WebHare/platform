@@ -4,7 +4,7 @@
 declare module "@webhare/openapi-client" {
 }
 
-import { TypedOpenAPIClient } from "@mod-system/js/internal/openapi/openapitypedclient";
+import { TypedOpenAPIClient } from "./typedclient";
 import type { OpenAPIClientFetch } from "@webhare/openapi-service";
 
 import type { OpenAPIClientDefinitions } from "@mod-platform/generated/ts/openapi.ts";
