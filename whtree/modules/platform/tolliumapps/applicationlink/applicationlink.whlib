@@ -12,10 +12,11 @@ MACRO RunApplicationLinkWHFS(OBJECT controller, RECORD part) {
     RETURN;
   }
 
+  //We need to enable untrustedparams for the doceditor to work. TODO migrate to direct targets, not params hacks
   IF(part.verb = "edit") {
-    controller->LaunchApplicationInsideApp("publisher:edit", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]));
+    controller->LaunchApplicationInsideApp("publisher:edit", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]), [ allowuntrustedparams := TRUE ]);
   } ELSE {
-    controller->LaunchApplicationInsideApp("publisher:app", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]));
+    controller->LaunchApplicationInsideApp("publisher:app", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]), [ allowuntrustedparams := TRUE ]);
   }
 }
 
