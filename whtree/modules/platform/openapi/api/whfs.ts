@@ -102,18 +102,26 @@ function mapVirtualMetaData(data: Record<string, unknown>): {
 } | null {
 
   const retval: ReturnType<typeof mapVirtualMetaData> = {};
-  if ("title" in data && typeof data.title === "string")
-    retval.title = data.title;
-  if ("description" in data && typeof data.description === "string")
-    retval.description = data.description;
-  if ("keywords" in data && typeof data.keywords === "string")
-    retval.keywords = data.keywords;
-  if ("isUnlisted" in data && typeof data.isUnlisted === "boolean")
-    retval.isUnlisted = data.isUnlisted;
-  if ("publish" in data && typeof data.publish === "boolean")
-    retval.publish = data.publish;
-  if ("type" in data && typeof data.type === "string")
-    retval.type = data.type;
+  for (const key of Object.keys(data)) {
+    switch (key) {
+      case "title":
+      case "description":
+      case "keywords":
+      case "type":
+        if (typeof data[key] !== "string")
+          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a string`, 400);
+        retval[key] = data[key] as string;
+        break;
+      case "isUnlisted":
+      case "publish":
+        if (typeof data[key] !== "boolean")
+          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a boolean`, 400);
+        retval[key] = data[key] as boolean;
+        break;
+      default:
+        throw new WHFSAPIError(`Invalid virtual metadata: unknown property '${key}'`, 400);
+    }
+  }
   return Object.keys(retval).length > 0 ? retval : null;
 }
 
