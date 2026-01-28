@@ -202,6 +202,21 @@ async function testWHFSAPI() {
   // Wait for the file to come online
   const newFileFetched = await test.wait(() => fetch(newFilePathRetrieved.body.link!), { test: res => res.ok });
   test.eq(/simpletest.rtd - OneOfTheSimpleFiles/, await newFileFetched.text());
+
+  // virtual.objectdata should be checking key validity
+  test.eqPartial({
+    status: 400,
+    body: {
+      error: /unknown property 'noSuchProp'/
+    }
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { noSuchProp: false }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
 }
 
 
