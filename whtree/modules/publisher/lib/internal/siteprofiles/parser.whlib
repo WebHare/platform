@@ -1487,9 +1487,11 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
         IF(matchrule > 0) { //matching rule
           IF(NOT RecordExists(siteprofdata.applyrules[matchrule-1].folderindex))
             siteprofdata.applyrules[matchrule-1].folderindex := set_indexfile;
-        } ELSE { //create a rule
+        } ELSE { //create a mock rule, refer back to the type definition
           INSERT CELL[
             ...csp_base_applyrule,
+            ftype.line,
+            ftype.siteprofile,
             whfstype := ftype.scopedtype || ftype.namespace,
             folderindex := set_indexfile
           ] INTO siteprofdata.applyrules AT END;
