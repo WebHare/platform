@@ -873,7 +873,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
     FOREVERY (RECORD rec FROM recs)
     {
       FOREVERY (RECORD c FROM UnpackRecord(rec))
-        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "TOS", "APPLYINDEX", "APPLYNODETYPE", "SITEPROFILEIDS" ])
+        IF (IsDefaultValue(c.value) AND c.name NOT IN [ "SITEPROFILE", "TOS", "APPLYINDEX", "APPLYNODETYPE", "SITEPROFILEIDS", "LINE", "COL" ])
           rec := CellDelete(rec, c.name);
       rec.tos := this->MinimizeApplies(rec.tos);
       recs[#rec] := rec;

@@ -202,6 +202,64 @@ async function testWHFSAPI() {
   // Wait for the file to come online
   const newFileFetched = await test.wait(() => fetch(newFilePathRetrieved.body.link!), { test: res => res.ok });
   test.eq(/simpletest.rtd - OneOfTheSimpleFiles/, await newFileFetched.text());
+
+  // virtual.objectdata should be checking key validity
+  test.eqPartial({
+    status: 400,
+    body: {
+      error: /unknown property 'noSuchProp'/
+    }
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { noSuchProp: false }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
+
+  // Make it the index
+  test.eqPartial({
+    status: 200,
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { indexDoc: "newfile" }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
+
+  { // Verify it
+    const updatedFolder = await api.get("/whfs/object", { params: { path: tempPath + "/newfolder", instances: "*" } });
+    test.assert(updatedFolder.status === 200);
+    test.eq({
+      title: "",
+      description: "",
+      indexDoc: "newfile"
+    }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  }
+
+  // Unset it the index
+  test.eqPartial({
+    status: 200,
+  }, await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { indexDoc: "" }
+      }
+    ]
+  }, { params: { path: tempPath + "/newfolder" } }));
+
+  { // Verify it
+    const updatedFolder = await api.get("/whfs/object", { params: { path: tempPath + "/newfolder", instances: "*" } });
+    test.assert(updatedFolder.status === 200);
+    test.eq({
+      title: "",
+      description: "",
+    }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
+  }
 }
 
 
