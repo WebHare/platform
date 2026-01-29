@@ -382,6 +382,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
         [ requireselection := TRUE
         , actiontype := "action"
         , checkflags := STRING[]
+        , multiple := FALSE // Used for uploadaction to enable multiple file upload
         , max := 1
         ], options,
         [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction", "windowopenaction" ] ]
@@ -401,6 +402,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
       CASE "uploadaction"     { action->onupload := toexecute; }
       CASE "windowopenaction" { action->onwindowopen := toexecute; }
     }
+
+    IF( options.actiontype = "uploadaction" )
+      action->multiple := options.multiple;
 
     button->title := title;
     button->action := action;
