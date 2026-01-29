@@ -353,7 +353,7 @@ ASYNC MACRO TestReopenDeletedFile()
 
 
 ASYNC MACRO TestPublishInitialEmptyDocument() {
-  /* STORY A file already exists for whatever reason but its unpublished. We want to open the RTD and publish it immediately, so the only change is the publish flag.
+  /* STORY A file already exists for whatever reason but it's unpublished. We want to open the RTD and publish it immediately, so the only change is the publish flag.
      This regressed because the editor thought the publish was a no-op (no autosave, no draft) */
   testfw->BeginWork();
   OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
