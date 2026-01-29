@@ -68,6 +68,10 @@ else
   NEWBINDIR="$WEBHARE_PGBIN"
 fi
 
+# Check expected environment (in case other scripts are changing and forgetting about us)
+[ -z "${PSROOT}" ] && echo "PSROOT not set" >&2 && exit 1
+[ ! -d "${PSROOT}/db" ] && echo "No existing database found in ${PSROOT}/db " >&2 && exit 1
+
 cd /
 rm -rf -- "${RECREATE_DIR}" "${DUMP_DIR}"
 
@@ -103,6 +107,8 @@ fi
 
 logWithTime "Creating new database cluster in ${RECREATE_DIR} using binaries from $NEWBINDIR"
 init_webhare_pg_db "$RECREATE_DIR" "$NEWBINDIR"
+
+[ -f "${PSROOT}/db/server.key" ] && cp -v "${PSROOT}/db/server".* "${RECREATE_DIR}/"
 
 pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
 $RUNAS "$NEWBINDIR/postgres" -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$RECREATE_PORT" -c "ssl=off" -D "${RECREATE_DIR}" &
