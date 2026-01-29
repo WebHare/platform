@@ -1,8 +1,6 @@
-import type { HTTPErrorCode, HTTPMethod, HTTPStatusCode } from "@webhare/router";
+import type { HTTPErrorCode, HTTPStatusCode } from "@webhare/router";
 import type { DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, OperationResponseTypes } from "./types";
 import type { ResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
-import { getServiceInstance, type RestService } from "@mod-system/js/internal/openapi/openapiservice";
-import { WebHareBlob } from "@webhare/services";
 import type { OpenAPIClientFetch, OpenAPIResponse } from "@webhare/openapi-service";
 
 
@@ -78,23 +76,16 @@ type MethodOptions<Paths extends object, Path extends keyof Paths, Method extend
 export class TypedOpenAPIClient<Paths extends object, Components extends object> {
   readonly service: string | OpenAPIClientFetch;
   defaultheaders: Record<string, string> = {};
-  private viaservice: string | undefined;
-  private serviceinstance: RestService | undefined;
 
   /** Build a new typed OpenAPI client
    * @param service - How to invoke the service - either a URL passed to fetch as a base url, or a fetch() like function accepting the subroute
    */
   constructor(service: string | OpenAPIClientFetch, options: {
     bearerToken?: string;
-    /** @deprecated use bearerToken in WH5.7+  */
-    bearertoken?: string;
-    /** @deprecated use getDirectOpenAPIFetch in WH5.7+ */
-    __viaservice?: string;
   } = {}) {
     this.service = service;
-    this.viaservice = options.__viaservice;
-    if (options?.bearerToken || options?.bearertoken)
-      this.defaultheaders["Authorization"] = "Bearer " + (options?.bearerToken || options?.bearertoken);
+    if (options?.bearerToken)
+      this.defaultheaders["Authorization"] = "Bearer " + (options?.bearerToken);
   }
 
   async invoke(method: string, route: string, requestbody: string | null, options: {
@@ -166,24 +157,12 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
     }
 
     const finalroute = url.toString().substring(prefix.length);
-    if (this.viaservice) {
-      this.serviceinstance ??= await getServiceInstance(this.viaservice);
-      const res = await this.serviceinstance.APICall({
-        sourceip: "127.0.0.1", method: method.toUpperCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody || ''), headers: fetchoptions.headers
-      }, finalroute);
-      const headers = new Headers(res.headers);
-      const contenttype = headers.get("Content-Type") || "";
-      const responsetext = await res.body.text();
-      const responsebody = responsetext ? JSON.parse(responsetext) : null;
-      return { status: res.status, headers, contenttype, body: responsebody } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
-    } else {
-      const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
-      const contenttype = call.headers.get("Content-Type") || "";
-      if (contenttype.split(';')[0] === "application/json" && !options?.alwaysReturnResponse) {
-        return { status: call.status, headers: call.headers, contenttype, body: await call.json(), } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
-      } else
-        return { status: call.status, headers: call.headers, contenttype, response: call };
-    }
+    const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
+    const contenttype = call.headers.get("Content-Type") || "";
+    if (contenttype.split(';')[0] === "application/json" && !options?.alwaysReturnResponse) {
+      return { status: call.status, headers: call.headers, contenttype, body: await call.json(), } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
+    } else
+      return { status: call.status, headers: call.headers, contenttype, response: call };
   }
 
   async get<Path extends PathsForMethod<Paths, "get">>(route: Path, ...options: MethodOptions<Paths, Path, Exclude<keyof Paths[Path], "parameters"> & "get">): Promise<OpResponseTypes<Paths, Components, Path, "get">> {

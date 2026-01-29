@@ -398,9 +398,9 @@ type APIAuthInfo = null;
 /* eslint-disable @typescript-eslint/array-type -- openapi-typescript doesn't follow the WebHare convention */
 /* eslint-disable no-tabs -- don't care about tabs from source files */
 
-${isservice ? `import type { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@mod-system/js/internal/openapi/types";
+${isservice ? `import type { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@webhare/openapi-client/src/types";
 ` : ``}import type { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
-import { TypedOpenAPIClient, type TypedClientRequestBody, type TypedClientResponse, type GetClientTypeParams, type PathsForMethod } from "@mod-system/js/internal/openapi/openapitypedclient";
+import { TypedOpenAPIClient, type TypedClientRequestBody, type TypedClientResponse, type GetClientTypeParams, type PathsForMethod } from "@webhare/openapi-client/src/typedclient";
 
 ${result}
 
@@ -491,7 +491,7 @@ export async function generateOpenAPIDefs(serviceconfig: Services, context: Gene
 
   return `${generatorBanner}
 
-import { TypedOpenAPIClient } from "@mod-system/js/internal/openapi/openapitypedclient";
+import { TypedOpenAPIClient } from "@webhare/openapi-client/src/typedclient";
 import type { } from "@mod-platform/generated/ts/openapi.ts";
 
 ${openapis.map(api => `import type { paths as ${api.varname}__paths, components as ${api.varname}__components } from "../openapi/${api.name.replace(":", "/")}.ts"`).join('\n')}

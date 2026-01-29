@@ -49,17 +49,17 @@ async function testWebHareConfig() {
 
   const testservice = services.openAPIServices.find(_ => _.name === "webhare_testsuite:testservice");
   test.eqPartial({
-    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yml"
   }, testservice);
 
-   const testclient_xml = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient_xml"); //only exists to verify the moduledef XMl syntax works
+  const testclient_xml = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient_xml"); //only exists to verify the moduledef XMl syntax works
   test.eqPartial({
-    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yml"
   }, testclient_xml);
 
   const testclient = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient");
   test.eqPartial({
-    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yml"
   }, testclient);
 }
 
@@ -87,7 +87,7 @@ async function testModule() {
     <version>0.0.1</version>
   </meta>
   <services>
-    <openapiservice name="testopenapiservice" spec="openapi/testservice.yaml" />
+    <openapiservice name="testopenapiservice" spec="openapi/testservice.yml" />
   </services>
   <wrdschemas>
     <schema tag="test" title="Test WRD schema schema" definitionfile="mod::webhare_testsuite_generatedfilestest/data/test.wrdschema.xml" />
@@ -106,7 +106,7 @@ async function testModule() {
   </object>
 </schemadefinition>
 `,
-    "openapi/testservice.yaml": `
+    "openapi/testservice.yml": `
 ---
 openapi: 3.1.0
 info:

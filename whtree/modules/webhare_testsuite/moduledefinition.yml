@@ -46,21 +46,21 @@ backendServices:
 
 openApiServices:
   testservice:
-    spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+    spec: tests/wh/webserver/remoting/openapi/testservice.yml
   extendedservice:
-    spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+    spec: tests/wh/webserver/remoting/openapi/testservice.yml
     # TODO throw in a merge too
     initHook: tests/wh/webserver/remoting/openapi/hooks.ts#extendTheService
     handlerInitHook: tests/wh/webserver/remoting/openapi/hooks.ts#extendTheHandler
   authtests:
-    spec: tests/wh/webserver/remoting/openapi/authtests.yaml
+    spec: tests/wh/webserver/remoting/openapi/authtests.yml
     crossDomainOrigins:
       - example.*
       - https://webhare.dev:1234
 
 openApiClients:
   testclient:
-    spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+    spec: tests/wh/webserver/remoting/openapi/testservice.yml
 
 selfChecks:
   - checker: tests/system/modules/data/checker.ts#runTestsuiteCheck
