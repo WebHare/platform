@@ -291,9 +291,13 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       IF(NOT RecordExists(this->currentautosave_version))
         RETURN; //nothing to save
       this->SaveAsNewPublicDraft();
-    } ELSE {
-      IF(NOT RecordExists(this->currentautosave_version) AND NOT RecordExists(this->currentdraft_version))
-        RETURN; //nothing to finalize
+    } ELSE { //finalizing
+      IF(NOT RecordExists(this->currentautosave_version) AND NOT RecordExists(this->currentdraft_version)) {
+        IF(options.publish) { //we only need to set publish then, but just toggling that doesn't go through history
+          this->baseobject->UpdateMetadata(CELL[ publish := TRUE ]);
+        }
+        RETURN;
+      }
       this->SaveAsFinal(options);
     }
     this->LoadDrafts();

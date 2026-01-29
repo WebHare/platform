@@ -81,12 +81,14 @@
   </rights>
 
   <portal>
+    <!-- TODO drop engine=native - but WRD Sync currently requires it due to its use of websockets -->
     <application name="browser"
                  group="apps"
                  icon="tollium:database/database"
                  screen="/screens/browser.xml#main"
                  shortcut="ctrl+shift+w"
-                 tid="browser.main.title">
+                 tid="browser.main.title"
+                 engine="native">
       <accesscheck combine="or">
         <requireright right="read" />
         <requireright right="createschema" />

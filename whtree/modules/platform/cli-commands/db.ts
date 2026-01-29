@@ -107,6 +107,7 @@ run({
         const expectVersion = opts.setVersion || parseInt((await readPlatformConf())["postgres_recommended_major"]);
         if (!opts.setVersion && curVersion >= expectVersion) { //ignore same-version if you explicitly select a version
           console.log(`Your database is already at PostgreSQL ${curVersion}, no upgrade needed`);
+          console.log(`You can use --set-version ${curVersion} to force an upgrade`);
           return;
         }
 
