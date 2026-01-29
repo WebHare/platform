@@ -552,6 +552,9 @@ MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype) 
 
 PUBLIC RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
 {
+  IF(applytester->__Deprecated_GetObjInfo().obj.type = whconstant_whfstype_foreignfolder)
+    RETURN DEFAULT RECORD; //never create content inside a foreign folder
+
   RECORD folderindex;
   FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("FOLDERINDEX"))
   {

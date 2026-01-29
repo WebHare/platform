@@ -33,6 +33,16 @@ MACRO TestFolderIndex()
   TestEq(TRUE, indexfile->publish);
 
   testfw->RollbackWork();
+
+  testfw->BeginWork();
+  OBJECT foreignfolder_newfile := GetTestsuiteTempFolder()->CreateFolder([name := "newfile", typens := "http://www.webhare.net/xmlns/publisher/foreignfolder" ]);
+  AddDefaultIndexToFolder(foreignfolder_newfile->id);
+
+  //refresh
+  foreignfolder_newfile := OpenWHFSObject(foreignfolder_newfile->id);
+  TEstEQ(0, foreignfolder_newfile->indexdoc, "indexdoc should not have been created");
+  foreignfolder_newfile->RecycleSelf();
+  testfw->CommitWork();
 }
 
 MACRO TestTypeChanges() {
