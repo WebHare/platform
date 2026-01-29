@@ -351,12 +351,34 @@ ASYNC MACRO TestReopenDeletedFile()
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object
 }
 
+
+ASYNC MACRO TestPublishInitialEmptyDocument() {
+  /* STORY A file already exists for whatever reason but its unpublished. We want to open the RTD and publish it immediately, so the only change is the publish flag.
+     This regressed because the editor thought the publish was a no-op (no autosave, no draft) */
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=    "empty.rtd"
+      , typens :=  "platform:filetypes.richdocument"
+      , title :=   "My document"
+      , publish := FALSE
+      ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+
+  TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestFramework(
     [ PTR TestMetaTab
     , PTR TestRevert
     , PTR TestPinned
     , PTR TestSaveToUnpublishedSite
     , PTR TestReopenDeletedFile
+    , PTR TestPublishInitialEmptyDocument
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                    ]
