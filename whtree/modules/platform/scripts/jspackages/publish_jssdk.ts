@@ -23,7 +23,7 @@ import type { PackageJson } from "../../js/devsupport/jspackages";
 import { tmpdir } from "os";
 
 run({
-  description: "Validate/lint the WebHaer JSSDK packages",
+  description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },
     "publish-alpha": { description: "Publish alpha packages" },
@@ -122,6 +122,7 @@ run({
 
       packagejson.version = versionfinal;
       packagejson.dependencies ||= {};
+      packagejson.devDependencies ||= {};
 
       //Update README.md
       const sourcelink = `https://gitlab.com/webhare/platform/-/tree/master/whtree/jssdk/${pkgname}`;
@@ -156,6 +157,12 @@ run({
           if (key.startsWith("@webhare/")) {
             delete depfree.dependencies[key]; //remove for the next npm install
             packagejson.dependencies[key] = versionfinal; //link to exact version for the final publish
+          }
+      if (depfree.devDependencies)
+        for (const [key] of Object.entries(depfree.devDependencies))
+          if (key.startsWith("@webhare/")) {
+            delete depfree.devDependencies[key]; //remove for the next npm install
+            packagejson.devDependencies[key] = versionfinal; //link to exact version for the final publish
           }
 
       await writeFile(join(pkgroot, "package.json"), JSON.stringify(depfree, null, 2) + '\n', "utf8");

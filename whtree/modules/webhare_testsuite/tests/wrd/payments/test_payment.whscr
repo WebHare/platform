@@ -600,7 +600,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
 
   //Receate it TestNoIssuer, TestWithIssuer
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
-  topscreen->methods->value := "wrd:test";
+  topscreen->^methods->value := "wrd:test";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TT(":Tag")->value := "newmethod";
   topscreen->paymentextension->disablewithissuer->value := TRUE;

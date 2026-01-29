@@ -43,7 +43,7 @@ PUBLIC OBJECTTYPE PaymentProviders EXTEND TolliumScreenBase
 
     RETURN SELECT rowkey := id
                 , title := title ?? `#${id}`
-                , type := GetTid(SELECT AS STRING title FROM types WHERE ToUppercase(types.tag) = ToUppercase(methods.psp->psptype))
+                , type := GetTid(SELECT AS STRING title || (legacy ? " (legacy)" : "")FROM types WHERE ToUppercase(types.tag) = ToUppercase(methods.psp->psptype))
                 , tag
                 , psptype := methods.psp->psptype
                 , psp
@@ -101,21 +101,18 @@ PUBLIC OBJECTTYPE PaymentProviders EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC OBJECTTYPE SelectPaymentprovider EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    this->methods->options := SELECT rowkey := tag
-                                   , title := GetTid(title)
-                                FROM GetAvailablePSPs()
-                            ORDER BY ToUppercase(title);
+PUBLIC STATIC OBJECTTYPE SelectPaymentprovider EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data) {
+    ^methods->options := SELECT rowkey := tag
+                              , title := GetTid(title) || (legacy ? " (legacy)" : "")
+                          FROM GetAvailablePSPs()
+                      ORDER BY ToUppercase(title);
     IF(CellExists(data,'type'))
       ^methods->SetValueIfValid(data.type);
   }
 
-  PUBLIC STRING FUNCTION Submit()
-  {
-    RETURN this->methods->value;
+  PUBLIC STRING FUNCTION Submit() {
+    RETURN ^methods->value;
   }
 >;
 

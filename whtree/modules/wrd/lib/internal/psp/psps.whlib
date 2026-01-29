@@ -93,7 +93,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs() {
   RECORD pspinfo := __GetExtractedConfig("wrdschemas");
   RECORD ARRAY psps :=
       SELECT tag
-           , title := ":" || tag
+           , title
            , objectname := "mod::wrd/lib/internal/psp/js.whlib#JSPaymentProvider"
            , payinfoscreen := paymentInfoScreen
            , configextensions := configExtensions
@@ -103,9 +103,10 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs() {
                                , islive := FALSE
                                ]
            , js := TRUE
+           , legacy := FALSE
        FROM pspinfo.psp;
 
-  RETURN psps CONCAT SELECT *, js := FALSE FROM GetAvailableHareScriptPSPs();
+  RETURN psps CONCAT SELECT *, js := FALSE, legacy := tag NOT IN ["wrd:external","wrd:unavailable"] FROM GetAvailableHareScriptPSPs();
 }
 
 PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
