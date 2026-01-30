@@ -7,11 +7,13 @@ declare module "@webhare/test-frontend" {
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin, type TestFrameWorkCallbacks } from "@mod-system/js/wh/testframework";
 import { startTime } from "@mod-platform/js/testing/whtest";
 import { omit } from "@webhare/std";
 import { rpc } from "@webhare/rpc";
 import "@webhare/deps/temporal-polyfill"; //many frontend tests use rpcs (directly/indirectly eg pxl) which require Temporal.Instant
+
+let callbacks: TestFrameWorkCallbacks | null = null;
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
@@ -177,6 +179,33 @@ export function getRoundedBoundingClientRect(el: HTMLElement) {
     bottom: Math.round(rect.bottom)
   };
 }
+
+export async function addFrame(name: string, { width }: { width: number }) {
+  return callbacks!.setFrame(name, "add", { width });
+}
+
+export async function updateFrame(name: string, { width }: { width: number }) {
+  return callbacks!.setFrame(name, "update", { width });
+}
+
+export async function removeFrame(name: string) {
+  return callbacks!.setFrame(name, "delete");
+}
+
+export async function selectFrame(name: string) {
+  return callbacks!.setFrame(name, "select");
+}
+
+// Returns something like an ecmascript completion record
+export function __setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
+  callbacks = cb;
+}
+export function __getTestSuiteCallbacks(): TestFrameWorkCallbacks {
+  if (!callbacks)
+    throw new Error("Test framework callbacks not set");
+  return callbacks;
+}
+
 
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
