@@ -13,7 +13,7 @@ import { isFormControl } from '@webhare/dompack';
 import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
 import { throwError } from '@webhare/std';
 import { TestMonitor } from '@webhare/test/src/monitor';
-import { waitForUI } from "@webhare/test-frontend";
+import { __getTestSuiteCallbacks, __setTestSuiteCallbacks, waitForUI } from "@webhare/test-frontend";
 
 export {
   eq,
@@ -27,7 +27,7 @@ export {
   waitForEvent,
 } from '@webhare/test';
 
-export { waitForUI } from "@webhare/test-frontend";
+export { waitForUI, addFrame, selectFrame, removeFrame, updateFrame } from "@webhare/test-frontend";
 
 export { waitForEmails } from "@mod-platform/js/testing/whtest.ts";
 
@@ -69,13 +69,6 @@ export type TestFrameWorkCallbacks = {
   subtest: (name: string) => void;
   setFrame: (name: string, type: "add" | "update" | "delete" | "select", options?: { width: number }) => Promise<void>;
 };
-
-let callbacks: TestFrameWorkCallbacks | null = null;
-
-// Returns something like an ecmascript completion record
-function setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
-  callbacks = cb;
-}
 
 
 function rewriteNodeAttributes(node: HTMLElement) {
@@ -131,7 +124,7 @@ function runActualTests(steps: RegisteredTestSteps) {
   }
 
   //NOTE: this is a cross-frame call to our persistent parent
-  testfw.runTestSteps(finalsteps, setTestSuiteCallbacks, () => monitor.abort());
+  testfw.runTestSteps(finalsteps, __setTestSuiteCallbacks, () => monitor.abort());
 }
 
 export function getTestArgument(idx: number) {
@@ -360,7 +353,7 @@ export async function wait(waitfor: TestWaitItem, annotation?: string): Promise<
 
 export async function wait<T>(waitfor: TestWaitItem | (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>) {
   if (typeof waitfor === "string" || typeof waitfor === "number")
-    return await callbacks!.executeWait(waitfor); //forward to old wait API
+    return await __getTestSuiteCallbacks()!.executeWait(waitfor); //forward to old wait API
 
   if (typeof waitfor === "function" && waitfor.length === 2) {
     console.warn("Rebinding wait() caller, remove its doc/win arguments!");
@@ -370,23 +363,7 @@ export async function wait<T>(waitfor: TestWaitItem | (() => T | PromiseLike<T>)
 }
 
 export function subtest(name: string) {
-  callbacks!.subtest(name);
-}
-
-export async function addFrame(name: string, { width }: { width: number }) {
-  return callbacks!.setFrame(name, "add", { width });
-}
-
-export async function updateFrame(name: string, { width }: { width: number }) {
-  return callbacks!.setFrame(name, "update", { width });
-}
-
-export async function removeFrame(name: string) {
-  return callbacks!.setFrame(name, "delete");
-}
-
-export async function selectFrame(name: string) {
-  return callbacks!.setFrame(name, "select");
+  __getTestSuiteCallbacks().subtest(name);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -458,12 +435,12 @@ export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() === 'mac
 
 /** Wait for the UI to be ready (UI is marked busy by flagUIBusy) */
 export async function waitUI() { //eases transition to the less-flexible @webhare/test wait()
-  return await callbacks!.executeWait('ui');
+  return await __getTestSuiteCallbacks()!.executeWait('ui');
 }
 
 /** Wait for navigation to complete  */
 export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
-  return await callbacks!.executeWait('load');
+  return await __getTestSuiteCallbacks()!.executeWait('load');
 }
 
 // TODO @deprecated We're renaming run to runTests to avoid a conflict with \@webhare/cli's run() - once everyone is WH5.7+
