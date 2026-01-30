@@ -317,7 +317,7 @@ async function selectListRow(listname: string, textinrow: string, options: { rig
     for (const waitstep of options.waits)
       await test.wait(waitstep);
   } else {
-    await test.wait('ui-nocheck'); //there may be UI interaction..
+    await test.waitForUI({ optional: true }); //there may be UI interaction..
   }
 }
 

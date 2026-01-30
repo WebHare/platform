@@ -81,7 +81,7 @@ export async function runPasswordSetForm(login: string, pwd: string, { verifier 
 export async function forceLogout() {
   test.wrdAuthLogout();
   await test.wait("load");
-  await test.wait("ui-nocheck");
+  await test.waitForUI({ optional: true });
 }
 
 export async function run2FAEnrollment(options?: { expectLang?: string }) {

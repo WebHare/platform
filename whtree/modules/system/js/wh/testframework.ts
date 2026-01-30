@@ -13,6 +13,7 @@ import { isFormControl } from '@webhare/dompack';
 import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
 import { throwError } from '@webhare/std';
 import { TestMonitor } from '@webhare/test/src/monitor';
+import { waitForUI } from "@webhare/test-frontend";
 
 export {
   eq,
@@ -407,7 +408,7 @@ export async function load(page: string, { waitUI = true } = {}): Promise<void> 
   getWin().location.href = page;
   await wait("load");
   if (waitUI)
-    await wait("ui-nocheck");
+    await waitForUI({ optional: true });
 }
 
 export function pasteHTML(content: string | HTMLElement) {

@@ -336,14 +336,14 @@ test.runTests(
       // checkbox click result'
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
       test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #3|').querySelector('input[type="checkbox"]'));
-      await test.wait('ui-nocheck');
+      await test.waitForUI({ optional: true });
 
       // disabled checkbox click result
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
 
       // clicking on the label for the hidden checkbox
       test.click(test.qSA(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2'), 'span').filter(node => node.textContent === "3")[0]);
-      await test.wait('ui-nocheck');
+      await test.waitForUI({ optional: true });
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
 
       // Move to selectmode 'none'
