@@ -307,9 +307,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   */
   PUBLIC RECORD ARRAY tolliumdirtysubscreens;
 
-  /// If TRUE, we're in a suspected endless dirty marking loop (components marking each other dirty on render)
-  PUBLIC BOOLEAN __tollium_inendlessdirtymarkingloop;
-
   INTEGER fragcount;//Counter for loaded fragment (to create anonymized fragment component names)
 
   /** @cell name
@@ -410,12 +407,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
     IF (NOT visibly_dirty)
       DELETE FROM this->tolliumdirtyvisiblecomponents AT pos.position;
     ELSE
-    {
-      IF (this->__tollium_inendlessdirtymarkingloop)
-        THROW NEW TolliumException(component, "Couldn't get component " || component->name || " (" || component->componenttype || ") to be undirty, might be a race condition");
-
       INSERT rec INTO this->tolliumdirtyvisiblecomponents AT pos.position;
-    }
 
     BOOLEAN anydirtychanged := LENGTH(this->tolliumdirtyvisiblecomponents) = (visibly_dirty ? 1 : 0);
     IF (anydirtychanged
@@ -432,9 +424,6 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
     IF (pos.found = dirty)
       RETURN;
-
-    IF (dirty AND this->__tollium_inendlessdirtymarkingloop)
-      THROW NEW TolliumException(component, "Couldn't get component " || component->name || " (" || component->componenttype || ") to be undirty, might be a race condition");
 
     IF (NOT dirty)
       DELETE FROM this->tolliumdirtysubscreens AT pos.position;

@@ -19,7 +19,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 //ADDME: Move this to a general 'handle published files' script in Consilio!
 
 RECORD args := ParseArguments(GetConsoleArguments(),
-    [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR IsRunningInEditor() ]
+    [ [ name := "debug", type := "switch", defaultvalue := GetEnvironmentVariable("PUBLISHER_CONSILIOHANDLER_DEBUG") != "" OR GetEnvironmentVariable("WEBHARE_DEBUG_SERVICE") != "" OR IsRunningInEditor() ]
     ]);
 
 BOOLEAN debug := args.debug;

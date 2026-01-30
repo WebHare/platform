@@ -1321,8 +1321,8 @@ PUBLIC OBJECTTYPE TolliumAsyncWindowOpenBase EXTEND TolliumAsyncFileTransferBase
     @topic tollium/appdev
     @public
 */
-PUBLIC OBJECTTYPE TolliumControllerBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumControllerBase <
+  // ---------------------------------------------------------------------------
   //
   // Private variables
   //
@@ -2425,42 +2425,38 @@ PUBLIC OBJECTTYPE TolliumControllerBase
     INSERT instr INTO this->instructions AT END;
   }
 
-  MACRO TransmitDirtyComponents()
-  {
-    FOREVERY(OBJECT screen FROM this->windowstack)
-    {
-      /** Loop while any component is dirty, rendering all the dirty ones in a loop. Preshow handlers may add components, adding new dirty components to the lists.
-          Components can mark each other as dirty, but we set an bound to catch mutual dirty marking on rendering
-      */
-      INTEGER loopbudget := 100;
-      WHILE(LENGTH(screen->tolliumdirtyvisiblecomponents) != 0 OR Length(screen->tolliumdirtysubscreens) != 0) //loop until we've got all visible components in this screen out of our way
-      {
-        loopbudget := loopbudget - 1;
-        IF (loopbudget = 0)
-        {
-          // Set flag that causes the next dirty marking to error out
-          screen->__tollium_inendlessdirtymarkingloop := TRUE;
-        }
+  OBJECT ARRAY FUNCTION GetAllDirtyIncludingSubscreens() {
+    OBJECT ARRAY dirtycomps;
+    FOREVERY(OBJECT screen FROM this->windowstack) {
+      FOREVERY (RECORD rec FROM screen->tolliumdirtyvisiblecomponents)
+        INSERT rec.comp INTO dirtycomps AT END;
 
-        //Update any dirty components (ADDME: Skip components the client shouldn't currently care about?) (ADDME: Option to _delete_ unused components at the client?)
-        FOREVERY (RECORD rec FROM screen->tolliumdirtyvisiblecomponents)
-        {
-          rec.comp->EnsurePreShow();
-          rec.comp->TolliumWebRender();
-        }
-
-        FOREVERY (RECORD subscreen FROM screen->tolliumdirtysubscreens)
-          FOREVERY (RECORD rec FROM subscreen.screen->tolliumdirtyvisiblecomponents)
-          {
-            rec.comp->EnsurePreShow();
-            rec.comp->TolliumWebRender();
-          }
-
-        // Dirty marking should have caught this, but better safe than sorry
-        IF (screen->__tollium_inendlessdirtymarkingloop)
-          THROW NEW Exception(`Components are marking each other dirty on rendering, but the detection code didn't catch them`);
-      }
+      FOREVERY (RECORD subscreen FROM screen->tolliumdirtysubscreens)
+        FOREVERY (RECORD rec FROM subscreen.screen->tolliumdirtyvisiblecomponents)
+          INSERT rec.comp INTO dirtycomps AT END;
     }
+    RETURN dirtycomps;
+  }
+
+  MACRO TransmitDirtyComponents() {
+    //PreShows can cause more dirtyness, so execute all viable EnsurePreShows until none of them did any work.
+    WHILE(TRUE) {
+      BOOLEAN didanywork := FALSE;
+      FOREVERY(OBJECT comp FROM this->GetAllDirtyIncludingSubscreens()) {
+        IF(comp->EnsurePreShow())
+          didanywork := TRUE;
+      }
+
+      IF(NOT didanywork)
+        BREAK;
+    }
+
+    FOREVERY(OBJECT comp FROM this->GetAllDirtyIncludingSubscreens())
+      comp->TolliumWebRender();
+
+    OBJECT ARRAY stilldirty := this->GetAllDirtyIncludingSubscreens();
+    IF(Length(stilldirty) > 0)
+      THROW NEW TolliumException(stilldirty[0], `After transmitting dirty components, ${Length(stilldirty)} still dirty.`);
   }
 
   PUBLIC OBJECT FUNCTION ExecuteClientCall(STRING type, VARIANT ARRAY params) __ATTRIBUTES__(VARARG)

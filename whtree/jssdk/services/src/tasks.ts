@@ -433,7 +433,7 @@ export async function cancelTask(taskIds: number[]): Promise<{ tasksCancelled():
   const seenTaskTypes = (await db<PlatformDB>().selectFrom("system.managedtasks").select("tasktype").where("id", "in", taskIds).distinct().execute()).map(task => task.tasktype);
   await db<PlatformDB>()
     .updateTable("system.managedtasks")
-    .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by cnacelTask" })
+    .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by cancelTask" })
     .where("id", "in", taskIds)
     .execute();
 
