@@ -7,7 +7,7 @@ declare module "@webhare/test-frontend" {
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait, getWin, type TestFrameWorkCallbacks } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin, type TestFrameWorkCallbacks, click } from "@mod-system/js/wh/testframework";
 import { startTime } from "@mod-platform/js/testing/whtest";
 import { omit } from "@webhare/std";
 import { rpc } from "@webhare/rpc";
@@ -30,6 +30,11 @@ export async function expectLoad<T>(cb: () => T | Promise<T>, { waitUI = true } 
   const result = await cb();
   await waitForLoad({ waitUI });
   return result;
+}
+
+/** Combine click and expecting it to load a new page */
+export async function clickToLoad(element: ValidElementTarget, options?: ElementClickOptions & { waitUI?: boolean }): Promise<void> {
+  await expectLoad(() => click(element, omit({ ...options }, ["waitUI"])), { waitUI: options?.waitUI ?? true });
 }
 
 /** Wait for a pageload to complete, triggered by either await load() or an action by the page  */
@@ -163,6 +168,7 @@ export async function describeObjRef(objref: string) {
 
 //our waitForPublishCompletion is expected to be compatible with the backend version
 import type { waitForPublishCompletion as backendWaitForPublishCompletion } from "@webhare/test-backend";
+import type { ElementClickOptions, ValidElementTarget } from "dompack/testframework/pointer";
 
 export async function waitForPublishCompletion(...args: Parameters<typeof backendWaitForPublishCompletion>) {
   return await rpc("platform:frontendtests").waitForPublishCompletion(args);
