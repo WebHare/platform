@@ -3445,7 +3445,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     //With footer rows, we also need to subtract an extra pixel for the line separating the footer from the rest
     this.bodyholderheight = this.options.height - headerheight - footerheight;
     if (!this.rowheight)
-      throw new Error("rowheight is 0");
+      return; //we didn't layout yet - this happens if a list receives updates without having been layouted yet (before TransmitDirtyComponents was fixed to *first* do all preshows and only *then* start transmitting messages, causing one packet to hold both list create and update)
 
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
 
