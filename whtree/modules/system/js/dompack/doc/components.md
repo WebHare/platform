@@ -11,7 +11,7 @@ should be marked as busy when interacting (eg clicking) with elements may be uns
 transitions, XHR requests...
 
 The testframework can use these busylocks to avoid interaction when elements are still busy, even when
-event handlers chain to each other and start new 'actions'. A `test.wait('ui')` in a test completes
+event handlers chain to each other and start new 'actions'. A `test.waitForUI()` in a test completes
 when no busy handlers are running for at least one 'tick'.
 
 The lockmanager used by the busy framework automatically links up with parent

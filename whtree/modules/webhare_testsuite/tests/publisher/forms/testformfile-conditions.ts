@@ -43,7 +43,7 @@ test.runTests(
       test.eq("true", select_with_placeholder.options[0].getAttribute("data-placeholder"), "Placeholder option should be marked as such");
 
       test.click(test.qSA('[type=submit]')[0]);
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.hasFocus(test.qS('input[name="firstname"]')), "firstname should be focused");
 
       test.click(test.qSA('[name=checkboxfield]')[0]);
@@ -118,7 +118,7 @@ test.runTests(
       test.eq(1, thankyou.length, "Cannot find thankyou node");
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       // The thankyou node is now filled
       thankyou = test.qSA('h1').filter(node => node.textContent === "Thank you!");

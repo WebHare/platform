@@ -18,7 +18,7 @@ test.runTests(
   [
     async function () {
       await tt.loadWTSTestScreen('tests/dirty.dirtytest');
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Get general components
       status_comp = test.compByName("dirtystatus").propTodd;

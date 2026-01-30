@@ -30,7 +30,7 @@ test.runTests(
       test.click(method2!);
 
       test.click("[type=submit]");
-      await test.wait('ui');
+      await test.waitForUI();
       await test.wait('load');
       test.eq("42.42", test.qR(".paymentamount").textContent);
       test.eq("Test provider payment page", test.getDoc().title, "Some tests verify the page's title to know they're in the right place");
@@ -60,7 +60,7 @@ test.runTests(
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
 
       test.click("[type=submit]");
-      await test.wait('ui');
+      await test.waitForUI();
       await test.wait('load');
       test.eq("42.42", test.qR(".paymentamount").textContent);
       await test.click("#pendingpayment");
@@ -83,7 +83,7 @@ test.runTests(
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
       test.fill(`[name="moneyfield"]`, '1.55');
       test.click("[type=submit]");
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.wait('load');
       test.eq("1.55", test.qR(".paymentamount").textContent);
@@ -116,7 +116,7 @@ test.runTests(
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
       test.fill(`[name="moneyfield"]`, '1.55');
       test.click("[type=submit]");
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.wait('load');
       test.eq("1.55", test.qR(".paymentamount").textContent);
@@ -157,7 +157,7 @@ test.runTests(
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
       test.fill(`[name="moneyfield"]`, "1.55");
       test.click("[type=submit]");
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.wait('load');
       test.eq("1.55", test.qR(".paymentamount").textContent);

@@ -61,7 +61,7 @@ test.runTests([
 
     // Set a correct email and check that errors has gone
     test.fill('#coretest-email', 'advocado@beta.webhare.net');
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('', test.qR(emailgroup, '.wh-form__error').textContent);
     test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
     test.assert(!emailfield.hasAttribute("aria-invalid"));
@@ -78,7 +78,7 @@ test.runTests([
 
     // Set a correct email again
     test.fill('#coretest-email', 'advocado@beta.webhare.net');
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('', test.qR(emailgroup, '.wh-form__error').textContent);
 
     // And now set an email *not* accepted by our isValidEmail, but accepted by the browser
@@ -96,7 +96,7 @@ test.runTests([
     test.assert(!test.qR("#coretest-opt5_textedit").closest(".wh-form__fieldgroup")!.matches(".wh-form__fieldgroup--error"), "Group should not be in failed state yet");
     test.click("#coretest-number"); //focus something else
     //now we should see the error classes appear!
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(test.qR("#coretest-opt5_textedit").matches(".wh-form__field--error.wh-form__field--everfailed"));
     test.assert(test.qR("#coretest-opt5_textedit").closest(".wh-form__fieldgroup")?.matches(".wh-form__fieldgroup--error"));
   },
@@ -111,7 +111,7 @@ test.runTests([
     test.assert(field.getAttribute("aria-invalid"));
     test.eq('De waarde mag niet groter zijn dan 2.', test.qR(numbergroup, '.wh-form__error').textContent);
     test.fill('#coretest-number', '-5');
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('De waarde mag niet lager zijn dan -2.', test.qR(numbergroup, '.wh-form__error').textContent);
 
     // check ARIA attributes
@@ -132,7 +132,7 @@ test.runTests([
     await test.pressKey('Tab', { shiftKey: true });
     test.eq(/De waarde mag niet groter zijn dan ..-..-2...\./, test.qR(dateofbirthgroup, '.wh-form__error').textContent);
     test.fill('#coretest-dateofbirth', '1899-12-31');
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('De waarde mag niet lager zijn dan 01-01-1900.', test.qR(dateofbirthgroup, '.wh-form__error').textContent);
 
     test.fill("#coretest-dateofbirth", "");
@@ -182,7 +182,7 @@ test.runTests([
 
     //submit should fail as we've made "Y" disappear
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     //the CLIENT should have detected this..
     const errorinfo = (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_")).at(-1);
@@ -207,7 +207,7 @@ test.runTests([
     //1 + 3 are now preselected (as defined in the formtest.formdef.xml)
     test.click('#coretest-checkboxes-2'); //adding 2 to the set
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     let formevents = (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_"));
 
@@ -227,7 +227,7 @@ test.runTests([
     test.eq(errornode.id, checkboxgroup.getAttribute("aria-describedby"));
 
     test.click('#coretest-checkboxes-3'); //deselecting #3
-    await test.wait('ui'); //checkboxes don't update until UI is open (because it uses a validation handler) so wait for it..
+    await test.waitForUI(); //checkboxes don't update until UI is open (because it uses a validation handler) so wait for it..
 
     // Check wether all error indicators have been cleared
     test.eq('', test.qR(checkboxgroup, '.wh-form__error').textContent);
@@ -235,7 +235,7 @@ test.runTests([
     test.eq(false, checkboxgroup.hasAttribute("aria-describedby"));
 
     test.click('#coretest-checkboxes-3'); //selecting #3 - now expecting immediate responses
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.eq('Kies maximaal 2 items.', test.qR(checkboxgroup, '.wh-form__error').textContent);
     test.eq("true", checkboxgroup.getAttribute("aria-invalid"));
@@ -245,7 +245,7 @@ test.runTests([
     test.click('#coretest-checkboxes-3'); //deselecting #3 - now expecting immediate responses
     test.click('#coretest-checkboxes-2'); //deselecting #2 - now expecting immediate responses
     test.click('#coretest-checkboxes-1'); //deselecting #1 - now expecting immediate responses
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('Kies minimaal 1 item.', test.qR(checkboxgroup, '.wh-form__error').textContent);
 
     let result = await formhandler.validate(checkboxgroup);
@@ -260,7 +260,7 @@ test.runTests([
     test.click('#coretest-checkboxesvisible');
     test.qR('#coreformsubmitresponse').textContent = '';
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(JSON.parse(test.qR('#coreformsubmitresponse').textContent!).form.agree, "expected successful submit");
 
@@ -282,7 +282,7 @@ test.runTests([
     setRequiredFields();
 
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(test.qR('[data-wh-form-group-for="textarea"]').classList.contains("wh-form__fieldgroup--error"), "should have failed serverside");
 
@@ -303,7 +303,7 @@ test.runTests([
     test.fill("#coretest-password", "secret");
 
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     if (test.qR("#coretest-password").value !== "secret") {
       console.error('YOUR PASSWORD MANAGER CHANGED THE PASSWORD!\n\n'
@@ -333,7 +333,7 @@ test.runTests([
 
     //submit that, fails again
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(test.qR('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
     test.assert(field.hasAttribute("aria-invalid"));
     errornode = field.closest('.wh-form__fieldgroup')!.querySelector('.wh-form__error');
@@ -346,7 +346,7 @@ test.runTests([
     //stil in error, but should go OUT of error after submission
     test.assert(test.qR('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(!test.qR('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
   },
 
@@ -417,10 +417,10 @@ test.runTests([
     test.fill("#coretest-condition_not", true);
     test.click('#coretest-condition_not_required');
     test.click('#coretest-condition_not_enabled');
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(test.qR('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
     test.fill("#coretest-condition_not", false);
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(!test.qR('#coretest-condition_not_required').classList.contains('wh-form__field--error'));
   },
 
@@ -450,7 +450,7 @@ test.runTests([
 
     test.fill('#coretest-email', 'pietje@example.com');
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
     //make sure parlsey isn't causing injection errors
@@ -466,7 +466,7 @@ test.runTests([
 
     test.fill('#coretest-email', 'pietje@example.com');
     test.click('.validatebutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
   },
@@ -481,7 +481,7 @@ test.runTests([
     test.fill('#coretest-email', 'pietje@example.com');
     test.fill('#coretest-setvalidator', 'richerror');
     test.click('.validatebutton');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'), 'setvalidator not marked as failed');
     test.eq("Rich Error", test.qR(setvalidatorgroup, '.wh-form__error').textContent);
@@ -492,10 +492,10 @@ test.runTests([
   async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(test.qR('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'));
     test.click('#coretest-requiredradio-y');
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(!test.qR('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'), "Error should be cleared immediately");
   },
@@ -505,7 +505,7 @@ test.runTests([
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?nocheckboxselect=1');
     test.assert(!test.qR('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
     test.click('#submitbutton');
-    await test.wait('ui');
+    await test.waitForUI();
     test.assert(test.qR('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
   },
 
@@ -520,7 +520,7 @@ test.runTests([
     await test.load(setupdata.url);
 
     test.click('button[type=submit]');
-    await test.wait('ui');
+    await test.waitForUI();
     test.eq('RPC not called yet', test.qR(`[name=textarea]`).closest('.wh-form__fieldgroup')!.querySelector(".wh-form__error")!.textContent);
   }
 ]);

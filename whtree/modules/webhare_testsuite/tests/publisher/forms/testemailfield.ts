@@ -23,7 +23,7 @@ test.runTests(
       test.fill('#emailform-email_sendfrom', "a@a");
 
       await test.pressKey("Enter"); //enter should be a substitute for the submit button
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 
       const emailgroup = test.qS('#emailform-email')?.closest('.wh-form__fieldgroup');
@@ -39,7 +39,7 @@ test.runTests(
       await test.wait(() => getFormRPCRequests().length >= 2);// A RPC to check 'acceptable' is okay
 
       test.click('.wh-form__button--submit');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!emailSendFromgroup?.classList.contains('wh-form__fieldgroup--error')); //should have cleared after emptying
       test.eq(3, getFormRPCRequests().length, "Should have only added a RPC for the submit, email was already ok");
@@ -117,7 +117,7 @@ test.runTests(
       test.click('.wh-form__button--submit');
 
       //This submit should FAIL as the email address is not acceptable
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(5, getFormRPCRequests().length, "Expect 5 rpcs, the validation for piet@fuzy.beta.webhare.ne should have gone out");
 
       const emailgroup = test.qS('#emailform-email')?.closest('.wh-form__fieldgroup');
@@ -126,7 +126,7 @@ test.runTests(
 
       test.fill('#emailform-email', "pietje@fuzzy.beta.webhare.net");
       test.click('.wh-form__button--submit');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error')); //should have been cleared
 

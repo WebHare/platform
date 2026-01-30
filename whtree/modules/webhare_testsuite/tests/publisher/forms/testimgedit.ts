@@ -22,7 +22,7 @@ test.runTests(
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
       test.click('#rtdtest-img');
-      await test.wait('ui');
+      await test.waitForUI();
     },
     {
       test: async function () {
@@ -102,7 +102,7 @@ test.runTests(
         test.focus('#rtdtest-img');
         test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         test.click('#submitbutton'); //image should be removed. submit
-        await test.wait('ui');
+        await test.waitForUI();
 
         const imggroup = test.qR('#rtdtest-img').closest('.wh-form__fieldgroup');
         test.assert(imggroup);
@@ -111,7 +111,7 @@ test.runTests(
         //upload a small image that's too small
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
         test.click('#rtdtest-img');
-        await test.wait('ui');
+        await test.waitForUI();
         test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should still be in error');
 
         //dynamically remove the min width constraint
@@ -120,7 +120,7 @@ test.runTests(
         test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
         test.click('#rtdtest-img');
-        await test.wait('ui');
+        await test.waitForUI();
         test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
 
         //dynamically set a max height constraint
@@ -129,14 +129,14 @@ test.runTests(
         test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.click('#rtdtest-img');
-        await test.wait('ui');
+        await test.waitForUI();
         test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error again');
 
         //upload landscape image
         test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg']);
         test.click('#rtdtest-img');
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should finally be out of error');
       }
@@ -148,11 +148,11 @@ test.runTests(
       const imgsCompRoot = test.qR('#rtdtest-imgs').shadowRoot!;
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
       test.qR(imgsCompRoot, '.image--placeholder').click();
-      await test.wait('ui');
+      await test.waitForUI();
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
       test.qR(imgsCompRoot, '.image--placeholder').click();
-      await test.wait('ui');
+      await test.waitForUI();
 
       const formdata = getFormData<RTDForm>(test.qR('#rtdform'));
       test.eqPartial({
@@ -160,7 +160,7 @@ test.runTests(
       }, formdata);
 
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
 
       {
         const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');

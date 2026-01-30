@@ -26,6 +26,8 @@ export {
   waitForEvent,
 } from '@webhare/test';
 
+export { waitForUI } from "@webhare/test-frontend";
+
 export { waitForEmails } from "@mod-platform/js/testing/whtest.ts";
 
 export {

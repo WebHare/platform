@@ -18,12 +18,12 @@ async function runForumTests(withrecaptcha) {
   test.click("button[type=submit]");
 
   if (withrecaptcha) {
-    await test.wait('ui');
+    await test.waitForUI();
     test.click('.wh-captcha__mock input[type="checkbox"]');
     test.click("button[type=submit]");
   }
 
-  await test.wait('ui');
+  await test.waitForUI();
   test.eq(1, test.qSA(".wh-forumcomments__post").length);
 
   test.eq('', test.qS("#wh-forumcomments-name").value);
@@ -36,12 +36,12 @@ async function runForumTests(withrecaptcha) {
   test.click("button[type=submit]");
 
   if (withrecaptcha) {
-    await test.wait('ui');
+    await test.waitForUI();
     test.click('.wh-captcha__mock input[type="checkbox"]');
     test.click("button[type=submit]");
   }
 
-  await test.wait('ui');
+  await test.waitForUI();
   test.eq(2, test.qSA(".wh-forumcomments__post").length);
 
   const messages = test.qSA(".wh-forumcomments__message");

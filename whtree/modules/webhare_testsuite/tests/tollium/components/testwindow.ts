@@ -86,10 +86,10 @@ test.runTests(
       test.assert(activewindow[0].textContent?.includes("A new line"), 'new line should have appeared!');
 
       test.clickToddButton("B01 Add line");//ensure button is still there by clicking it
-      await test.wait('ui');
+      await test.waitForUI();
       //it all worked out. close this window
       test.getCurrentScreen().clickCloser();
-      await test.wait('ui');
+      await test.waitForUI();
     },
     {
       test: function () {

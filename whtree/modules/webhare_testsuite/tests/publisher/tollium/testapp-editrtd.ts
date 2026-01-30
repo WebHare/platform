@@ -13,13 +13,13 @@ test.runTests(
       });
       await test.load(test.getWrdLogoutURL(setupdata.testportalurl + "?app=publisher(" + setupdata!.rtdid + ")"));
       await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
-      await test.wait('ui');
+      await test.waitForUI();
     },
     async function () {
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
 
-      await test.wait('ui');
+      await test.waitForUI();
     },
     async function () {
       const h1 = test.getCurrentScreen().qSA('h1.heading1');
@@ -67,7 +67,7 @@ test.runTests(
       await test.wait("ui");
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
       test.eq(["h1", "div", "p", "div"], Array.from((body as HTMLElement).children).map(n => n.nodeName.toLowerCase()));

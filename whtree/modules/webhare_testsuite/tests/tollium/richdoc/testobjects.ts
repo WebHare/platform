@@ -188,7 +188,7 @@ test.runTests(
         test.eq(1, embobj.length);
 
         test.click(test.getMenu(['M01', 'A05']));
-        await test.wait('ui');
+        await test.waitForUI();
 
         embobj = rte.qSA("div.wh-rtd-embeddedobject");
         test.eq(4, embobj.length);

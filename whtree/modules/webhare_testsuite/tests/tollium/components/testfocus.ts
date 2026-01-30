@@ -95,7 +95,7 @@ test.runTests(
       //closing this window should restore focus to the list in our parent
       test.getCurrentScreen().clickCloser();
 
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     {

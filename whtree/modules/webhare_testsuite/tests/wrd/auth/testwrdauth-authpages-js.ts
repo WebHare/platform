@@ -91,26 +91,26 @@ test.runTests(
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.hasFocus(test.qR('#passwordchange-currentpassword')));
       test.fill('#passwordchange-currentpassword', 'mylittlesecret$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.hasFocus(test.qR('#passwordchange-passwordnew')));
       test.eq(/at least 1 symbol/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
 
       test.fill('#passwordchange-passwordnew', 'secret3$');
       test.click('.wh-wrdauth-passwordchange__changebutton');
       test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(/The passwords you entered did not match/i, test.qR('[data-wh-form-group-for="passwordrepeat"] .wh-form__error').textContent);
 
       test.fill('#passwordchange-passwordrepeat', 'secret3$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick('.wh-wrdauth-passwordchange__done'));
     },
 
@@ -155,7 +155,7 @@ test.runTests(
       test.fill(test.qR('#emailchange-email'), 'pietje-authpages-js@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.hasFocus(test.qR('#emailchange-email')), "as this is our current email, the field should be refocussed and no submission taking place");
       test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__changebutton')), "change button should still be here");
@@ -163,7 +163,7 @@ test.runTests(
       test.fill(test.qR('#emailchange-email'), 'pietjenieuw-authpages-js@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
       test.assert(test.qR('.wh-wrdauth-emailchange__done').textContent!.includes("pietjenieuw-authpages-js@beta.webhare.net"), "Feedback should mention my email address");
@@ -201,7 +201,7 @@ test.runTests(
       test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
       test.click('.wh-wrdauth-login__loginbutton');
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.hasFocus(test.qR('[name="password"]')));
       test.assert(test.canClick(test.qR('.wh-wrdauth-login__loginbutton')), "Shouldn't be able to log in");
@@ -223,7 +223,7 @@ test.runTests(
 
       test.fill(test.qR('#emailchange-email'), 'jantje-authpages-js@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
       test.assert(test.qR('.wh-wrdauth-emailchange__done').textContent!.includes("jantje-authpages-js@beta.webhare.net"), "Feedback should mention my attempted email address");
     },

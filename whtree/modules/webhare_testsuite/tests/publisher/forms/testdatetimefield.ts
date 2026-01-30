@@ -16,7 +16,7 @@ test.runTests([
     test.fill("#datetimeform-time", "15:30");
 
     test.click(test.qSA('[type=submit]')[0]);
-    await test.wait('ui');
+    await test.waitForUI();
 
     const result = JSON.parse(test.qR("#dynamicformsubmitresponse").textContent!);
     test.eq("2012-11-13T00:00:00.000Z", result.form.dateofbirth);
@@ -155,7 +155,7 @@ test.runTests([
     test.eq('15:30', test.qR("#datetimeform-time").value);
 
     test.click(test.qSA('[type=submit]')[0]);
-    await test.wait('ui');
+    await test.waitForUI();
 
     const result = JSON.parse(test.qR("#dynamicformsubmitresponse").textContent!);
     test.eq("2012-11-13T00:00:00.000Z", result.form.dateofbirth);
@@ -206,7 +206,7 @@ test.runTests([
     test.fill(secondfield_sec, '33');
 
     test.click(test.qSA('[type=submit]')[0]);
-    await test.wait('ui');
+    await test.waitForUI();
 
     test.assert(test.qR('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
     test.assert(test.qR('[data-wh-form-group-for=time_sec]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");

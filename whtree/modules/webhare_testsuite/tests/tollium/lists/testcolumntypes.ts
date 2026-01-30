@@ -111,19 +111,19 @@ test.runTests(
       test.eq([false, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
 
       test.click(getListRowCells(list, "<R01>")[11].querySelector('input')!); //toggle first row
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq('OnCheck: <R01> cbox1_value', tt.comp("feedback").getValue());
       test.eq([true, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
 
       test.click(getListRowCells(list, "<A03>")[11].querySelector('input')!); //toggle indeermiante one
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq('OnCheck: <A03> cbox1_value', tt.comp("feedback").getValue());
       test.eq([true, true, true, false, false], getListContents().map((row: any) => row.cbox1_value));
 
       test.click(getListRowCells(list, "<A03>")[11].querySelector('input')!); //toggle indeermiante one
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq([true, true, false, false, false], getListContents().map((row: any) => row.cbox1_value));
     },
 
@@ -147,7 +147,7 @@ test.runTests(
         const imgcell = listrow.childNodes[2];
         test.click(imgcell.querySelector('img, canvas'), { x: 15, y: 15 });
 
-        await test.wait('ui');
+        await test.waitForUI();
         test.eq('Iconclick: <A03> icon', tt.comp("feedback").getValue());
       }
     }

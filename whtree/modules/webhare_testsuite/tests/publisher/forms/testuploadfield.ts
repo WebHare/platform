@@ -27,7 +27,7 @@ test.runTests(
     async function () {
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-      await test.wait('ui');
+      await test.waitForUI();
     },
     {
       test: async function () {
@@ -82,7 +82,7 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup')!;
       test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
@@ -92,7 +92,7 @@ test.runTests(
       prepareUpload(['/tests/flipped_and_180.jpg']);
 
       test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be ok!');
     },
@@ -102,7 +102,7 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg&accepterror=snap+ik+niet');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup');
       test.assert(filegroup?.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
@@ -114,14 +114,14 @@ test.runTests(
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1');
         test.click('.validatebutton');
-        await test.wait('ui');
+        await test.waitForUI();
 
         const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup')!;
         test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
         test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }
@@ -131,7 +131,7 @@ test.runTests(
       test: async function () {
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1');
         test.click('#submitbutton');
-        await test.wait('ui');
+        await test.waitForUI();
 
         const filegroup = test.qR('#rtdtest-file').closest('.wh-form__fieldgroup')!;
         test.assert(filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
@@ -139,7 +139,7 @@ test.runTests(
         //upload an image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
         test.click(test.qR(getUploadField(), '.wh-form__uploadfieldselect'));
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.assert(!filegroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }
@@ -154,10 +154,10 @@ test.runTests(
       test.click('#rtdtest-showfile2');
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/mytestfile.txt']);
       test.click(test.qR(getUploadField2(), '.wh-form__uploadfieldselect'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
 
       const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent!);
       test.eq('text/plain', serverreponse.file2.mimetype);
@@ -170,11 +170,11 @@ test.runTests(
       const filesCompRoot = test.qR('#rtdtest-files').shadowRoot!;
       prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
       test.qR(filesCompRoot, '.file--placeholder').click();
-      await test.wait('ui');
+      await test.waitForUI();
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
       test.qR(filesCompRoot, '.file--placeholder').click();
-      await test.wait('ui');
+      await test.waitForUI();
 
       const formdata = getFormData<RTDForm>(test.qR('#rtdform'));
       test.eqPartial({
@@ -182,7 +182,7 @@ test.runTests(
       }, formdata);
 
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
 
       {
         const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');

@@ -227,7 +227,7 @@ test.runTests(
       test: async function (doc, win) {
         const savesize = test_win.getBoundingClientRect();
         test.getCurrentScreen().clickCloser();
-        await test.wait('ui');
+        await test.waitForUI();
 
         // We have a new window, re-initialize the test window node
         initTestWin(win);

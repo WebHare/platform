@@ -8,18 +8,18 @@ async function tryProtectedURL(gotourl: string) {
   //"Try direct access first"
 
   await test.load(gotourl);
-  await test.wait('ui');
+  await test.waitForUI();
   test.assert(test.getCurrentScreen().getToddElement("loginname"), "cannot find login field? did we log out?");
 
   // "Login"
   await test.load(webroot + 'portal1/?app=publisher(/WebHare%20testsuite%20site%20-%20alt%20host)');
-  await test.wait('ui');
+  await test.waitForUI();
 
   test.setTodd('loginname', setupdata!.sysopuser);
   test.setTodd('password', setupdata!.sysoppassword);
   test.clickToddButton('Login');
 
-  await test.wait('ui');
+  await test.waitForUI();
 
   let receivedmessage: { type: string } | undefined;
   test.getWin().addEventListener("message", e => receivedmessage = e.data);

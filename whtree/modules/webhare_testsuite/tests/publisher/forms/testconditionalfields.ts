@@ -27,19 +27,19 @@ test.runTests(
 
       test.qS("#coreformsubmitresponse").textContent = '';
       test.click(test.qS('#submitbutton'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit");
 
       test.qS("#coreformsubmitresponse").textContent = '';
 
       test.click(test.qS('#coretest-radiotest-1'));
       test.click(test.qS('#submitbutton'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("", test.qS('#coreformsubmitresponse').textContent, "expected no submission");
 
       test.fill(test.qS('#coretest-radiotestnamelijk'), '23');
       test.click(test.qS('#submitbutton'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit #2");
     },
 
@@ -53,7 +53,7 @@ test.runTests(
 
       if (replacedcomponents) {
         test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
-        // await test.wait('ui');
+        // await test.waitForUI();
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
         test.assert(!disabled_options.includes("1"));
@@ -69,7 +69,7 @@ test.runTests(
 
       if (replacedcomponents) {
         test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
-        await test.wait('ui');
+        await test.waitForUI();
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
         test.assert(!disabled_options.includes("1"));
@@ -86,7 +86,7 @@ test.runTests(
 
       if (replacedcomponents) {
         test.click(test.qS(".wh-form__fieldgroup[data-wh-form-group-for='condition_options'] .wh-form__pulldown.mypulldown--replaced + .mypulldown .mypulldown__arrow"));
-        await test.wait('ui');
+        await test.waitForUI();
 
         disabled_options = test.qSA("body > .mypulldown__items .mypulldown__item--disabled").map(_ => alloptions[_.dataset.dompackPulldownIndex].value);
         test.assert(!disabled_options.includes("1"));

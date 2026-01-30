@@ -13,7 +13,7 @@ test.runTests(
 
       test.click('.wh-form__button--submit');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have succeeded");
 
       await test.load(setupdata.url + '?wh-debug=nsc');
@@ -21,7 +21,7 @@ test.runTests(
       //A server side error should not trigger a recatpcha (but it did errors coming from Submit handlers. Trigger one by messing with the name field
       test.fill(`[name=firstname]`, "reject");
       test.click('.wh-form__button--submit');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
       test.eq(0, test.qSA('.mydialog').length);
@@ -31,7 +31,7 @@ test.runTests(
 
       test.click('.wh-form__button--submit');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have been blocked by captcha");
       test.assert(test.canClick('wh-captcha'));
       test.click('.wh-captcha__mock input[type="checkbox"]');
@@ -52,7 +52,7 @@ test.runTests(
 
       test.click('.wh-form__button--submit');
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.qR('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'), "submit should have been blocked by captcha");
       test.eq(1, test.qSA('wh-captcha').length);
       test.click('.wh-captcha__mock input[type="checkbox"]');

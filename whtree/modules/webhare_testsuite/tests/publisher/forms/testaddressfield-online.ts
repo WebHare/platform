@@ -124,7 +124,7 @@ test.runTests(
       test.eq(rawApiTests, getFormRPCRequests().length, "Still no lookups please..");
       test.fill("#addressform-address\\.nr_detail", "100");
       test.fill("#addressform-address\\.zip", "1000");
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq(rawApiTests + 1, getFormRPCRequests().length, "ONE lookup allowed to reject 1000-100");
       test.assert(test.qR('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should now be in error mode");
@@ -277,7 +277,7 @@ test.runTests(
       test.eq({ city: "", country: "NL", houseNumber: "296", state: "", street: "", zip: "7521AM" }, formhandler.data.address);
 
       // address validation/completion should be triggered now
-      await test.wait("ui");
+      await test.waitForUI();
       test.eq("Hengelosestraat", test.qR("#addressform-address\\.street").value);
       test.eq("Enschede", test.qR("#addressform-address\\.city").value);
 

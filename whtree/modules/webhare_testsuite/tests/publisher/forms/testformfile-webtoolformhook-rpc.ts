@@ -20,7 +20,7 @@ test.runTests(
     async function () {
       await test.load(setupdata.url);
       test.click("#rpc_test");
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("RPC ok", test.qS(`[name=textarea]`).value);
     }
   ]);

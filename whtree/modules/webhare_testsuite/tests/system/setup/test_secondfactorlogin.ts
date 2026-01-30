@@ -20,31 +20,31 @@ test.runTests(
     "create Pietje",
     async function () {
       await test.load(webroot + 'portal1/' + setupdata?.overridetoken + "&notifications=0&lang=en");
-      await test.wait('ui');
+      await test.waitForUI();
 
       // start usermgmt
       test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Create user pietje@allow2fa.test.webhare.net
       test.clickToddToolbarButton("Add", "New user");
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.setTodd('username', "pietje@allow2fa.test.webhare.net");
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.selectListRow('unitcontents!userandrolelist', 'pietje');
       test.click(test.getMenu(['Create password reset link']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       pietje_resetlink = test.getCurrentScreen().getValue("resetlink!previewurl");
       test.clickToddButton('Close');
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     "set Pietje password",
@@ -59,50 +59,50 @@ test.runTests(
     "enable TOTP",
     async function enable2FA() {
       test.click(await test.waitForElement("#dashboard-user-name"));
-      await test.wait('ui');
+      await test.waitForUI();
       test.click(test.qSA("button").filter(e => e.textContent === "Change")[1]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // setup one-time access code
       test.clickToddButton('Setup');
-      await test.wait('ui');
+      await test.waitForUI();
 
       // enter current password
       test.setTodd('password', "xecret");
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.click(test.qSA("t-text").filter(e => e.textContent === "Show the secret key")[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       totpsecret = test.getCurrentScreen().getValue("totpsecret");
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: -61 });
 
       test.setTodd('entercode', totpdata.code);
       test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode()?.textContent);
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.setTodd('entercode', totpdata.code);
       test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(isTruthy);
 
       test.clickToddButton('Finish');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq("Configured", test.getCurrentScreen().getValue("totp"));
       test.eq("Used 0 of 10 backup codes", test.getCurrentScreen().getValue("totpbackupcodes"));
 
       test.clickToddButton('Close');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       await test.sleep(100); // wait for dashboard to appear
 
       await test.runTolliumLogout();
@@ -113,7 +113,7 @@ test.runTests(
       const { whuserLastlogin } = await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net") ?? throwError("Pietje not found");
       test.assert(whuserLastlogin);
       await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eqPartial({ whuserLastlogin }, await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net"), "Partial TOTP is not a real login!");
 
@@ -132,7 +132,7 @@ test.runTests(
 
       test.fill("[name=totp]", wrongcode);
       (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(/This code is not valid/, test.getDoc().body.textContent);
 
       // STORY: test an valid code (after using an invalid code)
@@ -141,7 +141,7 @@ test.runTests(
       (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
 
       await test.wait('load');
-      await test.wait('ui');
+      await test.waitForUI();
 
       // should be logged in
       test.assert(Boolean(test.qS("#dashboard-logout")));
@@ -161,7 +161,7 @@ test.runTests(
       test.fill("[name=totp]", totpbackupcodes[0]);
       (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
       await test.wait('load');
-      await test.wait('ui');
+      await test.waitForUI();
 
       // should be logged in
       test.assert(Boolean(test.qS("#dashboard-logout")));
@@ -177,7 +177,7 @@ test.runTests(
 
       test.fill('[name=totp]', totpbackupcodes[1]);
       (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.waitForElement([".wh-form__error", /Account is disabled/]);
     }
