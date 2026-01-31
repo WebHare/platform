@@ -2297,6 +2297,17 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase <
           FROM columns;
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION EnsurePreShow() {
+    BOOLEAN didwork := TolliumComponentBase::EnsurePreShow();
+    IF(this->storage->IsInvalidated()) {
+      this->storage->EnsureData();
+      didwork := TRUE;
+      IF(this->storage->IsInvalidated())
+        THROW NEW TolliumException(this, "List storage failed to complete loading rows");
+    }
+    RETURN didwork;
+  }
+
   UPDATE PUBLIC MACRO TolliumWebRender() {
     this->stylerec := DEFAULT RECORD;
     FOREVERY (RECORD style FROM this->styles)

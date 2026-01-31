@@ -94,6 +94,7 @@
             </line>
             <radiobutton name="radiobutton2" group="radiogroup" title="RadioButton" />
             <button name="alternatedefault" title="Alternate default" />
+            <checkbox name="dummycheckbox" label="Dummy checkbox" />
           </cell>
         </row>
       </grid>
