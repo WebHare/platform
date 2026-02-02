@@ -190,12 +190,18 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="rowkeycell" type="s:Name" use="required">
+    <xs:attribute name="rowkeycell" use="required">
       <xs:annotation>
         <xs:documentation>
           The name of the member within the array that holds the rowkey value for the option.
         </xs:documentation>
       </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="id" />
+          <xs:enumeration value="name" />
+        </xs:restriction>
+      </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="titlecell" type="s:Name">
       <xs:annotation>
