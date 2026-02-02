@@ -137,7 +137,7 @@ test.runTests(
 
       //send it
       test.click(test.getMenu(['M01', 'A02'])); //show current
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq('ti1: 2009-08-13T08:19:00.000Z p=minutes req=1 utc=0 ro=0 invdate=0 invtime=0', getDump(4));
     },

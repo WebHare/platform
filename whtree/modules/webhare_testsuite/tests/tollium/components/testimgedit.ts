@@ -169,7 +169,7 @@ const TestImageEditor =
     "Save",
     async function () {
       test.clickTolliumButton("Save");
-      await test.wait('ui');
+      await test.waitForUI();
     }
   ] satisfies test.RegisteredTestSteps;
 
@@ -232,12 +232,12 @@ test.runTests(
     "Set properties",
     async function () {
       test.click(test.getOpenMenuItem('Properties')!);
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("rangetestfile.jpg", test.compByName("filename").querySelector("input").value);
       test.compByName("filename").querySelector("input").value = "img2.jpg";
       //TODO test the color picker, refpoint eiditng...
       test.clickTolliumButton("OK");
-      await test.wait('ui');
+      await test.waitForUI();
 
       const filename = test.compByName('fragment1!filename');
       test.assert(filename);
@@ -341,7 +341,7 @@ test.runTests(
         const testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'TestPages');
         test.assert(testpagerow);
         test.click(testpagerow);
-        await test.wait('ui');
+        await test.waitForUI();
 
         const thumbnailtab = test.compByName("thumbnailtab");
         const textnodes = test.qSA(thumbnailtab, "t-text").filter(node => node.textContent === "imgeditfile.jpeg");

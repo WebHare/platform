@@ -103,7 +103,7 @@ test.runTests(
 
         test.eq(focused_pre_click, doc.activeElement, "Click on image with action shouldn't change focus");
 
-        await test.wait('ui');
+        await test.waitForUI();
         test.assert(!test.compByName('image').classList.contains('todd--disabled'));
         textarea = test.compByName('log').querySelector('textarea');
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717', textarea.value);

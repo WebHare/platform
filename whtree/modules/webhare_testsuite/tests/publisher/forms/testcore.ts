@@ -495,7 +495,7 @@ test.runTests(
       test.eq("", test.qR('#coreformsubmitresponse').textContent, "expected no submission");
       test.click('#submitbutton');
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       //Can't say i'm too thrilled with how these events have turned out, but code relies on it so for now...
       test.eq({ extrasubmit: { proof: 42, preparesubmit: true } }, ((await prepareSubmitEvent) as any).detail);
@@ -554,7 +554,7 @@ test.runTests(
       test.fill('#coretest-password', ' secret');
       test.qR('#coreformsubmitresponse').textContent = '';
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("", test.qR('#coreformsubmitresponse').textContent, "expected no submission");
 
       const fieldnode = test.qR('#coretest-password');
@@ -574,7 +574,7 @@ test.runTests(
       await test.sleep(1);
       test.qR("#coretest-email").value = "klaasje@beta.webhare.net"; //modify the email address *after* submission to make sure the form isn't overwriting it
 
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("klaasje@beta.webhare.net", test.qR("#coretest-email").value);
       test.eq(/You broke the form.*Don't do that.*/, test.qR(".mydialog").textContent);
       test.eq("'globalerror' is also a bad password<br>Please come up with something better!", errornode.innerHTML);
@@ -634,19 +634,19 @@ test.runTests(
       test.eq('0', test.qR('input[name=numberemptyvalue]').value);
       quickFillDefaultRequiredFields();
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.qR('[data-wh-form-group-for="number"]').classList.contains("wh-form__fieldgroup--error"), "number should be in error");
       test.fill('input[name=number]', '0');
       test.fill('input[name=numberemptyvalue]', '');
 
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.qR('[data-wh-form-group-for="numberemptyvalue"]').classList.contains("wh-form__fieldgroup--error"), "numberemptyvalue should be in error");
 
       test.fill('input[name=numberemptyvalue]', '0');
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(0, JSON.parse(test.qR('#coreformsubmitresponse').textContent!).form.numberemptyvalue);
     },
 
@@ -659,7 +659,7 @@ test.runTests(
       // Update the value of the disabled pulldown from "touch" to "this"
       test.qR('#coretest-disabledpulldowntest').selectedIndex = 2;
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
 
       const serverresponse = JSON.parse(test.qR('#coreformsubmitresponse').textContent!);
       test.eq("touch", serverresponse.form.disabledpulldowntest); // disabled select value isn't sent to server
@@ -685,7 +685,7 @@ test.runTests(
       //Fill the remaining required fields so we can submit
       quickFillDefaultRequiredFields();
       test.click(test.qR('#submitbutton'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       const formevents = (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_"));
       test.eq(3, formevents.length, "Should be 3 PXL events...");
@@ -709,7 +709,7 @@ test.runTests(
       test.eq("value-xml", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
-      await test.wait("ui");
+      await test.waitForUI();
       test.eq("value-xml", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is prefilled by url
@@ -717,7 +717,7 @@ test.runTests(
       test.eq("value-url", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
-      await test.wait("ui");
+      await test.waitForUI();
       test.eq("value-url", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is set dynamically server-side
@@ -725,7 +725,7 @@ test.runTests(
       test.eq("value-harescript", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
-      await test.wait("ui");
+      await test.waitForUI();
       test.eq("value-harescript", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is set dynamically client-side
@@ -733,7 +733,7 @@ test.runTests(
       test.eq("value-javascript", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
-      await test.wait("ui");
+      await test.waitForUI();
       test.eq("value-javascript", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
     },
   ]);

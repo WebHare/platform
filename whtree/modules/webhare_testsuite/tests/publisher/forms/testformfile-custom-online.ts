@@ -39,13 +39,13 @@ test.runTests(
       test.fill(test.qS('[name="tscustom.sub"]'), 'filledsub');
       test.fill(test.qS('[name="textarea"]'), 'TextAreaVulling');
       test.click(test.qSA('[type=submit]')[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.hasFocus(test.qS('#webtoolform-tscustom-1')), "custom field's first element should be focused");
       test.eq("Kies de 2e optie. Sub: filledsub", test.qS('[data-wh-form-group-for="tscustom"] .wh-form__error').textContent);
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       const events = (await getPxlLogLines()).filter(l => l.event === "platform:form_submitted");
       test.eq(1, events.length, "Should be one submission");
@@ -109,7 +109,7 @@ test.runTests(
       emailfield.value = testemail2; //should be ignored by the form itself
 
       test.click(test.qSA('[type=submit]')[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
@@ -129,7 +129,7 @@ test.runTests(
 
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
 

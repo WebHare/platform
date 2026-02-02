@@ -16,20 +16,20 @@ test.runTests(
           { el: test.compByName("thecomponent"), x: 70, y: 90, up: 0, delay: 50 }
         ]);
         test.click(test.compByName('oncreateoverlay')); //enable new overlays
-        await test.wait('ui');
+        await test.waitForUI();
         test.eq('0', test.compByName('onchangeoverlayscount').textContent, 'should still have no changes');
         await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 70, y: 70, down: 0 },
           { relx: 50, rely: 60, up: 0, delay: 50 }
         ]);
-        await test.wait('ui');
+        await test.waitForUI();
         test.eq('1', test.compByName('onchangeoverlayscount').textContent, 'first overlay appeared');
 
         const focused = test.getDoc().activeElement;
         test.assert(focused);
         test.assert(focused.classList.contains('t-image__overlay'), 'overlay should be focused after creation');
         test.click(test.compByName('buttonreadoverlays'));
-        await test.wait('ui');
+        await test.waitForUI();
 
         let overlays = JSON.parse(test.compByName('overlays').querySelector('input').value);
         test.eq(1, overlays.length);
@@ -41,9 +41,9 @@ test.runTests(
           { relx: 50, rely: 4, up: 0, delay: 50 }
         ]);
 
-        await test.wait('ui');
+        await test.waitForUI();
         test.click(test.compByName('buttonreadoverlays'));
-        await test.wait('ui');
+        await test.waitForUI();
 
         overlays = JSON.parse(test.compByName('overlays').querySelector('input').value);
         test.eq(1, overlays.length, 'new overlay should not be added');
@@ -66,15 +66,15 @@ test.runTests(
       name: "Add overlay",
       test: async function () {
         test.click(test.compByName('oncreateoverlay')); //enable new overlays
-        await test.wait('ui');
+        await test.waitForUI();
         await test.sendMouseGesture([
           { el: test.compByName("thecomponent"), x: 90, y: 50, down: 0 },
           { el: test.compByName("thecomponent"), x: 110, y: 90, up: 0, delay: 1500 }
         ]);
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.click(test.compByName('buttonreadoverlays'));
-        await test.wait('ui');
+        await test.waitForUI();
 
         const overlays = JSON.parse(test.compByName('overlays').querySelector('input').value);
         test.eq(4, overlays.length, 'overlay not added?');
@@ -82,7 +82,7 @@ test.runTests(
     },
     async function () {
       test.clickToddButton('selection');
-      await test.wait('ui');
+      await test.waitForUI();
 
       //FIXME why aren't server side changes triggering onSelect? looks like an oversight?
       test.eq("1", test.compByName("onchangeoverlayscount").textContent);
@@ -92,7 +92,7 @@ test.runTests(
         { relx: +15, rely: +15, up: 0, delay: 300 }
       ]);
 
-      await test.wait('ui');
+      await test.waitForUI();
       await test.wait(() => test.compByName("onchangeoverlayscount").textContent === "2");
     }
     //ADDME: Test overlays not rendered if overlays_active is not set

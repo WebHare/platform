@@ -331,33 +331,33 @@ test.runTests(
       test.eq('', test.getCurrentScreen().getText("staticlistchecked"));//should still be empty, as the event isn't triggered yet
       //click the checkbox of row#1.1
       test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').querySelector('input[type="checkbox"]'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       // checkbox click result'
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
       test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #3|').querySelector('input[type="checkbox"]'));
-      await test.wait('ui-nocheck');
+      await test.waitForUI({ optional: true });
 
       // disabled checkbox click result
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
 
       // clicking on the label for the hidden checkbox
       test.click(test.qSA(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2'), 'span').filter(node => node.textContent === "3")[0]);
-      await test.wait('ui-nocheck');
+      await test.waitForUI({ optional: true });
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
 
       // Move to selectmode 'none'
       test.click(test.getMenu(['M01', 'M14']));
-      await test.wait('ui');
+      await test.waitForUI();
 
       // repeat label click for invisible checkbox
       test.click(test.qSA(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2'), 'span').filter(node => node.textContent === "3")[0]);
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq('[2,cbox] 4 3 7', test.getCurrentScreen().getText("staticlistchecked"));
 
       // Restore selectmode 'single'
       test.click(test.getMenu(['M01', 'M14']));
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     {

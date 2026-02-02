@@ -48,7 +48,7 @@ Common test actions:
   await test.wait('pageload');
 
   // Wait for a UI-blocking action to finish (busy.es locks)
-  await test.wait('ui');
+  await test.waitForUI();
 
   // Wait for emails sent to an email address
   const emails = await test.waitForEmails('test@example.org', { timeout: 60000 });

@@ -32,7 +32,7 @@ export async function tryLogin(login: string, pwd: string) {
   test.fill(await test.waitForElement("[name=login]"), login);
   test.fill("[name=password]", pwd);
   test.click(await test.waitForElement(["button[type=submit]", 0]));
-  await test.wait('ui');
+  await test.waitForUI();
 }
 
 export async function runLogin(login: string, pwd: string, options?: { totpSecret?: string; expectLang?: string }) {
@@ -64,7 +64,7 @@ export async function tryPasswordSetForm(login: string, pwd: string, { verifier 
     test.assert(!test.qS(".wh-wrdauth-form [name=verifier]"), "Verifier field should not be present");
 
   test.click(await test.waitForElement(".wh-wrdauth-form button[type=submit]"));
-  await test.wait('ui');
+  await test.waitForUI();
 }
 
 export async function runPasswordSetForm(login: string, pwd: string, { verifier = "", expectLang = "", loginAfterReset = false } = {}) {
@@ -81,7 +81,7 @@ export async function runPasswordSetForm(login: string, pwd: string, { verifier 
 export async function forceLogout() {
   test.wrdAuthLogout();
   await test.wait("load");
-  await test.wait("ui-nocheck");
+  await test.waitForUI({ optional: true });
 }
 
 export async function run2FAEnrollment(options?: { expectLang?: string }) {
@@ -93,7 +93,7 @@ export async function run2FAEnrollment(options?: { expectLang?: string }) {
 
   test.fill("[name=totp]", totpData.code);
   (test.findElement(["a,button", options?.expectLang === "nl" ? /Bevestigen/ : /Confirm/]) ?? throwError("Confirm button not found")).click();
-  await test.wait('ui');
+  await test.waitForUI();
 
   // complete the configuration
   const backupCodesText = (await test.waitForElement("#completeaccounttotp-backupcodes")).value;

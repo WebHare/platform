@@ -317,7 +317,7 @@ async function selectListRow(listname: string, textinrow: string, options: { rig
     for (const waitstep of options.waits)
       await test.wait(waitstep);
   } else {
-    await test.wait('ui-nocheck'); //there may be UI interaction..
+    await test.waitForUI({ optional: true }); //there may be UI interaction..
   }
 }
 
@@ -458,11 +458,11 @@ export async function waitForToddComponent(name) {
 
 export async function runTolliumLogout() {
   test.click(await test.waitForElement("#dashboard-logout"));
-  await test.wait('ui');
+  await test.waitForUI();
   clickToddButton('Yes');
 
   await test.wait('load');
-  await test.wait('ui');
+  await test.waitForUI();
 }
 
 export * from "@mod-system/js/wh/testframework";

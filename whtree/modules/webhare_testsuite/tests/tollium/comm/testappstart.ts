@@ -7,7 +7,7 @@ test.runTests(
     "Normal init",
     async function () {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(2, test.qSA('.t-apptab').length);
       test.eq(1, test.qSA('.t-apptab--activeapp').length);
       test.assert(test.qSA('.t-screen.active').length === 1);
@@ -15,7 +15,7 @@ test.runTests(
 
       // Start app with target {test:1}
       test.click(test.getMenu(['X03']));
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     {
@@ -101,7 +101,7 @@ test.runTests(
       name: 'checkcrash',
       test: async function () {
         test.click(test.getMenu(['X04']));
-        await test.wait('ui');
+        await test.waitForUI();
         //both canvas and tab should still be here whilst we deal wit the crash
         test.eq(3, test.qSA('.appcanvas').length);
         test.eq(3, test.qSA('.t-apptab').length);
@@ -133,17 +133,17 @@ test.runTests(
     "Restart",
     async function () {
       test.click(test.getMenu(['X09']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("1", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
       test.eq("1", test.getCurrentScreen().getToddElement("messages").querySelector('textarea').value);
 
       test.click(test.getMenu(['X09']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("1", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
       test.eq("", test.getCurrentScreen().getToddElement("messages").querySelector('textarea').value);
 
       test.click(test.getMenu(['X09']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("0", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
       test.eq("", test.getCurrentScreen().getToddElement("messages").querySelector('textarea').value);
     },
@@ -154,7 +154,7 @@ test.runTests(
       await test.wait(() => test.qSA('.t-apptab').length >= 2);
       test.click(test.qSA('.t-apptab')[0]);
       test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "Selecting the first tab should focus the dashboard");
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(test.qS(".dashboard__apps"), test.getDoc().activeElement, "And even when the second app is here, it should still have the dashboard focused");
     },
 
@@ -162,10 +162,10 @@ test.runTests(
     async function () {
       const setupdata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#SetupUsers");
       await test.load(test.getTestSiteRoot() + "portal1/?app=webhare_testsuite:appstarttest");
-      await test.wait('ui');
+      await test.waitForUI();
 
       await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Get the expiry date of the wrdauth session, compare to tollium value
       const sessiondata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#GetWRDAuthSessionExpiry", test.getWin().location.href);
@@ -185,7 +185,7 @@ test.runTests(
 
       // Should reload the webpage, test if the targetval is reset to 0
       await test.wait('load');
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq("0", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
     }
   ]);

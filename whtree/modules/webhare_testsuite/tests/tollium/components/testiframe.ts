@@ -138,7 +138,7 @@ test.runTests(
 
       //next tes: grab links
       test.click(test.getMenu(['I05']));
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     {
@@ -170,7 +170,7 @@ test.runTests(
       name: 'postmessage',
       test: async function () {
         test.click(test.getMenu(['I06'])); //postmessage
-        await test.wait('ui');
+        await test.waitForUI();
 
         const result = await test.wait(() => test.compByName('callbacks').querySelector('textarea').value);
         const origin = test.getWin().location.origin;
@@ -181,7 +181,7 @@ test.runTests(
       name: 'postrequest',
       test: async function () {
         test.click(test.getMenu(['I07'])); //postrequest
-        await test.wait('ui');
+        await test.waitForUI();
 
         await test.wait(function () { return Boolean(test.compByName('callbacks').querySelector('textarea').value); });
 

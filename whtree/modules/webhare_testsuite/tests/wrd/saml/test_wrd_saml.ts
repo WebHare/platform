@@ -102,7 +102,7 @@ test.runTests(
       test.click(await test.waitForElement(["button", /SAML login/]));
       await test.wait('pageload'); // wait for us to arrive at the IDP
       await testwrd.runLogin('idpaccount@allow2fa.test.webhare.net', 'a');
-      await test.wait('ui');
+      await test.waitForUI();
       // Expect rpc, X form posts to sp (ADDME how many?), sp tollium load
 
       // test logged in into portal-sp with idp account

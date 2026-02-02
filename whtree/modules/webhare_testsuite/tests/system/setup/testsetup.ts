@@ -69,16 +69,16 @@ test.runTests(
       pietjeguid = guidcomponent.value;
       console.error("Pietje will receive guid: " + pietjeguid);
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.selectListRow('unitcontents!userandrolelist', 'pietje');
       test.click(test.getMenu(['Create password reset link']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       pietje_resetlink = addTransportToLink(test.getCurrentScreen().getValue("resetlink!previewurl"));
       test.clickToddButton('Close');
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     test.testClickTolliumToolbarButton("Add", "New user", { name: "Create user jantje" }),
@@ -86,16 +86,16 @@ test.runTests(
       test.setTodd('username', 'jantje@example.com');
 
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.selectListRow('unitcontents!userandrolelist', 'jantje');
       test.click(test.getMenu(['Create password reset link']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       jantje_resetlink = addTransportToLink(test.getCurrentScreen().getValue("resetlink!previewurl"));
       test.clickToddButton('Close');
-      await test.wait('ui');
+      await test.waitForUI();
     },
     test.testSelectListRow('unitcontents!userandrolelist', 'jantje', { rightclick: true, name: "Select jantje" }),
     {
@@ -117,7 +117,7 @@ test.runTests(
     "Reset password of Pietje",
     async function () {
       await test.load(pietje_resetlink);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // no need to test policy here, leave that to test_loginpasswordchecks
       await testwrd.runPasswordSetForm("pietje@example.com", "xecret");
@@ -158,7 +158,7 @@ test.runTests(
       //click personal settings, mostly to check impersonation really worked
       test.click("#dashboard-user");
       await test.wait(() => test.qSA('.t-apptab').length >= 2);
-      await test.wait('ui');
+      await test.waitForUI();
       await test.wait(() => test.compByName('fullname'));
       test.eq("Pietje", test.compByName('fullname').textContent);
       test.clickToddButton('OK'); //exit personal settings

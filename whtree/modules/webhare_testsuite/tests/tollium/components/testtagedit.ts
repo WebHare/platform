@@ -7,7 +7,7 @@ test.runTests(
     'create first tag',
     async function () {
       await test.load(test.getCompTestPage('tagedit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       const holder = test.compByName("componentpanel");
       const tagedit = holder.querySelector("input");
@@ -20,7 +20,7 @@ test.runTests(
 
       await test.pressKey(['a', 'b', 'c']);
       await test.pressKey('Enter');
-      await test.wait('ui');
+      await test.waitForUI();
 
       tags = holder.querySelectorAll('.wh-tagedit-tag');
       test.eq(1, tags.length);
@@ -30,7 +30,7 @@ test.runTests(
       await test.pressKey('e');
       await test.pressKey('f');
       await test.pressKey('Enter');
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     "Test keyboard nav",
@@ -78,7 +78,7 @@ test.runTests(
       test.eq('x', holder.querySelector(".wh-tagedit-input").value, "the 'x' should have landed");
 
       test.click(test.compByName('enable'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       holder = test.compByName("componentpanel");
       test.assert(holder.querySelector(".wh-tagedit").classList.contains("disabled"));

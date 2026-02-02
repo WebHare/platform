@@ -40,14 +40,14 @@ test.runTests(
       test.click(rotateright);
 
       test.clickTolliumButton("OK");
-      await test.wait('ui');
+      await test.waitForUI();
 
       firstcanvas = test.qS(".wh-image-surface canvas");
       test.eq(600, firstcanvas.width);
       test.eq(800, firstcanvas.height);
 
       test.clickTolliumButton("Save");
-      await test.wait('ui');
+      await test.waitForUI();
 
       const dimensions = test.compByName('fragment1!dimensions');
       test.assert(dimensions);

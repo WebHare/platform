@@ -45,7 +45,7 @@ test.runTests(
       const rtebody = await test.waitForElement('[name="rtd"] .wh-rtd__body');
       rtebody.innerHTML = '<p class="normal">Initial state</p>';
       test.click('#submitbutton');
-      await test.wait('ui');
+      await test.waitForUI();
       const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent!);
       test.eq('<html><body><p class="normal">Initial state</p></body></html>', serverreponse.htmltext);
     },
@@ -71,7 +71,7 @@ test.runTests(
       test.click('.prefillbutton');
       test.assert(test.qS('html.dompack--busymodal'));
 
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.qS('html.dompack--busymodal'));
 
       test.eq(1, rtebody.querySelectorAll('p').length);
@@ -163,7 +163,7 @@ test.runTests(
         await test.waitForElement('[name="rtd"] .wh-rtd__body');
         rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
         test.click('#submitbutton'); //image should be removed. submit
-        await test.wait('ui');
+        await test.waitForUI();
 
         const rtdgroup = test.qR('#rtdtest-rtd').closest('.wh-form__fieldgroup');
         test.assert(rtdgroup?.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
@@ -171,10 +171,10 @@ test.runTests(
         rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"(*0*)"<br data-wh-rte="bogus"/></p>');
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.qR('[name="rtd"] [data-button="img"]').click();
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.click('#submitbutton'); //image should be removed. submit
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.assert(!rtdgroup!.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
       }

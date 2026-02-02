@@ -274,7 +274,7 @@ test.runTests(
     "Copy paste with <style>",
     async function () {
       await tt.loadWTSTestScreen('tests/richdoc.main');
-      await test.wait('ui');
+      await test.waitForUI();
 
       const rte = rtetest.getRTE(test.getWin(), 'editor');
       const quote = rte.qS("blockquote");

@@ -37,7 +37,7 @@ test.runTests(
          We fix this by delaying validation until mouseup */
       test.focus('#coretest-requiredradio-x');
       test.click('#coretest-pulldowntest');
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
     }

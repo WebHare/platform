@@ -9,9 +9,9 @@ test.runTests(
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/captcha?wh-debug=nsc');
       test.click('#trigger_webcontextcaptcha');
-      await test.wait('ui');
+      await test.waitForUI();
       test.click('.wh-captcha__mock input[type="checkbox"]');
-      await test.wait('ui');
+      await test.waitForUI();
       test.eq(0, test.qSA('.mydialog').length, 'dialog should be gone after clicking');
       test.click('#submit_webcontextcaptcha');
       await test.wait('pageload');

@@ -8,7 +8,7 @@ test.runTests(
   [
     async function () {
       await tt.loadWTSTestScreen('tests/layout.layouttest,grid');
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     "Verify first grid row (inline items)",

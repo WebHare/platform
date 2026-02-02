@@ -16,7 +16,7 @@ async function moveTheKnob(percentage) {
     { up: 0 }
   ]);
   await test.wait('pointer');
-  await test.wait('ui');
+  await test.waitForUI();
 }
 
 test.runTests(
@@ -40,7 +40,7 @@ test.runTests(
     "Test enabled",
     async function () {
       test.click(test.compByName('enable'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       let knob = getTheKnob();
       test.eq("50", knob.textContent);
@@ -48,7 +48,7 @@ test.runTests(
       test.eq('none', getComputedStyle(knob).pointerEvents);
 
       test.click(test.compByName('enable'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       await moveTheKnob(.2);
       knob = getTheKnob();

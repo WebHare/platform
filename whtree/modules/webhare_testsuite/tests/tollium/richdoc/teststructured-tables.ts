@@ -16,7 +16,7 @@ async function openPropsOnFirstTable({ toclick } = { toclick: "td p" }) {
   test.click(table.querySelector(toclick), { button: 2 });
   test.click(test.getOpenMenuItem("Properties"));
 
-  await test.wait('ui');
+  await test.waitForUI();
 }
 
 test.runTests(
@@ -75,7 +75,7 @@ test.runTests(
 
       test.clickTolliumButton("OK");
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       let table = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode table");
       test.assert(table.classList.contains("othertable"));
@@ -108,7 +108,7 @@ test.runTests(
 
       test.clickTolliumButton("OK");
 
-      await test.wait('ui');
+      await test.waitForUI();
 
       // See if reparse keep the header structure
       test.clickTolliumButton("Rewrite");
@@ -148,10 +148,10 @@ test.runTests(
 
       dompack.dispatchDomEvent(td_ps[0], "contextmenu");
       test.click(test.getOpenMenuItem("Properties"));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.clickTolliumButton("OK");
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     // Test table left
@@ -183,11 +183,11 @@ test.runTests(
       const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
       test.click(table.querySelector("th"), { button: 2 });
       test.click(test.getOpenMenuItem("Properties"));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.fill(test.getCurrentScreen().qSA("select")[1], 'bluepill');
       test.clickTolliumButton("OK");
-      await test.wait('ui');
+      await test.waitForUI();
     },
     {
       name: 'leftheader-test',
@@ -265,13 +265,13 @@ test.runTests(
       const driver = new rtetest.RTEDriver('structured');
       driver.setSelection(driver.qS("td p"));
       test.click(rtenode.querySelector('[data-button="action-properties"]'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.clickTolliumButton("Remove"); //remove table
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.clickTolliumButton("Yes"); //confirm it!
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!driver.qS("table"));
     }

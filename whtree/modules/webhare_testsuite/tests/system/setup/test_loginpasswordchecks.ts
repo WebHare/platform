@@ -17,24 +17,24 @@ test.runTests(
     "create Pietje",
     async function () {
       await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
-      await test.wait('ui');
+      await test.waitForUI();
 
       // start usermgmt
       test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Create user pietje@allow2fa.test.webhare.net
       test.clickToddToolbarButton("Add", "New user");
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.setTodd('username', "pietje@allow2fa.test.webhare.net");
       test.setTodd('language', "nl");
 
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GrantSomeRights', "pietje@allow2fa.test.webhare.net");
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
@@ -119,26 +119,26 @@ test.runTests(
 
       // test password
       await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
-      await test.wait('ui');
+      await test.waitForUI();
 
       // start usermgmt
       test.click(await test.waitForElement(["li li", /User Management/]));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.selectListRow('unitcontents!userandrolelist', 'pietje');
       test.click(test.getMenu(['Create password reset link']));
-      await test.wait('ui');
+      await test.waitForUI();
       test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForUI();
       pietje_resetlink = test.getCurrentScreen().getValue("resetlink!previewurl");
       test.clickToddButton('Close');
-      await test.wait('ui');
+      await test.waitForUI();
 
       await test.load(pietje_resetlink);
-      await test.wait('ui');
+      await test.waitForUI();
 
       await testwrd.tryPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
 
@@ -171,7 +171,7 @@ test.runTests(
 
       // test login witn only password
       await test.load(webroot + `portal1/?notifications=0&lang=en`);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "secret");

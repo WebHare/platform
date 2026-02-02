@@ -111,13 +111,13 @@ test.runTests(
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"]);
       test.click(test.qR(row, "wh-imgedit"));
-      await test.wait('ui');
+      await test.waitForUI();
 
       prepareUpload(["/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg"]);
       const uploadfield = test.qR(row, "wh-fileedit").shadowRoot!;
       //test.click(test.qR(row, "wh-form-upload"));
       test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Check the resulting result
       result = await formhandler.getFormValue() as unknown as ArrayFormValue;
@@ -437,7 +437,7 @@ test.runTests(
         const uploadfield = test.qR(row, "wh-fileedit").shadowRoot!;
         test.click(test.qR(uploadfield, ".wh-form__uploadfieldselect"));
         // test.click(test.qR(row, ".wh-form__upload"));
-        await test.wait('ui');
+        await test.waitForUI();
 
         // Delete the first row
         test.click(test.qS(".wh-form__arraydelete")!);

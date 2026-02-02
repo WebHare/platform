@@ -14,7 +14,7 @@ test.runTests(
     "add_4_opendialog",
     async function () {
       test.clickTolliumButton("Add");
-      await test.wait('ui');
+      await test.waitForUI();
     },
     {
       name: "add_4_enterdata",

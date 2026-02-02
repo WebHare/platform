@@ -11,9 +11,9 @@ test.runTests(
       setupdata = await invokeSetupForTestSetup({ createsysop: true });
       await test.load(setupdata.testportalurl);
       await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
-      await test.wait('ui');
+      await test.waitForUI();
 
-      await test.wait('ui');
+      await test.waitForUI();
     },
 
     "Test dashboard menu",

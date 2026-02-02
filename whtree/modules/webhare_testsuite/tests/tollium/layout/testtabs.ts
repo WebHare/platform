@@ -192,7 +192,7 @@ test.runTests(
 
       test.click(tab3);
       await test.wait(() => !test.getOpenMenu()); //menu should closed
-      await test.wait('ui');
+      await test.waitForUI();
       const tabs = getTabs(test.compByName('tabs'));
       test.assert(tabs[3].classList.contains("active"));
       test.assert(test.isElementClickable(tabs[3]));

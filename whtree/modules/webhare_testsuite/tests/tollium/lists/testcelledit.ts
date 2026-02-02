@@ -5,14 +5,14 @@ test.runTests(
   [
     async function () {
       await tt.loadWTSTestScreen("tests/lists.celleditlist");
-      await test.wait('ui');
+      await test.waitForUI();
 
       // The first row should not be selected
       test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
 
       // Click the first cell in the first row (the second cell has an e-mail link)
       test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       // The first row should now be selected
       test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
@@ -165,7 +165,7 @@ test.runTests(
 
         // Press Enter to submit
         await test.pressKey("Enter");
-        await test.wait('ui');
+        await test.waitForUI();
       }
     },
 
@@ -274,7 +274,7 @@ test.runTests(
       test.assert(textedit);
       textedit.value = "aapje";
       await test.pressKey("Enter");
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.getCurrentScreen().getListRow("arrayedit!list", "aapje"));
 

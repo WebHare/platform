@@ -18,7 +18,7 @@ test.runTests(
         test.assert(test.compByName("oddbutton").classList.contains("todd--disabled"));
 
         test.click(test.compByName('icon').querySelectorAll('.t-image__overlay')[1]);
-        await test.wait('ui'); //FIXME we shouldn't need this
+        await test.waitForUI(); //FIXME we shouldn't need this
 
         test.assert(!test.compByName("anybutton").classList.contains("todd--disabled"));
         test.assert(!test.compByName("anywithfocusbutton").classList.contains("todd--disabled"));

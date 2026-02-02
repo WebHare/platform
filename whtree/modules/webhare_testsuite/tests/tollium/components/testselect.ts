@@ -102,10 +102,10 @@ test.runTests(
       test: async function () {
         test.eq('"first"', test.compByName("value").querySelector("input").value);
         test.click(test.compByName("componentpanel").querySelectorAll("input")[1].nextSibling);
-        await test.wait('ui');
+        await test.waitForUI();
         test.eq('"second"', test.compByName("value").querySelector("input").value);
         test.click(test.compByName("componentpanel").querySelectorAll("input")[0].nextSibling);
-        await test.wait('ui');
+        await test.waitForUI();
         test.eq('"first"', test.compByName("value").querySelector("input").value);
 
       }

@@ -26,7 +26,7 @@ test.runTests(
       test.eq('volgende', test.qS('.wh-form__button--next').textContent);
 
       await test.pressKey("Enter"); //enter should be a substitute for the next button
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="email"]')), 'should still be on page 1');
       test.eq('', test.qS('#currentpage').textContent, "No change event on blocked page nav");
 
@@ -40,7 +40,7 @@ test.runTests(
 
       test.fill(test.qS('input[name="email"]'), 'multipage@beta.webhare.net');
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       events = (await getPxlLogLines()).filter(l => l.event === "platform:form_nextpage");
       test.eq(1, events.length, "Should be one 'next' page event");
@@ -67,7 +67,7 @@ test.runTests(
 
       //...and back to page2 again
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="email"]')), "'email' field not available again on page 2");
 
       //verify the buttons
@@ -77,24 +77,24 @@ test.runTests(
 
       //try to submit
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "'text' field still available, it's required");
 
       test.fill(test.qS('input[name="text"]'), 'FAIL EMAIL');
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //should jump back to page 1
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field now invalid and available on page 1");
 
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "we should have transition back to page 2, as server side errors should be retryable");
 
       test.fill(test.qS('input[name="text"]'), 'JUST ACCEPT IT');
 
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
@@ -148,7 +148,7 @@ test.runTests(
       test.fill(test.qS('input[name="firstname"]'), 'Homer');
       test.fill(test.qS('input[name="email"]'), 'multipage@beta.webhare.net');
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
@@ -187,7 +187,7 @@ test.runTests(
       test.fill(test.qS('input[name="firstname"]'), 'Homer');
       test.fill(test.qS('input[name="email"]'), 'multipage@beta.webhare.net');
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //test maybe page visibitility
       test.eq("Maybe Page", test.qS('form .wh-form__page--visible h2').textContent);
@@ -202,13 +202,13 @@ test.runTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button still not available on maybe page");
 
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="maybe"]')), "'maybe' field still available on maybe page");
 
       // Fill the required 'maybe' field and go to page 2
       test.fill(test.qS('input[name="maybe"]'), 'definitely');
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //test page2 visibitility
       test.eq("Page 2", test.qS('form .wh-form__page--visible h2').textContent);
@@ -228,13 +228,13 @@ test.runTests(
 
       //...back to maybe page again
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="email"]')), "'email' field not available again on maybe page");
       test.assert(test.canClick(test.qS('input[name="maybe"]')), "'maybe' field available again still on maybe page");
 
       //...and back to page2 again
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="email"]')), "'email' field not available again on page 2");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field no longer available on page 2");
 
@@ -246,7 +246,7 @@ test.runTests(
       //fill required field and submit
       test.fill(test.qS('input[name="text"]'), 'JUST ACCEPT IT');
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
@@ -269,7 +269,7 @@ test.runTests(
       test.fill(test.qS('input[name="firstname"]'), 'Homer');
       test.fill(test.qS('input[name="email"]'), 'multipage@beta.webhare.net');
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       // Fill the required 'maybe' field and go to page 2
       test.assert(test.canFocus(test.qS('input[name="maybe"]')), "'maybe' field is available on page 2");
@@ -279,7 +279,7 @@ test.runTests(
 
       // We should be able to page2 – the 'extra' field is invisble and thus not required
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "'text' field is available on page 2");
 
       //go back to page1
@@ -291,7 +291,7 @@ test.runTests(
 
       //go directly to page2
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="email"]')), "'email' field not available again on page 2");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field no longer available on page 2");
 
@@ -301,7 +301,7 @@ test.runTests(
 
       //go to maybe page
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       // The 'maybe' field should still be enabled and the 'never' not
       test.assert(test.canFocus(test.qS('input[name="maybe"]')), "'maybe' field is still available on page 2");
@@ -309,33 +309,33 @@ test.runTests(
 
       // We should be able to go to page2 – the 'extra' field is invisble and thus not required
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "'text' field available again on page 2");
 
       // go back and check the 'extra' checkbox, the 'extra' field should now be required
       test.click(test.qS('.wh-form__button--previous'));
       test.click(test.qS('input[name="fillextra"]'));
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="text"]')), "'text' field not available because of required 'extra' field");
 
       // uncheck the 'extra' checkbox, the 'extra' field should no longer be required
       test.click(test.qS('input[name="fillextra"]'));
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "'text' field available again because 'extra' field no longer required");
 
       // go back and check the 'other' checkbox, the 'other' field should now be required
       test.click(test.qS('.wh-form__button--previous'));
       test.click(test.qS('input[name="fillother"]'));
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.canClick(test.qS('input[name="text"]')), "'text' field not available because of required 'other' field");
 
       // uncheck the 'other' checkbox, the 'other' field should no longer be required
       test.click(test.qS('input[name="fillother"]'));
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.canClick(test.qS('input[name="text"]')), "'text' field available again because 'other' field no longer required");
 
       //go back to page1
@@ -345,12 +345,12 @@ test.runTests(
       // Uncheck the 'maybe' checkbox again and go to page2
       test.click(test.qS('input[name="fillmaybe"]'));
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //fill required field and submit
       test.fill(test.qS('input[name="text"]'), 'JUST ACCEPT IT');
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
@@ -372,7 +372,7 @@ test.runTests(
       test.assert(test.canClick(test.qS('.wh-form__button--next')));
 
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.canClick('#multipagetest-firstname'), 'firstname field should be back in sight because it caused submission failure');
 
@@ -389,7 +389,7 @@ test.runTests(
 
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext2"]').getBoundingClientRect().bottom);
       test.click(test.qS('.wh-form__button--submit'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.canClick(test.qS('*[data-wh-form-group-for="text3"]')), 'test final page is scrolled back too');
     },
@@ -403,12 +403,12 @@ test.runTests(
       test.fill('#multipagetest-metabonusquestion-holygrail', true);
 
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.fill('#multipagetest-maybe', "yep!");
       test.fill('#multipagetest-bonusquestion-answer3', true);
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(test.canClick("[data-wh-form-group-for=bonuspagetext]")); //should see the bonus!
       test.eq('3', test.qS('#currentpage').textContent);
@@ -420,7 +420,7 @@ test.runTests(
       test.fill('#multipagetest-fillmaybe', false);
 
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.eq('4', test.qS('#currentpage').textContent);
     },

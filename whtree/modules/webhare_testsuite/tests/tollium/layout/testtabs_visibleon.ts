@@ -25,7 +25,7 @@ test.runTests(
       const tabs = getTabs(test.compByName('tabs'));
       test.click(tabs[0]);
 
-      await test.sleep(100); //FIXME wait('ui') should have worked
+      await test.sleep(100); //FIXME waitForUI() should have worked
 
       test.eq('tab1', test.compByName('selectedtab').textContent);
 
@@ -54,12 +54,12 @@ test.runTests(
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
 
       test.click(test.compByName("tab1").querySelectorAll("input[type=radio]")[1].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(!test.isElementClickable(test.compByName('productsku')));
       test.assert(test.isElementClickable(test.compByName('type_imagetext_title')));
 
       test.click(test.compByName("tab1").querySelectorAll("input[type=radio]")[0].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
     },
@@ -78,18 +78,18 @@ test.runTests(
 
       //switch from ["P01"] to ["P02"]
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!test.isElementClickable(test.compByName('productsku')));
       test.assert(test.isElementClickable(test.compByName('type_imagetext_title')));
 
       //switch from ["P02"] back to ["P02"]
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1].nextSibling);
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
     },
@@ -108,18 +108,18 @@ test.runTests(
 
       //switch from ["P01"] to ["P02"]
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0]);
-      await test.wait('ui');
+      await test.waitForUI();
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1]);
-      await test.wait('ui');
+      await test.waitForUI();
 
       test.assert(!test.isElementClickable(test.compByName('productsku')));
       test.assert(test.isElementClickable(test.compByName('type_imagetext_title')));
 
       //switch from ["P02"] back to ["P02"]
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[0]);
-      await test.wait('ui');
+      await test.waitForUI();
       test.click(test.compByName("tab1").querySelectorAll("input[type=checkbox]")[1]);
-      await test.wait('ui');
+      await test.waitForUI();
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
     }

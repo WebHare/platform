@@ -57,7 +57,7 @@ test.runTests(
     async function () {
       test.eq(/.*\/portal2\/.*/, test.getWin().location.href);
       await testwrd.runLogin("test-portal2@example.com", "secret");
-      await test.wait('ui');
+      await test.waitForUI();
       //check login result
       test.eq("test portal2", (await test.waitForElement("#dashboard-user-name")).textContent);
     },

@@ -227,7 +227,7 @@ test.runTests(
         test.eq("Alty!", test.compByName('alttext').querySelector('textarea').value);
         test.setTodd('alttext', '');
         test.setTodd('overridedimensions!cbox', false);
-        await test.wait('ui');
+        await test.waitForUI();
 
         test.clickTolliumLabel('Hyperlink');
         const textfield = test.getTolliumLabel("External link").closest('.form')!.querySelector('input[type=text]')! as HTMLInputElement;
@@ -495,7 +495,7 @@ test.runTests(
     "Test insert image",
     async function () {
       test.click(test.getMenu(['M01', 'A04']));
-      await test.wait('ui');
+      await test.waitForUI();
 
       const rte = rtetest.getRTE(test.getWin(), 'structured');
       const selection = rte.getEditor().getSelectionRange();
