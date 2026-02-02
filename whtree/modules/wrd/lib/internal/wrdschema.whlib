@@ -811,20 +811,23 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     RETURN ListWRDSchemaSettings(this->schemarec.id);
   }
 
+  PUBLIC RECORD ARRAY FUNCTION ListMigrations() {
+    IF(NOT ObjectExists(this->__GetTypeByTag("wrd_settings", TRUE))) //migrations not even set up yet..
+      RETURN RECORD[];
+
+    INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+    RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
+    RETURN SELECT result, finished, revision, tag FROM completedmigrations;
+  }
+
   /** Get the status of a recent migration script
       @param migrationtag Tag of the migration
       @return A record describing the migration if it executed, a DEFAULT RECORD if it didn't
       @cell(datetime) return.finished When the migration completed
       @cell(record) return.result Result returned by the migration script
   */
-  PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag)
-  {
-    IF(NOT ObjectExists(this->__GetTypeByTag("wrd_settings", TRUE))) //migrations not even set up yet..
-      RETURN DEFAULT RECORD;
-
-    INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
-    RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
-    RETURN SELECT result, finished, revision FROM completedmigrations WHERE tag = migrationtag;
+  PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag) {
+    RETURN SELECT * FROM this->ListMigrations() WHERE tag = migrationtag;
   }
 
   //////////////////////////////////////////

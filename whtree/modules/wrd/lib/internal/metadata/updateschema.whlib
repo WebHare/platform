@@ -423,13 +423,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   BOOLEAN updatemigrations;
   IF(NOT options.skipmigrations AND NOT options.fromexternal)
   {
-    IF(ObjectExists(local_schema->GetType("wrd_settings")) AND RecordExists(local_schema->GetType("wrd_settings")->GetAttribute("migrations")))
-    {
-      completedmigrations := GetWRDSetting(local_schema, "migrations");
-    }
-    ELSE
-    {
-      //process classic migrations
+    completedmigrations := local_schema->ListMigrations();
+    IF(Length(completedmigrations) = 0) { //process classic migrations
       completedmigrations := SELECT tag := DecodeBase16(Substring(name,15))
                                   , finished := value.finished
                                   , result := value.result
