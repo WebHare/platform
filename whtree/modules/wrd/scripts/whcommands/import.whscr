@@ -23,6 +23,7 @@ MACRO OnStatusUpdate(FLOAT curpos, FLOAT total)
 
 RECORD cmdargs := ParseArguments(GetConsoleArguments(),
     [ [ name := "ignoremissingreferences", type := "switch" ]
+    , [ name := "ignorepayments", type := "switch" ]
     , [ name := "showrefs", type := "switch" ]
     , [ name := "dryrun", type := "switch" ]
     , [ name := "filename", type := "param", required := TRUE ]
@@ -41,6 +42,7 @@ trans->BeginWork();
 OBJECT importer := NEW WRDImExport(DEFAULT OBJECT, DEFAULT RECORD);
 importer->onprogresscallback := PTR OnStatusUpdate;
 importer->ignoremissingreferences := cmdargs.ignoremissingreferences;
+importer->ignorepayments := cmdargs.ignorepayments;
 IF(cmdargs.showrefs)
   importer->onimportedreference := PTR PrintRef;
 importer->RunImport(file);

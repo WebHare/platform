@@ -947,8 +947,7 @@ MACRO ImportXMLDatabaseArchiveIntoWHDB(INTEGER trans, BLOB importarchive, RECORD
   //printrecordarrayto(0,whdb_id_mappings,'html');
 }
 
-PUBLIC OBJECTTYPE DatabaseImExport
-<
+PUBLIC OBJECTTYPE DatabaseImExport <
   STRING fileformat;
   STRING fileversion;
   INTEGER trans;
