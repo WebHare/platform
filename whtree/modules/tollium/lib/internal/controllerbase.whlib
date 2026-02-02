@@ -2455,8 +2455,11 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
       comp->TolliumWebRender();
 
     OBJECT ARRAY stilldirty := this->GetAllDirtyIncludingSubscreens();
-    IF(Length(stilldirty) > 0)
+    IF(Length(stilldirty) > 0) {
+      FOREVERY(OBJECT comp FROM stilldirty)
+        Print("Still dirty: " || comp->GetComponentIdentification() || "\n");
       THROW NEW TolliumException(stilldirty[0], `After transmitting dirty components, ${Length(stilldirty)} still dirty.`);
+    }
   }
 
   PUBLIC OBJECT FUNCTION ExecuteClientCall(STRING type, VARIANT ARRAY params) __ATTRIBUTES__(VARARG)
