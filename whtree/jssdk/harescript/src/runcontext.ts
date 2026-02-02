@@ -35,7 +35,7 @@ export class HSVMRunPermissionSystem {
    */
   releasePermission(runctxt: HSVMRunContext) {
     if (debugFlags.runpermission)
-      console.log(`[runpermission] releasePermission ${this.vm.currentgroup}:${runctxt.id}`);
+      console.log(`[runpermission] ${this.vm.currentgroup}:${runctxt.id} releasePermission`);
     assert(runctxt.havePermission, "releasePermission called without having permission");
     runctxt.havePermission = false;
     this.currentRunContext = null;
@@ -56,14 +56,16 @@ export class HSVMRunPermissionSystem {
       return;
     }
     // nothing waiting for permission to run, reactivate suspended contexts
-    ctxt = this.suspended.pop();
-    if (ctxt) {
-      assert(ctxt, "suspended context not found");
-      assert(ctxt.waitingForResume, "suspended context without waitingForResume");
-      ctxt.waitingForResume.resolve();
-      ctxt.waitingForResume = null;
-      ctxt.havePermission = true;
-      this.currentRunContext = ctxt;
+    if (!this.suspended[this.suspended.length - 1]?.resumeBlocked) {
+      ctxt = this.suspended.pop();
+      if (ctxt) {
+        assert(ctxt, "suspended context not found");
+        assert(ctxt.waitingForResume, "suspended context without waitingForResume");
+        ctxt.waitingForResume.resolve();
+        ctxt.waitingForResume = null;
+        ctxt.havePermission = true;
+        this.currentRunContext = ctxt;
+      }
     }
   }
 
@@ -73,7 +75,7 @@ export class HSVMRunPermissionSystem {
    */
   async runPendingRequests(runctxt: HSVMRunContext): Promise<boolean> {
     if (debugFlags.runpermission)
-      console.log(`[runpermission] runPendingRequests ${this.vm.currentgroup}:${runctxt.id}, pending requests: ${this.waitingForPermission.length}${this.waitingForPermission.length === 0 ? "  - returning" : ""}`);
+      console.log(`[runpermission] ${this.vm.currentgroup}:${runctxt.id} runPendingRequests, pending requests: ${this.waitingForPermission.length}${this.waitingForPermission.length === 0 ? "  - returning" : ""}`);
     assert(runctxt.havePermission, "runPendingRequests called without having permission");
     if (this.waitingForPermission.length === 0)
       return false;
@@ -87,9 +89,35 @@ export class HSVMRunPermissionSystem {
     await promise;
     assert(runctxt.havePermission, "runPendingRequests resumed without having permission");
     if (debugFlags.runpermission) {
-      console.log(`[runpermission] resume after runPendingRequests ${this.vm.currentgroup}:${runctxt.id}`);
+      console.log(`[runpermission] ${this.vm.currentgroup}:${runctxt.id} resume after runPendingRequests`);
     }
     return true;
+  }
+
+  async runFunction<T>(runctxt: HSVMRunContext, cb: () => Promise<T> | T): Promise<T> {
+    if (debugFlags.runpermission)
+      console.log(`[runpermission] ${this.vm.currentgroup}:${runctxt.id} runFunction`);
+    assert(runctxt.havePermission, "runFunction called without having permission");
+
+    runctxt.resumeBlocked = true;
+    runctxt.waitingForResume = Promise.withResolvers<void>();
+    this.suspended.push(runctxt);
+    runctxt.havePermission = false;
+    this.currentRunContext = null;
+    const promise = runctxt.waitingForResume.promise;
+    this.distributePermission();
+
+    try {
+      return await cb();
+    } finally {
+      runctxt.resumeBlocked = false;
+      this.distributePermission();
+      await promise;
+      assert(runctxt.havePermission, "runFunction resumed without having permission");
+      if (debugFlags.runpermission) {
+        console.log(`[runpermission] ${this.vm.currentgroup}:${runctxt.id} resume after runFunction`);
+      }
+    }
   }
 
   /** Allocates the root context */
@@ -133,19 +161,21 @@ export class HSVMRunContext {
   waitingForResume: PromiseWithResolvers<void> | null = null;
   /// Automatically released run permission lock, used for root context
   autoPermission?: { [Symbol.dispose]: () => void };
+  /// Resumption is blocked while still calling the function from runFunction
+  resumeBlocked = false;
 
   constructor(system: HSVMRunPermissionSystem, parent: HSVMRunContext | null) {
     this.system = system;
     this.parent = parent;
     if (debugFlags.runpermission)
-      console.log(`[runpermission] create runctxt ${this.system.vm.currentgroup}:${this.id} parent ${parent?.id ?? "none"}`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} create runctxt parent ${parent?.id ?? "none"}`);
   }
 
   /** Waits for run permission, returns a lock that releases run permission when disposed */
   async ensureRunPermission() {
     // FIXME: keep a stack of permissions in the context?
     if (debugFlags.runpermission)
-      console.log(`[runpermission] ensureRunPermission ${this.system.vm.currentgroup}:${this.id} want permission: havePermission:${this.havePermission}`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} ensureRunPermission want permission: havePermission:${this.havePermission}`);
     if (this.havePermission) {
       return {
         [Symbol.dispose]: () => {
@@ -162,14 +192,14 @@ export class HSVMRunContext {
 
     await promise; // system sets havePermission to true
     if (debugFlags.runpermission)
-      console.log(`[runpermission] ensureRunPermission ${this.system.vm.currentgroup}:${this.id} got permission`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} ensureRunPermission got permission`);
     assert(this.havePermission, "run permission not granted after promise resolved");
     assert(!this.waitingForPermission, "waitingForPermission not cleared after run permission grant");
 
     return {
       [Symbol.dispose]: () => {
         if (debugFlags.runpermission)
-          console.log(`[runpermission] ensureRunPermission ${this.system.vm.currentgroup}:${this.id} done`);
+          console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} ensureRunPermission done`);
         assert(this.havePermission, "run permission released while not having permission");
         this.system.releasePermission(this);
       }
@@ -182,19 +212,24 @@ export class HSVMRunContext {
     return await this.system.runPendingRequests(this);
   }
 
+  /** Temporary suspends run permission, run a function and then resume permission */
+  async runFunction<T>(cb: () => Promise<T> | T): Promise<T> {
+    return await this.system.runFunction(this, cb);
+  }
+
   /** Auto-break pipewaiters when pending run requests are present. Returns
    * a lock that clears the auto-break when disposed.
    */
   breakPipeWaiterOnRequest() {
     if (debugFlags.runpermission)
-      console.log(`[runpermission] breakPipeWaiterOnRequest ${this.system.vm.currentgroup}:${this.id} begin`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} breakPipeWaiterOnRequest begin`);
     assert(!this.shortTimerOnRequest, "nested call to breakPipeWaiterOnRequest");
     assert(this.havePermission, "breakPipeWaiterOnRequest called without having permission");
     this.shortTimerOnRequest = true;
     return {
       [Symbol.dispose]: async () => {
         if (debugFlags.runpermission)
-          console.log(`[runpermission] breakPipeWaiterOnRequest ${this.system.vm.currentgroup}:${this.id} end`);
+          console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} breakPipeWaiterOnRequest end`);
         this.shortTimerOnRequest = false;
       }
     };
@@ -206,7 +241,7 @@ export class HSVMRunContext {
    */
   onPermissionRequest(cb: () => void) {
     if (debugFlags.runpermission)
-      console.log(`[runpermission] onPermissionRequest  ${this.system.vm.currentgroup}:${this.id} register`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} onPermissionRequest register`);
     const prevCb = this.system.onPermissionRequestCallback;
     assert(!prevCb, "onPermissionRequest called within __pipewaiterWait");
     this.system.onPermissionRequestCallback = cb;
@@ -215,7 +250,7 @@ export class HSVMRunContext {
     return {
       [Symbol.dispose]: () => {
         if (debugFlags.runpermission)
-          console.log(`[runpermission] onPermissionRequest  ${this.system.vm.currentgroup}:${this.id} clear`);
+          console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} onPermissionRequest clear`);
         this.system.onPermissionRequestCallback = prevCb;
       }
     };
@@ -228,7 +263,7 @@ export class HSVMRunContext {
 
   [Symbol.dispose]() {
     if (debugFlags.runpermission)
-      console.log(`[runpermission] dispose runctxt ${this.system.vm.currentgroup}:${this.id}`);
+      console.log(`[runpermission] ${this.system.vm.currentgroup}:${this.id} dispose runctxt`);
     this.autoPermission?.[Symbol.dispose]();
     assert(!this.havePermission, "disposing a run context while having permission");
     assert(!this.waitingForPermission, "disposing a run context that is waiting for permission");
