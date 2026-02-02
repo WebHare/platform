@@ -360,7 +360,7 @@ export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Pr
     options = { annotation: options };
 
   if (isPromise(actual))
-    throw new TestError(`You cannot assert on a promise.Did you forget to await it ?`, options);
+    throw new TestError(`You cannot assert on a promise. Did you forget to await it?`, options);
 
   if (actual)
     return; //test passed is actual was 'true'
