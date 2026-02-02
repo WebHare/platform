@@ -82,6 +82,7 @@ PACKAGES="automake
     fonts-open-sans
     libfreetype6
     libfreetype6-dev
+    gawk
     g++
     gettext-base
     libgif-dev
