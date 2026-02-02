@@ -1339,7 +1339,6 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper <
     RETURN TRUE;
   }
 
-
   PUBLIC MACRO Invalidate()
   {
     IF(this->invalidated OR NOT this->pvt_dynamic)
@@ -1447,9 +1446,12 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper <
     this->LoadAndExpandRows(rowkeys, /*expand_rows*/TRUE, /*expand_parents_recursive=*/FALSE, /*close_other=*/close_other, /*frontend_change=*/frontend_change);
   }
 
-  MACRO EnsureData()
-  {
-    IF(NOT this->pvt_dynamic OR NOT this->invalidated)
+  PUBLIC BOOLEAN FUNCTION IsInvalidated() {
+    RETURN this->pvt_dynamic AND this->invalidated;
+  }
+
+  PUBLIC MACRO EnsureData() {
+    IF(NOT this->IsInvalidated())
       RETURN;
 
     this->LoadRootItems(NOT this->initial_load_done);

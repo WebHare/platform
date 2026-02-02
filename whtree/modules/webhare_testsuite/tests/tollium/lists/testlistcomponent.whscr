@@ -15,9 +15,11 @@ CONSTANT RECORD ARRAY initialitems :=
     ];
 
 STRING ARRAY queries;
+OBJECT browser;
 
-RECORD ARRAY FUNCTION GenerateListItems()
-{
+RECORD ARRAY FUNCTION GenerateListItems() {
+  //trigger a side effect while rendering. tries to trigger Async exception: After transmitting dirty components, 1 still dirty. (checkbox dummycheckbox in mod::webhare_testsuite/screens/tests/anycomponent.xml#anycomponent)
+  browser->^dummycheckbox->value := NOT browser->^dummycheckbox->value;
   INSERT "listitems" INTO queries AT END;
   RETURN currentitems;
 }
@@ -97,7 +99,7 @@ ASYNC MACRO TestList(STRING mode)
 {
   currentitems := initialitems;
 
-  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+  browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
    [ component := "list"
    , settings := [ ongetchildren := mode="getchildren" ? PTR GenerateListTree : DEFAULT FUNCTION PTR
                  , ongetrows :=     mode="getrows"     ? PTR GenerateListItems : DEFAULT FUNCTION PTR
@@ -218,7 +220,7 @@ RECORD ARRAY FUNCTION CrashOnGetChildren(RECORD parent)
 ASYNC MACRO TestListRegressions()
 {
   //profiler expected to be able to request a 'value' from a list without triggering its getitems, if the rowkeytype was set
-  OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+  browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
    [ component := "list"
    , settings := [ ongetchildren := PTR CrashOnGetChildren
                  , rowkeytype := TYPEID(INTEGER)

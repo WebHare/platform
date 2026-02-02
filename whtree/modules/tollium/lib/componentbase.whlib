@@ -542,12 +542,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       comp->EnsurePreInit();
   }
 
-  /** FIXME: PRIVATE
-      @return Whether PreShowComponent was executed
-      @private
-  */
-  PUBLIC BOOLEAN FUNCTION EnsurePreShow()
-  {
+  /** Invoked on every dirty component before it will be transmitted. Last chance to modify other/new components
+      @return True if work was done and the dirty tree requires rechecking */
+  PUBLIC BOOLEAN FUNCTION EnsurePreShow() { //originally only handled first show and is invoked directly by seom apps so kept the name
     IF(this->pvt_havepreshown)
       RETURN FALSE;
     IF(Objectexists(this->parent) AND NOT this->parent->pvt_havepreshown)
