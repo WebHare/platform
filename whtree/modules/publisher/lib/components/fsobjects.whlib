@@ -107,7 +107,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
       }
       CASE "NAME" {
         this->pvt_rowkeytype := TypeID(STRING);
-        this->_rowkeycell := "id";
+        this->_rowkeycell := "name";
       }
       DEFAULT {
         THROW NEW TolliumException(this, "Unsupported rowkeycell value: " || cellname);
