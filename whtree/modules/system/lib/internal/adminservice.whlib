@@ -45,6 +45,7 @@ PUBLIC RECORD FUNCTION RPC_Connect()
          , name :=        GetServerName()
          , installationid := ReadRegistryKey("system.global.installationid")
          , interfaceurl  := GetPrimaryWebhareInterfaceURL()
+         , builddatetime := versioninfo.builddatetime
          ];
 }
 
