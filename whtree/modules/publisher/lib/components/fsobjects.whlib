@@ -17,6 +17,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   //
 
   INTEGER ARRAY _limittypes;
+  STRING _rowkeycell;
 
 
   // ---------------------------------------------------------------------------
@@ -24,7 +25,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   // Public variables
   //
 
-  PUBLIC STRING rowkeycell;
+  PUBLIC PROPERTY rowkeycell(_rowkeycell, SetRowkeyCell);
   PUBLIC STRING titlecell;
 
   /// By default the titlecell will be searched for in the file record.
@@ -51,6 +52,7 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
   {
     EXTEND this BY TolliumIsComposableListener;
     this->show := "all";
+    this->rowkeycell := "id";
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -95,6 +97,23 @@ OBJECTTYPE ObjectSourceBase EXTEND TolliumOptionSourceBase
       IF (NOT RecordExists(SELECT FROM titlewhfstype->members WHERE ToLowerCase(name) = ToLowerCase(this->titlecell)))
         THROW NEW TolliumException(this, "FSObjects references non-existing titlecell '" || this->titlecell || "' within whfstype '" || this->titlewhfstype || "'");
     }
+  }
+
+  MACRO SetRowkeyCell(STRING cellname) {
+    SWITCH(ToUppercase(cellname)) {
+      CASE "ID" {
+        this->pvt_rowkeytype := TypeID(INTEGER);
+        this->_rowkeycell := "id";
+      }
+      CASE "NAME" {
+        this->pvt_rowkeytype := TypeID(STRING);
+        this->_rowkeycell := "name";
+      }
+      DEFAULT {
+        THROW NEW TolliumException(this, "Unsupported rowkeycell value: " || cellname);
+      }
+    }
+    this->InvalidateCurrentOptions();
   }
 
   PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()

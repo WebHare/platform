@@ -1349,7 +1349,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       DELETE CELL sourcecomp FROM dropdata;
       INSERT CELL sourcecomp := DEFAULT OBJECT INTO dropdata;
 
-//      THROW NEW Exception("File drop not supported yet");
+      //THROW NEW Exception("File drop not supported yet");
     }
     ELSE
     {
@@ -1360,7 +1360,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       RETURN DEFAULT RECORD;
     }
 
-//    LogDebug("verifydrop", "init");
+    //LogDebug("verifydrop", "init");
 
     RECORD ARRAY check_noloops;
 
@@ -1393,7 +1393,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
           CONTINUE;
         }
 
-//        LogDebug("verifydrop", "  de " || dropdata.dropeffect || " IN " || Detokenize(type.dropeffects, "|"));
+        //LogDebug("verifydrop", "  de " || dropdata.dropeffect || " IN " || Detokenize(type.dropeffects, "|"));
         IF (dropdata.dropeffect NOT IN type.dropeffects AND 'all' NOT IN type.dropeffects)
         {
           IF (__debugdragdrop) PRINT(`- - - drop effect ${dropdata.dropeffect} not allowed (allowed: ${Detokenize(type.dropeffects, ", ")}\n`);
@@ -2009,8 +2009,7 @@ PUBLIC OBJECTTYPE TolliumIsComposableListener
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumIsComposable EXTEND TolliumIsComposableListener
-<
+PUBLIC OBJECTTYPE TolliumIsComposable EXTEND TolliumIsComposableListener <
   STRING pvt_cellname;
 
   /// Our cellname in that composition
@@ -2034,7 +2033,7 @@ PUBLIC OBJECTTYPE TolliumIsComposable EXTEND TolliumIsComposableListener
     IF(newcomp = this->pvt_composition)
       RETURN;
     TolliumIsComposableListener::SetComposition(newcomp);
-    IF(ObjectExists(this->pvt_composition) AND this->pvt_cellname != "")
+    IF(ObjectExists(this->pvt_composition))
       this->CompositionMetadataIsUpdated();
   }
 
@@ -2260,6 +2259,10 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
         this->pvt_cells[atpos]->dirtylistener := DEFAULT OBJECT;
       DELETE FROM this->pvt_cells AT atpos;
     }
+  }
+
+  UPDATE PUBLIC MACRO CompositionMetadataIsUpdated() { //If our composition is updated also signal our listeners as they may recursively listen (Eg whfsinstance -> row -> cell when <p:whfsinstance>'s fsobject is set for relative <p:fsobjects>
+    this->SignalUpdatedCompositionMetadata();
   }
 
   // ---------------------------------------------------------------------------

@@ -114,5 +114,15 @@
     </body>
   </screen>
 
-</screens>
+  <screen name="testrenderregression">
+    <actions>
+      <action name="usecolumnname" onexecute="DoUseColumnName">
+        <enableon source="sourcecolumn" min="1" checkflags="isvalid" />
+      </action>
+    </actions>
+    <body>
+      <select name="sourcecolumn" type="pulldown" flags="isvalid" visible="false" />
+    </body>
+  </screen>
 
+</screens>

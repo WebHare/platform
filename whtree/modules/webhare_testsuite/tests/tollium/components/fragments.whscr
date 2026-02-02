@@ -116,6 +116,9 @@ OBJECT ASYNC FUNCTION TestFragComponent()
          "PRE:fragcomp > " ||
          "PRE:fragcomp!preinit > " ||
          "PRE:emptyfragcomp > " ||
+         "PRE:fragcomp_in_option > " ||
+         "PRE:fragcomp_in_option!preinit > " ||
+         "PRE:optionsource_in_select_in_option > " ||
          "PRE:tollium_d$* > " || // component generated for optionsource
          "INIT > " ||
          "POST:screencomposition > " ||
@@ -123,8 +126,12 @@ OBJECT ASYNC FUNCTION TestFragComponent()
          "POST:fragcomp_in_option!fragmentcomposition > " ||
          "POST:fragcomp > " ||
          "POST:fragcomp!preinit > " ||
+         "POST:fragcomp_in_option > " ||
+         "POST:fragcomp_in_option!preinit > " ||
+         "POST:optionsource_in_select_in_option > " ||
          "POST:emptyfragcomp > " ||
-         "POST:tollium_d$*" // component generated for optionsource
+         "POST:tollium_d$*" || // component generated for optionsource
+         ""
          , Detokenize(initorder," > "));
 
   //ABORT(scr->)
@@ -146,6 +153,9 @@ OBJECT ASYNC FUNCTION TestFragComponent()
          "PRE:fragcomp > " ||
          "PRE:fragcomp!preinit > " ||
          "PRE:emptyfragcomp > " ||
+         "PRE:fragcomp_in_option > " ||
+         "PRE:fragcomp_in_option!preinit > " ||
+         "PRE:optionsource_in_select_in_option > " ||
          "PRE:tollium_d$* > " || // component generated for optionsource
          "INIT > " ||
          "POST:screencomposition > " ||
@@ -153,15 +163,12 @@ OBJECT ASYNC FUNCTION TestFragComponent()
          "POST:fragcomp_in_option!fragmentcomposition > " ||
          "POST:fragcomp > " ||
          "POST:fragcomp!preinit > " ||
+         "POST:fragcomp_in_option > " ||
+         "POST:fragcomp_in_option!preinit > " ||
+         "POST:optionsource_in_select_in_option > " ||
          "POST:emptyfragcomp > " ||
          "POST:tollium_d$* > " || // component generated for optionsource
-         "ONSHOW > " ||
-         "PRE:fragcomp_in_option > " ||
-         "POST:fragcomp_in_option > " ||
-         "PRE:fragcomp_in_option!preinit > " ||
-         "POST:fragcomp_in_option!preinit > " ||
-         "PRE:optionsource_in_select_in_option > " ||
-         "POST:optionsource_in_select_in_option"
+         "ONSHOW"
          , Detokenize(initorder," > "));
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());

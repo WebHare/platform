@@ -102,6 +102,13 @@ ASYNC MACRO TestInvisibleSelectRegression()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+
+ASYNC MACRO TestSelectRenderRegression() {
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(Resolve("screens/select.xml#testrenderregression")));
+  GetTestController()->GrabInstructions();
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestCheckboxList()
 {
   OBJECT browser := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
@@ -150,6 +157,7 @@ RunTestframework([ PTR TestRadio
                  , PTR TestSubscreenRegression
                  , PTR TestSubcomponentsRegression
                  , PTR TestInvisibleSelectRegression
+                 , PTR TestSelectRenderRegression
                  , PTR TestCheckboxList
                  , PTR TestOptionSource
                  , PTR TestDupeElimination

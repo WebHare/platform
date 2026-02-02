@@ -189,10 +189,11 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     this->storage->callback := PRIVATE this;
   }
 
-  UPDATE PUBLIC MACRO PostInitComponent()
-  {
-    //need to do this here so ensure invisible components
+  UPDATE PUBLIC MACRO PreInitComponent() {
+    // Print(`${this->GetComponentIdentification()} - PreInitComponent\n`);
     this->EnsureOptions();
+    this->PreShowComponent(); //runs RegenerateComponents if not done so yet
+    // Print(`${this->GetComponentIdentification()} - parent=${ObjectExists(this->pvt_parent)?"Y":"N"}) proxy=${ObjectExists(this->pvt_proxy)?"Y":"N"}\n`);
   }
 
   UPDATE PUBLIC MACRO PreShowComponent()
@@ -851,6 +852,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
 
     this->regenerating := FALSE;
     this->have_generated := anycomponents;
+    // print(`${this->GetComponentIdentification()} - have_generated: ${this->have_generated?"TRUE":"FALSE"}\n`);
   }
 
   BOOLEAN FUNCTION RegenerateComponentsInternal()
@@ -906,6 +908,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
     {
       this->pvt_proxy := this->owner->CreateTolliumComponent("proxy", [ namebase := this->name ]); //not inserted into any panel, so this shouldn't be a subcomponent
       this->pvt_proxy->pvt_parent := this->owner->frame;
+      // Print(`${this->GetComponentIdentification()} - Created proxy component ${this->pvt_proxy->GetComponentIdentification()}\n`);
     }
 
     //FIXME: Support dynamic type changes
@@ -1226,8 +1229,10 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
       }
     }
 
-    FOREVERY (OBJECT obj FROM all_enableons)
-     obj->enabled := obj IN to_enable;
+    FOREVERY (OBJECT obj FROM all_enableons) {
+      // Print(`Applying enableon ${obj IN to_enable ? "ENABLE" : "DISABLE"} to ${obj->GetComponentIdentification()}\n`);
+      obj->enabled := obj IN to_enable;
+    }
   }
 
   // ---------------------------------------------------------------------------
