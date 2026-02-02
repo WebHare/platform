@@ -11,8 +11,8 @@ LOADLIB "mod::publisher/lib/tagmanager.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 
-PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Private variables
   //
@@ -164,50 +164,20 @@ PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase
     this->InitFromComposition();
   }
 
-  MACRO InitFromComposition()
-  {
-    IF(this->pvt_taglibrary != "")
-    {
-      //'modern' usage.
-      OBJECT applytester := this->owner->contexts->applytester;
-      IF(NOT ObjectExists(applytester))
-        THROW NEW TolliumException(this, "Unable to load the TagManager: No applytester available");
+  MACRO InitFromComposition() {
+    IF(this->pvt_taglibrary = "")
+      RETURN; //we're not yet fully initialized, ignore early composition updates
 
-      INTEGER ARRAY roots := applytester->GetLibrary(this->pvt_taglibrary);
-      IF(Length(roots)=0)
-        THROW NEW TolliumException(this, `Unable to load the TagManager: Library '${this->pvt_taglibrary}' has no existing paths`);
-      this->tagmanager := OpenSimpleTagManager(OpenWHFSObject(roots[0]));
-      this->autosuggest->data := [ roots := roots ];
-    }
-    ELSE
-    {
-      //FIXME old approach - remove or generate warnings
-      OBJECT whfsinstance := GetWHFSInstanceComposition(this);
-      IF (NOT ObjectExists(whfsinstance) OR whfsinstance != this->composition)
-        THROW NEW TolliumException(this,"This component can only be used with a WHFSInstance composition (consider switching to taglibrary=)");
+    //'modern' usage.
+    OBJECT applytester := this->owner->contexts->applytester;
+    IF(NOT ObjectExists(applytester))
+      THROW NEW TolliumException(this, "Unable to load the TagManager: No applytester available");
 
-      IF (this->cellname = "")
-        THROW NEW TolliumException(this,"This component cannot be used without a cellname (consider switching to taglibrary=)");
-
-      INTEGER baseobject :=whfsinstance->GetBaseForObjectLists();
-      IF(baseobject = 0)
-        THROW NEW TolliumException(this,`Composition '${whfsinstance->GetComponentIdentification()}' did not supply a usable base object for finding the tag source (consider switching to taglibrary=).`);
-
-      RECORD repos := GetApplyTesterForObject(whfsinstance->GetBaseForObjectLists())->GetTagSourceForFSMember(whfsinstance->typens, this->cellname);
-      IF (NOT repos.success)
-        THROW NEW TolliumException(this, "Unable to load the TagManager: Invalid or missing instance data (consider switching to taglibrary=)");
-
-      this->autosuggest->data := repos.data;
-
-      OBJECT tagfolder := OpenWHFSObjectByPath(repos.data.tagfolder);
-      IF(NOT ObjectExists(tagfolder) OR NOT tagfolder->isfolder)
-        THROW NEW TolliumException(this, "Unable to load the TagManager: Missing tag folder '" || repos.data.tagfolder || "' (consider switching to taglibrary=)");
-
-      this->tagmanager := __INTERNAL_OpenLegacyTagManager(tagfolder, repos.data.repository);
-      //started logging warnings on 19aug2017, track 'm down!
-      LogWarning("managedtagedit", "Old style tag manager used", [ cellname := this->cellname, folder := repos.data.tagfolder, repository := repos.data.repository ]);
-      this->tagsource_allowcreate := repos.data.allowcreate;
-    }
+    INTEGER ARRAY roots := applytester->GetLibrary(this->pvt_taglibrary);
+    IF(Length(roots)=0)
+      THROW NEW TolliumException(this, `Unable to load the TagManager: Library '${this->pvt_taglibrary}' has no existing paths`);
+    this->tagmanager := OpenSimpleTagManager(OpenWHFSObject(roots[0]));
+    this->autosuggest->data := [ roots := roots ];
   }
 
   PUBLIC UPDATE MACRO CompositionMetadataIsUpdated()
