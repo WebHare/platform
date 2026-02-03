@@ -31,7 +31,7 @@ export enum WRDBaseAttributeTypeId {
   Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
   Base_ModificationDate = -10, // wrdModificationDate
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
-  Base_GeneratedString = -6, // wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
+  Base_GeneratedString = -6, // wrdFullName, wrdTitle
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender
@@ -77,7 +77,7 @@ export const WRDBaseAttributeTypes = [
   "string", // -3 Base_Tag, tag
   "instant", // -4 Base_CreationLimitDate, wrdCreationDate, wrdLimitDate
   "plainDate", // -5 Base_Date, wrdDateOfBirth, wrdDateOfDeath
-  "string", // -6 Base_GeneratedString, wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
+  "string", // -6 Base_GeneratedString, wrdFullName, wrdTitle
   "string", // -7 Base_NameString, wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   "domain", // -8 Base_Domain, wrdLeftEntity, wrdRightEntity
   "enum", // -9 Base_Gender, wrd_gender
@@ -147,8 +147,6 @@ export const baseAttrCells = {
   "wrdTitlesSuffix": "titles_suffix",
   "wrdGuid": "guid",
   "wrdGender": "gender",
-  "wrdSaluteFormal": ["lastname", "gender", "titles", "infix"],
-  "wrdAddressFormal": ["lastname", "gender", "titles", "infix", "initials"],
   "wrdFullName": ["initials", "firstname", "firstnames", "lastname", "infix"],
   "wrdTitle": ["initials", "firstname", "firstnames", "lastname", "infix"],
   "wrdId": "id",

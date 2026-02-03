@@ -16,8 +16,6 @@ function testTypes() {
     wrdLimitDate: WRDBaseAttributeTypeId.Base_CreationLimitDate;
     wrdModificationDate: WRDBaseAttributeTypeId.Base_ModificationDate;
     wrd_gender: WRDBaseAttributeTypeId.Base_Gender;
-    wrdSaluteFormal: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
-    wrdAddressFormal: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
     wrdFullName: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
     wrd_titles: WRDBaseAttributeTypeId.Base_NameString;
     wrd_initials: WRDBaseAttributeTypeId.Base_NameString;

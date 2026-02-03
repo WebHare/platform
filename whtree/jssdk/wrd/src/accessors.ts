@@ -725,12 +725,6 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
     switch (this.attr.tag) {
-      case "wrdSaluteFormal": {
-        throw new Error(`wrdSaluteFormal is not implemented`);
-      }
-      case "wrdAddressFormal": {
-        throw new Error(`wrdAddressFormal is not implemented`);
-      }
       case "wrdFullName":
       case "wrdTitle": {
         if (!entityRecord.firstname && !entityRecord.firstnames && !entityRecord.lastname)
@@ -756,7 +750,7 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
   }
 
   getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
-    return getAttrBaseCells(this.attr.tag, ["wrdSaluteFormal", "wrdAddressFormal", "wrdFullName", "wrdTitle"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdFullName", "wrdTitle"]);
   }
 
   validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {

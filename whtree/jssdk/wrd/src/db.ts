@@ -82,8 +82,6 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   if (type.tag === "wrdPerson") {
     attrs.push(...[
       { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender, allowedvalues: Object.values(WRDGender).join('\t') },
-      { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", fullTag: "wrdSaluteFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString },
-      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", fullTag: "wrdAddressFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdFullName", fullTag: "wrdFullName", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdTitles", fullTag: "wrdTitles", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdInitials", fullTag: "wrdInitials", attributetype: WRDBaseAttributeTypeId.Base_NameString },

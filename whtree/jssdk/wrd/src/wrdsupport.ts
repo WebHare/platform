@@ -53,8 +53,6 @@ const fixed_tojs: Record<string, string> = {
   "wrd_lastname": "wrdLastName",
   "wrd_fullname": "wrdFullName",
   "wrd_orgname": "wrdOrgName",
-  "wrd_salute_formal": "wrdSaluteFormal",
-  "wrd_address_formal": "wrdAddressFormal",
   "wrd_titles_suffix": "wrdTitlesSuffix",
   "wrd_leftentity": "wrdLeftEntity",
   "wrd_rightentity": "wrdRightEntity"
