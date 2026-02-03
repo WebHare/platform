@@ -57,6 +57,7 @@ export type CustomExtensions = {
     richie: WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
     linkie: WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
     testinstance: WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
+    testlink: WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
   } & WRDTypeBaseSettings;
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;

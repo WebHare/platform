@@ -6,7 +6,7 @@ import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algori
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
 import { Money, omit, isValidEmail, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy, stdTypeOf } from "@webhare/std";
-import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
@@ -23,6 +23,7 @@ import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webh
 import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
 import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
+import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -129,6 +130,14 @@ async function encodeResourceDescriptor(attribute: number, value: ResourceDescri
   return setting;
 }
 
+function decodeWHFSLink(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[]): number | null {
+  if (val.rawdata === "WHFS" || val.rawdata.startsWith("WHFS:")) {
+    const lpos = recordLowerBound(links, val, ["id"]);
+    const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+    return sourceFile;
+  }
+  return null;
+}
 
 /** Lookup domain values by id, guid or tag
  * @param type - Referring type (not necessarily the one we're searching *in*)
@@ -2421,7 +2430,7 @@ class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | In
     //FIXME reuse existing object ids, but it looks like the HS implemtentation and storeRTDinWHFS can't do that either ?x
     return {
       settings: storeInstanceInWHFS(this.attr.schemaId, value).then(whfsId => {
-        return [{ rawdata: "WHFS", linktype: 1, link: whfsId, attribute: this.attr.id }];
+        return [{ rawdata: "WHFS", linktype: LinkTypes.Instance, link: whfsId, attribute: this.attr.id }];
       })
     };
   }
@@ -2439,7 +2448,42 @@ class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | In
   }
 }
 
-class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null, IntExtLink | null> {
+class WRDDBWHFSLinkValue extends WRDAttributeUncomparableValueBase<number | null, number | null, number | null, string | null> {
+  getDefaultValue(): number | null {
+    return null;
+  }
+
+  isSet(value: number | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): number | null {
+    const setting = entity_settings[settings_start];
+    return setting.rawdata ? decodeWHFSLink(setting, links) : null;
+  }
+
+  validateInput(value: number | null, checker: ValueQueryChecker, attrPath: string) {
+    if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+  }
+
+  encodeValue(value: number | null) {
+    if (!value)
+      return {};
+
+    return { settings: { rawdata: "WHFS", attribute: this.attr.id, link: value, linktype: LinkTypes.FSObject } };
+  }
+
+  exportValue(value: number | null, exportOptions?: ExportOptions): MaybePromise<string | null> {
+    return value ? mapExternalWHFSRef(value, exportOptions) : null;
+  }
+
+  importValue(value: number | null | string, importOptions?: ImportOptions): MaybePromise<number | null> {
+    if (typeof value === "string")
+      return unmapExternalWHFSRef(value, importOptions);
+    return value;
+  }
+}
+
+class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null, ExportedIntExtLink | null> {
   getDefaultValue(): IntExtLink | null {
     return null;
   }
@@ -2451,16 +2495,14 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtL
     if (!setting.rawdata)
       return null;
 
-    let result: IntExtLink | null = null;
     if (setting.rawdata.startsWith("*")) // external link
-      result = new IntExtLink(setting.rawdata.substring(1));
-    else if (setting.rawdata === "WHFS" || setting.rawdata.startsWith("WHFS:")) {
-      const target = links.filter(_ => _.id === setting.id)[0]?.fsobject;
-      if (target)
-        result = new IntExtLink(target, { append: setting.rawdata.substring(5) });
-    } else
-      throw new Error("Unrecognized whfs int/extlink format");
-    return result;
+      return new IntExtLink(setting.rawdata.substring(1));
+
+    const target = decodeWHFSLink(setting, links);
+    if (target)
+      return new IntExtLink(target, { append: setting.rawdata.substring(5) });
+
+    return null;
   }
 
   validateInput(value: IntExtLink | null, checker: ValueQueryChecker, attrPath: string) {
@@ -2478,6 +2520,14 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtL
       return { settings: { rawdata: "*" + value.externalLink, attribute: this.attr.id } };
     }
     throw new Error("Invalid whfs int/extlink");
+  }
+
+  exportValue(value: IntExtLink | null, exportOptions?: ExportOptions): ExportedIntExtLink | Promise<ExportedIntExtLink | null> | null {
+    return value ? exportIntExtLink(value, exportOptions) : null;
+  }
+
+  importValue(value: IntExtLink | ExportedIntExtLink | null, importOptions?: ImportOptions): MaybePromise<IntExtLink | null> {
+    return importIntExtLink(value, importOptions);
   }
 }
 
@@ -2737,59 +2787,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   }
 }
 
-export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, Out, C> {
-  throwError(): never {
-    throw new Error(`Unimplemented accessor for type ${WRDAttributeTypeId[this.attr.attributetype] ?? WRDBaseAttributeTypeId[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
-  }
-
-  /** Returns the default value for a value with no settings
-      @returns Default value for this type
-  */
-  getDefaultValue(): Default {
-    this.throwError();
-  }
-
-  isSet(value: Default): boolean {
-    this.throwError();
-  }
-
-  checkFilter(cv: C): void {
-    this.throwError();
-  }
-
-  matchesValue(value: unknown, cv: C): boolean {
-    this.throwError();
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: C): AddToQueryResponse<O> {
-    this.throwError();
-  }
-
-  containsOnlyDefaultValues<CE extends C>(cv: CE): boolean {
-    this.throwError();
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Out {
-    this.throwError();
-  }
-
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec): Out {
-    this.throwError();
-  }
-
-  validateInput(value: In): void {
-    this.throwError();
-  }
-
-  encodeValue(value: In): EncodedValue {
-    this.throwError();
-  }
-}
-
 type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Options extends { allowedValues: infer V } ? V : never;
-
-/// The following accessors are not implemented yet
-class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
@@ -2863,7 +2861,8 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(type, attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as AccessorType<T>;
+    //'as unknown' was needed after implementing the last missing type due to insufficient overlap
+    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as unknown as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(type, attrinfo, true) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(type, attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue

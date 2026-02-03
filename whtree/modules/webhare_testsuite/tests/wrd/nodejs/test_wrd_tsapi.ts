@@ -20,6 +20,7 @@ import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDate
 import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { buildInstance } from "@webhare/services/src/richdocument";
 import type { HSVMObject } from "@webhare/harescript";
+import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -731,30 +732,34 @@ async function testNewAPI() {
   // Set the 'linkie' intextlink field through HareScript to an internal link
   await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
   // Read the intextlink in TypeScript
-  let tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
-  test.eq(1, tsLink!.internalLink);
-  test.eq(null, tsLink!.externalLink);
-  test.eq("", tsLink!.append);
+  let linkInfo = (await schema.getFields("wrdPerson", newperson, ["linkie", "testlink"]));
+  test.assert(linkInfo.linkie);
+  test.eq(1, linkInfo.linkie.internalLink);
+  test.eq(null, linkInfo.linkie.externalLink);
+  test.eq("", linkInfo.linkie.append);
+  test.eq(null, linkInfo.testlink);
 
   // Set the 'linkie' intextlink field through TypeScript to an internal link
-  let testLink = new IntExtLink(16, { append: "?app=publisher" });
-  await schema.update("wrdPerson", newperson, { linkie: testLink });
+  let testLink = new IntExtLink(whconstant_whfsid_webharebackend, { append: "?app=publisher" });
+  await schema.update("wrdPerson", newperson, { linkie: testLink, testlink: whconstant_whfsid_webharebackend });
   // Read the intextlink in HareScript
   let hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
   test.assert(hsLink);
-  test.eq(16, hsLink.internallink);
+  test.eq(whconstant_whfsid_webharebackend, hsLink.internallink);
   test.eq("", hsLink.externallink);
   test.eq("?app=publisher", hsLink.append);
   // Read the intextlink in TypeScript
-  tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
-  test.eq(16, tsLink!.internalLink);
-  test.eq(null, tsLink!.externalLink);
-  test.eq("?app=publisher", tsLink!.append);
+  linkInfo = (await schema.getFields("wrdPerson", newperson, ["linkie", "testlink"]));
+  test.assert(linkInfo.linkie);
+  test.eq(whconstant_whfsid_webharebackend, linkInfo.linkie.internalLink);
+  test.eq(null, linkInfo.linkie.externalLink);
+  test.eq("?app=publisher", linkInfo.linkie.append);
+  test.eq(whconstant_whfsid_webharebackend, linkInfo.testlink);
 
   // Set the 'linkie' intextlink field through HareScript to an external link
   await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
   // Read the intextlink in TypeScript
-  tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
+  let tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
   test.eq(null, tsLink!.internalLink);
   test.eq("https://example.org/", tsLink!.externalLink);
   test.eq(null, tsLink!.append);

@@ -4,10 +4,11 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildRTD, ResourceDescriptor } from "@webhare/services";
+import { buildRTD, IntExtLink, ResourceDescriptor } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 import { buildInstance } from "@webhare/services/src/richdocument";
+import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
 
 async function testExport() { //  tests
@@ -51,6 +52,8 @@ async function testExport() { //  tests
     testImage: goldfishImg,
     testEnumarray: ["enumarray1" as const, "enumarray2" as const],
     wrdauthAccountStatus: { status: "active" } as const,
+    testlink: whconstant_whfsid_webharebackend,
+    linkie: new IntExtLink(whconstant_whfsid_webharebackend, { append: "#suburl" }),
     richie: await buildRTD([
       { "h2": ["The Heading"] },
       {
@@ -97,7 +100,9 @@ async function testExport() { //  tests
         testSingle: domain1value1guid, testArray2: [], testEmail: "", testImage: null, testInt: 0, testMultiple: [], testRTD: null, testFree: "", testSingleOther: null
       },
     ],
-  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray"], { export: true }));
+    testlink: "site::WebHare backend/",
+    linkie: { internalLink: "site::WebHare backend/", append: "#suburl" }
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray", "testlink", "linkie"], { export: true }));
 
   test.eq({
     testFile: {
@@ -163,7 +168,6 @@ async function testExport() { //  tests
 
   const clonableAttributes = (await wrdschema.getType("wrdPerson").listAttributes()).
     filter(attr => !["wrdId", "wrdGuid", "wrdType", "wrdTitle", "wrdFullName"].includes(attr.tag)). //these are never clonable (TODO more metadata in listattributes to determine this)
-    filter(attr => !["testlink"].includes(attr.tag)). //FIXME implement these
     map(_ => _.tag);
 
   // const x:WRDInsertable<TestSchemaType["wrdPerson"]>;
