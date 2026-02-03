@@ -1,7 +1,6 @@
 import { createModule } from "@mod-devkit/js/scaffolding/module";
 import { run } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
-import { throwError } from "@webhare/std";
 import { storeDiskFile } from "@webhare/system-tools";
 import { spawnSync } from "node:child_process";
 import { existsSync, symlinkSync, unlinkSync } from "node:fs";
@@ -47,8 +46,7 @@ run({
     }
     symlinkSync(packagepath, testpackage);
 
-    //run te tests
-    const whpath = path.join(process.env.WEBHARE_DIR ?? throwError("WEBHARE_DIR not set?!"), "bin/wh");
-    spawnSync(whpath, ["runtest", "jspackagetest"], { stdio: "inherit" });
+    //run the tests
+    spawnSync("wh", ["runtest", "jspackagetest"], { stdio: "inherit" });
   }
 });
