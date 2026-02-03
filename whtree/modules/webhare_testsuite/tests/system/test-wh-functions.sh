@@ -7,6 +7,12 @@ function testToFsPath() {
   testEq "$WEBHARE_DIR/modules/system/" "$(wh tofspath mod::system/)"
   testEq "$WEBHARE_DIR/modules/system/" "$(wh tofspath mod::system)"
   testEq "$WEBHARE_DIR/modules/system/ a b" "$(wh tofspath "mod::system/ a b")"
+  testEq "${WEBHARE_DATAROOT}storage/system/" "$(wh tofspath "storage::system")"
+  testEq "${WEBHARE_DATAROOT}storage/system/" "$(wh tofspath "storage::system/")"
+  testEq "${WEBHARE_DATAROOT}storage/system/test/1" "$(wh tofspath "storage::system/test/1")"
+  testEq "${WEBHARE_DATAROOT}storage/system/ a b" "$(wh tofspath "storage::system/ a b")"
+  testEq "${WEBHARE_DATAROOT}storage/system/ a b" "$(wh tofspath "storage::system/ a b")"
+  testEq "${WEBHARE_DATAROOT}storage/system/test/1 a b" "$(wh tofspath "storage::system/test/1 a b")"
 }
 
 expectWasmEngine()
