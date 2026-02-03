@@ -7,7 +7,7 @@ import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
 import { Money, omit, isValidEmail, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy, stdTypeOf } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
-import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
@@ -22,6 +22,7 @@ import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contentty
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
+import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -99,6 +100,35 @@ export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<num
     .where("id", "in", ids.filter(isTruthy))
     .execute()).map(row => [row.id, encodeWRDGuid(row.guid)]));
 }
+
+function decodeResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor {
+  const lpos = recordLowerBound(links, val, ["id"]);
+  const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+  //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
+  const hasSourceFile = val.rawdata.startsWith("WHFS:");
+  const meta = {
+    ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
+    sourceFile,
+    dbLoc: { source: 3, id: val.id, cc }
+  };
+
+  const blob = val.blobdata;
+  return new ResourceDescriptor(blob, meta);
+}
+
+async function encodeResourceDescriptor(attribute: number, value: ResourceDescriptor, fileName?: string): Promise<EncodedSetting> {
+  const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value, { fileName });
+  if (value.resource.size)
+    await uploadBlob(value.resource);
+
+  const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute, id: value.dbLoc?.id };
+  if (value.sourceFile) {
+    setting.linktype = 2;
+    setting.link = value.sourceFile;
+  }
+  return setting;
+}
+
 
 /** Lookup domain values by id, guid or tag
  * @param type - Referring type (not necessarily the one we're searching *in*)
@@ -2246,19 +2276,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
   isSet(value: ResourceDescriptor | null) { return Boolean(value); }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor | NullIfNotRequired<Required> {
-    const val = entity_settings[settings_start];
-    const lpos = recordLowerBound(links, val, ["id"]);
-    const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
-    //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
-    const hasSourceFile = val.rawdata.startsWith("WHFS:");
-    const meta = {
-      ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
-      sourceFile,
-      dbLoc: { source: 3, id: val.id, cc }
-    };
-
-    const blob = val.blobdata;
-    return new ResourceDescriptor(blob, meta);
+    return decodeResourceDescriptor(entity_settings[settings_start], links, cc);
   }
 
   validateInput(value: ResourceDescriptor | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
@@ -2274,15 +2292,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
 
     return {
       settings: (async (): Promise<EncodedSetting[]> => {
-        const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
-        if (value.resource.size)
-          await uploadBlob(value.resource);
-        const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute: this.attr.id, id: value.dbLoc?.id };
-        if (value.sourceFile) {
-          setting.linktype = 2;
-          setting.link = value.sourceFile;
-        }
-        return [setting];
+        return [{ ...await encodeResourceDescriptor(this.attr.id, value) }];
       })()
     };
   }
@@ -2323,7 +2333,16 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       return matchlink ? getRTDFromWHFS(matchlink.fsobject) : null;
     }
 
-    return buildRTDFromHareScriptRTD({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
+    const embedded = new Map<string, ResourceDescriptor>();
+    for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
+      if (item.ordering === 1) { //it's an embedded image
+        const descr = decodeResourceDescriptor(item, links, cc);
+        if (descr.fileName)
+          embedded.set(descr.fileName, descr);
+      }
+    }
+
+    return buildRTDFromComposedDocument({ text: val.blobdata, embedded, type: "platform:richtextdocument", links: new Map(), instances: new Map() });
   }
 
   validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): void {
@@ -2340,20 +2359,29 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
         //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
         //FIXME Reuse existing documents/settings
 
-        const hsRTD = await exportAsHareScriptRTD(value);
+        const asComposed = await exportRTDAsComposedDocument(value);
+
         //do we need to use WHFS to store this document ?
-        const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0; //TODO what about embedded images ? can they have a source object?
+        const inWHFS = asComposed.links.size > 0 || asComposed.instances.size > 0; //TODO what about embedded images ? can they have a source object which requires preservation?
         if (inWHFS) {
-          //TODO avoid a full exportAsHareScriptRTD when just exporting to WHFS - we need a requiresWHFS or refersWHFS() in a RichDocument
+          //TODO Can storeRTDinWHFS reuse the asComposed value?
           const whfsId = await storeRTDinWHFS(this.attr.schemaId, value);
           const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id, linktype: LinkTypes.RTD, link: whfsId };
           return [setting];
         }
 
-        const rawdata = await addMissingScanData(await ResourceDescriptor.from(hsRTD.htmltext, { fileName: "rd1.html", getHash: true, mediaType: "text/html" }));
-        await uploadBlob(hsRTD.htmltext);
-        const setting: EncodedSetting = { rawdata, blobdata: hsRTD.htmltext, attribute: this.attr.id };
-        return [setting];
+        //Generate direct settings.
+        const rawdata = await addMissingScanData(await ResourceDescriptor.from(asComposed.text, { fileName: "rd1.html", getHash: true, mediaType: "text/html" }));
+        await uploadBlob(asComposed.text);
+        const settings: EncodedSetting[] = [{ rawdata, blobdata: asComposed.text, attribute: this.attr.id }];
+
+        for (const [contentid, image] of asComposed.embedded.entries()) {
+          settings.push({
+            ...await encodeResourceDescriptor(this.attr.id, image, contentid),
+            ordering: 1
+          });
+        }
+        return settings;
       })()
     };
   }

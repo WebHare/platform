@@ -90,7 +90,7 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
 
 export function importHSResourceDescriptor(resource: HareScriptResourceDescriptor): ResourceDescriptor {
   return new ResourceDescriptor(resource.data, {
-    dominantColor: resource.dominantcolor,
+    dominantColor: resource.dominantcolor || null,
     fileName: resource.filename,
     mediaType: resource.mimetype,
     extension: resource.extension,
@@ -100,7 +100,7 @@ export function importHSResourceDescriptor(resource: HareScriptResourceDescripto
     refPoint: resource.refpoint,
     height: resource.height,
     width: resource.width,
-    sourceFile: resource.source_fsobject,
+    sourceFile: resource.source_fsobject || null,
   });
 }
 
@@ -189,13 +189,16 @@ class HSRTDImporter {
   }
 
   async processInlineImage(node: Element, state: BlockItemStack, outlist: RTDInlineItems) {
+    const alt = node.getAttribute("alt");
+    const width = parseInt(node.getAttribute("width") || "0", 10);
+    const height = parseInt(node.getAttribute("height") || "0", 10);
     const float: RTDImageFloat | undefined = node.getAttribute("class")?.includes("wh-rtd__img--floatleft") ? "left" :
       node.getAttribute("class")?.includes("wh-rtd__img--floatright") ? "right" : undefined;
 
     const baseattributes = {
-      alt: node.getAttribute("alt") || "",
-      width: parseInt(node.getAttribute("width") || "0", 10) || undefined,
-      height: parseInt(node.getAttribute("height") || "0", 10) || undefined,
+      ...alt ? { alt } : {},
+      ...width > 0 ? { width } : {},
+      ...height > 0 ? { height } : {},
       ...float ? { float } : {}
     };
 
