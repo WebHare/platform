@@ -1170,6 +1170,15 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
   }
 }
 
+/** Implements wrdType (WRD_TYPE) - an integer containing the wrd.type, but exported as a tag */
+class WRDDBBaseTypeValue extends WRDDBBaseDomainValue<true, string> {
+  async exportValue(value: number): Promise<string> {
+    const schema = this.type.schema;
+    const types = await schema.listTypes();
+    return types.find(t => t.id === value)?.tag ?? "#" + value;
+  }
+}
+
 type WRDDBDomainArrayConditions = {
   condition: "mentions" | "contains"; value: number;
 } | {
@@ -2801,7 +2810,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required, string>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true, number>;
+  [WRDBaseAttributeTypeId.Base_Id]: WRDDBBaseDomainValue<true, number>;
+  [WRDBaseAttributeTypeId.Base_Type]: WRDDBBaseTypeValue;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2866,7 +2876,8 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(type, attrinfo, true) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(type, attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
-    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Id: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Type: return new WRDDBBaseTypeValue(type, attrinfo, true) as AccessorType<T>;
 
     case WRDAttributeTypeId.String: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(type, attrinfo) as AccessorType<T>;

@@ -101,8 +101,9 @@ async function testExport() { //  tests
       },
     ],
     testlink: "site::WebHare backend/",
-    linkie: { internalLink: "site::WebHare backend/", append: "#suburl" }
-  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray", "testlink", "linkie"], { export: true }));
+    linkie: { internalLink: "site::WebHare backend/", append: "#suburl" },
+    wrdType: "wrdPerson"
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray", "testlink", "linkie", "wrdType"], { export: true }));
 
   test.eq({
     testFile: {

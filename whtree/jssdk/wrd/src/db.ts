@@ -66,8 +66,8 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   };
   const attrs: AttrRec[] = [
     { ...baseEmptyAttrRec, tag: "wrdGuid", fullTag: "wrdGuid", attributetype: WRDBaseAttributeTypeId.Base_Guid, isunique: true },
-    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isunique: true }, // FIXME: make only insertable, not updatable!
-    { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
+    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_Id, isunique: true }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_Type, isreadonly: true }, // FIXME: make readonly!
     { ...baseEmptyAttrRec, tag: "wrdTag", fullTag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag, isunique: true },
     { ...baseEmptyAttrRec, tag: "wrdCreationDate", fullTag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdLimitDate", fullTag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
