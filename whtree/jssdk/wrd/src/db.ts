@@ -95,7 +95,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     ]);
   }
   if (type.tag === "wrdRelation")
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", fullTag: "wrdTitle", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString });
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", fullTag: "wrdTitle", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true });
 
   return attrs;
 }

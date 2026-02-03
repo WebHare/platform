@@ -36,6 +36,7 @@ export interface WRDAttributeConfiguration extends WRDAttributeConfigurationBase
   domain: string | null;
   isUnsafeToCopy: boolean;
   isRequired: boolean;
+  isReadOnly: boolean;
   isOrdered: boolean;
   isUnique: boolean;
   allowedValues: string[] | null;
