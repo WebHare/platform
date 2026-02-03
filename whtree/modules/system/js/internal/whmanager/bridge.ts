@@ -155,6 +155,7 @@ enum ToLocalBridgeMessageType {
   ConfigureLogsResult,
   ConnectToLocalServiceResult,
   GetPortListResult,
+  ChangeLocalDebugFlags,
 }
 
 type ToLocalBridgeMessage = {
@@ -189,6 +190,10 @@ type ToLocalBridgeMessage = {
   type: ToLocalBridgeMessageType.ConnectToLocalServiceResult;
   requestid: number;
   error: string;
+} | {
+  type: ToLocalBridgeMessageType.ChangeLocalDebugFlags;
+  mode: "enable" | "disable" | "clear";
+  flags: string[];
 };
 
 enum ToMainBridgeMessageType {
@@ -203,6 +208,7 @@ enum ToMainBridgeMessageType {
   RegisterLocalBridge,
   ConfigureLogs,
   ConnectToLocalService,
+  ChangeLocalDebugFlags,
 }
 
 type ToMainBridgeMessage = {
@@ -252,6 +258,10 @@ type ToMainBridgeMessage = {
   requestid: number;
   factory: string;
   port: MessagePort;
+} | {
+  type: ToMainBridgeMessageType.ChangeLocalDebugFlags;
+  mode: "enable" | "disable" | "clear";
+  flags: string[];
 };
 
 type LocalBridgeInitData = {
@@ -428,6 +438,9 @@ class LocalBridge extends EventSource<BridgeEvents> {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.error);
         }
+      } break;
+      case ToLocalBridgeMessageType.ChangeLocalDebugFlags: {
+        envbackend.updateLocalDebugFlags(message.mode, message.flags);
       } break;
       default:
         checkAllMessageTypesHandled(message, "type");
@@ -738,6 +751,18 @@ class LocalBridge extends EventSource<BridgeEvents> {
         this.debuglink?.send({
           type: DebugResponseType.getEnvironmentResult,
           env: Object.fromEntries(envkeys) as Record<string, string>
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.toggleDebugFlags: {
+        this.postMainBridgeMessage({
+          type: ToMainBridgeMessageType.ChangeLocalDebugFlags,
+          mode: message.mode,
+          flags: message.flags,
+        });
+        const flags = envbackend.updateLocalDebugFlags(message.mode, message.flags);
+        this.debuglink?.send({
+          type: DebugResponseType.toggleDebugFlagsResult,
+          flags,
         }, packet.msgid);
       } break;
       default:
@@ -1333,6 +1358,11 @@ class MainBridge extends EventSource<BridgeEvents> {
           requestid: message.requestid,
           error,
         });
+      } break;
+      case ToMainBridgeMessageType.ChangeLocalDebugFlags: {
+        for (const bridge of this.localbridges) {
+          this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.ChangeLocalDebugFlags, mode: message.mode, flags: message.flags });
+        }
       } break;
       default:
         checkAllMessageTypesHandled(message, "type");

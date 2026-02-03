@@ -135,6 +135,21 @@ export function registerDebugConfigChangedCallback(cb: () => void) {
   settingschangedcallbacks.push(cb);
 }
 
+export function updateLocalDebugFlags(mode: "enable" | "disable" | "clear", flags: string[]): DebugFlags {
+  switch (mode) {
+    case "enable":
+    case "disable":
+      for (const flag of flags)
+        localDebugFlags[flag] = mode === "enable";
+      break;
+    case "clear":
+      for (const flag of Object.keys(localDebugFlags))
+        delete localDebugFlags[flag];
+  }
+  runSettingsCallbacks();
+  return { ...globalDebugFlags, ...localDebugFlags };
+}
+
 /** DTAP stage set for this WebHare */
 let dtapStage: DTAPStage = "production";
 
@@ -159,5 +174,5 @@ export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
   islive = isLive;
 }
 
-export { dtapStage, isLive, backendBase };
+export { dtapStage, isLive, backendBase, localDebugFlags };
 export { dtapstage, islive }; //deprecated variants

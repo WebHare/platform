@@ -3,7 +3,7 @@ import { updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
 import { freezeRecursive } from "./util/algorithms";
 import { type WebHareBackendConfiguration, type ConfigFile, type WebHareConfigFile, getBasePort } from "@webhare/services/src/config";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
-import type { AssetPack, Services } from "./generation/gen_extracts";
+import type { AssetPack, Debug, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
 import { getScriptName } from "@webhare/system-tools/src/node";
@@ -146,6 +146,7 @@ export function getExtractedConfig(which: "webdesigns"): WebDesignsExtract;
 export function getExtractedConfig(which: "hooks"): HooksExtract;
 export function getExtractedConfig(which: "userrights"): UserRights;
 export function getExtractedConfig(which: "plugins"): ModulePlugins;
+export function getExtractedConfig(which: "debug"): Debug;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {

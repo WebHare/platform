@@ -71,6 +71,13 @@ export interface Services {
   rpcServices: TypedServiceDescriptor[];
 }
 
+export interface Debug {
+  flags: {
+    name: string;
+    description: string;
+  }[];
+}
+
 export function makeAssetPack(pack: Omit<AssetPack, "baseCompileToken">): AssetPack {
   const contenthasher = crypto.createHash('md5');
   contenthasher.update(stringify(pack, { stable: true }));
@@ -306,6 +313,29 @@ export async function gatherServices(context: GenerateContext) {
   return retval;
 }
 
+export async function generateDebug(context: GenerateContext) {
+  const retval: Debug = {
+    flags: [],
+  };
+
+  for (const mod of context.moduledefs) {
+    for (const node of mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "debugflag") ?? []) {
+      if (!isNodeApplicableToThisWebHare(node, ""))
+        continue;
+
+      let name = getAttr(node, "name");
+      if (mod.name !== "platform")
+        name = `${mod.name}:${name}`;
+
+      retval.flags.push({
+        name,
+        description: getAttr(node, "description", "")
+      });
+    }
+  }
+  return JSON.stringify(retval, null, 2) + "\n";
+}
+
 export async function generateServices(context: GenerateContext): Promise<string> {
   return JSON.stringify(await gatherServices(context), null, 2) + "\n";
 }
@@ -363,6 +393,11 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generatePlugins(context)
+    }, {
+      path: `extracts/debug.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generateDebug(context)
     }
   ];
 }

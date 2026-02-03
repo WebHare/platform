@@ -3,6 +3,7 @@ import type { WHMProcessType } from "./whmanager_rpcdefs";
 import type { State as HMRState } from "../../../../../jssdk/services/src/hmrinternal";
 import type { StackTraceItem } from "../util/stacktrace";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
+import type { DebugFlags } from "@webhare/env/src/envbackend";
 
 export type ProcessList = Array<{
   pid: number;
@@ -22,7 +23,8 @@ export enum DebugRequestType {
   getHMRState,
   getCodeContexts,
   getWorkers,
-  getEnvironment
+  getEnvironment,
+  toggleDebugFlags,
 }
 
 type DebugRequest = {
@@ -44,6 +46,11 @@ type DebugRequest = {
 } | {
   type: DebugRequestType.getEnvironment;
   __responseKey: { type: DebugResponseType.getEnvironmentResult };
+} | {
+  type: DebugRequestType.toggleDebugFlags;
+  mode: "enable" | "disable" | "clear";
+  flags: string[];
+  __responseKey: { type: DebugResponseType.toggleDebugFlagsResult };
 };
 
 export enum DebugResponseType {
@@ -53,7 +60,8 @@ export enum DebugResponseType {
   getHMRStateResult,
   getCodeContextsResult,
   getWorkersResult,
-  getEnvironmentResult
+  getEnvironmentResult,
+  toggleDebugFlagsResult,
 }
 
 type DebugResponse = {
@@ -83,6 +91,9 @@ type DebugResponse = {
 } | {
   type: DebugResponseType.getEnvironmentResult;
   env: Record<string, string>;
+} | {
+  type: DebugResponseType.toggleDebugFlagsResult;
+  flags: DebugFlags;
 };
 
 /** Request and response are swapped here, because conceptually the
@@ -99,7 +110,8 @@ export enum DebugMgrClientLinkRequestType {
   getHMRState,
   getCodeContexts,
   getWorkers,
-  getEnvironment
+  getEnvironment,
+  toggleDebugFlags,
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -111,7 +123,8 @@ export enum DebugMgrClientLinkResponseType {
   getHMRStateResult,
   getCodeContextsResult,
   getWorkersResult,
-  getEnvironmentResult
+  getEnvironmentResult,
+  toggleDebugFlagsResult,
 }
 
 /** List of directly forwarded calls */
@@ -121,6 +134,7 @@ export const directforwards = {
   [DebugMgrClientLinkRequestType.getCodeContexts]: { requesttype: DebugRequestType.getCodeContexts, responsetype: DebugResponseType.getCodeContextsResult, clientresponsetype: DebugMgrClientLinkResponseType.getCodeContextsResult },
   [DebugMgrClientLinkRequestType.getWorkers]: { requesttype: DebugRequestType.getWorkers, responsetype: DebugResponseType.getWorkersResult, clientresponsetype: DebugMgrClientLinkResponseType.getWorkersResult },
   [DebugMgrClientLinkRequestType.getEnvironment]: { requesttype: DebugRequestType.getEnvironment, responsetype: DebugResponseType.getEnvironmentResult, clientresponsetype: DebugMgrClientLinkResponseType.getEnvironmentResult },
+  [DebugMgrClientLinkRequestType.toggleDebugFlags]: { requesttype: DebugRequestType.toggleDebugFlags, responsetype: DebugResponseType.toggleDebugFlagsResult, clientresponsetype: DebugMgrClientLinkResponseType.toggleDebugFlagsResult },
 } as const;
 
 /// Returns the matching objects in a union whose "type" property extends from T

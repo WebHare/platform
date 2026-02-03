@@ -6,12 +6,14 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import { spawn, spawnSync } from "node:child_process";
-import { CLIRuntimeError, CLISyntaxError, run, type CLIArgumentType } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, intOption, run, type CLIArgumentType } from "@webhare/cli";
 import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
-import { throwError } from "@webhare/std";
+import { compareProperties, throwError } from "@webhare/std";
 import { existsSync } from "node:fs";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { loadlib } from "@webhare/harescript";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -31,13 +33,55 @@ function threadOption(): CLIArgumentType<string> {
   };
 }
 
-const argProcess = { name: "<process>", description: "Target process pid" } as const;
+const argProcess = { name: "<process>", description: "Target process pid", type: intOption() } as const;
+const optProcess = { "p,process": { description: "Target process pid", type: intOption() } } as const;
 const argThread = { name: "<thread>", description: "Target process with optional workerid in pid[.workerid] format", type: threadOption() } as const;
 const forceFlagOption = { "f,force": { description: "Force the change even if flag is unknown or undocument" } } as const;
 
+async function mutateFlags(processid: string | null, mode: "enable" | "disable" | "clear", flags: string[], force: boolean): Promise<number> {
+  let mutation: { enable?: string[]; disable?: string[]; disable_all?: boolean } | null = null;
+
+  const updatedFlags = [];
+  if (mode === "clear")
+    mutation = { disable_all: true };
+  else {
+    const extract = getExtractedConfig("debug");
+    for (const flag of flags) {
+      const found = extract.flags.find(f => f.name === flag);
+      if (!found && !force)
+        throw new CLISyntaxError(`Unknown debug flag ${JSON.stringify(flag)} (use --force to override this check)`);
+      updatedFlags.push(found ?? { name: flag, description: "unknown flag" });
+    }
+    for (const flag of updatedFlags)
+      console.log(`${mode === "enable" ? "Enabling" : "Disabling"} ${flag.name}: ${flag.description}`);
+    if (updatedFlags.length)
+      (mutation ??= {})[mode === "enable" ? "enable" : "disable"] = updatedFlags.map(f => f.name);
+  }
+  if (mutation) {
+    try {
+      if (processid) {
+        using link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+        await link.activate();
+        const result = await link.doRequest({
+          type: DebugMgrClientLinkRequestType.toggleDebugFlags,
+          processid: processid,
+          mode,
+          flags,
+        });
+        console.log(`Now enabled flags: ${Object.entries(result.flags).filter(([_, enabled]) => enabled).map(([flag]) => flag).join(", ")}`);
+      } else {
+        await loadlib("mod::system/lib/internal/whconfig.whlib").MutateDebugSettings(mutation);
+      }
+    } catch (e) {
+      console.error(`Operation failed: ${(e as Error).message}`);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 run({
-  subCommands:
-  {
+  subCommands: {
     "list-processes": {
       description: "List all JavaScript processes known to WebHare",
       flags: {
@@ -72,7 +116,7 @@ run({
 
           const result = await link.doRequest({
             type: DebugMgrClientLinkRequestType.getEnvironment,
-            processid: args.process
+            processid: args.process.toString()
           });
           link.close();
           console.log(JSON.stringify(result.env, null, 2));
@@ -271,40 +315,46 @@ run({
         }
       }
     },
+    "list-flags": {
+      description: "List available debug flags",
+      main: async () => {
+        const flags = getExtractedConfig("debug").flags;
+        const maxNameLength = Math.max(...flags.map(f => f.name.length), 0);
+        for (const flag of flags.toSorted(compareProperties(["name"])))
+          console.log(`${flag.name.padEnd(maxNameLength)}  ${flag.description}`);
+      }
+    },
+    "enable": {
+      description: "Enable the specified debug flag",
+      flags: forceFlagOption,
+      options: { ...optProcess },
+      arguments: [{ name: "<flag...>", description: "Flag(s) to enable" }],
+      main: async ({ opts, args }) => {
+        return mutateFlags(opts.process ? opts.process.toString() : null, "enable", args.flag, Boolean(opts.force));
+      }
+    },
+    "disable": {
+      description: "Disable the specified debug flag",
+      flags: forceFlagOption,
+      options: { ...optProcess },
+      arguments: [{ name: "<flag...>", description: "Flag(s) to disable" }],
+      main: async ({ opts, args }) => {
+        return mutateFlags(opts.process ? opts.process.toString() : null, "disable", args.flag, Boolean(opts.force));
+      }
+    },
+    "clear-flags": {
+      description: "Clear (disable) all active debug flags",
+      options: { ...optProcess },
+      main: async ({ opts }) => {
+        return mutateFlags(opts.process ? opts.process.toString() : null, "clear", [], false);
+      }
+    },
     //Stubs for things we'll forward to the HareScript version for now
     "mark": {
       description: "Write a mark with optional text to all primary logfiles",
       arguments: [{ name: "<text>", description: "Text to write" }],
       main: async ({ args }) => {
         return spawnSync("wh", ["harescript-debug", "mark", args.text], { stdio: "inherit" }).status || 250;
-      }
-    },
-    "list-flags": {
-      description: "List available debug flags",
-      main: async () => {
-        return spawnSync("wh", ["harescript-debug", "listflags"], { stdio: "inherit" }).status || 250;
-      }
-    },
-    "enable": {
-      description: "Enable the specified debug flag",
-      flags: forceFlagOption,
-      arguments: [{ name: "<flag...>", description: "Flag(s) to enable" }],
-      main: async ({ opts, args }) => {
-        return spawnSync("wh", ["harescript-debug", "enable", ...opts.force ? ["--force"] : [], ...args.flag], { stdio: "inherit" }).status || 250;
-      }
-    },
-    "disable": {
-      description: "Disable the specified debug flag",
-      flags: forceFlagOption,
-      arguments: [{ name: "<flag...>", description: "Flag(s) to disable" }],
-      main: async ({ opts, args }) => {
-        return spawnSync("wh", ["harescript-debug", "disable", ...opts.force ? ["--force"] : [], ...args.flag], { stdio: "inherit" }).status || 250;
-      }
-    },
-    "clear-flags": {
-      description: "Clear (disable) all active debug flags",
-      main: async () => {
-        return spawnSync("wh", ["harescript-debug", "setdebug"], { stdio: "inherit" }).status || 250;
       }
     },
     "get-secret": {
@@ -323,6 +373,6 @@ run({
       main: async ({ args }) => {
         return spawnSync("wh", ["harescript-debug", "setsecret", args.name + "=" + args.value], { stdio: "inherit" }).status || 250;
       }
-    }
+    },
   }
 });
