@@ -112,7 +112,7 @@ MACRO CreateMyTestSchema()
 //  OBJECT domain := CreateWRDAuthDomain(persontype, "TESTDOMAIN", "WRD_CONTACT_EMAIL", "PASSWORD");
 
   OBJECT entity := persontype->CreateEntity(
-      [ wrd_contact_email := "testaccount@test.invalid"
+      [ wrd_contact_email := "testaccount@beta.webhare.net"
       , whuser_password := CreateAuthenticationSettingsFromPasswordHash("PLAIN:secret")
       , whuser_unit := testfw->testunit
       , wrdauth_account_status := [ status := "active" ]
@@ -142,7 +142,7 @@ MACRO CreateMyTestSchema()
   RECORD ARRAY events := ReadJSONLogLines("system:audit", starttest);
   TestEqMembers( [[ wrdschema := "wrd:testschema", type := "platform:login-failed" ]], events,"*");
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
   TestEq("", testfw->browser->GetCookie("webharelogin-wrd-testschema"));
@@ -150,7 +150,7 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "platform:login-failed"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , data := [ code := "incorrect-email-password" ]
       , browsertriplet := "mac-chrome-01"
       ]);
@@ -163,7 +163,7 @@ MACRO CreateMyTestSchema()
   TestEq("PLAIN:secret", entity->GetField("whuser_password").passwords[0].passwordhash);
   TestEq(FALSE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestEq(TRUE, result.success);
   TestEq(TRUE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
   TestEqLike("WHBF:*", entity->GetField("whuser_password").passwords[0].passwordhash);
@@ -176,7 +176,7 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "platform:login"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , impersonated := FALSE
       , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
@@ -184,7 +184,7 @@ MACRO CreateMyTestSchema()
 
   result := DoReq( [ action := "checkstatus" ]);
   TestEq(TRUE, result.isloggedin);
-  TestEq("testaccount@test.invalid", result.loginname);
+  TestEq("testaccount@beta.webhare.net", result.loginname);
   TestEq(entity->id, result.entityid);
 
   //regression test. issue #5989, early use of GetLoggedinEntity() or GetLoginName() causes a re-login
@@ -198,7 +198,7 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "platform:logout"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , impersonated := FALSE
       , impersonator_entity := 0
       , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
@@ -210,14 +210,14 @@ MACRO CreateMyTestSchema()
 
   DATETIME logginginat := GetCurrentDatetime();
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
   TestAuditEvent(
       [ entity := entityid
       , type := "platform:login-failed"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , data := [ code := "incorrect-email-password" ]
       , browsertriplet := "mac-chrome-01"
       ]);
@@ -231,14 +231,14 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "wrd:loginbyid:ok"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
+      , bylogin := "testaccount@beta.webhare.net"
       , impersonated := TRUE
       , impersonator_entity := entityid
-      , impersonator_login := "testaccount@test.invalid"
+      , impersonator_login := "testaccount@beta.webhare.net"
       ]);
 
   TestEq(TRUE, entity->GetField("LASTLOGIN") < logginginat, "Neither should an impersonated login update LASTLOGIN");
@@ -250,7 +250,7 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "platform:logout"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , impersonated := FALSE
       , __ignoredata := TRUE
       , browsertriplet := "other-unknown-0"
@@ -259,7 +259,7 @@ MACRO CreateMyTestSchema()
       ]);
 
   logginginat := GetCurrentDatetime();
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestEq(TRUE, result.success);
 
   TestEq(TRUE, entity->GetField("LASTLOGIN") >= logginginat, "succesful login, so update LASTLOGIN time");
@@ -268,7 +268,7 @@ MACRO CreateMyTestSchema()
       [ entity := entityid
       , type := "platform:login"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , impersonated := FALSE
       , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
@@ -317,12 +317,12 @@ MACRO TestPersistentLogin()
   OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
 
   RECORD result;
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestAuditEvent(
       [ entity := entityid
       , type := "platform:login"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
       ]);
@@ -338,12 +338,12 @@ MACRO TestPersistentLogin()
   result := DoReq( [ action := "checkstatus" ]);
   TestEq(FALSE, result.isloggedin);
 
-  result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-01" ]);
+  result := DoReq( [ action := "login", username := "testaccount@beta.webhare.net", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-01" ]);
   TestAuditEvent(
       [ entity := entityid
       , type := "platform:login"
       , ip := "127.0.0.1"
-      , login := "testaccount@test.invalid"
+      , login := "testaccount@beta.webhare.net"
       , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
       ]);
@@ -548,7 +548,7 @@ MACRO TestLoginDenied()
   OBJECT auditlogtype := schemaobj->GetType("WRD_AUDITLOG");
 
   OBJECT entity := persontype->CreateEntity(
-      [ wrd_contact_email := "logindenied@test.invalid"
+      [ wrd_contact_email := "logindenied@beta.webhare.net"
       , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
       , whuser_unit := testfw->testunit
       , wrdauth_account_status := [ status := "active" ]
@@ -565,7 +565,7 @@ MACRO TestLoginDenied()
   TestEq(0, result.entityid);
 
   // Login is denied when logging in by username and password
-  result := DoReq( [ action := "login", username := "logindenied@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  result := DoReq( [ action := "login", username := "logindenied@beta.webhare.net", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("NOACCESS", result.code);
   // TestEq(TRUE, CellExists(result, "USERINFO"));
@@ -574,7 +574,7 @@ MACRO TestLoginDenied()
       [ entity := entityid
       , type := "platform:login-failed"
       , ip := "127.0.0.1"
-      , login := "logindenied@test.invalid"
+      , login := "logindenied@beta.webhare.net"
       , data := [ code := "account-disabled" ]
       , browsertriplet := "mac-chrome-01"
       ]);
@@ -594,15 +594,15 @@ MACRO TestLoginDenied()
       [ entity := entityid
       , type := "wrd:loginbyid:failed"
       , ip := "127.0.0.1"
-      , login := "logindenied@test.invalid"
+      , login := "logindenied@beta.webhare.net"
       , impersonated := FALSE
       , data := [ failurecode := "NOACCESS"
                 ]
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := "logindenied@test.invalid"
+      , bylogin := "logindenied@beta.webhare.net"
       , impersonator_entity := entityid
-      , impersonator_login := "logindenied@test.invalid"
+      , impersonator_login := "logindenied@beta.webhare.net"
       ]);
 
   // User still not logged in
@@ -618,14 +618,14 @@ MACRO TestLoginDenied()
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:loginbyid:ok"
-      , login := "logindenied@test.invalid"
+      , login := "logindenied@beta.webhare.net"
       , impersonated := TRUE
       , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
-      , bylogin := "logindenied@test.invalid"
+      , bylogin := "logindenied@beta.webhare.net"
       , impersonator_entity := entityid
-      , impersonator_login := "logindenied@test.invalid"
+      , impersonator_login := "logindenied@beta.webhare.net"
       ]);
 }
 
