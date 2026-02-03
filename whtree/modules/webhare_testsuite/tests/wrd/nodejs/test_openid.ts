@@ -26,9 +26,29 @@ let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 const newPassword = "pass$" + Math.random().toString(36).substring(2, 16);
 
+class RequestRecorder implements Disposable {
+  public urls: URL[] = [];
+  private page: Puppeteer.Page;
+
+  constructor(page: Puppeteer.Page) {
+    this.page = page;
+    page.on('request', this.logUrl);
+  }
+
+  private logUrl = (req: Puppeteer.HTTPRequest) => {
+    this.urls.push(new URL(req.url()));
+  };
+
+  [Symbol.dispose]() {
+    this.page.off('request', this.logUrl);
+  }
+}
+
 async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: string; password?: string; changePasswordTo?: string }) {
   const password = options?.password || test.getUser("sysop").password;
   const user = test.getUser(options?.user || "sysop");
+  using recorder = new RequestRecorder(page);
+
   console.log("Login with ", user.login, "and password", password);
   await page.waitForSelector('.wh-wrdauth-login [name=login]');
   await page.type('[name=login]', user.login);
@@ -52,11 +72,11 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: stri
   }
 
   //we must wait for the last navigation to complete or we might actually return to our caller before the login redirects have completed
+  return recorder.urls;
 }
 
 async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string) {
   const page = await context.newPage();
-  const path: URL[] = [];
 
   console.log("Oauth starting on", authorizeURL);
   await page.goto(authorizeURL);
@@ -65,7 +85,6 @@ async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, auth
 
   const waitForLocalhost = new Promise<string>((resolve) => {
     page.on('request', req => {
-      path.push(new URL(req.url()));
       if (req.isNavigationRequest() && req.frame() === page.mainFrame()) {
         if (req.url().startsWith(callbackUrl)) {
           resolve(req.url());
@@ -80,7 +99,7 @@ async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, auth
     });
   });
 
-  await runWebHareLoginFlow(page);
+  const path = await runWebHareLoginFlow(page);
 
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
@@ -129,7 +148,8 @@ async function setupOIDC() {
       metadataurl: testsite.webRoot + ".well-known/openid-configuration", //TODO There should be an API getting this URL for us, using the identityprovider site configuration
       clientid: clientId,
       clientsecret: clientSecret,
-      additionalscopes: "testfw"
+      additionalscopes: "testfw",
+      extraParams: [{ param: "testparam", value: "testvalue" }]
     });
 
     await updateSchemaSettings(schemaSP, {
@@ -215,6 +235,7 @@ async function verifyRoutes_TSClient() {
     clientScope,
     clientId,
     clientSecret,
+    extraParams: [{ param: "var", value: "42" }]
   });
 
   { //STORY: Simple authorize flow, using defaults
@@ -225,6 +246,7 @@ async function verifyRoutes_TSClient() {
     //FIXME WH should verify callback url validation
     //FIXME WH should verify valid and acceptable scopes
     test.assert(authorize.type === "redirect");
+    test.eq("42", new URL(authorize.url).searchParams.get("var"), "Extra var=42 param must be passed to authorize URL: " + authorize.url);
 
     const { finalurl, path } = await runAuthorizeFlow(authorize.url);
     const oauth2Url = path.find(_ => _.pathname.endsWith("/common/oauth2/"));
@@ -368,12 +390,18 @@ async function verifyAsOpenIDSP() {
     //wait for the OIDC button
     await page.waitForFunction('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp"))');
     //click the OIDC button
+    using recorder = new RequestRecorder(page);
     await Promise.all([
       page.waitForNavigation(),  //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
       page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()')
     ]);
 
+    const authrequest = recorder.urls.find(_ => _.searchParams.get("redirect_uri"));
+    test.assert(authrequest);
+    test.eq("testvalue", authrequest.searchParams.get("testparam"), "Extra param must be passed to authorize URL: " + authrequest);
+
     await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo: newPassword });
+
     console.log("Password changed to: " + newPassword);
 
     { //wait for WebHare username
