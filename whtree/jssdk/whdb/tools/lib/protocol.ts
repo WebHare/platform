@@ -467,6 +467,8 @@ export function parsePGProtocolMessage(code: string, data: Buffer, frontend: boo
       for (let i = 0; i < data.length;) {
         const errorCode = data.toString("utf8", i, i + 1);
         i += 1;
+        if (errorCode === `\x00`)
+          break;
         const next0 = data.indexOf(0, i);
         const value = data.toString("utf8", i, next0);
         i = next0 + 1;
