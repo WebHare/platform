@@ -43,6 +43,8 @@ You should never set the number of build processors too high - the build process
 
 Run `wh fixmodules` once to update NPM dependencies.
 
+Run `wh runtest checkmodules` for static validation of the core WebHare modules.
+
 If you want to run the WebHare webserver on ports 80 and/or 443 (the default ports) without having to set up a [proxy](https://gitlab.com/webhare/proxy#readme)
 you will need to either run WebHare as `root` (not recommended) or install the socketbinder by running `wh installsocketbinder`.
 The socket binder is a small daemon that runs as root and allows WebHare to listen on port numbers below 1024.
