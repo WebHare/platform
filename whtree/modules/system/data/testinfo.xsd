@@ -63,8 +63,14 @@
             <xs:attribute name="runmode">
               <xs:simpleType>
                 <xs:restriction base="xs:string">
+                  <xs:enumeration value="job" />
                   <xs:enumeration value="process" />
                 </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="debugflags" >
+              <xs:simpleType>
+                <xs:list itemType="xs:string" />
               </xs:simpleType>
             </xs:attribute>
           </xs:complexType>
@@ -88,6 +94,11 @@
     </xs:sequence>
     <xs:attributeGroup ref="RecursiveAttributes" />
     <xs:attribute name="site" />
+    <xs:attribute name="debugflags" >
+      <xs:simpleType>
+        <xs:list itemType="xs:string" />
+      </xs:simpleType>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="DeeperGroup">
