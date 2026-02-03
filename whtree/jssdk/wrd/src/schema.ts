@@ -518,7 +518,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       .select(mapping)
       .where("wrdId" as any, "=" as any, id as any)
       .historyMode(options?.historyMode || "active")
-      .execute({ export: options?.export || false });
+      .execute(options);
 
     if (rows.length)
       return rows[0];

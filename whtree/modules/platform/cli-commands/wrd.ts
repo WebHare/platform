@@ -3,7 +3,7 @@ import { WRDSchema, describeEntity, listSchemas } from '@webhare/wrd';
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, enumOption, run } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 
@@ -60,13 +60,17 @@ run({
     },
     "export": {
       description: "Export an entity",
+      options:
+      {
+        resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" }
+      },
       arguments: [{ name: "<id>", description: "Entity ID" }],
       main: async ({ opts, args }) => {
         const entityid = parseInt(args.id);
         const entityinfo = await describeEntity(entityid) ?? throwError(`Entity #${entityid} not found`);
         const wrdschema = new WRDSchema(entityinfo.schema);
         const attrs = await wrdschema.getType(entityinfo.type).listAttributes();
-        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered" });
+        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered", exportResources: opts.resources });
         console.log(JSON.stringify(entity, null, 2));
       }
     },

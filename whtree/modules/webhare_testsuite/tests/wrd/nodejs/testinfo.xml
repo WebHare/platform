@@ -11,4 +11,5 @@
   <test script="test_wrd_auth.ts" />
   <test script="test_openid.ts" />
   <test script="test_whapi_wrd.ts" />
+  <test script="test_wrd_cli.ts" />
 </group>

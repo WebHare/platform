@@ -2389,15 +2389,15 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     };
   }
 
-  importValue(value: RTDSource | RichTextDocument | null): Promise<RichTextDocument | null> | RichTextDocument | null {
+  importValue(value: RTDSource | RichTextDocument | null, importOptions?: ImportOptions): Promise<RichTextDocument | null> | RichTextDocument | null {
     if (Array.isArray(value)) { //TODO can we do a more reliable 'is an Buildable RTD' check ?
-      return buildRTD(value);
+      return buildRTD(value, importOptions);
     }
     return value;
   }
 
-  exportValue(value: RichTextDocument | null): Promise<RTDExport> | null {
-    return value?.blocks.length ? value.export() : null;
+  exportValue(value: RichTextDocument | null, exportOptions?: ExportOptions): Promise<RTDExport> | null {
+    return value?.blocks.length ? value.export(exportOptions) : null;
   }
 }
 
