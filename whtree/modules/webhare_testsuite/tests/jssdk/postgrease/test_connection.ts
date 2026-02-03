@@ -10,6 +10,8 @@ async function testConn() {
     database: process.env.WEBHARE_DBASENAME || "",
   });
 
+  const defaultCodecRegistry = pgclient["queryInterface"].defaultCodecRegistry;
+
   // Simple query, once and again to test cached description
   for (let i = 0; i < 2; ++i) {
     const res = await pgclient.query(`SELECT 1 + 1 as two`, []);
@@ -17,7 +19,7 @@ async function testConn() {
       rows: [{ two: 2 }],
       rowCount: 1,
       command: "SELECT",
-      fields: [{ fieldName: "two", dataTypeId: 23, codec: pgclient["defaultCodecRegistry"].getCodec(23) }]
+      fields: [{ fieldName: "two", dataTypeId: 23, codec: defaultCodecRegistry.getCodec(23) }]
     }, res);
   }
 
@@ -27,7 +29,7 @@ async function testConn() {
       rows: [{ param: 1 }],
       rowCount: 1,
       command: "SELECT",
-      fields: [{ fieldName: "param", dataTypeId: 21, codec: pgclient["defaultCodecRegistry"].getCodec("int2") }]
+      fields: [{ fieldName: "param", dataTypeId: 21, codec: defaultCodecRegistry.getCodec("int2") }]
     }, res);
   }
 
@@ -38,7 +40,7 @@ async function testConn() {
       rows: [{ param: null }],
       rowCount: 1,
       command: "SELECT",
-      fields: [{ fieldName: "param", dataTypeId: 25, codec: pgclient["defaultCodecRegistry"].getCodec("text") }]
+      fields: [{ fieldName: "param", dataTypeId: 25, codec: defaultCodecRegistry.getCodec("text") }]
     }, res);
   }
 
@@ -50,9 +52,9 @@ async function testConn() {
       rowCount: 1,
       command: "SELECT",
       fields: [
-        { fieldName: "c1", dataTypeId: 21, codec: pgclient["defaultCodecRegistry"].getCodec("int2") },
-        { fieldName: "c2", dataTypeId: 1009, codec: pgclient["defaultCodecRegistry"].getCodec("_text") },
-        { fieldName: "c3", dataTypeId: 1009, codec: pgclient["defaultCodecRegistry"].getCodec("_text") },
+        { fieldName: "c1", dataTypeId: 21, codec: defaultCodecRegistry.getCodec("int2") },
+        { fieldName: "c2", dataTypeId: 1009, codec: defaultCodecRegistry.getCodec("_text") },
+        { fieldName: "c3", dataTypeId: 1009, codec: defaultCodecRegistry.getCodec("_text") },
       ]
     }, res);
   }
@@ -64,7 +66,7 @@ async function testConn() {
       rows: [{ c1: [] }],
       rowCount: 1,
       command: "SELECT",
-      fields: [{ fieldName: "c1", dataTypeId: 1007, codec: pgclient["defaultCodecRegistry"].getCodec("_int4") },]
+      fields: [{ fieldName: "c1", dataTypeId: 1007, codec: defaultCodecRegistry.getCodec("_int4") },]
     }, res);
   }
 

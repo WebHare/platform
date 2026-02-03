@@ -10,21 +10,22 @@ async function testCodec(conn: PGConnection, type: string, tests: {
   encodings: Record<string, { decoded: any; moreToEncode?: any[] }>;
   encodeErrors?: { value: any; message: RegExp }[];
 }) {
-  const codec = conn["defaultCodecRegistry"].getCodecByName(type);
+  const defaultCodecRegistry = conn["queryInterface"].defaultCodecRegistry;
+  const codec = defaultCodecRegistry.getCodecByName(type);
   test.assert(codec, `Codec for type ${type} not found`);
   for (const [encoded, testData] of Object.entries(tests.encodings)) {
     const res = await conn.query(`SELECT $1::${type} AS val`, [encoded]);
     test.eq(testData.decoded, res.rows[0].val, `Codec test for type ${type} encoding ${encoded}`);
 
     for (const v of [testData.decoded, ...(testData.moreToEncode ?? [])]) {
-      test.eq(true, conn["defaultCodecRegistry"].testValue(codec, v), `Codec test rejected valid value: ${stringify(v, { typed: true })}`);
+      test.eq(true, defaultCodecRegistry.testValue(codec, v), `Codec test rejected valid value: ${stringify(v, { typed: true })}`);
       const res2 = await conn.query(`SELECT $1::text AS val`, [bindParam(v, type)]);
       test.eq(encoded, res2.rows[0].val, `Codec test for type ${type} decoding ${stringify(v, { typed: true })}`);
     }
   }
   for (const encodeErrorTest of tests.encodeErrors ?? []) {
     await test.throws(encodeErrorTest.message, () => conn.query(`SELECT $1 AS val`, [bindParam(encodeErrorTest.value, type)]));
-    test.eq(false, conn["defaultCodecRegistry"].testValue(codec, encodeErrorTest.value), "Codec test accepted invalid value");
+    test.eq(false, defaultCodecRegistry.testValue(codec, encodeErrorTest.value), "Codec test accepted invalid value");
   }
 }
 

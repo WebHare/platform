@@ -2,6 +2,10 @@ import type * as Code from "./types/protocol-codes";
 import type { CharToCharCode } from "./types/char-to-charcode";
 import type { SocketResponse } from "./socket";
 import type { UndocumentedBuffer } from "./types/node-types";
+import { DataTypeFallbackDecoder } from "./codecs";
+import type { AnyCodec } from "./types/codec-types";
+import { getRowDecoder, type RowDecoderData } from "./codec-support";
+import type { CodecRegistry } from "./codec-registry";
 
 export type AuthenticationOk = {
   type: Code.AuthenticationOk;
@@ -311,4 +315,18 @@ export function parseReadyForQuery(packet: SocketResponse): ReadyForQuery {
   return { transactionStatus };
 }
 
-// TODO: RowDescription
+export function parseRowDescription(packet: SocketResponse, columns: { fieldName: string; dataTypeId: number; codec: AnyCodec }[], codecRegistry: CodecRegistry): RowDecoderData {
+  const fieldCount = packet.dataview.getUint16(packet.dataStart);// buffer.readUInt16BE(packet.dataStart);
+  let offset = packet.dataStart + 2;
+  columns.splice(0, columns.length);
+  for (let i = 0; i < fieldCount; i++) {
+    const fieldNameEnd = packet.buffer.indexOf(0, offset);
+    const fieldName = packet.buffer.utf8Slice(offset, fieldNameEnd);
+    offset = fieldNameEnd + 1;
+    const dataTypeOid = packet.dataview.getUint32(offset + 6); // buffer.readUInt32BE(offset + 6);
+    offset += 18;
+    const codec = codecRegistry.getCodecByOid(dataTypeOid) ?? DataTypeFallbackDecoder as AnyCodec;
+    columns.push({ fieldName, dataTypeId: dataTypeOid, codec });
+  }
+  return getRowDecoder(columns);
+}
