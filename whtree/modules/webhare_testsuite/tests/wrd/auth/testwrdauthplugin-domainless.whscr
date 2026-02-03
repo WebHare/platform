@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -11,6 +12,7 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -629,6 +631,65 @@ MACRO TestLoginDenied()
       ]);
 }
 
+MACRO TestPasswordReset() {
+  __SetEffectiveUser(DEFAULT OBJECT); //prevent wrdauth from thinking sysop is still running/impersonating things
+  __ignore_auditcontext_console := TRUE; //and prevent it from reacting to being run from a terminal
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  STRING portalurl := OpenTestsuiteSite()->OpenByPath("portal1-domainless")->url;
+  OBJECT plugin := GetWRDAuthPlugin(portalurl);
+  INTEGER logindenieduser := schemaobj->^wrd_person->Search("wrd_contact_email", "logindenied@beta.webhare.net");
+
+  plugin->HandleForgotPassword("logindenied@beta.webhare.net", [ currenturl := portalurl]);
+  TestEqMembers([[
+    subject := NEW RegEx("^Reset your password for.*")
+  ]], testfw->ExtractAllMailFor("logindenied@beta.webhare.net"), '*');
+
+  TestAuditEvent(
+      [ entity := logindenieduser
+      , type := "platform:resetpassword"
+      , login := "logindenied@beta.webhare.net"
+      , browsertriplet := ""
+      , data := DEFAULT RECORD
+      ]);
+
+
+  // STORY: test 'accountless' user - ie if they were created as a person just to receive mail. they should not get a password teset
+  testfw->BeginWork();
+
+  schemaobj->^wrd_person->UpdateAttribute("wrdauth_account_status", [ isrequired := FALSE ]);
+  OBJECT entity := schemaobj->^wrd_person->CreateEntity(
+      [ wrd_contact_email := "mailonly@beta.webhare.net"
+      , whuser_unit := testfw->testunit
+      ]);
+
+  testfw->CommitWork();
+
+  plugin->HandleForgotPassword("mailonly@beta.webhare.net", [ currenturl := portalurl]);
+  TestEq(RECORD[], testfw->ExtractAllMailFor("mailonly@beta.webhare.net", [timeout := 250, count := 0, returnallmail := TRUE]), 'Should not get a mail');
+
+  TestAuditEvent(
+      [ entity := entity->id
+      , type := "platform:resetpassword-failed"
+      , login := "mailonly@beta.webhare.net"
+      , data := [ code := "unknown-account" ]
+      , browsertriplet := ""
+      ]);
+
+  // STORY: test truly unknown user. check we're not emailing anyone
+  plugin->HandleForgotPassword("nosuchuser@beta.webhare.net", [ currenturl := portalurl]);
+  TestEq(RECORD[], testfw->ExtractAllMailFor("nosuchuser@beta.webhare.net", [timeout := 250, count := 0, returnallmail := TRUE]), 'Should not get a mail');
+
+  TestAuditEvent(
+      [ entity := 0
+      , type := "platform:resetpassword-failed"
+      , login := "nosuchuser@beta.webhare.net"
+      , data := [ code := "unknown-account" ]
+      , browsertriplet := ""
+      ]);
+}
+
+
 Runtestframework( [ PTR PrepareServer
                   , PTR CreateMyTestSchema
                   , PTR TestWRDAuthPlugin
@@ -638,6 +699,7 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
                   , PTR TestLoginDenied
+                  , PTR TestPasswordReset
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);
