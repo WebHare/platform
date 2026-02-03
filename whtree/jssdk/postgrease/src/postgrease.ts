@@ -10,3 +10,4 @@ export { nonDateCodecs, DataTypeTimeStampTzTemporal, DataTypeTimeStampTzTemporal
 export { DatabaseError } from "./error";
 export type { PGBoundParam } from "./boundparam";
 export { bindParam, connect, type PGConnection, type PGQueryOptions, type PGQueryResult } from "./connection";
+export type { PGPassthroughQueryCallback } from "./passthroughquery";

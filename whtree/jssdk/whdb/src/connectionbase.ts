@@ -1,7 +1,12 @@
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
+import type { PGPassthroughQueryCallback } from '@webhare/postgrease';
 import type {
   PostgresPoolClient,
 } from 'kysely';
+
+export interface PoolClient extends PostgresPoolClient {
+  passthroughQuery(query: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void;
+}
 
 export type ExtraFieldsInfo = { fields: { fieldName: string; dataTypeId: number }[] };
 
@@ -14,7 +19,7 @@ export type WHDBCodecContext = {
   uploadTracker?: BlobUploadTracker;
 };
 
-export interface WHDBClientInterface extends PostgresPoolClient {
+export interface WHDBClientInterface extends PoolClient {
   close(): Promise<void>;
   getRefObject(): { ref(): void; unref(): void };
   getBackendProcessId(): number | undefined;

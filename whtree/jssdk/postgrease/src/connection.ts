@@ -11,7 +11,9 @@ import type { CachedDescription, Query } from "./types/conn-types";
 import { DatabaseError } from "./error";
 import { NormalQuery } from "./normalquery";
 import { PGBoundParam } from "./boundparam";
+import { PassthroughQuery, type PGPassthroughQueryCallback } from "./passthroughquery";
 
+export type { PGPassthroughQueryCallback } from "./passthroughquery";
 
 export type PGConnectionOptions = {
   host?: string;
@@ -218,6 +220,14 @@ export class PGConnection {
     const query = new NormalQuery(this.queryInterface, sql, params, options);
     this.scheduleQuery(query);
     return query.response.promise;
+  }
+
+  passthroughQuery(queryPackets: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void {
+    if (this.closeError)
+      throw new Error(`Connection is closed: ${this.closeError.message}`);
+
+    const query = new PassthroughQuery(this.queryInterface, queryPackets, callback);
+    this.scheduleQuery(query);
   }
 
   async close() {

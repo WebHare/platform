@@ -81,7 +81,7 @@ async function testConn() {
     }, res);
   }
 
-  // STORY: concurrently fired  queries
+  // STORY: concurrently fired queries
   {
     const app_name_query = await pgclient.query(`/*1*/SELECT name, setting FROM pg_settings WHERE name = 'application_name' LIMIT 1`);
     test.eq(1, app_name_query.rows.length);
@@ -109,6 +109,94 @@ async function testConn() {
       q4,
     });
   }
+
+  const runPassthroughQuery = (b: Buffer | AsyncIterable<Buffer>,) => new Promise<Buffer>((resolve, reject) => {
+    const responses: Buffer[] = [];
+    pgclient.passthroughQuery(b, (data) => {
+      if (data instanceof Error) {
+        reject(data);
+      } else if (data === null) {
+        resolve(Buffer.concat(responses));
+      } else {
+        responses.push(data);
+      }
+    });
+  });
+
+  // STORY: passthrough query, 1 buffer
+  {
+    const queryPackets = Buffer.from("50000000100073656c6563742031000000420000000e0000000000000001000144000000065000450000000900000000005300000004", "hex");
+    const responses = await runPassthroughQuery(queryPackets);
+    test.eq(
+      "3100000004" + // ParseComplete
+      "3200000004" + // BindComplete
+      "540000002100013f636f6c756d6e3f00000000000000000000170004ffffffff0001" + // RowDescription
+      "440000000e00010000000400000001" + // DataRow
+      "430000000d53454c454354203100" + // CommandComplete
+      "5a0000000549", // Sync
+      responses.toString("hex"));
+  }
+
+  // STORY: passthrough query, async iterable
+  {
+    async function* queryPackets() {
+      yield Buffer.from("50000000100073656c6563742031000000", "hex");
+      yield Buffer.from("420000000e00000000000000010001", "hex");
+      yield Buffer.from("44000000065000", "hex");
+      yield Buffer.from("45000000090000000000", "hex");
+      yield Buffer.from("5300000004", "hex");
+    }
+
+    const responses = await runPassthroughQuery(queryPackets());
+    test.eq(
+      "3100000004" + // ParseComplete
+      "3200000004" + // BindComplete
+      "540000002100013f636f6c756d6e3f00000000000000000000170004ffffffff0001" + // RowDescription
+      "440000000e00010000000400000001" + // DataRow
+      "430000000d53454c454354203100" + // CommandComplete
+      "5a0000000549", // Sync
+      responses.toString("hex"));
+  }
+
+  async function* makeItr<T>(...buffers: T[]) { for (const buffer of buffers) yield buffer; }
+
+  // STORY: passthrough query with incomplete packet
+  {
+    const tooShortBuffer = Buffer.from("50000000100073656c6563742031", "hex");
+    const invalidHeaderBuffer = Buffer.from("50000000100073656c656374203100000042", "hex");
+
+    await test.throws(/Invalid packet length/, runPassthroughQuery(tooShortBuffer));
+    await test.throws(/Invalid packet length/, runPassthroughQuery(makeItr(tooShortBuffer)));
+    await test.throws(/Invalid packet header in passthrough query packets/, runPassthroughQuery(invalidHeaderBuffer));
+    await test.throws(/Invalid packet header in passthrough query packets/, runPassthroughQuery(makeItr(invalidHeaderBuffer)));
+
+    // SUBSTORY: Connection still works after passthrough query error (that didn't write yet)
+    const res = await pgclient.query(`SELECT 1 + 1 as two`, []);
+    test.eq({
+      rows: [{ two: 2 }],
+      rowCount: 1,
+      command: "SELECT",
+      fields: [{ fieldName: "two", dataTypeId: 23, codec: defaultCodecRegistry.getCodec(23) }]
+    }, res);
+  }
+
+  // STORY: passthrough query with async iterator with second buffer invalid
+  {
+    const validBuffer = Buffer.from("50000000100073656c6563742031000000", "hex");
+    const invalidBuffer = Buffer.from("42", "hex");
+
+    await test.throws(/Invalid packet header in passthrough query packets/, runPassthroughQuery(makeItr(validBuffer, invalidBuffer)));
+
+    // SUBSTORY: Connection still works after passthrough query error (that didn't write yet)
+    const res = await pgclient.query(`SELECT 1 + 1 as two`, []);
+    test.eq({
+      rows: [{ two: 2 }],
+      rowCount: 1,
+      command: "SELECT",
+      fields: [{ fieldName: "two", dataTypeId: 23, codec: defaultCodecRegistry.getCodec(23) }]
+    }, res);
+  }
+
   await pgclient.close();
 }
 
