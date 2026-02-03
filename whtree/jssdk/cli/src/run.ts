@@ -76,6 +76,7 @@ type SubCommandTemplate = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
+  mixedFlags?: boolean;
   arguments?: readonly [...Array<Argument<unknown>>];
   main?: unknown;
 };
@@ -85,6 +86,7 @@ export type ParseData = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
+  mixedFlags?: boolean;
   arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: never;
   main?: unknown;
@@ -93,6 +95,7 @@ export type ParseData = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
+  mixedFlags?: boolean;
   arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: Record<string, SubCommandTemplate>;
 };
@@ -336,6 +339,7 @@ export function parse<
   let gotArgument = false;
   let gotOptionTerminator = false;
   let showHelp = false;
+  let mixedFlags = data.mixedFlags;
   const argList: string[] = [];
   argvloop:
   for (let i = 0; i < argv.length; i++) {
@@ -463,6 +467,7 @@ export function parse<
           }
           command = [arg, cmdObj];
           registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, false, cmdObj as OptData);
+          mixedFlags = cmdObj.mixedFlags ?? mixedFlags;
 
           // No need to process further if we have got a request for help
           if (showHelp)
@@ -473,6 +478,8 @@ export function parse<
 
       // Can't process the arguments inline, because required arguments at the end are supported
       argList.push(arg);
+      if (!mixedFlags)
+        gotOptionTerminator = true;
     }
   }
 
