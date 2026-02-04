@@ -124,7 +124,7 @@ async function encodeResourceDescriptor(attribute: number, value: ResourceDescri
 
   const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute, id: value.dbLoc?.id };
   if (value.sourceFile) {
-    setting.linktype = 2;
+    setting.linktype = LinkTypes.FSObject;
     setting.link = value.sourceFile;
   }
   return setting;

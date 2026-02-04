@@ -191,7 +191,7 @@ async function testBuilder() {
     await verifyRoundTrip(doc);
   }
 
-  { //test a RTD with *only* images (as either link or instance will trigger a WHFS spillover of the actua lRTD data)}
+  { //test a RTD with *only* images (as either link or instance will trigger a WHFS spillover of the actual RTD data)}
     //TODO have WRD/RTD builder fill in the missing metadata for us instead of providing all the get* options
     const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true, getDominantColor: true });
     const doc = await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }]);
