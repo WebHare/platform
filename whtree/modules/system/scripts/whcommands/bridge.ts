@@ -7,7 +7,7 @@ import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-sys
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
 import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
-import { getInspectorURL } from "@mod-platform/js/bridge/tools";
+import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
 import { throwError } from "@webhare/std";
@@ -200,6 +200,12 @@ run({
       arguments: [{ name: "<scriptpath>", description: "Path to the script" }],
       main: async ({ args }) => {
         console.log(getCachePathForFile(process.env.WEBHARE_TSBUILDCACHE || throwError("No WEBHARE_TSBUILDCACHE environment variable set"), args.scriptpath));
+      }
+    },
+    "get-locks": {
+      description: "Get current mutex locks",
+      main: async () => {
+        console.log(await listLocks());
       }
     },
     "findworker": {
