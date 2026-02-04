@@ -30,6 +30,9 @@ export interface AuthEventData {
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
   "platform:insufficient-security": { failedChecks: PasswordCheck[]; badPasswordTime: Temporal.Instant | null };
   "platform:resetpassword": void;
+  "platform:resetpassword-failed": {
+    code: "unknown-account";
+  };
   "platform:secondfactor.challenge": { challenge: string };
   //FIXME old style, remove
   "wrd:loginbyid:ok": void;

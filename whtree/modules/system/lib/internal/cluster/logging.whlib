@@ -11,6 +11,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
+PUBLIC BOOLEAN __ignore_auditcontext_console;
 
 STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
@@ -794,7 +795,7 @@ PUBLIC RECORD FUNCTION GetEnrichedAuditContext(RECORD auditcontext DEFAULTSTO DE
         , wrdschema :=        ObjectExists(effectiveuser->wrdschema) ? effectiveuser->wrdschema->tag : ""
         ];
   }
-  ELSE IF (IsConsoleSupportAvailable())
+  ELSE IF (IsConsoleSupportAvailable() AND NOT __ignore_auditcontext_console)
   {
     curuser :=
         [ user_entityid :=    -1
