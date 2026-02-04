@@ -1,27 +1,27 @@
-/* CLI tool to manage WHFS */
+// @webhare/cli: Manage WRD
+
 import { WRDSchema, describeEntity, listSchemas } from '@webhare/wrd';
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { beginWork, commitWork, runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, enumOption, run } from "@webhare/cli";
+import { CLIRuntimeError, run } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import { readFileSync } from 'node:fs';
 import YAML from 'yaml';
+import { commonFlags, commonOptions } from '@mod-platform/js/cli/cli-tools';
 
 run({
   description: "Manage WRD",
   flags: {
-    "j,json": { description: "Output in JSON format" }
+    ...commonFlags.json
   },
   subCommands: {
     "check": {
       description: "Check a WRD schema for errors",
       arguments: [{ name: "<schemamask>", description: "Schema(s) to check" }],
       flags: {
-        "v,verbose": {
-          description: "Be verbose in output"
-        },
+        ...commonFlags.verbose,
         "metadata-only": {
           description: "Only check metadata, not data integrity"
         }
@@ -60,12 +60,9 @@ run({
         console.log(JSON.stringify(await parseSchema(args.schemaresource, true, null), null, 2));
       }
     },
-    "export": {
+    "get-entity": {
       description: "Export an entity",
-      options:
-      {
-        resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" }
-      },
+      options: { ...commonOptions.resources },
       arguments: [{ name: "<id>", description: "Entity ID" }],
       main: async ({ opts, args }) => {
         const entityid = parseInt(args.id);
@@ -76,8 +73,8 @@ run({
         console.log(opts.json ? JSON.stringify(entity, null, 2) : YAML.stringify(entity));
       }
     },
-    "insert": {
-      description: "Insert an entity",
+    "create-entity": {
+      description: "Create an entity",
       arguments: [
         { name: "<schema>", description: "Schema to import into" },
         { name: "<type>", description: "Entity type to import" },
@@ -101,6 +98,8 @@ run({
         console.log(opts.json ? JSON.stringify({ wrdId: result, wrdGuid: importData.wrdGuid }) : `Inserted entity #${result} (${importData.wrdGuid})`);
       }
     },
+    /* TODO consider whether to keep this, and support all fields, and turn it into update-entity-field ?
+            or drop this in favor of an update-entity that expects a JSON body with updates ? */
     "update": {
       description: "Update an entity",
       arguments: [
