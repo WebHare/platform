@@ -44,8 +44,8 @@ export class RestAPIWorkerPool {
       ++bestEntry.activeCalls;
       ++bestEntry.totalCalls;
     } else {
-      const id = `worker-${this.id}-${++this.counter}`;
       const worker = new AsyncWorker();
+      const id = `worker-${this.id}-${++this.counter}-${worker.id}`;
       this.workers.push(bestEntry = {
         worker,
         activeCalls: 1,

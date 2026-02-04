@@ -25,6 +25,12 @@ type AsyncWorkerEvents = {
   error: Error;
 };
 
+const activeWorkers = new Set<WeakRef<AsyncWorker>>();
+
+const activeWorkersFinalizationRegistry = new FinalizationRegistry<WeakRef<AsyncWorker>>((workerRef) => activeWorkers.delete(workerRef));
+
+(globalThis.whDebug ??= {}).activeAsyncWorkers = activeWorkers;
+
 class AsyncWorkerState {
   requests: Record<string, PromiseWithResolvers<WorkerControlLinkResponse | WorkerServiceLinkResponse>> = {};
   closed = false;
@@ -56,12 +62,16 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
   private port: TypedMessagePort<WorkerControlLinkRequest, WorkerControlLinkResponse>;
   private state = new AsyncWorkerState(this);
   private refs: RefTracker;
+  private _id: string;
+
+  get id() { return this._id; }
 
   constructor() {
     super();
     const ports = createTypedMessageChannel<WorkerControlLinkRequest, WorkerControlLinkResponse>("AsyncWorker");
     this.port = ports.port1;
     const localHandlerInitData = bridge.getLocalHandlerInitDataForWorker();
+    this._id = localHandlerInitData.workerid;
     this.worker = new Worker(require.resolve("./worker_handler.ts"), {
       workerData: {
         port: ports.port2,
@@ -91,6 +101,9 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     this.port.unref();
     portcloser.register(this, this.port);
     initializedWorker();
+    const weakThis = new WeakRef(this);
+    activeWorkers.add(weakThis);
+    activeWorkersFinalizationRegistry.register(this, weakThis);
   }
 
   private checkClosed() {
