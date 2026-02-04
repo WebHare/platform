@@ -20,6 +20,7 @@ import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logm
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
 import { getScriptName } from "@webhare/system-tools";
 import type { Socket } from "node:net";
+import { allocateWorkerNr } from "@webhare/services/src/symbols";
 
 export type { IPCMessagePacket, IPCLinkType } from "./ipc";
 export type { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -62,8 +63,6 @@ export interface LogNoticeOptions {
 export interface LogErrorOptions extends LogNoticeOptions {
   errortype?: "exception" | "unhandledRejection";
 }
-
-let nextWorkerNr = 0;
 
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
@@ -620,7 +619,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
-    const workernr = ++nextWorkerNr;
+    const workernr = allocateWorkerNr();
     const workerid = generateRandomId();
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.RegisterLocalBridge,
