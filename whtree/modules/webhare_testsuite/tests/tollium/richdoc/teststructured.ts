@@ -183,6 +183,14 @@ test.runTests(
         test.eq('26', test.compByName('height').querySelector('input').value);
         test.eq('27', test.compByName('width').querySelector('input').value);
 
+        test.clickTolliumButton("OK");
+        await test.waitForUI();
+
+        //Now try a doubleclick to open the dialog
+        test.click(rte.qSA('img')[0]);
+        test.click(rte.qSA('img')[0]);
+        await test.waitForUI();
+
         test.setTodd('overridedimensions!cbox', true);
         await test.wait("ui");
         test.setTodd('height', '13');

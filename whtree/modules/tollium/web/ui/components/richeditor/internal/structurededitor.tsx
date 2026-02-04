@@ -370,7 +370,7 @@ export default class StructuredEditor extends EditorBase {
 
     // If the editor is disabled, the button is still enabled if clicked within an explicitly writable embedded component
     if (!this.isEditable() && !this._getTopmostEmbeddedObject(button)?.classList.contains("wh-rtd-embeddedobject--writable"))
-       return;
+      return;
 
     if (button) {
       event.preventDefault();
@@ -402,16 +402,15 @@ export default class StructuredEditor extends EditorBase {
 
   _gotDoubleClick(event) {
     const embobj = this._getTopmostEmbeddedObject(event.target);
-    // If the editor is disabled, the embedded object can still be edited if made explicitly writable
-    if (!embobj || (!this.isEditable() && !embobj.classList.contains("wh-rtd-embeddedobject--writable")))
-      return;
 
-    if (embobj) {
-      event.preventDefault();
-      event.stopPropagation();
+    // Do we have an embedded object to edit? If the editor is disabled, the embedded object can still be edited if made explicitly writable
+    if (embobj && (this.isEditable() || embobj.classList.contains("wh-rtd-embeddedobject--writable"))) {
+      dompack.stop(event);
       this.launchActionPropertiesForNode(embobj, 'edit');
       return;
     }
+
+    // Fallback, eg for image edit
     super._gotDoubleClick(event);
   }
 
