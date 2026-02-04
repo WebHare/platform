@@ -6,6 +6,7 @@ import { unpackArchive, unpackArchiveFromDisk, type UnpackArchiveResult } from '
 import XlsxStreamReaderWorkBook from './workbook';
 
 export type { XlsxRow, XlsxCellValue } from './worksheet';
+export type { XlsxStreamReaderWorkBook };
 
 export interface OpenXlsxOptions {
   rawStringCells?: boolean;

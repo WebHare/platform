@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/wasm.whlib";
@@ -31,6 +32,9 @@ IF (IsWasm())
 
 INTEGER keephistory := 20; // in seconds
 INTEGER checkinterval := 10; // in seconds
+
+// Create BEFORE we create the port
+OBJECT commport;
 
 /* Interaction
 
@@ -98,12 +102,20 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
     // Wait for queries for existance, and broadcast our own existance
     RegisterEventCallback("tollium:applicationstarter.query", PTR this->GotExistenceQuery);
-    BroadcastEvent("tollium:applicationstarter.exists", [ id := this->localid ]);
+    this->EmitExistsEvent();
     RegisterEventCallback("system:debugger.*", PTR this->GotDebuggerEvent);
 
     this->ReloadDebuggerConfig();
     FOREVERY (STRING mask FROM this->debugconfig.eventmasks)
       RegisterEventCallback("system:debugger.configchange", PTR this->GotDebuggerConfigInvalidation);
+  }
+
+  MACRO EmitExistsEvent() {
+    BroadcastEvent("tollium:applicationstarter.exists", [
+      id := this->localid,
+      portname := ObjectExists(commport) ? commport->name : "",
+      pid := GetProcessId()
+    ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -145,7 +157,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
   MACRO GotExistenceQuery(STRING event, RECORD data)
   {
-    BroadcastEvent("tollium:applicationstarter.exists", [ id := this->localid ]);
+    this->EmitExistsEvent();
   }
 
   MACRO GotDebuggerConfigInvalidation(STRING event, RECORD data)
@@ -590,10 +602,6 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     this->dispatcher->ProcessSignalledHandle(handle);
   }
 >;
-
-
-// Create BEFORE we create the port
-OBJECT commport;
 
 IF (IsWasm())
   commport := CreateGlobalIPCPort("tollium:wasm-appstarter");

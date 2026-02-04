@@ -128,8 +128,10 @@ GLOBALLDFLAGS += -Llib
 
 ifeq ($(BUILDSYSTEM),gcc)
   CXXFLAGS+=-std=c++20 -Wno-deprecated-declarations
+	CXXFLAGS_WASM+=-std=c++20
 else
 	CXXFLAGS+=-std=c++20 -Wno-deprecated-declarations
+	CXXFLAGS_WASM+=-std=c++20
 	ifeq ($(WEBHARE_PLATFORM),darwin)
 		CXXFLAGS+=-stdlib=libc++ -Wno-nan-infinity-disabled
 		GLOBALLDFLAGS+=-stdlib=libc++
@@ -993,7 +995,7 @@ endif # end darwin check
 #
 
 #ADDME autogenerate lists below
-BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
+BIN_ALIASES = webhare $(RUNTEST) vmtest $(AP_DEPLOYABLES_SERVERS) $(AP_DEPLOYABLES_UTILS)
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_webhare hsm_parser_adobe_pdf
 WASM_ALIASES = harescript
 

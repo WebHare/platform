@@ -380,7 +380,6 @@ export const DataTypeTimeStampTzTemporal: Codec<Temporal.Instant | Date | number
   },
   decodeBinary: (buffer, dataview, offset, len) => {
     const microSeconds = dataview.getBigInt64(offset);
-    console.log({ microSeconds });
     if (microSeconds === maxInt64) return Infinity;
     if (microSeconds === minInt64) return -Infinity;
 

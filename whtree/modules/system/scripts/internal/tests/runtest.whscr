@@ -9,6 +9,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/wasm.whlib";
@@ -179,6 +180,12 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         }
       }
 
+      STRING curr_webhare_debug := GetEnvironmentVariable("WEBHARE_DEBUG");
+      STRING debugflags := Detokenize(ArrayDelete(STRING[
+        GetEnvironmentVariable("WEBHARE_DEBUG"),
+        ...testinfo.debugflags
+      ], [ "" ]), ",");
+
       MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || (engine != "" ? engine || " " : "") || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
       WriteLogMarker("Test " || testinfo.testname || (testinfo.xfail ? " (xfailed)" : ""));
 
@@ -192,8 +199,8 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         IF (tries != 0)
           MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Retry failed flaky test " || testinfo.testname  || " (try " || tries + 1 || ")\n");
 
-        success := run_in_job ? WaitForPromise(RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail, testinfo.timeout))
-                              : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env, testinfo.timeout);
+        success := run_in_job ? WaitForPromise(RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail, testinfo.timeout, debugflags))
+                              : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env, testinfo.timeout, debugflags);
         IF (success OR NOT testinfo.flaky)
           BREAK;
       }
@@ -299,17 +306,17 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 }
 
 
-BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, RECORD ARRAY addenv, INTEGER timeout_msecs)
+BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, RECORD ARRAY addenv, INTEGER timeout_msecs, STRING debugflags)
 {
   BOOLEAN success := TRUE;
 
   IF (testrunner->print_debug)
     Print(`; Using command: ${runner} ${script} ${Detokenize(arguments,' ')}\n`);
 
-  IF (profiling != "") //TODO how useful is this, as we'd be clearing out any other debug settings for our child process
-  {
-    addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
-  }
+  IF (profiling != "")
+    debugflags := Detokenize(ArrayDelete([ debugflags, profiling, `context=${testname}` ], [ "" ]), ",");
+
+  addenv := addenv CONCAT [ [ name := "WEBHARE_DEBUG", value := debugflags ] ];
 
   RECORD ARRAY env := GetEnvironment();
   FOREVERY(RECORD envvar FROM addenv) //Remove vars from environment we're overwriting
@@ -461,7 +468,7 @@ RECORD FUNCTION ReturnTimeout(INTEGER timeoutduration)
   RETURN [ done := FALSE, value := [ type := "timeout" ]];
 }
 
-ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, INTEGER timeout_msecs)
+ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, INTEGER timeout_msecs, STRING debugflags)
 {
   BOOLEAN success := TRUE;
 
@@ -485,12 +492,11 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   INTEGER outputstream := delay_output ? CreateStream() : 0;
   INTEGER joboutput := job->CaptureOutput();
   job->SetConsoleArguments(arguments);
+  RECORD ARRAY env := SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_DEBUG";
   IF (profiling != "")
-  {
-    RECORD ARRAY env := SELECT * FROM GetEnvironment() WHERE name != "WEBHARE_DEBUG";
-    env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
-    job->SetEnvironment(env);
-  }
+    debugflags := Detokenize(ArrayDelete([ debugflags, profiling, `context=${testname}` ], [ "" ]), ",");
+  env := env CONCAT [ [ name := "WEBHARE_DEBUG", value := profiling || ",context=" || testname ] ];
+  job->SetEnvironment(env);
   job->Start();
   STRING alloutput;
   STRING currtype := "";

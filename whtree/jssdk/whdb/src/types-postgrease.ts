@@ -57,7 +57,7 @@ export const BlobType: Codec<WebHareBlob, WebHareBlob> = {
 
     const databaseid = uploadedblobs.get(value);
     if (!databaseid) {
-      console.log({ value });
+      console.error(`Blob inserted to database without uploading it first:`, value);
       throw new Error(`Attempting to insert a blob without uploading it first`);
     }
     const databaseIdLen = Buffer.byteLength(databaseid, 'utf8');

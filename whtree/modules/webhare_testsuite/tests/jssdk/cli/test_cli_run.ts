@@ -19,6 +19,30 @@ async function testCLIMainParse() {
     arguments: [],
   }, []));
 
+  // After the first argument flags and options are not parsed
+  test.throws(/too many arguments/i, () => parse({
+    flags: {
+      "v,verbose": { default: false, description: "Show verbose output" },
+    },
+    options: {
+      "with-blabla": { default: "", description: "String param" }
+    },
+    arguments: [{ name: "<file>", description: "The file to process" }],
+  }, ["a", "--with-blabla", "b"]));
+
+  // After the first argument flags and options are not parsed when mixedFlags is false
+  test.throws(/too many arguments/i, () => parse({
+    flags: {
+      "v,verbose": { default: false, description: "Show verbose output" },
+    },
+    mixedFlags: false,
+    options: {
+      "with-blabla": { default: "", description: "String param" }
+    },
+    arguments: [{ name: "<file>", description: "The file to process" }],
+  }, ["a", "--with-blabla", "b"]));
+
+  // Flags and options are parsed after the first argument when mixedFlags is true
   test.eq({
     cmd: undefined,
     args: { file: "a" },
@@ -33,8 +57,10 @@ async function testCLIMainParse() {
     options: {
       "with-blabla": { default: "", description: "String param" }
     },
+    mixedFlags: true,
     arguments: [{ name: "<file>", description: "The file to process" }],
   }, ["a", "--with-blabla", "b"]));
+
 
   test.eq({
     cmd: undefined,

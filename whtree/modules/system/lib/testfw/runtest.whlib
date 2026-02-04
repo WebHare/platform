@@ -38,6 +38,18 @@ RECORD FUNCTION GetCachedModuleValidationConfig(STRING modulename)
   RETURN modulevalidationconfigcache[pos.position];
 }
 
+STRING ARRAY FUNCTION UpdateDebugFlags(STRING ARRAY baseflags, STRING ARRAY updates) {
+  FOREVERY (STRING flag FROM updates) {
+    IF (flag LIKE "-*")
+      baseflags := ArrayDelete(baseflags, Substring(flag, 1));
+    ELSE {
+      flag := flag LIKE "+*" ? Substring(flag, 1) : flag;
+      IF (flag NOT IN baseflags)
+        INSERT flag INTO baseflags AT END;
+    }
+  }
+  RETURN baseflags;
+}
 
 PUBLIC STATIC OBJECTTYPE RunTests
 <
@@ -114,7 +126,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
            ];
   }
 
-  RECORD ARRAY FUNCTION ParseXMLNode(RECORD testsettings, STRING testfile, OBJECT node, STRING testname, RECORD ARRAY params, BOOLEAN skipauto, STRING webroot, STRING sitename, RECORD validationconfig, STRING groupengine)
+  RECORD ARRAY FUNCTION ParseXMLNode(RECORD testsettings, STRING testfile, OBJECT node, STRING testname, RECORD ARRAY params, BOOLEAN skipauto, STRING webroot, STRING sitename, RECORD validationconfig, STRING groupengine, STRING ARRAY groupdebugflags)
   {
     STRING url := webroot != "" ? UpdateURLVariables(ResolveToAbsoluteURL(webroot, "/.system/jstests/"), [ site := sitename ]) : "";
     RECORD ARRAY tests;
@@ -137,6 +149,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
           STRING name := elt->GetAttribute("name");
           BOOLEAN inner_skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
           STRING engine := groupengine ?? elt->GetAttribute("engine");
+          STRING ARRAY debugflags := UpdateDebugFlags(groupdebugflags, ParseXSList(elt->GetAttribute("debugflags")));
 
           STRING inner_site := sitename;
           STRING inner_webroot := webroot;
@@ -153,7 +166,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
             subtestname := subtestname || (subtestname != "" ? "." : "") || name;
 
           RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
-          tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, validationconfig, engine);
+          tests := tests CONCAT this->ParseXMLNode(localtestsettings, testfile, elt, subtestname, params, inner_skipauto, inner_webroot, inner_site, validationconfig, engine, debugflags);
         }
 
       CASE "jstest"
@@ -215,6 +228,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
           STRING path := elt->GetAttribute("path");
           STRING name := elt->GetAttribute("name");
           STRING engine := groupengine ?? elt->GetAttribute("engine");
+          STRING ARRAY debugflags := UpdateDebugFlags(groupdebugflags, ParseXSList(elt->GetAttribute("debugflags")));
           params := this->UpdateParams(testfile, params, this->cmdparams);
           IF (path != "")
           {
@@ -231,7 +245,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
             BOOLEAN localskipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ];
             BOOLEAN okifmissing := ParseXSBoolean(elt->GetAttribute("okifmissing"));
             RECORD localtestsettings := ApplyTestSettings(testsettings, elt);
-            tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, okifmissing, validationconfig, engine);
+            tests := tests CONCAT this->GatherTests(localtestsettings, subfile, subtestname, localskipauto, webroot, sitename, okifmissing, validationconfig, engine, debugflags);
           }
           ELSE IF (script != "")
           {
@@ -265,6 +279,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                 , sitename
                 , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
                 , runmode := elt->GetAttribute("runmode")
+                , debugflags
                 , validationconfig
                 , timeout := ParseXSInt(elt->GetAttribute("timeout")) ?? default_test_timeout
                 , env := RECORD[]
@@ -294,7 +309,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
     RETURN FALSE;
   }
 
-  RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN okifmissing, RECORD validationconfig, STRING groupengine)
+  RECORD ARRAY FUNCTION GatherTests(RECORD testsettings, STRING testfile, STRING rootpath, BOOLEAN localskipauto, STRING webroot, STRING sitename, BOOLEAN okifmissing, RECORD validationconfig, STRING groupengine, STRING ARRAY groupdebugflags)
   {
 
   //  IF (print_debug)
@@ -317,7 +332,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
       [ [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
       ];
 
-    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, validationconfig, groupengine);
+    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, validationconfig, groupengine, groupdebugflags);
     RETURN tests;
   }
 
@@ -383,7 +398,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
         CONTINUE;
 
       RECORD validationconfig := GetModuleValidationConfig(mod);
-      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "", FALSE, validationconfig, "");
+      tests := tests CONCAT this->GatherTests(basetestsettings, modtestfile, mod="webhare_testsuite"?"":mod, FALSE, this->basetesturl, "", FALSE, validationconfig, "", STRING[]);
     }
 
     RETURN tests;

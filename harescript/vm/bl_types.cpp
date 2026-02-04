@@ -1221,10 +1221,6 @@ void DescribeObjectStructure(VarId id_set, VirtualMachine *vm)
 
         stackm.InitVariable(id_set, VariableTypes::Record);
 
-        Blex::SemiStaticPodVector< LinkedLibrary::LinkedObjectDef const *, 16 > objdefs;
-        if (!vm->GetObjectDefinitions(HSVM_Arg(0), &objdefs))
-            return;
-
         HSVM_VariableId members =   stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("MEMBERS"));
         HSVM_VariableId methods =   stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("METHODS"));
         HSVM_VariableId properties = stackm.RecordCellCreate(id_set, vm->columnnamemapper.GetMapping("PROPERTIES"));
@@ -1233,6 +1229,11 @@ void DescribeObjectStructure(VarId id_set, VirtualMachine *vm)
         stackm.InitVariable(members, VariableTypes::RecordArray);
         stackm.InitVariable(methods, VariableTypes::RecordArray);
         stackm.InitVariable(properties, VariableTypes::RecordArray);
+        stackm.SetBoolean(isstatic, false);
+
+        Blex::SemiStaticPodVector< LinkedLibrary::LinkedObjectDef const *, 16 > objdefs;
+        if (!vm->GetObjectDefinitions(HSVM_Arg(0), &objdefs))
+            return;
 
         ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(stackm.ObjectGetTypeDescriptor(HSVM_Arg(0)));
         stackm.SetBoolean(isstatic, type->objdefs.back()->def->flags & ObjectTypeFlags::Static);

@@ -138,29 +138,6 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         friend struct ParamsEncoder;
 };
 
-
-struct PGSQLConn
-{
-        PGconn *conn;
-
-        PGSQLConn();
-        ~PGSQLConn();
-};
-
-/** Global PG data, per VM */
-struct PGSQLProviderContextData
-{
-        PGSQLProviderContextData();
-        ~PGSQLProviderContextData();
-
-        typedef IdMapStorage< std::shared_ptr< PGSQLConn > > ConnStorage;
-
-        /// List of connections
-        ConnStorage conns;
-};
-
-const unsigned PGSQLProviderContextId = 23;
-
 } // End of namespace PGSQL
 } // End of namespace SQLLib
 } // End of namespace HareScript
