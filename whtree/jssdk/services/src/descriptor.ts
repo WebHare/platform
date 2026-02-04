@@ -54,9 +54,10 @@ const metadataFields = ["extension", "mediaType", "width", "height", "rotation",
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
+export type ExportResourcesOptions = "fetch" | "base64";
 export type ExportOptions = {
   export?: boolean;
-  exportResources?: "fetch" | "base64";
+  exportResources?: ExportResourcesOptions;
   mapWhfsLink?: (data: {
     id: number;
     whfsPath: string;

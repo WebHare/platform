@@ -5,6 +5,7 @@ import { listInstances, openFile, openFileOrFolder, whfsType, type WHFSFile, typ
 import type { FileTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
+import type { ExportResourcesOptions } from "@webhare/services/src/descriptor";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -21,7 +22,7 @@ export async function resolvePath(req: { params: { path?: string }; authorizatio
   return target;
 }
 
-async function getInstances(obj: WHFSObject) {
+async function getInstances(obj: WHFSObject, exportResources: ExportResourcesOptions) {
   const typeinfo = await obj.describeType();
   const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>["instances"] = [
     {
@@ -44,7 +45,7 @@ async function getInstances(obj: WHFSObject) {
     if (instance.orphan)
       continue;
 
-    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, { export: true, exportResources: "fetch" });
+    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, { export: true, exportResources });
     instanceList.push({
       whfsType: instance.scopedType || instance.namespace,
       clone: instance.clone,
@@ -55,18 +56,29 @@ async function getInstances(obj: WHFSObject) {
   return instanceList;
 }
 
+export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportResources: ExportResourcesOptions): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
+  const result: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok> = {
+    name: targetObj.name,
+    whfsPath: targetObj.whfsPath,
+    modified: targetObj.modified.toString(),
+    type: targetObj.type,
+    ...(targetObj.isFolder ? { isFolder: true } : {}),
+    ...(targetObj.link ? { link: targetObj.link } : {})
+  };
+
+  if (instances) {
+    result.instances = await getInstances(targetObj, exportResources);
+  }
+  return result;
+}
+
 export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">): Promise<OpenAPIResponse> {
   try {
-    const targetObj = await resolvePath(req);
-    const result: OpenAPIResponseType<typeof req, HTTPSuccessCode.Ok> = {
-      name: targetObj.name,
-      whfsPath: targetObj.whfsPath,
-      modified: targetObj.modified.toString(),
-      type: targetObj.type,
-      ...(targetObj.isFolder ? { isFolder: true } : {}),
-      ...(targetObj.link ? { link: targetObj.link } : {})
-    };
+    if (req.params.instances && req.params.instances !== "*")
+      return req.createErrorResponse(400, { error: "instances parameter must be '*' if set" });
 
+    const targetObj = await resolvePath(req);
+    const result = await exportWHSFObject(targetObj, req.params.instances || '', "fetch");
     if (targetObj.isFolder && req.params.children === true) {
       result.children = (await targetObj.list(["modified", "type", "link"])).map(item => ({
         name: item.name,
@@ -77,13 +89,6 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
         ...(item.link ? { link: item.link } : {})
       }));
     }
-    if (req.params.instances) {
-      if (req.params.instances !== "*")
-        return req.createErrorResponse(400, { error: "instances parameter must be '*' if set" });
-
-      result.instances = await getInstances(targetObj);
-    }
-
     return req.createJSONResponse(200, result);
   } catch (e) {
     if (e instanceof WHFSAPIError) {
@@ -180,18 +185,23 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
   }
 }
 
+export async function applyWHFSObjectUpdates(targetObject: WHFSObject, body: TypedRestRequest<AuthorizedWRDAPIUser, "patch /whfs/object">["body"]) {
+  const virtualMetadata = body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
+  if (virtualMetadata) {
+    const updates = await mapVirtualMetaData(targetObject, virtualMetadata);
+    if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
+      await targetObject.update(updates);
+    }
+  }
+  await applyInstanceUpdates(targetObject, body.instances);
+
+}
+
 export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, "patch /whfs/object">): Promise<OpenAPIResponse> {
   try {
     const targetObject = await resolvePath(req);
     return await runInWork(async () => {
-      const virtualMetadata = req.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
-      if (virtualMetadata) {
-        const updates = await mapVirtualMetaData(targetObject, virtualMetadata);
-        if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
-          await targetObject.update(updates);
-        }
-      }
-      await applyInstanceUpdates(targetObject, req.body.instances);
+      await applyWHFSObjectUpdates(targetObject, req.body);
       return req.createJSONResponse(200, {});
     });
   } catch (e) {

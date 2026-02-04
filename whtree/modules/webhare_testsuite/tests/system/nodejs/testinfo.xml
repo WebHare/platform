@@ -31,6 +31,7 @@
   <test script="test_whfs_harescript.ts" />
   <test script="test_whfs_events.ts" flaky="true" />
   <test script="test_whfs_imexport.ts" />
+  <test script="test_whfs_cli.ts" />
   <test script="test_whdb.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
