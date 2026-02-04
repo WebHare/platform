@@ -4,6 +4,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
+LOADLIB "mod::platform/lib/dialogs.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -327,12 +329,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
 
   MACRO DoOIDCClient() {
-    IF(NOT ObjectExists(this->contexts->wrdschema->GetType("WRDAUTH_OIDC_CLIENT"))) {
-      this->RunSimpleScreen("error", this->GetTid(".oidcclient-not-configured"));
-      RETURN;
-    }
-
-    this->RunScreen("mod::wrd/tolliumapps/oidc/client.xml#providers");
+    RunManageOIDCProvidersDialog(this);
   }
 
   MACRO DoAuditLog()

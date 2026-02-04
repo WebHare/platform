@@ -14,6 +14,10 @@
       <free tag="metadataurl" />
       <free tag="clientid" />
       <json tag="client_signing" unsafetocopy="true" typedeclaration="@webhare/auth#ClientSigning" />
+      <array tag="extra_params" description="Extra parameters to pass in the authorize request (eg 'claims')">
+        <free tag="param" />
+        <free tag="value" />
+      </array>
       <free tag="clientsecret" unsafetocopy="true" description="Old string format client secret key"/>
       <datetime tag="secret_expiration" description="When is the secret known to expire (allows us to give warnings)" />
       <free tag="additionalscopes" />

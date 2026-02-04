@@ -1,6 +1,21 @@
 <?wh
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
 PUBLIC MACRO RunShareApplicationLinkDialog(OBJECT opener, STRING link, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(CELL[], options);
   opener->RunScreen("mod::platform/tolliumapps/applicationlink/applicationlink.xml#sharelink", CELL [ link ]);
+}
+
+PUBLIC MACRO RunManageOIDCProvidersDialog(OBJECT opener, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ wrdschema := DEFAULT OBJECT], options);
+
+  OBJECT wrdschema := options.wrdschema ?? opener->contexts->wrdschema;
+  IF(NOT ObjectExists(wrdschema) OR NOT ObjectExists(wrdschema->GetType("WRDAUTH_OIDC_CLIENT"))) {
+    opener->RunSimpleScreen("error", GetTid("wrd:browser.main.oidcclient-not-configured"));
+    RETURN;
+  }
+
+  opener->RunScreen("mod::wrd/tolliumapps/oidc/client.xml#providers", CELL [], CELL[ contexts := CELL[ wrdschema ]]);
 }
