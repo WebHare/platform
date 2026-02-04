@@ -654,7 +654,7 @@ MACRO TestPasswordReset() {
       ]);
 
 
-  // STORY: test 'accountless' user - ie if they were created as a person just to receive mail. they should not get a password teset
+  // STORY: test 'accountless' user - ie if they were created as a person just to receive mail. they should not get a password reset
   testfw->BeginWork();
 
   schemaobj->^wrd_person->UpdateAttribute("wrdauth_account_status", [ isrequired := FALSE ]);
