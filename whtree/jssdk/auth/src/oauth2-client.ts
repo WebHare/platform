@@ -31,6 +31,7 @@ declare module "@webhare/services" {
         redirecturl: string;
         authorizeurl: string;
         authtokenurl: string;
+        extra_params: Array<{ param: string; value: string }>;
       };
       tokeninfo?: OAuth2Tokens;
     };
@@ -135,6 +136,7 @@ type OAuth2ClientInfo = {
   clientSigning?: ClientSigning;
   additionalScopes: string[];
   clientWrdId?: number;
+  extraParams: Array<{ param: string; value: string }>;
 };
 
 export class OAuth2Client {
@@ -180,6 +182,7 @@ export class OAuth2Client {
         clientid: this.clientinfo.clientId,
         clientsecret: this.clientinfo.clientSecret || '',
         clientsigning: this.clientinfo.clientSigning ? toSnakeCase(this.clientinfo.clientSigning) : null,
+        extra_params: this.clientinfo.extraParams,
         redirecturl,
         authorizeurl: metadata.config.authorization_endpoint ?? throwError(`OIDC provider at ${this.clientinfo.metadataUrl} has no authorization_endpoint`),
         authtokenurl: metadata.config.token_endpoint ?? throwError(`OIDC provider at ${this.clientinfo.metadataUrl} has no token_endpoint`),
@@ -216,6 +219,8 @@ export class OAuth2Client {
       authurl.searchParams.set("code_challenge", createCodeChallenge(options.codeVerifier, "S256"));
       authurl.searchParams.set("code_challenge_method", "S256");
     }
+    for (const addVar of state.oauthconfig.extra_params)
+      authurl.searchParams.set(addVar.param, addVar.value);
 
     return { type: "redirect", url: authurl.toString() };
   }
@@ -224,7 +229,7 @@ export class OAuth2Client {
 export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, provider: number | string) {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<System_UsermgmtSchemaType>; //TODO better schema type but at least this one has the OIDC Client
   const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthOidcClient", { wrdTag: provider }) ?? throwError(`No OIDC provider with tag ${provider} found`);
-  const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning"]) ?? throwError(`No OIDC service provider #${providerId} found`);
+  const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning", "extraParams"]) ?? throwError(`No OIDC service provider #${providerId} found`);
 
   return new OAuth2Client({
     metadataUrl: spData.metadataurl,
@@ -234,7 +239,8 @@ export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSche
     clientSecret: spData.clientsecret,
     clientSigning: spData.clientSigning || undefined,
     additionalScopes: spData.additionalscopes.split(" ").map(s => s.trim()).filter(s => s),
-    clientWrdId: providerId
+    clientWrdId: providerId,
+    extraParams: spData.extraParams
   });
 }
 
