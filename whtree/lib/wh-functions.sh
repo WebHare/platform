@@ -100,13 +100,13 @@ function getmoduledir_nofail() {
   local XXMODULEDIR
 
   if [ -d "$WEBHARE_DIR/modules/$2" ]; then #it's a builtin
-    eval $1="$WEBHARE_DIR/modules/\$2/"
+    printf -v "$1" "%s" "$WEBHARE_DIR/modules/$2/"
     return 0
   fi
 
   XXMODULEDIR="$(readlink "$WEBHARE_DATAROOT"/config/mod/"$2")"
   if [ -n "$XXMODULEDIR" ]; then
-    eval $1="\$XXMODULEDIR"
+    printf -v "$1" "%s" "$XXMODULEDIR"
     return 0
   fi
   return 1
@@ -123,7 +123,7 @@ function getmoduledir() {
     echo "No such module $2" 1>&2
     exit 1
   fi
-  eval $1="\$XMODULEDIR"
+  printf -v "$1" "%s" "$XMODULEDIR"
   return 0
 }
 
@@ -132,9 +132,11 @@ function resolveresourcepath() {
 
   if [[ $2 =~ ^mod::([^/]+)/?(.*)?$ ]]; then
     getmoduledir MODPATH "${BASH_REMATCH[1]}"
-    eval $1="\${MODPATH}\${BASH_REMATCH[2]}"
+    printf -v "$1" "%s" "${MODPATH}${BASH_REMATCH[2]}"
+  elif [[ $2 =~ ^storage::([^/]+)/?(.*)?$ ]]; then
+    printf -v "$1" "%s" "${WEBHARE_DATAROOT}storage/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
   else
-    eval $1="\$2"
+    printf -v "$1" "%s" "$2"
   fi
 }
 

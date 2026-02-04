@@ -20,8 +20,7 @@ PUBLIC OBJECTTYPE OverwritingProtectedWRDSchemaException EXTEND Exception
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
-<
+PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport <
   OBJECT export_wrdschema;
   OBJECT import_wrdschema;
   OBJECT rtdtype;
@@ -37,6 +36,7 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   PUBLIC MACRO PTR onoverwritingschema;
   PUBLIC MACRO PTR onimportedreference;
   PUBLIC BOOLEAN ignoremissingreferences;
+  PUBLIC BOOLEAN ignorepayments;
   INTEGER ARRAY skipattrids;
   INTEGER ARRAY skiptypeids;
 
@@ -397,9 +397,12 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
       backupfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [ deletion := AddDaystoDate(numdaystokeep, GetCurrentDatetime()) ]);
   }
 
-  UPDATE PUBLIC MACRO RunImport(BLOB data)
-  {
+  UPDATE PUBLIC MACRO RunImport(BLOB data) {
     this->newschemaid := MakeAutonumber(wrd.schemas,"id");
+    IF(this->ignorepayments) {
+      this->RemoveTableCascade("wrd.pendingpayments");
+      this->IgnoreImportTable("wrd.pendingpayments");
+    }
     DatabaseImExport::RunImport(data);
     RescanWRDConsilioLinks(this->newschemaid);
   }

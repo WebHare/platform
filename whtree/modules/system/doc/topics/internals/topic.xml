@@ -1,9 +1,7 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="WebHare internals"
-       docorder="coredevelopment
-                 documenting
+       docorder="documenting
                  profiling
-                 cli-guide
                  events
                  classnames
                  ">
