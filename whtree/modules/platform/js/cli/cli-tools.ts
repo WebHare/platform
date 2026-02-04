@@ -1,4 +1,5 @@
 import { enumOption } from "@webhare/cli";
+import { openFileOrFolder } from "@webhare/whfs";
 
 //Shared code for WebHare CLI tools
 export const commonFlags = {
@@ -9,3 +10,7 @@ export const commonFlags = {
 export const commonOptions = {
   resources: { resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" } }
 } as const;
+
+export async function resolveWHFSPathArgument(path: string) {
+  return openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowHistoric: true });
+}

@@ -1,17 +1,19 @@
-/* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format
-    wh whfs export --pretty --force 'site::My Site' '/tmp/mysite.zip'
-*/
+// @webhare/cli: Manage WebHare file system (WHFS)
 
-import { describeWHFSType, openFile, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
+import { describeWHFSType, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
 import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webhare/cli";
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
 import { stringify } from '@webhare/std';
 import type { InstanceExport } from '@webhare/whfs/src/contenttypes';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
-import { db, sql } from '@webhare/whdb';
+import { db, runInWork, sql } from '@webhare/whdb';
 import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
+import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
+import YAML from 'yaml';
+import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platform/js/cli/cli-tools';
+import { readFileSync } from 'fs';
 
 interface ExportWHFSTreeOptions {
   space?: string | number;
@@ -23,6 +25,10 @@ type ExportedProperties = {
   /** Other instances (ie *not* the primary content) */
   instances?: InstanceExport[];
 };
+
+/* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format
+    wh whfs create-experimental-archive --pretty --force 'site::My Site' '/tmp/mysite.zip'
+*/
 
 async function exportWHFSTree(source: WHFSObject, basePath: string, target: CreateArchiveController, options?: ExportWHFSTreeOptions) {
   if (!source.isFolder)
@@ -205,16 +211,16 @@ async function displayUsage(opts: { threshold: number; maxDepth?: number; versio
 }
 
 run({
-  description: 'Manage WebHare file system',
+  description: '',
   flags: {
-    "j,json": { description: "Output in JSON format" }
+    ...commonFlags.json
   },
   subCommands: {
-    get: {
+    "get-data": {
       description: "Get a file's data from the WHFS",
       arguments: [{ name: "<path>", description: "File path" }],
       main: async ({ opts, args }) => {
-        const target = await openFileOrFolder(args.path);
+        const target = await resolveWHFSPathArgument(args.path);
         const typeinfo = await describeWHFSType(target.type);
         if (typeinfo.metaType !== "fileType")
           throw new CLIRuntimeError("Not a file");
@@ -226,17 +232,39 @@ run({
           process.stdout.write(Buffer.from(await (target as WHFSFile).data.resource.arrayBuffer()));
       }
     },
-    export: {
+    "get-object": {
+      arguments: [{ name: "<source>", description: "Path or ID to get" }],
+      options: { ...commonOptions.resources },
+      main: async ({ opts, args }) => {
+        const base = await resolveWHFSPathArgument(args.source);
+        const result = await exportWHSFObject(base, "*", opts.resources);
+        console.log(opts.json ? JSON.stringify(result, null, 2) : YAML.stringify(result));
+      }
+    },
+    "update-object": {
+      arguments: [
+        { name: "<target>", description: "Path or ID to update" },
+        { name: "<source>", description: "Data to import - path to a file or '-' for stdin" }
+      ],
+      main: async ({ opts, args }) => {
+        const base = await resolveWHFSPathArgument(args.target);
+        const importData: Record<string, unknown> = YAML.parse(readFileSync(args.source === '-' ? 0 : args.source, 'utf-8'));
+
+        await runInWork(() => applyWHFSObjectUpdates(base, importData));
+        console.log(opts.json ? JSON.stringify({ id: base.id }, null, 2) : `Updated ${base.id}`);
+      }
+    },
+    "create-experimental-archive": {
       description: "Export from the WHFS - EXPERIMENTAL",
       arguments: [
-        { name: "<source>", description: "Path to export" },
+        { name: "<source>", description: "Path or ID to export" },
         { name: "<target>", description: "Target file" },
       ],
       flags: {
         "pretty": "Pretty print JSON metadata"
       },
       main: async ({ opts, args }) => {
-        const base = await openFileOrFolder(args.source);
+        const base = await resolveWHFSPathArgument(args.source);
         const archive = createArchive({
           build: out => exportWHFSTree(base, base.name, out, { space: opts.pretty ? 2 : undefined }),
         });
@@ -247,7 +275,10 @@ run({
     getpreviewlink: {
       arguments: [{ name: "<path>", description: "File path" }],
       main: async ({ args, opts }) => {
-        const target = await openFile(args.path.match(/^\d+$/) ? parseInt(args.path) : args.path, { allowHistoric: true });
+        const target = await resolveWHFSPathArgument(args.path);
+        if (!target.isFile)
+          throw new CLIRuntimeError("Target is not a file");
+
         const link = await target.getPreviewLink();
         if (opts.json)
           console.log(JSON.stringify({ link }));
