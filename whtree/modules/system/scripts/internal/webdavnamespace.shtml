@@ -19,8 +19,6 @@ LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::tollium/lib/towl.whlib";
 
-//SetupFunctionProfiling("webserver", GetRequestMethod() || " " || GetRequestUrl());
-
 STRING vfssessionid;
 RECORD vfssession;
 

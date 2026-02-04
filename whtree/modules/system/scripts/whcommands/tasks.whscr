@@ -161,17 +161,9 @@ MACRO RunTask(STRING ARRAY params)
         THROW NEW Exception(`Task type '${taskdata.tasktype}' is not enabled on this installation: ${taskinfo.applyerror}`);
 
       RECORD executeinfo := GetTaskExecuteInfo(taskdata, taskinfo);
-      SetupFunctionProfiling("system:tasks", "Run managed task " || taskid);
-      TRY
-      {
-        RECORD res := ExecuteManagedTask(executeinfo, TRUE);//<-- debug. make option?
-        dumpvalue(res, [ name := "taskresult", format := "tree" ]);
-      }
-      FINALLY
-      {
-        __DestroyProfiling();
-        ReportFunctionProfile("system:tasks", "Run managed task " || taskid);
-      }
+
+      RECORD res := ExecuteManagedTask(executeinfo, TRUE);//<-- debug. make option?
+      dumpvalue(res, [ name := "taskresult", format := "tree" ]);
     }
     ELSE
     {

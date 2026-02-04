@@ -517,7 +517,7 @@ STATIC OBJECTTYPE TestFramework <
   /** Declare a role for further use in tests. Call before running any tests
       @param rolename Name of the role
       @param grantrights List of rights to grant
-*/
+  */
   MACRO DeclareTestRole(STRING rolename, STRING ARRAY grantrights)
   {
     IF(this->tests_started)
@@ -872,8 +872,7 @@ STATIC OBJECTTYPE TestFramework <
     }
   }
 
-  MACRO CleanupTests()
-  {
+  MACRO CleanupTests() {
     IF(this->disablecreatecleanup)
       RETURN;
 
@@ -981,8 +980,7 @@ STATIC OBJECTTYPE TestFramework <
                                                ,[ type := "MAILCORRECTION", tagmasks := [ "TESTFW_*" ] ]
                                                ]);
 
-    IF(this->mailwhitelists)
-    {
+    IF(this->mailwhitelists) {
       //whitelist sender
       systemconfigschema->^mailsender->CreateEntity(CELL[ wrd_tag := "TESTFW_BETAWEBHARENT", mask := "*@*beta.webhare.net" ]);
       //whitelist receiver
