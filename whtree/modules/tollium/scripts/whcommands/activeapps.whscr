@@ -1,0 +1,63 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+RECORD call := ParseArguments(GetConsoleArguments(), [
+  [ name := "showmode", type := "stringopt" ],
+  [ name := "json", type := "switch" ]
+]);
+
+IF (NOT RecordExists(call) OR call.showmode NOT IN [ "", "tree", "boxed" ] OR (call.showmode != "" AND call.json)) {
+  TerminateScriptWithError(`Syntax: wh tollium:activeaps [--showmode=tree|boxed / --json]`);
+}
+
+BroadcastEvent("tollium:applicationstarter.query", DEFAULT RECORD);
+
+RegisterEventCallback("tollium:applicationstarter.exists", PTR GotApplicationStarter);
+
+RECORD ARRAY applicationstarters;
+RECORD ARRAY apps;
+
+MACRO GotApplicationStarter(STRING event, RECORD data) {
+  RECORD pos := RecordLowerBound(applicationstarters, data, [ "ID" ]);
+  IF (pos.found)
+    RETURN;
+
+  // HS native apps currently run inside the webserver, but HS wasm and TS apps never do
+  OBJECT link := ConnectToGlobalIPCPort("tollium:link." || data.id);
+  IF (NOT ObjectExists(link))
+    RETURN;
+
+  RECORD starter := CELL[
+    ...data,
+    link
+  ];
+
+  INSERT starter INTO applicationstarters AT pos.position;
+
+  RECORD rec := starter.link->DoRequest([ task := "getapps" ]);
+  IF (rec.status = "gone")
+  {
+    starter.link->Close();
+    DELETE FROM applicationstarters WHERE id = starter.id;
+  } ELSE {
+    IF (NOT call.json)
+      PRINT(`Found applicationstarter ${starter.id}\n`);
+
+    apps := apps CONCAT
+      SELECT starterid := starter.id
+           , starterport := starter.portname
+           , starterpid := starter.pid
+           , *
+        FROM rec.msg.apps;
+  }
+}
+
+WaitUntil(DEFAULT RECORD, AddTimeToDate(1000, GetCurrentDateTime()));
+IF (call.json)
+  PRINT(EncodeJSON(apps, DEFAULT RECORD, [ formatted := TRUE ]));
+ELSE
+  PRINT(AnyToString(apps, call.showmode ?? "tree"));
