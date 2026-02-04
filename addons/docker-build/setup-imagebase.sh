@@ -50,9 +50,8 @@ if [ -n "$WHBUILD_NODE_URL" ]; then
   ln -s /opt/node-*/bin/* /usr/local/bin/
   popd
 else
-  # Alma currently ships 22.x and we expect RL to always be a bit behind, only picking up LTS releases
   curl -fsSL https://rpm.nodesource.com/setup_${WEBHARE_NODE_MAJOR}.x | bash -
-  PACKAGES+=(nodejs)
+  PACKAGES+=(nodejs-25.5.0) #forcing 25.5 as 25.6 ships broken undici 7.19 (issue fixed by https://github.com/nodejs/undici/pull/4791)
 fi
 
 # Modify root to live in /opt/whdata/root/ so data there is preserved between restarts
