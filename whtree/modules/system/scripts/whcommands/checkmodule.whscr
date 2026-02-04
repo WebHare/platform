@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
@@ -31,7 +30,6 @@ IF(NOT RecordExists(args))
   Print("Syntax: wh checkmodule [ platform / <modulename mask...> ] \n");
   TerminateScriptWithError("Invalid syntax");
 }
-SetupFunctionProfiling("checkmodule", Detokenize(args.modules,','));
 
 IF (args.color)
   SetAnsiCmdMode("enabled");
