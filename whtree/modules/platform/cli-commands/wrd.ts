@@ -2,10 +2,12 @@
 import { WRDSchema, describeEntity, listSchemas } from '@webhare/wrd';
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
-import { runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { beginWork, commitWork, runInWork } from '@webhare/whdb';
+import { CLIRuntimeError, enumOption, run } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
+import { readFileSync } from 'node:fs';
+import YAML from 'yaml';
 
 run({
   description: "Manage WRD",
@@ -60,14 +62,43 @@ run({
     },
     "export": {
       description: "Export an entity",
+      options:
+      {
+        resources: { description: "Export resources for fetch (default) or inline as base64", type: enumOption(["fetch", "base64"]), default: "fetch" }
+      },
       arguments: [{ name: "<id>", description: "Entity ID" }],
       main: async ({ opts, args }) => {
         const entityid = parseInt(args.id);
         const entityinfo = await describeEntity(entityid) ?? throwError(`Entity #${entityid} not found`);
         const wrdschema = new WRDSchema(entityinfo.schema);
         const attrs = await wrdschema.getType(entityinfo.type).listAttributes();
-        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered" });
-        console.log(JSON.stringify(entity, null, 2));
+        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered", exportResources: opts.resources });
+        console.log(opts.json ? JSON.stringify(entity, null, 2) : YAML.stringify(entity));
+      }
+    },
+    "insert": {
+      description: "Insert an entity",
+      arguments: [
+        { name: "<schema>", description: "Schema to import into" },
+        { name: "<type>", description: "Entity type to import" },
+        { name: "<source>", description: "Data to import - path to a file or '-' for stdin" }
+      ],
+      main: async ({ opts, args }) => {
+        const wrdschema = new WRDSchema(args.schema);
+        const importData: Record<string, unknown> = YAML.parse(readFileSync(args.source === '-' ? 0 : args.source, 'utf-8'));
+
+        const attrs = await wrdschema.getType(args.type).listAttributes();
+        for (const attr of attrs)
+          if (attr.isReadOnly)
+            delete importData[attr.tag];
+
+        if (!importData.wrdGuid)
+          importData.wrdGuid = wrdschema.getNextGuid(args.type);
+
+        await beginWork();
+        const result = await wrdschema.insert(args.type, importData);
+        await commitWork();
+        console.log(opts.json ? JSON.stringify({ wrdId: result, wrdGuid: importData.wrdGuid }) : `Inserted entity #${result} (${importData.wrdGuid})`);
       }
     },
     "update": {

@@ -6,8 +6,8 @@ import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algori
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
 import { Money, omit, isValidEmail, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy, stdTypeOf } from "@webhare/std";
-import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
-import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
+import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
+import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
@@ -22,6 +22,8 @@ import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contentty
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
+import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
+import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -98,6 +100,43 @@ export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<num
     .select(["id", "guid"])
     .where("id", "in", ids.filter(isTruthy))
     .execute()).map(row => [row.id, encodeWRDGuid(row.guid)]));
+}
+
+function decodeResourceDescriptor(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor {
+  const lpos = recordLowerBound(links, val, ["id"]);
+  const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+  //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
+  const hasSourceFile = val.rawdata.startsWith("WHFS:");
+  const meta = {
+    ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
+    sourceFile,
+    dbLoc: { source: 3, id: val.id, cc }
+  };
+
+  const blob = val.blobdata;
+  return new ResourceDescriptor(blob, meta);
+}
+
+async function encodeResourceDescriptor(attribute: number, value: ResourceDescriptor, fileName?: string): Promise<EncodedSetting> {
+  const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value, { fileName });
+  if (value.resource.size)
+    await uploadBlob(value.resource);
+
+  const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute, id: value.dbLoc?.id };
+  if (value.sourceFile) {
+    setting.linktype = LinkTypes.FSObject;
+    setting.link = value.sourceFile;
+  }
+  return setting;
+}
+
+function decodeWHFSLink(val: EntitySettingsRec, links: EntitySettingsWHFSLinkRec[]): number | null {
+  if (val.rawdata === "WHFS" || val.rawdata.startsWith("WHFS:")) {
+    const lpos = recordLowerBound(links, val, ["id"]);
+    const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+    return sourceFile;
+  }
+  return null;
 }
 
 /** Lookup domain values by id, guid or tag
@@ -695,12 +734,6 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
     switch (this.attr.tag) {
-      case "wrdSaluteFormal": {
-        throw new Error(`wrdSaluteFormal is not implemented`);
-      }
-      case "wrdAddressFormal": {
-        throw new Error(`wrdAddressFormal is not implemented`);
-      }
       case "wrdFullName":
       case "wrdTitle": {
         if (!entityRecord.firstname && !entityRecord.firstnames && !entityRecord.lastname)
@@ -726,7 +759,7 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
   }
 
   getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
-    return getAttrBaseCells(this.attr.tag, ["wrdSaluteFormal", "wrdAddressFormal", "wrdFullName", "wrdTitle"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdFullName", "wrdTitle"]);
   }
 
   validateInput(value: string, checker: ValueQueryChecker, attrPath: string): void {
@@ -1134,6 +1167,15 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
       return value as unknown as ExportOut; //pretend it's all right, we shouldn't receive a null anyway if Required was set
 
     return await getGuidForEntity(value) as ExportOut ?? throwError(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
+  }
+}
+
+/** Implements wrdType (WRD_TYPE) - an integer containing the wrd.type, but exported as a tag */
+class WRDDBBaseTypeValue extends WRDDBBaseDomainValue<true, string> {
+  async exportValue(value: number): Promise<string> {
+    const schema = this.type.schema;
+    const types = await schema.listTypes();
+    return types.find(t => t.id === value)?.tag ?? "#" + value;
   }
 }
 
@@ -2246,19 +2288,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
   isSet(value: ResourceDescriptor | null) { return Boolean(value); }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor | NullIfNotRequired<Required> {
-    const val = entity_settings[settings_start];
-    const lpos = recordLowerBound(links, val, ["id"]);
-    const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
-    //See also GetWrappedObjectFromWRDSetting: rawdata is prefixed with WHFS: if we need to pick up a link
-    const hasSourceFile = val.rawdata.startsWith("WHFS:");
-    const meta = {
-      ...decodeScanData(val.rawdata.substring(hasSourceFile ? 5 : 0)),
-      sourceFile,
-      dbLoc: { source: 3, id: val.id, cc }
-    };
-
-    const blob = val.blobdata;
-    return new ResourceDescriptor(blob, meta);
+    return decodeResourceDescriptor(entity_settings[settings_start], links, cc);
   }
 
   validateInput(value: ResourceDescriptor | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
@@ -2274,15 +2304,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
 
     return {
       settings: (async (): Promise<EncodedSetting[]> => {
-        const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
-        if (value.resource.size)
-          await uploadBlob(value.resource);
-        const setting: EncodedSetting = { rawdata, blobdata: value.resource.size ? value.resource : null, attribute: this.attr.id, id: value.dbLoc?.id };
-        if (value.sourceFile) {
-          setting.linktype = 2;
-          setting.link = value.sourceFile;
-        }
-        return [setting];
+        return [{ ...await encodeResourceDescriptor(this.attr.id, value) }];
       })()
     };
   }
@@ -2323,7 +2345,16 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       return matchlink ? getRTDFromWHFS(matchlink.fsobject) : null;
     }
 
-    return buildRTDFromHareScriptRTD({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
+    const embedded = new Map<string, ResourceDescriptor>();
+    for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
+      if (item.ordering === 1) { //it's an embedded image
+        const descr = decodeResourceDescriptor(item, links, cc);
+        if (descr.fileName)
+          embedded.set(descr.fileName, descr);
+      }
+    }
+
+    return buildRTDFromComposedDocument({ text: val.blobdata, embedded, type: "platform:richtextdocument", links: new Map(), instances: new Map() });
   }
 
   validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): void {
@@ -2340,33 +2371,42 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
         //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
         //FIXME Reuse existing documents/settings
 
-        const hsRTD = await exportAsHareScriptRTD(value);
+        const asComposed = await exportRTDAsComposedDocument(value);
+
         //do we need to use WHFS to store this document ?
-        const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0; //TODO what about embedded images ? can they have a source object?
+        const inWHFS = asComposed.links.size > 0 || asComposed.instances.size > 0; //TODO what about embedded images ? can they have a source object which requires preservation?
         if (inWHFS) {
-          //TODO avoid a full exportAsHareScriptRTD when just exporting to WHFS - we need a requiresWHFS or refersWHFS() in a RichDocument
+          //TODO Can storeRTDinWHFS reuse the asComposed value?
           const whfsId = await storeRTDinWHFS(this.attr.schemaId, value);
           const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id, linktype: LinkTypes.RTD, link: whfsId };
           return [setting];
         }
 
-        const rawdata = await addMissingScanData(await ResourceDescriptor.from(hsRTD.htmltext, { fileName: "rd1.html", getHash: true, mediaType: "text/html" }));
-        await uploadBlob(hsRTD.htmltext);
-        const setting: EncodedSetting = { rawdata, blobdata: hsRTD.htmltext, attribute: this.attr.id };
-        return [setting];
+        //Generate direct settings.
+        const rawdata = await addMissingScanData(await ResourceDescriptor.from(asComposed.text, { fileName: "rd1.html", getHash: true, mediaType: "text/html" }));
+        await uploadBlob(asComposed.text);
+        const settings: EncodedSetting[] = [{ rawdata, blobdata: asComposed.text, attribute: this.attr.id }];
+
+        for (const [contentid, image] of asComposed.embedded.entries()) {
+          settings.push({
+            ...await encodeResourceDescriptor(this.attr.id, image, contentid),
+            ordering: 1
+          });
+        }
+        return settings;
       })()
     };
   }
 
-  importValue(value: RTDSource | RichTextDocument | null): Promise<RichTextDocument | null> | RichTextDocument | null {
+  importValue(value: RTDSource | RichTextDocument | null, importOptions?: ImportOptions): Promise<RichTextDocument | null> | RichTextDocument | null {
     if (Array.isArray(value)) { //TODO can we do a more reliable 'is an Buildable RTD' check ?
-      return buildRTD(value);
+      return buildRTD(value, importOptions);
     }
     return value;
   }
 
-  exportValue(value: RichTextDocument | null): Promise<RTDExport> | null {
-    return value?.blocks.length ? value.export() : null;
+  exportValue(value: RichTextDocument | null, exportOptions?: ExportOptions): Promise<RTDExport> | null {
+    return value?.blocks.length ? value.export(exportOptions) : null;
   }
 }
 
@@ -2399,7 +2439,7 @@ class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | In
     //FIXME reuse existing object ids, but it looks like the HS implemtentation and storeRTDinWHFS can't do that either ?x
     return {
       settings: storeInstanceInWHFS(this.attr.schemaId, value).then(whfsId => {
-        return [{ rawdata: "WHFS", linktype: 1, link: whfsId, attribute: this.attr.id }];
+        return [{ rawdata: "WHFS", linktype: LinkTypes.Instance, link: whfsId, attribute: this.attr.id }];
       })
     };
   }
@@ -2417,7 +2457,42 @@ class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | In
   }
 }
 
-class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null, IntExtLink | null> {
+class WRDDBWHFSLinkValue extends WRDAttributeUncomparableValueBase<number | null, number | null, number | null, string | null> {
+  getDefaultValue(): number | null {
+    return null;
+  }
+
+  isSet(value: number | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): number | null {
+    const setting = entity_settings[settings_start];
+    return setting.rawdata ? decodeWHFSLink(setting, links) : null;
+  }
+
+  validateInput(value: number | null, checker: ValueQueryChecker, attrPath: string) {
+    if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+  }
+
+  encodeValue(value: number | null) {
+    if (!value)
+      return {};
+
+    return { settings: { rawdata: "WHFS", attribute: this.attr.id, link: value, linktype: LinkTypes.FSObject } };
+  }
+
+  exportValue(value: number | null, exportOptions?: ExportOptions): MaybePromise<string | null> {
+    return value ? mapExternalWHFSRef(value, exportOptions) : null;
+  }
+
+  importValue(value: number | null | string, importOptions?: ImportOptions): MaybePromise<number | null> {
+    if (typeof value === "string")
+      return unmapExternalWHFSRef(value, importOptions);
+    return value;
+  }
+}
+
+class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null, ExportedIntExtLink | null> {
   getDefaultValue(): IntExtLink | null {
     return null;
   }
@@ -2429,16 +2504,14 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtL
     if (!setting.rawdata)
       return null;
 
-    let result: IntExtLink | null = null;
     if (setting.rawdata.startsWith("*")) // external link
-      result = new IntExtLink(setting.rawdata.substring(1));
-    else if (setting.rawdata === "WHFS" || setting.rawdata.startsWith("WHFS:")) {
-      const target = links.filter(_ => _.id === setting.id)[0]?.fsobject;
-      if (target)
-        result = new IntExtLink(target, { append: setting.rawdata.substring(5) });
-    } else
-      throw new Error("Unrecognized whfs int/extlink format");
-    return result;
+      return new IntExtLink(setting.rawdata.substring(1));
+
+    const target = decodeWHFSLink(setting, links);
+    if (target)
+      return new IntExtLink(target, { append: setting.rawdata.substring(5) });
+
+    return null;
   }
 
   validateInput(value: IntExtLink | null, checker: ValueQueryChecker, attrPath: string) {
@@ -2456,6 +2529,14 @@ class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtL
       return { settings: { rawdata: "*" + value.externalLink, attribute: this.attr.id } };
     }
     throw new Error("Invalid whfs int/extlink");
+  }
+
+  exportValue(value: IntExtLink | null, exportOptions?: ExportOptions): ExportedIntExtLink | Promise<ExportedIntExtLink | null> | null {
+    return value ? exportIntExtLink(value, exportOptions) : null;
+  }
+
+  importValue(value: IntExtLink | ExportedIntExtLink | null, importOptions?: ImportOptions): MaybePromise<IntExtLink | null> {
+    return importIntExtLink(value, importOptions);
   }
 }
 
@@ -2715,59 +2796,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   }
 }
 
-export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, Out, C> {
-  throwError(): never {
-    throw new Error(`Unimplemented accessor for type ${WRDAttributeTypeId[this.attr.attributetype] ?? WRDBaseAttributeTypeId[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
-  }
-
-  /** Returns the default value for a value with no settings
-      @returns Default value for this type
-  */
-  getDefaultValue(): Default {
-    this.throwError();
-  }
-
-  isSet(value: Default): boolean {
-    this.throwError();
-  }
-
-  checkFilter(cv: C): void {
-    this.throwError();
-  }
-
-  matchesValue(value: unknown, cv: C): boolean {
-    this.throwError();
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: C): AddToQueryResponse<O> {
-    this.throwError();
-  }
-
-  containsOnlyDefaultValues<CE extends C>(cv: CE): boolean {
-    this.throwError();
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Out {
-    this.throwError();
-  }
-
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec): Out {
-    this.throwError();
-  }
-
-  validateInput(value: In): void {
-    this.throwError();
-  }
-
-  encodeValue(value: In): EncodedValue {
-    this.throwError();
-  }
-}
-
 type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Options extends { allowedValues: infer V } ? V : never;
-
-/// The following accessors are not implemented yet
-class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
@@ -2781,7 +2810,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required, string>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true, number>;
+  [WRDBaseAttributeTypeId.Base_Id]: WRDDBBaseDomainValue<true, number>;
+  [WRDBaseAttributeTypeId.Base_Type]: WRDDBBaseTypeValue;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2841,11 +2871,13 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(type, attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as AccessorType<T>;
+    //'as unknown' was needed after implementing the last missing type due to insufficient overlap
+    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as unknown as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(type, attrinfo, true) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(type, attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
-    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Id: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Type: return new WRDDBBaseTypeValue(type, attrinfo, true) as AccessorType<T>;
 
     case WRDAttributeTypeId.String: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(type, attrinfo) as AccessorType<T>;

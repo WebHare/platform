@@ -350,7 +350,7 @@ export async function unmapExternalWHFSRef(inId: string, options?: ImportOptions
   return target > 0 ? target : null;
 }
 
-export function exportIntExtLink(value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> {
+export function exportIntExtLink(value: IntExtLink | null, options?: ExportOptions): MaybePromise<ExportedIntExtLink | null> {
   if (value?.internalLink)
     return mapExternalWHFSRef(value.internalLink, options).then(id => id ? {
       internalLink: id,

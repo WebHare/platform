@@ -66,8 +66,8 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   };
   const attrs: AttrRec[] = [
     { ...baseEmptyAttrRec, tag: "wrdGuid", fullTag: "wrdGuid", attributetype: WRDBaseAttributeTypeId.Base_Guid, isunique: true },
-    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isunique: true }, // FIXME: make only insertable, not updatable!
-    { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
+    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_Id, isunique: true }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_Type, isreadonly: true }, // FIXME: make readonly!
     { ...baseEmptyAttrRec, tag: "wrdTag", fullTag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag, isunique: true },
     { ...baseEmptyAttrRec, tag: "wrdCreationDate", fullTag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdLimitDate", fullTag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
@@ -82,8 +82,6 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   if (type.tag === "wrdPerson") {
     attrs.push(...[
       { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender, allowedvalues: Object.values(WRDGender).join('\t') },
-      { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", fullTag: "wrdSaluteFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString },
-      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", fullTag: "wrdAddressFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdFullName", fullTag: "wrdFullName", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdTitles", fullTag: "wrdTitles", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdInitials", fullTag: "wrdInitials", attributetype: WRDBaseAttributeTypeId.Base_NameString },
@@ -97,7 +95,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     ]);
   }
   if (type.tag === "wrdRelation")
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", fullTag: "wrdTitle", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString });
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdTitle", fullTag: "wrdTitle", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true });
 
   return attrs;
 }

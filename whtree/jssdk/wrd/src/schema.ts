@@ -518,7 +518,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       .select(mapping)
       .where("wrdId" as any, "=" as any, id as any)
       .historyMode(options?.historyMode || "active")
-      .execute({ export: options?.export || false });
+      .execute(options);
 
     if (rows.length)
       return rows[0];
@@ -653,6 +653,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       isUnsafeToCopy: attrRec.isunsafetocopy,
       isRequired: attrRec.required,
       isOrdered: attrRec.ordered,
+      isReadOnly: attrRec.isreadonly,
       isUnique: attrRec.isunique,
       allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
     }));
@@ -888,6 +889,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       isUnsafeToCopy: attrRec.isunsafetocopy,
       isRequired: attrRec.required,
       isOrdered: attrRec.ordered,
+      isReadOnly: attrRec.isreadonly,
       isUnique: attrRec.isunique,
       allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
     };

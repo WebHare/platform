@@ -19,7 +19,9 @@ async function testWRDUntypedApi() { //  tests
   const persontype = wrdschema.getType("wrdPerson");
   test.eq(null, await persontype.describeAttribute("noSuchAttribute"));
   await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
-  test.eqPartial({ attributeType: "email" }, await persontype.describeAttribute("wrdContactEmail"));
+  test.eqPartial({ attributeType: "string", isReadOnly: true }, await persontype.describeAttribute("wrdFullName"));
+  test.eqPartial({ attributeType: "string", isReadOnly: true }, await persontype.describeAttribute("wrdTitle"));
+  test.eqPartial({ attributeType: "email", isReadOnly: false }, await persontype.describeAttribute("wrdContactEmail"));
   test.eqPartial({ attributeType: "domain", domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
   test.eqPartial({ attributeType: "enum", isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
   test.eqPartial({ attributeType: "array", tag: "testArray.testArray2" }, await persontype.describeAttribute("testArray.testArray2"));

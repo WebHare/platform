@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
-import { openType, whfsType } from "@webhare/whfs";
+import { openFile, openType, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
@@ -188,6 +188,25 @@ async function testBuilder() {
     //<br data-wh-rte="bogus"/> is required by the current RTD in fully empty paragraphs
     test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
 
+    await verifyRoundTrip(doc);
+  }
+
+  { //test a RTD with *only* images (as either link or instance will trigger a WHFS spillover of the actual RTD data)}
+    //TODO have WRD/RTD builder fill in the missing metadata for us instead of providing all the get* options
+    const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true, getDominantColor: true });
+    const doc = await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }]);
+    test.assert(!doc.isEmpty());
+
+    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await doc.__getRawHTML());
+    await verifyRoundTrip(doc);
+  }
+
+  { //test a RTD with *only* images AND a source object reference
+    const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true, getImageMetadata: true, getDominantColor: true, sourceFile: (await openFile("site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg")).id });
+    const doc = await buildRTD([{ p: ["Dit is een test met image: ", { image: fish }] }]);
+    test.assert(!doc.isEmpty());
+
+    test.eq(/<html><body><p class="normal">Dit is een test met image: <img class="wh-rtd__img" src="cid:.*"/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
 

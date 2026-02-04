@@ -31,11 +31,12 @@ export enum WRDBaseAttributeTypeId {
   Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
   Base_ModificationDate = -10, // wrdModificationDate
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
-  Base_GeneratedString = -6, // wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
+  Base_GeneratedString = -6, // wrdFullName, wrdTitle
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender
-  Base_FixedDomain = -11, // wrd_id, wrd_type
+  Base_Id = -11, // wrd_id
+  Base_Type = -12, // wrd_type
 }
 
 export enum WRDAttributeTypeId {
@@ -77,12 +78,13 @@ export const WRDBaseAttributeTypes = [
   "string", // -3 Base_Tag, tag
   "instant", // -4 Base_CreationLimitDate, wrdCreationDate, wrdLimitDate
   "plainDate", // -5 Base_Date, wrdDateOfBirth, wrdDateOfDeath
-  "string", // -6 Base_GeneratedString, wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
+  "string", // -6 Base_GeneratedString, wrdFullName, wrdTitle
   "string", // -7 Base_NameString, wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   "domain", // -8 Base_Domain, wrdLeftEntity, wrdRightEntity
   "enum", // -9 Base_Gender, wrd_gender
   "instant", // -10 Base_ModificationDate, wrdModificationDate
-  "integer", // -11 Base_FixedDomain, wrd_id, wrd_type
+  "integer", // -11 Base_Id, wrd_id
+  "integer", // -12 Base_Type, wrd_type
 ] as const;
 
 export const WRDAttributeTypes = [
@@ -108,7 +110,8 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeTypeId.Base_NameString |
   WRDBaseAttributeTypeId.Base_Domain |
   WRDBaseAttributeTypeId.Base_Gender |
-  WRDBaseAttributeTypeId.Base_FixedDomain |
+  WRDBaseAttributeTypeId.Base_Id |
+  WRDBaseAttributeTypeId.Base_Type |
   WRDAttributeTypeId.Domain |
   WRDAttributeTypeId.String |
   WRDAttributeTypeId.Address |
@@ -147,8 +150,6 @@ export const baseAttrCells = {
   "wrdTitlesSuffix": "titles_suffix",
   "wrdGuid": "guid",
   "wrdGender": "gender",
-  "wrdSaluteFormal": ["lastname", "gender", "titles", "infix"],
-  "wrdAddressFormal": ["lastname", "gender", "titles", "infix", "initials"],
   "wrdFullName": ["initials", "firstname", "firstnames", "lastname", "infix"],
   "wrdTitle": ["initials", "firstname", "firstnames", "lastname", "infix"],
   "wrdId": "id",
@@ -237,9 +238,9 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 
 /** Base WRD type */
 export type WRDTypeBaseSettings = {
-  wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_FixedDomain>;
+  wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Id>;
   wrdGuid: ToWRDAttr<WRDBaseAttributeTypeId.Base_Guid>;
-  wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_FixedDomain>;
+  wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_Type>;
   wrdTag: ToWRDAttr<WRDBaseAttributeTypeId.Base_Tag>;
   wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
   wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
