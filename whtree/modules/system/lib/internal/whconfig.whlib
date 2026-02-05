@@ -153,7 +153,7 @@ PUBLIC STRING FUNCTION GetSemVerFromClassicVersion(INTEGER oldversion)
   RETURN `${oldversion/10000}.${oldversion%10000/100}.${oldversion%100}`;
 }
 
-/** @short Get a test secret, either from the environment or set using `wh debug setsecret`
+/** @short Get a test secret, either from the environment or set using `wh debug set-secret`
     @topic testframework/api
     @public
     @loadlib mod::system/lib/testframework.whlib
