@@ -6,8 +6,10 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 
 PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING catalogmask) //consilio:update needs to show errors, catalog.whlib parsers don't
@@ -87,6 +89,7 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING ca
       IF(NOT ObjectExists(site))
         CONTINUE; //race, just deleted ?
 
+      INTEGER ARRAY addfolders;
       OBJECT target := site->OpenByPath(addtocatalog.folder, [ allowinitialslash := TRUE ]);
       IF(NOT ObjectExists(target) OR NOT target->isfolder)
       {
@@ -94,11 +97,29 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING ca
           PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting folder '${addtocatalog.folder}' in site '${site->name}'\n`);
         CONTINUE;
       }
-      INSERT CELL[ ...addtocatalog
-                 , fsobject := target->id
-                 , contentobject := ""
-                 , tag := ""
-                 ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+
+      IF(addtocatalog.foldertype != "") {
+        OBJECT targettype := OpenWHFSType(addtocatalog.foldertype);
+        IF(NOT ObjectExists(targettype)) {
+          IF(NOT ignoreerrors)
+            PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting type '${addtocatalog.foldertype}'\n`);
+          CONTINUE;
+        }
+        addfolders := SELECT AS INTEGER ARRAY id FROM system.fs_objects
+                       WHERE type = targettype->id
+                             AND isfolder = TRUE
+                             AND parentsite = site->id
+                             AND ToUppercase(fullpath) LIKE ToUppercase(target->fullpath) || "*";
+      } ELSE {
+        addfolders := INTEGER[target->id];
+      }
+
+      FOREVERY(INTEGER folder FROM addfolders)
+        INSERT CELL[ ...addtocatalog
+                  , fsobject := folder
+                  , contentobject := ""
+                  , tag := ""
+                  ] INTO wantcatalogs[matchcatalog].contentsources AT END;
     }
   }
 

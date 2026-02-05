@@ -150,7 +150,7 @@ MACRO SetupTestSite(OBJECT testsite)
   portalspfolder->CreateFile([ name := "saml-sp-test-sp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlspendpoint" ]);
 
   //Set up webtools test space
-  OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools" ] );
+  OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools", typens := "http://www.webhare.net/xmlns/webhare_testsuite/webtools" ] );
   OBJECT pollfile   := webtools->CreateFile( [ name := "polltest", typens := "http://www.webhare.net/xmlns/publisher/pollwebtool", publish := TRUE ]);
   OpenPoll(pollfile->id)->SetOptions([ [ title := "Blue" ], [ title := "Red"] ]);
   OBJECT pollfile2  := pollfile->CopyTo(webtools, "polltest2");
