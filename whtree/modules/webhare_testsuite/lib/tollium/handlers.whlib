@@ -1,6 +1,8 @@
 <?wh
 
+PUBLIC RECORD actionresult;
 PUBLIC INTEGER callcounter;
+
 PUBLIC MACRO IncCallCounter(OBJECT contexts)
 {
   callcounter := callcounter + 1;
@@ -24,4 +26,8 @@ PUBLIC RECORD FUNCTION OnEditRow(OBJECT contexts, RECORD row)
 PUBLIC BOOLEAN FUNCTION OnDeleteRows(OBJECT contexts, RECORD ARRAY rows)
 {
   RETURN TRUE;
+}
+
+PUBLIC MACRO DoTestAction(OBJECT contexts) {
+  actionresult := contexts->screen->^comp->selection;
 }

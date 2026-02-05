@@ -40,8 +40,8 @@ STATIC OBJECTTYPE YamlRowsEvent EXTEND YamlEvent
   }
 >;
 
-PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Private variables
   //
@@ -64,6 +64,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   OBJECT pvt_addactionoverride;
   OBJECT pvt_editactionoverride;
   OBJECT pvt_deleteactionoverride;
+
+  //NOTE we don't support dynamic modification of customactions, but publicize it for direct use by eg wrd entitiesedit
+  PUBLIC OBJECT ARRAY customactions;
   STRING ARRAY __buttons;
   BOOLEAN __isarrayedit;
   BOOLEAN __viewifdisabled;
@@ -209,6 +212,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->pvt_addactionoverride := description.addactionoverride;
     this->pvt_editactionoverride := description.editactionoverride;
     this->pvt_deleteactionoverride := description.deleteactionoverride;
+    this->customactions := description.customactions;
 
     this->onselect := description.onselect;
 
@@ -258,6 +262,9 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->maingrid->minwidth := this->minwidth;
     this->maingrid->minheight := this->minheight;
 
+    FOREVERY(OBJECT action FROM this->customactions)
+      this->AddCustomAction(action);
+
     this->RefreshActions();
   }
 
@@ -304,6 +311,10 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
   MACRO SetDeleteActionOverride(OBJECT deleteaction)
   {
     this->pvt_deleteactionoverride := deleteaction;
+    this->RefreshActions();
+  }
+  MACRO SetCustomActions(OBJECT ARRAY customactions) {
+    this->pvt_customactions := customactions;
     this->RefreshActions();
   }
 
@@ -368,6 +379,34 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->RefreshActions();
   }
 
+  PUBLIC INTEGER FUNCTION AddCustomAction(OBJECT action, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    this->lastaddedactionid := this->lastaddedactionid + 1;
+
+    INTEGER newactionid := this->lastaddedactionid;
+
+    OBJECT button := this->owner->CreateTolliumComponent("button");
+    OBJECT menuitem := this->owner->CreateTolliumComponent("menuitem");
+
+    button->title := action->title;
+    button->action := action;
+    button->width := "1pr";
+    menuitem->title := action->title;
+    menuitem->action := action;
+
+    IF(Length(action->enableon) > 0) { //assume it'll be in the Select menu
+      INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->selectionmenu->items AT END;
+    } ELSE {
+      INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->noselectionmenu->items AT END;
+    }
+
+    INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
+
+    this->extrabuttons->visible := TRUE;
+    this->extrabuttons->InsertComponentAfter(button, DEFAULT OBJECT, TRUE);
+
+    RETURN newactionid;
+  }
+
   /** Add an action to the the list (button and menu item)
       @param title Title for the button and menu item
       @param toexecute Callback handler
@@ -376,7 +415,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
       @cell(string array) options.checkflags Flags to check on the selection
       @return ID for the added action
   */
-  UPDATE PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC INTEGER FUNCTION AddAction(STRING title, MACRO PTR toexecute, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
         [ requireselection := TRUE
@@ -388,12 +427,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
         [ enums := [ actiontype := [ "action", "downloadaction", "uploadaction", "windowopenaction" ] ]
         ]);
 
-    this->lastaddedactionid := this->lastaddedactionid + 1;
-
-    INTEGER newactionid := this->lastaddedactionid;
     OBJECT action := this->owner->CreateTolliumComponent(options.actiontype);
-    OBJECT button := this->owner->CreateTolliumComponent("button");
-    OBJECT menuitem := this->owner->CreateTolliumComponent("menuitem");
 
     SWITCH (options.actiontype)
     {
@@ -406,22 +440,12 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     IF( options.actiontype = "uploadaction" )
       action->multiple := options.multiple;
 
-    button->title := title;
-    button->action := action;
-    button->width := "1pr";
-    menuitem->title := title;
-    menuitem->action := action;
+    action->title := title;
+
     IF(options.requireselection)
       action->enableon := [CELL[ min := 1, source := this->list, options.max, options.checkflags ]];
-    ELSE
-      INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->noselectionmenu->items AT END;
-    INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->selectionmenu->items AT END;
 
-    this->extrabuttons->visible := TRUE;
-    this->extrabuttons->InsertComponentAfter(button, DEFAULT OBJECT, TRUE);
-
-    INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
-    RETURN newactionid;
+    RETURN this->AddCustomAction(action);
   }
 
   MACRO SetOnChangeOrder(MACRO PTR newonchangeorder)
@@ -700,8 +724,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase <
     this->onchangeorder := description.onchangeorder;
   }
 
-  UPDATE PUBLIC MACRO PreInitComponent()
-  {
+  UPDATE PUBLIC MACRO PreInitComponent() {
     ArrayListEditBase::PreInitComponent();
     this->list->ongetchildren := PTR this->GetChildren;
   }

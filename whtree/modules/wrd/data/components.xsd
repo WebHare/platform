@@ -857,28 +857,6 @@
     </xs:unique>
   </xs:element>
 
-  <!-- deprecated, use <entitiesedit> element -->
-  <xs:element name="entitybrowser" type="EntitiesEdit">
-    <xs:annotation>
-      <xs:appinfo>
-        <tai:tolliumcomponent placement="block" fragment="components.entitiesedit" />
-        <tai:extraparser field="columns" type="s:listcolumns" target="./s:column|./*[namespace-uri()!='http://www.webhare.net/xmlns/tollium/screens']" />
-        <tai:extraparser field="styles" type="s:liststyles" target="./s:style|./s:layout" />
-      </xs:appinfo>
-      <xs:documentation>
-        deprecated, use &lt;entitiesedit&gt; element
-      </xs:documentation>
-    </xs:annotation>
-    <xs:unique name="uniquecolumnnames_entitybrowser">
-      <xs:selector xpath="./s:column" />
-      <xs:field xpath="@name" />
-    </xs:unique>
-    <xs:unique name="uniquestylenames_entitybrowser">
-      <xs:selector xpath="./s:style" />
-      <xs:field xpath="@name" />
-    </xs:unique>
-  </xs:element>
-
   <xs:element name="entitylist">
     <xs:annotation>
       <xs:appinfo>

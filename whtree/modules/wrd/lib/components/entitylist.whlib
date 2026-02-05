@@ -11,8 +11,8 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Private variables
   //
@@ -535,6 +535,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
     this->onchangeorder := definition.onchangeorder;
     this->ongetuserdata := definition.ongetuserdata;
 
+    ^entities->customactions := definition.customactions;
     ^entities->buttons := definition.buttons;
     ^entities->showbuttons := definition.showbuttons;
 

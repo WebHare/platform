@@ -8,12 +8,18 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
 {
   OBJECT browser := GetTestController()->LoadScreen(InlineScreens(`
   <screen name="test" implementation="none">
+    <actions>
+      <action name="testaction" onexecute="mod::webhare_testsuite/lib/tollium/handlers.whlib#DoTestAction" title="TestAction">
+        <enableon source="comp" min="1" />
+      </action>
+    </actions>
     <body>
       <arrayedit name="comp" roweditscreen="mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor"
                              onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter"
                              onmaprows="mod::webhare_testsuite/lib/tollium/handlers.whlib#MapRowsAddIsEven"
                              flags="iseven"
-                             ongetuserdata="mod::webhare_testsuite/lib/tollium/handlers.whlib#GetUserData">
+                             ongetuserdata="mod::webhare_testsuite/lib/tollium/handlers.whlib#GetUserData"
+                             customactions="testaction">
         <column type="text" name="text" title="Text" checkboxname="checkbox" />
       </arrayedit>
     </body>
@@ -56,6 +62,10 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
   TestEq(1, Length(topscreen->comp->rows));
 
   topscreen->comp->SetSelectedRows([0]);
+
+  //Test custom XML actions
+  TestEq(TRUE, TTClick(":TestAction"));
+  TestEq([ checkbox := TRUE, text := "Row 1", rowkey := 1], actionresult);
 
   //Test custom actions
   topscreen->comp->AddAction("Duplicate!", PTR DuplicateAction);
