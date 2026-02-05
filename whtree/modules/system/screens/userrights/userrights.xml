@@ -10,6 +10,7 @@
           tid=".screentitles.main">
     <actions gid=".actions">
       <action name="syncauthobjects" frameflags="issysop" onexecute="dosyncauthobjects" />
+      <action name="openidproviders" frameflags="issysop" onexecute="doopenidproviders" tid="platform:tolliumapps.userrights.openidproviders"/>
       <action name="setuserdefaults" frameflags="issysop" onexecute="dosetuserdefaults" />
       <action name="editauthtexts" frameflags="issupervisor" onexecute="DoEditAuthTexts" />
       <action name="exportallgrants" frameflags="issysop" onexecute="doexportallgrants" />
@@ -111,6 +112,7 @@
         <item action="unitcontents->getresetlink" />
         <item action="unitcontents->apikeys" />
         <item action="syncauthobjects" disablemode="hidden" />
+        <item action="openidproviders" disablemode="hidden" />
         <item action="setuserdefaults" disablemode="hidden" />
         <item action="editauthtexts" disablemode="hidden" />
         <item action="showauditlog" disablemode="hidden" />

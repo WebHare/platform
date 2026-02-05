@@ -49,7 +49,7 @@
       <action name="authsettings" frameflags="right_metadata" onexecute="doauthsettings" />
       <action name="authtexts" frameflags="right_metadata" onexecute="doauthtexts" />
       <action name="auditlog" frameflags="has_accounts" onexecute="doauditlog" />
-      <action name="oidcproviders" frameflags="right_metadata" onexecute="dooidcclient" />
+      <action name="oidcproviders" frameflags="right_metadata" onexecute="dooidcclient" tid="platform:tolliumapps.userrights.openidproviders"/>
       <action name="samlauth" frameflags="right_metadata has_saml" onexecute="dosamlauth" />
       <action name="openlink" onexecute="doopenlink">
         <enableon source="links" min="1" max="1" />

@@ -194,6 +194,15 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
+    <textgroup gid="applicationlink">   <!-- tolliumapps.applicationlink -->
+      <text tid="invalidlink">This link is no longer valid</text>
+      <text tid="noaccess">You do not have access to the target of this link</text>
+      <textgroup gid="sharelink">   <!-- tolliumapps.applicationlink.sharelink -->
+        <text tid="explain_applicationlink">An application link allows you or another user to directly open an application or document in WebHare. The user following the link needs to have a valid WebHare account which has access to the application or document.</text>
+        <text tid="link">Link</text>
+        <text tid="sharelink">Share an application link</text>
+      </textgroup>
+    </textgroup>
     <textgroup gid="common">   <!-- tolliumapps.common -->
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
         <text tid="shareapplicationlink">Share application link</text>
@@ -210,19 +219,13 @@
         </textgroup>
       </textgroup>
     </textgroup>
-    <textgroup gid="applicationlink">   <!-- tolliumapps.applicationlink -->
-      <text tid="invalidlink">This link is no longer valid</text>
-      <text tid="noaccess">You do not have access to the target of this link</text>
-      <textgroup gid="sharelink">   <!-- tolliumapps.applicationlink.sharelink -->
-        <text tid="explain_applicationlink">An application link allows you or another user to directly open an application or document in WebHare. The user following the link needs to have a valid WebHare account which has access to the application or document.</text>
-        <text tid="link">Link</text>
-        <text tid="sharelink">Share an application link</text>
-      </textgroup>
-    </textgroup>
     <textgroup gid="publisher">   <!-- tolliumapps.publisher -->
       <textgroup gid="common">   <!-- tolliumapps.publisher.common -->
         <text tid="newobject-name">New <param p="1"/></text>
       </textgroup>
+    </textgroup>
+    <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
+      <text tid="openidproviders">OpenID providers</text>
     </textgroup>
   </textgroup>
 </language>
