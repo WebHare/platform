@@ -1094,11 +1094,14 @@
         <text tid="icon">Icon</text>
         <text tid="loginfield">Login field</text>
         <text tid="metadataurl">Metadata URL</text>
+        <text tid="prompt">Prompt</text>
         <text tid="provider">Provider</text>
         <text tid="providers">OpenID Connect providers</text>
         <text tid="redirect_uri">Redirect URL</text>
         <text tid="reveal">Reveal</text>
         <text tid="secret_expiration">Secret expiration</text>
+        <text tid="testlogin">Test login</text>
+        <text tid="testprovider">Test login provider</text>
         <text tid="visibility">Visibility</text>
         <text tid="visibility-always">Always show</text>
         <text tid="visibility-hidden">Never show</text>

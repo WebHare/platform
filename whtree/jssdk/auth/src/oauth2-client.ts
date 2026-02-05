@@ -41,6 +41,8 @@ declare module "@webhare/services" {
 export interface OAuth2LoginRequestOptions {
   prompt?: string;
   addScopes?: string[];
+  /** Enable to receive a 'raw' landing on the returnto url (eg the OIDC metadata */
+  rawLanding?: boolean;
 }
 
 export interface OAuth2AuthorizeRequestOptions extends OAuth2LoginRequestOptions {
@@ -148,9 +150,9 @@ export class OAuth2Client {
    * @param options - Options for the authorize request
    */
   async createLoginRequest(redirectTo: string, options?: OAuth2LoginRequestOptions): Promise<NavigateInstruction> {
-    const finalurl = new URL("/.wrd/endpoints/oidc.shtml", redirectTo);
+    const finalurl = options?.rawLanding ? redirectTo : new URL("/.wrd/endpoints/oidc.shtml", redirectTo).toString();
 
-    return await this.createAuthorizeLink(finalurl.toString(), {
+    return await this.createAuthorizeLink(finalurl, {
       ...options,
       // One scope for all logins should be enough, we'll still verify the provider
       clientScope: "platform:openidlogin",

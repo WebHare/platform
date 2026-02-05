@@ -1,4 +1,5 @@
 import { doLoginHeaders, doLogout } from "@mod-platform/js/auth/authservice";
+import { handleOAuth2AuthorizeLanding } from "@webhare/auth/src/oauth2-client";
 import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { createRedirectResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
 import { decryptForThisServer } from "@webhare/services";
@@ -39,6 +40,15 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
     const browserTriplet = parseUserAgent(req.headers.get("user-agent") || "")?.triplet || "";
     await doLogout(origurl, null, req.headers.get("cookie"), responseHeaders, { clientIp: req.clientIp, browserTriplet });
     return createRedirectResponse(origurl, HTTPSuccessCode.Found, { headers: responseHeaders });
+  }
+
+  if (url.pathname === "/.wh/auth/debuglogin") {
+    const debuginfo = decryptForThisServer("platform:debuglogin", url.searchParams.get("debug") || "");
+    if (debuginfo.now.getTime() > Date.now() + 15 * 60 * 1000)
+      return createWebResponse("Debug login request expired", { status: HTTPErrorCode.Gone });
+
+    const handleLanding = await handleOAuth2AuthorizeLanding("platform:openidlogin", url.searchParams.get("oauth2session") || "");
+    return createWebResponse(JSON.stringify(handleLanding), { status: HTTPSuccessCode.Ok, headers: new Headers({ "Content-Type": "application/json" }) });
   }
 
   return createWebResponse("unknown route", { status: 404 });
