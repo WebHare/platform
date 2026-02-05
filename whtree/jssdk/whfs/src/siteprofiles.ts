@@ -482,6 +482,7 @@ export interface CSPAddToCatalog {
   siteprofile: string;
   line: number;
   folder: string;
+  foldertype: string;
 }
 
 export type CSPWebRule = {

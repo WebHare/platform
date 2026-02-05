@@ -149,7 +149,7 @@ MACRO SetupTestSite(OBJECT testsite)
   portalspfolder->CreateFile([ name := "saml-sp-test-sp", publish := TRUE, typens := "http://www.webhare.net/xmlns/wrd/samlspendpoint" ]);
 
   //Set up webtools test space
-  OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools" ] );
+  OBJECT webtools   := testsite->rootobject->CreateFolder( [ name := "webtools", typens := "http://www.webhare.net/xmlns/webhare_testsuite/webtools" ] );
 
   OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
   OBJECT imgeditfile := testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);

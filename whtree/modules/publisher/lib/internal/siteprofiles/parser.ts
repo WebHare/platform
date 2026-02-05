@@ -1050,6 +1050,7 @@ function parseSiteSettings(context: SiteProfileParserContext, setting: Sp.SiteSe
     addtocatalogs: setting.addToCatalogs?.map(cat => ({
       catalog: cat.catalog,
       folder: cat.folder || '',
+      foldertype: cat.folderType || '',
       module: parseResourcePath(context.resourceName)?.module || '',
       col: 0,
       line: context.tracked.getPosition(cat)?.line || 0,

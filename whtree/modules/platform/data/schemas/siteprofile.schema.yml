@@ -1198,6 +1198,9 @@ $defs:
       folder:
         type: string
         description: Optional subfolder of the site to add
+      folderType:
+        type: string
+        description: Limit to folders of this type
 
   WebRule:
     type: object
