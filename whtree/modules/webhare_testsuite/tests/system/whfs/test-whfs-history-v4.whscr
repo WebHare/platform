@@ -499,6 +499,52 @@ MACRO DraftingTest() {
 
 }
 
+ASYNC MACRO AutosaveClockTest() {
+  testfw->BeginWork();
+  OBJECT clocktestfile := GetTestsuiteTempFolder()->CreateFile([ name := "autosaveclocktest.txt", title := "Autosave Clock Test", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
+  TestEq(["created"], (SELECT AS STRING ARRAY type FROM ListObjectHistory(clocktestfile->id)), "And no additional history yet");
+
+  //STORY Trigger an autosave
+  OBJECT workflowmgr := NEW WorkflowManager(clocktestfile->id,
+    [ user := GetEffectiveUser(),
+      useworkflow := TRUE,
+      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    ]);
+
+  DATETIME autosave_after := GetCurrentDateTime();
+  workflowmgr->UpdateData(StringToBlob("This just went into a temporary draft"));
+
+  //Writing triggers an autosave in the history
+  TestEqMembers([ [ name := "autosaveclocktest.txt", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
+                , [ name := "autosaveclocktest.txt", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
+                ], ListObjectHistory(clocktestfile->id), "*");
+  TestEq(0, GetLastPublicDraft(clocktestfile->id), "An autosave is not a draft");
+
+  INTEGER autosave_snapshot := ListObjectHistory(clocktestfile->id)[1].snapshot; //we need to ensure that no changes wee recorded and that autosave & save share the same snapshot
+
+  testfw->CommitWork();
+
+  RECORD autosave_info := workflowmgr->GetResumableAutosave();
+  TestEq(TRUE, RecordExists(autosave_info));
+  TestEq(TRUE, autosave_info.saved >= autosave_after);
+
+  Sleep(1);
+
+  //STORY: Write the autosave to disk as a draft.
+  //This simply replaces the autosave entry with the draft, but the associated time should be updated
+  testfw->BeginWork();
+  workflowmgr->Save();
+
+  TestEqMembers([ [ name := "autosaveclocktest.txt", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
+                , [ name := "autosaveclocktest.txt", type := "saved", snapshot := autosave_snapshot, version := "0.2", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
+                ], ListObjectHistory(clocktestfile->id), "*");
+  TestEq(FALSE, RecordExists(workflowmgr->GetResumableAutosave()), "Saving as draft should clear the autosave");
+  RECORD draft_info := workflowmgr->GetCurrentDraft();
+  TestEq(TRUE, draft_info.mine);
+  TestEq(TRUE, draft_info.draft_saved > autosave_info.saved, "Even if no other change happens, the clock should have changed!");
+  testfw->CommitWork();
+}
+
 ASYNC MACRO NamingTest() {
   OBJECT testfolder := GetTestsuiteTempFolder()->OpenByName("sub");
   testfw->BeginWork();
@@ -714,6 +760,7 @@ ASYNC MACRO ViewHistory() {
 
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
+                 , PTR AutosaveClockTest
                  , PTR NamingTest
                  , PTR UnpublishedSavesTest
                  , PTR ImportTest
