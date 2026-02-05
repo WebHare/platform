@@ -11,6 +11,7 @@ import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
 import { throwError } from "@webhare/std";
+import { existsSync } from "node:fs";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -20,11 +21,14 @@ function parseHostPort(str: string) {
   return { host: matchRes[2] || null, port: parseInt(matchRes[3]) };
 }
 
+const argProcess = { name: "<process>", description: "Target process pid" } as const;
+const argThread = { name: "<thread>", description: "Target process with optional workerid in pid[.workerid] format" } as const;
+
 run({
   subCommands:
   {
-    "connections": {
-      description: "List all scripts connected to the bridge",
+    "list-processes": {
+      description: "List all JavaScript processes known to WebHare",
       flags: {
         "j,json": { description: "Output in JSON format" }
       },
@@ -49,7 +53,7 @@ run({
       }
     }, "getenvironment": {
       description: "Get process environment",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argProcess],
       main: async ({ args }) => {
         const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
         try {
@@ -70,22 +74,29 @@ run({
     },
     "inspect": {
       description: "Enable inspector and return settings",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argThread],
       main: async ({ args }) => {
-        const url = await getInspectorURL(args.process);
+        const url = await getInspectorURL(args.thread);
         console.log("Inspector URL: " + url);
         console.log("Locally you should see the session on chrome://inspect/#devices");
       }
     },
     "inspect-in-chrome": {
       description: "Inspect the process in Chrome devtools",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argThread],
       main: async ({ args }) => {
-        const url = await getInspectorURL(args.process);
+        const url = await getInspectorURL(args.thread);
         const devtoolsurl = `devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=${encodeURIComponent(url.substring(5))}`;
-        console.log("Opening " + devtoolsurl);
-        const subprocess = child_process.spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
-        subprocess.unref();
+        for (const app of ['/Applications/Google Chrome Canary.app', '/Applications/Google Chrome.app']) {
+          if (existsSync(app)) {
+            console.log("Opening " + devtoolsurl + " in " + app);
+            const subprocess = child_process.spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
+            subprocess.unref();
+            return 0;
+          }
+        }
+        console.error("No suitable browser found (Google Chrome or Chrome Canary required)");
+        return 1;
       }
     },
     "devtools-proxy": {
@@ -174,7 +185,7 @@ run({
         }
       }
     },
-    "getworkers": {
+    "list-workers": {
       description: "Get the currently active workers of an instance",
       arguments: [{ name: "<instance>", description: "Instance to connect to" }],
       main: async ({ args }) => {
