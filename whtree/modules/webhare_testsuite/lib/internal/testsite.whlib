@@ -1581,12 +1581,6 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
     IF(NOT ObjectExists(altsite) OR altsite->outputweb = 0)
       THROW NEW Exception(`Site '${altsite->name}' must be published to an alternate root!`);
 
-    //kill all open sessions on the alt site
-    FOREVERY(RECORD sess FROM  __SYSTEM_WHS_SESSIONLIST(altsite->outputweb))
-    {
-      CloseWebsession(sess.sessionid, sess.scope);
-    }
-
     IF(NOT ObjectExists(altsite))
       ABORT("No server hosting the alternate site");
     retval.alternatesite := altsite->webroot;

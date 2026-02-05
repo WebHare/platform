@@ -107,7 +107,6 @@ class ShtmlWebserverContextData : public WHCore::SHTMLWebserverCallbacks
         void ConfigureWebServer(HSVM *hsvm, HSVM_VariableId id_set);
         void FlushLogFiles(HSVM *hsvm);
         void LogWebserverError(HSVM *hsvm);
-        void SessionList(HSVM *hsvm, HSVM_VariableId id_set);
 
         void GetHTTPEventListenerCounts(HSVM *vm, HSVM_VariableId id_set);
         void ClearHTTPEventMessages(HSVM *vm);
@@ -170,7 +169,6 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
         void ClientLocalPort(HSVM *hsvm, HSVM_VariableId id_set);
         void ClientRemotePort(HSVM *hsvm, HSVM_VariableId id_set);
         void ClientLocalAddress(HSVM *hsvm, HSVM_VariableId id_set);
-        void SessionList(HSVM *hsvm, HSVM_VariableId id_set);
 
         void AuthenticateWebSession(HSVM *hsvm);
         void AuthenticateWebhareUser(HSVM *hsvm);
