@@ -23,7 +23,7 @@ MACRO ShowSyntax(STRING error)
     PRINT(`Error: ${error}\n\n`);
 
   PRINT(
-`Syntax: wh debug [command]
+`Syntax: wh harescript-debug [command]
 Commands:
   mark [text]                         Write a mark with optional text to all primary logfiles
   processlist                         Show the list of processes
