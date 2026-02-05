@@ -238,15 +238,15 @@ export async function devtoolsProxy(options: { localHost: string; localPort: num
 
     let toSend: unknown;
     let headers: Record<string, string> = {};
-    switch (req.url) {
+    switch (req.url?.split("?")[0]) {
       case "/json/version": {
-        const versionRes = await fetch(`${host}/json/version`);
+        const versionRes = await fetch(`${host}${req.url}`);
         const versionText = await versionRes.text();
         toSend = JSON.parse(versionText) as ListJson;
         headers = Object.fromEntries([...versionRes.headers.entries()]);
       } break;
       case "/json/list": {
-        const listRes = await fetch(`${host}/json/list`);
+        const listRes = await fetch(`${host}${req.url}`);
         const listText = await listRes.text();
         const listJson = JSON.parse(listText) as ListJson;
 
