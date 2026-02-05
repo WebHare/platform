@@ -777,6 +777,9 @@
     <xyz:testyaml data="folderapplytestertest" />
   </foldertype>
 
+  <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/webtools">
+  </foldertype>
+
   <apply>
     <to type="folder" parentmask="/tmp/" />
     <xyz:test data="parentmask-tmp" />
@@ -1061,7 +1064,7 @@
   <sitesettings sitename="webhare_testsuite.testsite" webrootregex="^https?://[^/]+/testoutput/webhare_testsuite.testsite/$">
     <!-- and not: alt test host -->
     <addtocatalog catalog="testsitecatalog" folder="/testpages/" />
-    <addtocatalog catalog="testsitecatalog" folder="/webtools/" />
+    <addtocatalog catalog="testsitecatalog" foldertype="http://www.webhare.net/xmlns/webhare_testsuite/webtools" />
   </sitesettings>
 
 </siteprofile>
