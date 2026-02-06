@@ -1275,7 +1275,7 @@ $defs:
         enum:
           - "em"
           - "i"
-      allowedObjects:
+      widgets:
         type: array
         items:
           type: object
