@@ -1054,10 +1054,11 @@ $defs:
     properties:
       objectName:
         type: string
-      getData:
-        type: string
       siteResponseFactory:
         type: string
+      pageBuilder:
+        type: string
+        description: JS Page render function. Receives a PageRenderRequest and returns a WebResponse
       witty:
         type: string
       assetPack:

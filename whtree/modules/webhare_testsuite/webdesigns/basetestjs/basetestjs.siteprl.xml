@@ -7,8 +7,6 @@
     <!-- Setup default webdesign -->
     <webdesign designfolder="."
                maxcontentwidth="960px"
-               witty="frontend/frontend.witty"
-               getdata="webdesign/webdesign.ts#getBaseTestJSDesign"
                assetpack="basetestjs"
                wittyencoding="HTML-NI"
                async="true" />

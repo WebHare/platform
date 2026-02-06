@@ -1,5 +1,5 @@
 /* frontend-config parses the wh-config object in the browser and mocks any missing data. @webhare/env does not actually expose this config, @webhare/frontend does
-   The frontend configuration is built in the SiteResponse's 'frontendConfig' member */
+   The frontend configuration is built in PageBuildRequest's 'frontendConfig' member */
 
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import { debugFlags, initEnv } from "@webhare/env/src/envbackend";

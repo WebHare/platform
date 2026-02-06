@@ -4,10 +4,11 @@ import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import type { Document } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
-import { buildSiteRequest } from "@webhare/router/src/siterequest";
+import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import { litty } from "@webhare/litty";
 
 function getWHConfig(parseddoc: Document) {
   const config = parseddoc.getElementById("wh-config");
@@ -41,23 +42,39 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   test.eq('http://example.net/linkify', nextlink.textContent);
 }
 
+async function getAsDoc(whfspath: string, renderPage: boolean) {
+  const whfsobj = await whfs.openFile(whfspath);
+  const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
+  let response;
+  if (renderPage) {
+    const builder = await (sitereq as CPageRequest).getPageRenderer();
+    if (!builder)
+      throw new Error(`No builder found for this page`);
+
+    response = await builder(sitereq);
+  } else {
+    response = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
+  }
+  const responsetext = await response.text();
+  return { response, responsetext, doc: parseDocAsXML(responsetext, 'text/html') };
+}
+
+
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
-async function testSiteResponse() {
-  //Create a SiteRequest so we have context for a SiteResponse
+async function testPageResponse() {
+  // Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = await buildSiteRequest(new IncomingWebRequest(markdowndoc.link!), markdowndoc);
+  const sitereq = await buildContentPageRequest(new IncomingWebRequest(markdowndoc.link!), markdowndoc);
+  sitereq.setFrontendData("webhare_testsuite:otherdata", { otherData: 112233 });
 
-  //We can access the pageConfig through debugging APIs - but it's a bit more hidden now...
-  const outputwitty = await sitereq._prepareWitty();
-  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", outputwitty.data.whfspath);
-
-  const response = await sitereq.renderHTMLPage(`<p>This is a body!</p>`);
-
-  //Verify markdown contents...
+  const response: WebResponse = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
   const responsetext = await response.text();
   const doc = parseDocAsXML(responsetext, 'text/html');
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   test.eq("en", doc.documentElement?.getAttribute("lang"));
+  const whfspath = doc.getElementById("whfspath");
+  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", whfspath?.textContent);
+
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html;charset=utf-8", response.headers.get("content-type"));
@@ -65,23 +82,24 @@ async function testSiteResponse() {
   //Verify the GTM plugin is present
   const config = getWHConfig(doc);
   test.eq({ "a": "GTM-TN7QQM", "h": true, "m": false }, config["socialite:gtm"]);
+  test.eq({ otherData: 112233 }, config["webhare_testsuite:otherdata"]);
+  test.eq({ notOurAlarmCode: 424242 }, config["webhare_testsuite:basetestjs"]);
 
   //Verify the GTM noscript is present
   test.eq(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
 }
 
-async function getAsDoc(whfspath: string) {
-  const whfsobj = await whfs.openFile(whfspath);
-  const sitereq = await buildSiteRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
-  const response = await sitereq.renderHTMLPage('');
-  const responsetext = await response.text();
-  return parseDocAsXML(responsetext, 'text/html');
+async function testPageResponseApplies() {
+  //test various <apply>s and that they affect the webdesign
+  const { doc: langPsAFDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af", false);
+  test.eq("ps-AF", langPsAFDoc.documentElement?.getAttribute("lang"));
 }
 
-async function testSiteResponseApplies() {
-  //test various <apply>s and that they affect the webdesign
-  const langPsAFDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
-  test.eq("ps-AF", langPsAFDoc.documentElement?.getAttribute("lang"));
+async function testPageResponseMarkdown() {
+  //above tests skip over the actual page to build. let's actually render one now
+  const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/markdownpage", true);
+  const contentdiv = doc.getElementById("content");
+  test.eq("This is a commonmark marked down file with a JS link.", contentdiv?.getElementsByTagName("p")[0]?.textContent);
 }
 
 async function testPublishedJSSite() {
@@ -123,7 +141,7 @@ async function testCaptureJSRendered() {
   test.eq("en", getTidLanguage(), "ensure captureJSPage didn't affect our language");
 }
 
-//Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
+//Unlike testPageResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
 async function testRouter_HSWebDesign() {
   const { port, clientIp, localAddress } = await test.getTestWebserver("webhare_testsuite:basicrouter");
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
@@ -141,8 +159,9 @@ async function testRouter_JSWebDesign() {
 }
 
 test.runTests([
-  testSiteResponse,
-  testSiteResponseApplies,
+  testPageResponse,
+  testPageResponseApplies,
+  testPageResponseMarkdown,
   testPublishedJSSite,
   testCaptureJSDesign,
   testCaptureJSRendered,

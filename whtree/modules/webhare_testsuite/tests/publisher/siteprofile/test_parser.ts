@@ -21,6 +21,8 @@ async function testSPCompiler() {
       applyindex: 3
     }, {
       applyindex: 4
+    }, {
+      applyindex: 5
     }
   ], basetestjs_yamlrules);
 }

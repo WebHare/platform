@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { buildSiteRequest } from "./siterequest";
+import { buildContentPageRequest } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -95,6 +95,6 @@ export async function coreWebHareRouter(port: WebServerPort, request: WebRequest
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
   const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
-  const whfsreq = await buildSiteRequest(request, target.targetObject);
+  const whfsreq = await buildContentPageRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }

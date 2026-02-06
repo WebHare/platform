@@ -89,6 +89,9 @@ types:
         title: extControlledField
 
 apply:
+  - to: all
+    webDesign:
+      pageBuilder: webdesign/webdesign.ts#baseTestJSPageBuilder
   - to:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]

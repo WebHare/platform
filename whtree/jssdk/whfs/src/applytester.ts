@@ -538,7 +538,7 @@ export class WHFSApplyTester {
     const webDesign = {
       objectName: "mod::publisher/lib/webdesign.whlib#WebDesignBase",
       siteResponseFactory: "",
-      getData: "",
+      pageBuilder: "",
       witty: "mod::publisher/lib/defaultwebdesign.witty",
       assetPack: "",
       designFolder: "",
@@ -561,11 +561,11 @@ export class WHFSApplyTester {
       if (apply.webdesign.objectname) {
         webDesign.objectName = apply.webdesign.objectname;
         webDesign.siteResponseFactory = '';
-        webDesign.getData = '';
-      } else if (apply.webdesign.siteresponsefactory || apply.webdesign.getdata) {
+        webDesign.pageBuilder = '';
+      } else if (apply.webdesign.siteresponsefactory || apply.webdesign.pagebuilder) {
         webDesign.objectName = '';
         webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory;
-        webDesign.getData = apply.webdesign.getdata;
+        webDesign.pageBuilder = apply.webdesign.pagebuilder || '';
       }
       webDesign.witty = apply.webdesign.witty ?? webDesign.witty;
       webDesign.designFolder = apply.webdesign.designfolder ?? webDesign.designFolder;

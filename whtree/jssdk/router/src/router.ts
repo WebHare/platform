@@ -5,7 +5,7 @@ declare module "@webhare/router" {
 import type { WRDAuthPluginAPI } from '@mod-wrd/js/internal/wrdauthplugin';
 import type { WebRequest } from './request';
 import type { WebResponse } from './response';
-import type { SiteRequest } from './siterequest';
+import type { ContentPageRequest } from './siterequest';
 
 export interface WebdesignPluginAPIs {
   "platform:wrdauth": WRDAuthPluginAPI;
@@ -16,7 +16,7 @@ export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { SiteRequest, WebDesignFunction, ResponseBuilder } from './siterequest';
+export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest } from './siterequest';
 export {
   RestRequest
 } from './restrequest';
@@ -25,5 +25,6 @@ export { getAssetPackIntegrationCode } from "./concepts";
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 export { type WebHareOpenAPIDocument, type OpenAPIServiceInitializationContext } from "./openapi";
 
-export type WebHareWHFSRouter = (request: SiteRequest) => Promise<WebResponse>;
+export type WebHareWHFSRouter = (request: ContentPageRequest) => Promise<WebResponse>;
 export type WebHareRouter = (request: WebRequest) => Promise<WebResponse>;
+export type { ContentPageRequest };

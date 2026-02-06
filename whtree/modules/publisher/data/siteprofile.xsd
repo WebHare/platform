@@ -1204,11 +1204,6 @@
         <xs:documentation>JS Function returning a SiteResponse to render this webdesign</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="getdata" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>JS Callback returning the data to supply to the Witty template</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="witty" type="xs:string" />
     <xs:attribute name="designfolder" type="xs:string" />
     <xs:attribute name="wittyencoding" type="WittyEncoding" default="HTML" />

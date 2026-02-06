@@ -1,29 +1,58 @@
-import type { ResponseBuilder } from "@webhare/router";
-import type { WebDesignGetDataFunction } from "@webhare/router/src/siterequest";
+import { getTid, getTidLanguage } from "@webhare/gettid";
+import type { PageBuildRequest, WebResponse } from "@webhare/router";
+import { litty } from "@webhare/litty";
+import type { PageBuilderFunction } from "@webhare/router/src/siterequest";
 
-export async function getBaseTestJSDesign(builder: ResponseBuilder) {
-  const pageConfig = {
-    whfspath: builder.targetObject.whfsPath,
-    contentobjectpath: "FIXME", //are we receiving contentObject yet ?
-    navigationobjectpath: "FIXME", //are we receiving navigationobject yet ?
-    widget: null,
-    wrdauthplugin: await builder.getPlugin("platform:wrdauth")?.getWittyData() || null,
-    comments: null,
-    sharedblocks: null,
-    // , comments := ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
-    // , sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
-    bobimagelink: { link: "FIXME" }// := ObjectExists(bobimage) ? WrapCachedImage(bobimage->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD
-  };
-
+export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebResponse> {
   //@ts-expect-error should be detected as invalid
-  builder.setFrontendData("webhare_testsuite:basetestjs", { noSuchField: 4343 });
+  req.setFrontendData("webhare_testsuite:basetestjs", { noSuchField: 4343 });
   //this one should work:
-  builder.setFrontendData("webhare_testsuite:basetestjs", { notOurAlarmCode: 424242 });
+  req.setFrontendData("webhare_testsuite:basetestjs", { notOurAlarmCode: 424242 });
   //@ts-expect-error should be detected as nonexistent
-  builder.setFrontendData("webhare_testsuite:nosuchtype", { invalidData: 41 });
+  req.setFrontendData("webhare_testsuite:nosuchtype", { invalidData: 41 });
 
-  return pageConfig;
+
+  const contentobjectpath = "FIXME"; //are we receiving contentObject yet ? do we want it?
+  const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?
+
+  const bobimage = await req.targetSite.openFile("bob.jpg", { allowMissing: true });
+  const bobimagelink = bobimage?.data.toResized({ method: "none" });
+  const widget = null;
+
+  const wrdauthplugin = await req.getPlugin("platform:wrdauth")?.getWittyData() || null;
+
+  //TODO we want to move away from providing imgroot .. as that one depends on the webdesign designfolder and we might be rendered outside our usual webdesign!
+  const imgroot = "FIXME";
+
+  const comments = null; // TODO ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sharedblocks: any[] = []; // TODO sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
+
+  return req.render({
+    head: litty`<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
+    body: litty`
+      <div id="basetitle">${getTid("webhare_testsuite:basetest.title")}</div>
+      <div id="whfspath">${req.targetObject.whfsPath}</div>
+      <div id="content" data-targetobjectpath="${req.targetObject.whfsPath}"
+                        data-contentobjectpath="${contentobjectpath}"
+                        data-navigationobjectpath="${navigationobjectpath}"
+                        ${getTidLanguage() === 'nl' ? 'data-sitelanguage-nl' : ''}
+                        ${getTidLanguage() === 'en' ? 'data-sitelanguage-en' : ''}
+                        ${getTidLanguage() === 'ps' ? 'data-sitelanguage-ps' : ''}
+                        >
+    ${req.content}
+    </div>
+   ${widget ? litty`<div id="widget">${widget}</div>` : ''}
+   ${bobimagelink ? litty`<div id="bobimagelink">${bobimagelink.link}</div>` : ''}
+   ${wrdauthplugin ? litty`
+      <div id="wrdauthplugin">
+        <a id="logoutlink" href="${wrdauthplugin.logoutlink}">Logoutlink</a>
+        <a href="${req.targetSite.webRoot}testpages/wrdauthtest/" class="wh-wrdauth__logout">Logout to wrdauthtest</a>
+      </div>` : ''}
+  ${comments ? litty`<div id="comments">${comments}</div>` : ''}
+  ${sharedblocks ? litty`<div id="sharedblocks">${sharedblocks.map((block: string) => litty`<div class="basetest__sharedblock">${block}</div>`)}</div>` : ''}
+  <img id="smallbob" src="${imgroot}smallbob.jpg">`
+  });
 }
 
-// validate signatures
-getBaseTestJSDesign satisfies WebDesignGetDataFunction;
+baseTestJSPageBuilder satisfies PageBuilderFunction;

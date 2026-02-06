@@ -295,8 +295,8 @@ export type CustomFieldsLayout = string[] | "all" | {
 
 export type CSPWebDesign = {
   objectname: string;
-  getdata: string;
   siteresponsefactory: string;
+  pagebuilder?: string;
   witty: string;
   assetpack: string;
   wittyencoding: string;
