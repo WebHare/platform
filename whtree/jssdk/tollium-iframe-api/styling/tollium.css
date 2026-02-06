@@ -4,17 +4,19 @@
 :root {
   /* Colors */
   /** The accent color, used by headings */
-  --tollium-color-accent: #2977cd;
+  --tollium-color-accent: #0061cb;
 
   /* Backgrounds */
   /** The background color */
   --tollium-background: #ffffff;
   /** A slightly shaded background color */
   --tollium-background-shaded: #f8f8f8;
+  /** The section toggle (summary) background color */
+  --tollium-background-details-summary: #f0f0f0;
   /** The footer background color */
   --tollium-background-footer: #e5e5e5;
   /** The background color of selected items when focused */
-  --tollium-background-selected: hsl(from var(--tollium-color-accent) h calc(s * 1.5) calc(l * 1.7));
+  --tollium-background-selected: hsl(from #2977cd h calc(s * 1.5) calc(l * 1.7));
   /** The background color of selected items when blurred */
   --tollium-background-blurred: #e1e1e1;
   /** The background color behind applications */
@@ -55,6 +57,8 @@
   --tollium-font: var(--tollium-font-size) var(--tollium-font-family);
   /** The font definition for headings */
   --tollium-heading-font: 500 13px/120% var(--tollium-font-family);
+  /** The font definition for headings */
+  --tollium-section-summary-font: 700 15px/120% var(--tollium-font-family);
   /** The heading text color */
   --tollium-heading-color: var(--tollium-color-accent);
   /** The application bar text color (server name) */
