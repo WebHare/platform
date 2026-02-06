@@ -392,60 +392,6 @@ void ShtmlContextData::AddHeader(HSVM *vm)
             HSVM_ReportCustomError(vm, "Cannot AddHeader after flushing the response");
 }
 
-void ShtmlContextData::SessionList (HSVM *vm, HSVM_VariableId id_set)
-{
-        // FIXME: this is copy-pasted to ShtmlContextData::SessionList
-        LockedSUCache::WriteRef lock(shtml->sucache);
-
-        int32_t webserverid = HSVM_IntegerGet(vm, HSVM_Arg(0));
-
-        //Create the table and columns
-        HSVM_ColumnId col_name = HSVM_GetColumnId(vm, "NAME");
-        HSVM_ColumnId col_userid = HSVM_GetColumnId(vm, "USERID");
-        HSVM_ColumnId col_userentityid = HSVM_GetColumnId(vm, "USERENTITYID");
-        HSVM_ColumnId col_accessruleids = HSVM_GetColumnId(vm, "ACCESSRULEIDS");
-        HSVM_ColumnId col_isuser= HSVM_GetColumnId(vm, "ISUSER");
-        HSVM_ColumnId col_logintime = HSVM_GetColumnId(vm, "LOGINTIME");
-        HSVM_ColumnId col_lastaccess = HSVM_GetColumnId(vm, "LASTACCESS");
-        HSVM_ColumnId col_ipaddress = HSVM_GetColumnId(vm, "IPADDRESS");
-        HSVM_ColumnId col_canclose = HSVM_GetColumnId(vm, "CANCLOSE");
-        HSVM_ColumnId col_sessionid = HSVM_GetColumnId(vm, "SESSIONID");
-        HSVM_ColumnId col_type = HSVM_GetColumnId(vm, "TYPE");
-        HSVM_ColumnId col_scope = HSVM_GetColumnId(vm, "SCOPE");
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_RecordArray);
-
-        SUCache::Sessions const &sessionlist = lock->GetSessions();
-        for (SUCache::Sessions::const_iterator itr=sessionlist.begin();itr!=sessionlist.end();++itr)
-        {
-                if (webserverid != 0 && itr->webserverid != webserverid)
-                    continue;
-
-/*                if (itr->lastcacheuse < inactivity_cutoff //inactive for too long
-                    || itr->displayname.empty())
-                    continue;
-  */
-                HSVM_VariableId newrecord = HSVM_ArrayAppend(vm, id_set);
-
-                HSVM_DateTimeSet (vm, HSVM_RecordCreate(vm, newrecord, col_logintime), itr->creationtime.GetDays(), itr->creationtime.GetMsecs());
-                HSVM_DateTimeSet (vm, HSVM_RecordCreate(vm, newrecord, col_lastaccess), itr->lastcacheuse.GetDays(), itr->lastcacheuse.GetMsecs());
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_type), itr->type);
-                HSVM_BooleanSet  (vm, HSVM_RecordCreate(vm, newrecord, col_isuser), !itr->displayname.empty());
-
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_name), itr->displayname);
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_userid), itr->userid);
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_userentityid), itr->userentityid);
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_ipaddress), itr->ipaddr.GetIPAddress());
-                HSVM_BooleanSet  (vm, HSVM_RecordCreate(vm, newrecord, col_canclose), itr->can_close);
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_sessionid), itr->sessionid);
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_scope), itr->scope);
-
-                HSVM_VariableId accessruleids = HSVM_RecordCreate(vm, newrecord, col_accessruleids);
-                HSVM_SetDefault(vm, accessruleids, HSVM_VAR_IntegerArray);
-                for(unsigned i=0;i<itr->accessruleids.size();++i)
-                    HSVM_IntegerSet(vm, HSVM_ArrayAppend(vm, accessruleids), itr->accessruleids[i]);
-        }
-}
-
 void ShtmlContextData::CreateWebSession(HSVM *vm, HSVM_VariableId id_set)
 {
         //Open contexts
@@ -867,59 +813,6 @@ void ShtmlWebserverContextData::ClearHTTPEventMessages(HSVM *vm)
 
         eventserver.ClearMessages(groupmask);
 }
-
-void ShtmlWebserverContextData::SessionList(HSVM *vm, HSVM_VariableId id_set)
-{
-        // FIXME: this is copy-pasted from ShtmlContextData::SessionList
-        LockedSUCache::WriteRef lock(shtml->sucache);
-
-        int32_t webserverid = HSVM_IntegerGet(vm, HSVM_Arg(0));
-
-        //Create the table and columns
-        HSVM_ColumnId col_name = HSVM_GetColumnId(vm, "NAME");
-        HSVM_ColumnId col_userid = HSVM_GetColumnId(vm, "USERID");
-        HSVM_ColumnId col_userentityid = HSVM_GetColumnId(vm, "USERENTITYID");
-        HSVM_ColumnId col_accessruleids = HSVM_GetColumnId(vm, "ACCESSRULEIDS");
-        HSVM_ColumnId col_isuser= HSVM_GetColumnId(vm, "ISUSER");
-        HSVM_ColumnId col_logintime = HSVM_GetColumnId(vm, "LOGINTIME");
-        HSVM_ColumnId col_lastaccess = HSVM_GetColumnId(vm, "LASTACCESS");
-        HSVM_ColumnId col_ipaddress = HSVM_GetColumnId(vm, "IPADDRESS");
-        HSVM_ColumnId col_canclose = HSVM_GetColumnId(vm, "CANCLOSE");
-        HSVM_ColumnId col_sessionid = HSVM_GetColumnId(vm, "SESSIONID");
-        HSVM_ColumnId col_type = HSVM_GetColumnId(vm, "TYPE");
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_RecordArray);
-
-        SUCache::Sessions const &sessionlist = lock->GetSessions();
-        for (SUCache::Sessions::const_iterator itr=sessionlist.begin();itr!=sessionlist.end();++itr)
-        {
-                if (webserverid != 0 && itr->webserverid != webserverid)
-                    continue;
-
-/*                if (itr->lastcacheuse < inactivity_cutoff //inactive for too long
-                    || itr->displayname.empty())
-                    continue;
-  */
-                HSVM_VariableId newrecord = HSVM_ArrayAppend(vm, id_set);
-
-                HSVM_DateTimeSet (vm, HSVM_RecordCreate(vm, newrecord, col_logintime), itr->creationtime.GetDays(), itr->creationtime.GetMsecs());
-                HSVM_DateTimeSet (vm, HSVM_RecordCreate(vm, newrecord, col_lastaccess), itr->lastcacheuse.GetDays(), itr->lastcacheuse.GetMsecs());
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_type), itr->type);
-                HSVM_BooleanSet  (vm, HSVM_RecordCreate(vm, newrecord, col_isuser), !itr->displayname.empty());
-
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_name), itr->displayname);
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_userid), itr->userid);
-                HSVM_IntegerSet  (vm, HSVM_RecordCreate(vm, newrecord, col_userentityid), itr->userentityid);
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_ipaddress), itr->ipaddr.GetIPAddress());
-                HSVM_BooleanSet  (vm, HSVM_RecordCreate(vm, newrecord, col_canclose), itr->can_close);
-                HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, newrecord, col_sessionid), itr->sessionid);
-
-                HSVM_VariableId accessruleids = HSVM_RecordCreate(vm, newrecord, col_accessruleids);
-                HSVM_SetDefault(vm, accessruleids, HSVM_VAR_IntegerArray);
-                for(unsigned i=0;i<itr->accessruleids.size();++i)
-                    HSVM_IntegerSet(vm, HSVM_ArrayAppend(vm, accessruleids), itr->accessruleids[i]);
-        }
-}
-
 
 void ShtmlContextData::LogWebserverError(HSVM *vm)
 {

@@ -228,7 +228,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     this->LoadDrafts();
     IF(RecordExists(this->currentautosave_version))
-      RETURN CELL[]; //no useful metadata yet to report (TODO last mod date?
+      RETURN CELL[ saved := this->currentautosave_version.when
+                 ];
 
     RETURN DEFAULT RECORD;
   }

@@ -151,7 +151,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     IF(RecordExists(continue_autosave)) {
       this->ReloadRTEContents(); //make sure you can see the autosave in question
 
-      STRING response := this->RunSimpleScreen("question", GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave"), [ buttons := [ "yes", "no", "cancel" ]]);
+      STRING when := this->tolliumuser->FormatDatetime(continue_autosave.saved, "minutes", TRUE, FALSE);
+      STRING question := GetTid("publisher:tolliumapps.editdocument.messageboxes.resumeautosave", when);
+      STRING response := this->RunSimpleScreen("question", question, [ buttons := [ "yes", "no", "cancel" ]]);
       IF(response != "yes" AND response != "no") {
         this->tolliumresult := "cancel";
         RETURN;

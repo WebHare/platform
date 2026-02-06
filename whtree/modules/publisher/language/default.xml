@@ -1666,7 +1666,7 @@
         <text tid="confirmsaveandpublish">Are you sure you want to save and publish?</text>
         <text tid="draftcancelled">The draft version has been cancelled - the document is reverted to the latest published version.</text>
         <text tid="otherhasdraft"><ifparam p="1" value="">Another user<else/>User <param p="1"/></ifparam> has created a draft version on <param p="2"/> for this document. <br/><br/>If you continue, you will be editing this draft including the changes.</text>
-        <text tid="resumeautosave">You have unsaved changes for this file. Do you wish to load these changes?</text>
+        <text tid="resumeautosave">You have unsaved changes for this file since <param p="1"/>. Do you wish to load these changes?</text>
         <text tid="savebeforeclose">Do you want to save the changes you made to '<param p="1"/>' before closing?</text>
         <text tid="savebeforepreview">You need to save your changes before you can send a preview.<br/><br/>Do you want to save and continue?</text>
       </textgroup>

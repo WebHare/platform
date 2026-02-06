@@ -2,6 +2,8 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::platform/lib/dialogs.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/dialogs-userrights.whlib";
 LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
@@ -306,6 +308,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase <
   MACRO DoExit()
   {
     this->tolliumresult := "exit";
+  }
+
+  MACRO DoOpenIDProviders() {
+    RunManageOIDCProvidersDialog(this);
   }
 
   MACRO DoSyncauthobjects()

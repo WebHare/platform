@@ -246,7 +246,7 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase <
 
     ^showauditlog->enabled := this->contexts->user->HasRight("system:supervisor");
 
-    INTEGER ARRAY onlineusers := GetOnlineUsersIDs();
+    INTEGER ARRAY onlineusers; //FIXME but already broken
     INTEGER unit_authobjectid := ObjectExists(this->pvt_unit) ? this->pvt_unit->authobjectid : 0;
     INTEGER unit_entityid := ObjectExists(this->pvt_unit) ? this->pvt_unit->entityid : 0;
 

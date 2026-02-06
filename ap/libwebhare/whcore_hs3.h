@@ -117,7 +117,6 @@ class BLEXLIB_PUBLIC SHTMLWebserverCallbacks
         virtual void ConfigureWebServer(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void FlushLogFiles(HSVM *hsvm)=0;
         virtual void LogWebserverError(HSVM *hsvm)=0;
-        virtual void SessionList(HSVM *hsvm, HSVM_VariableId id_set)=0;
 
         virtual void GetHTTPEventListenerCounts(HSVM *vm, HSVM_VariableId id_set)=0;
         virtual void ClearHTTPEventMessages(HSVM *vm)=0;
@@ -146,7 +145,6 @@ class BLEXLIB_PUBLIC SHTMLCallbacks
         virtual void ClientLocalPort(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void ClientRemotePort(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void ClientLocalAddress(HSVM *hsvm, HSVM_VariableId id_set)=0;
-        virtual void SessionList(HSVM *hsvm, HSVM_VariableId id_set)=0;
 
         virtual void AuthenticateWebSession(HSVM *hsvm)=0;
         virtual void AuthenticateWebhareUser(HSVM *hsvm)=0;

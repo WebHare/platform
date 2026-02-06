@@ -53,23 +53,6 @@ PUBLIC MACRO ThrowNoShtmlException() __ATTRIBUTES__(SKIPTRACE)
   THROW NEW NotAShtmlContextException;
 }
 
-// Only get the ID's of online users
-PUBLIC INTEGER ARRAY FUNCTION GetOnlineUsersIDs()
-{
-  TRY
-  {
-    RETURN
-        SELECT AS INTEGER ARRAY userentityid
-          FROM __SYSTEM_WHS_SESSIONLIST(0)
-      GROUP BY userentityid;
-  }
-  CATCH(OBJECT<NotAShtmlContextException> e) //ignore errors when we're not running inside the webserver
-  {
-    RETURN DEFAULT INTEGER ARRAY;
-  }
-}
-
-
 MACRO OnWebserverDestroy() __ATTRIBUTES__(DEINITMACRO)
 {
   TRY

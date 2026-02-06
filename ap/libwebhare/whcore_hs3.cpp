@@ -1137,21 +1137,6 @@ void WHS_LogWebserverError(HSVM *vm)
       }
 }
 
-void WHS_SessionList(HSVM *vm, HSVM_VariableId id_set)
-{
-      ScriptGroupContextData *scriptgroupcontext=static_cast<ScriptGroupContextData*>(HSVM_GetGroupContext(vm, ScriptGroupContextId,true));
-      if(scriptgroupcontext->shtml.get())
-          scriptgroupcontext->shtml->SessionList(vm, id_set);
-      else
-      {
-              ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
-              Connection const &webhare = scriptcontext->GetWebHare();
-              if(webhare.shtmlcallbacks.get())
-                  webhare.shtmlcallbacks->SessionList(vm, id_set);
-              else
-                  ThrowNoShtmlException(vm);
-      }
-}
 
 // -----------------------------------------------------------------------------
 //
@@ -1224,7 +1209,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "GETCLIENTLOCALPORT::I:",WHS_ClientLocalPort);
         HSVM_RegisterFunction(regdata, "GETCLIENTREMOTEPORT::I:",WHS_ClientRemotePort);
         HSVM_RegisterFunction(regdata, "GETCLIENTLOCALADDRESS::S:",WHS_ClientLocalAddress);
-        HSVM_RegisterFunction(regdata, "__SYSTEM_WHS_SESSIONLIST::RA:I",WHS_SessionList);
 
         HSVM_RegisterMacro(regdata, "__WHS_AUTHENTICATEWEBSESSION:::SSSBIIB",WHS_AuthenticateWebSession);
         HSVM_RegisterMacro(regdata, "__WHS_SETREQUESTUSERNAME:::S",WHS_SetRequestUserName);
