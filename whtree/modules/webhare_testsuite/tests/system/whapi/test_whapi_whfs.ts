@@ -99,7 +99,7 @@ async function testWHFSAPI() {
           },
           {
             widget: {
-              whfsType: 'http://www.webhare.net/xmlns/publisher/embedvideo',
+              whfsType: 'platform:widgets.video',
               data: {
                 network: 'youtube',
                 videoid: 'BAf7lcYEXag',

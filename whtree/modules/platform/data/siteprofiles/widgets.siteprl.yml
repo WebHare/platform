@@ -1,4 +1,70 @@
+widgetGroups:
+  platform:generalwidgets:
+    tid: publisher:siteprofile.widgets.general
+  platform:mailwidgets:
+    tid: publisher:siteprofile.widgets.mail
+
 types:
+  widgets.inlinehtml:
+    namespace: http://www.webhare.net/xmlns/publisher/widgets/inlinehtml
+    tid: publisher:widgets.htmlwidget.title-inline
+    icon: tollium:files/widget
+    metaType: inlineWidget
+    editor:
+      tabsExtension: mod::publisher/data/embeddedobjects.siteprl.xml#embedhtml
+    renderer: mod::publisher/lib/widgets/htmlwidget.whlib#InlineHTMLWidgetBase
+    members:
+      html:
+        type: string
+  widgets.html:
+    namespace: http://www.webhare.net/xmlns/publisher/embedhtml
+    tid: publisher:widgets.htmlwidget.title
+    icon: tollium:files/widget
+    metaType: blockWidget
+    editor:
+      tabsExtension: mod::publisher/data/embeddedobjects.siteprl.xml#embedhtml
+    renderer: mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase
+    members:
+      html:
+        type: string
+  widgets.video:
+    namespace: http://www.webhare.net/xmlns/publisher/embedvideo
+    tid: publisher:siteprofile.widgets.embedvideo
+    comment: RTD Video component
+    icon: tollium:files/widget
+    metaType: blockWidget
+    editor:
+      function: mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance
+    renderer: mod::publisher/lib/widgets/videowidget.whlib#VideoWidgetBase
+    members:
+      network:
+        type: string
+      videoid:
+        type: string
+      thumbnail:
+        type: file
+      creationdate:
+        type: instant
+      title:
+        type: string
+      description:
+        type: string
+      duration:
+        type: integer
+      starttime:
+        type: integer
+      endtime:
+        type: integer
+      location:
+        type: string
+      playratio:
+        type: float
+      loop:
+        type: boolean
+      mute:
+        type: boolean
+      autoplay:
+        type: boolean
   widgets.form:
     namespace: http://www.webhare.net/xmlns/publisher/formwidget
     tid: publisher:siteprofile.widgets.formwidget
@@ -20,7 +86,7 @@ types:
       tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editconfirmfield
     renderer: mod::publisher/lib/internal/forms/confirmfield.whlib#ConfirmFieldWidget
     requireMergeFieldsContext: true
-    group: http://www.webhare.net/xmlns/publisher/mailwidgets
+    group: platform:mailwidgets
     members:
       linktext:
         type: string
@@ -33,7 +99,7 @@ types:
       tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editmergefield
     renderer: mod::publisher/lib/internal/forms/mergefield.whlib#MergeFieldWidget
     requireMergeFieldsContext: true
-    group: http://www.webhare.net/xmlns/publisher/mailwidgets
+    group: platform:mailwidgets
     members:
       fieldname:
         type: string
@@ -47,8 +113,4 @@ types:
     metaType: blockWidget
     renderer: mod::publisher/lib/internal/forms/resultsfield.whlib#ResultsFieldWidget
     requireMergeFieldsContext: true
-    group: http://www.webhare.net/xmlns/publisher/mailwidgets
-
-widgetGroups:
-  http://www.webhare.net/xmlns/publisher/mailwidgets:
-    tid: publisher:siteprofile.widgets.mail
+    group: platform:mailwidgets

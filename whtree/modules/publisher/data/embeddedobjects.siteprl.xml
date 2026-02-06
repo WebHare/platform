@@ -1,7 +1,5 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <grouptype namespace="http://www.webhare.net/xmlns/publisher/generalwidgets" tid="siteprofile.widgets.general" />
-
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens"
                  name="embedhtml"
                  allowresize="true"
@@ -20,47 +18,5 @@
       <textarea composition="contentdata" cellname="html" name="actualhtml" visible="false" />
     </newtab>
   </tabsextension>
-
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/embedhtml"
-              editextension="#embedhtml"
-              renderobjectname="mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase"
-              tid="widgets.htmlwidget.title">
-    <members>
-      <string name="html" />
-    </members>
-  </widgettype>
-
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/inlinehtml"
-              editextension="#embedhtml"
-              embedtype="inline"
-              renderobjectname="mod::publisher/lib/widgets/htmlwidget.whlib#InlineHTMLWidgetBase"
-              tid="widgets.htmlwidget.title-inline">
-    <members>
-      <string name="html" />
-    </members>
-  </widgettype>
-
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
-              comment="RTD Video component"
-              editfunctionname="mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance"
-              renderobjectname="mod::publisher/lib/widgets/videowidget.whlib#VideoWidgetBase"
-              tid="siteprofile.widgets.embedvideo">
-    <members>
-      <string name="network" />
-      <string name="videoid" />
-      <file name="thumbnail" />
-      <datetime name="creationdate" />
-      <string name="title" />
-      <string name="description" />
-      <integer name="duration" />
-      <integer name="starttime" />
-      <integer name="endtime" />
-      <string name="location" />
-      <float name="playratio" />
-      <boolean name="loop" />
-      <boolean name="mute" />
-      <boolean name="autoplay" />
-    </members>
-  </widgettype>
 
 </siteprofile>
