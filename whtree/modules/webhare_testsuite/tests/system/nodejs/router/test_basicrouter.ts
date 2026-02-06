@@ -65,7 +65,7 @@ function testWebRequest() {
 }
 
 async function testHSWebserver() {
-  const { port, clientIp, localAddress } = await test.getTestWebsever("webhare_testsuite:basicrouter");
+  const { port, clientIp, localAddress } = await test.getTestWebserver("webhare_testsuite:basicrouter");
   test.assert(port);
   const testsuiteresources = services.backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/";
   let result = await coreWebHareRouter(port, new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml", {
