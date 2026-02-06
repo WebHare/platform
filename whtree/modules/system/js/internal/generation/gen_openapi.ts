@@ -12,22 +12,6 @@ import { promises as fs } from "node:fs";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
 
-
-function convertStatusCodes(result: string) {
-  return result.split("\n").map(line => {
-    const match = /^( {16})(\d\d\d)(.*)$/.exec(line);
-    if (match) {
-      let code: number | string = Number(match[2]);
-      if (code in HTTPSuccessCode)
-        code = `[HTTPSuccessCode.${HTTPSuccessCode[code]}]`;
-      else if (code in HTTPErrorCode)
-        code = `[HTTPErrorCode.${HTTPErrorCode[code]}]`;
-      return `${match[1]}${code}${match[3]}`;
-    }
-    return line;
-  }).join("\n");
-}
-
 function encodeJSONReferenceProperty(prop: string) {
   return prop.replace(/~/g, '~0').replace(/\//g, '~1');
 }
@@ -268,9 +252,7 @@ export async function createOpenAPITypeDocuments(openapifilepath: string | OpenA
   moveSharedSchemaObjects(parsed as OpenAPI3);
 
   const openapiTSfunc = (await import("openapi-typescript")).default;
-  const output = astToString(await openapiTSfunc(parsed as OpenAPI3));
-
-  let result = convertStatusCodes(output);
+  let result = astToString(await openapiTSfunc(parsed as OpenAPI3));
 
   const sourcefiles = new Map<string, { symbols: Set<string>; defs: string }>;
 
@@ -399,8 +381,7 @@ type APIAuthInfo = null;
 /* eslint-disable no-tabs -- don't care about tabs from source files */
 
 ${isservice ? `import type { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@webhare/openapi-client/src/types";
-` : ``}import type { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
-import { TypedOpenAPIClient, type TypedClientRequestBody, type TypedClientResponse, type GetClientTypeParams, type PathsForMethod } from "@webhare/openapi-client/src/typedclient";
+` : ``}import { TypedOpenAPIClient, type TypedClientRequestBody, type TypedClientResponse, type GetClientTypeParams, type PathsForMethod } from "@webhare/openapi-client/src/typedclient";
 
 ${result}
 
