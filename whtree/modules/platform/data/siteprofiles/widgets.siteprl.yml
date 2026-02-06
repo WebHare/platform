@@ -65,6 +65,18 @@ types:
         type: boolean
       autoplay:
         type: boolean
+  widgets.anchor:
+    namespace: http://www.webhare.net/xmlns/publisher/widgets/anchor
+    tid: publisher:widgets.anchorwidget.title
+    metaType: blockWidget
+    icon: tollium:files/widget
+    editor:
+      tabsExtension: mod::publisher/widgets/widgets.xml#anchorwidget
+    renderer: mod::publisher/widgets/widgets.whlib#AnchorWidgetBase
+    wittyComponent: mod::publisher/widgets/widgets.witty#anchor
+    members:
+      name:
+        type: string
   widgets.form:
     namespace: http://www.webhare.net/xmlns/publisher/formwidget
     tid: publisher:siteprofile.widgets.formwidget

@@ -15,9 +15,9 @@
     </blockstyles>
 
     <widgets>
-      <allowtype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
-      <allowtype type="http://www.webhare.net/xmlns/publisher/embedvideo" />
-      <!-- <allowtype type="http://www.webhare.net/xmlns/publisher/embedhtml" /> -->
+      <allowtype type="platform:widgets.anchor" />
+      <allowtype type="platform:widgets.video" />
+      <!-- <allowtype type="platform:widgets.html" /> -->
     </widgets>
 
   </rtdtype>
