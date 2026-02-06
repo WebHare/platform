@@ -480,10 +480,10 @@ function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>):
   return out;
 }
 
-function parseWidgets(_inAllowedObjects: NonNullable<Sp.RTDType["widgets"]>): CSPRTDAllowedObject[] {
-  return _inAllowedObjects.map(entry => ({
+function parseWidgets(context: SiteProfileParserContext, widgets: NonNullable<Sp.RTDType["widgets"]>): CSPRTDAllowedObject[] {
+  return widgets.map(entry => ({
     inherit: entry.inherit === true,
-    type: entry.type
+    type: context.resolveType(entry.type)
   }));
 }
 
@@ -532,7 +532,7 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     internallinkroots: [],
     linkhandlers: type.linkHandlers?.map(lh => ({ namespaceuri: lh.split('#')[0], localname: lh.split('#')[1] || '' })) || [],
     margins: "",
-    allowedobjects: parseWidgets(type.widgets || []),
+    allowedobjects: parseWidgets(context, type.widgets || []),
   };
 }
 
