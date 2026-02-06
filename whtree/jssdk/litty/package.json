@@ -1,0 +1,21 @@
+{
+  "name": "@webhare/litty",
+  "version": "",
+  "description": "Litty template literals for building HTML in WebHare",
+  "main": "src/litty.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/litty.ts"
+    ]
+  },
+  "private": true,
+  "dependencies": {
+    "@webhare/std": ""
+  }
+}
