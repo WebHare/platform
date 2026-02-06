@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/webtool.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 LOADLIB "mod::publisher/lib/rtd.whlib";
 
 
@@ -95,6 +96,7 @@ PUBLIC RECORD FUNCTION ParseFormRichText(RECORD fielddef, OBJECT node, RECORD pa
 PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
 <
   RECORD __richvalue;
+  STRING rtdtype;
 
   PUBLIC PROPERTY richvalue(GetRichValue, SetRichValue);
 
@@ -106,6 +108,15 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
     this->hidetitle := TRUE;
     IF(CellExists(field, 'richvalue'))
       this->__richvalue := field.richvalue;
+    // If the form is rendered within the context of another page (e.g. a router page), the context's target object may be
+    // different from the form, with different apply rules. In that case, use the form's apply tester to find the rtdtype to
+    // use to render the rich text
+    OBJECT applytester := GetApplyTesterForObject(form->__form.webtoolformid);
+    IF (ObjectExists(applytester))
+    {
+      RECORD rtdsettings := applytester->GetRTDTypeSettings();
+      this->rtdtype := rtdsettings.rtdtype;
+    }
   }
 
  UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
@@ -116,6 +127,7 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
                , hasmergefields := this->form EXTENDSFROM WebtoolFormBase AND CellExists(this->field,'mayhavemergefields') AND this->field.mayhavemergefields
                , renderedmergefields := this->__renderedmergefields
                , this->richvalue
+               , this->rtdtype
                ];
   }
 
@@ -124,6 +136,7 @@ PUBLIC STATIC OBJECTTYPE RichTextField EXTEND ValuelessFormFieldBase
     RECORD renderinfo := CELL[ ...FormFieldBase::GetRenderTree()
                              , richtext := this->richvalue
                              , type := "richtext"
+                             , this->rtdtype
                              ]; //TODO support mergefields
     RETURN renderinfo;
   }
