@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/otp.whlib";
 LOADLIB "wh::util/stringparser.whlib";
@@ -395,4 +396,15 @@ PUBLIC RECORD FUNCTION GetUserUnitPolicy(OBJECT wrdschema, INTEGER user) {
     unit := wrdschema->accounttype->GetEntityField(user, "WHUSER_UNIT");
 
   RETURN GetSchemaUnitPolicy(wrdschema, unit);
+}
+
+PUBLIC RECORD FUNCTION CreateOAuth2AuthorizeRequest(STRING wrdschematag, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ prompt := "", raw_landing := FALSE, userdata := DEFAULT RECORD ], options);
+  RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2AuthorizeRequest", wrdschematag, serviceprovidertag, redirectto,
+    CELL[ options.prompt, user_data := options.userdata ]);
+}
+
+PUBLIC RECORD FUNCTION CreateOAuth2LoginRequest(STRING wrdschematag, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ prompt := "", raw_landing := FALSE ], options);
+  RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2LoginRequest", wrdschematag, serviceprovidertag, redirectto, options);
 }

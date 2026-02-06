@@ -3,13 +3,17 @@
 /* direct test links: https://my.webhare.dev/?app=wrd(system:usermgmt)/oidcproviders
 */
 
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webapi/oauth2.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
-
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 PUBLIC STATIC OBJECTTYPE Providers EXTEND TolliumScreenBase <
   MACRO Init(RECORD data) {
@@ -25,6 +29,10 @@ PUBLIC STATIC OBJECTTYPE Providers EXTEND TolliumScreenBase <
     //   RETURN this->RunScreen("#addprovider"); //ADDME should probably pass the requested scopes
     // }
     RETURN ^providers->RunEntityEditScreen("#editprovider", entityid) ?? entityid;
+  }
+
+  MACRO DoTestProvider() {
+    this->RunScreen("#testprovider", CELL [ provider := ^providers->selection.rowkey ]);
   }
 >;
 
@@ -48,5 +56,21 @@ PUBLIC STATIC OBJECTTYPE EditProvider EXTEND WRDEntityEditScreenBase <
 
   MACRO OnReveal() {
     ^entity->^clientsecret->password := NOT ^showclientsecret->value;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE TestProvider EXTEND TolliumScreenBase <
+  RECORD data;
+
+  MACRO Init(RECORD data) {
+    this->data := data;
+  }
+  MACRO DoTestLogin(OBJECT browser) {
+    //I'm not sure if there's a practical risk if users do tricks with the debug URL but just in case we'll make sure the debug logins have limited availability
+    STRING debugpage := GetPrimaryWebhareInterfaceURL() || ".wh/auth/debuglogin?debug=" || EncryptForThisServer("platform:debuglogin", CELL [ now := GetCurrentDateTime() ]);
+    browser->SendURL(CreateOAuth2LoginRequest(this->contexts->wrdschema->tag, "#" || this->data.provider, debugpage,
+      [ raw_landing := TRUE
+      , prompt := ^prompt->value
+      ]).url);
   }
 >;

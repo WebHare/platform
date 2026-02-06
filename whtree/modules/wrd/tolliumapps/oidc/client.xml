@@ -4,6 +4,11 @@
          library="client.whlib">
 
   <screen name="providers" width="120x" allowresize="true" footerbuttons="close">
+    <actions>
+      <action name="testprovider" onexecute="dotestprovider">
+        <enableon source="providers" min="1" />
+      </action>
+    </actions>
     <body>
       <wrd:entitiesedit name="providers"
                         minwidth="60x"
@@ -13,7 +18,8 @@
                         onmaprows="mapproviders"
                         orderable="true"
                         requestcolumns="wrd_title clientid metadataurl"
-                        wrdtype="wrdauth_oidc_client">
+                        wrdtype="wrdauth_oidc_client"
+                        customactions="testprovider">
         <column name="wrd_title" type="text" tid=".buttontitle" />
         <column name="metadataurl" type="text" />
         <column name="clientid" type="text" />
@@ -59,6 +65,23 @@
       <imgedit composition="entity" cellname="icon" width="1pr" height="100px" publisher="false" recommendedsize="48x48" />
       <textarea composition="entity" cellname="comments" width="1pr" minheight="3gr" tid="~comments" />
       <textedit composition="entity" cellname="wrd_tag" width="1pr" minheight="3gr" />
+    </body>
+  </screen>
+
+  <screen name="testprovider" footerbuttons="close">
+    <actions>
+      <windowopenaction name="testlogin" onwindowopen="dotestlogin" />
+    </actions>
+    <body>
+      <select name="prompt" type="pulldown">
+        <option rowkey="" title=""/>
+        <option rowkey="none" title="none"/>
+        <!-- Technically the following options can be comnined too -->
+        <option rowkey="login" title="login"/>
+        <option rowkey="consent" title="consent"/>
+        <option rowkey="select_account" title="select_account"/>
+      </select>
+      <button action="testlogin" />
     </body>
   </screen>
 

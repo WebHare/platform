@@ -169,6 +169,9 @@ declare module "@webhare/services" {
       /** Is set password? */
       isSet?: boolean;
     };
+    "platform:debuglogin": {
+      now: Date;
+    };
   }
 }
 

@@ -4828,6 +4828,11 @@ To change a <xs:attribute /> for adding descriptions
         <xs:documentation>If set, automatically switch to view mode if disabled (without disabling the list)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="customactions" type="ComponentRefList">
+      <xs:annotation>
+        <xs:documentation>Additional actions to add to our buttons/menu</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="ArrayListEditActions">
