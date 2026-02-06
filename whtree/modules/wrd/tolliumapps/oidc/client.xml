@@ -76,7 +76,7 @@
       <select name="prompt" type="pulldown">
         <option rowkey="" title=""/>
         <option rowkey="none" title="none"/>
-        <!-- Technically the following options can be comined too -->
+        <!-- Technically the following options can be comnined too -->
         <option rowkey="login" title="login"/>
         <option rowkey="consent" title="consent"/>
         <option rowkey="select_account" title="select_account"/>
