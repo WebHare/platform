@@ -1,4 +1,4 @@
-import type { RestRequest, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
+import type { RestRequest, HTTPErrorCode, HTTPSuccessCode, HTTPStatusCode } from "@webhare/router";
 
 
 type NeverFallback<A, B> = [A] extends [never] ? B : A;
@@ -38,6 +38,18 @@ export type GetOperation<Paths extends object, OperationId extends OperationIds<
       ? AllOperationsOfPath<Paths>
       : never));
 
+type StatusCodeMap = { [K in HTTPStatusCode as `${K}`]: K };
+
+/** Maps a status code (number or enum) to the corresponding enum */
+type MapStatusToStatusEnum<Code> = Code extends string | number ?
+  (`${Code}` extends keyof StatusCodeMap ? StatusCodeMap[`${Code}`] : Code) :
+  Code;
+
+/** Maps the status code keys of a response from number to the corresponding HTTPSuccessCode or HTTPErrorCode enum value */
+type MapResponseStatusCodes<Response> = {
+  [K in keyof Response as MapStatusToStatusEnum<K>]: Response[K];
+};
+
 /* ObjectUnionToIntersection, used to infer default method (return value when there is only one possibility, never otherwise when used for simple strings)
    from https://stackoverflow.com/questions/50374908/transform-union-type-to-intersection-type/50375286#50375286
 */
@@ -75,7 +87,7 @@ export type MergeParameters<Parameters extends object> = Parameters extends obje
 /** Returns the contents responses cell of an operation, if it has one. If not, an empty object
  * @typeParam Operation - Operation object
 */
-export type GetOperationResponses<Operation extends object> = Operation extends { responses: infer Responses } ? Responses & object : object;
+export type GetOperationResponses<Operation extends object> = Operation extends { responses: infer Responses } ? MapResponseStatusCodes<Responses> & object : object;
 
 /** Returns true if a mediatypes object contains "application/json", false if it contains anything else. Returns boolean (= true | false) if it contains application/json and something else (or equals never)
  * @typeParam MediaTypes - Media types object (is contents of 'content' of a response)
