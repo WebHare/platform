@@ -317,6 +317,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }
     // Main script - initialize the main bridge
     mainbridge ??= new MainBridge;
+    (globalThis.whDebug ??= {}).mainBridge = mainbridge;
     return mainbridge.getTopLocalBridgeInitData(localBridge);
   }
 
@@ -1514,6 +1515,7 @@ function hookConsoleLog() {
 hookConsoleLog();
 
 bridgeimpl = new LocalBridge();
+(globalThis.whDebug ??= {}).localBridge = bridgeimpl;
 
 const bridge: Bridge = bridgeimpl;
 export default bridge;

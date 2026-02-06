@@ -826,7 +826,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (context.jobCacheEnabled && !context.jobCachedWorker) {
       if (debugFlags.vmlifecycle)
         console.log(`[${vm.currentgroup}] Preparing cached job worker, preload scripts`, context.jobCachedPreloadLibs);
-      context.jobCachedWorker = new AsyncWorker;
+      context.jobCachedWorker = new AsyncWorker();
       const wasmHsvmPath = path.join(__filename, "../wasm-hsvm.ts");
       context.jobCachedWorker.callRemote(`${wasmHsvmPath}#harescriptWorkerPrepare`, context.jobCachedPreloadLibs, getCachedWebAssemblyModule()).catch(e => logError(e as Error));
     } else if (!context.jobCacheEnabled && context.jobCachedWorker) {
@@ -857,7 +857,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     if (debugFlags.vmlifecycle && context.jobCachedWorker)
       console.log(`[${vm.currentgroup}] Allocating job for ${JSON.stringify(var_mainscript.getString())}${context.jobCachedWorker ? ", using cached worker" : ", creating new worker"}`);
-    const worker = context.jobCachedWorker ?? new AsyncWorker;
+    const worker = context.jobCachedWorker ?? new AsyncWorker();
     const wasmHsvmPath = path.join(__filename, "../wasm-hsvm.ts");
     if (context.jobCachedWorker) {
       // init a new new worker into the cache, with a small delay
@@ -865,7 +865,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
         if (context.jobCachedWorker) {
           if (debugFlags.vmlifecycle)
             console.log(`[${vm.currentgroup}] Preparing new cached job worker, preload scripts`, context.jobCachedPreloadLibs);
-          context.jobCachedWorker = new AsyncWorker;
+          context.jobCachedWorker = new AsyncWorker();
           context.jobCachedWorker.callRemote(`${wasmHsvmPath}#harescriptWorkerPrepare`, context.jobCachedPreloadLibs, getCachedWebAssemblyModule()).catch(e => logError(e as Error));
         }
       }, 200);

@@ -12,6 +12,11 @@ import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 import * as async_hooks from "node:async_hooks";
 import { registerAsNonReloadableLibrary } from "@webhare/services/src/hmrinternal";
 
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  var whDebug: any;
+}
+
 let contextcounter = 0;
 
 const als = new AsyncLocalStorage<CodeContext>;
@@ -27,6 +32,7 @@ const activecontexts = new Map<string, ActiveContextData>;
 /// Finalization registry to clean up the active contexts
 const activecontexts_finalizationregistry = new FinalizationRegistry<string>(id => activecontexts.delete(id));
 
+(globalThis.whDebug ??= {}).activeCodeContexts = activecontexts;
 
 class WrappedGenerator<G extends Generator<T, TReturn, TNext>, T = unknown, TReturn = unknown, TNext = unknown> extends Iterator<T, TReturn, TNext> implements Generator<T, TReturn, TNext> {
   codecontext;
