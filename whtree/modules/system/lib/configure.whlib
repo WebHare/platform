@@ -125,7 +125,7 @@ PUBLIC BOOLEAN FUNCTION IsDTAPLive()
 }
 
 /** @short Is true if we're either on production, or acting as-if
-    @long Like GetDTAPStage() == "production" but can be explicitly enabled by using `wh debug setconfig asprod`. This may
+    @long Like GetDTAPStage() == "production" but can be explicitly enabled by using `wh debug enable asprod`. This may
           be used to test production-only workflows or dialogs
     @return True if we should function as on production */
 PUBLIC BOOLEAN FUNCTION IsProductionOrAsIf()

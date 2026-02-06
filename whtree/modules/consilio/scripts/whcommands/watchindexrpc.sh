@@ -8,7 +8,7 @@ function disabletraffic()
   wh debug disable consilio:traffic
 }
 
-if ! wh debug getconfig | grep -q consilio:traffic ; then
+if ! wh harescript-debug getconfig | grep -q consilio:traffic ; then
   wh debug enable consilio:traffic
   trap disabletraffic EXIT
 fi

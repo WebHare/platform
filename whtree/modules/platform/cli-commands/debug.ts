@@ -5,12 +5,13 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
-import * as child_process from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
 import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
 import { throwError } from "@webhare/std";
+import { existsSync } from "node:fs";
 
 function parseHostPort(str: string) {
   const matchRes = str.match(/^(([0-9.]+):)?([0-9]+)$/);
@@ -20,11 +21,15 @@ function parseHostPort(str: string) {
   return { host: matchRes[2] || null, port: parseInt(matchRes[3]) };
 }
 
+const argProcess = { name: "<process>", description: "Target process pid" } as const;
+const argThread = { name: "<thread>", description: "Target process with optional workerid in pid[.workerid] format" } as const;
+const forceFlagOption = { "f,force": { description: "Force the change even if flag is unknown or undocument" } } as const;
+
 run({
   subCommands:
   {
-    "connections": {
-      description: "List all scripts connected to the bridge",
+    "list-processes": {
+      description: "List all JavaScript processes known to WebHare",
       flags: {
         "j,json": { description: "Output in JSON format" }
       },
@@ -49,7 +54,7 @@ run({
       }
     }, "getenvironment": {
       description: "Get process environment",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argProcess],
       main: async ({ args }) => {
         const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
         try {
@@ -70,22 +75,29 @@ run({
     },
     "inspect": {
       description: "Enable inspector and return settings",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argThread],
       main: async ({ args }) => {
-        const url = await getInspectorURL(args.process);
+        const url = await getInspectorURL(args.thread);
         console.log("Inspector URL: " + url);
         console.log("Locally you should see the session on chrome://inspect/#devices");
       }
     },
     "inspect-in-chrome": {
       description: "Inspect the process in Chrome devtools",
-      arguments: [{ name: "<process>", description: "Process to connect to" }],
+      arguments: [argThread],
       main: async ({ args }) => {
-        const url = await getInspectorURL(args.process);
+        const url = await getInspectorURL(args.thread);
         const devtoolsurl = `devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=${encodeURIComponent(url.substring(5))}`;
-        console.log("Opening " + devtoolsurl);
-        const subprocess = child_process.spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
-        subprocess.unref();
+        for (const app of ['/Applications/Google Chrome Canary.app', '/Applications/Google Chrome.app']) {
+          if (existsSync(app)) {
+            console.log("Opening " + devtoolsurl + " in " + app);
+            const subprocess = spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
+            subprocess.unref();
+            return 0;
+          }
+        }
+        console.error("No suitable browser found (Google Chrome or Chrome Canary required)");
+        return 1;
       }
     },
     "devtools-proxy": {
@@ -174,7 +186,7 @@ run({
         }
       }
     },
-    "getworkers": {
+    "list-workers": {
       description: "Get the currently active workers of an instance",
       arguments: [{ name: "<instance>", description: "Instance to connect to" }],
       main: async ({ args }) => {
@@ -247,6 +259,59 @@ run({
         } finally {
           link.close();
         }
+      }
+    },
+    //Stubs for things we'll forward to the HareScript version for now
+    "mark": {
+      description: "Write a mark with optional text to all primary logfiles",
+      arguments: [{ name: "<text>", description: "Text to write" }],
+      main: async ({ args }) => {
+        return spawnSync("wh", ["harescript-debug", "mark", args.text], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "list-flags": {
+      description: "List available debug flags",
+      main: async () => {
+        return spawnSync("wh", ["harescript-debug", "listflags"], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "enable": {
+      description: "Enable the specified debug flag",
+      flags: forceFlagOption,
+      arguments: [{ name: "<flag...>", description: "Flag(s) to enable" }],
+      main: async ({ opts, args }) => {
+        return spawnSync("wh", ["harescript-debug", "enable", ...opts.force ? ["--force"] : [], ...args.flag], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "disable": {
+      description: "Disable the specified debug flag",
+      flags: forceFlagOption,
+      arguments: [{ name: "<flag...>", description: "Flag(s) to disable" }],
+      main: async ({ opts, args }) => {
+        return spawnSync("wh", ["harescript-debug", "disable", ...opts.force ? ["--force"] : [], ...args.flag], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "clear-flags": {
+      description: "Clear (disable) all active debug flags",
+      main: async () => {
+        return spawnSync("wh", ["harescript-debug", "setdebug"], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "get-secret": {
+      description: "Get a secret",
+      arguments: [{ name: "<name>", description: "Name of the secret" }],
+      main: async ({ args }) => {
+        return spawnSync("wh", ["harescript-debug", "getsecret", args.name], { stdio: "inherit" }).status || 250;
+      }
+    },
+    "set-secret": {
+      description: "Setup one or more test secrets",
+      arguments: [
+        { name: "<name>", description: "Name of the secret" },
+        { name: "<value>", description: "Value of the secret" }
+      ],
+      main: async ({ args }) => {
+        return spawnSync("wh", ["harescript-debug", "setsecret", args.name + "=" + args.value], { stdio: "inherit" }).status || 250;
       }
     }
   }

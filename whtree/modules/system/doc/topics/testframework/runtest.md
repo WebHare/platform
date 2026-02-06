@@ -164,12 +164,12 @@ exit 0
 
 ## Managing secrets
 Secrets should be set in an environment variable named `TESTSECRET_<name>`
-or configured using `wh debug setsecret "<name>=<value>"`. Tests can retrieve
+or configured using `wh debug set-secret "<name>" "<value>"`. Tests can retrieve
 these settings using %GetTestSecret and specifying thes secret. Values set using
-`wh debug setsecret` apply globally to the currently running WebHare installation
+`wh debug set-secret` apply globally to the currently running WebHare installation
 and take precedence over any environment variables, but are lost after a restart.
 
 During local development you should probably load sensitive secrets (eg AWS keys)
-only through `wh debug setsecret` to prevent them from being in your environment at
-all times. Integrate `wh debug setsecret` with a password manager to prevent
+only through `wh debug set-secret` to prevent them from being in your environment at
+all times. Integrate `wh debug set-secret` with a password manager to prevent
 sensitive keys from being stored unencrypted on disk at all.

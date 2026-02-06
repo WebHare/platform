@@ -185,7 +185,8 @@ MACRO Test_S3ListBuckets()
 
      To test this call, uncomment the test and
 
-     wh debug setsecret TESTSECRET_AWS_APIKEY="<API KEY>" TESTSECRET_AWS_APISECRET="<API SECRET>"
+     wh debug set-secret TESTSECRET_AWS_APIKEY "<API KEY>"
+     wh debug set-secret TESTSECRET_AWS_APISECRET "<API SECRET>"
      wh run mod::webhare_testsuite/tests/system/services/test_aws.whscr
      */
   RECORD ARRAY buckets := s3->listAllBuckets();
