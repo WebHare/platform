@@ -523,6 +523,12 @@ async function testLookup() {
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
 
+  // test with umlauts
+  const testfileUmlaut = await testfolder.createFile('täst-ümlaut.html', { publish: true });
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/t%C3%A4st-%C3%BCmlaut.html"));
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfileUmlaut.id, lookupresult.file);
+
   // file of folder should be the indexdoc, 0 if not no indexdoc
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
