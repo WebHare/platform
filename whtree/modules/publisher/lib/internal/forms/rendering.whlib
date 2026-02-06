@@ -267,6 +267,7 @@ PUBLIC RECORD FUNCTION FixupField(RECORD indescription)
     {
       outdescription := CELL[ ...basefielddescription
                             , richvalue := DEFAULT RECORD
+                            , rtdtype := ""
                             , ...indescription
                             ];
     }
@@ -782,7 +783,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(fielddescription.renderedmergefields);
         }
         ELSE IF(NOT fielddescription.hasmergefields AND RecordExists(fielddescription.richvalue))
-          this->webdesign->RenderRTD(fielddescription.richvalue);
+          this->webdesign->RenderRTD(fielddescription.richvalue, CELL[ fielddescription.rtdtype ]);
         Print(`</div>`);
       }
       CASE "imgedit","upload"
