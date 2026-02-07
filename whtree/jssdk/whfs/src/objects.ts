@@ -693,7 +693,6 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
         .select("id")
         .where(sql`upper(name)`, "=", sql`upper(${tok.substring(6)})`)
         .executeTakeFirst())?.id ?? 0;
-      //      (await sql`select id from system.sites where upper(name) = upper(${tok.substring(6)})`)[0]?.id ?? 0;
 
       if (!trynew)
         return { id: -1, leftover: fullpath, route };

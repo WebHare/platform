@@ -211,7 +211,7 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
   const best_match = await db<PlatformDB>().selectFrom("system.sites").
     select(["id"]).select(selectSitesWebRoot().as("webroot")).
     where("outputweb", "in", findwebservers).
-    where(sql`${lookup.toUpperCase()}`, "like", sql`upper(${sql`outputfolder`} || '%')`).
+    where(sql`upper(${lookup})`, "like", sql`upper(${sql`outputfolder`} || '%')`).
     orderBy(sql`length(${sql`outputfolder`})`, "desc").
     limit(1).
     executeTakeFirst();
@@ -266,7 +266,7 @@ async function lookupPublisherURLByPath(startroot: number, url: string, origurlp
     let candidates = await db<PlatformDB>().selectFrom("system.fs_objects").
       select(["id", "name", "published", "isfolder", "indexdoc"]).
       where("parent", "=", cur.id).
-      where(sql`upper(${sql`name`})`, "like", `${part.toUpperCase()}%`).
+      where(sql`upper(${sql`name`})`, "like", sql`upper(${sql`${part}`} || '%')`).
       orderBy(sql`length(${sql`name`})`).
       execute();
 

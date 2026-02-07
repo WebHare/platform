@@ -317,7 +317,7 @@ PUBLIC CONSTANT INTEGER whconstant_formstatus_pendingconfirmation := 5; // pendi
 
 PUBLIC CONSTANT STRING whconstant_consilio_default_suffix_mask := "-*";
 
-PUBLIC CONSTANT STRING whconstant_defaultwidgetgroup := "http://www.webhare.net/xmlns/publisher/generalwidgets";
+PUBLIC CONSTANT STRING whconstant_defaultwidgetgroup := "platform:generalwidgets";
 
 // These replace the isdevelopertype= and ishidden= settings from siteprofiles. as they weren't used outside core we should ook into completely internalizing or dropping these. most of these are historic from when we stored code/designs in WHFS
 PUBLIC CONSTANT STRING ARRAY whconstant_hiddentypes := STRING[

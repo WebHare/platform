@@ -264,4 +264,4 @@ export const whwebserverconfig_proxywebserverid = -1000; //catches any usage of 
 
 export const whwebserverconfig_redirecthostoffset = -2000; //all redirecting hosts that mirror a real webserver, are offset by this index
 
-export const whconstant_defaultwidgetgroup = "http://www.webhare.net/xmlns/publisher/generalwidgets";
+export const whconstant_defaultwidgetgroup = "platform:generalwidgets";

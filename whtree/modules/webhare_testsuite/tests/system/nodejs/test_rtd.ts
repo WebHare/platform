@@ -431,8 +431,8 @@ async function testBuilder() {
 }
 
 async function testBuildWHFSInstance() {
-  const htmlwidget = await buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", data: { html: "<b>BOLD</b> HTML" } });
-  test.eq("http://www.webhare.net/xmlns/publisher/embedhtml", htmlwidget.whfsType);
+  const htmlwidget = await buildInstance({ whfsType: "platform:widgets.html", data: { html: "<b>BOLD</b> HTML" } });
+  test.eq("platform:widgets.html", htmlwidget.whfsType);
   test.eq({ html: "<b>BOLD</b> HTML" }, htmlwidget.data);
 
   await verifyWidgetRoundTrip(htmlwidget);
@@ -482,14 +482,14 @@ async function testBuildWHFSInstance() {
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
 
   const videowidget = await buildInstance({
-    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    whfsType: "platform:widgets.video",
     data: {
       thumbnail: tinyPng
     }
   });
 
   test.eq({
-    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    whfsType: "platform:widgets.video",
     data: {
       thumbnail: {
         data: {
@@ -509,13 +509,13 @@ async function testBuildWHFSInstance() {
   await verifyWidgetRoundTrip(videowidget);
 
   const realVideowidget = await buildInstance({
-    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    whfsType: "platform:widgets.video",
     data: {
       thumbnail: goldfish
     }
   });
   test.eqPartial({
-    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    whfsType: "platform:widgets.video",
     data: {
       thumbnail: {
         data: {
@@ -549,7 +549,7 @@ async function testBuildingRTDsWithInstances() {
           { inlineWidget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        "widget": await buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", data: { html: "<b>BOLD</b> HTML" } })
+        "widget": await buildInstance({ whfsType: "platform:widgets.html", data: { html: "<b>BOLD</b> HTML" } })
       }, {
         "widget": await buildInstance({
           whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
@@ -584,9 +584,9 @@ async function testBuildingRTDsWithInstances() {
           { inlineWidget: test.expectInstance("platform:widgets.mergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
+        widget: test.expectInstance("platform:widgets.html", { html: "<b>BOLD</b> HTML" })
       }, {
-        widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedvideo", {
+        widget: test.expectInstance("platform:widgets.video", {
           thumbnail: (eGR) => isResourceDescriptor(eGR) && eGR.sourceFile === imgEditFile.id && eGR.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY" && eGR.width === 385
         }, { partial: true })
       }, {
@@ -619,14 +619,14 @@ async function testBuildingRTDsWithInstances() {
         ]
       }, {
         widget: {
-          whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
+          whfsType: "platform:widgets.html",
           data: {
             html: "<b>BOLD</b> HTML"
           }
         }
       }, {
         widget: w => Boolean(test.eqPartial({
-          whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+          whfsType: "platform:widgets.video",
           data: {
             thumbnail: {
               data: {

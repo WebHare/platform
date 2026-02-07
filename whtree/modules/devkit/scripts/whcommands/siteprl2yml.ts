@@ -113,7 +113,7 @@ function importRTDType(ctxt: ImportContext, rt: CSPContentType): RTDType {
     } : {},
     ...rt.ignoresiteprofilewidgets ? { ignoreSiteProfileWidgets: true } : {},
     ...rt.allowedobjects?.length ? {
-      allowedObjects: rt.allowedobjects.map(_ => ({
+      widgets: rt.allowedobjects.map(_ => ({
         type: _.type,
         inherit: _.inherit === true,
       }))

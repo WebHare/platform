@@ -37,6 +37,7 @@ properties:
     type: object
     additionalProperties:
       type: object
+      additionalProperties: false
       properties:
         namespace:
           type: string
@@ -792,6 +793,7 @@ $defs:
 
   ApplyBodyRenderer:
     type: object
+    additionalProperties: false
     properties:
       objectName:
         type: string
@@ -1275,12 +1277,13 @@ $defs:
         enum:
           - "em"
           - "i"
-      allowedObjects:
+      widgets:
         type: array
         items:
           type: object
           required:
             - type
+          additionalProperties: false
           properties:
             type:
               $ref: "#/$defs/MatchType"
@@ -1348,6 +1351,7 @@ $defs:
 
       tableStyles:
         type: object
+        additionalProperties: false
         patternProperties:
           "^[a-z0-9]+$":
             type: object
@@ -1364,6 +1368,7 @@ $defs:
 
       cellStyles:
         type: object
+        additionalProperties: false
         patternProperties:
           "^[a-z0-9]+$":
             type: object

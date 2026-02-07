@@ -43,7 +43,7 @@
   </rtdtype>
 
   <widgettype editextension="#editcustomformwidget2"
-              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              ingroup="platform:mailwidgets"
               namespace="http://www.webhare.net/xmlns/webhare_testsuite/customformwidget2"
               renderobjectname="customform2.whlib#customformwidget2"
               requiremergefieldscontext="true"
@@ -63,7 +63,7 @@
   </tabsextension>
 
   <widgettype editextension="#editcustom2colwidget"
-              ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
+              ingroup="platform:mailwidgets"
               namespace="http://www.webhare.net/xmlns/webhare_testsuite/custom2colwidget"
               renderobjectname="customform2.whlib#custom2colwidget"
               requiremergefieldscontext="true"

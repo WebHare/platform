@@ -43,8 +43,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase <
   MACRO Init(RECORD data)
   {
     data := ValidateOptions([ limittypes := STRING[] ], data, [ optional := ["limittypes"] ]);
-    IF(CellExists(data, 'limittypes'))
-    {
+    IF(CellExists(data, 'limittypes')) {
       this->islimited := TRUE;
       this->limittypes := GetSortedSet(data.limittypes);
     }
@@ -90,9 +89,13 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase <
                 , title :=         GetTid(title) ?? namespace
                 , tolliumicon
                 , module :=        GetModuleNameFromResourcePath(siteprofile)
+                , scopedtype
              FROM csp.contenttypes
             WHERE type = "widgettype"
-                  AND (limitit ? BinaryFind(this->limittypes, namespace) >= 0 : TRUE);
+                  AND (limitit ? ( BinaryFind(this->limittypes, namespace) >= 0
+                                   OR (scopedtype != "" AND BinaryFind(this->limittypes, scopedtype) >= 0)
+                                 )
+                               : TRUE);
   }
 
   MACRO RefreshList()
@@ -179,8 +182,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase <
   RECORD FUNCTION Submit()
   {
     RECORD sel := ^contenttypes->selection;
-    IF(this->islimited AND BinaryFind(this->limittypes, sel.rowkey) = -1)
-    {
+    IF(this->islimited AND BinaryFind(this->limittypes, sel.rowkey) = -1 AND (sel.scopedtype = "" OR BinaryFind(this->limittypes, sel.scopedtype) = -1)) {
       IF(this->RunSimpleScreen("verify", this->GetTid(".unsupportedwidgettype", sel.title)) != "yes")
         RETURN DEFAULT RECORD;
     }

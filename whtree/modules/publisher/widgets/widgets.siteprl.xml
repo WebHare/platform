@@ -1,16 +1,5 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
-              comment="Anchor"
-              editextension="widgets.xml#anchorwidget"
-              renderobjectname="widgets.whlib#AnchorWidgetBase"
-              tid="widgets.anchorwidget.title"
-              wittycomponent="widgets.witty:anchor">
-    <members>
-      <string name="name" />
-    </members>
-  </widgettype>
-
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/slideshow"
               comment="Slideshow. Simple show with embedded images"
               editextension="widgets.xml#slideshowwidget"
