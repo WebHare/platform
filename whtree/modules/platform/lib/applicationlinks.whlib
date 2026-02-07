@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 CONSTANT RECORD shareopts := CELL[ verb := "", baseurl := ""];
 
@@ -18,8 +19,7 @@ STRING FUNCTION GetFullWHFSObjLink(INTEGER objid) {
   IF(NOT RecordExists(cd))
     THROW NEW Exception(`No such object #${objid}`);
 
-  STRING tohash := objid || "-" || GetUnixTimestamp(cd.creationdate);
-  RETURN objid || "-" || Right(EncodeUFS(GetSHA1Hash(tohash)),8);
+  RETURN BuildWHFSObjectRef(objid, cd.creationdate);
 }
 
 /** Implement platform object links */

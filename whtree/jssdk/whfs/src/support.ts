@@ -120,15 +120,16 @@ export function convertToWillPublish(published: number, firsttime: boolean, enab
   return published;
 }
 
-/** Calculates an objects whfsref: its id plus its creationdate in 32bits so we can somewhat guarantee its the same original file/folder */
+/** Calculates an objects whfsref: its id plus a creationdate-based hash so we can somewhat guarantee its the same original file/folder */
 export function getWHFSObjRef(fsobj: WHFSObject) {
+  const tohash = fsobj.id + "-" + Math.floor(fsobj.created.epochMilliseconds / 1000);
   const hash = crypto
     .createHash("sha1")
-    .update(String(fsobj.created.epochMilliseconds))
+    .update(tohash)
     .digest("base64url")
-    .slice(-6);
+    .slice(-8);
 
-  return fsobj.id + "." + hash;
+  return fsobj.id + "-" + hash;
 }
 
 /** Change a flag in a published cell

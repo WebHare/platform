@@ -1045,10 +1045,12 @@ PUBLIC MACRO EnsureModulePrivateFolders()
       UPDATE system.fs_objects SET ispinned := FALSE WHERE id = remaining.id;
 }
 
+PUBLIC STRING FUNCTION BuildWHFSObjectRef(INTEGER objid, DATETIME creationdate) {
+  STRING tohash := objid || "-" || GetUnixTimestamp(creationdate);
+  RETURN objid || "-" || Right(EncodeUFS(GetSHA1Hash(tohash)),8);
+}
 
-/** Calculates an objects whfsref: its id plus its creationdate in 32bits so we can somewhat guarantee its the same original file/folder */
-PUBLIC STRING FUNCTION GetWHFSObjRef(OBJECT whfsobj)
-{
-  STRING tohash := ToString(GetUnixTimestampMsecs(whfsobj->creationdate));
-  RETURN whfsobj->id || '.' || Right(EncodeUFS(GetHashForString(tohash,'SHA-1')),6);
+/** Calculates an objects whfsref: its id plus a creationdate-based hash so we can somewhat guarantee its the same original file/folder */
+PUBLIC STRING FUNCTION GetWHFSObjRef(OBJECT whfsobj) {
+  RETURN BuildWHFSObjectRef(whfsobj->id, whfsobj->creationdate);
 }
