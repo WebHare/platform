@@ -1076,7 +1076,13 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 
   toResized(method: ResizeMethod) {
-    return { link: getUnifiedCacheURL(1, this, method) };
+    const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
+    const processing = explainImageProcessing(this.getMetaData(), { ...method, format: setFormat });
+    return {
+      link: getUnifiedCacheURL(1, this, method),
+      width: processing.outWidth,
+      height: processing.outHeight
+    };
   }
 
   async export(options?: ExportOptions): Promise<ExportedResource> {

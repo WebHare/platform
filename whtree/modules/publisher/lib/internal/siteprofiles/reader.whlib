@@ -289,7 +289,7 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
 {
   RECORD webdesign := [ objectname      := "mod::publisher/lib/webdesign.whlib#WebDesignBase"
                       , witty           := "mod::publisher/lib/defaultwebdesign.witty"
-                      , getdata         := ""
+                      , pagebuilder     := ""
                       , siteresponsefactory := ""
                       , assetpack       := ""
                       , designfolder    := ""
@@ -555,7 +555,7 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
 
-    IF(webdesigninfo.siteresponsefactory != "" OR webdesigninfo.getdata != "")
+    IF(webdesigninfo.siteresponsefactory != "" OR webdesigninfo.pagebuilder != "")
       webdesigninfo.objectname := "mod::publisher/lib/internal/webdesign/wrappedjsdesign.whlib#WrappedJSDesign";
 
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
@@ -1334,14 +1334,17 @@ STATIC OBJECTTYPE ApplyRuleTester <
       {
         webdesign.objectname      := apply.webdesign.objectname;
         webdesign.siteresponsefactory := "";
-        webdesign.getdata := "";
+        webdesign.pagebuilder := "";
       }
       ELSE IF( (CellExists(apply.webdesign,'siteresponsefactory') AND apply.webdesign.siteresponsefactory != "")  //introduced in 5.2
-               OR (CellExists(apply.webdesign,'getdata') AND apply.webdesign.getdata != "")) //introduced in 5.7
+               OR (CellExists(apply.webdesign,'pagebuilder') AND apply.webdesign.pagebuilder != "")) //introduced in 5.7
       {
         webdesign.objectname := "";
         webdesign.siteresponsefactory := apply.webdesign.siteresponsefactory;
-        webdesign.getdata := apply.webdesign.getdata;
+        IF(CellExists(apply.webdesign,'pagebuilder'))
+          webdesign.pagebuilder := apply.webdesign.pagebuilder;
+        ELSE
+          webdesign.pagebuilder := "";
       }
     }
 

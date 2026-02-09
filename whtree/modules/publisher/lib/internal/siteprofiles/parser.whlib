@@ -566,7 +566,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
   RECORD FUNCTION ParseWebDesign(OBJECT node)
   {
     RECORD webdesign := [ objectname               := this->ParseFunctionRef(node, "library", "objectname", "")
-                        , getdata                  := this->ParseFSPath(node, "getdata")
                         , siteresponsefactory      := this->ParseFSPath(node, "siteresponsefactory")
                         , witty                    := this->ParseFSPath(node, "witty")
                         , assetpack                := ""

@@ -32,6 +32,9 @@ declare module "@webhare/frontend" {
     "webhare_testsuite:notactuallyset": {
       xyz: number;
     };
+    "webhare_testsuite:otherdata": {
+      otherData: number;
+    };
   }
 }
 

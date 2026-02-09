@@ -284,7 +284,6 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
       ...ar.webdesign.has_contentnavstops ? { contentNavStops: ar.webdesign.contentnavstops } : {},
       ...ar.webdesign.has_supportsaccessdenied ? { supportsAccessDenied: ar.webdesign.supportsaccessdenied } : {},
       ...ar.webdesign.has_supportserrors ? { supportsErrors: ar.webdesign.supportserrors } : {},
-      ...ar.webdesign.getdata ? { getData: ar.webdesign.getdata } : {},
       ...ar.webdesign.maxcontentwidth ? { maxContentWidth: ar.webdesign.maxcontentwidth } : {},
       ...ar.webdesign.siteresponsefactory ? { siteResponseFactory: unresolvePath(ctxt, ar.webdesign.siteresponsefactory) } : {},
       ...ar.webdesign.witty ? { witty: unresolvePath(ctxt, ar.webdesign.witty) } : {},

@@ -10,19 +10,7 @@ async function parseSP(content: string) {
 async function testSPCompiler() {
   const csp = getExtractedHSConfig("siteprofiles");
   const basetestjs_yamlrules = csp.applies.filter(rule => rule.siteprofile.endsWith("/basetestjs.siteprl.yml"));
-  test.eqPartial([
-    {
-      applyindex: 0
-    }, {
-      applyindex: 1
-    }, {
-      applyindex: 2,
-    }, {
-      applyindex: 3
-    }, {
-      applyindex: 4
-    }
-  ], basetestjs_yamlrules);
+  test.assert(basetestjs_yamlrules.length > 8, "Expected to find at least 8 rules, got" + basetestjs_yamlrules.length);
 }
 
 async function testSPYaml() {

@@ -1,4 +1,4 @@
-typeGroup: base_test
+typeGroup: base_test # FIXME remove! we're only keeping it because few real users remain and we need to CI test tihs
 gid: webdesigns.basetestjs
 types:
   site_settings:
@@ -87,8 +87,29 @@ types:
       extControlledField:
         type: string
         title: extControlledField
+  testsuite_rtd:
+    metaType: page
+    workflow: true
+    apply:
+      bodyRenderer: # TODO rename this or a least renderer to be closer to 'ContentPageRequest'
+        renderer: ./webdesign/webdesign.ts#renderRTD
+  jswidget1:
+    comment: Our first TypeScript widget
+    metaType: blockWidget
+    widgetBuilder: ./webdesign/webdesign.ts#renderJSWidget1
+    members:
+      field1:
+        type: string
+    apply:
+      setObjectEditor:
+        separateApp: true
+        name: publisher:webtoolform
+
 
 apply:
+  - to: all
+    webDesign:
+      pageBuilder: webdesign/webdesign.ts#baseTestJSPageBuilder
   - to:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]
@@ -154,3 +175,9 @@ apply:
       pageHooks: "../basetest/lib/basetest.whlib#CaptchaFormHooks"
     captcha:
       skipFunction: "../basetest/lib/basetest.whlib#SkipCaptcha"
+  - comment: Configure widgets
+    to:
+      all
+    setWidget:
+      "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
+        widgetBuilder: ./webdesign/webdesign.ts#renderWidgetBlock

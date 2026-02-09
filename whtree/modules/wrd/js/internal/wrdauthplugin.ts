@@ -8,7 +8,8 @@ class WRDAuthPluginAPI {
   }
 
   getLogoutLink() {
-    const pathname = new URL(this.response.webRequest.url).pathname;
+    const baseurl = this.response.webRequest?.url ?? this.response.targetObject?.link ?? this.response.targetSite.webRoot;
+    const pathname = new URL(baseurl).pathname;
     return "/.wh/auth/logout?pathname=" + encodeURIComponent(pathname.substring(1));
   }
 

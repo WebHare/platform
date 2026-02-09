@@ -1,7 +1,8 @@
 import { getTid } from "@webhare/gettid";
-import type { SiteRequest, WebResponse } from "@webhare/router";
-import { encodeString } from "@webhare/std";
+import type { ContentPageRequest, WebResponse } from "@webhare/router";
+import { litty } from "@webhare/litty";
 
-export async function renderJSPage(request: SiteRequest): Promise<WebResponse> {
-  return await request.renderHTMLPage(`<p id="gettidtest">${encodeString(getTid("webhare_testsuite:test.testencoding"), "html")}</p>`);
+export async function renderJSPage(request: ContentPageRequest): Promise<WebResponse> {
+  return await request.buildWebPage(litty`<p id="gettidtest">${getTid("webhare_testsuite:test.testencoding")}</p>`);
+
 }

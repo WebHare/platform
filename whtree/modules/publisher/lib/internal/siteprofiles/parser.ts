@@ -697,7 +697,6 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       contentnavstops: apply.webDesign.contentNavStops || [],
       has_contentnavstops: apply.webDesign.contentNavStops !== undefined,
       designfolder: context.resolve(apply.webDesign.designFolder || ''),
-      getdata: apply.webDesign.getData || '',
       has_supportsaccessdenied: apply.webDesign.supportsAccessDenied !== undefined,
       supportsaccessdenied: apply.webDesign.supportsAccessDenied === true,
       has_supportserrors: apply.webDesign.supportsErrors !== undefined,
@@ -706,6 +705,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       objectname: context.resolve(apply.webDesign.objectName || ''),
       siteprofile: "",
       siteresponsefactory: context.resolve(apply.webDesign.siteResponseFactory || ''),
+      pagebuilder: context.resolve(apply.webDesign.pageBuilder || ''),
       witty: context.resolve(apply.webDesign.witty || ''),
       wittyencoding: apply.webDesign.wittyEncoding || '',
     };
@@ -768,6 +768,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
       wittycomponent: setWidget.wittyComponent || '',
+      ...setWidget.widgetBuilder ? { widgetbuilder: context.resolve(setWidget.widgetBuilder) } : {},
     });
   }
 
@@ -1126,6 +1127,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
         ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
+        if (widgetSettings.widgetBuilder)
+          ctype.widgetbuilder = context.resolve(widgetSettings.widgetBuilder);
       } else {
         ctype.type = "filetype";
       }

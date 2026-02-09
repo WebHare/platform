@@ -1,12 +1,9 @@
-import { createWebResponse, type WebResponse } from "./response";
-import type { SiteRequest } from "./siterequest";
+import type { WebResponse } from "./response";
 import * as services from "@webhare/services";
-import { stringify, throwError } from "@webhare/std";
-import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { throwError } from "@webhare/std";
 import type { FrontendDataTypes } from "@webhare/frontend";
-import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { encodeAttr, getAssetPackIntegrationCode } from "./concepts";
-import type { WebdesignPluginAPIs } from "@webhare/router";
+import type { PageBuildRequest, SiteRequest, WebdesignPluginAPIs } from "@webhare/router";
+import { littyToString, rawLitty, type Litty } from "@webhare/litty";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -43,39 +40,31 @@ export class SiteResponseSettings {
 
 export type InsertPoints = "dependencies-top" | "dependencies-bottom" | "content-top" | "content-bottom" | "body-top" | "body-bottom" | "body-devbottom";
 
-export type Insertable = string | (() => string | Promise<string>);
+//FIXME reduce to just Litty
+export type Insertable = string | (() => string | Promise<string>) | Litty;
 
 function getDesignRootForAssetPack(assetpack: string): string {
   //Transform an assetpackname, eg 'webhare_testsuite:basetestjs' to its corresponding URL, '/.publisher/sd/webhare_testsuite/basetestjs/'
   return `/.publisher/sd/${assetpack.replace(":", "/")}/`;
 }
 
-/** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
+/** @deprecated WH6.0 will drop this in favor of pageBuilder: */
 export class SiteResponse<T extends object = object> {
   siteRequest: SiteRequest;
   settings: SiteResponseSettings;
   protected contents = "";
   private rendering = false;
+  private renderPageRequest: PageBuildRequest;
 
   /** The pageConfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageConfig: T;
 
-  readonly insertions;
-  readonly renderInserts;
-
   constructor(pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
     this.siteRequest = siteRequest;
+    this.renderPageRequest = siteRequest as unknown as PageBuildRequest; //we know it's actually this
     this.pageConfig = pageConfig;
     this.settings = settings;
-
-    this.insertions = this.siteRequest._insertions;
-    this.renderInserts = this.siteRequest._renderInserts.bind(this.siteRequest);
   }
-
-  /** Render the contents of the specified witty component (path#component) with the specified data
-    Using path:component is a syntax error and will throw if detected
-    Resolves when completed. If you're not waiting, don't modify dataobject and any contained objects until the Witty has completed running! */
-  //  async addWitty(wittycomponent: string, dataobject?: unknown);
 
   /** Append the specified text */
   appendHTML(text: string) {
@@ -84,92 +73,7 @@ export class SiteResponse<T extends object = object> {
 
   /** Set data associated with a plugin */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
-    this.siteRequest.setFrontendData(dataObject, data);
-  }
-
-  private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {
-    let page = `<!DOCTYPE html>\n<html lang="${encodeAttr(this.settings.lang)}" dir="${encodeAttr(this.settings.htmldirection)}"`;
-    if (this.settings.htmlclasses.length)
-      page += ` class="${encodeAttr(this.settings.htmlclasses.join(" "))}"`;
-    if (Object.entries(this.settings.htmlprefixes).length)
-      page += ` prefix="${encodeAttr(Object.entries(this.settings.htmlprefixes).map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" "))}"`;
-    //FIXME add html dataset, camelcase it
-    page += ` data-wh-ob="${getWHFSObjRef(this.siteRequest.targetObject)}"><head>`;
-    page += "<meta charset=\"utf-8\">";
-    page += `<title>${encodeAttr(this.settings.pagetitle)}</title>`;
-    if (this.settings.pagedescription)
-      page += `<meta name="description" content="${encodeAttr(this.settings.pagedescription)}">`;
-    if (this.settings.canonicalurl)
-      page += `<link rel="canonical" href="${encodeAttr(this.settings.canonicalurl)}">`;
-    page += head;
-
-    if (this.insertions["dependencies-top"])
-      page += await this.renderInserts("dependencies-top");
-
-    //FIXME TYPED! or at least in the new sitrequest handling?
-    page += `<script type="application/json" id="wh-config">${stringify(this.siteRequest._frontendConfig, { target: "script" })}</script>`;
-
-    /* TODO cachebuster /! support
-      IF(cachebuster !== "")
-        bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
-    */
-    const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === this.settings.assetpack);
-    if (!assetpacksettings)
-      throw new Error(`Settings for assetpack '${this.settings.assetpack}' not found`);
-    page += getAssetPackIntegrationCode(this.settings.assetpack);
-
-
-    if (this.siteRequest._insertions["dependencies-bottom"])
-      page += await this.renderInserts("dependencies-bottom");
-    //FIXME
-    // IF(Length(this->structuredbreadcrumb) > 0)
-    //   this->__PrintStructuredData();
-
-    //FIXME this->_PrintRobotTag();
-
-    /*
-            IF (this->pvt_renderwidgetpreview)
-            {
-              data.contents := this->__renderwidgetpreview;
-
-              IF (this->pagewitty->HasComponent("htmlwidgetbody"))
-                this->pagewitty->RunComponent("htmlwidgetbody", data);
-              ELSE
-                this->pagewitty->CallWithScope(data.contents, data);
-            }
-            ELSE
-            {*/
-
-    page += "</head><body>";
-    //TODO do we still want body classes? html classes are always a better idea in the end..
-    if (this.insertions["body-top"])
-      page += await this.renderInserts("body-top");
-    page += body;
-    page += await this.renderBodyFinale();
-    page += "</body></html>";
-    return page;
-  }
-
-  private async renderBodyFinale() {
-    let page = '';
-    if (this.insertions["body-bottom"])
-      page += await this.renderInserts("body-bottom");
-
-    //TODO
-    // IF(RecordExists(this->consiliofields))
-    // {
-    //   //NOTE: we do not consider this format 'stable', format may change or maybe we try to store it outside the HTML itself
-    //   Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
-    // }
-
-    // IF (IsRequest() AND IsWHDebugOptionSet("win"))
-    //   PrintInvokedWitties();
-    //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
-
-    if (this.insertions["body-devbottom"])
-      page += await this.renderInserts("body-devbottom");
-
-    return page;
+    this.renderPageRequest.setFrontendData(dataObject, data);
   }
 
   getSupportedLanguages(): Record<string, boolean> {
@@ -180,17 +84,11 @@ export class SiteResponse<T extends object = object> {
   insertAt(where: InsertPoints, what: Insertable) {
     if (this.rendering)
       throw new Error("Cannot insert after rendering has started"); //TODO should ResponseBUilder do this check or can it mostly avoid rendering phase?
-    this.siteRequest.insertAt(where, what);
+    this.renderPageRequest.insertAt(where, what);
   }
 
   private async getContents(): Promise<string> {
-    let contents = '';
-    if (this.insertions["content-top"])
-      contents += await this.renderInserts("content-top");
-    contents += this.contents;
-    if (this.insertions["content-bottom"])
-      contents += await this.renderInserts("content-bottom");
-    return contents;
+    return await littyToString(this.renderPageRequest.content);
   }
 
   async finish(): Promise<WebResponse> {
@@ -215,7 +113,6 @@ export class SiteResponse<T extends object = object> {
     this.rendering = true;
     const head = mywitty.hasComponent("htmlhead") ? await mywitty.runComponent('htmlhead', wittydata) : "";
     const body = mywitty.hasComponent("htmlbody") ? await mywitty.runComponent('htmlbody', wittydata) : this.contents;
-    const page = await this.generatePage(head, body, urlpointers);
-    return createWebResponse(page);
+    return await this.renderPageRequest.render({ head: rawLitty(head), body: rawLitty(body) });
   }
 }

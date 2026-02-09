@@ -46,6 +46,7 @@
   <test script="test_stacktrace.ts" />
   <test script="test_hmr.ts" />
   <test script="test_generated_files.ts" />
+  <test script="test_litty.ts" />
   <test script="test_witty.ts" />
   <test script="test_wh_bridge_cli.sh" />
   <test script="test_workers.ts" />

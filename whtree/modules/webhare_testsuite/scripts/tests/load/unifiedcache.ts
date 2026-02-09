@@ -21,6 +21,8 @@ run({
       const webpBeagle = snowbeagle.data.toResized({ method: "scale", format: "image/webp", width: size, height: size });
       const avifBeagle = snowbeagle.data.toResized({ method: "scale", format: "image/avif", width: size, height: size });
 
+      test.eq(size, webpBeagle.width);
+
       promises.push(fetch(new URL(webpBeagle.link, backendConfig.backendURL)).then(async (response) => {
         if (!response.ok)
           throw new Error(`HTTP error on the ${size}x${size} webp: ${response.status}`);

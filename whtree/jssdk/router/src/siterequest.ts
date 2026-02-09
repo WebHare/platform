@@ -3,67 +3,67 @@
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
-import { openFolder, openSite, type Site, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
-import { type Insertable, type InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
-import { importJSFunction } from "@webhare/services";
-import type { WebdesignPluginAPIs, WebResponse } from "@webhare/router";
+import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
+import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebHareWHFSRouter, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { dtapStage } from "@webhare/env";
-import type { WittyData } from "@webhare/witty";
+import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
+import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import { getWHFSObjRef } from "@webhare/whfs/src/support";
+import { stringify, throwError } from "@webhare/std";
+import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 
 export type PluginInterface<API extends object> = {
   api: API;
 };
 
-/** @deprecated WH5.7 switches to getData over siteresponsefactory */
+/** @deprecated WH6.0 switches to PageBuilderFunction */
 export type WebDesignFunction<T extends object> = (request: SiteRequest, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
 
-export type WebDesignGetDataFunction = (request: ResponseBuilder) => Promise<WittyData>;
+export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResponse>;
 
+export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
-export type ResponseHookFunction<PluginDataType = Record<string, unknown>> = (response: ResponseBuilder, plugindata: PluginDataType) => Promise<void> | void;
+export type ResponseHookFunction<PluginDataType = Record<string, unknown>> = (req: PageBuildRequest, plugindata: PluginDataType) => Promise<void> | void;
 
-class CSiteRequest {
-  readonly webRequest: WebRequest;
+export class CPageRequest {
+  readonly webRequest: WebRequest | null;
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
   readonly targetFolder: WHFSFolder;
-  readonly targetSite: Site;
-  readonly contentObject: WHFSObject;
-  readonly navObject: WHFSObject;
+  //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
+  readonly targetSite: Site & { webRoot: string };
 
-  //buildSiteRequest will invoke _prepareResponse immediately to set these:
-  #applyTester!: WHFSApplyTester;
-  #siteLanguage!: string;
+  //buildContentPageRequest will invoke _prepareResponse immediately to set these:
+  protected _applyTester!: WHFSApplyTester;
+  protected _siteLanguage!: string;
 
-  get siteLanguage() {
-    return this.#siteLanguage;
-  }
-
-  #plugins: {
-    [Api in keyof WebdesignPluginAPIs]?: PluginInterface<WebdesignPluginAPIs[Api]>;
-  } = {};
-
-  _insertions: { [key in InsertPoints]?: Insertable[] } = {};
+  //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
+  __insertions: { [key in InsertPoints]?: Insertable[] } = {};
 
   /** JS configuration data */
-  _frontendConfig: WHConfigScriptData;
+  private frontendConfig: WHConfigScriptData;
 
-  constructor(webRequest: WebRequest, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}) {
+  /** @deprecated use getInstance instead */
+  get contentObject() {
+    return this.targetObject;
+  }
+
+  constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject) {
     this.webRequest = webRequest;
-    this.targetSite = targetSite;
+    this.targetSite = targetSite as Site & { webRoot: string };
     this.targetFolder = targetFolder;
     this.targetObject = targetObject;
-    this.contentObject = contentObject ?? targetObject;
-    this.navObject = navObject ?? targetObject;
 
-    this._frontendConfig = {
+    this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
       site: {},
       obj: {},
@@ -73,128 +73,236 @@ class CSiteRequest {
     };
   }
 
-  getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
-    return this.#plugins[api]?.api || null;
+  async _preparePageRequestBase() {
+    this._applyTester = await getApplyTesterForObject(this.targetObject);
+    this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
   }
 
-  addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
-    this.#plugins[api] = { api: plugin };
+  get siteLanguage() {
+    return this._siteLanguage;
   }
 
   /** Insert a callback for use during rendering */
   insertAt(where: InsertPoints, what: Insertable) {
-    if (!this._insertions[where])
-      this._insertions[where] = [];
-    this._insertions[where].push(what); //ensured above
+    if (!this.__insertions[where])
+      this.__insertions[where] = [];
+
+    this.__insertions[where].push(what); //ensured above
   }
 
   /** Set data associated with a plugin */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
     checkModuleScopedName(dataObject);
-    this._frontendConfig[dataObject] = data;
+    this.frontendConfig[dataObject] = data;
   }
 
-  async _renderInserts(point: InsertPoints) {
-    let output = '';
-    for (const insert of this._insertions[point] || []) {
-      if (typeof insert === "string")
-        output += insert;
-      else
-        output += await insert();
-    }
-    return output;
+  //TODO do we like this name? or getInstanceData? or.. we don't have a TS name for it yet?
+  async getInstance<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
+    return whfsType(type).get(this.targetObject.id);
   }
 
-  /** @deprecated createComposer is going away, switch to the ResponseBuilder in WH5.7 */
-  async createComposer<T extends object = object>(options?: { __captureJSDesign?: boolean }): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
-    const publicationsettings = await this.#applyTester.getWebDesignInfo();
-    if (!publicationsettings.siteResponseFactory && !publicationsettings.getData) {
-      if (options?.__captureJSDesign) //prevent endless loop
-        throw new Error(`Inconsistent siteprofiles - createComposer for ${this.targetObject.whfsPath} (#${this.targetObject.id}) wants to invoke a HS design but was invoked by captureJSDesign`);
-      return wrapHSWebdesign<T>(this);
-    }
+  /** Load the function that can actually generate pages for us */
+  async getPageRenderer(): Promise<WebHareWHFSRouter | null> {
+    //TODO rename 'renderer:' to 'buildPage:' ?  rename WebHareWHFSRouter although I see what it's doing there?
+    const renderinfo = await this._applyTester.getObjRenderInfo();
+    if (!renderinfo?.renderer)
+      return null;
 
-    if (publicationsettings.getData)
-      throw new Error(`createComposer is not available for webdesigns that switched to getData`);
-
-    const settings = new SiteResponseSettings;
-    settings.assetpack = publicationsettings.assetPack;
-    settings.witty = publicationsettings.witty;
-
-    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
-    settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
-    settings.lang = this.#siteLanguage;
-
-    const factory = await importJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
-    const composer = await factory(this, settings);
-
-    return composer;
+    const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(renderinfo.renderer);
+    return renderer;
   }
 
-  //TODO is this API actually useful somewhere or more of a debugging API we may remove ?
-  async _prepareWitty() {
-    const publicationsettings = await this.#applyTester!.getWebDesignInfo();
+  /** Render the given HTML using the proper pageBuilder call (aka WebDesign in HareScript)
+   * @param page - Generated HTML to embed (generally into the `<main>` container of the page)
+  */
+  async buildWebPage(page: Litty): Promise<WebResponse> {
+    //FIXME wrap with content-top/content-bottom insert points
+    this._page = page;
+    const publicationsettings = await this._applyTester.getWebDesignInfo();
+    if (publicationsettings.objectName)
+      return wrapHSWebdesign(this);
 
-    //TODO this is a bit of a hack to get the data for the new renderer
-    const getData = await importJSFunction<WebDesignGetDataFunction>(publicationsettings.getData);
-    const data = await getData(this);
+    if (!publicationsettings.pageBuilder)
+      throw new Error(`buildWebPage is not available for webdesigns that have not switched to it yet`);
 
-    return {
-      witty: publicationsettings.witty,
-      data: data
-    };
-  }
-
-  async renderHTMLPage(content: string, options?: { __captureJSDesign?: boolean }): Promise<WebResponse> {
-    const publicationsettings = await this.#applyTester!.getWebDesignInfo();
-    if (!publicationsettings.getData) {
-      let composer;
-
-      if (publicationsettings.siteResponseFactory)
-        composer = await this.createComposer(); //fallback to pre-5.7 rendering
-      else if (options?.__captureJSDesign) //prevent endless loop
-        throw new Error(`Inconsistent siteprofiles - renderHTMLPage for ${this.targetObject.whfsPath} (#${this.targetObject.id}) wants to invoke a HS design but was invoked by captureJSDesign`);
-      else
-        composer = await wrapHSWebdesign(this);
-
-      composer.appendHTML(content);
-      return composer.finish();
-    }
-
-    //TODO this is a bit of a hack to get the data for the new renderer
-    const getData = await importJSFunction<WebDesignGetDataFunction>(publicationsettings.getData);
-    const data = await getData(this);
-
-    //TODO merge SiteResponse with us as soon as we've finished our refactoring (or do we need everyone to switch away from createComposer first?)
-    const settings = new SiteResponseSettings;
-    settings.assetpack = publicationsettings.assetPack;
-    settings.witty = publicationsettings.witty;
-    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
-    settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
-    settings.lang = this.#siteLanguage;
-
-    const response = new SiteResponse<WittyData>(data, this, settings);
-    response.appendHTML(content);
-    return response.finish();
-  }
-
-  async _prepareResponse() {
-    this.#applyTester = await getApplyTesterForObject(this.targetObject);
-    this.#siteLanguage = await this.#applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
-
-    const publicationsettings = await this.#applyTester.getWebDesignInfo();
-    this._frontendConfig.locale = this.#siteLanguage as never; //FIXME why doesn't JS just get the html lang= ?
-    for (const plugin of publicationsettings.plugins) { //apply plugins
+    // Now that we're pretty sure we'll be generating HTML, initialize plugins
+    for (const plugin of publicationsettings.plugins) {
       if (plugin.composer_hook) {
         const plugindata = buildPluginData(plugin.datas);
-        //TODO consider providing a callback at this for buildPluginData or applytester so plugins can freely access other plugin's data
         await (await importJSFunction<ResponseHookFunction>(plugin.composer_hook))(this, plugindata);
       }
     }
+
+    //TODO this is a bit of a hack to get the data for the new renderer
+    const pageBuilder = await importJSFunction<PageBuilderFunction>(publicationsettings.pageBuilder);
+    return pageBuilder(this);
+  }
+
+  /** @deprecated createComposer is going away after WH6 */
+  async createComposer() {
+    //only stub what we need for backwards compatibility
+    let html = '';
+    return {
+      insertAt: (where: InsertPoints, what: Insertable) => {
+        this.insertAt(where, what as Litty);
+      },
+      appendHTML: (data: string) => {
+        html += data;
+      },
+      finish: async () => {
+        return await this.buildWebPage(rawLitty(html));
+      }
+    };
+  }
+
+  private _page?: Litty;
+  get content(): Litty {
+    return this._page ?? throwError("Page not set?");
+  }
+
+  plugins: {
+    [Api in keyof WebdesignPluginAPIs]?: PluginInterface<WebdesignPluginAPIs[Api]>;
+  } = {};
+
+  //FIXME private but hswebdesigndriver needs to be able to read the insertions to do its rendering
+  async __renderInserts(point: InsertPoints): Promise<Litty> {
+    let output = '';
+    for (const insert of this.__insertions[point] || []) {
+      if (typeof insert === "string")
+        output += insert;
+      else if ("strings" in insert) //Litty
+        output += await littyToString(insert);
+      else
+        output += await insert();
+    }
+    return rawLitty(output);
+  }
+  private async renderBodyFinale(): Promise<Litty> {
+    return litty`
+      ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
+      ${
+
+      //TODO
+      // IF(RecordExists(this->consiliofields))
+      // {
+      //   //NOTE: we do not consider this format 'stable', format may change or maybe we try to store it outside the HTML itself
+      //   Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
+      // }
+
+      // IF (IsRequest() AND IsWHDebugOptionSet("win"))
+      //   PrintInvokedWitties();
+      //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
+      ""}
+        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}`;
+  }
+
+
+  private async buildPage(head: Litty, body: Litty, settings: SiteResponseSettings): Promise<Litty> {
+    const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === settings.assetpack);
+    if (!assetpacksettings)
+      throw new Error(`Settings for assetpack '${settings.assetpack}' not found`);
+
+    return litty`<!DOCTYPE html>
+<html lang="${settings.lang}"
+      dir="${settings.htmldirection}"
+      ${settings.htmlclasses ? litty`class="${settings.htmlclasses.join(" ")}"` : ''}
+      ${Object.entries(settings.htmlprefixes).length ? litty`prefix="${Object.entries(settings.htmlprefixes).map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
+      data-wh-ob="${getWHFSObjRef(this.targetObject)}">
+  <head>
+    <meta charset="utf-8">
+    <title>${settings.pagetitle}</title>
+    ${settings.pagedescription ? litty`<meta name="description" content="${settings.pagedescription}">` : ''}
+    ${settings.canonicalurl ? litty`<link rel="canonical" href="${settings.canonicalurl}">` : ''}
+    ${head}
+    ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
+    ${litty`<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script", typed: true })}</script>`};
+    ${    /* TODO cachebuster /! support
+      IF(cachebuster !== "")
+        bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
+    */
+
+      rawLitty(getAssetPackIntegrationCode(settings.assetpack))}
+    ${this.__insertions["dependencies-bottom"] ? await this.__renderInserts("dependencies-bottom") : ''}
+    ${
+      //FIXME
+      // IF(Length(this->structuredbreadcrumb) > 0)
+      //   this->__PrintStructuredData();
+
+      //FIXME this->_PrintRobotTag();
+
+      /*
+              IF (this->pvt_renderwidgetpreview)
+              {
+                data.contents := this->__renderwidgetpreview;
+
+                IF (this->pagewitty->HasComponent("htmlwidgetbody"))
+                  this->pagewitty->RunComponent("htmlwidgetbody", data);
+                ELSE
+                  this->pagewitty->CallWithScope(data.contents, data);
+              }
+              ELSE
+              {*/
+      ''
+      }
+    </head>
+    <body>
+      ${this.__insertions["body-top"] ? await this.__renderInserts("body-top") : ''}
+      ${body}
+      ${await this.renderBodyFinale()}
+    </body>
+  </html>`;
+  }
+
+  /** Render our head&body into a full HTML page*/
+  async render(content: {
+    head: Litty;
+    body: Litty;
+  }): Promise<WebResponse> {
+    const publicationsettings = await this._applyTester.getWebDesignInfo(); //TODO Duplicate call, eliminate
+    const settings = new SiteResponseSettings;
+    settings.assetpack = publicationsettings.assetPack;
+    settings.witty = publicationsettings.witty;
+
+    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+    settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
+    settings.lang = this._siteLanguage;
+
+    const final = await this.buildPage(content.head, content.body, settings);
+    return createWebResponse(await littyToString(final));
+  }
+
+  getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
+    return this.plugins[api]?.api || null;
+  }
+
+  addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
+    this.plugins[api] = { api: plugin };
+  }
+
+  async renderRTD(rtd: RichTextDocument): Promise<Litty> {
+    //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
+    return renderRTD(this, rtd);
+  }
+
+  //FIXME need a better match for the widget type
+  async renderWidget(widget: Pick<Instance, "whfsType" | "data">): Promise<Litty> {
+    const renderer = await this._applyTester.getWidgetSettings(widget.whfsType);
+    if (!renderer.renderJS) {
+      if (renderer.renderHS)
+        throw new Error(`Widget ${widget.whfsType} has a HS renderer but no JS renderer, and cannot be rendered in this context`);
+      throw new Error(`Widget ${widget.whfsType} does not have a renderer and cannot be rendered`);
+    }
+
+    const renderFunction = await importJSFunction<WidgetBuilderFunction>(renderer.renderJS);
+    //TODO give a minimized interface/proxy as widgets are known to be eager to reach into other details
+    const result = await renderFunction(this, widget.data);
+    if (!isLitty(result))
+      throw new Error(`Widget renderer '${renderer.renderJS}' failed to return a proper Litty template`);
+    return result;
   }
 }
 
-export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHFSObject, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}): Promise<CSiteRequest> {
+export async function buildContentPageRequest(webRequest: WebRequest | null, targetObject: WHFSObject): Promise<ContentPageRequest> {
   if (!targetObject.parentSite)
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
@@ -203,11 +311,19 @@ export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHF
   if (!targetFolder)
     throw new Error(`Target folder #${targetObject.parent}) not found`);
 
-  const req = new CSiteRequest(webRequest, targetSite, targetFolder, targetObject, { contentObject, navObject });
-  await req._prepareResponse();
+  const req = new CPageRequest(webRequest, targetSite, targetFolder, targetObject);
+  await req._preparePageRequestBase();
   return req;
 }
 
-/** @deprecated WH5.7 moves to a simpler model base on the ResponseBuilder  */
-export type SiteRequest = CSiteRequest;
-export type ResponseBuilder = Omit<CSiteRequest, "_prepareResponse" | "_insertions" | "_frontendConfig">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance">;
+export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
+// Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
+export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;
+
+/** @deprecated SiteRequest will be removed after WH6 */
+export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder">;
+
+/** @deprecated ResponseBuilder experiment failed. Replace with SiteRequest  */
+export type ResponseBuilder = Omit<PageBuildRequest, "_prepareResponse" | "_insertions" | "_frontendConfig">;

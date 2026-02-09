@@ -222,6 +222,8 @@ $defs:
         type: string
       wittyComponent:
         type: string
+      widgetBuilder:
+        type: string
       apply: # Note that widgets can have apply rules but these only affect widgets in the WHFS (Publisher), not RTD embedded widgets
         $ref: "#/$defs/ApplyRule"
 
@@ -1054,10 +1056,11 @@ $defs:
     properties:
       objectName:
         type: string
-      getData:
-        type: string
       siteResponseFactory:
         type: string
+      pageBuilder:
+        type: string
+        description: JS Page render function. Receives a PageRenderRequest and returns a WebResponse
       witty:
         type: string
       assetPack:
@@ -1150,6 +1153,9 @@ $defs:
           type: string
         wittyComponent:
           type: string
+        widgetBuilder:
+          type: string
+          description: JS callback to build the widget HTML code
 
   Sources:
     type: array

@@ -2,11 +2,14 @@
 import { WebServer } from "@mod-platform/js/webserver/webserver";
 import { whconstant_whfsid_webhare_tests } from "@mod-system/js/internal/webhareconstants";
 import { generateRandomId } from "@webhare/std";
+import type { Configuration } from "@mod-platform/js/webserver/webconfig";
 import * as test from "@webhare/test-backend";
+import * as net from "node:net";
 export * from "@webhare/test-backend";
+import { loadlib } from "@webhare/harescript";
 
 import { beginWork, commitWork } from "@webhare/whdb";
-import { openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
+import { openFile, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 
 /// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)
 export async function getTestSiteHSTemp() {
@@ -70,8 +73,61 @@ export async function resetWTS(options?: test.ResetOptions) {
     await updateres.applied();
 }
 
-export async function getTestWebsever(url: string) {
-  const server = new WebServer("webhare_testsuite:basicrouter_" + generateRandomId().toLowerCase()); //TODO  et bind: false flags on the cnofig
+async function getAvailableServerPort() {
+  //have the OS select a free port
+  const server = net.createServer({});
+  const listenwaiter = new Promise(resolve => server.once("listening", resolve));
+  server.listen({ port: 0, host: "127.0.0.1" });
+  await listenwaiter;
+
+  const port = (server.address() as net.AddressInfo).port;
+  await new Promise(resolve => server.close(resolve));
+  if (!port)
+    throw new Error(`Failed to find an available port`);
+  return port;
+}
+
+
+export async function createTestWebserverConfig() {
+  //Get the fallback certificate so we have a keypair to test with
+  const fallback_privatekey = await openFile("/webhare-private/system/keystore/fallback/privatekey.pem");
+  const fallback_certificate = await openFile("/webhare-private/system/keystore/fallback/certificatechain.pem");
+
+  const port_http = await getAvailableServerPort();
+  const port_https = await getAvailableServerPort();
+  const config = (await loadlib("mod::system/lib/internal/webserver/config.whlib").DownloadWebserverConfig()) as Configuration;
+  config.ports = [
+    {
+      port: port_http,
+      certificatechain: "",
+      ciphersuite: "",
+      id: -1,
+      ip: "127.0.0.1",
+      istrustedport: true,
+      keypair: 0,
+      privatekey: "",
+      virtualhost: true
+    },
+    {
+      port: port_https,
+      certificatechain: await fallback_certificate.data.resource.text(),
+      ciphersuite: "",
+      id: -2,
+      ip: "127.0.0.1",
+      istrustedport: true,
+      keypair: 0,
+      privatekey: await fallback_privatekey.data.resource.text(),
+      virtualhost: true
+    }
+  ];
+
+  return { config, port_http, port_https };
+}
+
+export async function getTestWebserver(url: string) {
+  const { config } = await createTestWebserverConfig();
+  const server = new WebServer("webhare_testsuite:basicrouter_" + generateRandomId().toLowerCase(), { forceConfig: config }); //TODO  et bind: false flags on the cnofig
+  server.unref(); //prevent Active resources from keeping us alive after the test finishes
   await server.loadConfig();
   const isSecureBackend = url.startsWith("https://");
   const port = [...server.ports].find(_ => _.port.virtualhost && !isSecureBackend === !_.port.keypair);
