@@ -7,7 +7,7 @@ import { openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSOb
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
-import { importJSFunction } from "@webhare/services";
+import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebHareWHFSRouter, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
@@ -19,6 +19,7 @@ import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -275,6 +276,14 @@ export class CPageRequest {
   addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
     this.plugins[api] = { api: plugin };
   }
+
+  async renderRTD(rtd: RichTextDocument): Promise<Litty> {
+    //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
+    return renderRTD(this, rtd);
+  }
+  async renderWidget(widget: Instance): Promise<Litty> {
+    return litty``;
+  }
 }
 
 export async function buildContentPageRequest(webRequest: WebRequest | null, targetObject: WHFSObject): Promise<ContentPageRequest> {
@@ -291,7 +300,8 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
   return req;
 }
 
-type PageRequestBase = Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;

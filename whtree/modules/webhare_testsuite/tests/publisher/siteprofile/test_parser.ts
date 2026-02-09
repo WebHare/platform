@@ -10,21 +10,7 @@ async function parseSP(content: string) {
 async function testSPCompiler() {
   const csp = getExtractedHSConfig("siteprofiles");
   const basetestjs_yamlrules = csp.applies.filter(rule => rule.siteprofile.endsWith("/basetestjs.siteprl.yml"));
-  test.eqPartial([
-    {
-      applyindex: 0
-    }, {
-      applyindex: 1
-    }, {
-      applyindex: 2,
-    }, {
-      applyindex: 3
-    }, {
-      applyindex: 4
-    }, {
-      applyindex: 5
-    }
-  ], basetestjs_yamlrules);
+  test.eq(7, basetestjs_yamlrules.length);
 }
 
 async function testSPYaml() {

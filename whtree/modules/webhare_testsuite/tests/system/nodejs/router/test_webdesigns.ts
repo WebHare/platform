@@ -2,13 +2,14 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
 import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
-import type { Document } from "@xmldom/xmldom";
+import { XMLSerializer, type Document } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
-import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty } from "@webhare/litty";
+import { throwError } from "@webhare/std";
 
 function getWHConfig(parseddoc: Document) {
   const config = parseddoc.getElementById("wh-config");
@@ -102,6 +103,18 @@ async function testPageResponseMarkdown() {
   test.eq("This is a commonmark marked down file with a JS link.", contentdiv?.getElementsByTagName("p")[0]?.textContent);
 }
 
+async function testPageResponseJSRTD() {
+  const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts", true);
+  const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
+  const contentelements = elements(contentdiv.childNodes);
+  test.eq([
+    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`, //FIXME widget!
+    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`, //FIXME widget!
+    /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="428" height="284"\/><\/p>$/,
+    /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href="x-richdoclink:.*#dieper">interne<\/a> link.<\/p>$/
+  ], contentelements.map(e => new XMLSerializer().serializeToString(e)));
+}
+
 async function testPublishedJSSite() {
   const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
   const jsrenderedfetch = await fetch(jsrendereddoc.link!);
@@ -162,6 +175,7 @@ test.runTests([
   testPageResponse,
   testPageResponseApplies,
   testPageResponseMarkdown,
+  testPageResponseJSRTD,
   testPublishedJSSite,
   testCaptureJSDesign,
   testCaptureJSRendered,

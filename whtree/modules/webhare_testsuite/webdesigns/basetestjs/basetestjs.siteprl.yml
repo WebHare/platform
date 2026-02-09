@@ -1,4 +1,4 @@
-typeGroup: base_test
+typeGroup: base_test # FIXME remove! we're only keeping it because few real users remain and we need to CI test tihs
 gid: webdesigns.basetestjs
 types:
   site_settings:
@@ -87,6 +87,12 @@ types:
       extControlledField:
         type: string
         title: extControlledField
+  testsuite_rtd:
+    metaType: page
+    workflow: true
+    apply:
+      bodyRenderer: # TODO rename this or a least renderer to be closer to 'ContentPageRequest'
+        renderer: ./webdesign/webdesign.ts#renderRTD
 
 apply:
   - to: all

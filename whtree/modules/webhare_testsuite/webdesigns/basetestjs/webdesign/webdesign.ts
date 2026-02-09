@@ -1,7 +1,13 @@
 import { getTid, getTidLanguage } from "@webhare/gettid";
-import type { PageBuildRequest, WebResponse } from "@webhare/router";
+import type { ContentPageRequest, PageBuildRequest, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
 import type { PageBuilderFunction } from "@webhare/router/src/siterequest";
+
+export async function renderRTD(request: ContentPageRequest): Promise<WebResponse> {
+  const rtddata = await request.getInstance("platform:filetypes.richdocument");
+  const page = rtddata.data ? await request.renderRTD(rtddata.data) : litty``;
+  return await request.buildWebPage(page);
+}
 
 export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebResponse> {
   //@ts-expect-error should be detected as invalid

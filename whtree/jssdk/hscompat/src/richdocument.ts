@@ -54,7 +54,7 @@ function isSameLink(lhs: { link?: IntExtLink; target?: string }, rhs: { link?: I
   return lhs.target === rhs.target && IntExtLink.isEqual(lhs.link, rhs.link);
 }
 
-function groupByLink(items: RTDInlineItems): Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> {
+export function groupByLink(items: RTDInlineItems): Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> {
   const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> = [];
   for (const item of items) {
     if (blocks.length && isSameLink(blocks.at(-1)!, item)) {
