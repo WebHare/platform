@@ -2,23 +2,6 @@
              xmlns:p="http://www.webhare.net/xmlns/publisher/components"
              gid="siteprofile.abtest">
 
-  <filetype namespace="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" kind="virtualfile" tid=".filetype">
-    <members>
-      <string name="abgroup" />
-      <integer name="duration_days" />
-      <array name="aboptions">
-        <string name="aboption" />
-        <integer name="weight" />
-        <whfsref name="target" />
-      </array>
-    </members>
-
-    <!-- only the real test should show the tab -->
-    <extendproperties extension="#abtest" />
-
-    <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
-  </filetype>
-
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="abtest">
     <newtab tid=".tab">
       <textedit composition="contentdata" cellname="abgroup" required="true" suffixtid=".usedforcookie" />
@@ -60,12 +43,5 @@
       <p:browseforobject composition="row" cellname="target" acceptfiles="true" acceptfolders="false" required="true" />
     </body>
   </screen>
-
-  <apply>
-    <to type="all" />
-    <intercept name="checkabtestpublish"
-               interceptfunction="/lib/internal/webdesign/abtest.whlib#checkabtestpublishHook"
-               target="publisher:documenteditor" />
-  </apply>
 
 </siteprofile>

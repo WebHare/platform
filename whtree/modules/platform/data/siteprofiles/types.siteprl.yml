@@ -1,6 +1,31 @@
 gid: siteprofiles.types
 types:
   ######## File types
+  filetypes.abtest:
+    namespace: http://www.webhare.net/xmlns/publisher/abtest/abtestfile
+    gid: publisher:siteprofile.abtest
+    tid: publisher:siteprofile.abtest.filetype
+    metaType: page
+    workflow: false
+    members:
+      abgroup:
+        type: string
+      durationDays:
+        type: integer
+      aboptions:
+        type: array
+        members:
+          aboption:
+            type: string
+          weight:
+            type: integer
+          target:
+            type: whfsRef
+    apply:
+      editProps:
+        - type: publisher:abtest.abtestfile
+          tabsExtension: mod::publisher/data/siteprofiles/abtest.siteprl.xml#abtest
+      usePublishTemplate: mod::publisher/lib/internal/webdesign/abtest-publish.whscr
   filetypes.archive:
     namespace: http://www.webhare.net/xmlns/publisher/archivefile
     icon: tollium:files/application_zip #The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon
@@ -459,3 +484,8 @@ apply:
             title: Testframework
           wud:
             title: Webserver url debugging
+  - to: all
+    intercept:
+      checkabtestpublish:
+        interceptFunction: mod::publisher/lib/internal/webdesign/abtest.whlib#checkabtestpublishHook
+        target: publisher:documenteditor

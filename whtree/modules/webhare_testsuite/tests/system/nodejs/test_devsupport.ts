@@ -37,8 +37,8 @@ async function testDevBridge() {
   test.eqPartial({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type === "wrd"));
   test.eqPartial({ importPath: 'wh:db/webhare_testsuite' }, test_whts_files.find(_ => _.type === "db"));
 
-  const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
-  test.eq("publisher:siteprofile.shorturl", parseresult.gid);
+  const parseresult = await devbridge.getParsedSiteProfile("mod::devkit/tests/rewrite/data/rewritesiteprofile.propertyeditor.out.xml");
+  test.eq("devkit:testtids.gid1", parseresult.gid);
 
   test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node"), "The node symlink must exist, or modules may not get node builtin types");
   test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node/buffer.d.ts"), "Test one of the expected files");
