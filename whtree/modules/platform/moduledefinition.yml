@@ -88,7 +88,7 @@ siteProfiles:
   - path: data/siteprofiles/types.siteprl.yml
   - path: data/siteprofiles/widgets.siteprl.yml
   - path: data/siteprofiles/wrd.siteprl.yml
-  - path: mod::publisher/data/siteprofiles/contentlibraries.siteprl.xml
+  - path: data/siteprofiles/contentlibraries.siteprl.yml
   - path: mod::publisher/widgets/widgets.siteprl.xml
   - path: mod::tollium/data/tollium.siteprl.xml
 

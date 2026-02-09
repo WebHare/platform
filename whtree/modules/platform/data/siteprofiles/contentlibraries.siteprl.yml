@@ -1,0 +1,91 @@
+gid: publisher:siteprofile.contentlibraries
+types:
+  contentlibraries.beacon:
+    namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/beacon
+    tid: publisher:siteprofile.contentlibraries.beacon
+    comment: beacon file type
+    icon: tollium:objects/beacon
+    metaType: dataFile
+    members:
+      guid:
+        title: Beacon GUID
+        type: string
+    apply:
+      editProps:
+        - type: platform:contentlibraries.beacon
+          tabsExtension: mod::publisher/tolliumapps/objectprops/references.xml#referencestab
+      setObjectEditor:
+        name: publisher:adaptivecontent_beacon
+  contentlibraries.beacons:
+    namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/beacons
+    tid: publisher:siteprofile.contentlibraries.beacons
+    icon: tollium:folders/beaconfolder
+    metaType: folder
+    apply:
+      folderSettings:
+        contentsListHandler: mod::publisher/tolliumapps/filemanager/adaptivecontent.whlib#BeaconsFolderContents
+  contentlibraries.contentsnippets:
+    namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets
+    tid: publisher:siteprofile.contentlibraries.contentsnippets
+    comment: content snippets
+    icon: tollium:folders/snippetfolder
+    metaType: folder
+    apply:
+      folderSettings:
+        contentsListHandler: mod::publisher/tolliumapps/filemanager/contentsnippets.whlib#SnippetsFolderContents
+  contentlibraries.slots:
+    namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/slots
+    tid: publisher:siteprofile.contentlibraries.slots
+    comment: adaptive content slots (folder of slots)
+    icon: tollium:objects/slots
+    metaType: folder
+    apply:
+      folderSettings:
+        contentsListHandler: mod::publisher/tolliumapps/filemanager/adaptivecontent.whlib#SlotsFolderContents
+  contentlibraries.slottedwidget:
+    namespace: http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget
+    title: ""
+    comment: slottedwidget properties
+    workflow: false
+    members:
+      condition:
+        title: When to show this widget in its slot
+        type: hson
+apply:
+  - to:
+      is: folder
+      parentType: platform:contentlibraries.slots
+    comment: add condition columns to slot widgets
+    folderSettings:
+      contentsListHandler: mod::publisher/tolliumapps/filemanager/adaptivecontent.whlib#SlotFolderContents
+  - to:
+      withinType: platform:contentlibraries.slots
+    comment: check for slot republishing if a slot or widget changes
+    scheduleTimedTasks:
+      - task: publisher:updateslots
+  - to:
+      is: folder
+      withinType: platform:contentlibraries.slots
+    comment: Apply references to slots
+    editProps:
+      - type: platform:contentlibraries.slottedwidget
+        tabsExtension: mod::publisher/tolliumapps/objectprops/references.xml#referencestab
+  - to:
+      parentType: platform:contentlibraries.beacons
+    priority: 10
+    fileTypes:
+      - denyType: "*"
+      - allowType: platform:contentlibraries.beacon
+    folderTypes:
+      - denyType: "*"
+  - to:
+      withinType: platform:contentlibraries.contentsnippets
+    priority: 10
+    fileTypes:
+      - denyType: "*"
+      - allowType: publisher:widgets.contentsnippet
+    folderTypes:
+      - denyType: "*"
+    republish:
+      - mask: "*"
+        scope: references
