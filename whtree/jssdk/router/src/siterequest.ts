@@ -14,7 +14,7 @@ import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { dtapStage } from "@webhare/env";
-import { litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
+import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { stringify, throwError } from "@webhare/std";
@@ -29,6 +29,8 @@ export type PluginInterface<API extends object> = {
 export type WebDesignFunction<T extends object> = (request: SiteRequest, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
 
 export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResponse>;
+
+export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
 export type ResponseHookFunction<PluginDataType = Record<string, unknown>> = (req: PageBuildRequest, plugindata: PluginDataType) => Promise<void> | void;
@@ -281,8 +283,22 @@ export class CPageRequest {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
     return renderRTD(this, rtd);
   }
-  async renderWidget(widget: Instance): Promise<Litty> {
-    return litty``;
+
+  //FIXME need a better match for the widget type
+  async renderWidget(widget: Pick<Instance, "whfsType" | "data">): Promise<Litty> {
+    const renderer = await this._applyTester.getWidgetSettings(widget.whfsType);
+    if (!renderer.renderJS) {
+      if (renderer.renderHS)
+        throw new Error(`Widget ${widget.whfsType} has a HS renderer but no JS renderer, and cannot be rendered in this context`);
+      throw new Error(`Widget ${widget.whfsType} does not have a renderer and cannot be rendered`);
+    }
+
+    const renderFunction = await importJSFunction<WidgetBuilderFunction>(renderer.renderJS);
+    //TODO give a minimized interface/proxy as widgets are known to be eager to reach into other details
+    const result = await renderFunction(this, widget.data);
+    if (!isLitty(result))
+      throw new Error(`Widget renderer '${renderer.renderJS}' failed to return a proper Litty template`);
+    return result;
   }
 }
 

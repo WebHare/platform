@@ -97,6 +97,9 @@ types:
     comment: Our first TypeScript widget
     metaType: blockWidget
     widgetBuilder: ./webdesign/webdesign.ts#renderJSWidget1
+    members:
+      field1:
+        type: string
     apply:
       setObjectEditor:
         separateApp: true
@@ -172,3 +175,9 @@ apply:
       pageHooks: "../basetest/lib/basetest.whlib#CaptchaFormHooks"
     captcha:
       skipFunction: "../basetest/lib/basetest.whlib#SkipCaptcha"
+  - comment: Configure widgets
+    to:
+      all
+    setWidget:
+      "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
+        widgetBuilder: ./webdesign/webdesign.ts#renderWidgetBlock

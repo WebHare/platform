@@ -8,8 +8,9 @@ import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
-import { litty } from "@webhare/litty";
+import { litty, littyToString } from "@webhare/litty";
 import { throwError } from "@webhare/std";
+import { buildInstance } from "@webhare/services";
 
 function getWHConfig(parseddoc: Document) {
   const config = parseddoc.getElementById("wh-config");
@@ -88,6 +89,13 @@ async function testPageResponse() {
 
   //Verify the GTM noscript is present
   test.eq(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
+
+  //Render a widget
+  const jsWidget1 = await sitereq.renderWidget(await buildInstance({
+    whfsType: "webhare_testsuite:base_test.jswidget1",
+    data: { field1: "value1" }
+  }));
+  test.eq(`<div>value1</div>`, await littyToString(jsWidget1));
 }
 
 async function testPageResponseApplies() {
@@ -108,8 +116,10 @@ async function testPageResponseJSRTD() {
   const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
   const contentelements = elements(contentdiv.childNodes);
   test.eq([
-    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`, //FIXME widget!
-    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`, //FIXME widget!
+    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`,
+    `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div> </div>`,
+    `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`,
+    `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div> </div>`,
     /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="428" height="284"\/><\/p>$/,
     /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href="x-richdoclink:.*#dieper">interne<\/a> link.<\/p>$/
   ], contentelements.map(e => new XMLSerializer().serializeToString(e)));

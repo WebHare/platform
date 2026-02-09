@@ -24,6 +24,7 @@ types:
     editor:
       tabsExtension: mod::publisher/data/embeddedobjects.siteprl.xml#embedhtml
     renderer: mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase
+    widgetBuilder: /js/widgets/builtin.ts#renderHTMLWidget
     members:
       html:
         type: string

@@ -16,7 +16,7 @@ export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest } from './siterequest';
+export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest } from './siterequest';
 export {
   RestRequest
 } from './restrequest';
