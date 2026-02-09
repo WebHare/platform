@@ -628,20 +628,6 @@ RECORD FUNCTION LookupPublisherURLByPath(INTEGER startroot, STRING url, STRING o
   RETURN CELL[ folder, file, __directfile ];
 }
 
-PUBLIC RECORD FUNCTION __GetPhotoalbumProps(INTEGER folderid)
-{
-  RECORD photoalbuminstance := OpenWHFSType("http://www.webhare.net/xmlns/publisher/photoalbum")->GetInstanceData(folderid);
-
-  RETURN [ rows := ToInteger(photoalbuminstance.rows,5) ?? 5
-         , columns := ToInteger(photoalbuminstance.columns,5) ?? 5
-         , photowidth      := photoalbuminstance.picturewidth    ?? 600
-         , photoheight     := photoalbuminstance.pictureheight   ?? 600
-         , thumbnailwidth  := photoalbuminstance.thumbnailwidth  ?? 100
-         , thumbnailheight := photoalbuminstance.thumbnailheight ?? 100
-         , publishoriginals := photoalbuminstance.publishoriginals
-         ];
-}
-
 /** Get a file stored by CreateDBFile
     @param objectid File id that created the file
     @param findfilename Filename to lookup

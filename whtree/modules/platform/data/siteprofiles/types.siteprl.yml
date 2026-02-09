@@ -286,31 +286,14 @@ types:
     icon: tollium:folders/locked
     metaType: folder
   foldertypes.photoalbum:
+    comment: "Photo albums have been deprecated. Minimal support for the folder type remains"
     namespace: http://www.webhare.net/xmlns/publisher/photoalbum
     icon: tollium:folders/photoalbum
     metaType: folder
-    members:
-      rows:
-        type: string
-      columns:
-        type: string
-      picturewidth:
-        type: integer
-      pictureheight:
-        type: integer
-      thumbnailwidth:
-        type: integer
-      thumbnailheight:
-        type: integer
-      publishoriginals:
-        type: boolean
     apply:
       folderIndex:
         newFileType: filetypes.contentlisting
         pin: true
-      editProps:
-        - type: foldertypes.photoalbum
-          tabsExtension: mod::publisher/data/publisher.siteprl.xml#photoalbum_settings
   foldertypes.system:
     namespace: http://www.webhare.net/xmlns/publisher/systemfolder
     icon: tollium:folders/system
