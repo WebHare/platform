@@ -442,6 +442,8 @@ async function testImgCache() {
   const snowBeagleWebpFile = await testsitejs.openFile("photoalbum/snowbeagle.webp");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none", format: "keep" });
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true, format: "keep" })).link);
+  test.eq(428, wrappedBeagle.width);
+  test.eq(284, wrappedBeagle.height);
   const dlSnowBeagle = await fetchUCLink(wrappedBeagle.link, "image/jpeg");
   const snowBeagleJpeg = await createSharpImage(dlSnowBeagle.fetchBuffer);
   const snowBeagleAvif = await createSharpImage(await snowbeagleAvifFile.data.resource.arrayBuffer());
