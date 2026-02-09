@@ -125,6 +125,30 @@ async function testSiteProfiles() {
     await whdb.rollbackWork();
   }
 
+  {
+    //Widget settings
+    const tester = await getApplyTesterForObject(testobj);
+    test.eq({
+      renderHS: "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#Level2Widget",
+      renderJS: ""
+    }, await tester.getWidgetSettings("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"));
+    test.eq({
+      renderHS: "",
+      renderJS: "mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderJSWidget1"
+    }, await tester.getWidgetSettings("webhare_testsuite:base_test.jswidget1"));
+
+    await whdb.beginWork();
+    const dummyfile = await (await test.getTestSiteHSTemp()).createFile('override-widget-search');
+    const dummytester = await getApplyTesterForObject(dummyfile);
+
+    test.eq({
+      renderHS: "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#Level2Widget_OverrideSearch",
+      renderJS: ""
+    }, await dummytester.getWidgetSettings("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"));
+
+    await whdb.rollbackWork();
+  }
+
 }
 
 async function testSiteUpdates() {

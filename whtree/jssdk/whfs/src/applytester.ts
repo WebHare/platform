@@ -12,6 +12,7 @@ import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
+import { getType } from "./describe";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -637,6 +638,32 @@ export class WHFSApplyTester {
           userdata = { ...(userdata || {}), ...JSON.parse(userdataentry.value) };
 
     return userdata;
+  }
+
+  async getWidgetSettings(type: string): Promise<{
+    renderHS: string; //HareScript renderer
+    renderJS: string; //JS renderer
+  }> {
+    const retval = { renderHS: "", renderJS: "" };
+    const typeInfo = getType(type);
+    if (!typeInfo)
+      return retval;
+
+    if (typeInfo.renderer?.objectname)
+      retval.renderHS = typeInfo.renderer.objectname;
+    if (typeInfo.widgetbuilder)
+      retval.renderJS = typeInfo.widgetbuilder;
+
+    for (const applyRule of await this.getMatchingRules("setwidget")) {
+      for (const set of applyRule.setwidget) {
+        if (set.contenttype && (set.contenttype === typeInfo?.namespace || set.contenttype === typeInfo?.scopedtype)) {
+          retval.renderHS = set.renderer?.objectname || '';
+          retval.renderJS = set.widgetbuilder || '';
+        }
+      }
+    }
+
+    return retval;
   }
 }
 

@@ -222,6 +222,8 @@ $defs:
         type: string
       wittyComponent:
         type: string
+      widgetBuilder:
+        type: string
       apply: # Note that widgets can have apply rules but these only affect widgets in the WHFS (Publisher), not RTD embedded widgets
         $ref: "#/$defs/ApplyRule"
 
@@ -1151,6 +1153,9 @@ $defs:
           type: string
         wittyComponent:
           type: string
+        widgetBuilder:
+          type: string
+          description: JS callback to build the widget HTML code
 
   Sources:
     type: array

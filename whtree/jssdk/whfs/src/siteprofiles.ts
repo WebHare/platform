@@ -125,6 +125,7 @@ export interface CSPContentType {
   renderer?: CSPWidgetRenderer | null;
   embedtype?: "inline" | "block";
   requiremergefieldscontext?: boolean;
+  widgetbuilder?: string;
 
   //Used by RTDTypes which still piggyback on CSPContentType
   structure?: CSPRTDStructure;
@@ -354,6 +355,7 @@ export type CSPMailTemplate = {
 
 export type CSPSetWidget = {
   contenttype: string;
+  widgetbuilder?: string;
   editor: CSPWidgetEditor | null;
   renderer: CSPWidgetRenderer | null;
   wittycomponent: string;
@@ -457,6 +459,7 @@ export type CSPApplyRule = {
   webdesign: CSPWebDesign | null;
   //TODO this is being double parsed (both for us and both into yml_ props) because HS readers haven't switched over to yml_forms
   webtoolsformrules: CSPWebtoolsFormRule[];
+  widgetbuilder?: string;
 } & {  /** Custom nodes/plugins */
   [k in `yml_${string}`]?: Array<Record<string, unknown>>;
 };

@@ -768,6 +768,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
       wittycomponent: setWidget.wittyComponent || '',
+      ...setWidget.widgetBuilder ? { widgetbuilder: context.resolve(setWidget.widgetBuilder) } : {},
     });
   }
 
@@ -1126,6 +1127,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
         ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
+        if (widgetSettings.widgetBuilder)
+          ctype.widgetbuilder = context.resolve(widgetSettings.widgetBuilder);
       } else {
         ctype.type = "filetype";
       }

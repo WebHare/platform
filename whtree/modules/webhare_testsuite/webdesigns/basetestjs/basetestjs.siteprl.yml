@@ -93,6 +93,15 @@ types:
     apply:
       bodyRenderer: # TODO rename this or a least renderer to be closer to 'ContentPageRequest'
         renderer: ./webdesign/webdesign.ts#renderRTD
+  jswidget1:
+    comment: Our first TypeScript widget
+    metaType: blockWidget
+    widgetBuilder: ./webdesign/webdesign.ts#renderJSWidget1
+    apply:
+      setObjectEditor:
+        separateApp: true
+        name: publisher:webtoolform
+
 
 apply:
   - to: all
