@@ -46,3 +46,7 @@ export async function littyToString(lit: Litty): Promise<string> {
   }
   return result;
 }
+
+export function isLitty(value: unknown): value is Litty {
+  return typeof value === "object" && value !== null && "strings" in value && "values" in value;
+}
