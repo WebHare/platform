@@ -1,5 +1,6 @@
 /* This is an import specifically for APIs needed by the 'dev' module, allowing us to manage version differences a bit
    Any definitions here still shouldn't be considered a public or stable API
+   Now that dev is merging as 'devkit' and part of our normal CI we probably don't need an explicit brigee
 */
 
 import type { ParsedSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
