@@ -11,7 +11,7 @@
           <textedit name="external"
                     width="1pr"
                     errorlabeltid=".linktype-external"
-                    placeholdertid=".externalplaceholder"
+                    placeholdertid="tollium:common.examples.https-url"
                     required="true"
                     title=""
                     validationchecks="url-plus-relative" />
