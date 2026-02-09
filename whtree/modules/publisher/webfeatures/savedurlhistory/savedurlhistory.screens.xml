@@ -44,9 +44,4 @@
     </body>
   </screen>
 
-  <apply>
-    <to type="file" />
-    <extendproperties extension="#savedurlhistory_edit" contenttype="http://www.webhare.net/xmlns/publisher/savedurlhistory" />
-  </apply>
-
 </siteprofile>
