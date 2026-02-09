@@ -1621,11 +1621,6 @@ PUBLIC OBJECTTYPE StaticPageBase
   {
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetCheckableLinks()
-  {
-    RETURN DEFAULT RECORD ARRAY;
-  }
-
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
     DELETE CELL body FROM this->__pageinfo;

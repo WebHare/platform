@@ -6,15 +6,6 @@
       is parsed before any global or site local profile
 
   -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/gatheredlinks"
-               cloneoncopy="false"
-               comment="Gathered links for checks">
-    <array name="links">
-      <url name="link" />
-      <string name="text" />
-    </array>
-  </contenttype>
-
   <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck"
                comment="Content type for link check reports">
     <string name="sorting" />

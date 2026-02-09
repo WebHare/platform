@@ -48,32 +48,6 @@ PUBLIC RECORD ARRAY FUNCTION GetLinksForFSObjects(INTEGER ARRAY fsobjects)
              AND checked_objectlinks.system_fs_setting = fs_settings.id
              AND checked_objectlinks.link = checked_links.id;
 
-  INTEGER64 ARRAY enrichablesettings := SELECT AS INTEGER64 ARRAY fssettingid FROM links WHERE text="" AND fssettingid != 0;
-  IF(Length(enrichablesettings)>0) //There may be room for enrichment
-  {
-    //We need the fs_settings.parent for each link, as that will match the arrayrow fs_settingid in gatheredlinks
-    RECORD ARRAY parents := SELECT id, parent FROM system.fs_settings WHERE id IN enrichablesettings;
-    OBJECT gatheredlinks := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
-
-    //Update what we can
-    FOREVERY(RECORD link FROM links)
-    {
-      RECORD linksinfo := gatheredlinks->GetInstanceData(link.groupid);
-
-      INTEGER64 arrayrowid := SELECT AS INTEGER64 parent FROM parents WHERE parents.id = link.fssettingid;
-      IF(arrayrowid=0)
-        CONTINUE;
-
-      RECORD matchrow := SELECT * FROM linksinfo.links WHERE fs_settingid = arrayrowid;
-      IF(NOT RecordExists(matchrow))
-        CONTINUE; //this link did not come from gatheredlinks
-
-      link.text := matchrow.text;
-      link.referrer := "<gatheredlink>";
-      links[#link] := link;
-    }
-  }
-
   RETURN GetInternalRTDLinksForFSObjects(fsobjects) CONCAT
       SELECT *
            , DELETE fssettingid

@@ -113,7 +113,6 @@ STATIC OBJECTTYPE PublicationRun
   PUBLIC BOOLEAN has_webdesign;
   PUBLIC RECORD ARRAY setonpublish;
   BOOLEAN profile;
-  PUBLIC RECORD ARRAY checkablelinks;
 
   OBJECT outputdriver;
 
@@ -685,7 +684,6 @@ STATIC OBJECTTYPE PublicationRun
       CASE "SETONPUBLISH"
       {
         this->setonpublish := this->setonpublish CONCAT msg.preppedonpublish;
-        this->checkablelinks := this->checkablelinks CONCAT msg.checkablelinks;
         RETURN DEFAULT RECORD;
       }
 

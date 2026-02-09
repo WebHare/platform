@@ -87,12 +87,7 @@ FOREVERY(RECORD dbfile FROM dbfiles)
   PUBLISHER_CloseOutput(outputid);
 }
 
-RECORD ARRAY checkablelinks;
-IF(ObjectExists(webdesign->pageobject))
-  checkablelinks := webdesign->pageobject->GetCheckableLinks();
-
 uplink->DoRequest(
     [ type := "SETONPUBLISH"
     , preppedonpublish := (SELECT ns, data FROM preppedonpublish)
-    , checkablelinks := checkablelinks
     ]);
