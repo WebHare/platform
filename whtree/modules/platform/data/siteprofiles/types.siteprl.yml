@@ -186,6 +186,14 @@ types:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
       setObjectEditor:
         name: publisher:editdocument
+  filetypes.search:
+    comment: Consilio search page
+    namespace: http://www.webhare.net/xmlns/consilio/searchpage
+    tid: consilio:webfeatures.sitecontent.searchpage.searchpage
+    metaType: page
+    workflow: false
+    dynamicExecution:
+      webPageObjectName: mod::consilio/webfeatures/sitecontent/searchpage/searchpage.whlib#ConsilioSearchPage
   filetypes.semidynamic:
     namespace: http://www.webhare.net/xmlns/publisher/semidynamicfile
     icon: tollium:files/application_x-webhare-semidynamic

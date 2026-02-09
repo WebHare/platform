@@ -1,8 +1,0 @@
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords"
-               comment="Content type for extra indexing keywords">
-    <stringarray name="words" />
-  </contenttype>
-
-</siteprofile>

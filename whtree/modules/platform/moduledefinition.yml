@@ -87,8 +87,6 @@ siteProfiles:
   - path: data/siteprofiles/internal-types.siteprl.yml
   - path: data/siteprofiles/types.siteprl.yml
   - path: data/siteprofiles/widgets.siteprl.yml
-  - path: mod::consilio/data/consilio.siteprl.xml
-  - path: mod::consilio/webfeatures/sitecontent/sitecontent.siteprl.xml
   - path: mod::publisher/data/siteprofiles/abtest.siteprl.xml
   - path: mod::publisher/data/siteprofiles/pwa.siteprl.xml
   - path: mod::publisher/data/siteprofiles/shorturl.siteprl.xml

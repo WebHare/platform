@@ -185,3 +185,11 @@ types:
         members:
           block:
             type: whfsRef
+
+  consilio.boostwords:
+    comment: Content type for extra indexing keywords
+    namespace: http://www.webhare.net/xmlns/consilio/boostwords
+    workflow: false
+    members:
+      words:
+        type: stringArray
