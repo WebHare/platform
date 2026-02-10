@@ -204,7 +204,6 @@
     </textgroup>
     <textgroup gid="intextlink">   <!-- components.intextlink -->
       <text tid="append">toevoeging</text>
-      <text tid="externalplaceholder">http://www.example.com/voorbeeld/</text>
       <text tid="linktype">Linktype</text>
       <text tid="linktype-external">Externe link</text>
       <text tid="linktype-internal">Interne link</text>
@@ -717,7 +716,7 @@
       <text tid="norights">U heeft onvoldoende rechten om deze actie uit te voeren</text>
       <text tid="nosuchwhfspath">Het pad '<param p="1"/>' is niet gevonden, of u heeft er geen toegang toe.</text>
       <text tid="obj">Website of URL</text>
-      <text tid="objplaceholder">http://www.example.nl of Websitenaam</text>
+      <text tid="objplaceholder">https://www.example.nl of Websitenaam</text>
       <text tid="sitelocked">De website is vergrendeld</text>
       <text tid="sitenotfound">De website is niet gevonden</text>
       <text tid="urlnotfound">De URL is niet gevonden</text>
