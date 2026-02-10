@@ -1,0 +1,59 @@
+types:
+  samlidpendpoint:
+    namespace: http://www.webhare.net/xmlns/wrd/samlidpendpoint
+    tid: wrd:filetypes.samlidpendpoint
+    comment: SAML IDP
+    icon: tollium:files/application_x-webhare-serverparsed
+    metaType: page
+    workflow: false
+    isAcceptableIndex: false
+    useWebDesign: false
+    dynamicExecution:
+      startMacro: mod::wrd/lib/internal/auth/samlidpendpoint.whlib#RunSAMLIdpEndpoint
+  samlspendpoint:
+    namespace: http://www.webhare.net/xmlns/wrd/samlspendpoint
+    tid: wrd:filetypes.samlspendpoint
+    comment: SAML SP
+    icon: tollium:files/application_x-webhare-serverparsed
+    metaType: page
+    workflow: false
+    isAcceptableIndex: false
+    useWebDesign: false
+    dynamicExecution:
+      startMacro: mod::wrd/lib/internal/auth/samlspendpoint.whlib#RunSAMLSpEndpoint
+  schemaarchive:
+    namespace: http://www.webhare.net/xmlns/wrd/schemaarchive
+    tid: wrd:filetypes.schemaarchive
+    comment: WRD Schema archive
+    icon: tollium:files/application_wharchive
+    metaType: upload
+    requiresContent: true
+    extension: .wrdarchive
+    isPublishable: false
+rtdTypes:
+  http://www.webhare.net/xmlns/wrd/authtexttype:
+    defaultBlockStyle: normal
+    blockStyles:
+      heading2:
+        containerTag: h2
+      normal:
+        containerTag: p
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+      unordered:
+        containerTag: ul
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href
+      ordered:
+        containerTag: ol
+        textStyles:
+          - b
+          - i
+          - u
+          - a-href

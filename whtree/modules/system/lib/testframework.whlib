@@ -1912,7 +1912,6 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
                    , files := DEFAULT RECORD ARRAY
                    , dbfiles := DEFAULT RECORD ARRAY
                    , error := ""
-                   , checkablelinks := DEFAULT RECORD ARRAY
                    ];
 
   OBJECT process := NEW PublicationProcess(fileid);
@@ -1931,7 +1930,6 @@ PUBLIC RECORD FUNCTION RunFilePublish(INTEGER fileid, BOOLEAN profile)
   }
 
   retval.hsgroupid := outputrun->hs_groupid;
-  retval.checkablelinks := outputrun->checkablelinks;
   retval.dbfiles := outputrun->dbfiles;
 
   IF(outputrun->errorcode = 101) //harescript compiletime error

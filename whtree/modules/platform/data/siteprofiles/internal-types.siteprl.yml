@@ -131,6 +131,13 @@ types:
       previewimage:
         type: file
 
+  publisher.pwasettings:
+    namespace: http://www.webhare.net/xmlns/publisher/pwasettings
+    workflow: false
+    members:
+      forcerefresh:
+        type: instant
+
   publisher.taginfo:
     namespace: http://www.webhare.net/xmlns/publisher/taginfo
     comment: "Tag meta for files:"
@@ -185,3 +192,30 @@ types:
         members:
           block:
             type: whfsRef
+
+  consilio.boostwords:
+    comment: Content type for extra indexing keywords
+    namespace: http://www.webhare.net/xmlns/consilio/boostwords
+    workflow: false
+    members:
+      words:
+        type: stringArray
+
+  shorturl.domainfolder:
+    namespace: http://www.webhare.net/xmlns/publisher/shorturl/domainfolder
+    workflow: false
+    members:
+      baseurl:
+        type: string
+      setvariables:
+        type: array
+        members:
+          name:
+            type: string
+          value:
+            type: string
+      allowedurls:
+        type: array
+        members:
+          domain:
+            type: string

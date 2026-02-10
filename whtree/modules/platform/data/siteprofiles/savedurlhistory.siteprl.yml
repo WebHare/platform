@@ -1,0 +1,8 @@
+# This siteprofile is used if webfeature publisher:savedurlhistory is enabled on a site
+gid: publisher:webfeatures.savedurlhistory
+apply:
+  - to:
+      is: file
+    editProps:
+      - type: publisher.savedurlhistory
+        tabsExtension: mod::publisher/webfeatures/savedurlhistory/savedurlhistory.screens.xml#savedurlhistory_edit

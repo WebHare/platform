@@ -11,7 +11,7 @@ types:
     icon: tollium:files/widget
     metaType: inlineWidget
     editor:
-      tabsExtension: mod::publisher/data/embeddedobjects.siteprl.xml#embedhtml
+      tabsExtension: mod::publisher/data/embeddedobjects.screens.xml#embedhtml
     renderer: mod::publisher/lib/widgets/htmlwidget.whlib#InlineHTMLWidgetBase
     members:
       html:
@@ -22,7 +22,7 @@ types:
     icon: tollium:files/widget
     metaType: blockWidget
     editor:
-      tabsExtension: mod::publisher/data/embeddedobjects.siteprl.xml#embedhtml
+      tabsExtension: mod::publisher/data/embeddedobjects.screens.xml#embedhtml
     renderer: mod::publisher/lib/widgets/htmlwidget.whlib#HTMLWidgetBase
     widgetBuilder: /js/widgets/builtin.ts#renderHTMLWidget
     members:
@@ -96,7 +96,7 @@ types:
     icon: tollium:files/widget
     metaType: inlineWidget
     editor:
-      tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editconfirmfield
+      tabsExtension: mod::publisher/data/siteprofiles/webtools.screens.xml#editconfirmfield
     renderer: mod::publisher/lib/internal/forms/confirmfield.whlib#ConfirmFieldWidget
     requireMergeFieldsContext: true
     group: platform:mailwidgets
@@ -109,7 +109,7 @@ types:
     icon: tollium:files/widget
     metaType: inlineWidget
     editor:
-      tabsExtension: mod::publisher/data/siteprofiles/webtools.siteprl.xml#editmergefield
+      tabsExtension: mod::publisher/data/siteprofiles/webtools.screens.xml#editmergefield
     renderer: mod::publisher/lib/internal/forms/mergefield.whlib#MergeFieldWidget
     requireMergeFieldsContext: true
     group: platform:mailwidgets

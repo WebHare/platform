@@ -32,13 +32,13 @@ async function testDevBridge() {
   }, usermgmt);
   test.eqPartial({ typeName: "System_Usermgmt_WHUserAnnouncement" }, usermgmt.types.whuserAnnouncement);
 
-  const test_whts_files = await devbridge.getGeneratedFiles({ module: "webhare_testsuite" });
+  const test_whts_files = await devbridge.getGeneratedFiles({ module: "devkit" });
   // console.log(test_whts_files);
-  test.eqPartial({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type === "wrd"));
-  test.eqPartial({ importPath: 'wh:db/webhare_testsuite' }, test_whts_files.find(_ => _.type === "db"));
+  test.eqPartial({ importPath: 'wh:wrd/devkit' }, test_whts_files.find(_ => _.type === "wrd"));
+  test.eqPartial({ importPath: 'wh:db/devkit' }, test_whts_files.find(_ => _.type === "db"));
 
-  const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
-  test.eq("publisher:siteprofile.shorturl", parseresult.gid);
+  const parseresult = await devbridge.getParsedSiteProfile("mod::devkit/tests/rewrite/data/rewritesiteprofile.propertyeditor.out.xml");
+  test.eq("devkit:testtids.gid1", parseresult.gid);
 
   test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node"), "The node symlink must exist, or modules may not get node builtin types");
   test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node/buffer.d.ts"), "Test one of the expected files");

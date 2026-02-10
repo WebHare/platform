@@ -131,7 +131,6 @@ PUBLIC STATIC OBJECTTYPE Reader
     RECORD ARRAY hs_errors;
     BOOLEAN has_webdesign;
     RECORD ARRAY setonpublish;
-    RECORD ARRAY checkablelinks;
 
     IF(ObjectExists(outputrun))
     {
@@ -141,7 +140,6 @@ PUBLIC STATIC OBJECTTYPE Reader
       has_webdesign :=outputrun->has_webdesign;
       hs_errors := outputrun->hs_errors;
       setonpublish := outputrun->setonpublish;
-      checkablelinks := outputrun->checkablelinks;
     }
 
     DEBUGPRINT("Finish: code:" || errortype || " text:" || errordata || " totalsize:"||totalsize);
@@ -254,10 +252,6 @@ PUBLIC STATIC OBJECTTYPE Reader
 
       FOREVERY(RECORD toset FROM setonpublish)
         OpenWHFSType(toset.ns)->SetInstanceData(fileid, toset.data, [ isvisibleedit := FALSE, ifreadonly := "skip" ]);
-
-      OBJECT gatheredlinkstype := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
-      IF(ObjectExists(gatheredlinkstype))
-        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ], [ isvisibleedit := FALSE, ifreadonly := "skip" ]); //isvisibleedit FALSE was the default because gatheredlinkstype is not cloneoncopy, but just to clarify...
     }
 
     GetPrimary()->CommitWork();

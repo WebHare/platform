@@ -314,7 +314,7 @@ export class WHFSApplyTester {
         return false;
 
       const typeInfo = await describeWHFSType(rec.type || 0, { allowMissing: true, metaType: "folderType" });
-      if (typeInfo && isLike(typeInfo.namespace, matchwith))
+      if (typeInfo && (isLike(typeInfo.namespace, matchwith) || (typeInfo.scopedType && isLike(typeInfo.scopedType, matchwith))))
         return true;
 
       if (this.objinfo.site && rec.parent === this.objinfo.site.id)

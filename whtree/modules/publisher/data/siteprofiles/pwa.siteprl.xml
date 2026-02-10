@@ -1,7 +1,0 @@
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
-
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/pwasettings">
-    <datetime name="forcerefresh" />
-  </contenttype>
-
-</siteprofile>
