@@ -501,22 +501,22 @@ STATIC OBJECTTYPE WebConfigBuilder <
         }
       }
 
-      FOREVERY(RECORD design FROM mod.webdesigns)
-      {
-        IF(design.istemplate)
-          CONTINUE;
+    }
 
-        RECORD sdrule := this->GetBaseRule("/.publisher/sd/" || mod.name || "/" || design.name || "/", webrulepriority_after, filename || ":" || design.line);
-        sdrule.matchtype := 1; //initial
-        sdrule.datastorage :=
-            [ [ resource :=     MergePath(design.designroot, "/web/")
-              , isfolder :=     TRUE
-              , method :=       "direct"
-              ]
-            ];
+    FOREVERY(RECORD design FROM __GetExtractedConfig("webdesigns").webdesigns) {
+      IF(design.istemplate)
+        CONTINUE;
 
-        INSERT sdrule INTO rules AT END;
-      }
+      RECORD sdrule := this->GetBaseRule(`/.publisher/sd/${Substitute(design.name,':','/')}/`, webrulepriority_after, "webdesign " || design.name);
+      sdrule.matchtype := 1; //initial
+      sdrule.datastorage :=
+          [ [ resource :=     MergePath(design.path, "/web/")
+            , isfolder :=     TRUE
+            , method :=       "direct"
+            ]
+          ];
+
+      INSERT sdrule INTO rules AT END;
     }
 
     RETURN rules;

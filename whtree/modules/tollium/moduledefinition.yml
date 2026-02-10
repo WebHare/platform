@@ -1,0 +1,4 @@
+webDesigns:
+  webinterface:
+    title: WebHare interface
+    siteProfile: webdesigns/webinterface/webinterface.siteprl.xml

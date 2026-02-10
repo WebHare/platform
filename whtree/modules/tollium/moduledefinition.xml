@@ -49,8 +49,6 @@
   </tollium>
 
   <publisher>
-    <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml" />
-
     <customnode name="portal" namespace="http://www.webhare.net/xmlns/tollium" />
 
     <feedbackscope tag="webharebackend" />

@@ -618,31 +618,6 @@ PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT modd
   RETURN slots;
 }
 
-PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modulename, OBJECT node, STRING childgid)
-{
-  RECORD ARRAY designs;
-
-  STRING resourcename := GetModuleDefinitionXMLResourceName(modulename);
-  FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webfeature")->GetCurrentElements())
-  {
-    IF(NOT IsNodeApplicableToThisWebHare(child))
-      CONTINUE;
-
-    STRING featurename := child->GetAttribute("name");
-
-    INSERT [ name := featurename
-           , title := ParseXMLTidPtr(resourcename, childgid, child, "title")
-           , siteprofile := MakeAbsoluteResourcePath(moduledefpath,child->GetAttribute("siteprofile"))
-           , line := child->linenum
-           , col := 0
-           , istemplate := ParseXSBoolean(child->GetAttribute("istemplate"))
-           , webdesignmasks := ParseXSList(child->GetAttribute("webdesignmasks"))
-           , hidden := ParseXSBoolean(child->GetAttribute("hidden"))
-           ] INTO designs AT END;
-  }
-  RETURN designs;
-}
-
 PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
   RECORD moduledef;
 
@@ -684,9 +659,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
       , logfiles             := DEFAULT RECORD ARRAY
 
       , globalappcontexts    := DEFAULT RECORD ARRAY
-      , webdesigns           := DEFAULT RECORD ARRAY
-      , addtowebdesigns      := RECORD[]
-      , webfeatures          := DEFAULT RECORD ARRAY
       , filemgrextensions    := DEFAULT RECORD ARRAY
       , usermgrextensions    := DEFAULT RECORD ARRAY
       , indexfields          := DEFAULT RECORD ARRAY
@@ -1200,65 +1172,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
     RETURN this->moduledef;
   }
 
-  RECORD FUNCTION ParseWebdesigns(OBJECT node, STRING childgid)
-  {
-    STRING modulename := this->moduledef.name;
-    RECORD ARRAY designs;
-
-    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webdesign")->GetCurrentElements())
-    {
-      IF(NOT IsNodeApplicableToThisWebHare(child))
-        CONTINUE;
-
-      STRING designname := child->GetAttribute("name");
-      STRING designroot;
-      IF(child->HasAttribute("path"))
-        designroot := MakeAbsoluteResourcePath(this->respath, child->GetAttribute("path"));
-      ELSE
-        designroot := "mod::" || modulename || "/webdesigns/" || designname || "/";
-      IF(designroot NOT LIKE "*/")
-        designroot := designroot || "/";
-
-      BOOLEAN istemplate := ParseXSBoolean(child->GetAttribute("istemplate"));
-
-      //In a template, the siteprofile is simply a witty expression, so don't expand it
-      STRING siteprofile;
-      IF(istemplate)
-        siteprofile := child->GetAttribute("siteprofile"); //no legacy support for templates
-      ELSE //We used to resolve based on designroot, but that's inconsistent with how our paths normally work
-        siteprofile := this->GetVerifyPath(child, "siteprofile", designroot);
-
-      INSERT [ name := designname
-             , title := ParseXMLTidPtr(this->respath, childgid, child, "title")
-             , siteprofile := siteprofile
-             , line := child->linenum
-             , col := 0
-             , designroot := designroot
-             , istemplate := istemplate
-             , hidden := ParseXSBoolean(child->GetAttribute("hidden"))
-             ] INTO designs AT END;
-    }
-
-    RETURN [ webdesigns := designs
-           ];
-  }
-
-  RECORD ARRAY FUNCTION ParseAddToWebdesigns(OBJECT node, STRING childgid)
-  {
-    STRING modulename := this->moduledef.name;
-    RECORD ARRAY addtowebdesigns;
-    FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "addtowebdesign")->GetCurrentElements())
-    {
-      IF(NOT IsNodeApplicableToThisWebHare(child))
-        CONTINUE;
-
-      INSERT [ webdesign := QualifyName(modulename, child->GetAttribute("webdesign"))
-             , siteprofile := MakeAbsoluteResourcePath(this->respath, child->GetAttribute("siteprofile"))
-             ] INTO addtowebdesigns AT END;
-    }
-    RETURN addtowebdesigns;
-  }
-
   RECORD FUNCTION ParseAddAction(STRING childgid, OBJECT node)
   {
     RETURN CELL[ title             := ParseXMLTidPtr(this->respath, childgid, node, "title")
@@ -1295,11 +1208,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
   }
 
   MACRO ParsePublisher(STRING childgid, OBJECT child) {
-    RECORD designandpacks := this->ParseWebdesigns(child, childgid);
-    this->moduledef.webdesigns := designandpacks.webdesigns;
-    this->moduledef.addtowebdesigns := this->ParseAddToWebdesigns(child, childgid);
-    this->moduledef.webfeatures := ParseWebFeatures(this->respath, this->moduledef.name, child, childgid);
-
     FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements()) {
       IF(NOT IsNodeApplicableToThisWebHare(subchild))
         CONTINUE;
