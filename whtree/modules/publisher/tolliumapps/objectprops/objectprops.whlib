@@ -1313,12 +1313,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       this->SaveMetadata(objid);
       ^maintabs->SubmitExtensions(work);
 
-      IF(NOT this->isnew AND this->isfolder AND this->curtype.id = whconstant_whfstype_photoalbum) { //photoalbums?      {
-        //ADDME: Generalize so any type cna trigger a non-template-too republish if certain metadata fields changed
-        //ADDME: Trigger only if width/height/publishoriginals properties changed
-        ScheduleFolderRepublish(this->sourceitem->id, /*recursive=*/FALSE, /*non_template_too=*/TRUE);
-      }
-
       //Invoke any hooks, add default contents to folders, if necessary
       IF(this->isnew) {
         IF(this->isfolder) {

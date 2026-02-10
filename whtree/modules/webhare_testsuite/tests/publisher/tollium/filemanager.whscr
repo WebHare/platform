@@ -346,28 +346,6 @@ ASYNC MACRO CreateRootObject()
   CleanupRootFolder();
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// PhotoAlbums
-//
-ASYNC MACRO CreatePhotoAlbum()
-{
-  RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), GetTestsuiteTempFolder()->id, [ type := 3, isfolder := TRUE ]));
-  TT("name")->value := "photoalbum";
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
-
-  TestEQ(TRUE, (AWAIT res.expectcallreturn()) != 0);
-
-  OBJECT createfolder := OpenWHFSObject(AWAIT res.expectcallreturn());
-  TestEq(TRUE, ObjectExists(createfolder));
-  TestEQ(3, createfolder->type);
-  TestEq(TRUE, createfolder->indexdoc != 0);
-
-  OBJECT indexdoc := OpenWHFSObject(createfolder->indexdoc);
-  TestEq(TRUE, ObjectExists(indexdoc));
-  TestEQ(24, indexdoc->type);
-}
-
 ASYNC MACRO WalkTheTreeSysop() {
   RECORD pvs;
 
@@ -400,7 +378,6 @@ RunTestframework([ PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree
                  , PTR CreateRootObject
-                 , PTR CreatePhotoAlbum
                  , PTR WalkTheTreeSysop
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]

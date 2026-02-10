@@ -51,11 +51,6 @@ declare global {
 window.basetestErrorList = [];
 window.addEventListener("error", (e: ErrorEvent) => window.basetestErrorList.push(e));
 
-/////////////////////////////////////////
-// Gallery (wh-gallery)
-import setupGallery from '@mod-publisher/js/gallery/defaultgallery';
-dompack.register('.wh-gallery', node => setupGallery(node));
-
 /////////////////////////////////////////////////////////
 // Forms
 

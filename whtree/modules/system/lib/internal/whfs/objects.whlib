@@ -783,19 +783,6 @@ OBJECTTYPE WHFSObject <
         newpublished := ConvertToWillpublish(newpublished, FALSE, FALSE,  PubPrio_DirectEdit);
     }
 
-    IF(this->isfolder AND (oldversion.type = 3) != (newtype = 3)) //it started or stopped being a photoalbum
-    {
-      //Republish all images in the folder
-      UPDATE system.fs_objects
-             SET published := ConvertToWillPublish(published,
-                                     /*firsttime=*/FALSE,
-                    /*enable_publish_if_disabled=*/FALSE,
-                                           PubPrio_DirectEdit)
-             WHERE parent = this->pvt_id
-                   AND type = 12/*image*/
-                   AND publish = TRUE;
-    }
-
     IF(this->isfolder AND CellExists(newmetadata,'indexdoc') AND newmetadata.indexdoc != oldversion.indexdoc) {
       //Indexdocument changed. Republish old and new one, if needed
       INTEGER ARRAY toupdate;

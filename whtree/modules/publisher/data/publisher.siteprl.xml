@@ -1,65 +1,6 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!--
 
-      This is the publisher base site profile. It always applies and
-      is parsed before any global or site local profile
-
-  -->
-  <!-- Editor for photoalbum settings -->
-  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="photoalbum_settings">
-    <newtab gid="publisher:foldertypes.photoalbum-settings" tid=".tabtitle">
-      <line>
-        <textedit composition="contentdata" cellname="rows" width="5x" emptyvalue="0" placeholder="5" tid=".indexpage" />
-        <text valuetid=".rows" />
-        <textedit composition="contentdata" cellname="columns" width="5x" emptyvalue="0" placeholder="5" />
-        <text valuetid=".columns" />
-      </line>
-      <line>
-        <textedit composition="contentdata"
-                  cellname="picturewidth"
-                  width="6x"
-                  emptyvalue="0"
-                  placeholder="600"
-                  tid=".picturewidth"
-                  valuetype="integer" />
-        <text valuetid=".pixels" />
-      </line>
-      <line>
-        <textedit composition="contentdata"
-                  cellname="pictureheight"
-                  width="6x"
-                  emptyvalue="0"
-                  placeholder="600"
-                  tid=".pictureheight"
-                  valuetype="integer" />
-        <text valuetid=".pixels" />
-      </line>
-      <line>
-        <textedit composition="contentdata"
-                  cellname="thumbnailwidth"
-                  width="6x"
-                  emptyvalue="0"
-                  placeholder="100"
-                  tid=".thumbnailwidth"
-                  valuetype="integer" />
-        <text valuetid=".pixels" />
-      </line>
-      <line>
-        <textedit composition="contentdata"
-                  cellname="thumbnailheight"
-                  width="6x"
-                  emptyvalue="0"
-                  placeholder="100"
-                  tid=".thumbnailheight"
-                  valuetype="integer" />
-        <text valuetid=".pixels" />
-      </line>
-      <line layout="left">
-        <checkbox composition="contentdata" cellname="publishoriginals" labeltid=".publishoriginals" title="" />
-      </line>
-    </newtab>
-  </tabsextension>
 
   <!-- ======================================================================
 

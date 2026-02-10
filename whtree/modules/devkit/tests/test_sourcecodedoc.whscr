@@ -53,7 +53,6 @@ MACRO TestGroups()
   FOREVERY (STRING path FROM
       [ "mod::publisher/data/components.xsd"
       , "mod::publisher/data/forms/formdef.xsd"
-      , "mod::publisher/data/publisher.siteprl.xml"
       , "mod::publisher/data/siteprofile.xsd"
       , "mod::publisher/js/richcontent/video.css"
       , "mod::publisher/language/default.xml"

@@ -204,7 +204,6 @@
     </textgroup>
     <textgroup gid="intextlink">   <!-- components.intextlink -->
       <text tid="append">addition</text>
-      <text tid="externalplaceholder">http://www.example.com/example/</text>
       <text tid="linktype">Linktype</text>
       <text tid="linktype-external">External link</text>
       <text tid="linktype-internal">Internal link</text>
@@ -717,7 +716,7 @@
       <text tid="norights">You have not enough rights to perform this action</text>
       <text tid="nosuchwhfspath">The path '<param p="1"/>' could not be found, or you do not have access to it</text>
       <text tid="obj">Website or URL</text>
-      <text tid="objplaceholder">http://www.example.com or Site Name</text>
+      <text tid="objplaceholder">https://www.example.com or Site Name</text>
       <text tid="sitelocked">The site is locked</text>
       <text tid="sitenotfound">The site is not found</text>
       <text tid="urlnotfound">The URL is not found</text>

@@ -1,12 +1,17 @@
 <?wh
+/* Photoalbums are deprecated since WH6.0. Minimal support for backwards compatibility is maintained for now. As we've found it hard
+   enough to make a usable, generic photoalbum in core, photoalbum support may be completely removed unless someone wants to maintain
+   and further develop it */
+
+LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::publisher/lib/widgets.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 //TODO thumbnail sizes (and other settings?) should be configurable through <apply>s
 RECORD gallery_gridthumb    := [ method := "fit", setheight := 150 ];
@@ -26,11 +31,11 @@ RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
                               , height := __wrapped.rotation IN [90,270] ? __wrapped.width : __wrapped.height
                            FROM system.fs_objects
                           WHERE parent = forfolder
-                                AND type = 12
+                                AND type = VAR whconstant_whfstype_imagefile
                                 AND link != ""
                       ORDER BY ordering, ToUppercase(name), id;
 
-  //Remove misunderstood images (eg WEBP/AVIF until support is complete)
+  //Remove misunderstood images eg WEBP/AVIF
   images := SELECT * FROM images WHERE RecordExists(thumbnail);
 
   RETURN [ value := images
@@ -39,27 +44,9 @@ RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
          ];
 }
 
-PUBLIC STATIC OBJECTTYPE GalleryWidgetBase EXTEND WidgetBase
-<
-  RECORD ARRAY FUNCTION GetImages(INTEGER forfolder)
-  {
-    RETURN GetAdhocCached(CELL[ forfolder ], PTR GetCacheableImages(forfolder));
-  }
-
-  UPDATE PUBLIC MACRO RenderLive()
-  {
-    INTEGER forfolder := this->context->targetfolder->id;
-    RECORD ARRAY images := this->GetImages(forfolder);
-
-    this->EmbedComponent(CELL[ images
-                             ]);
-  }
->;
-
-PUBLIC STATIC OBJECTTYPE RenderGalleryWidgetPage EXTEND StaticPageBase
-<
-  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
-  {
-    RETURN PTR webdesign->RenderWidgetInstance(([ whfstype := "http://www.webhare.net/xmlns/publisher/widgets/gallery" ]));
+PUBLIC STATIC OBJECTTYPE RenderGalleryWidgetPage EXTEND StaticPageBase <
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign) {
+    RECORD ARRAY images := GetAdhocCached(CELL[ forfolder := webdesign->targetfolder->id ], PTR GetCacheableImages(webdesign->targetfolder->id));
+    RETURN PTR EmbedWittyComponent("mod::publisher/widgets/widgets.witty#gallery", CELL[images]);
   }
 >;

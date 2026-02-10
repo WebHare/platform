@@ -400,31 +400,6 @@ MACRO InplaceUpdateTest()
   testfw->CommitWork();
 }
 
-MACRO TestPhotoAlbum()
-{
-  testfw->BeginWork();
-
-  OBJECT soontobe_fotoalbum := testsite->rootobject->CreateFolder([name:="imgfolder"]);
-  OBJECT img1 := soontobe_fotoalbum->CreateFile([name:="img1.jpg", type := 12, publish := TRUE]);
-
-  TestEq(TRUE, IsBeingPublished(img1->id));
-  MarkAsPublished(img1->id, FALSE);
-  TestEq(FALSE , IsBeingPublished(img1->id));
-
-  soontobe_fotoalbum->UpdateMetadata([ type := 2/*system folder*/]);
-  TestEq(FALSE , IsBeingPublished(img1->id));
-
-  soontobe_fotoalbum->UpdateMetadata([ type := 3/*foto album*/]);
-  TestEq(TRUE, IsBeingPublished(img1->id));
-
-
-  MarkAsPublished(img1->id, FALSE);
-  soontobe_fotoalbum->UpdateMetadata([ type := 2/*system folder*/]);
-  TestEq(TRUE, IsBeingPublished(img1->id));
-
-  testfw->RollbackWork();
-}
-
 MACRO TestArrayMembers()
 {
   // Test finding objects by (array) members values
@@ -608,7 +583,6 @@ RunTestframework([ PTR Prepare
                  , PTR MergeTypeInto
                  , PTR FindTest
                  , PTR InplaceUpdateTest
-                 , PTR TestPhotoAlbum
                  , PTR TestArrayMembers
                  , PTR TestRecordMembers
                  , PTR TestDirectInstanceData
