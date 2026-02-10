@@ -122,8 +122,23 @@ export class CPageRequest {
     if (publicationsettings.objectName)
       return wrapHSWebdesign(this);
 
-    if (!publicationsettings.pageBuilder)
+    if (!publicationsettings.pageBuilder) {
+      if (publicationsettings.siteResponseFactory) {
+        //legacy support for old-style SiteResponse factories, will be removed after WH6
+        const factory = await importJSFunction<WebDesignFunction<object>>(publicationsettings.siteResponseFactory);
+        const settings = new SiteResponseSettings;
+        settings.assetpack = publicationsettings.assetPack;
+        settings.witty = publicationsettings.witty;
+        const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+        settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
+        settings.lang = this._siteLanguage;
+
+        const response = await factory(this, settings);
+        response.appendHTML(await littyToString(page));
+        return await response.finish();
+      }
       throw new Error(`buildWebPage is not available for webdesigns that have not switched to it yet`);
+    }
 
     // Now that we're pretty sure we'll be generating HTML, initialize plugins
     for (const plugin of publicationsettings.plugins) {
@@ -151,7 +166,8 @@ export class CPageRequest {
       },
       finish: async () => {
         return await this.buildWebPage(rawLitty(html));
-      }
+      },
+      setFrontendData: this.setFrontendData.bind(this),
     };
   }
 
@@ -215,7 +231,7 @@ export class CPageRequest {
     ${settings.canonicalurl ? litty`<link rel="canonical" href="${settings.canonicalurl}">` : ''}
     ${head}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
-    ${litty`<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script", typed: true })}</script>`};
+    ${litty`<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script", typed: true })}</script>`}
     ${    /* TODO cachebuster /! support
       IF(cachebuster !== "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
@@ -323,7 +339,7 @@ export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebP
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;
 
 /** @deprecated SiteRequest will be removed after WH6 */
-export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder">;
+export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder" | "webRequest">;
 
 /** @deprecated ResponseBuilder experiment failed. Replace with SiteRequest  */
 export type ResponseBuilder = Omit<PageBuildRequest, "_prepareResponse" | "_insertions" | "_frontendConfig">;
