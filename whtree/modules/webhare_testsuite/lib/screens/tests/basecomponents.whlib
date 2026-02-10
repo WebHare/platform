@@ -336,7 +336,7 @@ PUBLIC STATIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
        `<html>
          <head>
            <script src="${EncodeValue(^iframe->toddiframeurl)}"></script>
-           <script src="/tollium_todd.res/webhare_testsuite/tests/iframetest.js"></script>
+           <script src="/.wh/mod/webhare_testsuite/public/iframetest/iframetest.js"></script>
          </head>
          <body>
            <span id='source' data-source="${EncodeValue(source)}">${EncodeValue(source)}</span>:<img id="image" src="${EncodeValue(link)}" width="60" height="40"><br>
@@ -349,7 +349,7 @@ PUBLIC STATIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   MACRO DoInit()
   {
     ^iframe->data := [ text := "data" ];
-    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest.html");
+    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/.wh/mod/webhare_testsuite/public/iframetest/iframetest.html");
     ^iframe->oncallback := PTR this->OnCallback;
     this->DoCallJS();
   }
@@ -385,7 +385,7 @@ PUBLIC STATIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   MACRO DoPostMessage()
   {
     ^callbacks->value := "";
-    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest-postmessage.html");
+    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/.wh/mod/webhare_testsuite/public/iframetest/iframetest-postmessage.html");
     ^iframe->postmessage([ answer := 42 ], "*");
   }
   ASYNC MACRO DoPostRequest()

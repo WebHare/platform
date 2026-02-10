@@ -190,6 +190,9 @@
     <webrule path="root:/tollium_todd.res/webhare_testsuite/" match="initial">
       <csp policy="frame-ancestors 'self'" />
     </webrule>
+    <webrule path="root:/.wh/mod/webhare_testsuite/public/" match="initial">
+      <csp policy="frame-ancestors 'self'" />
+    </webrule>
     <webrule path="root:/.webhare_testsuite/tests/"
              match="initial"
              allowallmethods="true"

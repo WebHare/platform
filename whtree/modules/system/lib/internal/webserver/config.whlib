@@ -366,6 +366,18 @@ STATIC OBJECTTYPE WebConfigBuilder <
     RECORD ARRAY rules;
 
     FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name)) {
+      IF(mod.name NOT IN whconstant_builtinmodules) {
+        //YML modules automatically get a /.wh/mod/<module>/public/ global virtual dir pointing to their public dir
+        INSERT CELL[
+          ...this->GetBaseRule("/.wh/mod/" || mod.name || "/public/", webrulepriority_after, "Implicit for module " || mod.name),
+          datastorage := [[ resource := `mod::${mod.name}/public/`,
+                            isfolder := TRUE,
+                            method := "direct"
+                         ]],
+          matchtype := 1
+          ] INTO rules AT END;
+      }
+
       OBJECT xmlfile;
       TRY
       {
