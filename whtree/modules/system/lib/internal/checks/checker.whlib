@@ -244,8 +244,7 @@ ASYNC FUNCTION GetPersistentQueueStatusInternal(STRING serviceport)
   RETURN "";
 }
 
-PUBLIC RECORD ARRAY FUNCTION RunChecks()
-{
+PUBLIC RECORD ARRAY FUNCTION RunChecks() {
   RECORD ARRAY messages;
 
   OBJECT validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib", "ValidateModules");
@@ -391,6 +390,19 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := ":Task '" || stucktask.tag || "' has errors: " || UCLeft(Tokenize(stucktask.error,"\n")[0],120)
            , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
            , messagetag := [ type := "system:failedtimedtask", task := stucktask.tag ]
+           ]
+           INTO messages AT END;
+  }
+
+  //We want you to snooze disabled tasks so other admins can know why - and you can't easily forget to re-enable them
+  RECORD ARRAY disabledtasks := SELECT tag := Substitute(tag, '.', ':') ?? script, id
+                                 FROM system_internal.tasks
+                                WHERE NOT enabled
+                                      AND inapplicable = "";
+  FOREVERY(RECORD disabledtask FROM disabledtasks)   {
+    INSERT [ msg := `:Task ${disabledtask.tag}' has been manually disabled`
+           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := disabledtask.id ]
+           , messagetag := [ type := "system:disabledtimedtask", task := disabledtask.tag ]
            ]
            INTO messages AT END;
   }
