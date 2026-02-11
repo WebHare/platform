@@ -168,7 +168,6 @@ class BLEXLIB_PUBLIC ShtmlContextData : public WHCore::SHTMLCallbacks //per-requ
         void ClientRemoteIp(HSVM *hsvm, HSVM_VariableId id_set);
         void ClientLocalPort(HSVM *hsvm, HSVM_VariableId id_set);
         void ClientRemotePort(HSVM *hsvm, HSVM_VariableId id_set);
-        void ClientLocalAddress(HSVM *hsvm, HSVM_VariableId id_set);
 
         void AuthenticateWebSession(HSVM *hsvm);
         void AuthenticateWebhareUser(HSVM *hsvm);

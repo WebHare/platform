@@ -144,7 +144,6 @@ class BLEXLIB_PUBLIC SHTMLCallbacks
         virtual void ClientRemoteIp(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void ClientLocalPort(HSVM *hsvm, HSVM_VariableId id_set)=0;
         virtual void ClientRemotePort(HSVM *hsvm, HSVM_VariableId id_set)=0;
-        virtual void ClientLocalAddress(HSVM *hsvm, HSVM_VariableId id_set)=0;
 
         virtual void AuthenticateWebSession(HSVM *hsvm)=0;
         virtual void AuthenticateWebhareUser(HSVM *hsvm)=0;

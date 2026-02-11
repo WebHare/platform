@@ -10,10 +10,9 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 PUBLIC BOOLEAN __ignore_auditcontext_console;
-
-STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 RECORD FUNCTION DecodeClassicAccessLogLine(STRING line)
 {

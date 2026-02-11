@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
@@ -11,6 +12,18 @@ PUBLIC BOOLEAN sentresponse;
 PUBLIC RECORD ARRAY webvarcache;
 PUBLIC BOOLEAN downloaded_webvarcache;
 
+PUBLIC RECORD shtmlcontext;
+
+/** @short Get the ip the client connects from
+    @long This function returns the remote IP address from which the client connected (ie, his IP address)
+    @return The dotted-quad IPV4 address as a string */
+PUBLIC STRING FUNCTION GetClientRemoteIp() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.remoteip;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientRemoteIp();
+}
 
 PUBLIC MACRO ClearWebvars()
 {
@@ -108,4 +121,8 @@ PUBLIC STRING FUNCTION PrettyIPMask(STRING standardmask, BOOLEAN use_cidr_notati
 PUBLIC INTEGER FUNCTION GetCurrentWHFSScriptId()
 {
   RETURN __currentwhfsscriptid;
+}
+
+PUBLIC MACRO MockSHTMLContext(RECORD contextinfo) {
+  shtmlcontext := contextinfo;
 }
