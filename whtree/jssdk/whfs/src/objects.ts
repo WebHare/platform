@@ -834,14 +834,16 @@ export async function __openWHFSObj(startingpoint: number, path: string | number
 
   const dbrecord = await getDBRecord(location);
   if (!dbrecord) {
-    if (!allowmissing)
-      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
+    if (!allowmissing) {
+      const suffix = typeof path === "string" && !isNaN(parseInt(path)) ? ` (argument was of type string - pass as number to look up by id)` : "";
+      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "whfs object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}${suffix}`);
+    }
     return null;
   }
 
   if (isHistoricWHFSSpace(dbrecord.whfspath) && !allowHistoric) {
     if (!allowmissing)
-      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""} - it is a recycled or historic object`);
+      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "whfs object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""} - it is a recycled or historic object`);
     return null;
   }
 
