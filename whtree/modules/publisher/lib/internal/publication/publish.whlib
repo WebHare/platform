@@ -130,7 +130,6 @@ PUBLIC STATIC OBJECTTYPE Reader
     STRING ARRAY warnings;
     RECORD ARRAY hs_errors;
     BOOLEAN has_webdesign;
-    RECORD ARRAY setonpublish;
 
     IF(ObjectExists(outputrun))
     {
@@ -139,7 +138,6 @@ PUBLIC STATIC OBJECTTYPE Reader
       warnings := outputrun->warnings;
       has_webdesign :=outputrun->has_webdesign;
       hs_errors := outputrun->hs_errors;
-      setonpublish := outputrun->setonpublish;
     }
 
     DEBUGPRINT("Finish: code:" || errortype || " text:" || errordata || " totalsize:"||totalsize);
@@ -249,9 +247,6 @@ PUBLIC STATIC OBJECTTYPE Reader
     {
       IF(ObjectExists(this->process) AND RecordExists(this->process->basedata))
         StoreURLHistoryIfNeeded(fileid, CalculateFSObjectFullPathAndURL(fileid, [followlinks := FALSE]).url);
-
-      FOREVERY(RECORD toset FROM setonpublish)
-        OpenWHFSType(toset.ns)->SetInstanceData(fileid, toset.data, [ isvisibleedit := FALSE, ifreadonly := "skip" ]);
     }
 
     GetPrimary()->CommitWork();

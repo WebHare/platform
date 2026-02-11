@@ -1385,14 +1385,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       THROW NEW Exception("Webdesign::Close is deprecated and will be removed");
   }
 
-  ///@private static-publishing-only calls are deprecated as static publishing should be a strict subset of dynamic hosting
-  PUBLIC MACRO SetInstanceDataOnPublish(STRING typens, RECORD data)
-  {
-    IF(NOT this->IsStaticPublication())
-      THROW NEW Exception("SetInstanceDataOnPublish is only available during static publications");
-    SetInstanceDataOnPublish(typens, data);
-  }
-
   MACRO SetHTMLClasses(STRING ARRAY classnames)
   {
     IF(this->pvt_startedrendering)
