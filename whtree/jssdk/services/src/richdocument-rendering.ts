@@ -1,6 +1,6 @@
 import { litty, rawLitty, type Litty } from "@webhare/litty";
 import { rtdBlockDefaultClass, rtdTextStyles, type RichTextDocument, type RTDAnonymousParagraph, type RTDBaseInlineImageItem, type RTDBlock, type RTDInlineItems } from "./richdocument";
-import { appendToArray, encodeString, generateRandomId } from "@webhare/std";
+import { appendToArray, encodeString } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
 
@@ -9,10 +9,6 @@ export type RTDRenderingOptions = {
 };
 
 export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
-  const linkmapping = rtd["__linkIds"];
-
-  const links = new Map<string, number>();
-
   async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">): Promise<Litty> {
     const classes = ["wh-rtd__img"];
     if (image.float === "left")
@@ -84,16 +80,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       }
 
       if (linkitem.link) {
-        let url: string;
-        if (linkitem.link.internalLink) {
-          //TODO keep hints too?
-          const linkid = linkmapping.get(linkitem.link) || generateRandomId();
-          links.set(linkid, linkitem.link.internalLink);
-          url = `x-richdoclink:${linkid}${linkitem.link.append ?? ""}`;
-        } else {
-          url = linkitem.link.externalLink || '';
-        }
-
+        const url = await linkitem.link.resolve();
         if (url)
           linkpart = [litty`<a href="${url}"${linkitem.target ? litty` target="${linkitem.target}"` : ""}>${linkpart}</a>`];
       }

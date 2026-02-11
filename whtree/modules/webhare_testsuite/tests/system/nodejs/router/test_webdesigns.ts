@@ -122,7 +122,7 @@ async function testPageResponseJSRTD() {
       `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`,
       `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div> </div>`,
       /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="107"\/><\/p>$/,
-      /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href="x-richdoclink:.*#dieper">interne<\/a> link.<\/p>$/
+      /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
     ], contentelements.map(e => new XMLSerializer().serializeToString(e)));
   }
 }
