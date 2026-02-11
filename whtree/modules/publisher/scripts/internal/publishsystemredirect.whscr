@@ -28,5 +28,5 @@ IF (RecordExists(webdesigninfo))
 __SetCaptureSubPaths(capturesubpaths);
 
 INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
-PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([whfsexecute := file.id])}\r\n`);
+PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([whfsexecute := file.id, js := webdesigninfo.js])}\r\n`);
 PUBLISHER_CloseOutput(redirectoutputid);
