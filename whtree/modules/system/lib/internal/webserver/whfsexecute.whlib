@@ -1,15 +1,20 @@
 <?wh
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/harescript/preload.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/internal/pagerendering.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 OBJECT trans;
 RECORD rpc_result;
@@ -82,9 +87,24 @@ RECORD FUNCTION GenerateCacheablePage(RECORD redirectinfo, RECORD options) //FIX
              ];
 }
 
+PUBLIC MACRO DoWHFSExecuteJS(INTEGER targetfile, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  DATETIME start := GetCurrentDatetime();
+  RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", targetfile, CELL[ ...options, webreq := EncodeWebRequestForJS() ]);
+  //x-hs-host, if present, is always the last header
+  IF(Length(response.headers) > 0 AND response.headers[END-1][0]="x-hs-host") {
+    INTEGER timespent := GetMsecsDifference(start, GetCurrentDatetime());
+    response.headers[END-1][1] := response.headers[END-1][1] || " whfsexecute=" || timespent;
+  }
 
-PUBLIC MACRO DoWHFSExecute(INTEGER fileid, RECORD rec, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+  ExecuteWebResponse(response);
+}
+
+PUBLIC MACRO DoWHFSExecute(INTEGER fileid, RECORD rec, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  IF(rec.js = TRUE) {
+    DoWHFSExecuteJS(fileid);
+    RETURN; //for clarity, never reached - ExecuteWebResponse in DoWHFSExecuteJS implies SendWebFile and terminates
+  }
+
   currentfileid := fileid;
   __currentwhfsscriptid := fileid;
   __pageinfo := __SplitBaseAndSubUrl(GetClientRequestURL(), rec.objurlpath);
@@ -105,4 +125,31 @@ PUBLIC MACRO DoWHFSExecute(INTEGER fileid, RECORD rec, RECORD options DEFAULTSTO
     trans := OpenPrimary();
 
   RunThePage(currentfileid, rec, currentfileid, options);
+}
+
+
+PUBLIC MACRO RunDynamicPageInWebdesign(STRING funcname, STRING webdesignurl, RECORD options) {
+  IF(IsWasm()) {
+    abort(funcname);
+  }
+
+  TRY {
+    OBJECT webdesign := GetWebDesignForURL(webdesignurl);
+    OBJECT page := MakeFunctionPtr(funcname)(webdesign, options);
+    IF(NOT ObjectExists(page))
+      AbortWithHTTPError(404, "No page available for this URL");
+
+    webdesign->RunPageWithContents(page->GetPageBody());
+  } CATCH(OBJECT<RequiresJSRouterException> e) {
+    DATETIME start := GetCurrentDatetime();
+
+    RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, options);
+    //x-hs-host, if present, is always the last header
+    IF(Length(response.headers) > 0 AND response.headers[END-1][0]="x-hs-host") {
+      INTEGER timespent := GetMsecsDifference(start, GetCurrentDatetime());
+      response.headers[END-1][1] := response.headers[END-1][1] || " whfsexecute=" || timespent;
+    }
+
+    ExecuteWebResponse(response);
+  }
 }

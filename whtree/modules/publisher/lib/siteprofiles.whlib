@@ -4,7 +4,7 @@
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib" EXPORT DescribeContentTypeById;
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject;
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib" EXPORT GetApplyTesterForObject, GetApplyTesterForFakeObject, RequiresJSRouterException;
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 

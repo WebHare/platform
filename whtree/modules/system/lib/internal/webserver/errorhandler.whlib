@@ -163,8 +163,14 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     {
       // Register resources from failed script as resources of the error handler too, so
       // if the error handler fails, we'll report the resources of the original script too
+      // TODO transfer to JS, how ?
       FOREVERY (STRING resourcename FROM harescriptinfo.resources)
         __HS_INTERNAL_REGISTERLOADEDRESOURCE(resourcename);
+    }
+
+    IF(webdesigninfo.js) {
+      MakeFunctionPtr("mod::system/lib/internal/webserver/whfsexecute.whlib#DoWHFSExecuteJS")(urlinfo.site, [ errorcode := errorcode ]); //FIXME version selection
+      RETURN;
     }
 
     OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, errorcode, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);

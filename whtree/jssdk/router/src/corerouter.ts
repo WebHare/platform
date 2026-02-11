@@ -7,6 +7,10 @@ import { importJSFunction } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
 import { getBasePort } from "@webhare/services/src/config";
 import type { WebServerPort } from "@mod-platform/js/webserver/webserver";
+import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
+import { newWebRequestFromInfo } from "./request";
+import { litty } from "@webhare/litty";
+import { runHareScriptPage } from "./hswebdesigndriver";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -97,4 +101,41 @@ export async function coreWebHareRouter(port: WebServerPort, request: WebRequest
   const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildContentPageRequest(request, target.targetObject);
   return await renderer(whfsreq);
+}
+
+export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl: string, funcname: string, funcarg: unknown) {
+  const req = await newWebRequestFromInfo(webreq);
+  const lookupresult = await whfs.lookupURL(new URL(webdesignurl), { clientWebServer: req.clientWebServer });
+  if (!lookupresult?.folder)
+    throw new Error(`Unable to lookup webdesign for url '${webdesignurl}'`);
+
+  const targetObject = await whfs.openFileOrFolder(lookupresult.file ?? lookupresult.folder);
+  const whfsreq = await buildContentPageRequest(req, targetObject);
+  return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, funcarg } })).asWebResponseInfo();
+}
+
+export async function executeContentPageRequestHS(targetId: number, options?: {
+  contentfile?: number;
+  errorcode?: number;
+  webreq?: WebRequestInfo;
+}): Promise<WebResponseInfo> {
+  const req = options?.webreq ? await newWebRequestFromInfo(options.webreq) : null;
+
+  const targetObject = await whfs.openFileOrFolder(targetId);
+  if (!targetObject || !targetObject.parentSite || !targetObject.parent)
+    throw new Error(`Invalid fileid '${targetId}' for content page request`);
+
+  const contentObject = options?.contentfile ? await whfs.openFile(options.contentfile) : undefined;
+  const whfsreq = await buildContentPageRequest(req, targetObject, { statusCode: options?.errorcode, contentObject });
+  if (options?.errorcode) {
+    //FIXMES We need to create proper error page body. Pass sufficient info to the webdesign?
+    const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
+    return resp.asWebResponseInfo();
+  }
+
+  const renderer = await whfsreq.getPageRenderer();
+  if (!renderer)
+    throw new Error(`No renderer found for fileid '${targetId}' ${contentObject ? ` (content link to ${contentObject.id})` : ""} - should not have been routed through us ? `);
+
+  return (await renderer(whfsreq)).asWebResponseInfo();
 }

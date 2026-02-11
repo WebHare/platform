@@ -497,7 +497,7 @@ MACRO PublishRichDocImageTest()
   TestEq(TRUE, imgtags[0]->GetAttribute("src") LIKE "/*"); //site relative URL
 
   OBJECT browser := NEW WebBrowser;
-  browser->GotoWebPage(ResolveToAbsoluteURL(testfile->url, imgtags[0]->GetAttribute("src")));
+  TestEq(TRUE, browser->GotoWebPage(ResolveToAbsoluteURL(testfile->url, imgtags[0]->GetAttribute("src"))));
 
   TestEq("image/jpeg", browser->contenttype);
   OBJECT imgcanvas := CreateCanvasFromBlob(browser->content);

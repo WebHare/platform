@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
@@ -9,7 +10,6 @@ OBJECT uplink := publishingbackendlink;
 RECORD publishfile := file;
 RECORD publishfolder := folder;
 RECORD publishsite := site;
-BOOLEAN did_output_rename;
 BOOLEAN opened_firstpage;
 INTEGER outputid;
 
@@ -23,6 +23,18 @@ IF(NOT RecordExists(webdesigninfo))
 
 PUBLISHER_SetCaptureSubPaths(webdesigninfo.renderinfo.capturesubpaths);
 
+IF(webdesigninfo.js) {
+  RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", file.id, CELL[ contentfile := contentfile.id ]);
+  STRING ctype := SELECT AS STRING row[1] FROM ToRecordArray(response.headers,'row') WHERE row[0]="content-type";
+  IF(ctype != "text/html;charset=utf-8")
+    THROW NEW Exception(`Output of JS-rendered webdesign must be 'text/html;charset=utf-8', but got '${ctype}'`);
+
+  INTEGER stream := OpenOutputFile(firstpagename, TRUE);
+  SendBlobTo(stream, response.body);
+  PUBLISHER_CloseOutput(stream);
+  RETURN;
+}
+
 //Destroy any contact with the publication engine, to intercept attempts to access 'old' state
 file := DEFAULT RECORD;
 folder := DEFAULT RECORD;
@@ -31,7 +43,6 @@ cached_publish_info.istemplaterun := FALSE;
 contentfile := DEFAULT RECORD;
 contentfolder := DEFAULT RECORD;
 contentsite := DEFAULT RECORD;
-
 
 //Now get to work. GetWebDesign actually loads user code, but we should have done enough to disrupt any usage of template-v2 by now.
 __ValidateWebdesign(applytester);
@@ -50,10 +61,6 @@ IF(NOT ObjectExists(webdesign))
 opened_firstpage := TRUE;
 
 //ADDME Set unique/generated names on followup pages
-
-//when set to shtml, rename followup pages too
-IF(did_output_rename)
-  UPDATE webdesign->__staticpages SET name := Left(name,Length(name)-5) || ".shtml" WHERE name LIKE "*.html" AND #__staticpages > 0;
 
 FOREVERY(RECORD page FROM webdesign->__staticpages)
 {

@@ -636,12 +636,16 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN crumbs;
   }
 
-  PUBLIC MACRO __RunWithContents(MACRO PTR contents, MACRO PTR pagerenderfunc)
-  {
-    RECORD pageconfig := this->__GetFinalPageConfig(contents);
-    FOREVERY(RECORD plugin FROM this->pvt_plugins)
+  PUBLIC RECORD FUNCTION __BeforeRenderPage(RECORD pageconfig)  {
+   FOREVERY(RECORD plugin FROM this->pvt_plugins)
       pageconfig := plugin.pluginobj->FinalizeBeforeRendering(this, pageconfig);
 
+    RETURN pageconfig;
+  }
+
+  PUBLIC MACRO __RunWithContents(MACRO PTR contents, MACRO PTR pagerenderfunc) {
+    RECORD pageconfig := this->__GetFinalPageConfig(contents);
+    pageconfig := this->__BeforeRenderPage(pageconfig);
     this->pvt_startedrendering := TRUE;
     pagerenderfunc(pageconfig);
   }
