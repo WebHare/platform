@@ -30,6 +30,12 @@ properties:
   siteProfiles:
     description: Global Site profiles
     $ref: "#/$defs/SiteProfiles"
+  addToWebDesigns:
+    description: Add siteprofiles to existing web designs
+    $ref: "#/$defs/AddToWebDesigns"
+  webDesigns:
+    description: Web designs
+    $ref: "#/$defs/WebDesigns"
   webFeatures:
     description: "Web features (apply additional siteprofiles)"
     $ref: "#/$defs/WebFeatures"
@@ -390,6 +396,53 @@ $defs:
           description: "Restrict site profile to specific installations or versions"
           $ref: "#/$defs/IfWebHare"
 
+  AddToWebDesigns:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+      - webDesign
+      - siteProfile
+      properties:
+        webDesign:
+          type: string
+          description: "Web design to add the site profile to"
+        siteProfile:
+          type: string
+          description: "Site profile to add to the web design"
+        ifWebHare:
+          description: "Restrict addition to specific installations or versions"
+          $ref: "#/$defs/IfWebHare"
+
+  WebDesigns:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Webdesign name
+        type: object
+        additionalProperties: false
+        required: [siteProfile]
+        properties:
+          siteProfile:
+            type: string
+            description: "Site profile to apply"
+          path:
+            type: string
+            description: "Path to the webdesign data. Assumed to be `mod::<module>/webdesigns/<webdesign name>/` if not set"
+          title:
+            type: string
+          tid:
+            type: string
+          isHidden:
+            type: boolean
+          isTemplate:
+            type: boolean
+            description: Whether this webdesign is a template which should not be directly selectable for sites but can be used as a base for other webdesigns
+          ifWebHare:
+            description: "Restrict webdesign to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
+
   WebFeatures:
     type: object
     additionalProperties: false
@@ -402,6 +455,8 @@ $defs:
             type: string
             description: "Site profile to apply"
           title:
+            type: string
+          tid:
             type: string
           hidden:
             type: boolean

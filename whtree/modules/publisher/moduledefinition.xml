@@ -519,14 +519,6 @@
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin" />
 
-    <!-- NOTE: As createdesign has moved to the dev module, blank is only used for one remaining test (assetmgr-broken). We can clean it all up at some point -->
-    <webdesign name="blank"
-               title="Blank webdesign"
-               istemplate="true"
-               path="data/webdesigntemplates/blank"
-               siteprofile="webdesigns/[designname_lc]/[designname_lc].siteprl.xml" />
-    <webdesign name="nodesign" title="No webdesign" siteprofile="webdesigns/nowebdesign/nowebdesign.siteprl.xml" />
-
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />

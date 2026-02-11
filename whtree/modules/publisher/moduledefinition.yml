@@ -1,3 +1,14 @@
+webDesigns:
+  # As createdesign has moved to the dev module, blank is only used for one remaining test (assetmgr-broken). We can clean it all up at some point -->
+  blank:
+    title: Blank webdesign
+    isTemplate: true
+    path: data/webdesigntemplates/blank
+    siteProfile: webdesigns/[designname_lc]/[designname_lc].siteprl.xml
+  nodesign:
+    title: No webdesign
+    siteProfile: webdesigns/nowebdesign/nowebdesign.siteprl.xml
+
 webFeatures:
   savedurlhistory:
     siteProfile: mod::platform/data/siteprofiles/savedurlhistory.siteprl.yml

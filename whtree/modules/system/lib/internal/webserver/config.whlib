@@ -366,6 +366,18 @@ STATIC OBJECTTYPE WebConfigBuilder <
     RECORD ARRAY rules;
 
     FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name)) {
+      IF(mod.name NOT IN whconstant_builtinmodules) {
+        //YML modules automatically get a /.wh/mod/<module>/public/ global virtual dir pointing to their public dir
+        INSERT CELL[
+          ...this->GetBaseRule("/.wh/mod/" || mod.name || "/public/", webrulepriority_after, "Implicit for module " || mod.name),
+          datastorage := [[ resource := `mod::${mod.name}/public/`,
+                            isfolder := TRUE,
+                            method := "direct"
+                         ]],
+          matchtype := 1
+          ] INTO rules AT END;
+      }
+
       OBJECT xmlfile;
       TRY
       {
@@ -489,22 +501,22 @@ STATIC OBJECTTYPE WebConfigBuilder <
         }
       }
 
-      FOREVERY(RECORD design FROM mod.webdesigns)
-      {
-        IF(design.istemplate)
-          CONTINUE;
+    }
 
-        RECORD sdrule := this->GetBaseRule("/.publisher/sd/" || mod.name || "/" || design.name || "/", webrulepriority_after, filename || ":" || design.line);
-        sdrule.matchtype := 1; //initial
-        sdrule.datastorage :=
-            [ [ resource :=     MergePath(design.designroot, "/web/")
-              , isfolder :=     TRUE
-              , method :=       "direct"
-              ]
-            ];
+    FOREVERY(RECORD design FROM __GetExtractedConfig("webdesigns").webdesigns) {
+      IF(design.istemplate)
+        CONTINUE;
 
-        INSERT sdrule INTO rules AT END;
-      }
+      RECORD sdrule := this->GetBaseRule(`/.publisher/sd/${Substitute(design.name,':','/')}/`, webrulepriority_after, "webdesign " || design.name);
+      sdrule.matchtype := 1; //initial
+      sdrule.datastorage :=
+          [ [ resource :=     MergePath(design.path, "/web/")
+            , isfolder :=     TRUE
+            , method :=       "direct"
+            ]
+          ];
+
+      INSERT sdrule INTO rules AT END;
     }
 
     RETURN rules;
