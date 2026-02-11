@@ -297,7 +297,9 @@ export class CPageRequest {
 
   async renderRTD(rtd: RichTextDocument): Promise<Litty> {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
-    return renderRTD(this, rtd);
+    const parsedWith = this._publicationSettings.maxContentWidth.match(/^(\d+)px$/);
+    const maxImageWidth = parsedWith ? parseInt(parsedWith[1]) : undefined;
+    return renderRTD(this, rtd, { maxImageWidth });
   }
 
   //FIXME need a better match for the widget type

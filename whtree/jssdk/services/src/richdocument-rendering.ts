@@ -4,7 +4,11 @@ import { appendToArray, encodeString, generateRandomId } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
 
-export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument): Promise<Litty> {
+export type RTDRenderingOptions = {
+  maxImageWidth?: number;
+};
+
+export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
   const linkmapping = rtd["__linkIds"];
 
   const links = new Map<string, number>();
@@ -20,7 +24,11 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       return litty`<img class="${classes.join(" ")}" src="${image.externalImage}" alt="${image.alt || ''}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}>`;
 
     //FIXME use the right method
-    const resized = image.image.toResized({ method: "none" });
+    let setWidth = image.width ?? image.image.width;
+    if (options?.maxImageWidth && setWidth && setWidth > options.maxImageWidth)
+      setWidth = options.maxImageWidth;
+
+    const resized = image.image.toResized(setWidth ? { method: "scale", width: setWidth } : { method: "none" });
     return litty`<img class="${classes.join(" ")}" src="${resized.link}" alt="${image.alt || ''}" width="${resized.width}" height="${resized.height}">`;
   }
 
