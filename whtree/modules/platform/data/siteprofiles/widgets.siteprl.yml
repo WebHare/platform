@@ -3,6 +3,8 @@ widgetGroups:
     tid: publisher:siteprofile.widgets.general
   platform:mailwidgets:
     tid: publisher:siteprofile.widgets.mail
+  http://www.webhare.net/xmlns/publisher/mailwidgets: #old version of the namespace, we need to keep it for older connects to work
+    tid: publisher:siteprofile.widgets.mail
 
 types:
   widgets.inlinehtml:

@@ -452,7 +452,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     IF (this->dirtyflags.fully)
     {
       RECORD ARRAY allowedtypes := this->GetAllowedWidgetTypes();
-      BOOLEAN allownewembeddedobjects := RecordExists(SELECT FROM allowedtypes WHERE type IN videowidgettypes );
+      BOOLEAN allownewembeddedobjects := RecordExists(SELECT FROM allowedtypes WHERE type NOT IN videowidgettypes );
       BOOLEAN allowvideo := RecordExists(SELECT FROM allowedtypes WHERE type IN videowidgettypes );
 
       RECORD compinfo := [ areatype := this->type IN [ "html-block", "html-inline" ] ? "html" : this->type

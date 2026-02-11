@@ -1460,7 +1460,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
   }
   CATCH(OBJECT e)
   {
-    INSERT [ resourcename := filename, line := 0, col := 0, message := e->what ] INTO siteprofdata.messages AT END;
+    INSERT [ resourcename := filename, line := 0, col := 0, message := e->what, type := "error" ] INTO siteprofdata.messages AT END;
   }
 
   IF(ObjectExists(siteprofcontext)) {
