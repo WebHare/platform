@@ -1,6 +1,6 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { describeWHFSType, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
+import { describeWHFSType, lookupURL, openFileOrFolder, openSite, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
 import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webhare/cli";
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -14,6 +14,8 @@ import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/
 import YAML from 'yaml';
 import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platform/js/cli/cli-tools';
 import { readFileSync } from 'fs';
+import { loadlib } from '@webhare/harescript';
+import { join } from 'path';
 
 interface ExportWHFSTreeOptions {
   space?: string | number;
@@ -270,6 +272,26 @@ run({
         });
 
         await storeDiskFile(args.target, archive, { overwrite: true });
+      }
+    },
+    "get-output-path": {
+      description: "Get the output path for a URL",
+      arguments: [{ name: "<url>", description: "URL to resolve" }],
+      main: async ({ args, opts }) => {
+        const lookupresult = await lookupURL(new URL(args.url));
+        if (lookupresult?.site && lookupresult?.folder) {
+          const objinfo = await openFileOrFolder(lookupresult.file || lookupresult.folder);
+          const siteinfo = await openSite(lookupresult.site);
+          const outputpath = await loadlib("mod::system/lib/internal/webserver/config.whlib").getWebserverOutputFolder(siteinfo.outputWeb);
+          if (outputpath && objinfo.sitePath) {
+            const finalpath = join(outputpath, siteinfo.outputFolder, objinfo.sitePath);
+            console.log(opts.json ? JSON.stringify(finalpath) : finalpath);
+            return 0;
+          }
+        }
+        if (opts.json)
+          console.log(null);
+        return 1;
       }
     },
     getpreviewlink: {
