@@ -5,7 +5,7 @@ import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
 import { getData, setData, type CodecExportMemberType, type CodecGetMemberType, type CodecImportMemberType, type EncodedFSSetting, type MemberType } from "./codecs";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
@@ -15,6 +15,7 @@ import type { WebHareBlob } from "@webhare/services";
 import type { } from "wh:ts/whfstypes.ts";
 import { CSPMemberType } from "./siteprofiles";
 import { whfsFinishHandler } from "./finishhandler";
+import type { dbLoc } from "@webhare/services/src/symbols";
 
 // We keep this internal, we might want cq like to restructure this API in the future
 export interface WHFSTypes {
@@ -35,6 +36,7 @@ export type InstanceData = { [key in string]: CodecGetMemberType };
 export type InstanceSource = {
   whfsType: WHFSTypeName | string;
   data?: { [key in string]?: CodecImportMemberType };
+  [dbLoc]?: WebHareDBLocation;
 };
 
 /** Generic instance export format */
@@ -186,9 +188,10 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     return await getData(this.descr.members, null, { allsettings: [], cc: 0 }) as GetFormat;
   }
 
-  private async getCurrentInstanceId(fsobj: number, type: WHFSTypeBaseInfo) {
+  private async getCurrentInstanceId(fsobj: number) {
+    this.descr ??= await describeWHFSType(this.ns);
     return (await db<PlatformDB>()
-      .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
+      .selectFrom("system.fs_instances").select("id").where("fs_type", "=", this.descr.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
   private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBaseInfo, keysToSet?: readonly string[]) {
     const dbsettings: FSSettingsRow[] = [];
@@ -268,6 +271,35 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     return bulkdata.get(id) as GetFormat | ExportFormat;
   }
 
+  async getBySettingId(id: number, options: ExportOptions & { export: true }): Promise<ExportFormat>;
+  async getBySettingId(id: number, options?: ExportOptions): Promise<GetFormat>;
+
+  async getBySettingId(id: number, options?: ExportOptions): Promise<GetFormat | ExportFormat> {
+    this.descr ??= await describeWHFSType(this.ns);
+
+    const settingInfo = await db<PlatformDB>()
+      .selectFrom("system.fs_settings")
+      .innerJoin("system.fs_instances", "system.fs_instances.id", "system.fs_settings.fs_instance")
+      .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
+      .select(["system.fs_objects.creationdate", "system.fs_instances.id"])
+      .where("system.fs_settings.id", "=", id)
+      .executeTakeFirst();
+    if (!settingInfo)
+      throw new Error(`No instance found for setting id ${id}`);
+
+    const getMembers = this.descr.members;
+    const settings = await this.getCurrentSettings([settingInfo.id], this.descr);
+    const decoderContext = {
+      allsettings: settings,
+      cc: settingInfo.creationdate ? getUnifiedCC(settingInfo.creationdate) : 0,
+      export: false,
+      ...options
+    };
+
+    const result = await getData(getMembers, id, decoderContext) as GetFormat | ExportFormat;
+    return result;
+  }
+
   async enrich<
     DataRow extends { [K in EnrichKey]: number | null },
     EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
@@ -284,8 +316,8 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
   }
 
   async set(id: number, data: SetFormat, options?: InstanceSetOptions): Promise<void> {
-    this.descr ??= await describeWHFSType(this.ns);
-    if (!this.descr.id)
+    let instanceId = await this.getCurrentInstanceId(id);
+    if (!this.descr?.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
     const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", true, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
     if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
@@ -294,7 +326,6 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
       return;
     }
 
-    let instanceId = await this.getCurrentInstanceId(id, this.descr);
 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);

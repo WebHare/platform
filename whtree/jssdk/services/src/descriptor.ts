@@ -167,7 +167,7 @@ export type ExportedBlobReference = {
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
 
-type WebHareDBLocation = {
+export type WebHareDBLocation = {
   /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
   source: number;
   /** ID */

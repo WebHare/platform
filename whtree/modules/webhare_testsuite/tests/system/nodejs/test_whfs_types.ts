@@ -11,6 +11,7 @@ import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { dbLoc } from "@webhare/services/src/symbols";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -186,6 +187,10 @@ async function testInstanceData() {
     anInstance: test.expectInstance("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", { str1: "str1" })
   }, await testtype.get(testfile.id));
 
+  const settingId = (await testtype.get(testfile.id)).anInstance?.[dbLoc]?.id;
+  test.assert(settingId);
+  test.eq({ str1: "str1" }, (await whfsType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1").getBySettingId(settingId)));
+
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
     await testtype.enrich([{ getId: testfile.id, passThrough: 42 }], "getId", ["str", "aRecord"]));
 
@@ -282,10 +287,14 @@ async function testInstanceData() {
   test.assert(outComposedDoc);
   test.eq(inComposedDoc.type, outComposedDoc.type);
   test.eq(await inComposedDoc.text.text(), await outComposedDoc.text.text());
-  test.eq((inComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0], (outComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0]);
+  const outinstance = outComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA');
+  test.assert(outinstance);
+  test.eq((inComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0], (outinstance?.data.data as RichTextDocument).blocks[0]);
 
+  test.assert(outinstance[dbLoc]?.id);
+  const directinstance = await whfsType("platform:filetypes.richdocument").getBySettingId(outinstance[dbLoc].id);
+  test.eq({ tag: "p", items: [{ text: "asdf def" }] }, directinstance.data?.blocks[0]);
 
-  ////////////////////////////////////
   // STORY: Further instance update tests
 
   // Test: Build instance from scratch

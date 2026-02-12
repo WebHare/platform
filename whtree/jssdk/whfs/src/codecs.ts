@@ -16,6 +16,7 @@ import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/src/composeddocument";
+import { dbLoc } from "@webhare/services/src/symbols";
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -124,7 +125,7 @@ async function encodeWHFSInstance(value: Instance | InstanceSource): Promise<Enc
 async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
   const typeinfo = await describeWHFSType(row.instancetype!);
   const widgetdata = await getData(typeinfo.members, row.id, { ...context, export: false });
-  return await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata });
+  return await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata, [dbLoc]: { source: 2, id: row.id, cc: context.cc } });
 }
 
 async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting: string): Promise<EncodedFSSetting[]> {
@@ -187,7 +188,8 @@ async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedD
   for (const settingInstance of settings.filter(s => s.ordering === 3)) {
     const typeinfo = await describeWHFSType(settingInstance.instancetype!);
     const widgetdata = await getData(typeinfo.members, settingInstance.id, { ...context, export: false });
-    outdoc.instances.set(settingInstance.setting, await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata }));
+    const instance = await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata, [dbLoc]: { source: 2, id: settingInstance.id, cc: context.cc } });
+    outdoc.instances.set(settingInstance.setting, instance);
   }
 
   return outdoc;

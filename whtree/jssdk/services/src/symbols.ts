@@ -7,6 +7,7 @@ export const setLink = Symbol("setLink");
 export const localServiceHandlerAddPort = Symbol("localServiceHandlerAddPort");
 export const tidLanguage = Symbol("tidLanguage");
 export const wrdSettingId: unique symbol = Symbol("wrdSettingId");
+export const dbLoc: unique symbol = Symbol("dbLoc");
 
 let nextWorkerNr = 0;
 
