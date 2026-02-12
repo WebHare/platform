@@ -456,8 +456,25 @@ case $INSTR in
     fi
     ;;
 
+  "__whcd")
+    #This is a cleaner entrypoint for whcd without the `mod::` prefix. however we need to preserve `tofspath` until runkit's whcd has switched over
+    if [[ "$1" == https://* ]]; then
+      RESOLVEDPATH="$(wh whfs get-output-path "$1")"
+      echo "$RESOLVEDPATH"
+      exit 0
+    fi
+    resolveresourcepath RESOLVEDPATH "mod::$1"
+    echo "$RESOLVEDPATH"
+    ;;
+
   "tofspath")
     [ -n "$1" ] || die "Syntax: wh tofspath <path>"
+    # if it starts with mod::https:// it's whcd looking for an output path. TODO give whcd its own entrypoint
+    if [[ "$1" == mod::https://* ]]; then
+      RESOLVEDPATH="$(wh whfs get-output-path "${1:5}")"
+      echo "$RESOLVEDPATH"
+      exit 0
+    fi
     resolveresourcepath RESOLVEDPATH "$1"
     echo "$RESOLVEDPATH"
     ;;
@@ -521,7 +538,7 @@ wh() { $WEBHARE_DIR/bin/wh "\$@"; } ;
 whcd() {
   if [ -z "\$1" ]; then cd "$WEBHARE_DIR"; return ; fi ;
   local DEST;
-  DEST="\`wh tofspath \"mod::\$@\"\`";
+  DEST="\`wh __whcd \"\$@\"\`";
   [ -n "\$DEST" ] && cd "\$DEST";
 } ;
 export -f wh ;
