@@ -1,0 +1,7 @@
+<?wh
+
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::datetime.whlib";
+
+// Wait 2 minutes, enough to trigger test timeout after 1 min
+WaitUntil(DEFAULT RECORD, AddTimeToDate(2 * 60 * 1000, GetCurrentDateTime()));

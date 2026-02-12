@@ -217,6 +217,8 @@ export class LocalServiceProxy<T extends object> implements ProxyHandler<T> {
       for (const defer of Object.values(requests))
         defer.reject(new Error(`Service link to local service ${JSON.stringify(name)} has been closed`));
     });
+    // unref the port so it doesn't keep the event loop alive. Do this after adding the message listener, that one will ref() the port
+    this.port.unref();
     portcloser.register(this, this.port);
   }
 
