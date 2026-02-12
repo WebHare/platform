@@ -689,11 +689,11 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
                         {
                                 int64_t infinity = std::numeric_limits< int64_t >::max(), limit = infinity;
                                 int64_t days = (static_cast< int64_t >(dt.GetDays()) - Blex::DateTime::FromDate(2000, 1, 1).GetDays());
-                                limit -= dt.GetMsecs() * 1000;
-                                if (days > limit / 86400000000)
+                                limit -= dt.GetMsecs() * 1000ll;
+                                if (days > limit / 86400000000ll)
                                     val = infinity;
                                 else
-                                    val = days * 86400000000 + dt.GetMsecs() * 1000;
+                                    val = days * 86400000000ll + dt.GetMsecs() * 1000ll;
                         }
                         PQ_PRINT("Writing datetime " << val << " for " << dt);
                         Blex::puts64msb(RegisterParameter(OID::TIMESTAMP, 8), val);
@@ -702,16 +702,16 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
                 {
                         Blex::SemiStaticPodVector< int16_t, 6 > digitgroups;
                         int64_t toencode = stackm.GetMoney(var);
-                        bool negative = toencode < 0;
+                        bool negative = toencode < 0ll;
 
-                        digitgroups.push_back(std::abs(toencode % 10) * 1000);
-                        toencode /= 10;
+                        digitgroups.push_back(std::abs(toencode % 10ll) * 1000ll);
+                        toencode /= 10ll;
 
                         int weight = -2;
                         while (toencode)
                         {
-                                int64_t gval = toencode % 10000;
-                                toencode /= 10000;
+                                int64_t gval = toencode % 10000ll;
+                                toencode /= 10000ll;
                                 digitgroups.push_back(std::abs(gval));
                                 ++weight;
                         }
@@ -1091,8 +1091,8 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                         else
                         {
                                 // PostgreSQL stores an amount of microseconds, 1-1-2000 00:00 is 0 microseconds.
-                                int64_t days = (val / 86400000000) + Blex::DateTime::FromDate(2000, 1, 1).GetDays();
-                                int64_t usecs = val % 86400000000;
+                                int64_t days = (val / 86400000000ll) + Blex::DateTime::FromDate(2000, 1, 1).GetDays();
+                                int64_t usecs = val % 86400000000ll;
 
                                 /* Blex::DateTime must be initialize with positive msec count. When
                                    doing modulo on a negative integer, we'll get a negative
@@ -1100,11 +1100,11 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                    to get it positive again */
                                 if (usecs < 0)
                                 {
-                                        usecs += 86400000000;
+                                        usecs += 86400000000ll;
                                         --days;
                                 }
-                                int64_t msecs = usecs / 1000;
-                                if (days < 0)
+                                int64_t msecs = usecs / 1000ll;
+                                if (days < 0ll)
                                     dt = Blex::DateTime::Invalid();
                                 else
                                     dt = Blex::DateTime(days, msecs);
@@ -1146,8 +1146,8 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                         int64_t limitval = sign == 0 ? std::numeric_limits< int64_t >::max() : std::numeric_limits< int64_t >::min();
                                         int64_t runninglimitval = limitval;
-                                        int64_t result = 0;
-                                        int64_t mulfac = 1;
+                                        int64_t result = 0ll;
+                                        int64_t mulfac = 1ll;
 
                                         // iterate over the digitgroups, lowest weight first
                                         int weight = lastgroupweight;
@@ -1161,9 +1161,9 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                                 else if (weight == -2)
                                                 {
                                                         // Use the highest digit of the group, use the rest for rounding
-                                                        result = (digitsval + (sign ? -500 : 500)) / 1000;
-                                                        runninglimitval = (runninglimitval - result) / 10;
-                                                        mulfac = 10;
+                                                        result = (digitsval + (sign ? -500ll : 500ll)) / 1000ll;
+                                                        runninglimitval = (runninglimitval - result) / 10ll;
+                                                        mulfac = 10ll;
                                                 }
                                                 else
                                                 {
@@ -1175,9 +1175,9 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                                                 break;
                                                         }
 
-                                                        runninglimitval = (runninglimitval - digitsval) / 10000;
+                                                        runninglimitval = (runninglimitval - digitsval) / 10000ll;
                                                         result += digitsval * mulfac;
-                                                        mulfac *= 10000;
+                                                        mulfac *= 10000ll;
                                                 }
                                                 ++weight;
                                         }
@@ -2107,7 +2107,7 @@ std::string PGSQLTransactionDriver::GetBlobDiskpath(int64_t blobid)
 
         //Basically we store a 0x12345678 blob in blob-12/345/678
         path << blobfolder;
-        if (blobid >= 0x1000000L) //more than 6 digits
+        if (blobid >= 0x1000000ll) //more than 6 digits
         {
                 path << "/blob-" << (blobid>>(6*4)); //remove right 24/4=6 digits
         }
