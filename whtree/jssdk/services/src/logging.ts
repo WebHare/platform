@@ -5,10 +5,14 @@ import type { LogFormats } from "./services.ts";
 import { WebHareBlob } from "./webhareblob.ts";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
-import { convertFlexibleInstantToDate, escapeRegExp, isBlob, type FlexibleInstant } from "@webhare/std";
+import { convertFlexibleInstantToDate, escapeRegExp, isBlob, stringify, type FlexibleInstant } from "@webhare/std";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 import { listDirectory } from "@webhare/system-tools";
 import path from "node:path";
+import { runInSeparateWork } from "@webhare/whdb";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
+import { getRegistryKeyEventMasks, readRegistryKey, writeRegistryKey } from "./registry.ts";
+import { LocalCache } from "./localcache.ts";
 
 type LogReadField = string | number | boolean | null | Temporal.Instant | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = {
@@ -81,6 +85,80 @@ export function logError(error: Error, options?: LogErrorOptions): void {
 export function logDebug(source: string, data: LoggableRecord): void {
   checkModuleScopedName(source);
   bridge.logDebug(source, data);
+}
+
+type RPCLogRegistryKeyValue = {
+  loguntil: Date | null;
+  profileuntil?: Date | null;
+};
+
+async function getCachableRPCLogStatus(logtype: string, options?: { autoEnable?: boolean }) {
+  const keyName = `system.logging.rpc.${logtype.replace(".", "_")}`;
+  let logSetting = await readRegistryKey<RPCLogRegistryKeyValue | null>(keyName, null, { acceptInvalidKeyNames: true });
+  if (!logSetting) {
+    // Run in separate work to avoid interference with open work.
+    await runInSeparateWork(async () => {
+      // Reread the setting in case it was created while we were waiting for the mutex
+      logSetting = await readRegistryKey<RPCLogRegistryKeyValue | null>(keyName, null, { acceptInvalidKeyNames: true });
+      if (!logSetting) {
+        logSetting = {
+          loguntil: options?.autoEnable ? maxDateTime : defaultDateTime,
+        };
+        await writeRegistryKey(keyName, logSetting, { acceptInvalidKeyNames: true, createIfNeeded: true });
+      }
+    }, { mutex: "system:rpclogstatus" });
+    if (!logSetting)
+      throw new Error("Failed to get or create RPC log status");
+  }
+
+  const now = Date.now();
+  if (!logSetting?.loguntil || logSetting.loguntil.getTime() <= now)
+    logSetting.loguntil = null;
+  if (!logSetting?.profileuntil || logSetting.profileuntil.getTime() <= now)
+    logSetting.profileuntil = null;
+
+  return {
+    value: logSetting,
+    masks: getRegistryKeyEventMasks([keyName]),
+  };
+}
+
+const rpcLogStatusCache = new LocalCache<{ loguntil: Date | null; profileuntil?: Date | null }>();
+
+export async function logRPCTraffic(
+  logSource: string,
+  transport: string,
+  direction: "incoming" | "outgoing",
+  data: unknown,
+  options?: {
+    sourceTracker?: string;
+    transactionId?: string;
+  }) {
+  checkModuleScopedName(logSource);
+  if (!transport)
+    throw new Error("A transport must be specified");
+
+  const logStatus = await rpcLogStatusCache.get(logSource, () => getCachableRPCLogStatus(logSource));
+  if (!logStatus.loguntil || logStatus.loguntil.getTime() <= Date.now()) {
+    return;
+  }
+
+  data = typeof data === "function" ? await data() : data; //allow lazy evaluation of log data to avoid expensive calculations when logging is disabled
+  console.dir({ logSource, transport, direction, data, options }, { depth: null });
+
+  let encodedData = stringify(typeof data === "function" ? await data() : data, { typed: true });
+  const byteLength = Buffer.byteLength(encodedData, "utf-8");
+  if (byteLength > 128 * 1024)
+    encodedData = JSON.stringify({ __notlogged: `Not logging ${byteLength} bytes of encoded data` }); //we can't throw, it would often break RPCs
+
+  bridge.logRaw("system:rpc",
+    JSON.stringify(logSource) + "\t" +
+    JSON.stringify(bridge.getGroupId()) + "\t\t" +
+    JSON.stringify(options?.sourceTracker || "-") +
+    (direction === "outgoing" ? "\t>" : "\t<") +
+    JSON.stringify(transport) + "\t" +
+    JSON.stringify(options?.transactionId || "-") + "\t" +
+    encodedData);
 }
 
 export interface ReadLogOptions {
