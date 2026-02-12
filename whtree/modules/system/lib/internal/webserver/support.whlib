@@ -14,6 +14,13 @@ PUBLIC BOOLEAN downloaded_webvarcache;
 
 PUBLIC RECORD shtmlcontext;
 
+PUBLIC STATIC OBJECTTYPE SendWebFileAbortException EXTEND Exception <
+  PUBLIC BLOB data;
+  MACRO NEW(BLOB data) : Exception("Script aborted by SendWebFile, should be caught by a pagehost") {
+    this->data := data;
+  }
+>;
+
 /** @short Get the ip the client connects from
     @long This function returns the remote IP address from which the client connected (ie, his IP address)
     @return The dotted-quad IPV4 address as a string */
