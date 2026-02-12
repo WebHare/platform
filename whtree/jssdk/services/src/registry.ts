@@ -96,7 +96,8 @@ export async function readRegistryKey(key: string, defaultValue?: unknown, opts?
     if (defaultValue !== undefined) {
       const defaultType = stdTypeOf(defaultValue);
       const keyType = stdTypeOf(keyinfo.value);
-      if (defaultType !== keyType) //FIXME needs more smarts for Money/Date etc types
+      // When defaultValue is null, allow object types in keyType
+      if (defaultType !== keyType && (defaultType !== "null" || typeof keyinfo.value !== "object")) //FIXME needs more smarts for Money/Date etc types
         throw new Error(`Invalid type in registry for registry key '${key}', got ${keyType} but expected ${defaultType}`);
     }
     return keyinfo.value;
