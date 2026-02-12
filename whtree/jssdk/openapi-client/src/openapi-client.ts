@@ -13,12 +13,13 @@ import type { } from "wh:ts/openapi.ts";
 
 interface OpenAPIClientOptions {
   bearerToken?: string;
+  service?: string;
 }
 
 /** Create an typed openapi client either by URL or a 'fetch' callback. You can use a getDirectOpenAPIFetch to directly access a local service in-process (giving you better stacktraces and console logging)
  * @typeParam ClientType - The `module:client` type to create. Refers to an openAPIClient in the moduledefinition.yml
  * @param urlOrFetch - The URL of the service to connect to or a fetch call to use to connect to it.
  */
-export function createOpenAPIClient<ClientType extends keyof OpenAPIClientDefinitions>(urlOrFetch: string | OpenAPIClientFetch, options?: OpenAPIClientOptions): OpenAPIClientDefinitions[ClientType] {
+export function createOpenAPIClient<ClientType extends keyof OpenAPIClientDefinitions>(urlOrFetch: string | OpenAPIClientFetch, options?: OpenAPIClientOptions & { service?: ClientType }): OpenAPIClientDefinitions[ClientType] {
   return new TypedOpenAPIClient(urlOrFetch, options) as OpenAPIClientDefinitions[ClientType];
 }
