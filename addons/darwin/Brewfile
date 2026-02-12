@@ -11,7 +11,7 @@ brew "libpng"
 brew "libtiff"
 brew "libtool"
 brew "make"
-# setting link: false often unlinks nde completely from a system, usually upgrades. removing for now
+# setting link: false often unlinks node completely from a system, usually upgrades. removing for now
 brew "node@#{ENV["HOMEBREW_WEBHARE_NODE_MAJOR"]}"
 brew "opensearch"
 brew "openssl"
