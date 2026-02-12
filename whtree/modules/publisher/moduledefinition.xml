@@ -520,7 +520,6 @@
                      objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin" />
 
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
-    <customnode name="setembeddedobjectrenderer" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />
     <customnode name="extendformeditor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="allowwidgettype" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />

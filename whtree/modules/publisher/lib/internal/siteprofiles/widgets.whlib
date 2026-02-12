@@ -107,18 +107,6 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
 
   STRING siteprof_fileref := typeinfo.siteprofile;
 
-  IF(ObjectExists(fsobject) AND rtdtype = "")
-  {
-    RECORD ARRAY nodes := applytester->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "setembeddedobjectrenderer");
-    FOREVERY (RECORD rec FROM nodes)
-      IF (rec.node->GetAttribute("contenttype") = instancedata.whfstype)
-      {
-        //FIXME why aren't we using parsefspath ?
-        objectname := MakeAbsoluteResourcePath(rec.siteprofile->name, rec.node->GetAttribute("library")) || "#" || rec.node->GetAttribute("objectname");
-        siteprof_fileref := rec.siteprofile->name;
-      }
-  }
-
   OBJECT obj;
   IF (objectname = "")
     objectname  := "mod::publisher/lib/widgets.whlib#WidgetBase";
