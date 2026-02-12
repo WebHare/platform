@@ -560,11 +560,9 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
       THROW NEW Exception(`The webdesign for this page didn't set assetpack=`);
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
-    IF(webdesigninfo.objectname = "" AND webdesigninfo.js)
-      IF(IsWASM())
-        THROW NEW RequiresJSRouterException(`The webdesign for this page is marked as requiring a JavaScript host but isn't loaded by the hs-pagehost`);
-      ELSE
-        THROW NEW RequiresJSRouterException(`The webdesign for this page is marked as requiring a JavaScript host and needs te be routed through JS`);
+
+    IF(webdesigninfo.objectname = "" AND webdesigninfo.js) //We'll return a bare bones webdesign that still gives access to eg RenderRTD and listens to the apply rules
+      webdesigninfo.objectname := "mod::publisher/lib/webdesign.whlib#WebDesignBase";
 
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
     IF(NOT MemberExists(designobj, "__PREPAREPAGE"))
@@ -1633,6 +1631,11 @@ STATIC OBJECTTYPE ApplyRuleTester <
             intypedef.editor := setwidget.editor;
           IF(RecordExists(setwidget.renderer))
             intypedef.renderer := setwidget.renderer;
+          IF(CellExists(setwidget, 'widgetbuilder'))
+            intypedef := CELL[...intypedef, setwidget.widgetbuilder];
+          ELSE
+            DELETE CELL widgetbuilder FROM intypedef; //unset any widgetbuilder
+
           IF(setwidget.has_wittycomponent)
           {
             intypedef.wittycomponent := setwidget.wittycomponent;

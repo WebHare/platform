@@ -154,18 +154,24 @@ MACRO SetupTestSite(OBJECT testsite)
   OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
   OBJECT imgeditfile := testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
   OBJECT rangetestfile := testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
-  OBJECT htmlwidget := testpages->CreateFile([name:="htmlwidget", typens := "http://www.webhare.net/xmlns/publisher/embedhtml"  ]);
-  OBJECT htmlwidget2 := testpages->CreateFile([name:="htmlwidget2", typens := "http://www.webhare.net/xmlns/publisher/embedhtml"  ]);
+  OBJECT htmlwidget := testpages->CreateFile([name:="htmlwidget", typens := "platform:widgets.html"  ]);
+  htmlwidget->setInstanceData("platform:widgets.html", [ html := "<b>htmlwidget</b>" ]);
+  OBJECT jswidget := testpages->CreateFile([name:="jswidget", typens := "webhare_testsuite:base_test.jswidget1"  ]);
+  jswidget->setInstanceData("webhare_testsuite:base_test.jswidget1", [ field1 := "js widget" ]);
 
   OBJECT widgetholder := testpages->CreateFile([ name:= "widgetholder", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
   RECORD testimage := WrapBlob(GetWebHareResource("mod::system/web/tests/goudvis.png"),"goudvis.png");
   widgetholder->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
           [ data := [ htmltext := StringToBlob(
                                                     `<html><body>
-                                                      <p class="normal">html widget:</p>
+                                                      <p class="normal">indirect html widget:</p>
                                                       <div class="wh-rtd-embeddedobject" data-instanceid="holder1"></div>
-                                                      <p class="normal">html widget 2:</p>
+                                                      <p class="normal">indirect jswidget:</p>
                                                       <div class="wh-rtd-embeddedobject" data-instanceid="holder2"></div>
+                                                      <p class="normal">direct html widget:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="direct1"></div>
+                                                      <p class="normal">direct jswidget:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="direct2"></div>
                                                       <p class="normal">Een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>
                                                       <p class="normal">Een <a href="https://beta.webhare.net/">externe</a> en een <a href="x-richdoclink:1234-5678-001#dieper">interne</a> link.</p>
                                                     </body></html>`)
@@ -176,7 +182,17 @@ MACRO SetupTestSite(OBJECT testsite)
                                     ]
                                   , [ instanceid := "holder2"
                                     , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
-                                              , widgets := INTEGER[htmlwidget2->id]
+                                              , widgets := INTEGER[jswidget->id]
+                                              ]
+                                    ]
+                                  , [ instanceid := "direct1"
+                                    , data := [ whfstype := "platform:widgets.html"
+                                              , html := "<b>direct html</b>"
+                                              ]
+                                    ]
+                                  , [ instanceid := "direct2"
+                                    , data := [ whfstype := "webhare_testsuite:base_test.jswidget1"
+                                              , field1 := "jswidget-direct2"
                                               ]
                                     ]
                                   ]

@@ -23,7 +23,8 @@ PUBLIC STATIC OBJECTTYPE PreviewContext
   PUBLIC PROPERTY targetfolder(GetTargetFolder, -);
   //The site containing the targetobject;
   PUBLIC PROPERTY targetsite(GetTargetSite, -);
-  //NOTE! Not exposing fsobject, not sure if we'll always have this in the future (think 'new file' without reserving an on-disk id)
+  //The target object
+  PUBLIC PROPERTY targetobject(fsobject, -);
   //The apply tester for the targetobject
   PUBLIC PROPERTY targetapplytester(applytester, -);
   PUBLIC OBJECT __mergefields;

@@ -6,7 +6,6 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
@@ -14,26 +13,10 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 INTEGER capturing_stream;
 
-PUBLIC OBJECT FUNCTION BuildPageHostWebdesign(OBJECT applytester) {
-  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
-
-  //Mock a webdesign, prevent it from calling into JS
-  webdesigninfo.siteresponsefactory := "";
-  webdesigninfo.pagebuilder := "";
-  webdesigninfo.objectname := Resolve("#HSPageHostWebdesign");
-                      //INTEGER errorcode, OBJECT override_contentobject, OBJECT pageobject, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD
-  OBJECT webdesign := InstantiateWebDesign(applytester,webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
-  RETURN webdesign;
-}
-
-PUBLIC STATIC OBJECTTYPE HSPageHostWebdesign EXTEND WebDesignBase <
->;
-
 PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
   OpenPrimary();
 
-  OBJECT applytester := GetApplyTesterForObject(fileid);
-  OBJECT webdesign := BuildPageHostWebdesign(applytester);
+  OBJECT webdesign := GetWebDesign(fileid);
 
   capturing_stream := CreateStream();
   RedirectOutputTo(capturing_stream);
@@ -82,8 +65,7 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
   MockUsingClientInfo(webclientinfo);
   OpenPrimary();
 
-  OBJECT applytester := GetApplyTesterForObject(fileid);
-  OBJECT webdesign := BuildPageHostWebdesign(applytester);
+  OBJECT webdesign := GetWebDesign(fileid);
 
   RECORD dynamicexecution := CellExists(how, 'dynamicexecution') ? how.dynamicexecution : DEFAULT RECORD;
   RECORD pagerouter := CellExists(how, 'pagerouter') ? how.pagerouter : DEFAULT RECORD;
@@ -92,7 +74,7 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     IF(dynamicexecution.startmacro != "")
       ABORT('implement startmacro ' || dynamicexecution.startmacro); //is this still used and relevant for new TS designs?
 
-    STRING objurlpath := UnpackURL(applytester->__Deprecated_GetObjInfo().obj.url).urlpath;
+    STRING objurlpath := UnpackURL(webdesign->targetapplytester->__Deprecated_GetObjInfo().obj.url).urlpath;
     __pageinfo := CELL[
       ...__SplitBaseAndSubUrl(GetClientRequestURL(), objurlpath),
       webdesign

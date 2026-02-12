@@ -374,6 +374,10 @@ export class WHFSApplyTester {
     return this.objinfo.typeneedstemplate;
   }
 
+  get type() {
+    return this.objinfo.type;
+  }
+
   /** Are any of these webfeatures active? ('to webfeatures=') */
   matchWebFeatures(masks: string[]) {
     /*

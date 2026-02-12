@@ -99,7 +99,7 @@ async function testReader() {
 
   test.eq([
     {
-      tag: 'p', items: [{ text: 'html widget:' }]
+      tag: 'p', items: [{ text: 'indirect html widget:' }]
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
@@ -109,12 +109,32 @@ async function testReader() {
       }
     }, {
       tag: 'p',
-      items: [{ text: 'html widget 2:' }]
+      items: [{ text: 'indirect jswidget:' }]
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
         data: {
-          widgets: ["site::webhare_testsuite.testsitejs/TestPages/htmlwidget2"]
+          widgets: ["site::webhare_testsuite.testsitejs/TestPages/jswidget"]
+        }
+      }
+    }, {
+      tag: 'p',
+      items: [{ text: 'direct html widget:' }]
+    }, {
+      widget: {
+        whfsType: 'platform:widgets.html',
+        data: {
+          html: "<b>direct html</b>"
+        }
+      }
+    }, {
+      tag: 'p',
+      items: [{ text: 'direct jswidget:' }]
+    }, {
+      widget: {
+        whfsType: 'webhare_testsuite:base_test.jswidget1',
+        data: {
+          field1: "jswidget-direct2"
         }
       }
     }, {

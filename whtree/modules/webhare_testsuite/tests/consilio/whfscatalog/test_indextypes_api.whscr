@@ -94,6 +94,11 @@ MACRO TestIndexTypeAPIs()
   TestEq(1, Length(objs_unknown));
   TestEq(2, Length(objs_unknown[0].data.document_fields.mod_consilio.indextypes));
   TestEq(1, Length(objs_unknown[0].data.document_fields.mod_consilio.indexversions));
+
+  //Verify widgetholder preview generation
+  OBJECT widgetholder := OpenWHFSObjectByPath("site::webhare_testsuite.testsite/TestPages/widgetholder");
+  RECORD ARRAY objs_widgetholder := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || widgetholder->id);
+  TestEq(`indirect html widget: WidgetBlockWidget indirect jswidget: WidgetBlockWidget direct html widget: <b>direct html<\/b> direct jswidget: jswidget-direct2 Een afbeelding: Een externe en een interne link.`, objs_widgetholder[0].data.document_body);
 }
 
 MACRO TestPublisherIndex()

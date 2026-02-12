@@ -2,6 +2,7 @@
 /** @topic widgets/widgets
 */
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -40,8 +41,7 @@ CONSTANT RECORD blockwidgetoptions :=
     ];
 
 /** Base class for widgets (former embedded objects) used for RTD documents which use the new 'rtd type' system */
-PUBLIC STATIC OBJECTTYPE WidgetBase
-<
+PUBLIC STATIC OBJECTTYPE WidgetBase <
   RECORD __pvt_widgetsettings;
   OBJECT ARRAY __pvt_openrtds;
   PUBLIC BOOLEAN __pvt_renderwide;
@@ -350,6 +350,26 @@ PUBLIC STATIC OBJECTTYPE WidgetBase
     RenderPreviewComponent(this->widgettype, "preview_inline", CELL
         [
         ]);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE __JSWidget EXTEND WidgetBase <
+  MACRO NEW() {
+    IF(this->data.whfsfileid = 0 AND this->data.whfssettingid = 0) {
+      THROW NEW Exception(`Cannot render widget of type '${this->widgettype}' if it's not sourced from the database`);
+    }
+  }
+
+  UPDATE PUBLIC MACRO Render() {
+    RECORD result := CallJS("@webhare/router/src/corerouter.ts#renderTSWidgetHS", CELL[
+      this->data.whfstype,
+      this->data.whfssettingid,
+      this->data.whfsfileid,
+      this->__pvt_widgetsettings.widgetbuilder,
+      targetobject := this->context->targetobject->id
+    ]);
+
+    Print(result.content);
   }
 >;
 
