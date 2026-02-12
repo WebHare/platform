@@ -31,7 +31,9 @@ async function testRPCCaller() {
     url: `${servicebaseurl}validateEmail`,
     headers: { "content-type": "application/json" },
     body: WebHareBlob.from(JSON.stringify(["nl", "pietje@webhare.net"])),
-    method: HTTPMethod.POST
+    method: HTTPMethod.POST,
+    binding: 0,
+    webserver: 0
   };
 
   let call = await RPCRouter(await newWebRequestFromInfo(request));

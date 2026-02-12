@@ -18,6 +18,8 @@ PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
              , method := ToUppercase(GetRequestMethod())
              , body := GetRequestBody()
              , sourceip := GetClientRemoteIP()
+             , webserver := GetClientWebserver()
+             , binding := GetClientBinding()
              ];
 }
 

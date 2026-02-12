@@ -139,7 +139,7 @@ export class IncomingWebRequest implements WebRequest {
   readonly clientIp: string;
   private readonly __body: ArrayBuffer | null;
 
-  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: ArrayBuffer | null; clientWebServer?: number; clientIp?: string }) {
+  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: ArrayBuffer | null; clientWebServer?: number; clientIp?: string; clientBinding?: number }) {
     this.url = url;
     if (options && "method" in options) {
       if (!validmethods.includes(options.method as string)) {
@@ -157,6 +157,7 @@ export class IncomingWebRequest implements WebRequest {
       this.method = HTTPMethod.GET;
     }
 
+    //TODO record binding or deprecate that?
     this.clientWebServer = options?.clientWebServer || 0;
     this.clientIp = options?.clientIp || "";
     this.method = options?.method || HTTPMethod.GET;
@@ -282,7 +283,7 @@ class ForwardedWebRequest implements WebRequest {
 export async function newWebRequestFromInfo(req: WebRequestInfo): Promise<WebRequest> {
   //'req' is from Harescript and thus uses HareScript Blobs, but that should not leak into the JS Router objects
   const body = req.body ? await req.body.arrayBuffer() : null;
-  return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body, clientIp: req.sourceip });
+  return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body, clientIp: req.sourceip, clientWebServer: req.webserver, clientBinding: req.binding });
 }
 
 export function newForwardedWebRequest(req: WebRequest, suburl: string): WebRequest {

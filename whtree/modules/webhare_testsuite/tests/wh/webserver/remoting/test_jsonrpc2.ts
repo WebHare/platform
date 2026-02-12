@@ -17,7 +17,9 @@ async function testRPCCaller() {
     url: "http://127.0.0.1/test",
     headers: {},
     body: WebHareBlob.from(JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] })),
-    method: HTTPMethod.POST
+    method: HTTPMethod.POST,
+    binding: 0,
+    webserver: 0
   };
 
   let callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
