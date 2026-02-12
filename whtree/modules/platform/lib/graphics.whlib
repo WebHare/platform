@@ -1,0 +1,31 @@
+<?wh
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/qrcode.whlib";
+
+PUBLIC RECORD FUNCTION GenerateQRCode(STRING intext, RECORD options) {
+  //which can we support cross platform?
+  options := ValidateOptions(
+      CELL[
+       size := 256
+      // , margin := 4
+      // , colordark := ColorBlack
+      // , colorlight := ColorWhite
+      , correctlevel := "H"
+      // , logo := DEFAULT BLOB
+      // , logosize := 0
+      ], options
+      // [ enums :=
+      //     [ correctlevel := [ "L", "M", "Q", "H" ] ]
+      // ]
+      );
+
+  IF(IsWasm()) {
+    RETURN WrapBlob(DEFAULT BLOB, "qr.png");;//FIXME
+  } ELSE {
+    OBJECT qrcode := CreateQRCode(intext, options);
+    BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
+    RECORD qrdata := WrapBlob(qrpng, "qr.png");
+    RETURN qrdata;
+  }
+}

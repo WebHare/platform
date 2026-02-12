@@ -6,7 +6,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::graphics/qrcode.whlib";
+LOADLIB "mod::platform/lib/graphics.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 
@@ -371,17 +371,14 @@ PUBLIC RECORD FUNCTION GenerateBackupCodes()
 PUBLIC RECORD FUNCTION PrepareTOTPForUser(STRING login, STRING issuer) {
   STRING newtotpsecret := GenerateOTPSecret();
   STRING url := GetTOTPUrl(newtotpsecret, login, issuer);
-
-  OBJECT qrcode := CreateQRCode(url, [ size := 250, correctlevel := "L" ]);
-  BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
-  RECORD qrdata := ScanBlob(qrpng, "qr.png");
+  RECORD qrdata := GenerateQRCode(url, [ size := 250, correctlevel := "L" ]);
 
   RECORD codes := GenerateBackupCodes();
 
   RETURN CELL[
     url,
     secret := GetVariableFromURL(url, "secret"),
-    qrpng,
+    qrpng := qrdata.data,
     codes.backupcodes,
     backupcodes_text := codes.text
     ];
