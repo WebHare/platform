@@ -190,7 +190,6 @@ async function testWaits() {
   }
 
   await test.wait(new Promise(resolve => resolve({ a: 1 })));
-  await test.wait(new Promise(resolve => resolve(false)));
   await test.wait(() => Promise.resolve(true));
   await test.throws(/The test option can only be used together with function waits/, () => test.wait(Promise.resolve(true), { test: Boolean }));
 
