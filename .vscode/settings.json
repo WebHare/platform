@@ -48,4 +48,10 @@
     "valarray": "cpp",
     "*.inc": "cpp"
   },
+  "chat.agentSkillsLocations": {
+    "addons/vscode-extension/skills": true
+  },
+  "chat.promptFilesLocations": {
+    "addons/vscode-extension/prompts": true
+  }
 }

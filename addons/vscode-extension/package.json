@@ -224,7 +224,17 @@
 					]
 				}
 			}
-		}
+		},
+		"chatPromptFiles": [
+			{
+				"path": "./prompts/witty-to-litty.prompt.md"
+			}
+		],
+		"chatSkills": [
+			{
+				"path": "./skills/typescript-development/SKILL.md"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
