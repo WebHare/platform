@@ -25,6 +25,14 @@ export function rawLitty(str: string): Litty {
   return { strings: [str], values: [] };
 }
 
+/** Insert a value with a specific encoding
+ * @param data - The string to encode
+ * @param encoding - The type of encoding to apply, e "html" to encode `\n` as `<br>`.
+*/
+export function littyEncode(data: string, encoding: "attribute" | "html"): Litty {
+  return rawLitty(encodeString(data, encoding));
+}
+
 /** Convert a litty template to a string */
 export async function littyToString(lit: Litty): Promise<string> {
   //We're async to have room to support async template parts in the future
@@ -39,7 +47,7 @@ export async function littyToString(lit: Litty): Promise<string> {
       if (typeof item === "number") {
         result += item.toString();
       } else if (typeof item === "string") {
-        result += encodeString(item, 'html');
+        result += encodeString(item, 'attribute');
       } else if (Array.isArray(item)) {
         result += (await Array.fromAsync(item.map(littyToString))).join("");
       } else {

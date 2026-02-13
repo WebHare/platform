@@ -272,7 +272,7 @@ export class CPageRequest {
     ${settings.canonicalurl ? litty`<link rel="canonical" href="${settings.canonicalurl}">` : ''}
     ${head ?? ''}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
-    ${litty`<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script", typed: true })}</script>`}
+    ${litty`<script type="application/json" id="wh-config">${rawLitty(stringify(this.frontendConfig, { target: "script", typed: true }))}</script>`}
     ${    /* TODO cachebuster /! support
       IF(cachebuster !== "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
