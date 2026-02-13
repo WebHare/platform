@@ -147,7 +147,6 @@ async function ensureWaitAbortable(expectState: string, cb: () => Promise<unknow
 
   //Ensure the wait() itself rejected
   test.assert(await startWait.then(() => false, () => true));
-
   await std.sleep(5); //give all nested promises a chance to complete and clear their wait state
   test.eq("", testMonitor.waitState());
 }

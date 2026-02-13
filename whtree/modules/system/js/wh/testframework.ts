@@ -346,12 +346,12 @@ export async function writeLogMarker(text: string) {
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
-export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T>;
+export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, options?: WaitOptions<T>): WaitRetVal<T>;
 export async function wait<T>(waitfor: (doc: Document, win: Window) => T | Promise<T>, annotation?: string): Promise<NonNullable<T>>;
 export async function wait(waitfor: TestWaitItem, annotation?: string): Promise<void>;
 
 
-export async function wait<T>(waitfor: TestWaitItem | (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>) {
+export async function wait<T>(waitfor: TestWaitItem | (() => T | Promise<T>) | Promise<T>, options?: WaitOptions<T>) {
   if (typeof waitfor === "string" || typeof waitfor === "number")
     return await __getTestSuiteCallbacks()!.executeWait(waitfor); //forward to old wait API
 
@@ -359,7 +359,7 @@ export async function wait<T>(waitfor: TestWaitItem | (() => T | PromiseLike<T>)
     console.warn("Rebinding wait() caller, remove its doc/win arguments!");
     waitfor = () => (waitfor as (doc: Document, win: Window) => unknown)(getDoc(), getWin());
   }
-  return await whtest.wait(waitfor as (() => T | PromiseLike<T>) | PromiseLike<T>, options);
+  return await whtest.wait(waitfor as (() => T | Promise<T>) | Promise<T>, options);
 }
 
 export function subtest(name: string) {

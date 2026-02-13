@@ -1,6 +1,6 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
-import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
+import { Money, isError, isPromise, sleep, stdTypeOf, type MaybePromise } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 import { flagWait } from "./monitor";
 
@@ -638,51 +638,33 @@ export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise
  * @param options - Test compare options or annotation
  * @returns The value that the waitfor function last resolved to
  */
-export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T> {
+export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, options?: WaitOptions<T>): WaitRetVal<T> {
   using waitState = flagWait("wait");
 
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
+  if (options?.test && typeof waitfor !== "function")
+    throw new Error("The test option can only be used together with function waits");
 
   const { timeout = 60000 } = options ?? {};
 
-  // TypeScript can't see that the timeout can modify gottimeout, so use a function to read it
-  let gottimeout = false;
-  function gotTimeout() { return gottimeout; }
+  let cb;
+  const timeoutPromise = new Promise<T>((_, reject) => { //note that it will never actually resolve to a <T> but it makes TS happy
+    cb = setTimeout(() => reject(new TestError(`test.wait timed out after ${timeout} ms`, options)), timeout);
+  });
 
-  if (typeof waitfor === "function") {
-    const timeout_cb = setTimeout(() => gottimeout = true, timeout);
-    try {
-      while (!gotTimeout()) {
-        const result = await waitState.race([waitfor()]);
-        const done = options?.test ? options?.test(result) : result;
-        if (done) {
-          return result as unknown as WaitRetVal<T>;
-        }
+  try {
+    for (; ;) {
+      const waitResult: MaybePromise<T> = typeof waitfor === "function" ? waitfor() : waitfor;
+      const resolvedResult: T = await waitState.race([timeoutPromise, waitResult]);
+      const done = options?.test ? options?.test(resolvedResult) : Boolean(resolvedResult);
+      if (done)
+        return resolvedResult as unknown as WaitRetVal<T>;
 
-        await new Promise(resolve => setTimeout(resolve, 1));
-      }
-    } finally {
-      clearTimeout(timeout_cb);
+      await waitState.race([timeoutPromise, sleep(50)]); //prevent cpu spinning but still listen for timeout/abort while we pause
     }
-    throw new TestError(`test.wait timed out after ${timeout} ms`, options);
-  } else {
-    let cb;
-    if (options?.test)
-      throw new Error("The test option can only be used together with function waits");
-
-    const timeoutpromise = new Promise((_, reject) => {
-      cb = setTimeout(() => {
-        cb = null;
-        reject(new TestError(`test.wait timed out after ${timeout} ms`, options));
-      }, timeout);
-    });
-    try {
-      return await waitState.race([waitfor, timeoutpromise]) as WaitRetVal<T>;
-    } finally {
-      if (cb)
-        clearTimeout(cb);
-    }
+  } finally {
+    clearTimeout(cb);
   }
 }
 
