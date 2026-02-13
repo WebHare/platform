@@ -377,7 +377,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 }
 
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget">;
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance" | "pageMetaData">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;
