@@ -625,7 +625,7 @@ export class WHFSApplyTester {
     const typeInfo = getType(this.objinfo.type);
     if (typeInfo?.dynamicexecution) {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
-      //TODO how to find the TS Pgae Renderer? are there ovrerrides?
+      //TODO how to find the TS Page Renderer? are there overrides?
       return baseinfo;
     }
 

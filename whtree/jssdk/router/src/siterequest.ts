@@ -43,7 +43,7 @@ type ContentPageRequestOptions = {
 export class CPageRequest {
   readonly webRequest: WebRequest | null;
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
-  /** The source of the content. private becaues we think users should be looking at */
+  /** The source of the content. private because we think users shouldn't be looking at it */
   private readonly _contentObject: WHFSObject;
   readonly targetFolder: WHFSFolder;
   //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
