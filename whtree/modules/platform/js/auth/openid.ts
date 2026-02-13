@@ -163,8 +163,8 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
       cbUrl: redirect_uri
     }));
 
+  //Sets up a WRD Auth request that will return the user after login in locally to the openid /return/ endpoint in openIdRouter
   const currentRedirectURI = `${getOpenIdBase(provider.wrdschema)}return?tok=${returnInfo}`;
-
   const loginControl = { //see __GenerateAccessRuleLoginControlToken. TODO merge into idpstate ?
     afterlogin: "siteredirect",
     logintypes: ["wrdauth"],
@@ -181,6 +181,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
   return { type: "redirect", url: target.toString(), error: null };
 }
 
+/** Invoked by the /return/ endpoint after a user has completed logging in */
 export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, user: number, customizer?: AuthCustomizer): Promise<NavigateOrError> {
   const searchParams = new URL(url).searchParams;
   const sessionid = searchParams.get("tok") || '';
