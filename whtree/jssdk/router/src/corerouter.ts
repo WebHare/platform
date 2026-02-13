@@ -1,5 +1,5 @@
 import * as whfs from "@webhare/whfs";
-import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
+import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { buildContentPageRequest, type WidgetBuilderFunction } from "./siterequest";
 import * as undici from "undici";
@@ -29,7 +29,7 @@ export async function lookupPublishedTarget(url: string, options?: whfs.LookupUR
   return {
     lookupresult,
     targetObject,
-    renderer: renderinfo.renderer
+    renderer: renderinfo.contentBuilder
   };
 }
 
@@ -99,7 +99,7 @@ export async function coreWebHareRouter(port: WebServerPort, request: WebRequest
     return await routeThroughHSWebserver(port, request, localAddress);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-  const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
+  const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(target.renderer);
   const whfsreq = await buildContentPageRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }

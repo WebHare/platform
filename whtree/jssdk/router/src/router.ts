@@ -16,7 +16,7 @@ export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest } from './siterequest';
+export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest, ContentBuilderFunction } from './siterequest';
 export {
   RestRequest
 } from './restrequest';
@@ -25,6 +25,5 @@ export { getAssetPackIntegrationCode } from "./concepts";
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 export { type WebHareOpenAPIDocument, type OpenAPIServiceInitializationContext } from "./openapi";
 
-export type WebHareWHFSRouter = (request: ContentPageRequest) => Promise<WebResponse>;
 export type WebHareRouter = (request: WebRequest) => Promise<WebResponse>;
 export type { ContentPageRequest };

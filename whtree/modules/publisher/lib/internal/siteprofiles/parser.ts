@@ -687,7 +687,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
       objectname: context.resolve(apply.bodyRenderer.objectName || ''),
-      renderer: context.resolve(apply.bodyRenderer.renderer || '')
+      contentbuilder: context.resolve(apply.bodyRenderer.contentBuilder || '')
     };
 
   if (apply.webDesign) {

@@ -111,7 +111,7 @@ MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN isp
   }
 
   INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) INTO __pageinfo;
-  IF(webdesigninfo.renderinfo.renderer != "")
+  IF(webdesigninfo.renderinfo.contentbuilder != "")
   {
     RECORD capturedpage := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", contentobject.id, targetobject.id);
     SendWebFile(capturedpage.body);

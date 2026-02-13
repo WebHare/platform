@@ -264,8 +264,7 @@ export interface CSPWebtoolsFormRule {
 
 interface CSPBodyRendererRule {
   objectname: string;
-  /// Default render handler. Path to a pagehandler(request,response). Overridable by apply rules
-  renderer: string;
+  contentbuilder: string;
 }
 
 export type CSPBaseProperties = {

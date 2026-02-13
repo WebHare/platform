@@ -1369,13 +1369,13 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RECORD bodyrenderer := CELL[  //default rendering settings from publisher.siteprl.xml
       objectname := "mod::publisher/lib/webdesign.whlib#StaticPageBase",
       capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths,
-      renderer := ""
+      contentbuilder := ""
     ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
-      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "") { //we always reset them together
+      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.contentbuilder != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
-        bodyrenderer.renderer := apply.bodyrenderer.renderer;
+        bodyrenderer.contentbuilder := apply.bodyrenderer.contentbuilder;
       }
 
     RETURN bodyrenderer;

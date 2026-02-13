@@ -953,7 +953,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             CASE "bodyrenderer"
             {
               apply.bodyrenderer := [ objectname := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
-                                    , renderer := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
+                                    , contentbuilder := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
                                     ];
               CONTINUE;
             }

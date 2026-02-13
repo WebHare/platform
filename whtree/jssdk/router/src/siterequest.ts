@@ -8,7 +8,7 @@ import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
-import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebHareWHFSRouter, type WebResponse } from "@webhare/router";
+import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
@@ -28,6 +28,8 @@ export type PluginInterface<API extends object> = {
 
 /** @deprecated WH6.0 switches to PageBuilderFunction */
 export type WebDesignFunction<T extends object> = (request: SiteRequest, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
+
+export type ContentBuilderFunction = (request: ContentPageRequest) => Promise<WebResponse>;
 
 export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResponse>;
 
@@ -123,11 +125,11 @@ export class CPageRequest {
   }
 
   /** Load the function that can actually generate pages for us */
-  async getPageRenderer(): Promise<WebHareWHFSRouter | null> {
-    //TODO rename 'renderer:' to 'buildPage:' ?  rename WebHareWHFSRouter although I see what it's doing there?
+  async getPageRenderer(): Promise<ContentBuilderFunction | null> {
+    //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
     const renderinfo = await this._contentApplyTester.getObjRenderInfo();
-    if (renderinfo?.renderer) { //JS renderer is always preferred
-      const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(renderinfo.renderer);
+    if (renderinfo?.contentBuilder) { //JS renderer is always preferred
+      const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(renderinfo.contentBuilder);
       return renderer;
     }
 

@@ -799,7 +799,8 @@ $defs:
     properties:
       objectName:
         type: string
-      renderer:
+      contentBuilder:
+        description: JS callback to render content
         type: string
 
   ApplyUserData:
