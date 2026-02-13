@@ -29,6 +29,9 @@ export function rawLitty(str: string): Litty {
 export async function littyToString(lit: Litty): Promise<string> {
   //We're async to have room to support async template parts in the future
   let result = "";
+  if (!lit)
+    return "";
+
   for (let i = 0; i < lit.strings.length; i++) {
     result += lit.strings[i];
     if (i < lit.values.length) {
