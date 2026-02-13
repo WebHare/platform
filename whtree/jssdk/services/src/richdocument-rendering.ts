@@ -1,14 +1,14 @@
 import { litty, rawLitty, type Litty } from "@webhare/litty";
 import { rtdBlockDefaultClass, rtdTextStyles, type RichTextDocument, type RTDAnonymousParagraph, type RTDBaseInlineImageItem, type RTDBlock, type RTDInlineItems } from "./richdocument";
-import { appendToArray, encodeString, generateRandomId } from "@webhare/std";
+import { appendToArray, encodeString } from "@webhare/std";
 import type { PagePartRequest } from "@webhare/router/src/siterequest";
 import { groupByLink } from "@webhare/hscompat/src/richdocument";
 
-export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument): Promise<Litty> {
-  const linkmapping = rtd["__linkIds"];
+export type RTDRenderingOptions = {
+  maxImageWidth?: number;
+};
 
-  const links = new Map<string, number>();
-
+export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocument, options?: RTDRenderingOptions): Promise<Litty> {
   async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">): Promise<Litty> {
     const classes = ["wh-rtd__img"];
     if (image.float === "left")
@@ -20,7 +20,11 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       return litty`<img class="${classes.join(" ")}" src="${image.externalImage}" alt="${image.alt || ''}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}>`;
 
     //FIXME use the right method
-    const resized = image.image.toResized({ method: "none" });
+    let setWidth = image.width ?? image.image.width;
+    if (options?.maxImageWidth && setWidth && setWidth > options.maxImageWidth)
+      setWidth = options.maxImageWidth;
+
+    const resized = image.image.toResized(setWidth ? { method: "scale", width: setWidth } : { method: "none" });
     return litty`<img class="${classes.join(" ")}" src="${resized.link}" alt="${image.alt || ''}" width="${resized.width}" height="${resized.height}">`;
   }
 
@@ -76,16 +80,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       }
 
       if (linkitem.link) {
-        let url: string;
-        if (linkitem.link.internalLink) {
-          //TODO keep hints too?
-          const linkid = linkmapping.get(linkitem.link) || generateRandomId();
-          links.set(linkid, linkitem.link.internalLink);
-          url = `x-richdoclink:${linkid}${linkitem.link.append ?? ""}`;
-        } else {
-          url = linkitem.link.externalLink || '';
-        }
-
+        const url = await linkitem.link.resolve();
         if (url)
           linkpart = [litty`<a href="${url}"${linkitem.target ? litty` target="${linkitem.target}"` : ""}>${linkpart}</a>`];
       }

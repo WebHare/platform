@@ -111,7 +111,6 @@ STATIC OBJECTTYPE PublicationRun
   PUBLIC OBJECT templatejob;
   PUBLIC INTEGER joboutput;
   PUBLIC BOOLEAN has_webdesign;
-  PUBLIC RECORD ARRAY setonpublish;
   BOOLEAN profile;
 
   OBJECT outputdriver;
@@ -678,12 +677,6 @@ STATIC OBJECTTYPE PublicationRun
       {
         this->errorcode := msg.errorcode;
         this->errordata := msg.errordata;
-        RETURN DEFAULT RECORD;
-      }
-
-      CASE "SETONPUBLISH"
-      {
-        this->setonpublish := this->setonpublish CONCAT msg.preppedonpublish;
         RETURN DEFAULT RECORD;
       }
 

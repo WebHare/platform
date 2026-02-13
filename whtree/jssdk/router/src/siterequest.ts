@@ -45,6 +45,7 @@ export class CPageRequest {
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
   protected _applyTester!: WHFSApplyTester;
   protected _siteLanguage!: string;
+  protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
@@ -76,6 +77,7 @@ export class CPageRequest {
   async _preparePageRequestBase() {
     this._applyTester = await getApplyTesterForObject(this.targetObject);
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
+    this._publicationSettings = await this._applyTester.getWebDesignInfo();
   }
 
   get siteLanguage() {
@@ -118,18 +120,17 @@ export class CPageRequest {
   async buildWebPage(page: Litty): Promise<WebResponse> {
     //FIXME wrap with content-top/content-bottom insert points
     this._page = page;
-    const publicationsettings = await this._applyTester.getWebDesignInfo();
-    if (publicationsettings.objectName)
+    if (this._publicationSettings.objectName)
       return wrapHSWebdesign(this);
 
-    if (!publicationsettings.pageBuilder) {
-      if (publicationsettings.siteResponseFactory) {
+    if (!this._publicationSettings.pageBuilder) {
+      if (this._publicationSettings.siteResponseFactory) {
         //legacy support for old-style SiteResponse factories, will be removed after WH6
-        const factory = await importJSFunction<WebDesignFunction<object>>(publicationsettings.siteResponseFactory);
+        const factory = await importJSFunction<WebDesignFunction<object>>(this._publicationSettings.siteResponseFactory);
         const settings = new SiteResponseSettings;
-        settings.assetpack = publicationsettings.assetPack;
-        settings.witty = publicationsettings.witty;
-        const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+        settings.assetpack = this._publicationSettings.assetPack;
+        settings.witty = this._publicationSettings.witty;
+        const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === this._publicationSettings.assetPack);
         settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
         settings.lang = this._siteLanguage;
 
@@ -141,7 +142,7 @@ export class CPageRequest {
     }
 
     // Now that we're pretty sure we'll be generating HTML, initialize plugins
-    for (const plugin of publicationsettings.plugins) {
+    for (const plugin of this._publicationSettings.plugins) {
       if (plugin.composer_hook) {
         const plugindata = buildPluginData(plugin.datas);
         await (await importJSFunction<ResponseHookFunction>(plugin.composer_hook))(this, plugindata);
@@ -149,7 +150,7 @@ export class CPageRequest {
     }
 
     //TODO this is a bit of a hack to get the data for the new renderer
-    const pageBuilder = await importJSFunction<PageBuilderFunction>(publicationsettings.pageBuilder);
+    const pageBuilder = await importJSFunction<PageBuilderFunction>(this._publicationSettings.pageBuilder);
     return pageBuilder(this);
   }
 
@@ -274,12 +275,11 @@ export class CPageRequest {
     head: Litty;
     body: Litty;
   }): Promise<WebResponse> {
-    const publicationsettings = await this._applyTester.getWebDesignInfo(); //TODO Duplicate call, eliminate
     const settings = new SiteResponseSettings;
-    settings.assetpack = publicationsettings.assetPack;
-    settings.witty = publicationsettings.witty;
+    settings.assetpack = this._publicationSettings.assetPack;
+    settings.witty = this._publicationSettings.witty;
 
-    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === this._publicationSettings.assetPack);
     settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
     settings.lang = this._siteLanguage;
 
@@ -297,7 +297,9 @@ export class CPageRequest {
 
   async renderRTD(rtd: RichTextDocument): Promise<Litty> {
     //FIXME need an equivalent for overriding RTD rendering. HareScript does webdesign->rtd_rendering_engine BUT in TS we won't have the webdesign yet during pagerendering. So applytester needs to ship it
-    return renderRTD(this, rtd);
+    const parsedWith = this._publicationSettings.maxContentWidth.match(/^(\d+)px$/);
+    const maxImageWidth = parsedWith ? parseInt(parsedWith[1]) : undefined;
+    return renderRTD(this, rtd, { maxImageWidth });
   }
 
   //FIXME need a better match for the widget type

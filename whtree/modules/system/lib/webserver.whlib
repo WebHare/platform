@@ -21,17 +21,18 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
-LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException;
+LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException, GetClientRemoteIp;
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
-
 
 /** @short Are we in a dynamic page?
     @long Tests if the current HareScript job is handling a dynamic page request and calls like %GetWebVariable are safe to make
     @return True if we're running in a webserver context*/
 PUBLIC BOOLEAN FUNCTION IsRequest()
 {
-  IF(IsWASM())
+  IF(RecordExists(shtmlcontext))
+    RETURN TRUE;
+  IF(IsWasm())
     RETURN FALSE; //Assuming the node webserver isn't invoking us yet...
 
   //ADDME nicer implementation
@@ -140,7 +141,13 @@ PUBLIC MACRO SendWrappedWebFile(RECORD filerec, RECORD options DEFAULTSTO DEFAUL
     @param name Name of the header to return (eg 'User-agent')
     @return Contents of requested header
     @see GetAllWebHeaders */
-PUBLIC STRING FUNCTION GetWebHeader(STRING name) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetWebHeader(STRING name) {
+  IF(RecordExists(shtmlcontext))
+    RETURN SELECT AS STRING value FROM shtmlcontext.headers WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetWebHeader(name);
+}
 
 /** @short Get request's origin URL
     @long Determine the full origin URL based on the hostname from Origin and Referer header if available, and on requesturl otherwise
@@ -171,7 +178,13 @@ PUBLIC STRING FUNCTION GetWebOriginURL(STRING path)
     @param name Name of a variable passed through the URL or a POST request
     @return Contents of requested variable, truncated to 4096 bytes
     @see GetAllWebVariables */
-PUBLIC STRING FUNCTION GetWebVariable(STRING name) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetWebVariable(STRING name) {
+  IF(RecordExists(shtmlcontext))
+    RETURN SELECT AS STRING value FROM shtmlcontext.variables WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetWebVariable(name);
+}
 
 /** @short Return file from the query
     @param name Name of a variable passed through the URL or a POST request
@@ -228,6 +241,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAllWebVariables()
 {
   IF(NOT downloaded_webvarcache)
     GetWebvars();
+
   RETURN webvarcache;
 }
 
@@ -237,40 +251,66 @@ PUBLIC RECORD ARRAY FUNCTION GetAllWebVariables()
     @cell return.field Name of the request header
     @cell return.value Value of the request header
     @see GetWebHeader */
-PUBLIC RECORD ARRAY FUNCTION GetAllWebHeaders() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC RECORD ARRAY FUNCTION GetAllWebHeaders() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.headers;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetAllWebHeaders();
+}
 
 /** @short Get the port the client connects to
     @long This function returns the local TCP port to which the client connected (ie, one of the webserver's listening ports)
     @return The TCP port number, a number between 1 - 65535 */
-PUBLIC integer FUNCTION GetClientLocalPort() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION GetClientLocalPort() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.localport;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientLocalPort();
+}
 
 /** @short Get the ip the client connects to
     @long This function returns the local IP address to which the client connected (ie, one of the webserver's IP addresses)
     @return The dotted-quad IPV4 address as a string */
-PUBLIC string FUNCTION GetClientLocalIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetClientLocalIp() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.localip;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientLocalIp();
+}
 
 /** @short Get the ID of the webserver the client connects to
     @return The webserver's id in the system.webservers table */
-public integer function GetClientWebserver() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION GetClientWebserver() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.webserver;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientWebserver();
+}
 
 /** @short Get the ID of the port the client connected to
     @return The port's id in the system.ports table (0 for connections via the trusted port) */
-PUBLIC INTEGER FUNCTION GetClientBinding() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short For virtual hosting, returns the hostname of the webserver, otherwise the IP of the server webserver
-        the client connects to.
-    @return The name of the webserver */
-PUBLIC string FUNCTION GetClientLocalAddress() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-/** @short Get the ip the client connects from
-    @long This function returns the remote IP address from which the client connected (ie, his IP address)
-    @return The dotted-quad IPV4 address as a string */
-public string function GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION GetClientBinding() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.binding;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientBinding();
+}
 
 /** @short Get the port the client connects from
     @long  This function returns the remote TCP port from which the client connected
     @return The TCP port number, a number between 1 - 65535 */
-public integer function GetClientRemotePort() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC INTEGER FUNCTION GetClientRemotePort() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.remoteport;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientRemotePort();
+}
 
 /** @short Check whether the current HTTP request was a POST request
     @return true if the current request was a Post request.
@@ -297,15 +337,33 @@ PUBLIC BOOLEAN FUNCTION IsRequestPost()
 /** @short Get the HTTP request method used in this request
     @return The HTTP method, eg "GET", "POST", "HEAD", "PUT"
     @see IsRequestPost */
-public string function GetRequestMethod() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetRequestMethod() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.requestmethod;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetRequestMethod();
+}
 
 /** @short Get the requested URL
     @return The complete requested URL, including http:// part and any variables and their values*/
-PUBLIC STRING FUNCTION GetRequestURL() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetRequestURL() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.requesturl;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetRequestURL();
+}
 
 /** @short Get the requested URL
     @return The complete requested URL, including http:// part and any variables and their values*/
-PUBLIC STRING FUNCTION GetClientRequestURL() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION GetClientRequestURL() {
+  IF(RecordExists(shtmlcontext))
+    RETURN shtmlcontext.requesturl;
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  RETURN __WHS_GetClientRequestURL();
+}
 
 /** @short Add a HTTP header
     @long Add a HTTP header to this response. The caller is responsible for not violating
@@ -672,7 +730,9 @@ MACRO InTrans_CloseWebSession(STRING sessid, STRING scope)
 /** @short Get the full undecoded request body
     @long This function gets the full request body, if the body was not a form submission body.
     @return The request body as a blob */
-PUBLIC BLOB FUNCTION GetRequestBody() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC BLOB FUNCTION GetRequestBody() {
+  RETURN RecordExists(shtmlcontext) ? shtmlcontext.requestbody : __WHS_GetRequestBody();
+}
 
 /** @short Flush all server output so far (EXPERIMENTAL!)
     @param waituntil Time to wait for the flush to complete

@@ -332,21 +332,6 @@ void ShtmlContextData::ClientLocalIp(HSVM *vm, HSVM_VariableId id_set)
         HSVM_StringSetSTD(vm, id_set, request->localaddress.GetIPAddress());
 }
 
-void ShtmlContextData::ClientLocalAddress(HSVM *vm, HSVM_VariableId id_set)
-{
-
-        if (!request.get())
-        {
-                HSVM_StringSet(vm, id_set, NULL, NULL);
-                return;
-        }
-
-        if (request->is_virtual_host && request->website)
-            HSVM_StringSetSTD(vm, id_set, request->website->hostname);
-        else
-            ClientLocalIp(vm, id_set);
-}
-
 void ShtmlContextData::ClientRemotePort(HSVM *vm, HSVM_VariableId id_set)
 {
 

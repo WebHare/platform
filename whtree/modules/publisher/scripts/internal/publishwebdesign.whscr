@@ -86,8 +86,3 @@ FOREVERY(RECORD dbfile FROM dbfiles)
   RedirectOutputTo(0);
   PUBLISHER_CloseOutput(outputid);
 }
-
-uplink->DoRequest(
-    [ type := "SETONPUBLISH"
-    , preppedonpublish := (SELECT ns, data FROM preppedonpublish)
-    ]);

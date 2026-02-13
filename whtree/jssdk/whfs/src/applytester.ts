@@ -568,11 +568,11 @@ export class WHFSApplyTester {
         webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory;
         webDesign.pageBuilder = apply.webdesign.pagebuilder || '';
       }
-      webDesign.witty = apply.webdesign.witty ?? webDesign.witty;
-      webDesign.designFolder = apply.webdesign.designfolder ?? webDesign.designFolder;
-      webDesign.maxContentWidth = apply.webdesign.maxcontentwidth ?? webDesign.maxContentWidth;
+      webDesign.witty = apply.webdesign.witty || webDesign.witty;
+      webDesign.designFolder = apply.webdesign.designfolder || webDesign.designFolder;
+      webDesign.maxContentWidth = apply.webdesign.maxcontentwidth || webDesign.maxContentWidth;
       webDesign.siteProfile = apply.siteprofile;
-      webDesign.wittyEncoding = apply.webdesign.wittyencoding ?? webDesign.wittyEncoding;
+      webDesign.wittyEncoding = apply.webdesign.wittyencoding || webDesign.wittyEncoding;
 
       if (apply.webdesign.has_assetpack) {
         webDesign.assetPack = apply.webdesign.assetpack;

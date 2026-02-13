@@ -305,6 +305,7 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , is404           := FALSE
                       , contentnavstops := DEFAULT STRING ARRAY
                       , has_assetpack   := FALSE
+                      , js              := FALSE
                       ];
   RETURN webdesign;
 }
@@ -634,6 +635,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   INSERT CELL folders := folders INTO settings;
   INSERT CELL success := TRUE INTO settings;
   INSERT CELL objurlpath := UnpackURL(applytester->__Deprecated_GetObjInfo().obj.url).urlpath INTO settings;
+  INSERT CELL js := CellExists(webdesign,'js') AND webdesign.js INTO settings; //it might not exist if we've *just* upgraded?
 
   RETURN settings;
 }
@@ -1351,6 +1353,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
     IF (RecordExists(webdesign))
       webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
 
+    webdesign.js := webdesign.pagebuilder != "" OR webdesign.siteresponsefactory != "";
     RETURN webdesign;
   }
 

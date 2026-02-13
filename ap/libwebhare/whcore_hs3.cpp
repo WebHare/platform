@@ -1096,7 +1096,6 @@ FORWARD_FUNCTION(ClientLocalIp)
 FORWARD_FUNCTION(ClientRemoteIp)
 FORWARD_FUNCTION(ClientLocalPort)
 FORWARD_FUNCTION(ClientRemotePort)
-FORWARD_FUNCTION(ClientLocalAddress)
 FORWARD_FUNCTION(CreateWebSession)
 FORWARD_FUNCTION(UpdateWebSession)
 FORWARD_FUNCTION(FlushWebResponse)
@@ -1191,24 +1190,23 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "CONFIGUREWEBSERVER::R:R",WHMGR_ConfigureWebServer);
         HSVM_RegisterMacro(regdata, "__WHS_FLUSHLOGFILES:::",WHMGR_FlushLogFiles);
 
-        HSVM_RegisterFunction(regdata, "GETREQUESTBODY::X:",WHS_GetRequestBody);
+        HSVM_RegisterFunction(regdata, "__WHS_GETREQUESTBODY::X:",WHS_GetRequestBody);
 
-        HSVM_RegisterFunction(regdata, "GETWEBHEADER::S:S",WHS_Header);
-        HSVM_RegisterFunction(regdata, "GETWEBVARIABLE::S:S",WHS_Variable);
+        HSVM_RegisterFunction(regdata, "__WHS_GETWEBHEADER::S:S",WHS_Header);
+        HSVM_RegisterFunction(regdata, "__WHS_GETWEBVARIABLE::S:S",WHS_Variable);
         HSVM_RegisterFunction(regdata, "__SYSTEM_WHS_WEBVARS::RA:",WHS_AllVariables);
-        HSVM_RegisterFunction(regdata, "GETALLWEBHEADERS::RA:",WHS_AllHeaders);
+        HSVM_RegisterFunction(regdata, "__WHS_GETALLWEBHEADERS::RA:",WHS_AllHeaders);
         HSVM_RegisterMacro(regdata, "__WHS_SENDWEBFILE:::X",WHS_Sendfile);
         HSVM_RegisterMacro(regdata, "__WHS_ADDHTTPHEADER:::SSB",WHS_AddHeader);
-        HSVM_RegisterFunction(regdata, "GETREQUESTURL::S:",WHS_RequestUrl);
-        HSVM_RegisterFunction(regdata, "GETCLIENTREQUESTURL::S:",WHS_ClientRequestUrl);
-        HSVM_RegisterFunction(regdata, "GETREQUESTMETHOD::S:",WHS_RequestMethod);
-        HSVM_RegisterFunction(regdata, "GETCLIENTWEBSERVER::I:",WHS_ClientLocalWebserver);
-        HSVM_RegisterFunction(regdata, "GETCLIENTBINDING::I:",WHS_ClientLocalBinding);
-        HSVM_RegisterFunction(regdata, "GETCLIENTLOCALIP::S:",WHS_ClientLocalIp);
-        HSVM_RegisterFunction(regdata, "GETCLIENTREMOTEIP::S:",WHS_ClientRemoteIp);
-        HSVM_RegisterFunction(regdata, "GETCLIENTLOCALPORT::I:",WHS_ClientLocalPort);
-        HSVM_RegisterFunction(regdata, "GETCLIENTREMOTEPORT::I:",WHS_ClientRemotePort);
-        HSVM_RegisterFunction(regdata, "GETCLIENTLOCALADDRESS::S:",WHS_ClientLocalAddress);
+        HSVM_RegisterFunction(regdata, "__WHS_GETREQUESTURL::S:",WHS_RequestUrl);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTREQUESTURL::S:",WHS_ClientRequestUrl);
+        HSVM_RegisterFunction(regdata, "__WHS_GETREQUESTMETHOD::S:",WHS_RequestMethod);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTWEBSERVER::I:",WHS_ClientLocalWebserver);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTBINDING::I:",WHS_ClientLocalBinding);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTLOCALIP::S:",WHS_ClientLocalIp);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTREMOTEIP::S:",WHS_ClientRemoteIp);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTLOCALPORT::I:",WHS_ClientLocalPort);
+        HSVM_RegisterFunction(regdata, "__WHS_GETCLIENTREMOTEPORT::I:",WHS_ClientRemotePort);
 
         HSVM_RegisterMacro(regdata, "__WHS_AUTHENTICATEWEBSESSION:::SSSBIIB",WHS_AuthenticateWebSession);
         HSVM_RegisterMacro(regdata, "__WHS_SETREQUESTUSERNAME:::S",WHS_SetRequestUserName);

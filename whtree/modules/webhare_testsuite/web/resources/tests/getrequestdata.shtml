@@ -6,7 +6,6 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 RECORD data :=
     [ localport :=        GetClientLocalPort()
-    , localaddress :=     GetClientLocalAddress()
     , localip :=          GetClientLocalIP()
     , remoteport :=       GetClientRemotePort()
     , remoteip :=         GetClientRemoteIP()
