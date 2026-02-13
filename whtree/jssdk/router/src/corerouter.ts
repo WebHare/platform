@@ -1,16 +1,17 @@
 import * as whfs from "@webhare/whfs";
 import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { buildContentPageRequest } from "./siterequest";
+import { buildContentPageRequest, type WidgetBuilderFunction } from "./siterequest";
 import * as undici from "undici";
-import { importJSFunction } from "@webhare/services";
+import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
 import { getBasePort } from "@webhare/services/src/config";
 import type { WebServerPort } from "@mod-platform/js/webserver/webserver";
 import type { WebRequestInfo, WebResponseInfo } from "@mod-system/js/internal/types";
 import { newWebRequestFromInfo } from "./request";
-import { litty } from "@webhare/litty";
+import { isLitty, litty, littyToString } from "@webhare/litty";
 import { runHareScriptPage } from "./hswebdesigndriver";
+import { whfsType } from "@webhare/whfs";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -125,7 +126,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   if (!targetObject || !targetObject.parentSite || !targetObject.parent)
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
-  const contentObject = options?.contentfile ? await whfs.openFile(options.contentfile) : undefined;
+  const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile) : undefined;
   const whfsreq = await buildContentPageRequest(req, targetObject, { statusCode: options?.errorcode, contentObject });
   if (options?.errorcode) {
     //FIXMES We need to create proper error page body. Pass sufficient info to the webdesign?
@@ -134,8 +135,41 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   }
 
   const renderer = await whfsreq.getPageRenderer();
-  if (!renderer)
-    throw new Error(`No renderer found for fileid '${targetId}' ${contentObject ? ` (content link to ${contentObject.id})` : ""} - should not have been routed through us ? `);
+  if (renderer)
+    return (await renderer(whfsreq)).asWebResponseInfo();
 
-  return (await renderer(whfsreq)).asWebResponseInfo();
+  throw new Error(`No renderer found for '${targetObject.whfsPath} (#${targetId}) ${contentObject ? ` (content link to ${contentObject.whfsPath} (${contentObject.id}))` : ""} - should not have been routed through us ? `);
+}
+
+/** Renders TypeScript based widgets for HareScript widget embedders */
+export async function renderTSWidgetHS(context: {
+  whfstype: string;
+  whfssettingid: bigint;
+  whfsfileid: number;
+  widgetbuilder: string;
+  targetobject: number;
+}) {
+  const type = whfsType(context.whfstype);
+  //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
+  const instance = context.whfssettingid ? await type.getBySettingId(Number(context.whfssettingid)) : await type.get(context.whfsfileid);
+  //HareScript will tell us the widgetBuilder so we can avoid doing an applytest
+  const renderFunction = await importJSFunction<WidgetBuilderFunction>(context.widgetbuilder);
+
+  const pagePartRequest = {
+    //Consider taking the parent rendering context if available (or at least reuse the pagereq between invocations)
+    renderRTD: async (rtd: RichTextDocument) => {
+      const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
+      return pagereq.renderRTD(rtd);
+    },
+    renderWidget: async (widget: Instance) => {
+      const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
+      return pagereq.renderWidget(widget);
+    }
+  };
+
+  const result = await renderFunction(pagePartRequest, instance);
+  if (!isLitty(result))
+    throw new Error(`Widget renderer '${context.widgetbuilder}' failed to return a proper Litty template`);
+
+  return { content: await littyToString(result) };
 }

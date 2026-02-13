@@ -5,9 +5,10 @@ import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
-import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions, type ImportOptions } from "./descriptor";
+import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "./descriptor";
 import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
 import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools/src/utility-types";
+import { dbLoc } from "./symbols";
 
 /* Due to the recursive nature of the RTD types, the recursive parts of exportable and buildable RTD types
     are defined separately, so TypeScript can verify that the export type is assignable to the build type,
@@ -222,10 +223,12 @@ class Instance {
 
   #typeInfo: WHFSTypeInfo;
   #data: InstanceData;
+  #dbLoc;
 
-  constructor(typeinfo: WHFSTypeInfo, data: InstanceData) {
+  constructor(typeinfo: WHFSTypeInfo, data: InstanceData, loc?: WebHareDBLocation) {
     this.#typeInfo = typeinfo;
     this.#data = data;
+    this.#dbLoc = loc;
   }
 
   get whfsType(): string {
@@ -234,6 +237,10 @@ class Instance {
 
   get data(): InstanceData {
     return this.#data;
+  }
+
+  get [dbLoc](): WebHareDBLocation | null {
+    return this.#dbLoc ?? null;
   }
 
   async export(options?: ExportOptions): Promise<InstanceExport> {
@@ -623,20 +630,22 @@ export async function buildInstance<
   const Type extends string,
   Data extends object,
 >(data: ([NoInfer<Type>] extends [symbol] ?
-  { whfsType: Type; data?: Data } :
+  { whfsType: Type; data?: Data;[dbLoc]?: WebHareDBLocation } :
   (string extends NoInfer<Type> ?
     InstanceSource : {
       whfsType: WHFSTypeName;
       data?: ([NoInfer<Type>] extends [WHFSTypeName] ?
         DisallowExtraPropsRecursive<Data, WHFSTypes[NoInfer<Type>]["SetFormat"]> :
         InstanceSource["data"]);
+      [dbLoc]?: WebHareDBLocation;
     })),
   options?: ImportOptions): Promise<[NoInfer<Type>] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
   for (const key of (Object.keys(data)))
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true })) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
+
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true }), data[dbLoc]) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */

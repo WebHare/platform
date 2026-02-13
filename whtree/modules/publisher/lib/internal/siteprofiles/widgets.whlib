@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
@@ -91,11 +92,19 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
     described := DescribeWidgetType(instancedata.whfstype, applytester, rtdtype).value;
   }
 
+  RECORD typeinfo := described.typeinfo;
+  STRING objectname := RecordExists(typeinfo.renderer) ? typeinfo.renderer.objectname : "";
+
+  BOOLEAN widget_supports_js := CellExists(typeinfo, 'widgetbuilder');
+  BOOLEAN widget_supports_hs := objectname != "";
+
+  IF(widget_supports_js AND NOT widget_supports_hs) { //If available, sse JS under WASM or if no HS available
+    objectname := "mod::publisher/lib/widgets.whlib#__JSWidget";
+  }
+
   //Add missing base fields
   instancedata := EnforceStructure(described.structure, instancedata);
 
-  RECORD typeinfo := described.typeinfo;
-  STRING objectname := RecordExists(typeinfo.renderer) ? typeinfo.renderer.objectname : "";
   STRING siteprof_fileref := typeinfo.siteprofile;
 
   IF(ObjectExists(fsobject) AND rtdtype = "")
@@ -126,6 +135,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
           , whfsfileid := RecordExists(instancedata) ? instancedata.whfsfileid : 0
           , context := widgetcontext
           , typeinfo.requiremergefieldscontext
+          , ...CellExists(typeinfo,'widgetbuilder') ? [ widgetbuilder := typeinfo.widgetbuilder ] : CELL[]
           ];
   TRY
   {

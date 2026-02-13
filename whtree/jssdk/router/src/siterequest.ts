@@ -3,7 +3,7 @@
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
-import { openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
+import { describeWHFSType, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
@@ -20,6 +20,7 @@ import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
+import { PageMetaData } from "./metadata";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -48,6 +49,8 @@ export class CPageRequest {
   readonly targetFolder: WHFSFolder;
   //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
   readonly targetSite: Site & { webRoot: string };
+
+  readonly pageMetaData = new PageMetaData();
 
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
   protected _applyTester!: WHFSApplyTester;
@@ -134,6 +137,16 @@ export class CPageRequest {
 
     if (renderinfo.dynamicExecution) {
       return (request: ContentPageRequest) => runHareScriptPage(request, { dynamicExecution: renderinfo.dynamicExecution! });
+    }
+
+    const typeInfo = await describeWHFSType(this._contentApplyTester.type);
+    if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
+      return async (request: ContentPageRequest) => {
+        const data = await whfsType(this._contentApplyTester.type).get(this._contentObject.id);
+        const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data });
+        this.pageMetaData.htmlClasses.push('wh-widgetpreview');
+        return this.render({ body: widget });
+      };
     }
 
     return null;
@@ -239,23 +252,25 @@ export class CPageRequest {
   }
 
 
-  private async buildPage(head: Litty, body: Litty, settings: SiteResponseSettings): Promise<Litty> {
+  private async buildPage(head: Litty | undefined, body: Litty, settings: SiteResponseSettings): Promise<Litty> {
     const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === settings.assetpack);
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${settings.assetpack}' not found`);
 
+    const htmlclasses = [...this.pageMetaData.htmlClasses, ...settings.htmlclasses];
     return litty`<!DOCTYPE html>
 <html lang="${settings.lang}"
       dir="${settings.htmldirection}"
-      ${settings.htmlclasses ? litty`class="${settings.htmlclasses.join(" ")}"` : ''}
+      ${htmlclasses ? litty`class="${htmlclasses.join(" ")}"` : ''}
       ${Object.entries(settings.htmlprefixes).length ? litty`prefix="${Object.entries(settings.htmlprefixes).map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
       data-wh-ob="${getWHFSObjRef(this.targetObject)}">
   <head>
     <meta charset="utf-8">
     <title>${settings.pagetitle}</title>
+    ${this.pageMetaData.viewport ? litty`<meta name="viewport" content="${this.pageMetaData.viewport}">` : ''}
     ${settings.pagedescription ? litty`<meta name="description" content="${settings.pagedescription}">` : ''}
     ${settings.canonicalurl ? litty`<link rel="canonical" href="${settings.canonicalurl}">` : ''}
-    ${head}
+    ${head ?? ''}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
     ${litty`<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script", typed: true })}</script>`}
     ${    /* TODO cachebuster /! support
@@ -297,7 +312,7 @@ export class CPageRequest {
 
   /** Render our head&body into a full HTML page*/
   async render(content: {
-    head: Litty;
+    head?: Litty;
     body: Litty;
   }): Promise<WebResponse> {
     const settings = new SiteResponseSettings;
@@ -362,7 +377,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 }
 
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget">;
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "targetObject" | "setFrontendData" | "targetSite" | "insertAt" | "siteLanguage" | "webRequest" | "getInstance" | "pageMetaData">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;

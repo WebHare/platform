@@ -30,3 +30,11 @@ The actual handling is in `runHareScriptPage` which
 ### HareScript webdesigns
 HareScript webdesigns can invoke pages with JS-based renderers (eg. markdown files). This is handled
 by `captureJSPage`. This route currently only supports static pages.
+
+HareScript-based webdesigns may need to do multiple IPC calls if they contain multiple JS-based widgets.
+Avoid relying too much on JavaScript-based widgets if you're not planning on replacing your
+WebDesign with a JavaScript-based page renderer.
+
+### Widgets
+Widgets can offer both a HareScript and TypeScript implementations. If both are available, rendering from
+HareScript will prefer the HareScript implementation when running natively and JavaScript when running in WASM.

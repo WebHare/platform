@@ -9,7 +9,6 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { throwError } from "@webhare/std";
 import { buildInstance } from "@webhare/services";
 
 function getWHConfig(parseddoc: Document) {
@@ -44,6 +43,21 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   test.eq('http://example.net/linkify', nextlink.textContent);
 }
 
+function parseResponse(responsetext: string) {
+  const doc = parseDocAsXML(responsetext, 'text/html');
+  const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
+  const body = doc.getElementsByTagName("body")[0];
+  const contentdiv = doc.getElementById("content");
+  const contentElements = contentdiv ? elements(contentdiv.childNodes).
+    map(e => new XMLSerializer().serializeToString(e)).
+    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
+  const bodyElements = body ? elements(body.childNodes).
+    map(e => new XMLSerializer().serializeToString(e)).
+    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
+
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses };
+}
+
 async function getAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
   const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
@@ -52,8 +66,8 @@ async function getAsDoc(whfspath: string) {
     throw new Error(`No builder found for this page`);
 
   const response = await builder(sitereq);
-  const responsetext = await response.text();
-  return { response, responsetext, doc: parseDocAsXML(responsetext, 'text/html') };
+
+  return { response, ...parseResponse(await response.text()) };
 }
 
 async function fetchPreviewAsDoc(whfspath: string) {
@@ -64,8 +78,7 @@ async function fetchPreviewAsDoc(whfspath: string) {
   const fetchResult = await fetch(link);
   test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
 
-  const responsetext = await fetchResult.text();
-  return { responsetext, doc: parseDocAsXML(responsetext, 'text/html') };
+  return parseResponse(await fetchResult.text());
 }
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
@@ -119,40 +132,60 @@ async function testPageResponseMarkdown() {
 
 async function testPageResponseJSRTD() {
   {
-    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
-    const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
-    const contentelements = elements(contentdiv.childNodes);
+    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
 
     //small differences with the TS output: imgheight rounded down, more stray spaces there
     const expectContent = [
-      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`,
-      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div></div>`,
-      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`,
-      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div></div>`,
-      /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="106"\/><\/p>$/,
-      /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
+      `<p class="normal">indirect html widget:</p>`,
+      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><b>htmlwidget</b></div></div>`,
+      `<p class="normal">indirect jswidget:</p>`,
+      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><div>js widget</div></div></div>`,
+      `<p class="normal">direct html widget:</p>`,
+      `<b>direct html</b>`,
+      `<p class="normal">direct jswidget:</p>`,
+      `<div>jswidget-direct2</div>`,
+      /^<p class="normal">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="106"\/><\/p>$/,
+      /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
     ];
-    test.eq(expectContent, contentelements.map(e => new XMLSerializer().serializeToString(e)));
+    test.eq(expectContent, contentElements);
 
-    const { doc: fetchedDoc } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
-    const fetchedContentDiv = fetchedDoc.getElementById("content") ?? throwError("No content div found in fetched doc");
-    const fetchedContentElements = elements(fetchedContentDiv.childNodes);
-    test.eq(expectContent, fetchedContentElements.map(e => new XMLSerializer().serializeToString(e)));
+    const { contentElements: fetchedContentElements } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    test.eq(expectContent, fetchedContentElements);
   }
 
   {
-    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
-    const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
-    const contentelements = elements(contentdiv.childNodes);
+    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
     test.eq([
-      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`,
-      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div> </div>`,
-      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`,
-      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div> </div>`,
-      /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="107"\/><\/p>$/,
-      /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
-    ], contentelements.map(e => new XMLSerializer().serializeToString(e)));
+      `<p class="normal">indirect html widget:</p>`,
+      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><b>htmlwidget</b></div> </div>`,
+      `<p class="normal">indirect jswidget:</p>`,
+      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><div>js widget</div></div> </div>`,
+      `<p class="normal">direct html widget:</p>`,
+      `<b>direct html</b>`,
+      `<p class="normal">direct jswidget:</p>`,
+      `<div>jswidget-direct2</div>`,
+      /^<p class="normal">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="107"\/><\/p>$/,
+      /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
+    ], contentElements);
   }
+
+  //Test widget preview in testsite (HS renderer)
+  const htmlWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/htmlwidget");
+  test.eq([`<b>htmlwidget</b>`], htmlWidgetHSSite.bodyElements);
+  test.eq(["wh-widgetpreview","wh-preview"], htmlWidgetHSSite.htmlClasses);
+
+  const jsWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/jswidget");
+  test.eq([`<div>js widget</div>`], jsWidgetHSSite.bodyElements);
+  test.eq(["wh-widgetpreview","wh-preview"], jsWidgetHSSite.htmlClasses);
+
+  //Test widget preview in testsitejs (JS renderer)
+  const htmlWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/htmlwidget");
+  test.eq([`<b>htmlwidget</b>`], htmlWidgetJSSite.bodyElements);
+  test.eq(["wh-widgetpreview"], htmlWidgetJSSite.htmlClasses);
+
+  const jsWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/jswidget");
+  test.eq([`<div>js widget</div>`], jsWidgetJSSite.bodyElements);
+  test.eq(["wh-widgetpreview"], jsWidgetJSSite.htmlClasses);
 }
 
 async function testPublishedJSSite() {

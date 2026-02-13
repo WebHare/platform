@@ -45,7 +45,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentSearchProvider EXTEND SearchProviderBase
       RETURN DEFAULT RECORD ARRAY;
 
     OBJECT applytester := GetApplyTesterForObject(objid);
-    RECORD content := GetRichDocumentIndexableContent(data.data, CELL[applytester]);
+    RECORD content := GetRichDocumentIndexableContent(data.data, CELL[applytester, fsobject := OpenWHFSObject(objid)]);
     IF(NOT RecordExists(content))
       RETURN DEFAULT RECORD ARRAY;
 
