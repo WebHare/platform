@@ -8,7 +8,10 @@ import {
 	languages,
 	window,
 	extensions,
-	TextDocument
+	TextDocument,
+	lm,
+	McpStdioServerDefinition,
+	type Disposable as VSCodeDisposable
 } from "vscode";
 
 import {
@@ -23,9 +26,10 @@ import { getStackTraceHandler, showLastStackTraceHandler, getLastStackTracesHand
 import { activateYAML } from './yaml';
 import { activateXML } from './xml';
 import { runScript } from './tasks';
+import { existsSync } from "fs";
 
-let defaultModulePath: string = null;
-let serverModule: string = null;
+let usingRunKitPath: string | null = null;
+let currentMcpServer: VSCodeDisposable | null = null;
 
 function fixDocFormat(d: TextDocument) {
 	if (d.languageId == "xml") {
@@ -36,14 +40,49 @@ function fixDocFormat(d: TextDocument) {
 	}
 }
 
+function getRunKitPath() {
+	let runkitPath: string | null = workspace.getConfiguration("webhare").get("runkitPath") || null;
+	if (!runkitPath) {
+		const tryLocations = [
+			process.env.WHRUNKIT_HOME,
+			path.join(process.env.HOME, "projects/webhare-runkit/bin/runkit"),
+			path.join(process.env.HOME, "webhare-runkit/bin/runkit")];
+		for (const loc of tryLocations)
+			if (existsSync(loc))
+				runkitPath = loc;
+	}
+	return runkitPath;
+}
+
+function checkRunkitPath() {
+	const newRunkitPath = getRunKitPath();
+	if (newRunkitPath === usingRunKitPath)
+		return;
+
+	usingRunKitPath = newRunkitPath;
+
+	stopClient();
+	if (currentMcpServer) {
+		currentMcpServer[Symbol.dispose]();
+		currentMcpServer = null;
+	}
+
+	if (newRunkitPath) {
+		// Create and start the language client
+		const { serverOptions, clientOptions } = getServerClientOptions();
+		startClient(serverOptions, clientOptions);
+
+		// And the MCP server
+		currentMcpServer = lm.registerMcpServerDefinitionProvider('webhare-devkit-mcp', {
+			provideMcpServerDefinitions() {
+				return [new McpStdioServerDefinition("WebHare Devkit MCP Server", usingRunKitPath!, ["wh", "devkit:mcp-server"])];
+			}
+		});
+	}
+}
+
 export function activate(context: ExtensionContext) {
-
-	// Create and start the language client
-	const { serverOptions, clientOptions } = getServerClientOptions();
-
-	defaultModulePath = context.asAbsolutePath(path.join("node_modules", "@webhare", "language-server"));
-	serverModule = workspace.getConfiguration("webhare").get("languageServerModule");
-	startClient(serverOptions, clientOptions);
+	checkRunkitPath();
 
 	activateXML(context);
 	activateYAML(context);
@@ -60,6 +99,7 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(commands.registerCommand("webhare.getLastStackTraces", getLastStackTracesHandler));
 	context.subscriptions.push(commands.registerCommand("webhare.copyResourcePath", copyResourcePath));
 	context.subscriptions.push(commands.registerCommand("webhare.run", runScript));
+
 	// Listen for configuration changes
 	context.subscriptions.push(workspace.onDidChangeConfiguration(didChangeConfiguration));
 }
@@ -78,13 +118,14 @@ function getServerClientOptions() {
 	// TODO handle and explain startup failures
 	const serverOptions: ServerOptions = {
 		run: {
-			command: "runkit wh devkit:languageserver",
-			options: { shell: true },
+			command: usingRunKitPath!,
+			args: ["wh", "devkit:languageserver"],
 			transport: TransportKind.stdio
 		},
 		debug: {
-			command: "runkit wh devkit:languageserver",
-			options: { shell: true, env: { ...process.env, "WEBHARE_NODE_OPTIONS": "--inspect=6010" } },
+			command: usingRunKitPath!,
+			args: ["wh", "devkit:languageserver"],
+			options: { env: { ...process.env, "WEBHARE_NODE_OPTIONS": "--inspect=6010" } },
 			transport: TransportKind.stdio
 		}
 	};
@@ -110,15 +151,6 @@ function getServerClientOptions() {
 }
 
 function didChangeConfiguration(event: ConfigurationChangeEvent) {
-	if (event.affectsConfiguration("webhare")) {
-		// Check if the language server module path has changed
-		const newServerModule: string = workspace.getConfiguration("webhare").get("languageServerModule");
-		if (newServerModule != serverModule) {
-			// Restart the client with the new server module
-			serverModule = newServerModule;
-			const { serverOptions, clientOptions } = getServerClientOptions();
-			stopClient();
-			startClient(serverOptions, clientOptions);
-		}
-	}
+	if (event.affectsConfiguration("webhare"))
+		checkRunkitPath();
 }

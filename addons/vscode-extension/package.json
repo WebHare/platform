@@ -222,6 +222,11 @@
 						"Log all requests and responses",
 						"Log all debugging information"
 					]
+				},
+				"webhare.runkitpath": {
+					"type": "string",
+					"default": "",
+					"description": "The path to the runkit script"
 				}
 			}
 		},
@@ -233,6 +238,12 @@
 		"chatSkills": [
 			{
 				"path": "./skills/typescript-development/SKILL.md"
+			}
+		],
+		"mcpServerDefinitionProviders": [
+			{
+				"id": "webhare-devkit-mcp",
+				"label": "WebHare Devkit MCP Server"
 			}
 		]
 	},
