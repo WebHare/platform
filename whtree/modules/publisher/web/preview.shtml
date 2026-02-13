@@ -23,6 +23,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
+LOADLIB "mod::system/lib/internal/webserver/whfsexecute.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 OpenPrimary();
@@ -99,6 +100,10 @@ MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN isp
   __pageinfo := __SplitBaseAndSubUrl(GetRequestURL(), baseurl);
 
   RECORD sourceinfo := GetSystemRedirectInfo(targetobject.id); //TODO this one redoes applytester?
+  IF(CellExists(sourceinfo,'js') AND sourceinfo.js) {
+    DoWHFSExecuteJS(targetobject.id, CELL[ contentfile := contentobject.id ]);
+    RETURN; //for clarity, never reached - ExecuteWebResponse in DoWHFSExecuteJS implies SendWebFile and terminates
+  }
   IF(sourceinfo.success)
   {
     RunThePage(targetobject.id, sourceinfo, contentobject.id);

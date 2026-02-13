@@ -20,7 +20,7 @@ LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
-
+LOADLIB "mod::platform/lib/internal/hs-pagehost.whlib";
 
 PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
   RECORD ARRAY formhandlers;
@@ -601,7 +601,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
             IF(NOT ObjectExists(webdesign)) //TODO: avoid opening full webdesign if possible. perhaps if there are no witty fields or no embedded objects ?
             {
               RECORD webdesigninfo := this->formcontext->targetapplytester->GetWebDesignObjinfo();
-              webdesign := InstantiateWebDesign(this->formcontext->targetapplytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+              IF(webdesigninfo.js) {
+                webdesign := BuildPageHostWebdesign(this->formcontext->targetapplytester);
+              } ELSE {
+                webdesign := InstantiateWebDesign(this->formcontext->targetapplytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+              }
               webdesign->__mergefields := this->formcontext->__mergefields;
             }
 

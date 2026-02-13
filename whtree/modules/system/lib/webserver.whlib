@@ -75,9 +75,7 @@ PUBLIC MACRO Redirect(STRING url, INTEGER redirectcode DEFAULTSTO 303) __ATTRIBU
   url := ResolveToAbsoluteURL(GetClientRequestUrl(), url);
   AddHTTPHeader("Status", ToString(redirectcode), FALSE);
   AddHTTPHeader("Location", url, FALSE);
-  ResetWebResponse();
-  PrepareHTTPResponse(); //flush add headers
-  TerminateScript();
+  SendWebFile(DEFAULT BLOB);
 }
 
 /** @short Abort with the specified HTTP error
@@ -96,15 +94,13 @@ PUBLIC MACRO AbortWithHTTPError(INTEGER errorcode, STRING reason DEFAULTSTO "", 
   IF(errorcode = 407 AND NOT RecordExists(SELECT FROM sendhttpheaders WHERE ToUppercase(header)="PROXY-AUTHENTICATE"))
     ABORT("A 407 response requires a PROXY-AUTHENTICATE header");
 
-  ResetWebResponse();
   AddHTTPHeader("Status", reason != "" ? errorcode || " " || reason : ToString(errorcode), FALSE);
   IF(options.htmlbody != "")
   {
     AddHTTPHeader("Content-Type", "text/html; charset=utf-8", FALSE);
     Print(options.htmlbody);
   }
-  PrepareHTTPResponse(); //flush add headers
-  TerminateScript();
+  SendWebFile(DEFAULT BLOB);
 }
 
 /** @short Send a file to the web client
@@ -112,6 +108,11 @@ PUBLIC MACRO AbortWithHTTPError(INTEGER errorcode, STRING reason DEFAULTSTO "", 
     @param data File to send */
 PUBLIC MACRO SendWebFile(BLOB data) __ATTRIBUTES__(TERMINATES)
 {
+  IF(RecordExists(shtmlcontext)) {
+    ResetWebResponse();
+    THROW NEW SendWebFileAbortException(data);
+  }
+
   PrepareHTTPResponse(); //flush add headers
   IF (LENGTH(data) = 0)
     TerminateScript();
@@ -143,7 +144,7 @@ PUBLIC MACRO SendWrappedWebFile(RECORD filerec, RECORD options DEFAULTSTO DEFAUL
     @see GetAllWebHeaders */
 PUBLIC STRING FUNCTION GetWebHeader(STRING name) {
   IF(RecordExists(shtmlcontext))
-    RETURN SELECT AS STRING value FROM shtmlcontext.headers WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+    RETURN SELECT AS STRING value FROM shtmlcontext.headers WHERE ToUppercase(COLUMN field) = ToUppercase(VAR name);
   IF(IsWasm())
     THROW NEW NotAShtmlContextException;
   RETURN __WHS_GetWebHeader(name);
@@ -748,7 +749,15 @@ PUBLIC RECORD FUNCTION FlushWebResponse(DATETIME waituntil)
 /** @short Reset the response
     @long Clear all buffered data (ie everything already PRINT-ed to the webserver output), allowing you to restart rendering the webpage from the beginning. This function is mainly useful for exception handling, to prevent printing a half-rendered page
 */
-PUBLIC MACRO ResetWebResponse() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO ResetWebResponse() {
+  IF(RecordExists(shtmlcontext)) {
+    shtmlcontext.resetresponse();
+    RETURN;
+  }
+  IF(IsWasm())
+    THROW NEW NotAShtmlContextException;
+  __WHS_ResetWebResponse();
+}
 
 /** @short Get and parse the accept-language header
     @return Accepted languages, sorted by preference

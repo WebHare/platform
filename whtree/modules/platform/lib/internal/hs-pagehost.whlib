@@ -1,0 +1,145 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/support.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+INTEGER capturing_stream;
+
+PUBLIC OBJECT FUNCTION BuildPageHostWebdesign(OBJECT applytester) {
+  RECORD webdesigninfo := applytester->GetWebDesignObjinfo();
+
+  //Mock a webdesign, prevent it from calling into JS
+  webdesigninfo.siteresponsefactory := "";
+  webdesigninfo.pagebuilder := "";
+  webdesigninfo.objectname := Resolve("#HSPageHostWebdesign");
+                      //INTEGER errorcode, OBJECT override_contentobject, OBJECT pageobject, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD
+  OBJECT webdesign := InstantiateWebDesign(applytester,webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+  RETURN webdesign;
+}
+
+PUBLIC STATIC OBJECTTYPE HSPageHostWebdesign EXTEND WebDesignBase <
+>;
+
+PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
+  OpenPrimary();
+
+  OBJECT applytester := GetApplyTesterForObject(fileid);
+  OBJECT webdesign := BuildPageHostWebdesign(applytester);
+
+  capturing_stream := CreateStream();
+  RedirectOutputTo(capturing_stream);
+
+  INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(hspageobjecttype,'#')[0]) INTO __pageinfo;
+
+  OBJECT pageobject := MakeObject(hspageobjecttype, webdesign->contentobject);
+  pageobject->PrepareForPageConfig(webdesign);
+  pageobject->PrepareForRendering(webdesign);
+  webdesign->CallWithScope(PTR pageobject->RunBody(webdesign));
+
+  RedirectOutputTo(0);
+  STRING content := BlobToString(MakeBlobFromStream(capturing_stream));
+
+  RETURN CELL[ content, headers := RECORD[] ];
+}
+
+MACRO MockUsingClientInfo(RECORD clientinfo) {
+  MockSHTMLContext( CELL[
+    variables := clientinfo.vars,
+    headers := clientinfo.headers,
+    requesturl := clientinfo.url,
+    requestmethod := clientinfo.method,
+    clientinfo.remoteip,
+    clientinfo.webserver,
+    //these vars have mostly lost their use after the proxies were introduced
+    remoteport := 0,
+    localip := "127.0.0.1",
+    localport := 0,
+    binding := 0,
+    //callbacks
+    resetresponse := PTR ResetResponse
+  ]);
+}
+
+MACRO ResetResponse() {
+  IF(capturing_stream != 0) {
+    MakeBlobFromStream(capturing_stream); //and discard it
+    capturing_stream := CreateStream();
+    RedirectOutputTo(capturing_stream);
+  }
+}
+
+
+PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER fileid) {
+  MockUsingClientInfo(webclientinfo);
+  OpenPrimary();
+
+  OBJECT applytester := GetApplyTesterForObject(fileid);
+  OBJECT webdesign := BuildPageHostWebdesign(applytester);
+
+  RECORD dynamicexecution := CellExists(how, 'dynamicexecution') ? how.dynamicexecution : DEFAULT RECORD;
+  RECORD pagerouter := CellExists(how, 'pagerouter') ? how.pagerouter : DEFAULT RECORD;
+
+  IF(RecordExists(dynamicexecution)) {
+    IF(dynamicexecution.startmacro != "")
+      ABORT('implement startmacro ' || dynamicexecution.startmacro); //is this still used and relevant for new TS designs?
+
+    STRING objurlpath := UnpackURL(applytester->__Deprecated_GetObjInfo().obj.url).urlpath;
+    __pageinfo := CELL[
+      ...__SplitBaseAndSubUrl(GetClientRequestURL(), objurlpath),
+      webdesign
+    ];
+  }
+
+  INTEGER capture := CreateStream();
+  RedirectOutputTo(capture);
+
+  STRING content;
+  TRY {
+    OBJECT pageobject;
+    IF(RecordExists(dynamicexecution))
+      IF(dynamicexecution.routerfunction != "")
+        pageobject := MakeFunctionPtr(dynamicexecution.routerfunction)(webdesign);
+      ELSE {
+        INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(dynamicexecution.webpageobjectname,'#')[0]) INTO __pageinfo;
+        pageobject := MakeObject(dynamicexecution.webpageobjectname);
+      }
+    ELSE
+      pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
+
+
+    MACRO PTR renderfunc;
+    IF(pageobject EXTENDSFROM WebPageBase) {
+      renderfunc := pageobject->GetPageBody();
+    } ELSE {
+      pageobject->PrepareForPageConfig(webdesign);
+      pageobject->PrepareForRendering(webdesign);
+      renderfunc := PTR pageobject->RunBody(webdesign);
+    }
+
+    webdesign->pageconfig := webdesign->__BeforeRenderPage(webdesign->pageconfig);
+    webdesign->CallWithScope(renderfunc);
+
+    RedirectOutputTo(0);
+    content := BlobToString(MakeBlobFromStream(capture));
+
+    RECORD ARRAY headers := sendhttpheaders;
+    sendhttpheaders := RECORD[];
+    RETURN CELL[ content, headers ];
+  } CATCH(OBJECT <SendWebFileAbortException> e) {
+    RedirectOutputTo(0);
+    MakeBlobFromStream(capture); //discard captured output
+
+    RECORD ARRAY headers := sendhttpheaders;
+    sendhttpheaders := RECORD[];
+    RETURN CELL[ headers, sendfile := e->data ];
+  }
+}

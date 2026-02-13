@@ -56,7 +56,9 @@ export async function getDirectOpenAPIFetch(service: string, options?: {
       method: method.toUpperCase() as HTTPMethod,
       url: baseUrl + route,
       body: finalbody,
-      headers: Object.fromEntries(headers.entries())
+      headers: Object.fromEntries(headers.entries()),
+      binding: 0,
+      webserver: 0
     }, route);
 
     const response = createWebResponse(res.body.size ? await res.body.arrayBuffer() : undefined, res);

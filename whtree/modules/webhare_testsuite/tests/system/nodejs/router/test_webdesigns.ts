@@ -3,7 +3,7 @@ import * as whfs from "@webhare/whfs";
 import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { XMLSerializer, type Document } from "@xmldom/xmldom";
-import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
+import { captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
@@ -44,23 +44,29 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   test.eq('http://example.net/linkify', nextlink.textContent);
 }
 
-async function getAsDoc(whfspath: string, renderPage: boolean) {
+async function getAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
   const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
-  let response;
-  if (renderPage) {
-    const builder = await (sitereq as CPageRequest).getPageRenderer();
-    if (!builder)
-      throw new Error(`No builder found for this page`);
+  const builder = await (sitereq as CPageRequest).getPageRenderer();
+  if (!builder)
+    throw new Error(`No builder found for this page`);
 
-    response = await builder(sitereq);
-  } else {
-    response = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
-  }
+  const response = await builder(sitereq);
   const responsetext = await response.text();
   return { response, responsetext, doc: parseDocAsXML(responsetext, 'text/html') };
 }
 
+async function fetchPreviewAsDoc(whfspath: string) {
+  const whfsobj = await whfs.openFile(whfspath);
+  const link = await whfsobj.getPreviewLink();
+
+  console.log(`Fetching preview link for ${whfspath}: ${link}`);
+  const fetchResult = await fetch(link);
+  test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
+
+  const responsetext = await fetchResult.text();
+  return { responsetext, doc: parseDocAsXML(responsetext, 'text/html') };
+}
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
 async function testPageResponse() {
@@ -100,20 +106,42 @@ async function testPageResponse() {
 
 async function testPageResponseApplies() {
   //test various <apply>s and that they affect the webdesign
-  const { doc: langPsAFDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af", false);
+  const { doc: langPsAFDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
   test.eq("ps-AF", langPsAFDoc.documentElement?.getAttribute("lang"));
 }
 
 async function testPageResponseMarkdown() {
   //above tests skip over the actual page to build. let's actually render one now
-  const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/markdownpage", true);
+  const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const contentdiv = doc.getElementById("content");
   test.eq("This is a commonmark marked down file with a JS link.", contentdiv?.getElementsByTagName("p")[0]?.textContent);
 }
 
 async function testPageResponseJSRTD() {
   {
-    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts", true);
+    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
+    const contentelements = elements(contentdiv.childNodes);
+
+    //small differences with the TS output: imgheight rounded down, more stray spaces there
+    const expectContent = [
+      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget:</p>`,
+      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div></div>`,
+      `<p class="normal" xmlns="http://www.w3.org/1999/xhtml">html widget 2:</p>`,
+      `<div class="widgetblockwidget" xmlns="http://www.w3.org/1999/xhtml"><div class="widgetblockwidget__widget"></div></div>`,
+      /^<p class="normal" xmlns=".*">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="106"\/><\/p>$/,
+      /^<p class="normal" xmlns=".*">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
+    ];
+    test.eq(expectContent, contentelements.map(e => new XMLSerializer().serializeToString(e)));
+
+    const { doc: fetchedDoc } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    const fetchedContentDiv = fetchedDoc.getElementById("content") ?? throwError("No content div found in fetched doc");
+    const fetchedContentElements = elements(fetchedContentDiv.childNodes);
+    test.eq(expectContent, fetchedContentElements.map(e => new XMLSerializer().serializeToString(e)));
+  }
+
+  {
+    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
     const contentdiv = doc.getElementById("content") ?? throwError("No content div found");
     const contentelements = elements(contentdiv.childNodes);
     test.eq([
@@ -128,22 +156,17 @@ async function testPageResponseJSRTD() {
 }
 
 async function testPublishedJSSite() {
+  //TODO this is a weird edge case, reconsider this file - the file isn't marked as needstemplate so preview etc break too for unrelated reasons
   const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
-  const jsrenderedfetch = await fetch(jsrendereddoc.link!);
-  test.assert(jsrenderedfetch.ok);
-  const jsresultdoc = parseDocAsXML(await jsrenderedfetch.text(), 'text/html');
-  test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
-  test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
-  test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
-}
-
-async function testCaptureJSDesign() {
-  //Test capturing a JS WebDesign for reuse in a HareScript page
-  const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/widgetholder");
-  const resultpage = await captureJSDesign(targetpage.id);
-  test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
-  test.eq(/.*<html.*<body.*<div id="content"[^>]+> *$/, resultpage.parts[0].replaceAll("\n", " "));
-  test.eq(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
+  {
+    console.log(`Fetching published version: ${jsrendereddoc.link}`);
+    const jsrenderedfetch = await fetch(jsrendereddoc.link!);
+    test.assert(jsrenderedfetch.ok);
+    const jsresultdoc = parseDocAsXML(await jsrenderedfetch.text(), 'text/html');
+    test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
+    test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
+    test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
+  }
 }
 
 async function testCaptureJSRendered() {
@@ -181,6 +204,8 @@ async function testRouter_JSWebDesign() {
   const result = await coreWebHareRouter(port, new IncomingWebRequest(markdowndoc.link!, { clientIp }), localAddress);
 
   await verifyMarkdownResponse(markdowndoc, result);
+
+
 }
 
 test.runTests([
@@ -189,7 +214,6 @@ test.runTests([
   testPageResponseMarkdown,
   testPageResponseJSRTD,
   testPublishedJSSite,
-  testCaptureJSDesign,
   testCaptureJSRendered,
   testRouter_HSWebDesign,
   testRouter_JSWebDesign

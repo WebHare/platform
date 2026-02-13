@@ -57,7 +57,6 @@ export interface CSPMember extends CSPMemberBasics {
 }
 
 export interface CSPDynamicExecution {
-
   cachettl: number;
   routerfunction: string;
   startmacro: string;

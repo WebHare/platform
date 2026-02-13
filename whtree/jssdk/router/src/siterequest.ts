@@ -6,7 +6,7 @@
 import { openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
-import { wrapHSWebdesign } from "./hswebdesigndriver";
+import { runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebHareWHFSRouter, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
@@ -35,17 +35,27 @@ export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceDat
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
 export type ResponseHookFunction<PluginDataType = Record<string, unknown>> = (req: PageBuildRequest, plugindata: PluginDataType) => Promise<void> | void;
 
+type ContentPageRequestOptions = {
+  statusCode?: number;
+  contentObject?: WHFSObject;
+};
+
 export class CPageRequest {
   readonly webRequest: WebRequest | null;
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
+  /** The source of the content. private because we think users shouldn't be looking at it */
+  private readonly _contentObject: WHFSObject;
   readonly targetFolder: WHFSFolder;
   //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
   readonly targetSite: Site & { webRoot: string };
 
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
   protected _applyTester!: WHFSApplyTester;
+  /** If we're publishing a content link, the link's apply tester. Otherwise identical to _applyTester */
+  protected _contentApplyTester!: WHFSApplyTester;
   protected _siteLanguage!: string;
   protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
+  private _statusCode: number;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
@@ -55,14 +65,19 @@ export class CPageRequest {
 
   /** @deprecated use getInstance instead */
   get contentObject() {
-    return this.targetObject;
+    return this._contentObject;
+  }
+  get statusCode() {
+    return this._statusCode;
   }
 
-  constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject) {
+  constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
     this.webRequest = webRequest;
     this.targetSite = targetSite as Site & { webRoot: string };
     this.targetFolder = targetFolder;
     this.targetObject = targetObject;
+    this._contentObject = options?.contentObject || targetObject;
+    this._statusCode = options?.statusCode || 200;
 
     this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
@@ -76,6 +91,7 @@ export class CPageRequest {
 
   async _preparePageRequestBase() {
     this._applyTester = await getApplyTesterForObject(this.targetObject);
+    this._contentApplyTester = this.targetObject.type === "platform:filetypes.contentlink" ? await getApplyTesterForObject(this._contentObject) : this._applyTester; //if we're a contentlink, we want to use the applytester of our target for things like rendering and getting frontend data, but we still want to keep track of the original content object for plugins and such
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
   }
@@ -100,18 +116,27 @@ export class CPageRequest {
 
   //TODO do we like this name? or getInstanceData? or.. we don't have a TS name for it yet?
   async getInstance<const Type extends keyof WHFSTypes | string & {}>(type: string extends Type ? Type : WHFSTypeName): Promise<[Type] extends [WHFSTypeName] ? WHFSTypes[Type]["GetFormat"] : InstanceData> {
-    return whfsType(type).get(this.targetObject.id);
+    return whfsType(type).get(this._contentObject.id);
   }
 
   /** Load the function that can actually generate pages for us */
   async getPageRenderer(): Promise<WebHareWHFSRouter | null> {
     //TODO rename 'renderer:' to 'buildPage:' ?  rename WebHareWHFSRouter although I see what it's doing there?
-    const renderinfo = await this._applyTester.getObjRenderInfo();
-    if (!renderinfo?.renderer)
-      return null;
+    const renderinfo = await this._contentApplyTester.getObjRenderInfo();
+    if (renderinfo?.renderer) { //JS renderer is always preferred
+      const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(renderinfo.renderer);
+      return renderer;
+    }
 
-    const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(renderinfo.renderer);
-    return renderer;
+    if (renderinfo.hsPageObjectType) {
+      return (request: ContentPageRequest) => runHareScriptPage(request, { hsPageObjectType: renderinfo.hsPageObjectType });
+    }
+
+    if (renderinfo.dynamicExecution) {
+      return (request: ContentPageRequest) => runHareScriptPage(request, { dynamicExecution: renderinfo.dynamicExecution! });
+    }
+
+    return null;
   }
 
   /** Render the given HTML using the proper pageBuilder call (aka WebDesign in HareScript)
@@ -284,7 +309,9 @@ export class CPageRequest {
     settings.lang = this._siteLanguage;
 
     const final = await this.buildPage(content.head, content.body, settings);
-    return createWebResponse(await littyToString(final));
+    return createWebResponse(await littyToString(final), {
+      status: this.statusCode
+    });
   }
 
   getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
@@ -320,7 +347,7 @@ export class CPageRequest {
   }
 }
 
-export async function buildContentPageRequest(webRequest: WebRequest | null, targetObject: WHFSObject): Promise<ContentPageRequest> {
+export async function buildContentPageRequest(webRequest: WebRequest | null, targetObject: WHFSObject, options?: ContentPageRequestOptions): Promise<ContentPageRequest> {
   if (!targetObject.parentSite)
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
@@ -329,7 +356,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
   if (!targetFolder)
     throw new Error(`Target folder #${targetObject.parent}) not found`);
 
-  const req = new CPageRequest(webRequest, targetSite, targetFolder, targetObject);
+  const req = new CPageRequest(webRequest, targetSite, targetFolder, targetObject, options);
   await req._preparePageRequestBase();
   return req;
 }

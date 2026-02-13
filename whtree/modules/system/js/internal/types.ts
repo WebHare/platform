@@ -87,6 +87,8 @@ export interface BridgeClientLink {
 ///Internal data structure used to marshall requests from HareScript to JavaScipt. Proper routers would use WebRequest (and not have to deal with HS blobs)
 export interface WebRequestInfo {
   sourceip: string;
+  webserver: number;
+  binding: number;
   method: HTTPMethod;
   url: string;
   headers: Record<string, string>;

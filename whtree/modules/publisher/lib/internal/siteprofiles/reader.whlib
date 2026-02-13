@@ -35,6 +35,11 @@ PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 CONSTANT STRING ARRAY site_referrals_mask := [ "publisher:internal.siteprofiles.recompiled", "system:whfs.sitemeta.*", "system:sites" ];
 OBJECT current_apply_rule_tester_cache;
 
+PUBLIC OBJECTTYPE RequiresJSRouterException EXTEND Exception <
+  MACRO NEW(STRING what) : Exception(what) {
+  }
+>;
+
 PUBLIC STRING ARRAY FUNCTION DefaultListConfigurationNodeAttributes(OBJECT node) {
   STRING ARRAY names;
   FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
@@ -555,9 +560,11 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
       THROW NEW Exception(`The webdesign for this page didn't set assetpack=`);
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
-
-    IF(webdesigninfo.siteresponsefactory != "" OR webdesigninfo.pagebuilder != "")
-      webdesigninfo.objectname := "mod::publisher/lib/internal/webdesign/wrappedjsdesign.whlib#WrappedJSDesign";
+    IF(webdesigninfo.objectname = "" AND webdesigninfo.js)
+      IF(IsWASM())
+        THROW NEW RequiresJSRouterException(`The webdesign for this page is marked as requiring a JavaScript host but isn't loaded by the hs-pagehost`);
+      ELSE
+        THROW NEW RequiresJSRouterException(`The webdesign for this page is marked as requiring a JavaScript host and needs te be routed through JS`);
 
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
     IF(NOT MemberExists(designobj, "__PREPAREPAGE"))
@@ -592,6 +599,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   INTEGER ARRAY folders := [ INTEGER(applytester->__Deprecated_GetObjInfo().obj.parent) ];
   OBJECT executiontester;
   RECORD settings;
+  BOOLEAN js := CellExists(webdesign,'js') AND webdesign.js; //it might not exist if we've *just* upgraded?
 
   INTEGER finaltype := applytester->__Deprecated_GetObjInfo().obj.type;
   IF(finaltype = whconstant_whfstype_contentlink)
@@ -623,10 +631,10 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
       IF(result.badtype)
       {
         STRING ns := SELECT AS STRING " (" || namespace || ")" FROM system.fs_types WHERE id = result.type;
-        RETURN [ success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - its type #" || result.type || ns || " is not a dynamicexecution type" ];
+        RETURN CELL[ js, success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - its type #" || result.type || ns || " is not a dynamicexecution type" ];
       }
       ELSE
-        RETURN [ success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - no apply rule with <dynamicexecution> matched" ];
+        RETURN CELL[ js, success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - no apply rule with <dynamicexecution> matched" ];
     }
 
     settings := result.dyn;
@@ -635,7 +643,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   INSERT CELL folders := folders INTO settings;
   INSERT CELL success := TRUE INTO settings;
   INSERT CELL objurlpath := UnpackURL(applytester->__Deprecated_GetObjInfo().obj.url).urlpath INTO settings;
-  INSERT CELL js := CellExists(webdesign,'js') AND webdesign.js INTO settings; //it might not exist if we've *just* upgraded?
+  INSERT CELL js := js INTO settings;
 
   RETURN settings;
 }

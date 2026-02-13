@@ -1,4 +1,4 @@
-import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow } from "./siteprofiles";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow, CSPDynamicExecution } from "./siteprofiles";
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -621,11 +621,18 @@ export class WHFSApplyTester {
   }
 
   async getObjRenderInfo() {
-    const baseinfo = { renderer: "" };
-    for (const apply of await this.getMatchingRules('bodyrenderer'))
-      if (apply.bodyrenderer?.renderer)
-        baseinfo.renderer = apply.bodyrenderer?.renderer;
+    const baseinfo = { renderer: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
+    const typeInfo = getType(this.objinfo.type);
+    if (typeInfo?.dynamicexecution) {
+      baseinfo.dynamicExecution = typeInfo.dynamicexecution;
+      //TODO how to find the TS Page Renderer? are there overrides?
+      return baseinfo;
+    }
 
+    for (const apply of await this.getMatchingRules('bodyrenderer')) {
+      baseinfo.renderer = apply.bodyrenderer.renderer || "";
+      baseinfo.hsPageObjectType = apply.bodyrenderer.objectname || "";
+    }
     return baseinfo;
   }
 

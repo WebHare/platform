@@ -7,8 +7,9 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
-
+LOADLIB "mod::system/lib/internal/webserver/whfsexecute.whlib";
 LOADLIB "mod::wrd/lib/pages.whlib";
+
 
 
 /* We're a 'global' authpages router
@@ -31,9 +32,4 @@ IF(GetDtapStage() = "development" AND GetWebVariable("pathname") LIKE "testoutpu
   AddHTTPHeader("X-Frame-Options", "", FALSE);
 }
 
-OBJECT webdesign := GetWebDesignForURL(url);
-OBJECT authpage := GetWRDAuthPages(webdesign, [ isglobalpage := TRUE ]);
-IF(NOT ObjectExists(authpage))
-  AbortWithHTTPError(404, "No authpage available for this URL");
-
-webdesign->RunPageWithContents(authpage->GetPageBody());
+RunDynamicPageInWebdesign("mod::wrd/lib/pages.whlib#GetWRDAuthPages", url, [ isglobalpage := TRUE ]);
