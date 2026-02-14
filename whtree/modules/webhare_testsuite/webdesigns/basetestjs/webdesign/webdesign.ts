@@ -50,7 +50,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   const sharedblocks: any[] = []; // TODO sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
 
   return req.render({
-    head: litty`<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
     body: litty`
       <div id="basetitle">${getTid("webhare_testsuite:basetest.title")}</div>
       <div id="whfspath">${req.targetObject.whfsPath}</div>
