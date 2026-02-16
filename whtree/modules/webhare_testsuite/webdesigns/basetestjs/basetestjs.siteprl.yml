@@ -92,7 +92,7 @@ types:
     workflow: true
     apply:
       bodyRenderer: # TODO rename this or a least renderer to be closer to 'ContentPageRequest'
-        renderer: ./webdesign/webdesign.ts#renderRTD
+        contentBuilder: ./webdesign/webdesign.ts#renderRTD
   jswidget1:
     comment: Our first TypeScript widget
     metaType: blockWidget

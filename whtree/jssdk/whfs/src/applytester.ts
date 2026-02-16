@@ -625,7 +625,7 @@ export class WHFSApplyTester {
   }
 
   async getObjRenderInfo() {
-    const baseinfo = { renderer: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
+    const baseinfo = { contentBuilder: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
     const typeInfo = getType(this.objinfo.type);
     if (typeInfo?.dynamicexecution) {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
@@ -634,7 +634,7 @@ export class WHFSApplyTester {
     }
 
     for (const apply of await this.getMatchingRules('bodyrenderer')) {
-      baseinfo.renderer = apply.bodyrenderer.renderer || "";
+      baseinfo.contentBuilder = apply.bodyrenderer.contentbuilder || "";
       baseinfo.hsPageObjectType = apply.bodyrenderer.objectname || "";
     }
     return baseinfo;

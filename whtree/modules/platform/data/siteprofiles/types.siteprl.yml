@@ -151,7 +151,7 @@ types:
         type: composedDocument
     apply:
       bodyRenderer:
-        renderer: mod::publisher/js/internal/markdown.ts#renderMarkdown
+        contentBuilder: mod::publisher/js/internal/markdown.ts#renderMarkdown
       setObjectEditor:
         separateApp: true
         name: publisher:editmarkdown

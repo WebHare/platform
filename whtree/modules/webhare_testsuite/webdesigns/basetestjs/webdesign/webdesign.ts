@@ -1,5 +1,5 @@
 import { getTid, getTidLanguage } from "@webhare/gettid";
-import type { ContentPageRequest, PageBuildRequest, WebHareWHFSRouter, WebResponse } from "@webhare/router";
+import type { ContentPageRequest, PageBuildRequest, ContentBuilderFunction, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
 import type { PageBuilderFunction, PagePartRequest, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
@@ -50,7 +50,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   const sharedblocks: any[] = []; // TODO sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
 
   return req.render({
-    head: litty`<meta name="viewport" content="width=device-width, initial-scale=1.0">`,
     body: litty`
       <div id="basetitle">${getTid("webhare_testsuite:basetest.title")}</div>
       <div id="whfspath">${req.targetObject.whfsPath}</div>
@@ -77,6 +76,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
 }
 
 baseTestJSPageBuilder satisfies PageBuilderFunction;
-renderRTD satisfies WebHareWHFSRouter;
+renderRTD satisfies ContentBuilderFunction;
 //@ts-expect-error FIXME why doesn't this work? need to investigate the typings
 renderJSWidget1 satisfies WidgetBuilderFunction;
