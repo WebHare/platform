@@ -8,6 +8,7 @@ LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
@@ -50,6 +51,7 @@ PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase //publ
 
     RECORD widget :=
         SELECT fs_objects.id
+             , fs_objects.whfspath
              , modificationdate
              , type
              , generatepreview
@@ -58,7 +60,7 @@ PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase //publ
          WHERE fs_objects.id = taskdata.id
            AND fs_types.id = type;
 
-    IF (NOT RecordExists(widget))
+    IF (NOT RecordExists(widget) OR IsRecycleOrHistoryWHFSPath(widget.whfspath))
     {
       this->ResolveByCompletion([ status := "nosuchfile"
                                 ]);
