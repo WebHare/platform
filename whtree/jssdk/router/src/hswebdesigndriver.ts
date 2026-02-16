@@ -1,7 +1,7 @@
 import { littyToString, rawLitty } from "@webhare/litty";
 import { type WebResponse, createWebResponse } from "./response";
 import type { ContentPageRequest, CPageRequest, PageBuildRequest } from "./siterequest";
-import { createVM, type HSVMObject } from "@webhare/harescript";
+import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { generateRandomId } from "@webhare/std";
 import type { CSPDynamicExecution } from "@webhare/whfs/src/siteprofiles";
 import type { WebHareBlob } from "@webhare/services";
@@ -48,7 +48,6 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
   { pageRouter: { funcname: string; funcarg: unknown } }): Promise<WebResponse> {
 
   const start = Date.now();
-  await using hsvm = await createVM();
   let result: RunPageResult;
   if ("dynamicExecution" in how || "pageRouter" in how) {
     if (!contReq.webRequest)
@@ -62,9 +61,9 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
       remoteip: contReq.webRequest.clientIp,
       webserver: contReq.webRequest.clientWebServer,
     };
-    result = await hsvm.loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id);
+    result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id);
   } else {
-    result = await hsvm.loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id);
+    result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id);
   }
 
   const contentTime = Date.now() - start;
@@ -88,24 +87,21 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
 }
 
 export async function wrapHSWebdesign(request: PageBuildRequest): Promise<WebResponse> {
-  const hsvm = await createVM();
-  await hsvm.loadlib("mod::system/lib/database.whlib").openPrimary();
-
-  const siteprofileslib = hsvm.loadlib("mod::publisher/lib/siteprofiles.whlib");
+  const siteprofileslib = loadlib("mod::publisher/lib/siteprofiles.whlib");
   const webDesign = await siteprofileslib.GetWebDesign(request.targetObject.id) as HSVMObject;
 
-  const fileswhlib = hsvm.loadlib("wh::files.whlib");
+  const fileswhlib = loadlib("wh::files.whlib");
   const placeholder = generateRandomId();
 
   //TODO: use less of HS Webdesign and more of 'our' stuff (eg we should be invoking the design's htmlhead and htmlbody ?)
   const printplaceholder = placeholder + "__body__";
   const stream = await fileswhlib.createStream();
-  const oldoutput = await hsvm.loadlib("wh::system.whlib").redirectOutputTo(stream);
+  const oldoutput = await loadlib("wh::system.whlib").redirectOutputTo(stream);
   for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"])
     await webDesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
 
   await webDesign.__RunPageWithPrintPlaceholder(printplaceholder);
-  await hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
+  await loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
   const page = await fileswhlib.makeBlobFromStream(stream);
 
   const pagetext = await littyToString(request.content);
@@ -116,8 +112,6 @@ export async function wrapHSWebdesign(request: PageBuildRequest): Promise<WebRes
       : "";
     pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", () => replacement);
   }
-
-  await hsvm[Symbol.asyncDispose]();
 
   return createWebResponse(pagebody);
 }
