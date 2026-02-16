@@ -437,7 +437,7 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
     RETURN sections;
   }
 
-  PUBLIC MACRO RenderTypeIntoTabs(OBJECT contexts, RECORD type, OBJECT maintabs, INTEGER insertpos, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  PUBLIC RECORD FUNCTION RenderTypeIntoTabs(OBJECT contexts, RECORD type, OBJECT maintabs, INTEGER insertpos, RECORD options DEFAULTSTO DEFAULT RECORD) {
     FOREVERY(RECORD section FROM this->PrepareTypeSections(contexts, type, options)) {
       OBJECT newtab := maintabs->InsertTabAt(insertpos, GetTid(section.title));
       insertpos := insertpos + 1;
@@ -447,6 +447,8 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
         newtab->InsertComponentAfter(line.line, DEFAULT OBJECT, TRUE);
       }
     }
+
+    RETURN CELL [ insertpos ];
   }
 
   PUBLIC MACRO SetControllersEnabled(BOOLEAN enabled) {
