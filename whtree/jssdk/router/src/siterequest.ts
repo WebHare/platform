@@ -163,6 +163,14 @@ export class CPageRequest {
     if (this._publicationSettings.objectName)
       return wrapHSWebdesign(this);
 
+    // Now that we're pretty sure we'll be generating HTML, initialize plugins
+    for (const plugin of this._publicationSettings.plugins) {
+      if (plugin.composer_hook) {
+        const plugindata = buildPluginData(plugin.datas);
+        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))(this, plugindata);
+      }
+    }
+
     if (!this._publicationSettings.pageBuilder) {
       if (this._publicationSettings.siteResponseFactory) {
         //legacy support for old-style SiteResponse factories, will be removed after WH6
@@ -179,14 +187,6 @@ export class CPageRequest {
         return await response.finish();
       }
       throw new Error(`buildWebPage is not available for webdesigns that have not switched to it yet`);
-    }
-
-    // Now that we're pretty sure we'll be generating HTML, initialize plugins
-    for (const plugin of this._publicationSettings.plugins) {
-      if (plugin.composer_hook) {
-        const plugindata = buildPluginData(plugin.datas);
-        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))(this, plugindata);
-      }
     }
 
     //TODO this is a bit of a hack to get the data for the new renderer
