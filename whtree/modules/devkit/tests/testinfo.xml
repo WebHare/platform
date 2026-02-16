@@ -9,6 +9,7 @@
   <test script="test_sourcecodedoc.whscr" />
   <test script="test_processing.whscr" />
   <test script="test_toyaml.ts" />
+  <test script="test_createstuff.ts" />
   <test name="lsp" path="lsp/" />
   <test name="langedit" path="langedit/" />
 </group>

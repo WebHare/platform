@@ -79,7 +79,7 @@ export async function createModule(subpath: string, modulename: string, options:
       await simpleGit({ baseDir: destpath }).checkout(['-b', 'main']);
   }
 
-  await instantiateTemplateFolder(backendConfig.module["devkit"].root + "data/moduletemplate/", destpath + "/", retval);
+  await instantiateTemplateFolder(backendConfig.module["devkit"].root + "data/templates/module/", destpath + "/", retval);
 
   //FIXME don't rely/require dev: for hooks, but also modernize to support WH hooks then
   if (backendConfig.module["dev"])

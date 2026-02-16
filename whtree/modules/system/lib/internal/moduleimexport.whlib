@@ -187,8 +187,7 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
   }
 
   ReloadWebhareConfig(TRUE, TRUE, [ isdelete := TRUE ]);
-  ApplyWebHareConfiguration([ subsystems := ["config"], source := "deletemodule " || module ]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
-  RecompileSiteProfiles();
+  ApplyWebHareConfiguration([ subsystems := ["config","siteprofiles"], source := "deletemodule " || module ]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
 
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
 
