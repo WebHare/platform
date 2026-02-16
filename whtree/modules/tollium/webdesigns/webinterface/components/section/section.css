@@ -1,5 +1,42 @@
 t-section {
-  & > details > summary {
-    height: 23px; /* FIXME avoid hardcoding, but we won't be 23px once the design is implemented anyway */
+  & > details {
+    margin: 0;
+    padding: 4px 0 0;
+    border: none;
   }
+
+  & > details > summary {
+    color: var(--tollium-color-accent);
+    font: var(--tollium-section-summary-font);
+    background-color: var(--tollium-background-details-summary);
+    padding: 9px;
+    display: flex;
+    align-items: baseline;
+    cursor: pointer;
+
+    &::marker {
+      display: none;
+    }
+
+    &::before {
+      content: "";
+      position: relative;
+      top: -3px;
+      display: inline-block;
+      flex: none;
+      margin: 0 10px 0 5px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--tollium-color-accent);
+      border-top: 2px solid var(--tollium-color-accent);
+      transform: rotate(135deg);
+      transform-origin: center;
+    }
+  }
+
+  & > details:open > summary::before {
+    transform: rotate(-45deg);
+    top: 0px;
+  }
+
 }
