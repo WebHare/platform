@@ -69,7 +69,7 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
       @param message - Message to send
       @param replyto - When this message is a reply to another message, set to the msgid of the original message.
   */
-  sendException(e: Error, replyto: bigint): void;
+  sendException(e: Error | unknown, replyto: bigint): void;
 
   /** Sends a message to the other endpoint, waits for the reply
       @param message - Message to send
@@ -325,7 +325,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     return msgid;
   }
 
-  sendException(e: Error, replyto: bigint): void {
+  sendException(e: Error | unknown, replyto: bigint): void {
     this.sendInternal(encodeIPCException(e), replyto);
   }
 
@@ -536,12 +536,14 @@ export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = I
   return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
 }
 
-export function encodeIPCException(error: Error): IPCExceptionMessage {
+export function encodeIPCException(error: Error | unknown): IPCExceptionMessage {
+  //convert it to a real error object with a trace (eg deal with 'throw 1')
+  const toThrow = error instanceof Error ? error : new Error(String(error));
   return {
     __exception: {
       type: "exception",
-      what: error?.message || String(error), //this also deals with non Error objects (eg 'throw 1') or even `throw undefined`
-      trace: parseTrace(error)
+      what: toThrow.message,
+      trace: parseTrace(toThrow)
     }
   };
 }
