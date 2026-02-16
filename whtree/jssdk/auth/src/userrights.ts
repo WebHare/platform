@@ -336,6 +336,7 @@ class WRDEntityAuthorization implements AuthorizationInterface {
   }
 }
 
+/** Create the authorization interface for a given user entity to check/modify rights and roles*/
 export function getAuthorizationInterface(id: number): AuthorizationInterface {
   return new WRDEntityAuthorization(id);
 }

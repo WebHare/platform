@@ -813,7 +813,6 @@
       <xs:element name="denyfiletype" type="DenyType" />
       <xs:element name="allowwidgettype" type="sc:AllowWidgetType" />
       <xs:element name="setobjecteditor" type="SetObjectEditor" />
-      <xs:element name="setembeddedobjectrenderer" type="SetEmbeddedObjectRenderer" />
       <xs:element name="setwidget" type="SetWidget" />
       <xs:element name="embeddededitor" type="EmbeddedEditor" />
       <xs:element name="sitelanguage" type="SiteLanguage" />
@@ -1164,12 +1163,6 @@
 
     <!-- deprecated and ignored since WH5.6 -->
     <xs:attribute name="supportsversioning" />
-  </xs:complexType>
-
-  <xs:complexType name="SetEmbeddedObjectRenderer">
-    <xs:attribute name="contenttype" type="xs:string" use="required" />
-    <xs:attribute name="library" type="xs:string" use="required" />
-    <xs:attribute name="objectname" type="xs:string" use="required" />
   </xs:complexType>
 
   <xs:complexType name="SetWidget">

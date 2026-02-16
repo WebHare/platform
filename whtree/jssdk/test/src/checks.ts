@@ -1,6 +1,6 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
-import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
+import { Money, isError, isPromise, sleep, stdTypeOf, type MaybePromise } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 import { flagWait } from "./monitor";
 
@@ -39,8 +39,8 @@ export type RecursiveTestable<T> =
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
-//We want to make clear ('assert') that wait will not return falsy values
-export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
+//We want to make clear ('assert') that wait will not return falsy values (unless waiting for a promise)
+export type PositiveWaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 export type WaitOptions<T> = Annotation | {
   timeout?: number;
   /**  An optional test that should return true for the wait to end. By default wait() waits for a truthy value */
@@ -633,56 +633,48 @@ export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise
   return new JSONSchemaValidator(await getCompiledJSONSchema(tocompile));
 }
 
-/** Wait for a condition to become truthy
- * @param waitfor - A function/promiose that should resolve to true for the wait to finish
- * @param options - Test compare options or annotation
- * @returns The value that the waitfor function last resolved to
- */
-export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T> {
+export async function wait<T>(waitfor: (() => T | Promise<T>), options: WaitOptions<T> & { test: unknown }): Promise<T>;
+export async function wait<T>(waitfor: (() => T | Promise<T>), options?: WaitOptions<T>): PositiveWaitRetVal<T>;
+export async function wait<T>(waitfor: Promise<T>, options?: WaitOptions<T>): Promise<T>;
+
+/** Wait for a promise or function to resolve. For a function we'll wait for a truthy value (unless the truthy check is overriden by options,test)
+* @param waitfor - A function/promise that should resolve for the wait to finish
+* @param options - Test compare options or annotation
+* @returns The value that the waitfor function/promise resolved to
+*/
+export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, options?: WaitOptions<T>): PositiveWaitRetVal<T> {
   using waitState = flagWait("wait");
 
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
+  if (options?.test && typeof waitfor !== "function")
+    throw new Error("The test option can only be used together with function waits");
 
   const { timeout = 60000 } = options ?? {};
 
-  // TypeScript can't see that the timeout can modify gottimeout, so use a function to read it
-  let gottimeout = false;
-  function gotTimeout() { return gottimeout; }
+  let cb;
+  const timeoutPromise = new Promise<T>((_, reject) => { //note that it will never actually resolve to a <T> but it makes TS happy
+    cb = setTimeout(() => reject(new TestError(`test.wait timed out after ${timeout} ms`, options)), timeout);
+  });
 
-  if (typeof waitfor === "function") {
-    const timeout_cb = setTimeout(() => gottimeout = true, timeout);
-    try {
-      while (!gotTimeout()) {
-        const result = await waitState.race([waitfor()]);
-        const done = options?.test ? options?.test(result) : result;
-        if (done) {
-          return result as unknown as WaitRetVal<T>;
+  const isFunction = typeof waitfor === "function";
+  try {
+    for (; ;) {
+      const waitResult: MaybePromise<T> = isFunction ? waitfor() : waitfor;
+      const resolvedResult: T = await waitState.race([timeoutPromise, waitResult]);
+      if (isFunction) { //we're not waiting for the function to complete, but for it to give a thruth value (unless options.test decided otherwise)
+        const done = options?.test ? options?.test(resolvedResult) : Boolean(resolvedResult);
+        if (!done) {
+          await waitState.race([timeoutPromise, sleep(50)]); //prevent cpu spinning but still listen for timeout/abort while we pause
+          continue;
         }
-
-        await new Promise(resolve => setTimeout(resolve, 1));
       }
-    } finally {
-      clearTimeout(timeout_cb);
-    }
-    throw new TestError(`test.wait timed out after ${timeout} ms`, options);
-  } else {
-    let cb;
-    if (options?.test)
-      throw new Error("The test option can only be used together with function waits");
 
-    const timeoutpromise = new Promise((_, reject) => {
-      cb = setTimeout(() => {
-        cb = null;
-        reject(new TestError(`test.wait timed out after ${timeout} ms`, options));
-      }, timeout);
-    });
-    try {
-      return await waitState.race([waitfor, timeoutpromise]) as WaitRetVal<T>;
-    } finally {
-      if (cb)
-        clearTimeout(cb);
+      //for promises we just return any result, wait() was just wrapping a promise into a timeout
+      return resolvedResult as unknown as PositiveWaitRetVal<T>;
     }
+  } finally {
+    clearTimeout(cb);
   }
 }
 
@@ -698,7 +690,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
 export async function waitToggled<T>({ test, run }: {
   test: () => T | Promise<T>;
   run: () => unknown | Promise<unknown>;
-}, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
+}, options?: Annotation | { timeout?: number; annotation?: Annotation }): PositiveWaitRetVal<T> {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 

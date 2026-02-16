@@ -147,7 +147,6 @@ async function ensureWaitAbortable(expectState: string, cb: () => Promise<unknow
 
   //Ensure the wait() itself rejected
   test.assert(await startWait.then(() => false, () => true));
-
   await std.sleep(5); //give all nested promises a chance to complete and clear their wait state
   test.eq("", testMonitor.waitState());
 }
@@ -165,6 +164,45 @@ async function testTestMonitoring() {
 
   //verify nesting
   await ensureWaitAbortable("wait > wait", () => test.wait(() => test.wait(() => false)));
+}
+
+async function testWaits() {
+  {
+    const start = Date.now();
+    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => false, { timeout: 10 }));
+    const waited = Date.now() - start;
+    //it did fail once with 9ms, perhaps some rounding? take 9 to be safe...
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+  }
+
+  {
+    const start = Date.now();
+    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(new Promise(() => null), { timeout: 10 }));
+    const waited = Date.now() - start;
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+  }
+
+  {
+    const start = Date.now();
+    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => Promise.resolve(false), { timeout: 10 }));
+    const waited = Date.now() - start;
+    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
+  }
+
+  test.eq({ a: 1 }, await test.wait(new Promise(resolve => resolve({ a: 1 }))));
+  test.eq(true, await test.wait(() => Promise.resolve(true)));
+  test.eq(true, await test.wait(() => Promise.resolve(true)));
+  //@ts-expect-error TS disapproves, it knows a function can't resolve to false (but a promise can!)
+  await test.throws(/test.wait timed out/, async () => test.eq(false, await test.wait(() => Promise.resolve(false), { timeout: 10 })));
+  test.eq(false, await test.wait(() => Promise.resolve(false), { timeout: 10, test: x => !x }));
+  test.eq(false, await test.wait(Promise.resolve(false)));
+  await test.throws(/The test option can only be used together with function waits/, () => test.wait(Promise.resolve(true), { test: Boolean }));
+
+  //verify filter is implemented - wait() will not return until n === 6, even though 2 would already be truthy
+  let num = 1;
+  test.eq(6, await test.wait(() => ++num, { test: n => n >= 6 }));
+  //@ts-expect-error -- verifying that we explicitly recognize undefined as false (and noone did a fallback to truthiness of the value).
+  test.eq(9, await test.wait(() => ++num, { test: n => n >= 9 || undefined }));
 }
 
 async function testLoadTypes() {
@@ -201,39 +239,6 @@ async function testLoadTypes() {
     v_jsf.validateStructure({ a: 0, b: "a", d: "2000-01-01T12:34:56Z" });
   }
 
-
-  {
-    const start = Date.now();
-    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => false, { timeout: 10 }));
-    const waited = Date.now() - start;
-    //it did fail once with 9ms, perhaps some rounding? take 9 to be safe...
-    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
-  }
-
-  {
-    const start = Date.now();
-    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(new Promise(() => null), { timeout: 10 }));
-    const waited = Date.now() - start;
-    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
-  }
-
-  {
-    const start = Date.now();
-    await test.throws(/test.wait timed out after 10 ms/, () => test.wait(() => Promise.resolve(false), { timeout: 10 }));
-    const waited = Date.now() - start;
-    test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
-  }
-
-  await test.wait(new Promise(resolve => resolve({ a: 1 })));
-  await test.wait(new Promise(resolve => resolve(false)));
-  await test.wait(() => Promise.resolve(true));
-  await test.throws(/The test option can only be used together with function waits/, () => test.wait(Promise.resolve(true), { test: Boolean }));
-
-  //verify filter is implemented - wait() will not return until n === 6, even though 2 would already be truthy
-  let num = 1;
-  test.eq(6, await test.wait(() => ++num, { test: n => n >= 6 }));
-  //@ts-expect-error -- verifying that we explicitly recognize undefined as false (and noone did a fallback to truthiness of the value).
-  test.eq(9, await test.wait(() => ++num, { test: n => n >= 9 || undefined }));
 
   {
     test.typeAssert<test.Assignable<number, 2>>();
@@ -292,6 +297,7 @@ async function checkTestFailures() {
 test.runTests([
   testChecks,
   testTestMonitoring,
+  testWaits,
   testLoadTypes,
   checkTestFailures
 ]);
