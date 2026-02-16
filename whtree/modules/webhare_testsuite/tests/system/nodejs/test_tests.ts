@@ -189,8 +189,13 @@ async function testWaits() {
     test.assert(waited >= 9, `test.wait didn't wait at least 10ms, but ${waited}ms`);
   }
 
-  await test.wait(new Promise(resolve => resolve({ a: 1 })));
-  await test.wait(() => Promise.resolve(true));
+  test.eq({ a: 1 }, await test.wait(new Promise(resolve => resolve({ a: 1 }))));
+  test.eq(true, await test.wait(() => Promise.resolve(true)));
+  test.eq(true, await test.wait(() => Promise.resolve(true)));
+  //@ts-expect-error TS disapproves, it knows a function can't resolve to false (but a promise can!)
+  await test.throws(/test.wait timed out/, async () => test.eq(false, await test.wait(() => Promise.resolve(false), { timeout: 10 })));
+  test.eq(false, await test.wait(() => Promise.resolve(false), { timeout: 10, test: x => !x }));
+  test.eq(false, await test.wait(Promise.resolve(false)));
   await test.throws(/The test option can only be used together with function waits/, () => test.wait(Promise.resolve(true), { test: Boolean }));
 
   //verify filter is implemented - wait() will not return until n === 6, even though 2 would already be truthy
