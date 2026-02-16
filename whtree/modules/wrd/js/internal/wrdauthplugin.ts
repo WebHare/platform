@@ -1,9 +1,8 @@
-import type { ResponseBuilder } from "@webhare/router";
-import type { ResponseHookFunction } from "@webhare/router/src/siterequest";
+import type { PagePluginRequest, PagePluginFunction } from "@webhare/router";
 import { getWRDPlugindata } from "@webhare/whfs/src/applytester";
 
 class WRDAuthPluginAPI {
-  constructor(private response: ResponseBuilder) {
+  constructor(private response: PagePluginRequest) {
 
   }
 
@@ -17,12 +16,12 @@ class WRDAuthPluginAPI {
     return {
       // RETURN [ isloggedin := this->HasFailed() ? FALSE : this->IsLoggedin()
       //   , logoutlink := this->GetLogoutLink()
-      logoutlink: this.getLogoutLink()
+      logoutLink: this.getLogoutLink()
     };
   }
 }
 
-export function hookComposer(response: ResponseBuilder, hookdata: Record<string, unknown>) {
+export function hookComposer(response: PagePluginRequest, hookdata: Record<string, unknown>) {
   const plugindata = getWRDPlugindata(hookdata);
   response.setFrontendData("wrd:auth", { cookiename: plugindata.cookieName });
   response.addPlugin("platform:wrdauth", new WRDAuthPluginAPI(response));
@@ -31,4 +30,4 @@ export function hookComposer(response: ResponseBuilder, hookdata: Record<string,
 export type { WRDAuthPluginAPI };
 
 //validate signatures
-hookComposer satisfies ResponseHookFunction;
+hookComposer satisfies PagePluginFunction;

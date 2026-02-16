@@ -36,7 +36,7 @@ export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResp
 export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
-export type ResponseHookFunction<PluginDataType = Record<string, unknown>> = (req: PageBuildRequest, plugindata: PluginDataType) => Promise<void> | void;
+export type PagePluginFunction<PluginDataType = Record<string, unknown>> = (req: PagePluginRequest, plugindata: PluginDataType) => Promise<void> | void;
 
 type ContentPageRequestOptions = {
   statusCode?: number;
@@ -185,7 +185,7 @@ export class CPageRequest {
     for (const plugin of this._publicationSettings.plugins) {
       if (plugin.composer_hook) {
         const plugindata = buildPluginData(plugin.datas);
-        await (await importJSFunction<ResponseHookFunction>(plugin.composer_hook))(this, plugindata);
+        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))(this, plugindata);
       }
     }
 
@@ -383,6 +383,8 @@ type PageRequestBase = PagePartRequest & Pick<CPageRequest, "targetFolder" | "ta
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;
+
+export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "getPlugin" | "addPlugin">;
 
 /** @deprecated SiteRequest will be removed after WH6 */
 export type SiteRequest = Pick<CPageRequest, "createComposer" | "contentObject" | "targetSite" | "targetObject" | "targetFolder" | "webRequest">;

@@ -66,7 +66,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
    ${bobimagelink ? litty`<div id="bobimagelink">${bobimagelink.link}</div>` : ''}
    ${wrdauthplugin ? litty`
       <div id="wrdauthplugin">
-        <a id="logoutlink" href="${wrdauthplugin.logoutlink}">Logoutlink</a>
+        <a id="logoutlink" href="${wrdauthplugin.logoutLink}">Logoutlink</a>
         <a href="${req.targetSite.webRoot}testpages/wrdauthtest/" class="wh-wrdauth__logout">Logout to wrdauthtest</a>
       </div>` : ''}
   ${comments ? litty`<div id="comments">${comments}</div>` : ''}

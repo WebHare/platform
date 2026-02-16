@@ -1,4 +1,5 @@
-import type { ResponseBuilder, ResponseHookFunction } from "@webhare/router/src/siterequest";
+
+import type { PagePluginFunction, PagePluginRequest } from "@webhare/router";
 
 declare module "@webhare/frontend" {
   interface FrontendDataTypes {
@@ -24,7 +25,7 @@ interface GTMPluginData {
   pixel?: string;
 }
 
-export function hookComposer(response: ResponseBuilder, hookdata: GTMPluginData) {
+export function hookComposer(response: PagePluginRequest, hookdata: GTMPluginData) {
   if (!hookdata.account)
     return;
   if (!hookdata.account.match(/^GTM-[A-Z0-9]{5}[A-Z0-9]*/))
@@ -50,4 +51,4 @@ export function hookComposer(response: ResponseBuilder, hookdata: GTMPluginData)
 }
 
 //validate signatures
-hookComposer satisfies ResponseHookFunction<GTMPluginData>;
+hookComposer satisfies PagePluginFunction<GTMPluginData>;
