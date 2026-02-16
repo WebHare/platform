@@ -6,8 +6,8 @@
 import { describeWHFSType, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
-import { runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
-import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
+import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
+import { importJSFunction, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
@@ -21,6 +21,8 @@ import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetaData } from "./metadata";
+import { dbLoc } from "@webhare/services/src/symbols";
+import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -347,11 +349,16 @@ export class CPageRequest {
   }
 
   //FIXME need a better match for the widget type
-  async renderWidget(widget: Pick<Instance, "whfsType" | "data">): Promise<Litty> {
+  async renderWidget(widget: { whfsType: string; data: InstanceData;[dbLoc]?: WebHareDBLocation | null }): Promise<Litty> {
     const renderer = await this._applyTester.getWidgetSettings(widget.whfsType);
     if (!renderer.renderJS) {
-      if (renderer.renderHS)
-        throw new Error(`Widget ${widget.whfsType} has a HS renderer but no JS renderer, and cannot be rendered in this context`);
+      if (renderer.renderHS) {
+        if (!(widget[dbLoc]?.source === 2 || widget[dbLoc]?.source === 1))
+          throw new Error(`Widget ${widget.whfsType} has a HS renderer but no JS renderer and is not sourced from a database, so we can't render it`);
+
+        const result = await renderHSWidget(this, widget.whfsType, widget[dbLoc]);
+        return result.content;
+      }
       throw new Error(`Widget ${widget.whfsType} does not have a renderer and cannot be rendered`);
     }
 

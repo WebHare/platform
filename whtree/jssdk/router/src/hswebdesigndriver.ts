@@ -1,4 +1,4 @@
-import { littyToString, rawLitty } from "@webhare/litty";
+import { littyToString, rawLitty, type Litty } from "@webhare/litty";
 import { type WebResponse, createWebResponse } from "./response";
 import type { ContentPageRequest, CPageRequest, PageBuildRequest } from "./siterequest";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -6,6 +6,7 @@ import { generateRandomId } from "@webhare/std";
 import type { CSPDynamicExecution } from "@webhare/whfs/src/siteprofiles";
 import type { WebHareBlob } from "@webhare/services";
 import type { WebRequest } from "./request";
+import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
@@ -114,4 +115,9 @@ export async function wrapHSWebdesign(request: PageBuildRequest): Promise<WebRes
   }
 
   return createWebResponse(pagebody);
+}
+
+export async function renderHSWidget(request: CPageRequest, widgetType: string, dbLoc: WebHareDBLocation): Promise<{ content: Litty }> {
+  const result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RenderHSWidget(request.targetObject.id, widgetType, dbLoc) as { content: string };
+  return { content: rawLitty(result.content) };
 }
