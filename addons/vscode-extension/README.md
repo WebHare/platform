@@ -36,3 +36,6 @@ See https://www.webhare.dev/manuals/developers/vscode/
   debugging in the ESLint extension (open preferences, type 'eslint debug'). Then select 'ESLint' in the output window,
   it will show which eslint library is in use.
 * If TypeScript files aren't validating properly (eg. not recognizing `@webhare` imports) run `wh checkmodule` on your module
+
+## Extension development
+If you want to modify this extension see [vscode-extension.md](../../doc/vscode-extension.md) for development instructions.

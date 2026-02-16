@@ -3,6 +3,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "simple-git": "^3.27.0",
     "typedoc": "^0.28.8",
     "typescript": "^5.8.3",
