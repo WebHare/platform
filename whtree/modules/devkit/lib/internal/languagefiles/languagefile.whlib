@@ -1,0 +1,321 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "relative::textgroup.whlib";
+
+CONSTANT STRING set_lang_special := "%[]<>&\n";
+
+//FIXME Avoid per-character parsing loop
+OBJECTTYPE ParseLanguageText EXTEND StringParser
+<
+  PUBLIC STRING output;
+
+  PUBLIC MACRO NEW(STRING data) : StringParser(data)
+  {
+  }
+
+  // Skip all whitespace (' ' and '\t')
+  BOOLEAN FUNCTION SkipWhitespace()
+  {
+    BOOLEAN any_whitespace := FALSE;
+    IF (NOT this->eof)
+      WHILE (this->current IN [ " ", "\t" ])
+        IF (NOT this->Next())
+          BREAK;
+        ELSE
+          any_whitespace := TRUE;
+    RETURN any_whitespace;
+  }
+
+  PUBLIC BOOLEAN FUNCTION Parse(BOOLEAN inside_if)
+  {
+    WHILE (NOT this->eof)
+    {
+      this->output := this->output || this->ParseWhileNotInSet(set_lang_special);
+
+      // First check for any escaped characters
+      IF (this->TryParse("%%"))
+      {
+        this->output := this->output || "%";
+      }
+      ELSE IF (this->TryParse("[["))
+      {
+        this->output := this->output || "[";
+      }
+      ELSE IF (this->TryParse("]]"))
+      {
+        this->output := this->output || "]";
+      }
+      ELSE IF (this->TryParse("\n"))
+      {
+        this->output := this->output || "<br/>";
+      }
+      ELSE IF (this->TryParse("&lt;"))
+      {
+        this->output := this->output || "&lt;";
+      }
+      ELSE IF (this->TryParse("&gt;"))
+      {
+        this->output := this->output || "&gt;";
+      }
+      ELSE IF (this->TryParse("&amp;"))
+      {
+        this->output := this->output || "&amp;";
+      }
+      // Handle IF
+      ELSE IF (this->TryParse("[IF"))
+      {
+        this->SkipWhitespace();
+
+        IF (NOT this->TryParse("%"))
+          RETURN FALSE;
+
+        STRING p := this->current;
+        this->Next();
+
+        this->SkipWhitespace();
+
+        IF (NOT this->TryParse("="))
+          RETURN FALSE;
+
+        this->SkipWhitespace();
+
+        IF (NOT this->TryParse('"'))
+          RETURN FALSE;
+
+        STRING value := this->ParseUntilCharacter('"');
+        this->Next();
+
+        this->output := this->output || '<ifparam p="' || EncodeValue(p) || '" value="' || EncodeValue(value) || '">';
+
+        this->SkipWhitespace();
+
+        IF (NOT this->TryParse("]"))
+          RETURN FALSE;
+
+        IF (NOT this->Parse(TRUE))
+          RETURN FALSE;
+
+        this->output := this->output || '</ifparam>';
+      }
+      ELSE IF (this->TryParse("[ELSE]"))
+      {
+        IF (inside_if)
+        {
+          this->output := this->output || '<else/>';
+        }
+        ELSE
+          RETURN FALSE;
+      }
+      ELSE IF (this->TryParse("[/IF]"))
+      {
+        IF (inside_if)
+        {
+          RETURN TRUE;
+        }
+        ELSE
+          RETURN FALSE;
+      }
+      // Handle params
+      ELSE IF (this->TryParse("%"))
+      {
+        // Parse parameter
+        IF(this->current >= "1" AND this->current <= "9") //it's a substitution
+        {
+          this->output := this->output || '<param p="' || this->current || '"/>';
+          this->Next();
+        }
+        ELSE
+        {
+          //copy as is, may be a confused user
+          this->output := this->output || '%';
+          CONTINUE;
+        }
+
+      }
+      ELSE IF(this->TryParse('<a href="')) //FIXME we're really reaching the limit of string parsing now...
+      {
+        STRING link := this->ParseWhileNotInSet('"');
+        IF(link IN ["%1","%2","%3","%4"])
+          this->output := this->output || '<html:a data-href-param="' || Substring(link,1) || '">';
+        ELSE
+          this->output := this->output || '<html:a href="' || EncodeValue(link) || '">';
+        this->Next();
+        this->Next();
+        CONTINUE;
+      }
+      // Nothing special, just add the text
+      ELSE
+      {
+        BOOLEAN gotone;
+        FOREVERY(STRING passthrough FROM ["<b>","</b>","<i>","</i>","<u>","</u>","</a>"])
+          IF(this->TryParse(passthrough))
+          {
+            passthrough := Substitute(passthrough, "</", "</html:");
+            passthrough := Substitute(passthrough, "<", "<html:");
+            passthrough := Substitute(passthrough, "<html:/", "</"); //fix what replacing < with <html broke...
+            this->output := this->output || passthrough;
+            gotone := TRUE;
+            BREAK;
+          }
+        IF(gotone)
+          CONTINUE;
+
+        IF (SearchSubstring(set_lang_special, this->current) != -1) // special character?
+        {
+          this->output := this->output || EncodeTextNode(this->current);
+          this->Next();
+        }
+        ELSE
+          this->output := this->output || EncodeTextNode(this->ParseWhileNotInSet(set_lang_special));
+      }
+    }
+
+    // If we're still inside the IF by now something's wrong
+    IF (inside_if)
+      RETURN FALSE;
+
+    RETURN TRUE;
+  }
+>;
+
+BOOLEAN FUNCTION NeedsEncoding(STRING text) //ADDME remove this step if stringparser is fast enough again
+{
+  RETURN SearchSubstring(text,'[') != -1
+         OR SearchSubstring(text,']') != -1
+         OR SearchSubstring(text,'%') != -1
+         OR SearchSubstring(text,'<') != -1
+         OR SearchSubstring(text,'&') != -1
+         OR SearchSubstring(text,'>') != -1
+         OR SearchSubstring(text,'\n') != -1;
+}
+
+PUBLIC STRING FUNCTION EncodeLanguageText(STRING text)
+{
+  IF(NOT NeedsEncoding(text))
+    RETURN text;
+
+  OBJECT parser := NEW ParseLanguageText(text);
+  IF(NOT parser->Parse(FALSE))
+    RETURN "";
+  RETURN parser->output;
+}
+
+MACRO GenerateNodes(INTEGER str, OBJECT curgroup, INTEGER indent, INTEGER langindex, BOOLEAN drop_untranslated, STRING pathsofar)
+{
+  FOREVERY(RECORD node FROM curgroup->nodes)
+  {
+    IF(node.isgroup)
+    {
+      IF(drop_untranslated)
+      {
+        IF(node.textgroup->ShouldBePrunedFor(langindex))
+          CONTINUE;
+      }
+      ELSE
+      {
+        IF(node.textgroup->ShouldBePruned())
+          CONTINUE;
+      }
+
+      STRING localpath := pathsofar || node.name;
+      PrintTo(str, RepeatText(" ", indent*2) || '<textgroup gid="' || EncodeValue(node.name));
+      IF(node.textgroup->keepemptyreason!='' AND langindex <= 0)
+        PrintTo(str, '" keepemptyreason="' || EncodeValue(node.textgroup->keepemptyreason));
+
+      IF(Length(node.textgroup->limitlanguages)>0 AND langindex <= 0)
+        PrintTo(str, '" limitlanguages="' || EncodeValue(Detokenize(SortArray(node.textgroup->limitlanguages),' ')));
+      PrintTo(str, '">   <!-- ' || localpath || ' -->\n');
+      GenerateNodes(str, node.textgroup, indent+1, langindex, drop_untranslated, localpath || '.');
+      PrintTo(str, RepeatText(" ", indent*2) || '</textgroup>\n');
+    }
+    ELSE
+    {
+      STRING text := langindex = -1 ? node.text : node.texts[langindex];
+      IF(text="" AND (curgroup->keepemptyreason='' OR drop_untranslated))
+        CONTINUE;
+
+      PrintTo(str, RepeatText(" ", indent*2) || '<text tid="' || EncodeValue(node.name) || '"');
+      IF (text != "")
+      {
+        PrintTo(str, '>');
+        PrintTo(str, EncodeLanguageText(text));
+        PrintTo(str, '</text>\n');
+      }
+      ELSE
+        PrintTo(str, '/>\n');
+    }
+  }
+}
+
+PUBLIC BLOB FUNCTION GenerateLanguageFile(STRING langcode, OBJECT basegroup, INTEGER langindex, STRING fallbacklanguage, STRING title)
+{
+  INTEGER str := CreateStream();
+
+  PrintTo(str,'<?xml version="1.0" encoding="UTF-8"?>\n');
+  PrintTo(str,'<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml"');
+  PrintTo(str,' xml:lang="' || EncodeValue(langcode) || '"');
+  IF(fallbacklanguage != "")
+    PrintTo(str, ' fallbacklanguage="' || EncodeValue(fallbacklanguage) || '"');
+  IF(title != "")
+    PrintTo(str, ' title="' || EncodeValue(title) || '"');
+  PrintTo(str, '>\n');
+  GenerateNodes(str, basegroup, 1, langindex, fallbacklanguage != "", "");
+  PrintTo(str,'</language>\n');
+
+  RETURN MakeBlobFromStream(str);
+}
+
+STATIC OBJECTTYPE LanguageFile
+<
+  PUBLIC OBJECT basegroup;
+  PUBLIC STRING langcode;
+  PUBLIC STRING fallbacklanguage;
+  PUBLIC BOOLEAN dirty;
+  PUBLIC STRING title;
+
+  MACRO NEW(OBJECT doc, STRING code)
+  {
+    this->basegroup := NEW TextGroup;
+
+    IF(ObjectExists(doc))
+    {
+      this->basegroup->ReadLanguageNodes(doc->documentelement);
+      this->langcode := ToLowercase(doc->documentelement->GetAttribute("xml:lang"));
+      this->fallbacklanguage := ToLowercase(doc->documentelement->GetAttribute("fallbacklanguage"));
+      this->title := doc->documentelement->GetAttribute("title");
+    }
+    ELSE
+    {
+      this->langcode := ToLowercase(code);
+    }
+  }
+
+  PUBLIC BLOB FUNCTION MakeLanguageFile()
+  {
+    RETURN GenerateLanguageFile(this->langcode, this->basegroup, -1, this->fallbacklanguage, this->title);
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION OpenLanguageFile(OBJECT doc)
+{
+  RETURN NEW LanguageFile(doc,"");
+}
+
+PUBLIC BOOLEAN FUNCTION IsValidLangfileText(STRING text)
+{
+  IF(NOT NeedsEncoding(text))
+    RETURN TRUE;
+
+  OBJECT parser := NEW ParseLanguageText(text);
+  RETURN parser->Parse(FALSE);
+}
+
+PUBLIC OBJECT FUNCTION MakeNewLanguageFile(STRING langcode)
+{
+  RETURN NEW LanguageFile(DEFAULT OBJECT, langcode);
+}
+

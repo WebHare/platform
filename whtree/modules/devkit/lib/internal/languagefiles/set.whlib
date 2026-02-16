@@ -1,0 +1,251 @@
+<?wh
+
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+LOADLIB "wh::util/localization.whlib";
+
+LOADLIB "relative::mergedtextgroup.whlib";
+LOADLIB "relative::languagefile.whlib";
+
+OBJECTTYPE Importer
+<
+  OBJECT langfile;
+  INTEGER ARRAY languages;
+  OBJECT importxlsxsheet;
+  INTEGER numrows;
+
+  MACRO NEW(OBJECT combinedlangfiles)
+  {
+    this->langfile := combinedlangfiles;
+  }
+  PUBLIC MACRO Import(BLOB data)
+  {
+    OBJECT importxlsxfile := OpenOOXMLSpreadSheetFile(data);
+    this->importxlsxsheet := importxlsxfile->OpenSheet(0);
+    this->importxlsxsheet->ExportRowsToCallback(PTR this->OnLine, [ alltostring := TRUE ]);
+  }
+  BOOLEAN FUNCTION OnLine(VARIANT ARRAY cells)
+  {
+    this->numrows := this->numrows + 1;
+    IF(Length(this->languages)=0) //first line
+    {
+      //Remove empty cells
+      WHILE(Length(cells) > 0 AND TrimWhitespace(cells[END-1]) = "")
+        DELETE FROM cells AT END-1;
+
+      IF(Length(cells) < 2)
+        THROW NEW Exception("Need at least two columns");
+
+      FOREVERY(VARIANT langcell FROM cells)
+      {
+        IF(#langcell=0)
+          CONTINUE;
+
+        STRING langcode := TrimWhitespace(Tokenize(langcell,'(')[0]);
+        INTEGER which := this->langfile->GetLangFileByCode(langcode);
+        /* Ignore attempts to import unknown language. TODO just warn if no language at all was found
+        IF(which=-1)
+          THROW NEW Exception("No such language code '" || langcode || "' in cell " || this->importxlsxsheet->GetCellName(1, 1+#langcell));
+        */
+        INSERT which INTO this->languages AT END;
+      }
+    }
+    ELSE
+    {
+      RECORD text;
+      FOREVERY(VARIANT langcell FROM cells)
+      {
+        IF(#langcell=0)
+        {
+          IF(langcell="")
+            RETURN TRUE;//skip this line
+
+          text := this->langfile->LookupText(langcell);
+          IF(NOT RecordExists(text))
+          {
+            IF(langcell NOT LIKE "*.*")
+              THROW NEW Exception("Invalid tid '" || langcell || "' in cell " || this->importxlsxsheet->GetCellName(this->numrows, 1+#langcell));
+
+            this->langfile->AddTids([STRING(langcell)]);
+            text := this->langfile->LookupText(langcell);
+          }
+        }
+        ELSE IF(#langcell > Length(this->languages))
+        {
+          CONTINUE;
+        }
+        ELSE IF(this->languages[#langcell-1] >= 0)
+        {
+          //XLSX import owkraound
+          text.textgroup->SetRawText(text.name, this->languages[#langcell-1], Substitute(langcell,"_x000D_","\n"));
+        }
+      }
+    }
+    RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE LanguageFileSet
+<
+  PUBLIC STRING ARRAY langcodes;
+  PUBLIC OBJECT basegroup;
+  PUBLIC OBJECT ARRAY langfiles;
+
+  MACRO NEW(OBJECT ARRAY langfiles)
+  {
+    this->langfiles := langfiles;
+    this->langcodes := SELECT AS STRING ARRAY obj->langcode FROM ToRecordArray(langfiles,"obj");
+    this->basegroup := NEW MergedTextGroup(DEFAULT OBJECT, this);
+
+    OBJECT ARRAY groups := SELECT AS OBJECT ARRAY obj->basegroup FROM ToRecordArray(langfiles,"obj");
+    this->basegroup->RecurseCombine(groups, "");
+  }
+
+  PUBLIC INTEGER FUNCTION GetLangFileByCode(STRING code)
+  {
+    RETURN SearchElement(this->langcodes, code);
+  }
+  PUBLIC STRING FUNCTION GetFallbackLanguage(INTEGER langfilenum)
+  {
+    RETURN this->langfiles[langfilenum]->fallbacklanguage;
+  }
+  PUBLIC STRING FUNCTION GetTitle(INTEGER langfilenum)
+  {
+    RETURN this->langfiles[langfilenum]->title;
+  }
+
+  PUBLIC MACRO AddTids(STRING ARRAY tids)
+  {
+    //Sort the tids
+    tids := SELECT AS STRING ARRAY ToLowercase(tid)
+              FROM ToRecordArray(tids,"tid")
+          ORDER BY ToLowercase(tid);
+
+    this->basegroup->RecurseAddTids(tids, "");
+  }
+
+  PUBLIC STRING FUNCTION GetRawText(STRING language, STRING tid)
+  {
+    INTEGER langfile := this->GetLangFileByCode(language);
+    IF(langfile=-1)
+      THROW NEW Exception("No such language file '" || language || "'");
+    RECORD text := this->LookupText(tid);
+    IF(NOT RecordExists(text))
+      THROW NEW Exception("No such tid '" || tid || "'");
+    RETURN text.textgroup->GetRawText(text.name,langfile);
+  }
+  PUBLIC MACRO SetRawText(STRING language, STRING tid, STRING newtext)
+  {
+    INTEGER langfile := this->GetLangFileByCode(language);
+    IF(langfile=-1)
+      THROW NEW Exception("No such language file '" || language || "'");
+    RECORD text := this->LookupText(tid);
+    IF(NOT RecordExists(text))
+      THROW NEW Exception("No such tid '" || tid || "'");
+    text.textgroup->SetRawText(text.name, langfile, newtext);
+  }
+
+  PUBLIC RECORD FUNCTION LookupText(STRING tid)
+  {
+    STRING ARRAY toks:=Tokenize(ToLowercase(tid),'.');
+    OBJECT curgroup := this->basegroup;
+
+    FOR(INTEGER i:=0;i<Length(toks)-1 AND ObjectExists(curgroup);i:=i+1)
+      curgroup := curgroup->GetTextGroup(toks[i]);
+
+    IF(ObjectExists(curgroup))
+    {
+      INTEGER nodeidx := curgroup->GetTextPos(toks[END-1]);
+      IF(nodeidx >= 0)
+      {
+        RETURN [ textgroup := curgroup
+               , nodeindex := nodeidx
+               , name := toks[END-1]
+               ];
+      }
+    }
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC OBJECT FUNCTION LookupTextGroup(STRING gid)
+  {
+    STRING ARRAY toks:=Tokenize(ToLowercase(gid),'.');
+    OBJECT curgroup := this->basegroup;
+
+    FOR(INTEGER i:=0;i<Length(toks) AND ObjectExists(curgroup);i:=i+1)
+      curgroup := curgroup->GetTextGroup(toks[i]);
+
+    RETURN curgroup;
+  }
+
+  PUBLIC BLOB FUNCTION MakeLanguageFile(STRING langcode)
+  {
+    INTEGER langindex := SearchElement(this->langcodes, langcode);
+    IF(langindex=-1)
+      THROW NEW Exception("No language file for '" || langcode || "'");
+
+    RETURN GenerateLanguageFile(langcode, this->basegroup, langindex, this->GetFallbackLanguage(langindex), this->GetTitle(langindex));
+  }
+
+  RECORD ARRAY FUNCTION ExportLangRows(OBJECT curgroup)
+  {
+    RECORD ARRAY rows;
+    STRING basegid := curgroup->GetFullGid();
+    FOREVERY(RECORD node FROM curgroup->nodes)
+    {
+      IF(node.isgroup)
+      {
+        rows := rows CONCAT this->ExportLangRows(node.textgroup);
+        CONTINUE;
+      }
+
+      RECORD row := [ tid := basegid || "." || node.name
+                    ];
+      FOREVERY(STRING langcode FROM this->langcodes)
+        row := CellInsert(row, 'lang' || #langcode, node.texts[#langcode]);
+
+      INSERT row INTO rows AT END;
+    }
+    RETURN rows;
+  }
+
+  PUBLIC RECORD FUNCTION GenerateExport(STRING rootgroup, STRING modulename, STRING commithash)
+  {
+    RECORD retval := [ exporttitle := "Translations for module " || modulename || " "
+                     , columns := [[ name := "tid"
+                                   , title := modulename != "" ? modulename || (commithash != "" ? " (" || Left(commithash,7) || ")" : "") : "Tid"
+                                   , type := "text"
+                                   ]
+                                  ]
+                     , rows := DEFAULT RECORD ARRAY
+                     ];
+
+    FOREVERY(STRING langcode FROM this->langcodes)
+    {
+      STRING translated := SELECT AS STRING GetCell(langs,langcode) FROM GetLanguageList(langcode) AS langs WHERE ToLowercase(code) = ToLowercase(langcode);
+      INSERT [ name := "lang" || #langcode
+             , title := langcode || (translated != "" ? " (" || translated || ")" : "")
+             , type := "text"
+             ] INTO retval.columns AT END;
+    }
+
+    OBJECT exportbase := rootgroup != "" ? this->LookupTextGroup(rootgroup) : this->basegroup;
+    IF(NOT ObjectExists(exportbase))
+      THROW NEW Exception("Cannot find group '" || rootgroup || "'");
+
+    retval.rows := this->ExportLangRows(exportbase);
+    RETURN retval;
+  }
+
+  PUBLIC MACRO ImportLanguageFile(BLOB data)
+  {
+    OBJECT imp := NEW Importer(this);
+    imp->Import(data);
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION CombineLanguageFiles(OBJECT ARRAY langfiles)
+{
+  RETURN NEW LanguageFileSet(langfiles);
+}
+

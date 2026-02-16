@@ -9,6 +9,14 @@
     </validation>
   </meta>
 
+  <portal>
+    <application name="langedit" screen="tolliumapps/langedit/langedit.xml#main" tid="tolliumapps.langedit.langedit">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+  </portal>
+
   <consilio>
     <catalog tag="sourcecode" priority="-1">
       <customsource contentobject="mod::devkit/lib/sourcecodeindex/consilio.whlib#SourceCodeConsilioIndex"

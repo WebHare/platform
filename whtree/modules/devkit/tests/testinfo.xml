@@ -10,4 +10,5 @@
   <test script="test_processing.whscr" />
   <test script="test_toyaml.ts" />
   <test name="lsp" path="lsp/" />
+  <test name="langedit" path="langedit/" />
 </group>

@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="WebHare Backend" ignoremasks="data">
+  <test script="Test_LangEdit.whscr"/>
+  <test script="test_editapi.whscr"/>
+</group>

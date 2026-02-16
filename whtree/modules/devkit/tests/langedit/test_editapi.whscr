@@ -1,0 +1,78 @@
+<?wh
+/* module-creating tests separated here for speed
+
+   when developing you can still run it even faster using
+   wh run mod::dev/tests/langedit/test_editapi.whscr retest
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::witty.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::devkit/lib/internal/languagefiles/langeditor.whlib";
+
+BOOLEAN retest := PickFirst(GetConsoleArguments()) = "retest";
+IF(retest AND GetModuleInstallationRoot("webhare_testsuite_temp") = "")
+{
+  Print(`Module webhare_testsuite_temp is missing, running full test anyway\n`);
+  retest := FALSE;
+}
+
+MACRO SetupTestModule_LanguageFiles()
+{
+  IF(NOT retest)
+    testfw->SetupTestModule();
+
+
+  OBJECT srcwitty := LoadWittyLibrary(Resolve("data/testmodule.witty"), "TEXT");
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/default.xml", srcwitty->RunComponentToBlob("language_default", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/nl.xml", srcwitty->RunComponentToBlob("language_nl", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xx.xml", srcwitty->RunComponentToBlob("language_xx", RECORD[]), [ overwrite := TRUE ]);
+  StoreDiskFile(GetModuleInstallationRoot(testfw_testmodule) || "language/xy.xml", srcwitty->RunComponentToBlob("language_xy", RECORD[]), [ overwrite := TRUE ]);
+}
+
+ASYNC MACRO TestLangEditingApi()
+{
+  OBJECT api  := NEW LangEditAPI("webhare_testsuite_temp");
+  OBJECT api2 := NEW LangEditAPI("webhare_testsuite_temp");
+
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(FALSE, api2->IsOutOfDate());
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api2->IsDirty());
+  Sleep(100);
+  api->SaveChanges([force := TRUE]);
+  Sleep(100);
+
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api2->IsDirty());
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(TRUE, api2->IsOutOfDate());
+  api2 := NEW LangEditAPI("webhare_testsuite_temp"); //reload
+
+  api->LookupTextGroup("notifications")->SetRawText("messagefromthefuture", 0, "Yet Another Message");
+  TestEq(TRUE, api->IsDirty());
+  TestEq(FALSE, api2->IsOutOfDate());
+  api->SaveChanges([force := TRUE]);
+  TestEq(FALSE, api->IsDirty());
+  TestEq(FALSE, api->IsOutOfDate());
+  TestEq(TRUE, api2->IsOutOfDate());
+
+  //Test renaming
+  TestEq(FALSE, api->IsDirty());
+  INTEGER nl := SELECT AS INTEGER #lang FROM api->GetLanguages() AS lang WHERE langcode = 'nl';
+  TestEq("A text", api->LookupTextGroup("testfallback.sub")->GetRawText("text", 0));
+  TestEq("Ignore this text", api->LookupTextGroup("testfallback.sub")->GetRawText("text", nl));
+  api->LookupTextGroup("testfallback.sub")->RenameText('text','text2');
+  TestEq(TRUE, api->IsDirty());
+  TestEq("A text", api->LookupTextGroup("testfallback.sub")->GetRawText("text2", 0));
+  TestEq("Ignore this text", api->LookupTextGroup("testfallback.sub")->GetRawText("text2", nl));
+}
+
+
+RunTestFramework([ PTR SetupTestModule_LanguageFiles
+                 , PTR TestLangEditingApi
+                 ], [ disablecreatecleanup := retest ]);
