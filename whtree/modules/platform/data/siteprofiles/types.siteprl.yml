@@ -151,7 +151,7 @@ types:
         type: composedDocument
     apply:
       bodyRenderer:
-        contentBuilder: mod::publisher/js/internal/markdown.ts#renderMarkdown
+        contentBuilder: mod::platform/js/pagebuilders/markdown.ts#renderMarkdown
       setObjectEditor:
         separateApp: true
         name: publisher:editmarkdown
@@ -209,6 +209,7 @@ types:
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
+        contentBuilder: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
       setObjectEditor:
         name: publisher:editdocument
   filetypes.search:

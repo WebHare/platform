@@ -12,6 +12,8 @@ Basic routing flow once a router (a WebRequest => WebResponse function) decides 
 
 
 ## Mixed language scenarios
+When a page or widget supports both HS and JS we should prefer the one matching the language we're already in. So even when
+HareScript is running under WASM we'll stay inside HareScript if possible.
 
 ### pageBuilder (JS) based rendering
 `getPageRenderer` supports rendering HareScript pages, both dynamic and static. The aim is to be compatible 'out of the box'
@@ -35,7 +37,3 @@ by `captureJSPage`. This route currently only supports static pages.
 HareScript-based webdesigns may need to do multiple IPC calls if they contain multiple JS-based widgets.
 Avoid relying too much on JavaScript-based widgets if you're not planning on replacing your
 WebDesign with a JavaScript-based page renderer.
-
-### Widgets
-Widgets can offer both a HareScript and TypeScript implementations. If both are available, rendering from
-HareScript will prefer the HareScript implementation when running natively and JavaScript when running in WASM.

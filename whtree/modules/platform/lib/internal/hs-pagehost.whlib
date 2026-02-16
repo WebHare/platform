@@ -7,15 +7,12 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 INTEGER capturing_stream;
 
 PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
-  OpenPrimary();
-
   OBJECT webdesign := GetWebDesign(fileid);
 
   capturing_stream := CreateStream();
@@ -63,7 +60,6 @@ MACRO ResetResponse() {
 
 PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER fileid) {
   MockUsingClientInfo(webclientinfo);
-  OpenPrimary();
 
   OBJECT webdesign := GetWebDesign(fileid);
 

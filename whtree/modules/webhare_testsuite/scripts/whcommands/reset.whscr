@@ -206,7 +206,10 @@ MACRO SetupTestSite(OBJECT testsite)
           ]);
 
   OBJECT widgetholder2 := widgetholder->CopyTo(testpages, "widgetholder-ts");
-  widgetholder2->UpdateMetadata([typens := "webhare_testsuite:base_test.testsuite_rtd"]);
+  widgetholder2->UpdateMetadata([typens := "webhare_testsuite:base_test.testsuite_rtd_ts"]);
+
+  OBJECT widgetholder3 := widgetholder->CopyTo(testpages, "widgetholder-hs");
+  widgetholder3->UpdateMetadata([typens := "webhare_testsuite:base_test.testsuite_rtd_hs"]);
 
   OBJECT forumcommentsfile := webtools->CreateFile([ name:= "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
   OBJECT forumcommentsfile2 := webtools->CreateFile([ name:= "forumcomments-closedate", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);

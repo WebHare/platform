@@ -1,4 +1,4 @@
-import type { ContentPageRequest, WebResponse } from "@webhare/router";
+import type { ContentBuilderFunction, ContentPageRequest, WebResponse } from "@webhare/router";
 import { rawLitty } from "@webhare/litty";
 import MarkdownIt from 'markdown-it';
 
@@ -65,3 +65,5 @@ export async function renderMarkdown(request: ContentPageRequest): Promise<WebRe
   const html = markdowntext ? await renderMarkdownText(markdowntext) : "";
   return request.buildWebPage(rawLitty(html));
 }
+
+renderMarkdown satisfies ContentBuilderFunction;

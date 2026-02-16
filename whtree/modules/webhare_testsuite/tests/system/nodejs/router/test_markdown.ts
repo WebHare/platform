@@ -1,6 +1,6 @@
 //test markdown processing. not really 'router' but we're factoring out some nearby testcode here...
 import * as test from '@webhare/test-backend';
-import { renderMarkdownText } from '@mod-publisher/js/internal/markdown';
+import { renderMarkdownText } from '@mod-platform/js/pagebuilders/markdown.ts';
 
 async function testMarkdown() {
   //Verify basic rendering

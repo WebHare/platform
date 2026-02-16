@@ -1,14 +1,8 @@
 import { getTid, getTidLanguage } from "@webhare/gettid";
-import type { ContentPageRequest, PageBuildRequest, ContentBuilderFunction, WebResponse } from "@webhare/router";
+import type { PageBuildRequest, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
 import type { PageBuilderFunction, PagePartRequest, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
-
-export async function renderRTD(request: ContentPageRequest): Promise<WebResponse> {
-  const rtddata = await request.getInstance("platform:filetypes.richdocument");
-  const page = rtddata.data ? await request.renderRTD(rtddata.data) : litty``;
-  return await request.buildWebPage(page);
-}
 
 export async function renderJSWidget1(partReq: PagePartRequest, data: TypedInstanceData<"webhare_testsuite:base_test.jswidget1">) {
   return litty`<div>${data.field1}</div>`;
@@ -76,6 +70,5 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
 }
 
 baseTestJSPageBuilder satisfies PageBuilderFunction;
-renderRTD satisfies ContentBuilderFunction;
 //@ts-expect-error FIXME why doesn't this work? need to investigate the typings
 renderJSWidget1 satisfies WidgetBuilderFunction;
