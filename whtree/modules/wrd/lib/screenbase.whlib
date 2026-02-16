@@ -61,6 +61,7 @@ PUBLIC OBJECTTYPE WRDEntityEditScreenBase EXTEND TolliumScreenBase
         IF(NOT ObjectExists(entitycomp->wrdentity))
           cellobj->value := cellrec.value; //copy from the entitycontext for NEW entities
         cellobj->readonly := TRUE;
+        cellobj->enabled := FALSE; //make sure input components that attempt to edit/show an entitycontext value will not participate in the composition's getvalue (as we've already passed the entitycontext directly to the composition)
       }
     }
 
