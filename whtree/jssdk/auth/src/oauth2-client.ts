@@ -38,8 +38,10 @@ declare module "@webhare/services" {
   }
 }
 
+export type OAuth2PromptFlag = "" | "login" | "none" | "select_account";
+
 export interface OAuth2LoginRequestOptions {
-  prompt?: string;
+  prompt?: OAuth2PromptFlag;
   addScopes?: string[];
   /** Enable to receive a 'raw' landing on the returnto url (eg the OIDC metadata */
   rawLanding?: boolean;

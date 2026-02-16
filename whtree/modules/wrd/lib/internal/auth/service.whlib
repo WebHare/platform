@@ -128,7 +128,7 @@ PUBLIC RECORD FUNCTION RPC_StartLogin2(STRING pathname, STRING methodtag, RECORD
 
   // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
   STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
-  RECORD loginoptions := CELL[ ...PickCells(options, [ "action", "passive", "forcelogin" ])
+  RECORD loginoptions := CELL[ ...PickCells(options, [ "prompt" ])
                              ];
   RETURN wrdauthplugin->GenerateLoginRequest(method.type, method.tag, redirectto, loginoptions);
 }

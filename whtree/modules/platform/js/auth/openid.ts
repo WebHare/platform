@@ -14,6 +14,7 @@ import type { NavigateInstruction } from "@webhare/env";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { ResponseModesScopes } from "@webhare/auth/src/types";
+import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 
 declare module "@webhare/services" {
   interface SessionScopes {
@@ -38,7 +39,7 @@ declare module "@webhare/services" {
       ruleid: number;
       returnto: string;
       validuntil: Date;
-      prompt: PromptFlag;
+      prompt: OAuth2PromptFlag;
     };
   }
 }
@@ -48,8 +49,6 @@ const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid f
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 
 export type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
-
-type PromptFlag = "" | "login" | "none";
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
@@ -122,7 +121,7 @@ function verifyCodeChallenge(verifier: string, challenge: string, method: CodeCh
 }
 
 /** Start an oauth2/openid authorization flow */
-export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, prompt: PromptFlag, customizer?: AuthCustomizer): Promise<NavigateOrError> {
+export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, prompt: OAuth2PromptFlag, customizer?: AuthCustomizer): Promise<NavigateOrError> {
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
   const scopes = searchParams.get("scope")?.split(" ") || [];
@@ -372,7 +371,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   const provider = new IdentityProvider(wrdschema);
   if (endpoint[3] === 'authorize') {
     const url = new URL(req.url); //TODO merge back into startAuthorizeFlow ? but then it needs to know about login/logout states too
-    const prompt: PromptFlag = url.searchParams.get("prompt") as PromptFlag || ''; //TODO trigger 400 if prompt value misunderstood?
+    const prompt: OAuth2PromptFlag = url.searchParams.get("prompt") as OAuth2PromptFlag || ''; //TODO trigger 400 if prompt value misunderstood?
 
     if (prompt) {
       const curuser = await getCookieBasedUser(req, wrdschema, login.wrdauth);
