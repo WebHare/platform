@@ -1,0 +1,216 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+// LOADLIB "mod::devkit/lib/internal/modulemgmt/moduleimexport.whlib";
+LOADLIB "mod::devkit/lib/internal/languagefiles/tidscan.whlib";
+LOADLIB "mod::devkit/lib/internal/languagefiles/languagefile.whlib";
+LOADLIB "mod::devkit/lib/internal/languagefiles/set.whlib";
+
+STRING ARRAY FUNCTION __GetLanguageCodesForModule(STRING modulename)
+{
+  STRING moduledir := GetModuleInstallationRoot(modulename);
+  IF(moduledir="")
+  {
+    IF (NOT IsDTAPLive())
+      THROW NEW Exception("No such module '" || modulename || "'");
+    RETURN DEFAULT STRING ARRAY;
+  }
+
+  RECORD ARRAY langfiles := ReadDiskDirectory(moduledir || "/language","*.xml");
+  RETURN SELECT AS STRING ARRAY GetBasenameFromPath(name)
+           FROM langfiles
+          WHERE type=0
+                AND name LIKE "*.xml"
+                AND ToLowercase(name)=name  //verify lowercase
+       ORDER BY name="default.xml" DESC; //make sure default is first
+}
+
+
+PUBLIC STATIC OBJECTTYPE LangEditAPI
+<
+  PUBLIC STRING openmodule;
+  RECORD ARRAY langfiles;
+  STRING ARRAY masks;
+  OBJECT langfileset;
+  PUBLIC RECORD ARRAY scannedtexts;
+
+  PUBLIC MACRO NEW(STRING module)
+  {
+    this->openmodule := ToLowercase(module);
+
+    STRING ARRAY languagecodes := __GetLanguageCodesForModule(this->openmodule);
+    OBJECT ARRAY openedlangfiles;
+    FOREVERY(STRING lang FROM languagecodes)
+    {
+      STRING resourcename := `mod::${this->openmodule}/language/${lang}.xml`;
+      OBJECT doc := MakeXMLDocument(GetWebhareResource(resourcename));
+
+      IF(NOT ObjectExists(doc))
+        THROW NEW Exception(`Load failed for '${lang}'`);
+
+      this->masks := this->masks CONCAT GetResourceEventMasks([resourcename]);
+
+      OBJECT openedfile := OpenLanguageFile(doc);
+
+      INSERT [ title := openedfile->title
+             , langcode := openedfile->langcode
+             , resourcename := resourcename
+             , langfile := openedfile
+             , hash := GetHashForBlob(GetWebhareResource(resourcename), "MD5")
+             , lastsave := RetrieveWebhareResource(resourcename).modified
+             ] INTO this->langfiles AT END;
+
+      INSERT openedfile INTO openedlangfiles AT END;
+    }
+    this->langfileset := CombineLanguageFiles(openedlangfiles);
+  }
+
+  PUBLIC MACRO ScanTids()
+  {
+    RECORD scanresult := ScanModuleTids(GetModuleValidationConfig(this->openmodule), this->openmodule);
+    this->scannedtexts := scanresult.tids;
+
+    RECORD splitresult := SplitModulesFromTid(this->scannedtexts);
+
+    //sort for fast reference counting
+    this->scannedtexts := SELECT *
+                               , tid_lowercase :=      ToLowercase(tid)
+                            FROM splitresult.tids
+                           WHERE tids.module = this->openmodule
+                        ORDER BY ToLowercase(tid), ToUppercase(resourcename);
+    this->langfileset->AddTids(SELECT AS STRING ARRAY tid_lowercase FROM this->scannedtexts);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetLanguages()
+  {
+    RETURN SELECT langcode
+                , title
+             FROM this->langfiles;
+  }
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    RETURN this->masks;
+  }
+  //Do we need to write ourselves to disk?
+  PUBLIC BOOLEAN FUNCTION IsDirty()
+  {
+    FOREVERY(RECORD langfile FROM this->langfiles)
+      IF(langfile.langfile->dirty)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+  //Did someone update files behind our back?
+  PUBLIC BOOLEAN FUNCTION IsOutOfDate()
+  {
+    FOREVERY(RECORD langfile FROM this->langfiles)
+    {
+      RECORD resinfo := RetrieveWebhareResource(langfile.resourcename, [ allowmissing := TRUE ]);
+      IF(RecordExists(resinfo) AND resinfo.modified != langfile.lastsave)
+      {
+        STRINg newhash := GetHashForBlob(resinfo.data, "MD5");
+        IF(newhash != langfile.hash)
+          RETURN TRUE;
+        ELSE //update modification date, looks like someone reverted
+          this->langfiles[#langfile].lastsave := resinfo.modified;
+      }
+    }
+    RETURN FALSE;
+  }
+  PUBLIC RECORD FUNCTION GenerateExport(STRING base)
+  {
+    RECORD dirinfo := CallJS("./languagefiles.ts#analyzeGITModuleDir", GetModuleInstallationRoot(this->openmodule));
+    RECORD exportdata := this->langfileset->GenerateExport(base, this->openmodule, RecordExists(dirinfo) ? dirinfo.revision : "");
+    RETURN exportdata;
+  }
+  PUBLIC MACRO ImportLanguageFile(BLOB data)
+  {
+    this->langfileset->ImportLanguageFile(data);
+    this->SaveChanges();
+  }
+  PUBLIC MACRO SaveChanges(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ force := FALSE ], options);
+
+    //FIXME Check against updates behind our back, IO Error checks ?
+    FOREVERY (RECORD langfile FROM this->langfiles)
+      IF(langfile.langfile->dirty OR options.force)
+      {
+        BLOB newfile := this->langfileset->MakeLanguageFile(langfile.langcode);
+        StoreDiskFile(GetWebHareResourceDiskPath(langfile.resourcename), newfile, [ overwrite := TRUE ]);
+
+        langfile.langfile->dirty := FALSE;
+        this->langfiles[#langfile].lastsave := RetrieveWebhareResource(langfile.resourcename).modified;
+        this->langfiles[#langfile].hash := GetHashForBlob(newfile, "MD5");
+      }
+
+    //this->lastsave := GetCurrentdatetime();
+  }
+  PUBLIC OBJECT FUNCTION GetBaseGroup()
+  {
+    RETURN this->langfileset->basegroup;
+  }
+  PUBLIC OBJECT FUNCTION LookupTextGroup(STRING textgroup)
+  {
+    RETURN this->langfileset->LookupTextGroup(textgroup);
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetReferences(STRING tidsofar)
+  {
+    RETURN
+      SELECT resourcename, line, rowkey := resourcename || "\t" || line, title := resourcename || ":" || line
+                                     FROM RecordRange(this->scannedtexts, [ tid_lowercase := ToLowercase(tidsofar) ], [ "TID_LOWERCASE" ]);
+
+  }
+  PUBLIC INTEGER FUNCTION GetNumReferences(STRING tidsofar)
+  {
+    RECORD pos := RecordLowerBound(this->scannedtexts, [ tid_lowercase := tidsofar], [ "TID_LOWERCASE" ]);
+    IF(NOT pos.found)
+      RETURN 0;
+
+    INTEGER endrange := pos.position + 1;
+    WHILE(endrange < Length(this->scannedtexts) AND this->scannedtexts[endrange].tid_lowercase = tidsofar)
+      endrange := endrange + 1;
+
+    RETURN endrange - pos.position;
+  }
+  PUBLIC STRING ARRAY FUNCTION GetSuggestedMissingFromSources(OBJECT tgroup)
+  {
+    //Get untranslated texts
+    STRING ARRAY untranslated := SELECT AS STRING ARRAY `${name}\t${SearchElement(texts, "")}` FROM tgroup->nodes WHERE isgroup = FALSE AND "" IN texts;
+
+    //Walk all text groups, see if they have any of these texts
+    RECORD ARRAY candidates := SELECT name
+                                    , score := COLUMN textgroup->GetPresentTextScore(untranslated)
+                                 FROM this->langfileset->basegroup->GetAllGroups("");
+
+    RETURN SELECT AS STRING ARRAY name FROM candidates  WHERE score > 0 ORDER BY score desc, ToUppercase(name) LIMIT 10;
+  }
+  PUBLIC MACRO ImportMissingFrom(OBJECT targetgroup, OBJECT sourcegroup)
+  {
+    FOREVERY(RECORD node FROM targetgroup->nodes)
+    {
+      IF(node.isgroup OR "" NOT IN node.texts)
+        CONTINUE;
+
+      INTEGER tpos := sourcegroup->GetTextPos(node.name);
+      IF(tpos=-1)
+        CONTINUE;
+
+      FOREVERY(RECORD langfile FROM this->langfiles)
+        IF (node.texts[#langfile] = "")
+          targetgroup->SetRawText(node.name, #langfile, sourcegroup->GetRawText(node.name, #langfile));
+
+      STRING sourcegid := sourcegroup->GetFullGid() || "." || node.name;
+      IF(this->GetNumReferences(sourcegid) = 0)
+        sourcegroup->DeleteText(node.name);
+    }
+  }
+>;

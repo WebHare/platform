@@ -1,0 +1,448 @@
+<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
+PUBLIC BOOLEAN FUNCTION IsValidTidGid(STRING name)
+{
+//addme proper constraints? ie tabs etc
+  IF(name="" OR name LIKE "*.*" OR name LIKE "* *" OR TrimWhitespace(name)!=name OR ToLowercase(name) != name)
+    RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+PUBLIC STATIC OBJECTTYPE MergedTextGroup
+<
+  STRING ARRAY __limitlanguages;
+  STRING __keepemptyreason;
+  PUBLIC RECORD ARRAY nodes;
+  PUBLIC OBJECT parent;
+  PUBLIC OBJECT langfileset;
+  PUBLIC PROPERTY keepemptyreason(__keepemptyreason,SetKeepEmptyReason);
+  PUBLIC PROPERTY limitlanguages(__limitlanguages,SetLimitLanguages);
+
+  PUBLIC PROPERTY keepifempty(GetKeepIfEmpty,-);
+  PUBLIC PROPERTY name(GetName,SetName);
+
+  BOOLEAN FUNCTION GetKeepIfEmpty()
+  {
+    RETURN this->__keepemptyreason!="";
+  }
+
+  MACRO NEW(OBJECT parent, OBJECT langfileset)
+  {
+    this->parent := parent;
+    this->langfileset := langfileset;
+  }
+
+  PUBLIC BOOLEAN FUNCTION ShouldBePruned()
+  {
+    IF(this->keepifempty OR LEngth(this->__limitlanguages)>0)
+      RETURN FALSE;
+
+    FOREVERY(RECORD node FROM this->nodes)
+      IF(node.isgroup)
+      {
+        IF(NOT node.textgroup->ShouldBePruned())
+          RETURN FALSE;
+      }
+      ELSE FOREVERY(STRING text FROM node.texts)
+      {
+        IF(text!="")
+          RETURN FALSE;
+      }
+
+    RETURN TRUE;
+  }
+
+  PUBLIC BOOLEAN FUNCTION ShouldBePrunedFor(INTEGER langindex) //if this function is called, drop_untranslated is implied
+  {
+    FOREVERY(RECORD node FROM this->nodes)
+      IF(node.isgroup)
+      {
+        IF(NOT node.textgroup->ShouldBePrunedFor(langindex))
+          RETURN FALSE;
+      }
+      ELSE IF(node.texts[langindex] != "")
+        RETURN FALSE;
+
+    RETURN TRUE;
+  }
+
+  PUBLIC INTEGER FUNCTION GetTextPos(STRING name)
+  {
+    name := ToLowercase(name);
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := FALSE, name := name], ["isgroup", "name"]);
+    IF(NOT pos.found)
+      RETURN -1;
+
+    RETURN pos.position;
+  }
+  PUBLIC STRING FUNCTION GetRawText(STRING name, INTEGER langnum)
+  {
+    INTEGER pos := this->GetTextPos(name);
+    RETURN pos=-1 ? "" : this->nodes[pos].texts[langnum];
+  }
+
+  ///mark langfile as dirty, -1 for all language files
+  MACRO MarkDirty(INTEGER langnum)
+  {
+    IF(langnum=-1)
+    {
+      FOREVERY(OBJECT langfile FROM this->langfileset->langfiles)
+        langfile->dirty := TRUE;
+    }
+    ELSE
+    {
+      this->langfileset->langfiles[langnum]->dirty := TRUE;
+    }
+  }
+  PUBLIC MACRO SetRawText(STRING name, INTEGER langnum, STRING newtext)
+  {
+    INTEGER pos := this->GetTextPos(name);
+    IF(pos=-1)
+      THROW NEW Exception("No such text '" || name || "'");
+    this->nodes[pos].texts[langnum] := newtext;
+    this->MarkDirty(langnum);
+  }
+
+  INTEGER FUNCTION DoRename(STRING oldname, STRING newname, BOOLEAN isgroup)
+  {
+    oldname := ToLowercase(oldname);
+    newname := ToLowercase(newname);
+
+    IF(NOT IsValidTidGid(newname))
+      THROW NEW Exception("Illegal tid name '" || newname || "'");
+
+    RECORD oldpos := RecordLowerBound(this->nodes, [ isgroup := isgroup, name := oldname ], ["isgroup", "name"]);
+    IF(NOT oldpos.found)
+      THROW NEW Exception("No such entry '" || oldname || "'");
+
+    RECORD moverow := this->nodes[oldpos.position];
+    DELETE FROM this->nodes AT oldpos.position;
+
+    RECORD newpos := RecordLowerBound(this->nodes, [ isgroup := isgroup, name := newname ], ["isgroup", "name"]);
+    IF(newpos.found)
+      THROW NEW Exception("An entry '" || newname|| "' already exists");
+
+    moverow.name := newname;
+    INSERT moverow INTO this->nodes AT newpos.position;
+
+    this->MarkDirty(-1);
+    RETURN newpos.position;
+  }
+
+  PUBLIC INTEGER FUNCTION RenameText(STRING oldname, STRING newname)
+  {
+    RETURN this->DoRename(oldname, newname, FALSE);
+  }
+  PUBLIC INTEGER FUNCTION RenameGroup(STRING oldname, STRING newname)
+  {
+    RETURN this->DoRename(oldname, newname, TRUE);
+  }
+
+  PUBLIC INTEGER FUNCTION CreateText(STRING name)
+  {
+    name := ToLowercase(name);
+    IF(NOT IsValidTidGid(name))
+      THROW NEW Exception("Illegal tid name '" || name || "'");
+
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := FALSE, name := name], ["isgroup", "name"]);
+    IF(pos.found)
+      THROW NEW Exception("A text named '" || name || "' already exists in " || (ObjectExists(this->parent) ? " group " || this->GetFullGid() : " the root"));
+
+    RECORD newnode := [ isgroup := FALSE
+                      , name := name
+                      , texts := DEFAULT STRING ARRAY
+                      , textgroup := DEFAULT OBJECT
+                      ];
+    FOR(INTEGER i := 0; i < Length(this->langfileset->langcodes); i := i + 1)
+      INSERT "" INTO newnode.texts AT END;
+    INSERT newnode INTO this->nodes AT pos.position;
+    RETURN pos.position;
+  }
+
+  PUBLIC OBJECT FUNCTION GetTextGroup(STRING name)
+  {
+    name := ToLowercase(name);
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := TRUE, name := name], ["isgroup", "name"]);
+    IF(NOT pos.found)
+      RETURN DEFAULT OBJECT;
+
+    RETURN this->nodes[pos.position].textgroup;
+  }
+
+  PUBLIC OBJECT FUNCTION CreateTextGroup(STRING name)
+  {
+    name := ToLowercase(name);
+    IF(NOT IsValidTidGid(name))
+      THROW NEW Exception("Illegal group name '" || name || "'");
+
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := TRUE, name := name], ["isgroup", "name"]);
+    IF(pos.found)
+      THROW NEW Exception("A textgroup named '" || name || "' already exists in " || (ObjectExists(this->parent) ? " group " || this->GetFullGid() : " the root"));
+
+    RECORD newnode := [ isgroup := TRUE
+                      , name := name
+                      , texts := DEFAULT STRING ARRAY
+                      , textgroup := NEW MergedTextGroup(this, this->langfileset)
+                      ];
+    INSERT newnode INTO this->nodes AT pos.position;
+
+    RETURN newnode.textgroup;
+  }
+
+  PUBLIC MACRO DeleteText(STRING name)
+  {
+    name := ToLowercase(name);
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := FALSE , name := name], ["isgroup", "name"]);
+    IF(NOT pos.found)
+      THROW NEW Exception("A text named '" || name || "' was not found in " || (ObjectExists(this->parent) ? " group " || this->GetFullGid() : " the root"));
+
+    DELETE FROM this->nodes AT pos.position;
+    this->MarkDirty(-1);
+  }
+
+  PUBLIC MACRO DeleteTextGroup(STRING name)
+  {
+    name := ToLowercase(name);
+    RECORD pos := RecordLowerBound(this->nodes, [ isgroup := TRUE, name := name], ["isgroup", "name"]);
+    IF(NOT pos.found)
+      THROW NEW Exception("A textgroup named '" || name || "' was not found in " || (ObjectExists(this->parent) ? " group " || this->GetFullGid() : " the root"));
+
+    this->nodes[pos.position].textgroup->parent := DEFAULT OBJECT;
+    DELETE FROM this->nodes AT pos.position;
+    this->MarkDirty(-1);
+  }
+
+  OBJECT FUNCTION CreateSubGroup(OBJECT ARRAY groups, STRING tidsofar)
+  {
+    OBJECT newgroup := NEW MergedTextGroup(this, this->langfileset);
+    newgroup->RecurseCombine(groups, tidsofar);
+    RETURN newgroup;
+  }
+
+  STRING FUNCTION GetName()
+  {
+    RETURN SELECT AS STRING name FROM this->parent->nodes WHERE nodes.textgroup = this;
+  }
+  MACRO SetName(STRING newname)
+  {
+    this->parent->RenameGroup(this->GetName(), newname);
+  }
+
+  PUBLIC STRING FUNCTION GetFullGid()
+  {
+    IF(NOT ObjectExists(this->parent))
+      RETURN "";
+
+    STRING gid := this->parent->GetFullGid();
+    IF(gid!="")
+      gid := gid || ".";
+    gid := gid || (SELECT AS STRING name FROM this->parent->nodes WHERE nodes.textgroup = this);
+
+    RETURN gid;
+  }
+
+  PUBLIC STRING FUNCTION GetFullTid(INTEGER nodeidx)
+  {
+    STRING base := this->GetFullGid();
+    IF(base !="")
+      base := base || ".";
+    RETURN base || this->nodes[nodeidx].name;
+  }
+
+  PUBLIC MACRO RecurseCombine(OBJECT ARRAY groups, STRING tidsofar)
+  {
+    RECORD ARRAY newnodes;
+
+    FOREVERY(OBJECT grp FROM groups)
+      IF(ObjectExists(grp))
+      {
+        IF(grp->keepemptyreason!="" AND this->__keepemptyreason = "")
+          this->__keepemptyreason := grp->keepemptyreason;
+
+        IF(Length(grp->limitlanguages) > 0)
+        {
+          FOREVERY(STRING langcode FROM grp->limitlanguages)
+            IF(langcode NOT IN this->__limitlanguages)
+              INSERT langcode INTO this->__limitlanguages AT END;
+          this->__limitlanguages := SortArray(this->__limitlanguages);
+        }
+
+        FOREVERY(RECORD node FROM grp->nodes)
+        {
+          STRING nodename := ToLowercase(node.name);
+          RECORD pos := RecordLowerBound(newnodes, [ isgroup := node.isgroup, name := nodename], ["isgroup", "name"]);
+
+          RECORD updnode;
+
+          IF(NOT pos.found) //first occurence
+          {
+            updnode := [ isgroup := node.isgroup
+                       , name := nodename
+                       , texts := DEFAULT STRING ARRAY
+                       , groups := DEFAULT OBJECT ARRAY
+                       , firstmatch := this->langfileset->langcodes[#grp]
+                       ];
+
+            IF(NOT node.isgroup)
+              FOR(INTEGER i := 0; i < Length(this->langfileset->langcodes); i := i + 1)
+                INSERT "" INTO updnode.texts AT END;
+            ELSE
+              FOR(INTEGER i := 0; i < Length(this->langfileset->langcodes); i := i + 1)
+                INSERT DEFAULT OBJECT INTO updnode.groups AT END;
+          }
+          ELSE
+          {
+            updnode := newnodes[pos.position];
+          }
+
+          IF(node.isgroup)
+            updnode.groups[#grp] := node.textgroup;
+          ELSE
+            updnode.texts[#grp] := node.text;
+
+          IF(pos.found)
+            newnodes[pos.position] := updnode;
+          ELSE
+            INSERT updnode INTO newnodes AT pos.position;
+        }
+      }
+
+    this->nodes := SELECT isgroup
+                        , name
+                        , texts
+                        , textgroup := isgroup ? this->CreateSubgroup(COLUMN groups, (tidsofar!=""?tidsofar || ".":"") || name)
+                                              : DEFAULT OBJECT
+                     FROM newnodes;
+  }
+
+  //we can assume we'll receive a lowercase sorted, locally relevant list
+  PUBLIC MACRO RecurseAddTids(STRING ARRAY tids, STRING tidsofar)
+  {
+    INTEGER tidpos;
+
+    WHILE(tidpos < Length(tids))
+    {
+      //discover the initial entry
+      STRING localpart := Substring(tids[tidpos], Length(tidsofar));
+      INTEGER dotpos := SearchSubstring(localpart,'.');
+
+      IF(dotpos=-1) //this must be a text node
+      {
+        //Find the exact matching text node
+        RECORD pos := RecordLowerBound(this->nodes, [ isgroup := FALSE, name := localpart], ["isgroup", "name"]);
+        IF(NOT pos.found)
+        {
+          RECORD newnode := [ isgroup := FALSE
+                            , name := localpart
+                            , texts := DEFAULT STRING ARRAY
+                            , textgroup := DEFAULT OBJECT
+                            ];
+          FOR(INTEGER i := 0; i < Length(this->langfileset->langcodes); i := i + 1)
+            INSERT "" INTO newnode.texts AT END;
+          INSERT newnode INTO this->nodes AT pos.position;
+        }
+
+        tidpos := tidpos + 1;
+        CONTINUE;
+      }
+
+      //Calculate the length of the slice for this this
+      INTEGER slicestart := tidpos;
+      STRING searchmask := tidsofar || Left(localpart,dotpos+1) || "*";
+
+      //ADDME do binary search for the limit
+      WHILE(tidpos < Length(tids) AND tids[tidpos] LIKE searchmask)
+        tidpos := tidpos + 1;
+
+      IF(slicestart < tidpos) //we have something to process
+      {
+        //Find the exact matching textgroup node
+        STRING localgroupname := Left(localpart, dotpos);
+        RECORD pos := RecordLowerBound(this->nodes, [ isgroup := TRUE, name := localgroupname ], ["isgroup", "name"]);
+        OBJECT subgroup;
+
+        IF(NOT pos.found) //insert a new textgroup
+        {
+          RECORD newnode := [ isgroup := TRUE
+                            , name := localgroupname
+                            , texts := DEFAULT STRING ARRAY
+                            , textgroup := NEW MergedTextGroup(this, this->langfileset)
+                            ];
+          INSERT newnode INTO this->nodes AT pos.position;
+          subgroup := newnode.textgroup;
+        }
+        ELSE
+        {
+          subgroup := this->nodes[pos.position].textgroup;
+        }
+
+        subgroup->RecurseAddTids(ArraySlice(tids, slicestart, tidpos - slicestart), tidsofar || localgroupname || ".");
+      }
+      ELSE
+      {
+        tidpos := tidpos + 1; //iterate to next tid
+      }
+    }
+  }
+  MACRO SetKeepEmptyReason(STRING newreason)
+  {
+    IF(newreason = this->__keepemptyreason)
+      RETURN;
+
+    this->__keepemptyreason := newreason;
+    this->MarkDirty(0);
+  }
+  MACRO SetLimitLanguages(STRING ARRAY newlangs)
+  {
+    newlangs := SortArray(newlangs);
+    IF(Detokenize(newlangs,"\t") = Detokenize(this->__limitlanguages,"\t"))
+      RETURN;
+
+    this->__limitlanguages := SortArray(newlangs);
+    this->MarkDirty(0);
+  }
+  PUBLIC STRING ARRAY FUNCTION GetEffectiveLimitLanguages()
+  {
+    RETURN Length(this->__limitlanguages) > 0 ? this->__limitlanguages : ObjectExists(this->parent) ? this->parent->GetEffectiveLimitLanguages() : DEFAULT STRING ARRAY;
+  }
+  PUBLIC BOOLEAN FUNCTION IsKeepIfEmpty()
+  {
+    RETURN this->keepifempty OR (ObjectExists(this->parent) AND this->parent->IsKeepIfEmpty());
+  }
+  PUBLIC RECORD ARRAY FUNCTION GetAllGroups(STRING basename)
+  {
+    RECORD ARRAY groups;
+    FOREVERY(RECORD node FROM this->nodes)
+      IF(node.isgroup)
+      {
+        STRING groupname := (basename != "" ? basename || "." : "") || node.name;
+        INSERT [ name := groupname, textgroup := node.textgroup ] INTO groups AT END;
+        groups := groups CONCAT node.textgroup->GetAllGroups(groupname);
+      }
+    RETURN groups;
+  }
+  PUBLIC INTEGER FUNCTION GetPresentTextScore(STRING ARRAY lookfornames)
+  {
+    STRING ARRAY translated;
+    FOREVERY (RECORD node FROM this->nodes)
+    {
+      IF (node.isgroup)
+        CONTINUE;
+
+      BOOLEAN havetranslated;
+      FOREVERY (STRING text FROM node.texts)
+        IF (text != "")
+        {
+          INSERT `${node.name}\t${#text}` INTO translated AT END;
+          havetranslated := TRUE;
+        }
+      IF (havetranslated)
+        INSERT node.name INTO translated AT END;
+    }
+
+    RETURN Length(ArrayIntersection(lookfornames,translated));
+  }
+>;

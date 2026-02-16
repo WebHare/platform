@@ -9,4 +9,67 @@
       </textgroup>
     </textgroup>
   </textgroup>
+  <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
+      <text tid="addgroup">Add group</text>
+      <text tid="addlanguagefile">Add language file</text>
+      <text tid="addtext">Add text</text>
+      <text tid="allsaved">All language files in this module have been rewritten</text>
+      <text tid="allunreferenced">All texts in this group appear to be unused</text>
+      <text tid="badtext">The language text has a syntax error.</text>
+      <text tid="collapserecursive">Collapse all</text>
+      <text tid="contextview">Context</text>
+      <text tid="currenttid">References of node</text>
+      <text tid="deleteconfirmation">Are you sure you want to delete the selected nodes?</text>
+      <text tid="duplicategroupname">This name already exists in this group</text>
+      <text tid="duplicatenodename">This name already exists in this group</text>
+      <text tid="edittext">Edit text</text>
+      <text tid="elementname">Group name</text>
+      <text tid="error_badlanguagecode">Invalid language code. A language code must be two characters long, and be in lowercase</text>
+      <text tid="exit">Exit</text>
+      <text tid="expandrecursive">Expand all</text>
+      <text tid="export">Export</text>
+      <text tid="find">Display search bar</text>
+      <text tid="gid">Group ID</text>
+      <text tid="illegaltidname">This TID does not have a valid name</text>
+      <text tid="import">Import</text>
+      <text tid="issues">Issues</text>
+      <text tid="keepemptyreason">Reason</text>
+      <text tid="keepifempty">Keep empty/unreferenced texts</text>
+      <text tid="langcode">Language code</text>
+      <text tid="langedit">Language editor</text>
+      <text tid="langtext">Language text</text>
+      <text tid="languagefile">Language file</text>
+      <text tid="limitlanguages">Limit languages</text>
+      <text tid="mi_unreferenced">Highlight unused texts</text>
+      <text tid="mi_untranslated">Highlight missing texts</text>
+      <text tid="movefrom">Move texts from</text>
+      <text tid="movemissingfrom">Move missing texts from</text>
+      <text tid="next">Next</text>
+      <text tid="nosuchgroup">No such group '<param p="1"/>'</text>
+      <text tid="notfound">Could not find a node when searching for string '<param p="1"/>'.</text>
+      <text tid="occurrences">Occurences</text>
+      <text tid="open">Open</text>
+      <text tid="previous">Previous</text>
+      <text tid="regex">RegEx</text>
+      <text tid="reload">Reload</text>
+      <text tid="reloadwarning">The language files have been modified outside the language editor. You should reload</text>
+      <text tid="removehighlighted">Remove highlighted</text>
+      <text tid="removenodes">Remove node</text>
+      <text tid="saveall">Rewrite all languagefiles</text>
+      <text tid="search">Search</text>
+      <text tid="searchbtn">Search</text>
+      <text tid="searchfor">Search for</text>
+      <text tid="searchintexts">Also within texts</text>
+      <text tid="selectunreferenced">Select unrefenced nodes</text>
+      <text tid="targetgroup">Receiving group</text>
+      <text tid="textgroup">Text group</text>
+      <text tid="title">Entry</text>
+      <text tid="unlinked">This text is not linked to anything</text>
+      <text tid="unreferenced">Unreferenced</text>
+      <text tid="untranslated">Untranslated</text>
+      <text tid="untranslated_button">Untranslated</text>
+      <text tid="verifyfirstlanguagefile">The first language file you create will be the default language file for the module. Are you sure you want to make this language the default?</text>
+    </textgroup>
+  </textgroup>
 </language>

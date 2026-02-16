@@ -1,0 +1,184 @@
+<?wh
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+STRING FUNCTION DecodeLanguageText(OBJECT fragment)
+{
+  STRING retval;
+  FOR(OBJECT part := fragment->firstchild; ObjectExists(part); part := part->nextsibling)
+  {
+    INTEGER nodetype := part->nodetype;
+
+    IF(nodetype=XmlTextNode)
+    {
+      STRING text := part->nodevalue;
+      text := Substitute(text,"%","%%");
+      text := Substitute(text,"[","[[");
+      text := Substitute(text,"]","]]");
+
+      retval := retval || EncodeTextNode(text);
+      CONTINUE;
+    }
+    IF(nodetype!=XmlElementNode)
+      THROW NEW Exception("Unexpected node " || part->nodename);
+
+    STRING localname := part->localname;
+    IF(part->namespaceuri  = "http://www.webhare.net/xmlns/tollium/screens")
+    {
+      SWITCH(localname)
+      {
+        CASE "br"
+        {
+          retval := retval || "\n";
+        }
+        CASE "param"
+        {
+          retval := retval || "%" || part->GetAttribute("p");
+        }
+        CASE "ifparam"
+        {
+          retval := retval || "[IF %" || part->GetAttribute("p") || '="' || EncodeHTML(part->GetAttribute("value")) || '"]'
+                    || DecodeLanguageText(part) || "[/IF]";
+        }
+        CASE "else"
+        {
+          retval := retval || "[ELSE]";
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unexpected screens node " || localname || " on line " || part->linenum);
+        }
+      }
+    }
+    ELSE IF(part->namespaceuri  = "http://www.w3.org/1999/xhtml")
+    {
+      SWITCH(localname)
+      {
+        CASE "b","i","u","li","ul","ol"
+        {
+          retval := retval || "<" || localname || ">" || DecodeLanguageText(part) || "</" || localname || ">";
+        }
+        CASE "br"
+        {
+          retval := retval || "<br />";
+        }
+        CASE "a"
+        {
+          STRING link := part->GetAttribute("href");
+          IF(link="")
+          {
+            STRING linkparam := part->GetAttribute("data-href-param");
+            IF(linkparam != "")
+              link := "%" || linkparam;
+          }
+          STRING doel := part->GetAttribute("target");
+          retval := retval || '<a' || (link != '' ? ' href="' || link || '"' : '') || (doel != '' ? ' target="' || doel || '"' : '') || '>' || DecodeLanguageText(part) || '</a>';
+        }
+        DEFAULT
+        {
+          THROW NEW Exception("Unexpected HTML node " || localname || " at " || DecodeLanguageText(part) || " line " || part->linenum);
+        }
+      }
+    }
+    ELSE
+    {
+      THROW NEW Exception("Unexpected node {" || part->namespaceuri || "}" || localname|| " line " || part->linenum);
+    }
+  }
+
+  RETURN retval;
+}
+
+
+PUBLIC STATIC OBJECTTYPE TextGroup
+<
+  RECORD ARRAY pvt_nodes;
+  PUBLIC PROPERTY nodes(pvt_nodes, -);
+  PUBLIC PROPERTY keepifempty(GetKeepIfEmpty,-);
+  PUBLIC STRING keepemptyreason;
+  PUBLIC STRING ARRAY limitlanguages;
+
+  MACRO NEW()
+  {
+  }
+
+  BOOLEAN FUNCTION GetKeepIfEmpty()
+  {
+    RETURN this->keepemptyreason!="";
+  }
+
+  PUBLIC BOOLEAN FUNCTION ShouldBePruned()
+  {
+    IF(this->keepifempty OR Length(this->limitlanguages)>0)
+      RETURN FALSE;
+
+    FOREVERY(RECORD node FROM this->pvt_nodes)
+      IF(node.isgroup)
+      {
+        IF(NOT node.textgroup->ShouldBePruned())
+          RETURN FALSE;
+      }
+      ELSE
+      {
+        IF(node.text!="")
+          RETURN FALSE;
+      }
+
+    RETURN TRUE;
+  }
+
+  PUBLIC MACRO ReadLanguageNodes(OBJECT element)
+  {
+    this->keepemptyreason := element->GetAttribute("keepemptyreason");
+    this->limitlanguages := ParseXSList(element->GetAttribute("limitlanguages"));
+
+    FOR(OBJECT node := element->firstchild;ObjectExists(node);node:=node->nextsibling)
+    {
+      IF(node->nodetype != XmlElementNode)
+        CONTINUE;
+
+      IF(node->localname = "textgroup")
+      {
+        STRING name := ToLowercase(node->GetAttribute("gid"));
+        RECORD pos := RecordLowerBound(this->pvt_nodes, [ isgroup := TRUE, name := name ], [ "ISGROUP", "NAME" ]);
+        IF (pos.found)
+          this->pvt_nodes[pos.position].textgroup->ReadLanguageNodes(node);
+        ELSE
+        {
+          OBJECT subgroup := NEW TextGroup;
+          subgroup->ReadLanguageNodes(node);
+          IF(subgroup->ShouldBePruned())
+            CONTINUE;
+
+          INSERT [ isgroup := TRUE
+                 , name := ToLowercase(node->GetAttribute("gid"))
+                 , textgroup := subgroup
+                 ] INTO this->pvt_nodes AT pos.position;
+        }
+      }
+      ELSE IF(node->localname = "text")
+      {
+        STRING text := TrimWhitespace(DecodeLanguageText(node));
+
+        STRING name := ToLowercase(node->GetAttribute("tid"));
+        RECORD pos := RecordLowerBound(this->pvt_nodes, [ isgroup := FALSE, name := name ], [ "ISGROUP", "NAME" ]);
+        IF (pos.found)
+        {
+          // Only overwrite when the text isn't empty
+          IF (text != "")
+            this->pvt_nodes[pos.position].text := text;
+        }
+        ELSE
+        {
+          IF(text="" AND NOT this->keepifempty)
+            CONTINUE;
+
+          INSERT [ isgroup := FALSE
+                 , name := ToLowercase(node->GetAttribute("tid"))
+                 , text := text
+                 ] INTO this->pvt_nodes AT pos.position;
+        }
+      }
+    }
+  }
+>;
