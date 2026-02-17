@@ -10,6 +10,107 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
+    <textgroup gid="browsemodule">   <!-- tolliumapps.browsemodule -->
+      <text tid="filename">Filename</text>
+      <text tid="filetype">Type</text>
+      <text tid="importpath">Import path</text>
+    </textgroup>
+    <textgroup gid="config">   <!-- tolliumapps.config -->
+      <textgroup gid="deploy">   <!-- tolliumapps.config.deploy -->
+        <textgroup gid="deploymodule">   <!-- tolliumapps.config.deploy.deploymodule -->
+          <text tid="branchnotonorigin">The current branch of this module is not present on the origin. This may happen if you are working on a feature branch. Please commit and push first. Are you sure you want to proceed deploying this module?</text>
+          <text tid="criticalissues">The following critical issues were found:<br/><br/><param p="1"/><br/><br/>Are you sure you want to push this module?</text>
+          <text tid="differentbranch">The module on the server is from a different branch (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
+          <text tid="differentrepository">The module on the server is from a different repository (local: '<param p="1"/>', server: '<param p="2"/>'). <br/><br/>Are you sure you want to replace it?</text>
+          <text tid="invalidversion">The module '<param p="1"/>' on the server has version '<param p="2"/>' which does not satisfy the requested version '<param p="3"/>'</text>
+          <text tid="missingrequiredmoduleonpeer">The required module '<param p="1"/>' is not present on the server.</text>
+          <text tid="notatbranchhead">The HEAD of your git working copy is not at the branch head - you either have local changes you did not push to the origin server, or the origin server has changes you haven't pulled to your local copy yet.<br/><br/>Please merge or rebase, and then push the changes to origin. Are you sure you want to proceed?</text>
+          <text tid="uncommittedchanges">This module has uncommitted changes. Are you sure you want to deploy this module?</text>
+          <text tid="unpushedchanges">The local git repository contains commits that haven't yet been pushed to the central repository. Please push these changes first.<br/><br/>Are you sure you want to proceed with deploying this module?</text>
+          <text tid="uploadnewmodule">This module does not exist on the server yet. Are you sure you want to deploy this module?</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.config.main -->
+        <text tid="differentbranch">The server version is on a different branch</text>
+        <text tid="outofdate">The server module is out of date</text>
+        <text tid="uncommittedchanges">(+ changes)</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="deploy">   <!-- tolliumapps.deploy -->
+      <textgroup gid="diffs">   <!-- tolliumapps.deploy.diffs -->
+        <textgroup gid="deploymodule">   <!-- tolliumapps.deploy.diffs.deploymodule -->
+          <text tid="modulehaspeerchanges">The module on the server has been modified after installation. <br/><br/>Are you sure you want to replace it?</text>
+          <text tid="peerchangeswarning">Module has been modified after installation</text>
+          <text tid="reviewchanges">Review changes</text>
+        </textgroup>
+        <textgroup gid="modulefilediff">   <!-- tolliumapps.deploy.diffs.modulefilediff -->
+          <text tid="ignorewhitespace">Ignore white space at the beginning and ending of lines</text>
+          <text tid="title">Diff of file '<param p="2"/>' in module '<param p="1"/>'</text>
+          <text tid="titlemultiple">Diff of multiple files in module '<param p="1"/>'</text>
+        </textgroup>
+        <textgroup gid="reviewdiffs">   <!-- tolliumapps.deploy.diffs.reviewdiffs -->
+          <text tid="moduledoesnothavesourcezip">The module on the peer does not have its original source available</text>
+          <text tid="nodifferences">No differences found</text>
+          <text tid="path">Path</text>
+          <text tid="remotemodulehasnofilelist">The module on the peer does not have a file listing available</text>
+          <text tid="reviewmodulepeerchanges">Files modified after module installation</text>
+          <text tid="reviewremotetolocaldiff">Review differences between remote and local module '<param p="1"/>'</text>
+          <text tid="showdiff">Show diff</text>
+          <text tid="showfulldiff">Show full diff</text>
+          <text tid="status">Status</text>
+        </textgroup>
+        <textgroup gid="reviewincomingcommits">   <!-- tolliumapps.deploy.diffs.reviewincomingcommits -->
+          <text tid="author">Author</text>
+          <text tid="date">Date</text>
+          <text tid="id">Commit ID</text>
+          <text tid="message">Message</text>
+          <text tid="reviewincomingcommits">Incoming commits</text>
+        </textgroup>
+      </textgroup>
+      <textgroup gid="forges">   <!-- tolliumapps.deploy.forges -->
+        <text tid="abouttoken">devkit:automerge requires a GitLab token with 'api' privileges</text>
+        <text tid="editforge">Set up forge</text>
+        <text tid="forges">Forges</text>
+        <text tid="requestnewtoken">Get token</text>
+        <text tid="token">Token</text>
+        <text tid="url">URL</text>
+      </textgroup>
+      <textgroup gid="main">   <!-- tolliumapps.deploy.main -->
+        <text tid="browsemodule">Browse module</text>
+        <text tid="connectremote">Connect</text>
+        <text tid="deploymodule">Deploy module</text>
+        <text tid="devpages">Useful dev links</text>
+        <text tid="forges">Manage forges</text>
+        <text tid="jsonschemas">JSON Schemas</text>
+        <text tid="langedit">Language editor</text>
+        <text tid="lastmodified">Last updated</text>
+        <text tid="main">Modules</text>
+        <text tid="modulepushed">Module '<param p="1"/>' has been deployed to the peer.</text>
+        <text tid="name">Name</text>
+        <text tid="openrepository">Open repository</text>
+        <text tid="peerhasnomodules">No installed modules found</text>
+        <text tid="reviewincomingcommits">Review missing commits</text>
+        <text tid="reviewmodulepeerchanges">Review changes on peer</text>
+        <text tid="reviewremotetolocaldiff">Review differences (remote to local)</text>
+        <text tid="revision">Source revision</text>
+        <text tid="version">Version</text>
+      </textgroup>
+    </textgroup>
+    <textgroup gid="iconviewer">   <!-- tolliumapps.iconviewer -->
+      <text tid="b16">16x16, b</text>
+      <text tid="b24">24x24, b</text>
+      <text tid="c16">16x16, c</text>
+      <text tid="c24">24x24, c</text>
+      <text tid="counter">Update counter</text>
+      <text tid="displayed">Displayed</text>
+      <text tid="icon">Icon</text>
+      <text tid="iconname">Icon</text>
+      <text tid="icontypes">Icon types</text>
+      <text tid="iconviewer">Icon viewer</text>
+      <text tid="types">File types</text>
+      <text tid="w16">16x16, w</text>
+      <text tid="w24">24x24, w</text>
+    </textgroup>
     <textgroup gid="langedit">   <!-- tolliumapps.langedit -->
       <text tid="addgroup">Add group</text>
       <text tid="addlanguagefile">Add language file</text>

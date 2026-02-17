@@ -1,0 +1,125 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+PUBLIC RECORD FUNCTION DescribeGitRepo(STRING repo, BOOLEAN obsolete)
+{
+  RETURN WaitForPromise(ImportJS("./git.ts")->DescribeGitRepo(repo, obsolete));
+}
+RECORD FUNCTION LocateGitExecutable()
+{
+  RETURN LocateExecutable("", "git");
+}
+
+RECORD FUNCTION LocateExecutable(STRING tryregkey, STRING executablename)
+{
+  STRING ARRAY paths;
+  STRING registrypath := tryregkey != "" ? ReadRegistryKey(tryregkey) : "";
+  STRING result;
+
+  IF (registrypath = "")
+  {
+    STRING path := GetEnvironmentVariable("PATH");
+    path := Substitute(path, ";", ":");
+    IF (path != "")
+      paths := Tokenize(path, ":");
+  }
+  ELSE
+  {
+    // Is the path to a file?
+    RECORD data := GetDiskFileProperties(registrypath);
+    IF (RecordExists(data) AND data.type = 0)
+      result := registrypath;
+
+    paths := [ registrypath ];
+  }
+
+  IF (result = "")
+  {
+    FOREVERY (STRING path FROM paths)
+    {
+      STRING testpath := MergePath(path, executablename);
+
+      RECORD data := GetDiskFileProperties(testpath);
+      IF (RecordExists(data) AND data.type = 0)
+      {
+        result := testpath;
+        BREAK;
+      }
+    }
+  }
+
+  RETURN
+      [ value :=      result
+      , ttl :=        5 * 60 * 60
+      , eventmasks := [ "system:registry.system.modules" ]
+      ];
+}
+
+//Execute raw git command
+PUBLIC RECORD FUNCTION ExecuteGitCommand(STRING ARRAY parameters, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ workingdir :=     ""
+      ], options);
+
+  IF(IsWASM())
+    RETURN WaitForPromise(ImportJS("./git.ts")->ExecuteGitCommand(parameters, options));
+
+  BOOLEAN captureoutput := TRUE;
+  STRING gitpath := GetAdhocCached([ type := "gitpath" ], PTR LocateGITExecutable);
+
+  OBJECT proc := CreateProcess(gitpath, parameters, FALSE, captureoutput, captureoutput, captureoutput);
+  IF (options.workingdir != "")
+    proc->initialworkingdirectory := options.workingdir;
+  IF(NOT captureoutput)
+  {
+    proc->share_stdout := TRUE;
+    proc->share_stderr := TRUE;
+  }
+  proc->Start();
+
+  INTEGER stream := CreateStream();
+  OBJECT itr := MakeProcessAsyncIterator(proc);
+  WHILE (TRUE)
+  {
+    RECORD rec := WaitForPromise(itr->Next());
+    IF (rec.done)
+    {
+      STRING output := BlobToString(MakeBlobFromStream(stream));
+      LogDebug("devkit:executegitcommand", "Exited with code #" || rec.value.exitcode, CELL[ gitpath, parameters, output]);
+      RETURN CELL[ rec.value.exitcode, output ];
+    }
+    IF (rec.value.type = "output")
+      PrintTo(stream, rec.value.line || "\n");
+  }
+}
+
+//Execute dev-configured git command
+PUBLIC RECORD FUNCTION ExecuteDevGitCommand(STRING modulepath, STRING ARRAY parameters)
+{
+  // TODO we should only overwrite the git cmdline under docker?
+  STRING ARRAY sshoptions :=
+      [ "core.sshCommand=ssh"
+      , "StrictHostKeyChecking=no"
+      , "UserKnownHostsFile=/dev/null"
+      , "LogLevel=ERROR"
+      ];
+
+  // Prevent prompting for keyphrases within Docker environment
+  IF (GetWebhareVersionInfo().docker)
+    INSERT "IdentitiesOnly=yes" INTO sshoptions AT END;
+
+  RECORD res := ExecuteGitCommand(
+      [ "-c" , Detokenize(sshoptions, " -o ")
+      , "-C", modulepath
+      , ...parameters
+      ]);
+
+  RETURN res;
+}

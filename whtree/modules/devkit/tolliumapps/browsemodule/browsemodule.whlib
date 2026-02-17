@@ -1,0 +1,54 @@
+<?wh
+/* test urls:
+https://webhare.moe.sf.webhare.dev/?app=devkit:browsemodule
+https://webhare.moe.sf.webhare.dev/?app=devkit:browsemodule(webhare_testsuite)
+https://webhare.moe.sf.webhare.dev/?app=devkit:browsemodule(dev)
+*/
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+OBJECT browsemodule := ImportJS("./browsemodule.ts");
+OBJECT devbridge := ImportJS("@mod-platform/js/devsupport/devbridge.ts");
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
+<
+  STRING module;
+
+  MACRO Init(RECORD data)
+  {
+    IF(RecordExists(data.target))
+      this->module := data.target.module;
+    ELSE IF(Length(data.params) > 0)
+      this->module := data.params[0];
+    ELSE IF(this->module IN devbridge->getBuiltinModules()) //this includes 'platform'
+      this->module := "platform";
+
+    this->frame->title := `Browse: ${this->module}`;
+
+    this->ReloadFiles();
+  }
+
+  MACRO ReloadFiles()
+  {
+    RECORD ARRAY files := WaitForPromise(browsemodule->getModuleGeneratedFiles(this->module));
+    ^files->rows := SELECT *, rowkey := path, filename := GetNameFromPath(path), filetype := type FROM files;
+    this->OnFileSelect();
+  }
+
+  MACRO OnFileSelect()
+  {
+    RECORD sel := ^files->selection;
+    ^fileeditor->visible := RecordExists(sel) AND sel.html = FALSE;
+    ^filehtml->visible := NOT ^fileeditor->visible;
+    ^importpath->value := RecordExists(sel) ? sel.importpath : "";
+
+    STRING content;
+    IF(RecordExists(sel))
+      content := WaitForPromise(browsemodule->GetContent(sel.rowkey));
+
+    ^fileeditor->value := RecordExists(sel) AND sel.html = FALSE ? content : "";
+    ^filehtml->value := RecordExists(sel) AND sel.html = TRUE ? content : "";
+  }
+>;

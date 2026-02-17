@@ -1,0 +1,165 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.iconviewer" library="iconviewer.whlib">
+
+  <screen name="iconviewer" width="70x" height="50x" allowresize="true">
+    <actions>
+      <action name="refresh" onexecute="dorefresh" tid="~refresh" />
+    </actions>
+
+    <menus />
+
+    <compositions>
+      <eventlistener name="eventlistener" onevents="gotfilechange" />
+    </compositions>
+
+    <body defaultbutton="btn_refresh" layout="left">
+      <grid height="1pr">
+        <cell width="1pr">
+          <line>
+            <textedit name="iconname" onchange="GotIconSelection" value="tollium:" />
+            <select name="icontypes" type="checkbox" onchange="GotIconSelection" orientation="horizontal">
+              <option rowkey=".svg" selected="true" title="svg" />
+              <option rowkey=".ixo" selected="true" title="ixo" />
+              <option rowkey=".png" title="png" />
+            </select>
+          </line>
+          <list name="icons"
+                icons="tollium:overlays/status/positive tollium:status/error"
+                onselect="GotIconSelect"
+                rowlayout="tworows"
+                selectmode="single"
+                sortcolumn="name">
+            <column name="icon" type="icon" />
+            <column name="icon2" type="icon" tid=".icon" />
+            <column name="name" type="text" tid="~name" />
+            <column name="icontypes" type="text" tid=".icontypes" />
+            <column name="type" type="text" width="10x" tid=".types" />
+            <column name="allvalid" type="icon" title="ok" />
+            <column name="has16b" type="icon" title="16b" />
+            <column name="has16c" type="icon" title="16c" />
+            <column name="has16w" type="icon" title="16w" />
+            <column name="has24b" type="icon" title="24b" />
+            <column name="has24c" type="icon" title="24c" />
+            <column name="has24w" type="icon" title="24w" />
+            <column name="empty1" type="text" title="" />
+            <rowlayout name="tworows">
+              <col coldef="icon" />
+              <col coldef="icon2" />
+              <col coldef="name" />
+              <col coldef="icontypes" />
+              <col coldef="allvalid" />
+              <col coldef="has16b" />
+              <col coldef="has16c" />
+              <col coldef="has16w" />
+              <col coldef="has24b" />
+              <col coldef="has24c" />
+              <col coldef="has24w" />
+              <col coldef="type" />
+              <row>
+                <cell coldef="icon" rowspan="2" />
+                <cell coldef="icon2" />
+                <cell coldef="name" />
+                <cell coldef="icontypes" />
+                <cell coldef="allvalid" />
+                <cell coldef="has16b" />
+                <cell coldef="has16c" />
+                <cell coldef="has16w" />
+                <cell coldef="has24b" />
+                <cell coldef="has24c" />
+                <cell coldef="has24w" />
+                <cell coldef="type" />
+              </row>
+              <row>
+                <cell coldef="empty1" colspan="11" />
+              </row>
+            </rowlayout>
+          </list>
+        </cell>
+        <cell>
+          <text name="displayed" />
+          <text name="counter" visible="true" />
+          <grid>
+            <col width="10px" />
+            <col width="40px" />
+            <col width="10px" />
+            <col width="48px" />
+            <row>
+              <cell>
+                <text tid=".b16" />
+              </cell>
+              <cell>
+                <image name="b16" width="16px" height="16px" title="" />
+              </cell>
+              <cell>
+                <text tid=".b24" />
+              </cell>
+              <cell>
+                <image name="b24" width="24px" height="24px" title="" />
+              </cell>
+            </row>
+            <row>
+              <cell>
+                <text tid=".b16" />
+              </cell>
+              <cell backgroundcolor="#95cdfe">
+                <image name="bs16" width="16px" height="16px" title="" />
+              </cell>
+              <cell>
+                <text tid=".b24" />
+              </cell>
+              <cell backgroundcolor="#95cdfe">
+                <image name="bs24" width="24px" height="24px" title="" />
+              </cell>
+            </row>
+            <row>
+              <cell>
+                <text tid=".c16" />
+              </cell>
+              <cell>
+                <image name="c16" width="16px" height="16px" title="" />
+              </cell>
+              <cell>
+                <text tid=".c24" />
+              </cell>
+              <cell>
+                <image name="c24" width="24px" height="24px" title="" />
+              </cell>
+            </row>
+            <row>
+              <cell>
+                <text tid=".c16" />
+              </cell>
+              <cell backgroundcolor="#95cdfe">
+                <image name="cs16" width="16px" height="16px" title="" />
+              </cell>
+              <cell>
+                <text tid=".c24" />
+              </cell>
+              <cell backgroundcolor="#95cdfe">
+                <image name="cs24" width="24px" height="24px" title="" />
+              </cell>
+            </row>
+            <row>
+              <cell>
+                <text tid=".w16" />
+              </cell>
+              <cell backgroundcolor="#4a4a4a">
+                <image name="w16" width="16px" height="16px" title="" />
+              </cell>
+              <cell>
+                <text tid=".w24" />
+              </cell>
+              <cell backgroundcolor="#4a4a4a">
+                <image name="w24" width="24px" height="24px" title="" />
+              </cell>
+            </row>
+          </grid>
+        </cell>
+      </grid>
+    </body>
+
+    <footer layout="right">
+      <button name="btn_refresh" action="refresh" tid="~refresh" />
+    </footer>
+  </screen>
+
+</screens>

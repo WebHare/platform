@@ -1,0 +1,17 @@
+<?wh
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Forges EXTEND TolliumScreenBase
+<
+>;
+
+
+PUBLIC STATIC OBJECTTYPE EditForge EXTEND WRDEntityEditScreenBase
+<
+  MACRO OnOpenNewToken(OBJECT browser) {
+    browser->SendURL(^entity->^url->value || "/-/user_settings/personal_access_tokens/");
+  }
+>;

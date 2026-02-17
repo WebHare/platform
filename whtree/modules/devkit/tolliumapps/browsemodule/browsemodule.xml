@@ -1,0 +1,23 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.browsemodule" library="browsemodule.whlib">
+
+  <screen name="main" allowresize="1" title="">
+    <body spacers="none">
+      <split type="horizontal" height="1pr">
+        <part width="1pr">
+          <list name="files" height="1pr" onselect="onfileselect" selectmode="multiple">
+            <column name="filename" type="text" width="1pr" />
+            <column name="filetype" type="text" width="10x" />
+          </list>
+        </part>
+        <part width="3pr">
+          <panel borders="bottom" spacers="all">
+            <textedit name="importpath" width="1pr" enabled="false" />
+          </panel>
+          <codeedit name="fileeditor" width="1pr" height="1pr" enabled="false" />
+          <iframe name="filehtml" width="1pr" height="1pr" />
+        </part>
+      </split>
+    </body>
+  </screen>
+
+</screens>

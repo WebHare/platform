@@ -10,10 +10,36 @@
   </meta>
 
   <portal>
+    <application name="deploy"
+                 engine="wasm"
+                 group="system:development"
+                 openmultipleinstances="true"
+                 screen="/tolliumapps/deploy/deploy.xml"
+                 shortcut="ctrl+shift+m"
+                 supportedlanguages="en"
+                 tid="tolliumapps.deploy.main.main">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
     <application name="langedit" screen="tolliumapps/langedit/langedit.xml#main" tid="tolliumapps.langedit.langedit">
       <accesscheck>
         <requireright right="system:sysop" />
       </accesscheck>
+    </application>
+    <application name="browsemodule"
+                 engine="wasm"
+                 screen="/tolliumapps/browsemodule/browsemodule.xml"
+                 supportedlanguages="en">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+    <application name="iconviewer"
+                 group="system:development"
+                 screen="tolliumapps/iconviewer/iconviewer.xml#iconviewer"
+                 tid="tolliumapps.iconviewer.iconviewer">
+      <accesscheck />
     </application>
   </portal>
 

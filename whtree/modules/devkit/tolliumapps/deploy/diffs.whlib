@@ -1,0 +1,725 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/internal/modules/node.whlib";
+LOADLIB "mod::devkit/lib/internal/deploy/moduleimexport.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+
+/** Creates an archive of a module
+    @param module Name of the module
+    @param userlogin Login name of the current user
+    @param userrealname Real name of the current user
+    @return Module archive
+    @cell(boolean) return.success Whether the module archive was created successfully
+    @cell(string) return.errormessage Error message, only present when `success` is FALSE
+    @cell(string) return.archivename Name for the module archive file
+    @cell(blob) return.data Archive data
+    @cell(string) return.moduleversion
+    @cell(record) return.manifest Contents of module manifest
+*/
+RECORD FUNCTION PrepareModuleDownload(STRING module, STRING userlogin, STRING userrealname)
+{
+  OBJECT archiver := NEW DevModuleArchiver;
+  archiver->SetUserData(userlogin, userrealname);
+
+  RECORD moduledata  := archiver->CreateArchive(module);
+
+  RETURN [ archivename :=   GetSafeFilename("whmodule-" || module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime())) || ".tar.gz"
+         , data :=          moduledata
+         , moduleversion := moduledata.fullversion
+         , manifest :=      moduledata.manifest
+         ];
+}
+
+PUBLIC STATIC OBJECTTYPE ModulePusher <
+  STRING modulename;
+  RECORD pushinfo;
+  RECORD moduledata;
+  RECORD ARRAY peermodules;
+  OBJECT peer;
+
+  MACRO NEW(STRING modulename, OBJECT peer)
+  {
+    this->modulename := modulename;
+    this->peer := peer;
+    this->pushinfo :=
+          CELL[ module :=       this->modulename
+              , peerurl :=      this->peer->url
+              , issues :=       RECORD[]
+              //TODO als log if any of the following further steps are being skipped/ignored: (eg brachnotorigin, notabranch..)
+              ];
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GatherPrePushIssues()
+  {
+    // Get the list of external modules
+    this->peermodules := this->peer->InvokeAdminService("ListInstalledModules");
+
+    RECORD localmoduleinfo := GetWebhareModuleInfo(this->modulename);
+    RECORD ARRAY issues;
+
+    RECORD ARRAY nodeissues := CheckNodeModulesInModule(GetModuleInstallationRoot(this->modulename));
+    FOREVERY (RECORD issue FROM nodeissues)
+      INSERT CELL[ type := "verify", message := issue.basepath || ": " || issue.error ] INTO issues  AT END;
+    FOREVERY (RECORD error FROM SELECT * FROM ValidateSingleFile(GetModuleDefinitionXMLResourceName(this->modulename)).messages WHERE type="error")
+      INSERT CELL[ type := "verify", message := FormatValidationError(error) ] INTO issues AT END;
+
+    RECORD peerinfo := this->peer->InvokeAdminService("Connect");
+    IF(peerinfo.applicability.version LIKE "*-dev") {
+      //Ignore -dev on 5.4.0 and older for a better transition to NPM verison numbers
+      STRING withoutdev := Left(peerinfo.applicability.version, Length(peerinfo.applicability.version) - 4);
+      IF(VersionSatisfiesRange(withoutdev, "<=5.4.0"))
+        peerinfo.applicability.version := withoutdev;
+    }
+    STRING whymismatch := GetApplicabilityError(peerinfo.applicability, localmoduleinfo.packagingapplicability);
+    IF(whymismatch!="")
+      INSERT CELL[ type := "verify", message := "This module is not compatible with that server:\n" ||whymismatch //FIXME langfile
+                 ] INTO issues AT END;
+
+    FOREVERY (RECORD rec FROM localmoduleinfo.requiredmodules)
+    {
+      // Skip base modules, they aren't listed in installed modules
+      IF (rec.name IN whconstant_builtinmodules)
+        CONTINUE;
+
+      RECORD existing := SELECT * FROM this->peermodules WHERE name = rec.name;
+      IF (NOT RecordExists(existing))
+        INSERT CELL[ type := "verify", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.missingrequiredmoduleonpeer", rec.name) ] INTO issues AT END;
+      ELSE IF(rec.moduleversion != "" AND NOT VersionSatisfiesRange(existing.version, rec.moduleversion))
+        INSERT CELL[ type := "verify", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.invalidversion", rec.name, existing.version, rec.moduleversion) ] INTO issues AT END;
+    }
+
+    this->pushinfo.issues := this->pushinfo.issues CONCAT issues;
+
+    RETURN issues;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION PreparePush(STRING userlogin, STRING userrealname, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions([ firstpush := FALSE], options);
+
+    RECORD mod := SELECT * FROM this->peermodules WHERE ToUppercase(name) = ToUppercase(this->modulename);
+    this->moduledata := PrepareModuleDownload(this->modulename, userlogin, userrealname);
+    this->pushinfo := CELL[ ...this->pushinfo
+                          , version :=      this->moduledata.moduleversion
+                          , manifestdata := GetAuditLogDataFromManifest(this->moduledata.manifest)
+                          ];
+
+    RECORD ARRAY pushissues;
+
+    IF (this->moduledata.manifest.original_source = "git") {
+      IF (this->moduledata.manifest.source_revision != this->moduledata.manifest.source_localremoterevision)
+      {
+        IF (this->moduledata.manifest.source_localremoterevision = "")
+        {
+          // Local remote is ancestor of current commit - so current commit just hasn't been pushed yet
+          INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.branchnotonorigin") ] INTO pushissues AT END;
+        }
+        ELSE IF (this->moduledata.manifest.source_revision != this->moduledata.manifest.source_localremoterevision)
+        {
+          // Either uncommitted changes or not rebased yet
+          IF (RecordExists(SELECT FROM this->moduledata.manifest.commits WHERE id = this->moduledata.manifest.source_localremoterevision))
+          {
+            // Local remote is ancestor of current commit - so current commit just hasn't been pushed yet
+            INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.unpushedchanges") ] INTO pushissues AT END;
+          }
+          ELSE
+          {
+            // Remote is not an ancestor of current version - have older version checked out or need to rebase
+            INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.notatbranchhead") ] INTO pushissues AT END;
+          }
+        }
+      }
+
+      RECORD ARRAY modifications;
+      FOREVERY(RECORD changeset FROM this->moduledata.manifest.changesets)
+        modifications := modifications CONCAT changeset.modifications;
+
+      IF (Length(modifications) > 0) {
+        INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.uncommittedchanges"), paths := modifications ] INTO pushissues AT END;
+      }
+
+      IF (RecordExists(mod))
+      {
+        IF (this->moduledata.manifest.source_repository_url != "" AND mod.source_repository_url != "")
+        {
+          IF (this->moduledata.manifest.source_repository_uuid != mod.source_repository_uuid)
+          {
+            INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.differentrepository", this->moduledata.manifest.source_repository_uuid, mod.source_repository_uuid) ] INTO pushissues AT END;
+          }
+          ELSE IF (this->moduledata.manifest.source_repository_url != mod.source_repository_url)
+          {
+            STRING local_branch := Tokenize(this->moduledata.manifest.source_repository_url || "\t", "\t")[1];
+            STRING remote_branch := Tokenize(mod.source_repository_url || "\t", "\t")[1];
+
+            INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.differentbranch", local_branch, remote_branch) ] INTO pushissues AT END;
+          }
+          // ADDME: downgrade detection?
+        }
+      }
+    }
+
+    IF (RecordExists(mod))
+    {
+      RECORD changes := this->peer->InvokeAdminService("GetModuleChangedFiles", this->modulename);
+      IF (changes.success AND LENGTH(changes.changedfiles) != 0)
+      {
+        INSERT CELL[ type := "remotechanges", message := GetTid("devkit:tolliumapps.deploy.diffs.deploymodule.modulehaspeerchanges"), changes.changedfiles ] INTO pushissues AT END;
+      }
+    }
+    ELSE IF(NOT options.firstpush)
+    {
+      INSERT CELL[ type := "confirm", message := GetTid("devkit:tolliumapps.config.deploy.deploymodule.uploadnewmodule") ] INTO pushissues AT END;
+    }
+
+    this->pushinfo.issues := this->pushinfo.issues CONCAT pushissues;
+    RETURN pushissues;
+  }
+
+  PUBLIC RECORD FUNCTION UploadModule()
+  {
+    LogAuditEvent("devkit:modulepush", CELL[ ...this->pushinfo, action := "preparepush" ]);
+
+    RECORD checkresult := this->peer->InvokeAdminService("uploadmodule", this->modulename, this->moduledata.data.data);
+    IF(NOT CellExists(checkresult, 'uploaded'))
+      INSERT CELL uploaded := checkresult.code != "CANNOTREPLACE" INTO checkresult; //pre 5.1 says CANNOTREPLACE but doesn't have 'uploaded'
+
+    LogAuditEvent("devkit:modulepush", CELL[ ...this->pushinfo, action := checkresult.uploaded ? "pushed" : "failed", checkresult.errors, checkresult.warnings ]);;
+    RETURN CELL[ checkresult.uploaded, checkresult.errors, checkresult.warnings ];
+  }
+>;
+
+PUBLIC BOOLEAN FUNCTION DoPushModule(OBJECT parent, STRING modulename)
+{
+  // Recheck remote applicability info
+  OBJECT pusher := NEW ModulePusher(modulename, parent->contexts->^peer);
+
+  RECORD ARRAY pushissues := pusher->GatherPrePushIssues();
+  STRING ARRAY criticalissues := SELECT AS STRING ARRAY message FROM pushissues WHERE type = "verify";
+
+  IF(Length(criticalissues) > 0)
+  {
+    //Sometimes you have to push or ignore, eg our validation may be incorrect when pushing to an older webhare version
+    IF(parent->RunSimpleScreen("verify", GetTid("devkit:tolliumapps.config.deploy.deploymodule.criticalissues", Detokenize(criticalissues,'\n'))) != "yes")
+      RETURN FALSE;
+    //FIXME Auditlog or taint that a module with Critical issues is being pushed
+  }
+
+  pushissues := pusher->PreparePush(parent->contexts->user->login, parent->contexts->user->realname);
+  FOREVERY(RECORD issue FROM pushissues)
+  {
+    IF(issue.type = "confirm")
+    {
+      IF (parent->RunSimpleScreen("confirm", issue.message) != "yes")
+        RETURN FALSE;
+    }
+    ELSE IF(issue.type = "remotechanges")
+    {
+      IF(parent->RunScreen(Resolve("diffs.xml#peerchangeswarning"),
+        [ modulename :=     modulename
+        , changedfiles :=   issue.changedfiles
+        ]) != "yes")
+      RETURN FALSE;
+    }
+    ELSE
+    {
+      THROW NEW Exception(`Unexpected issue type '${issue.type}'`);
+    }
+  }
+
+  OBJECT work := parent->BeginUnvalidatedFeedback();
+  RECORD uploadresult := pusher->UploadModule();
+  FOREVERY (STRING str FROM uploadresult.errors)
+    work->AddError(str);
+  FOREVERY (STRING str FROM uploadresult.warnings)
+    work->AddWarning(str);
+
+  work->Finish();
+  RETURN TRUE;
+}
+
+PUBLIC OBJECTTYPE PeerChangesWarning EXTEND TolliumScreenBase
+<
+  RECORD data;
+
+
+  MACRO Init(RECORD data)
+  {
+    this->data := data;
+  }
+
+  MACRO DoReviewChanges()
+  {
+    this->RunScreen("#reviewmodulepeerchanges", this->data);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ReviewRemoteToLocalDiff EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING modulename;
+  OBJECT localmodulearchive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+
+    this->frame->title := this->GetTid(".reviewremotetolocaldiff", this->modulename);
+
+    // Create local module
+    RECORD localmodule := PrepareModuleDownload(this->modulename, this->tolliumuser->login, this->tolliumuser->realname);
+    RECORD remotemodule := this->contexts->^peer->InvokeAdminService("GetModuleChangedFiles", this->modulename);
+
+    RECORD ARRAY local_sourcefiles :=
+        SELECT *
+             , pos :=         1
+          FROM localmodule.manifest.sourcefiles
+      ORDER BY path;
+
+    // Reset sha1hash for all changed files
+    STRING ARRAY changedpaths := SELECT AS STRING ARRAY path FROM remotemodule.changedfiles ORDER BY path;
+    RECORD ARRAY remote_sourcefiles :=
+        SELECT *
+             , sha1hash :=    LowerBound(changedpaths, path).found ? "" :  sha1hash
+             , pos :=         -1
+          FROM remotemodule.sourcefiles
+      ORDER BY path;
+
+    // Add all added files
+    remote_sourcefiles := remote_sourcefiles CONCAT
+        SELECT path
+             , sha1hash :=    ""
+             , pos :=         -1
+          FROM remotemodule.changedfiles
+         WHERE status = "added";
+
+    // Remove all deleted files
+    STRING ARRAY deletedpaths := SELECT AS STRING ARRAY path FROM remotemodule.changedfiles WHERE status = "removed" ORDER BY path;
+    DELETE
+      FROM remote_sourcefiles
+     WHERE LowerBound(deletedpaths, path).found;
+
+    IF (LENGTH(remote_sourcefiles) = 0)
+    {
+      OBJECT feedback := this->BeginFeedback();
+      feedback->AddError(this->GetTid(".remotemodulehasnofilelist"));
+      feedback->Finish();
+      this->tolliumresult := "cancel";
+      RETURN;
+    }
+
+    this->localmodulearchive := OpenExistingArchive(localmodule.data.data);
+
+//    PRINT(AnyToString(local_sourcefiles, "boxed"));
+//    PRINT(AnyToString(remote_sourcefiles, "boxed"));
+
+    RECORD ARRAY changes :=
+        SELECT status :=  SUM(pos) < 0
+                              ? "removed"
+                              : SUM(pos) > 0
+                                    ? "added"
+                                    : "modified"
+             , path
+          FROM local_sourcefiles CONCAT remote_sourcefiles
+      GROUP BY path
+        HAVING SUM(pos) != 0 OR this->HaveDifferentHashes(GroupedValues(sha1hash));
+
+    ^files->rows := changes;
+  }
+
+  BOOLEAN FUNCTION Cancel()
+  {
+    IF (ObjectExists(this->localmodulearchive))
+      this->localmodulearchive->Close();
+
+    this->localmodulearchive := DEFAULT OBJECT;
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BOOLEAN FUNCTION HaveDifferentHashes(STRING ARRAY hashes)
+  {
+    RETURN LENGTH(hashes) > 1 AND LENGTH(SELECT AS STRING ARRAY DISTINCT hash FROM ToRecordArray(hashes, "HASH")) != 1;
+  }
+
+  BLOB FUNCTION GetRemoteModuleFile(STRING path)
+  {
+    STRING url := ResolveToAbsoluteURL(this->contexts->^peer->url, "/webdav/system/modules/" || this->modulename || "/" || path);
+    IF (NOT this->contexts->^peer->browser->GotoWebPage(url))
+      THROW NEW Exception("Could not download needed file from peer");
+
+    RETURN this->contexts->^peer->browser->content;
+  }
+
+  MACRO ShowDiffWindow(RECORD ARRAY selectedfiles)
+  {
+    RECORD ARRAY files;
+
+    FOREVERY (RECORD sel FROM selectedfiles)
+    {
+      BLOB orgfile, newfile;
+
+      TRY
+      {
+        IF (sel.status != "added")
+          orgfile := this->GetRemoteModuleFile(sel.path);
+      }
+      CATCH (OBJECT e)
+      {
+      }
+
+      IF (sel.status != "removed")
+        newfile := this->localmodulearchive->GetFile(this->modulename || "/" || sel.path);
+
+      INSERT
+          [ path :=         sel.path
+          , orgfile :=      orgfile
+          , newfile :=      newfile
+          , have_newfile := sel.status != "removed"
+          , have_orgfile := sel.status != "added"
+          , org_suffix :=   ".remote"
+          , new_suffix :=   ".local"
+          ] INTO files AT END;
+    }
+
+    OBJECT screen := this->LoadScreen(".modulefilediff",
+        [ modulename :=   this->modulename
+        , files :=        files
+        ]);
+
+    screen->RunModal();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoShowDiff()
+  {
+    this->ShowDiffWindow([ RECORD(^files->selection) ]);
+  }
+
+  MACRO DoShowFullDiff()
+  {
+    this->ShowDiffWindow(^files->rows);
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ReviewModulePeerChanges EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  STRING modulename;
+
+  RECORD ARRAY changedfiles;
+
+  BLOB sourcezip;
+
+  OBJECT sourcearchive;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD data)
+  {
+    this->modulename := data.modulename;
+    this->changedfiles := data.changedfiles;
+
+    ^files->rows :=
+        SELECT rowkey :=    path
+             , path
+             , status
+          FROM this->changedfiles;
+
+    IF (NOT this->GetSourceZip())
+      this->tolliumresult := "cancel";
+  }
+
+  // Cleanup
+  BOOLEAN FUNCTION Cancel()
+  {
+    this->sourcearchive->Close();
+    this->sourcearchive := DEFAULT OBJECT;
+    this->sourcezip := DEFAULT BLOB;
+    RETURN TRUE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  BLOB FUNCTION GetModuleFile(STRING path)
+  {
+    STRING url := ResolveToAbsoluteURL(this->contexts->^peer->url, "/webdav/system/modules/" || this->modulename || "/" || path);
+
+    IF (NOT this->contexts->^peer->browser->GotoWebPage(url))
+      THROW NEW Exception("Could not download needed file from peer");
+
+    RETURN this->contexts->^peer->browser->content;
+  }
+
+  BOOLEAN FUNCTION GetSourceZip()
+  {
+    TRY
+    {
+      this->sourcezip := this->GetModuleFile("history/source.zip");
+      this->sourcearchive := OpenExistingArchive(this->sourcezip);
+    }
+    CATCH (OBJECT e)
+    {
+      Print("history/source.zip not found: " || e->what);
+      this->RunSimpleScreen("error", this->GetTid(".moduledoesnothavesourcezip"));
+    }
+    RETURN TRUE;
+  }
+
+  MACRO ShowDiffWindow(RECORD ARRAY selectedfiles)
+  {
+    RECORD ARRAY files;
+
+    FOREVERY (RECORD file FROM selectedfiles)
+    {
+      STRING path := file.path;
+
+      STRING archivepath := this->modulename || "/" || path;
+
+      BLOB orgfile, newfile;
+      BOOLEAN have_orgfile := RecordExists(SELECT FROM this->sourcearchive->entries WHERE fullpath = archivepath);
+      IF (have_orgfile)
+        orgfile := this->sourcearchive->GetFile(this->modulename || "/" || path);
+      BOOLEAN have_newfile;
+      TRY
+      {
+        newfile := this->GetModuleFile(path);
+        have_newfile := TRUE;
+      }
+      CATCH (OBJECT e)
+      {
+      }
+
+      INSERT
+          [ path :=     path
+          , orgfile :=      orgfile
+          , newfile :=      newfile
+          , have_newfile := have_newfile
+          , have_orgfile := have_orgfile
+          ] INTO files AT END;
+    }
+
+    OBJECT screen := this->LoadScreen(".modulefilediff",
+        [ modulename :=   this->modulename
+        , files :=        files
+        ]);
+
+    screen->RunModal();
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Actions
+  //
+
+  MACRO DoShowDiff()
+  {
+    this->ShowDiffWindow([ RECORD(^files->selection) ]);
+  }
+
+  MACRO DoShowFullDiff()
+  {
+    this->ShowDiffWindow(^files->rows);
+  }
+>;
+
+PUBLIC OBJECTTYPE ModuleFileDiff EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD params;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO Init(RECORD params)
+  {
+    this->params := params;
+
+    // Default to ignoring whitespace on line (fixes \r differences). Whitespace isn't significant for
+    // all the text file formats we currently exchange via modules.
+    this->ignorewhitespace->value := TRUE;
+
+    this->Refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO GotChange()
+  {
+    this->Refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO Refresh()
+  {
+    RECORD params := this->params;
+
+    IF (LENGTH(params.files) = 1)
+      this->frame->title := this->GetTid(".title", params.modulename, params.files[0].path);
+    ELSE
+      this->frame->title := this->GetTid(".titlemultiple", params.modulename);
+//    STRING
+//        "Diff of original " || LENGTH(data.orgfile) || " bytes\n" ||
+//        "and modified " || LENGTH(data.newfile) || " bytes\n";
+
+    STRING s;
+
+    FOREVERY (RECORD data FROM params.files)
+    {
+      STRING org_suffix := CellExists(data, "ORG_SUFFIX") ? data.org_suffix : ".original";
+      STRING new_suffix := CellExists(data, "NEW_SUFFIX") ? data.new_suffix : "";
+
+      IF (NOT data.have_orgfile)
+      {
+        s := s || "File '" || data.path || "' (length " || LENGTH(data.newfile) || ") has been added\n\n";
+      }
+      ELSE IF (NOT data.have_newfile)
+      {
+        s := s || "File '" || data.path || "' (length " || LENGTH(data.orgfile) || ") has been deleted\n\n";
+      }
+      ELSE
+      {
+        RECORD det := ScanBlob(data.have_newfile ? data.newfile : data.orgfile, GetNameFromPath(data.path));
+        IF (NOT RecordExists(det) OR (
+            det.mimetype NOT LIKE "text*" AND
+            det.mimetype NOT LIKE "application/*webhare*" AND
+            det.mimetype NOT IN [ "application/javascript", "application/x-javascript" ]))
+        {
+          // Binary, not diffable
+          IF (LENGTH(data.orgfile) != LENGTH(data.newfile)
+              OR GetHashForBlob(data.orgfile,"MD5") != GetHashForBlob(data.newfile,"MD5") ) //ADDME block-by-block comparison is most efficient and allows us to tell where it differs (just don't blobstring -1 huge zip files)
+          {
+            s := s || "Binary file original " || data.path || " (" || LENGTH(data.orgfile) || " bytes) and new file (" || Length(data.newfile) || " bytes) differ (" || det.mimetype || ")\n\n";
+          }
+        }
+        ELSE
+        {
+          OBJECT differ := MakeTextDiffGenerator();
+          differ->trimwhitespace := this->ignorewhitespace->value;
+
+          differ->LoadOldVersion(data.orgfile);
+          differ->LoadNewVersion(data.newfile);
+
+          RECORD ARRAY diff := differ->GetDifferences();
+
+          IF (LENGTH(diff) != 0)
+          {
+            s := s || "--- " || data.path || org_suffix || "\n";
+            s := s || "+++ " || data.path || new_suffix || "\n";
+            FOREVERY (RECORD x FROM diff)
+            {
+              s := s || "@@ -" || x.minstart + 1 || "," || x.minlines || " +" || x.plusstart + 1 || "," || x.pluslines  || " @@\n";
+              s := s || Detokenize(x.lines, "\n") || "\n\n";
+            }
+          }
+        }
+      }
+    }
+
+    this->diff->value := s;
+  }
+>;
+
+PUBLIC OBJECTTYPE ReviewIncomingCommits EXTEND TolliumScreenBase
+<
+  BLOB FUNCTION GetRemoteModuleFile(STRING module, STRING path)
+  {
+    STRING url := ResolveToAbsoluteURL(this->contexts->^peer->url, "/webdav/system/modules/" || module || "/" || path);
+    IF (NOT this->contexts->^peer->browser->GotoWebPage(url))
+      THROW NEW Exception("Could not download needed file from peer");
+
+    RETURN this->contexts->^peer->browser->content;
+  }
+
+  MACRO Init(RECORD data)
+  {
+    // Get and parse remote manifest
+    BLOB manifest_blob := this->GetRemoteModuleFile(data.module, "history/manifest.xml");
+    RECORD remote_manifest := ParseModuleManifest(MakeXMLDocument(manifest_blob));
+    RECORD localmoduleinfo := GetRevisionOfSingleModuleDev(data.module);
+
+    STRING ARRAY got_commits :=
+        SELECT AS STRING ARRAY id
+          FROM remote_manifest.commits;
+    RECORD ARRAY new_commits :=
+        SELECT *
+          FROM localmoduleinfo.commits
+         WHERE id NOT IN got_commits;
+
+    this->commits->rows :=
+        SELECT *
+             , author :=    author.name != "" ? author.name || (author.email != "" ? " (" || author.email || ")" : "") : author.email
+             , date
+             , rowkey :=    id
+          FROM new_commits;
+  }
+
+  MACRO OnSelect()
+  {
+    this->commit->value := this->commits->selection ??
+        [ id :=       ""
+        , date :=     DEFAULT DATETIME
+        , author :=   ""
+        , message :=  ""
+        ];
+  }
+>;
