@@ -1,0 +1,25 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE SetupWebHareUser EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^webhareuser->value := ReadRegistryKey("devkit.webhareuser") ?? this->contexts->user->entity->guid;
+  }
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    WriteRegistryKey("devkit.webhareuser", ^webhareuser->value);
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC MACRO RunSetupWebHareUser(OBJECT controller, RECORD data)
+{
+  controller->RunScreen(Resolve("setupwebhareuser.xml"), data);
+}

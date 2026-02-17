@@ -1,0 +1,14 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumapps.peering.setupwebhareuser"
+         library="setupwebhareuser.whlib">
+
+  <screen name="setupwebhareuser" footerbuttons="ok cancel">
+    <body>
+      <line layout="left">
+        <text valuetid=".choosedevuser" />
+      </line>
+      <selectuser xmlns="http://www.webhare.net/xmlns/system/components" name="webhareuser" inputkind="wrd_guid" required="1" />
+    </body>
+  </screen>
+
+</screens>

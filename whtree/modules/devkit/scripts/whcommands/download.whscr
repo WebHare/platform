@@ -1,0 +1,27 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::devkit/lib/internal/deploy/moduleimexport.whlib";
+
+// command: devkit:download [--output path] <module>
+// short: Download a module as an archive
+
+RECORD cmdargs := ParseArguments(GetConsoleArguments(),
+    [ [ name := "output", type := "stringopt" ]
+    , [ name := "module", type := "param", required := TRUE ]
+    ]);
+
+IF(NOT RecordExists(cmdargs))
+{
+  Print("Syntax: wh devkit:download [--output path] <module>\n");
+  TerminateScriptWithError("Invalid syntax");
+}
+
+STRING target := cmdargs.output ?? "whmodule-" || cmdargs.module || "-" || FormatDatetime("%Y-%m-%d", GetcurrentDatetime()) || ".tar.gz";
+OBJECT archiver := NEW DevModuleArchiver;
+RECORD moduledata := archiver->CreateArchive(cmdargs.module);
+StoreDiskFile(target, moduledata.data, [ overwrite := TRUE ]);
+Print(`Saved module to ${target}\n`);

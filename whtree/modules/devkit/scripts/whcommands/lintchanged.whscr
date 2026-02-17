@@ -1,0 +1,133 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+LOADLIB "mod::devkit/lib/internal/deploy/git.whlib";
+
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "onlystaged", type := "switch" ]
+    , [ name := "file", type := "param" ]
+    ]);
+
+MACRO ShowSyntax()
+{
+  TerminateScriptWithError(`Syntax: wh devkit:lintchanged [ --onlystaged ] [ file ]
+`);
+}
+
+IF (IsDefaultValue(args))
+  ShowSyntax();
+
+IF (GetEnvironmentVariable("WEBHAREDEV_SKIP_LINTCHANGED") != "")
+{
+  PRINT(`Skipping lintchanged\n`);
+  TerminateScript();
+}
+
+RECORD ARRAY allmoduleroots :=
+    SELECT TEMPORARY root := GetModuleInstallationRoot(module)
+          , module
+          , root :=      root
+      FROM ToRecordArray(__SYSTEM_GetInstalledModuleNames(), "module")
+  ORDER BY root;
+
+args.file := args.file ?? GetCurrentPath() || "/";
+
+STRING argmodule;
+{
+  RECORD pos := RecordLowerBound(allmoduleroots, CELL[ root := args.file ], [ "ROOT" ]);
+  IF (pos.found OR (pos.position > 0 AND args.file LIKE allmoduleroots[pos.position - 1].root || "*"))
+  {
+    RECORD mod := allmoduleroots[pos.position - (pos.found?0:1)];
+    argmodule := mod.module;
+  }
+
+  IF (args.file LIKE GetWebhareConfiguration().installationroot || "*"
+      OR args.file = "platform"
+      OR (GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") != "" AND args.file LIKE MergePath(GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO"), "*")))
+    argmodule := "platform";
+}
+IF (argmodule = "")
+  THROW NEW Exception(`Could not determine module from path ${args.file}`);
+
+STRING FUNCTION FindGitRoot(STRING path)
+{
+  WHILE(NOT RecordExists(GetDiskFileProperties(MergePath(path,'.git'))))
+  {
+    path := GetDirectoryFromPath(path);
+    path := Left(path, Length(path)-1); //strip /
+
+    IF(path="")
+      TerminateScriptWithError(`Could not find the root of the git repository, if any`);
+  }
+  RETURN path;
+}
+
+STRING ARRAY allmodules := [ argmodule ];
+IF ("platform" IN allmodules)
+  INSERT "webhare_testsuite" INTO allmodules AT END;
+
+STRING ARRAY allchanged;
+
+FOREVERY (STRING checkmodule FROM allmodules)
+{
+  STRING rootpath := argmodule = "platform"
+      ? GetWebhareConfiguration().installationroot
+      : GetModuleInstallationRoot(argmodule);
+
+  IF (rootpath = "")
+    THROW NEW Exception(`No such module ${argmodule}`);
+
+  rootpath := FindGitRoot(rootpath);
+
+  // Unstaged changes
+  RECORD res := args.onlystaged
+      ? [ output := "" ]
+      : ExecuteGitCommand([ "diff", "--name-only" ], [ workingdir := rootpath ]);
+
+  // Staged changes
+  RECORD stagedres := ExecuteGitCommand([ "diff", "--name-only", "--staged" ], [ workingdir := rootpath ]);
+
+  STRING ARRAY changed := GetSortedSet(ArrayDelete(Tokenize(res.output || stagedres.output, "\n"), [ "" ]));
+
+  FOREVERY (STRING path FROM changed)
+    changed[#path] := MergePath(rootpath, path);
+
+  allchanged := allchanged CONCAT changed;
+}
+
+IF (IsDefaultValue(allchanged))
+  INSERT "/tmp/non-existing" INTO allchanged AT END;
+
+OBJECT proc := CreateProcess(GetWebhareConfiguration().installationroot || "bin/wh",
+  [ "checkmodule"
+  , "--async"
+  , "--hidehints"
+  , "--nowarnings"
+  , "--silent"
+  , "--onlypaths"
+  , "-"
+  , ...allmodules
+  ],
+  [ take_input := TRUE
+  , take_output := FALSE
+  , take_errors := FALSE
+  ]);
+
+proc->share_stdout := TRUE;
+proc->share_stderr := TRUE;
+proc->Start();
+SendBlobTo(proc->input_handle, StringToBlob(Detokenize(allchanged, "\n")));
+proc->CloseInput();
+proc->Wait(MAX_DATETIME);
+WHILE (proc->IsRunning())
+  Sleep(10);
+SetConsoleExitCode(proc->exitcode);
+proc->Close();
