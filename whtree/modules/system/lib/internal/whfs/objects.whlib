@@ -2479,7 +2479,6 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
           updateobj := destfolder->CreateFolder(newmetadata, CELL[...this->copyoptions]);
         ELSE
           updateobj := destfolder->CreateFile(newmetadata, CELL[...this->copyoptions]);
-          dumpvalue(cell[this->copyoptions,updateobj]);
       }
       INTEGER64 ARRAY set_instantiations;
 
