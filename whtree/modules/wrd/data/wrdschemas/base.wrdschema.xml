@@ -65,6 +65,7 @@
         <json tag="private_key" required="true" typedeclaration="node:crypto#JsonWebKey" />
       </array>
       <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
+      <whfslink tag="whfs_context" description="Base file/folder/site for this schema in WHFS" />
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid wrd_limitdate">
       <value>
