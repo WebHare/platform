@@ -132,6 +132,7 @@ MACRO DraftingTest() {
                 , [ name := "", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
                 ], ListObjectHistory(testfile->id), "*");
   TestEq(0, GetLastPublicDraft(testfile->id), "An autosave is not a draft");
+  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
 
   //Unclaimed instances cannot be managed through the workflow
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
@@ -555,9 +556,11 @@ ASYNC MACRO NamingTest() {
     TestEq("an-unnamed-file.txt", testfile->name, "The system should have auto-named the file");
 
     OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    TestEqMembers([ name := "", title := "An unnamed file" ], workflowmgr->GetMetadata(), "*", "Name should be empty before any update action, we just have a title");
+
     workflowmgr->UpdateData(StringToBlob("Just some changed text"));
     workflowmgr->Save();
-    TestEqMembers([ name := "", title := "An unnamed file" ], workflowmgr->GetMetadata(), "*", "Name should be empty, we just hace a title");
+    TestEqMembers([ name := "", title := "An unnamed file" ], workflowmgr->GetMetadata(), "*", "Name should be empty, we just have a title");
     workflowmgr->Save([ finalize := TRUE ]);
 
     TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
@@ -577,7 +580,14 @@ ASYNC MACRO NamingTest() {
 
     TestEqMembers([ name := "" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->UpdateMetadata([ name := "new-name-during-draft.txt" ]);
-    workflowmgr->Save([ finalize := TRUE]);
+    TestEqMembers([ name := "new-name-during-draft.txt" ], workflowmgr->GetMetadata(), "*", "Name should be persisted to the autosave");
+    TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
+                  ,[ type := "saved",    version := "0.2", name := "" ]
+                  ,[ type := "autosave", version := "",    name := "new-name-during-draft.txt" ]
+                ], ListObjectHistory(testfile->id), "*");
+    TestEq("naming-during-draft.txt", OpenWHFSObject(testfile->id)->name, "The live file should still have the old name until we finalize");
+
+    workflowmgr->Save([ finalize := TRUE ]);
 
     TestEqMembers([ name := "new-name-during-draft.txt" ], workflowmgr->GetMetadata(), "*");
 
@@ -596,6 +606,7 @@ ASYNC MACRO NamingTest() {
     workflowmgr->UpdateMetadata([name := "naming-twice-autosaved.dat"]);
     TestEqMembers([ name := "naming-twice-autosaved.dat" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->Save();
+    Testeq("naming-twice-autosaved.dat", OpenWHFSObject(testfile->id)->name, "Name should be updated in the live file after save (eg if we change 'new-richtext-document' to 'my-new-file' in the RTD and save as draft, we want that new name in the file manager");
     TestEqMembers([ name := "naming-twice-autosaved.dat" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->UpdateMetadata([name := "naming-twice-draft.dat"]);
     TestEqMembers([ name := "naming-twice-draft.dat" ], workflowmgr->GetMetadata(), "*");
@@ -609,7 +620,7 @@ ASYNC MACRO NamingTest() {
     TestEq("naming-twice-draft.dat", OpenWHFSObject(testfile->id)->name, "Name should persist after a final publication");
   }
 
-  { // Naming scenario 4: Create a file with neither name or title. Title it, save it. Lack of name persists.Publish it. Only now is a name recorded based on the title
+  { // Naming scenario 4: Create a file with neither name or title. Title it, save it. Lack of name persists. Publish it. Only now is a name recorded based on the title
     OBJECT testfile := testfolder->CreateFile([ name := "new.txt", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser(), implicit_name := TRUE ]);
     TestEq("new.txt", testfile->name);
 

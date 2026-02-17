@@ -360,13 +360,17 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     //Move our version to the draft folder
     this->FinishAutosave(now, whconstant_historytype_saved, "", setversion);
 
+    /* When saving a draft that has never been explicitly named, its name should follow the slugified title, just like the editdoc interface will show as placeholder
+       As soon as an explicit name has been given, we'll rename the draft to that the first time (but what if you picked a dupe? where exactly will editdoc warn ?)
+       Once a file has been published for the first time, we should stop applying the draft name to the fsobject
+    */
     IF(NOT this->IsNameExplicit()) { //then we still want filemanager to follow temporary titles for clarity
       RECORD meta := SELECT title FROM system.fs_objects WHERE id = this->currentautosave_version.snapshot;
 
       IF(RecordExists(meta) AND meta.title != "")
         this->baseobject->UpdateMetadata(CELL[
           title := meta.title,
-          name := SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject ])
+          name := this->currentautosave_version.currentname ?? SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject ])
         ]);
     }
 
