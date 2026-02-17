@@ -586,8 +586,7 @@ PUBLIC RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
           The index file that will be added must be an HTML (type: 5) or HareScript file (type: 7)
     @param parentFolderID The ID of the folder in which to insert the index file.
 */
-PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
-{
+PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID) {
   OBJECT applytester := GetApplyTesterForObject(parentfolderid);
   RECORD folderindex := GetFolderIndexFile(applytester);
   IF (NOT RecordExists(folderindex))
@@ -596,8 +595,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
   INTEGER new_published := PubPrio_DirectEdit;
 
   OBJECT parentfolderobj := OpenWHFSObject(parentfolderid);
-  IF (folderindex.indexfile="contentlisting" OR folderindex.indexfile LIKE "contentlisting:*" )
-  {
+  IF (folderindex.indexfile="contentlisting" OR folderindex.indexfile LIKE "contentlisting:*" ) {
     STRING createfiletype := folderindex.indexfile LIKE "contentlisting:*" ? Substring(folderindex.indexfile,15) : "http://www.webhare.net/xmlns/publisher/contentlisting";
     OBJECT newfiletype := OpenWHFSType(createfiletype);
     IF(NOT ObjectExists(newfiletype))
@@ -619,15 +617,13 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
                                 , published := new_published
                                 , ispinned := folderindex.protectindexfile
                                 , dataistrusted := TRUE
-                                ], [ setindex := TRUE ]);
-  }
-  ELSE IF (folderindex.indexfile = "copy_of_file")
-  {
+                                ], [ setindex := TRUE, createdby := GetEffectiveUser()  ]);
+  } ELSE IF (folderindex.indexfile = "copy_of_file") {
     IF (RecordExists(folderindex.file))
     {
       // FIXME: Handle the case where a file with the name already exists. Clear title on indexdoc
       OBJECT copyfile := OpenWHFSObject(folderindex.file.id);
-      OBJECT newfile := copyfile->CopyTo(parentfolderobj, folderindex.newfilename);
+      OBJECT newfile := copyfile->CopyTo(parentfolderobj, folderindex.newfilename, [ createdby := GetEffectiveUser() ]);
       IF (ObjectExists(newfile))
       {
         RECORD filetype := DescribeContentTypeById(newfile->type, [ isfolder := FALSE, mockifmissing := TRUE]);
@@ -637,9 +633,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
         parentfolderobj->UpdateMetadata([ indexdoc := newfile->id ]);
       }
     }
-  }
-  ELSE IF (folderindex.indexfile = "contentlink")
-  {
+  } ELSE IF (folderindex.indexfile = "contentlink") {
     IF (RecordExists(folderindex.file))
     {
       STRING filename := folderindex.newfilename ?? folderindex.file.name;
@@ -652,11 +646,9 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
                                   , published := new_published
                                   , filelink := folderindex.file.id
                                   , ispinned := folderindex.protectindexfile
-                                  ], [ setindex := TRUE]);
+                                  ], [ setindex := TRUE, createdby := GetEffectiveUser() ]);
     }
-  }
-  ELSE IF (folderindex.indexfile = "newfile")
-  {
+  } ELSE IF (folderindex.indexfile = "newfile") {
     STRING filename := folderindex.newfilename ?? "index";
     IF(filename LIKE "*.rtd")
       filename := Left(filename, Length(filename) - 4);
@@ -665,7 +657,7 @@ PUBLIC MACRO AddDefaultIndexToFolder(INTEGER parentFolderID)
                                  , name := filename
                                  , published := new_published
                                  , ispinned := folderindex.protectindexfile
-                                 ], [ setindex := TRUE ]);
+                                 ], [ setindex := TRUE, createdby := GetEffectiveUser()  ]);
   }
 }
 

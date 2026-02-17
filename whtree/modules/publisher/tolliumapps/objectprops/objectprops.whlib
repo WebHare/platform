@@ -477,8 +477,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   //
 
   /// Sets the name field for a new object
-  MACRO CalculateNameForNewObject()
-  {
+  MACRO CalculateNameForNewObject() {
     IF (ObjectExists(this->sourceitem))
     {
       // Calculate unique name for duplicate of file
@@ -1057,8 +1056,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
 
     INTEGER scheduleoldindex, recycleoldindex;
 
-    IF (^makeindex->visible OR forcedindex OR NOT indexconstraints.acceptableindex)
-    {
+    IF (^makeindex->visible OR forcedindex OR NOT indexconstraints.acceptableindex) {
       IF (makeindex AND this->curtype.id = 20)
       {
         //verify the reference
@@ -1072,8 +1070,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       }
 
       //Does this folder already have an index other than this file?
-      IF (makeindex AND parentfolder->indexdoc != 0 AND (this->isnew OR parentfolder->indexdoc != this->sourceitem->id))
-      {
+      IF (makeindex AND parentfolder->indexdoc != 0 AND (this->isnew OR parentfolder->indexdoc != this->sourceitem->id)) {
         IF (RecordExists(parentsite))
         {
           //If this indexdoc has the name of an index file, it must be renamed or destroyed!
@@ -1168,6 +1165,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       RECORD metadata := this->GetMetadata();
       IF(^name->value != "")
         metadata := CELL[...metadata, name := ^name->value ];
+
       BOOLEAN update_ordering_otherfiles;
 
       IF (this->parentfolder->id != 0 AND GetApplyTesterForObject(this->parentfolder->id)->GetFolderSettings().ordering = "orderable") {
@@ -1272,7 +1270,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       INTEGER objid := this->itemid;
       IF(this->isnew) {
         IF(ObjectExists(this->sourceitem)) { //cloning an item
-          draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name);
+          draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name, [ createdby := this->contexts->user ]);
           draftitem->UpdateMetadata(metadata);
         } ELSE IF (this->isfolder) {
           draftitem := this->parentfolder->CreateFolder(metadata, [ createdby := this->contexts->user ]);

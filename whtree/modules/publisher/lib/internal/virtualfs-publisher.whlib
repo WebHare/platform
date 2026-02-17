@@ -265,7 +265,7 @@ PUBLIC OBJECTTYPE PublisherFS EXTEND VirtualFSBase
         THROW NEW VirtualFSException("XS", "No write access at destination");
 
       //FIXME Support webdav Overwrite
-      srcpathinfo.final->CopyTo(dstpathinfo.parent, dstpathinfo.name);
+      srcpathinfo.final->CopyTo(dstpathinfo.parent, dstpathinfo.name, [ createdby := GetEffectiveUser() ]);
       //FIXME hooks? more to repbulish?
       ScheduleFolderRepublish(srcpathinfo.final->id, TRUE, TRUE);
 

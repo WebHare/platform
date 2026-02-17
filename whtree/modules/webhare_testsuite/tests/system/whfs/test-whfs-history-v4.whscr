@@ -640,6 +640,22 @@ ASYNC MACRO NamingTest() {
                 ], ListObjectHistory(testfile->id), "*");
   }
 
+  { // Naming scenario 5: Duplicate new-ascii.txt. See if it won't conflict against itself
+    OBJECT testfile := testfolder->OpenByName("new-ascii.txt")->CopyTo(testfolder, "new-ascii-2.txt", [ createdby := testfw->GetUserObject("sysop") ]);
+    testfile->UpdateMetadata([ publish := FALSE ]);
+
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    TestEqMembers([ name := "new-ascii-2.txt" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->Save();
+    TestEqMembers([ name := "new-ascii-2.txt" ], workflowmgr->GetMetadata(), "*");
+    workflowmgr->Save([ finalize := TRUE ]);
+    TestEq("new-ascii-2.txt", OpenWHFSObject(testfile->id)->name, "Name should persist after a final publication");
+
+    TestEqMembers([[ type := "created",  version := "0.1", name := "new-ascii-2.txt", user := testfw->GetUserAuthobjectId("sysop") ]
+                  ,[ type := "final",    version := "1.0", name := "new-ascii-2.txt", user := testfw->GetUserAuthobjectId("marge") ]
+                  ], ListObjectHistory(testfile->id), "*");
+  }
+
   testfw->CommitWork();
 }
 

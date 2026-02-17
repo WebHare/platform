@@ -285,19 +285,28 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     options := ValidateOptions(CELL[ finalize := FALSE, publish := FALSE, updatemetadatafields := STRING["title", "description", "keywords"]  ], options);
     this->LoadDrafts();
 
-    IF(Length(SELECT * FROM ListObjectHistory(this->baseobject->id) WHERE type != "autosave") = 0)
+    RECORD ARRAY history := ListObjectHistory(this->baseobject->id);
+
+    IF(Length(SELECT FROM history WHERE type != "autosave") = 0) {
       ImportCurrentState(this->baseobject->id);  //Import the current final state
+      history := ListObjectHistory(this->baseobject->id); //reload history
+    }
 
     IF(NOT options.finalize) {
       IF(NOT RecordExists(this->currentautosave_version))
         RETURN; //nothing to save
       this->SaveAsNewPublicDraft();
     } ELSE { //finalizing
+      //If no autosave/draft present *AND* history already ends with a 'final', no need to add an entry
       IF(NOT RecordExists(this->currentautosave_version) AND NOT RecordExists(this->currentdraft_version)) {
-        IF(options.publish) { //we only need to set publish then, but just toggling that doesn't go through history
-          this->baseobject->UpdateMetadata(CELL[ publish := TRUE ]);
+        IF(history[END-1].type = "final") {
+          IF(options.publish) { //we only need to set publish then, but just toggling that doesn't create additional haistory
+            this->baseobject->UpdateMetadata(CELL[ publish := TRUE ]);
+          }
+          RETURN;
         }
-        RETURN;
+        //Create an autosave to finalize. Bit redundant DB work but allows us to use the SaveAsFinal code (which needs an autosave or draft)
+        this->EnsureAutosave();
       }
       this->SaveAsFinal(options);
     }
