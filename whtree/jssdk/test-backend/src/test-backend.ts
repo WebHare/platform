@@ -16,7 +16,7 @@ import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
-import { type IntExtLink, type Instance, openBackendService } from "@webhare/services";
+import { type IntExtLink, type Instance, openBackendService, backendConfig } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
 import type { InstanceExport, WHFSTypeName, TypedInstanceExport, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
 import { getPrioOrErrorFromPublished, getWHFSDescendantIds } from "@webhare/whfs/src/support";
@@ -24,6 +24,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSPublish, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import type { EventCompletionLink } from "@webhare/whfs/src/finishhandler";
+import { deleteModules } from "@mod-platform/js/devsupport/modules";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -31,6 +32,9 @@ export const passwordHashes = {
   secret: "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO",
   secret$: "WHBF:$2y$10$WUm2byXgMFDDa0nmSCLtUO0uNyMoHNmZhNm2YjWLNq8NmV15oFMDG",
 };
+
+export const tempModuleGroup = "webhare_testsuite_temp";
+export const tempModuleNamePrefix = "webhare_testsuite_temp_";
 
 export interface TestUserConfig {
   grantRights?: string[];
@@ -51,6 +55,10 @@ export interface ResetOptions {
 
 const users: Record<string, TestUserDetails> = {};
 
+export function getRandomTestModuleName() {
+  return `${tempModuleNamePrefix}${Math.floor(Math.random() * 90000 + 10000)}`;
+}
+
 async function cleanupWRDTestSchemas() {
   for (const schema of await listSchemas())
     if (schema.tag === whconstant_wrd_testschema
@@ -60,8 +68,18 @@ async function cleanupWRDTestSchemas() {
       await deleteSchema(schema.id);
 }
 
+async function deleteTempModules() {
+  const todelete = Object.keys(backendConfig.module).filter(key => key.startsWith(tempModuleNamePrefix));
+  if (todelete.length) {
+    console.log(`Deleting test modules from previous runs: ${todelete.join(", ")}`);
+    await deleteModules(todelete);
+  }
+}
+
 /** Reset the test framework */
-export async function reset(options?: ResetOptions) {
+export async function reset(options?: ResetOptions): Promise<void> {
+  await deleteTempModules();
+
   const setupWrdAuth = Boolean(options?.users && Object.keys(options.users).length);
   const wrdSchema = options?.wrdSchema === null ? null : options?.wrdSchema ?? whconstant_wrd_testschema;
 

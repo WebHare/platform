@@ -31,6 +31,7 @@ MACRO TestConsilioAPI()
   TestEq(DEFAULT OBJECT, testcatalog1->OpenContentSource("nosuchsource"));
 
   OBJECT newsource := testcatalog1->AddFolderToCatalog(OpenTestsuiteSite()->OpenByPath("testpages")->id, [ enabled := FALSE ] );
+  TestEq(0, newsource->getsettings().contentcheckinterval);
 
   //contentsourcefields need to exist so that we can find these fields when indexing. test_siteprofile_indices will test this at a 'higher' level (verifying title exists)
   //FIXME we're ignoring _score and _summary but those shouldn't exist in the database at all
@@ -39,9 +40,10 @@ MACRO TestConsilioAPI()
 
   TestEq(FALSE, newsource->enabled);
   TestEq(FALSE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));
-  newsource->UpdateContentSource([ enabled := TRUE ]);
+  newsource->UpdateContentSource([ enabled := TRUE, settings := [ contentcheckinterval := 123456 ]]);
   TestEq(TRUE, newsource->enabled);
   TestEq(TRUE, RecordExists(SELECT FROM ListPublisherContentSourcesFor(OpenTestsuiteSite()->OpenByPath("testpages/formtest")->id) WHERE catalog = testcatalog1->id AND contentsource = newsource->id));
+  TestEq(123456, newsource->getsettings().contentcheckinterval);
 
   OBJECT newsource2 := testcatalog2->AddFolderToCatalog(OpenTestsuiteSite()->OpenByPath("testpages/foldertemplate")->id);
   OBJECT newsource3 := testcatalog2->AddFolderToCatalog(OpenTestsuiteSite()->OpenByPath("portal1")->id);

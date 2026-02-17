@@ -338,7 +338,8 @@
       <text name="id" tid="~id" />
       <text name="tag" tid="~tag" />
       <heading tid=".generalsettings" />
-      <textedit name="contentcheckinterval" maxlength="5" emptyvalue="0" suffixtid="~units.minutes" valuetype="integer" />
+      <!-- -1 disables, TODO document or nicer screen. 0 is the default -->
+      <textedit name="contentcheckinterval" maxlength="5" emptyvalue="0" suffixtid="~units.minutes" valuetype="integer" minvalue="-1"/>
       <lines layout="left">
         <checkbox name="disablesource" labeltid=".disablesource-description" title="" />
       </lines>

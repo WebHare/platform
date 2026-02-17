@@ -1143,6 +1143,7 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
       ^id->value := ToString(this->contentsource->id);
       ^tag->value := dbsettings.tag;
       ^disablesource->value := dbsettings.status < 0;
+      ^contentcheckinterval->value := this->contentsource->GetSettings().contentcheckinterval;
 
       this->frame->title := GetTid("consilio:catalog.contentsourceeditor.title-edit");
     }
@@ -1168,6 +1169,8 @@ PUBLIC STATIC OBJECTTYPE ContentSourceEditor EXTEND TolliumScreenBase
            SET status := ^disablesource->value ? contentsourcestatus_disabled : status = contentsourcestatus_disabled ? contentsourcestatus_idle : status //flip status to -1 to disable, 0 to re-enable and otherwise leave alone
              , fsobject := ^folder->value
          WHERE id = finalsource->id;
+
+    finalsource->UpdateContentSource([ settings := [ contentcheckinterval := ^contentcheckinterval->value ]]);
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     IF(ObjectExists(this->contentsource)) //we were editing

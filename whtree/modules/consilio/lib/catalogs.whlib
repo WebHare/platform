@@ -83,8 +83,7 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
 /** Content source object
     @public
 */
-STATIC OBJECTTYPE ContentSource
-<
+STATIC OBJECTTYPE ContentSource <
   RECORD contentsource;
   OBJECT __catalog;
 
@@ -168,6 +167,21 @@ STATIC OBJECTTYPE ContentSource
     RETURN cpobj;
   }
 
+  PUBLIC RECORD FUNCTION GetSettings() {
+    STRING cursettings_text := SELECT AS STRING data FROM consilio.contentsources WHERE id = this->id;
+    RECORD cursettings;
+    IF(cursettings_text != "")
+      cursettings := CELL[ ...DecodeHSON(cursettings_text) ];
+
+    cursettings := EnforceStructure(
+      CELL[ library := "",
+            contentobject := "",
+            contentcheckinterval := 0,
+            lastcontentscheck := ""
+            ], cursettings);
+
+    RETURN cursettings;
+  }
   /** Update content source settings
       @param settings Settings to apply
       @cell(string) settings.definedby Definition location */
@@ -184,16 +198,10 @@ STATIC OBJECTTYPE ContentSource
     //If 'settings' is set we'll be merging it with the current data. but this whole settings thing is ugly and should
     //probably be made transparant/flat... but we use it for contentobject which should preferably go away at all and
     //be taken from moduledefs
-    IF(RecordExists(settings.settings))
-    {
-      RECORD newsettings := settings.settings;
-      STRING cursettings := SELECT AS STRING data FROM consilio.contentsources WHERE id = this->id;
-      IF(cursettings != "")
-        newsettings := CELL[ ...DecodeHSON(cursettings), ...newsettings];
+    IF(RecordExists(settings.settings)) {
+      RECORD newsettings := CELL[...this->GetSettings(), ...settings.settings];
       settings := CELL[ ...settings, data := EncodeHSON(newsettings), DELETE settings ];
-    }
-    ELSE
-    {
+    } ELSE {
       DELETE CELL settings FROM settings;
     }
 
