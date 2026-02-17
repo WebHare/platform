@@ -26,6 +26,10 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
+CONSTANT RECORD copyoptions :=
+  CELL[ createdby := DEFAULT OBJECT
+      ];
+
 CONSTANT RECORD createoptions :=
   CELL[ instances := RECORD[]
       , createdby := DEFAULT OBJECT
@@ -902,8 +906,9 @@ OBJECTTYPE WHFSObject <
       @param newname New name of the file, leave empty to keep the original name
       @return Object of newly copy (or DEFAULT OBJECT on failure)
   */
-  PUBLIC OBJECT FUNCTION CopyTo(OBJECT destfolder, STRING newname)
-  {
+  PUBLIC OBJECT FUNCTION CopyTo(OBJECT destfolder, STRING newname, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions(copyoptions, options);
+
     IF(NOT ObjectExists(destfolder) OR NOT destfolder->isfolder)
       THROW New WHFSException("OTHER", "Move destination is not a folder");
 
@@ -912,7 +917,7 @@ OBJECTTYPE WHFSObject <
     /* When copying a folder to a new folder, the newly created folder is the receiver
        When copying a file to a new folder, its new parent is the receiver */
 
-    OBJECT copyer := destfolder->MakeBulkReceiver();
+    OBJECT copyer := destfolder->MakeBulkReceiver(options);
     copyer->SetSourceBase(this->id, newname ?? this->name);
 
     copyer->CreateCopyPlan(this->parent, [INTEGER(this->pvt_id)], newname);
@@ -1518,9 +1523,9 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
   }
 
   /** Set up an object capable of receiving actions in bulk. */
-  PUBLIC OBJECT FUNCTION MakeBulkReceiver()
+  PUBLIC OBJECT FUNCTION MakeBulkReceiver(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN NEW WHFSBulkReceiver(PRIVATE this);
+    RETURN NEW WHFSBulkReceiver(PRIVATE this, options);
   }
 
   /** Export this folder
@@ -2101,6 +2106,9 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
 
   BOOLEAN allowscripting;
 
+  RECORD copyoptions;
+
+
   // ---------------------------------------------------------------------------
   //
   // Constructor & admin stuff
@@ -2109,10 +2117,10 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
   /** Constructs a new WHFSBulkReveiver, for actions to a specific destination folder (why?)
       @param destfolder Destination folder.
   */
-  MACRO NEW(OBJECT destfolder)
-  {
+  MACRO NEW(OBJECT destfolder, RECORD options) {
     // Get the current time
     this->now := GetCurrentDatetime();
+    this->copyoptions := ValidateOptions(copyoptions, options);
 
     // Get the owner for new files, and store the destfolder
     this->newowner := GetEffectiveUserId();
@@ -2161,7 +2169,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
   */
   MACRO RecurseGenerateCopyPlan(INTEGER sourceparent, RECORD ARRAY sourceobjs, INTEGER destinationfolder, STRING pathsofar, INTEGER depth, STRING type)
   {
-//    PRINT("RecurseGenerateCopyPlan: dest folder: #" || destinationfolder || ", path so far: " || pathsofar || "\n");
+    //PRINT("RecurseGenerateCopyPlan: dest folder: #" || destinationfolder || ", path so far: " || pathsofar || "\n");
 
     // Get the current objects in the destination folder, if it exists (destfolder 0 is a valid folder, but only when depth = 0)
     RECORD ARRAY destobjs;
@@ -2468,9 +2476,9 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
         INSERT copyrec.destid INTO this->createdfiles AT END;
 
         IF(copyrec.sourceisfolder)
-          updateobj := destfolder->CreateFolder(newmetadata);
+          updateobj := destfolder->CreateFolder(newmetadata, CELL[...this->copyoptions]);
         ELSE
-          updateobj := destfolder->CreateFile(newmetadata);
+          updateobj := destfolder->CreateFile(newmetadata, CELL[...this->copyoptions]);
       }
       INTEGER64 ARRAY set_instantiations;
 
@@ -3148,7 +3156,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
     FOREVERY (RECORD rec FROM republishes)
       this->commithandler->FileRepublish(rec.parentsite, rec.parent, rec.id);
 
-    //any moves clears trashing info
+    //any moves clears trashing info - FIXME can we avoid that? trashing still seems relevant
     INTEGER ARRAY cleartrashfor := SELECT AS INTEGER ARRAY destid FROM this->plan WHERE NOT create;
     IF(Length(cleartrashfor) > 0)
       DELETE FROM system.fs_history WHERE type = whconstant_historytype_recycled AND fs_object IN cleartrashfor;

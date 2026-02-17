@@ -57,20 +57,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   // Variables
   //
 
-  /// Last modificationdate of the published version (inited when opened)
-  DATETIME lastmod;
-
-  /// Rich document file instancedata
-  RECORD filedata;
-
   /// When autosave may start working (set to TRUE when is RTE initialized, set to FALSE after 'Save on close: NO')
   BOOLEAN canautosave;
 
   /// Whether or not to show the draft bar during this session
   BOOLEAN showdraftbar;
-
-  /// Type of the file being edited
-  INTEGER filetype;
 
   RECORD filetypeinfo;
 
@@ -120,8 +111,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     }
 
 
-    this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
-    this->filetype := fsobject->type;
     this->filetypeinfo := DescribeContentTypeById(fsobject->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
 
     //Loads the extensions for the file type and invokes additional editor hooks
@@ -168,9 +157,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         work->Finish();
       }
     }
-
-    this->lastmod := this->filedata.modificationdate;
-    //this->historybtn->pressed := this->historypart->visible ;
 
     IF(mustloadrte)
       this->ReloadRTEContents();
