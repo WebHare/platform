@@ -292,6 +292,24 @@ ASYNC MACRO TestRevert()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestMetatabVersions() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ params := [ "site::webhare_testsuite.testsitejs/tmp/testmetatab2.rtd" ]  ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("versions"));
+
+  TestEqMembers([
+    [ versionnumber := "1.0", displayname := "Unknown user" ], //FIXME?
+    [ versionnumber := "1.1", displayname := "Sysop McTestsuite" ],
+    [ versionnumber := "1.2", displayname := "Sysop McTestsuite" ],
+    [ versionnumber := "2.0", displayname := "Sysop McTestsuite" ],
+    [ versionnumber := "3.0", displayname := "Sysop McTestsuite" ]
+  ], (SELECT * FROM TT("versions")->rows ORDER BY when), "*");
+
+  TT("versions")->selection := SELECT * FROM TT("versions")->rows WHERE versionnumber="1.2"; //verify the versiontab doesn't crash
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestPinned()
 {
   testfw->BeginWork();
@@ -375,6 +393,7 @@ ASYNC MACRO TestPublishInitialEmptyDocument() {
 RunTestFramework(
     [ PTR TestMetaTab
     , PTR TestRevert
+    , PTR TestMetaTabVersions
     , PTR TestPinned
     , PTR TestSaveToUnpublishedSite
     , PTR TestReopenDeletedFile

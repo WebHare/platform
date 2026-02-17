@@ -292,39 +292,19 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase <
     }
   }
 
-
-  // Load browser frame if needed
-  MACRO LoadBrowserFrame()
-  {
-    STRING src;
-    IF(this->suppressrendering != "")
-      src := this->contexts->controller->baseurl || ".wh/common/preview/nopreview.html";
-    ELSE IF(IsAbsoluteURL(this->currenturl))
-      src := this->currenturl;
-
-    // (Re)load the browserframe if the src changed
-    IF (src != ^browserframe->src)
-    {
-      ^browserframe->src := src;
-      ^browserframe->sandbox := this->currentsandbox ? "allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" : "none";
-    }
-  }
-
   // Refresh browser frame contents
-  MACRO RefreshBrowserFrame()
-  {
-    this->LoadBrowserFrame();
-
+  MACRO RefreshBrowserFrame() {
     this->lastsethtmlvalue := Detokenize((SELECT AS STRING ARRAY message FROM this->previewmessages), '<br />');
     ^previewmessage->htmlvalue := this->lastsethtmlvalue;
     ^info->visible := Length(this->previewmessages) > 0;
 
-    STRING src := this->suppressrendering != ""? this->contexts->controller->baseurl || ".wh/common/preview/nopreview.html"
+    STRING src := this->suppressrendering != "" ? ResolveToAbsoluteURL(this->contexts->controller->baseurl, "/.wh/common/preview/nopreview.html")
                 : UpdateURLVariables(this->currenturl,
                       [ "__whpub_clock_" := FormatISO8601DateTime(GetCurrentDateTime(), "", "milliseconds", "", FALSE)
                       ]);
 
     ^browserframe->src := src;
+    ^browserframe->sandbox := this->currentsandbox ? "allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" : "none";
   }
 
   MACRO ReloadCurrent(BOOLEAN reloadmessages, BOOLEAN reloadsource)

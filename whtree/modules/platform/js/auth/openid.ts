@@ -162,7 +162,7 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
       cbUrl: redirect_uri
     }));
 
-  //Sets up a WRD Auth request that will return the user after login in locally to the openid /return/ endpoint in openIdRouter
+  //Sets up a WRD Auth request that will return the user after logging in locally to the openid /return/ endpoint in openIdRouter
   const currentRedirectURI = `${getOpenIdBase(provider.wrdschema)}return?tok=${returnInfo}`;
   const loginControl = { //see __GenerateAccessRuleLoginControlToken. TODO merge into idpstate ?
     afterlogin: "siteredirect",

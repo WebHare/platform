@@ -209,8 +209,8 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
           IF (NOT RecordExists(instance))
             CONTINUE;
 
-          RECORD renderresult := renderer->RenderTypeIntoTabs(type, this->maintabs, insertpos);
-          insertpos := insertpos + renderresult.sections;
+          RECORD renderresult := renderer->RenderTypeIntoTabs(this->contexts, type, this->maintabs, insertpos);
+          insertpos := renderresult.insertpos;
         }
       }
 
