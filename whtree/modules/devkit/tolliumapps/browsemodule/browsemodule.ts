@@ -34,7 +34,7 @@ function buildBrowseHTMLPage(type: string, data: unknown) {
   return `<html class="${encodeString(type, "attribute")}">
     <head>
       ${getAssetPackIntegrationCode("devkit:browser")}
-      <script src="/.wh/dev/debug.mjs" type="module"></script>
+      <script src="/.wh/mod/devkit/public/debug.mjs" type="module"></script>
     </head>
     <body><script type="application/json" id="data">${stringify(data, { target: "script", space: 2 })}</script></body>
   </html>`;

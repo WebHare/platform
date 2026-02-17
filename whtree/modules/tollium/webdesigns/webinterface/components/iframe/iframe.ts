@@ -517,7 +517,7 @@ export default class ObjIFrame extends ComponentBase {
 
   onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean; finaljsconfig: Record<string, unknown> }) {
     this.initdata = data.initdata;
-    this.iframe.srcdoc = `<html lang="${data.finaljsconfig.locale}"><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.dev/debug.js"></script>` : ''}<script type="application/json" id="wh-config">${JSON.stringify(data.finaljsconfig)}</script></head><body></body></html>`;
+    this.iframe.srcdoc = `<html lang="${data.finaljsconfig.locale}"><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.wh/mod/devkit/public/debug.mjs"></script>` : ''}<script type="application/json" id="wh-config">${JSON.stringify(data.finaljsconfig)}</script></head><body></body></html>`;
   }
 
   onMsgUpdateInitData(data: { initdata: unknown }) {

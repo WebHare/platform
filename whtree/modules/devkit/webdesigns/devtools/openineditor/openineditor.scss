@@ -1,0 +1,9 @@
+.wh-hserror__resourceref, .devsite__openineditor
+{
+  cursor: pointer;
+
+  &:hover
+  {
+    text-decoration:underline;
+  }
+}

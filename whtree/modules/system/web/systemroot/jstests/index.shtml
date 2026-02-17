@@ -149,7 +149,7 @@ RECORD data := [ printheaders :=    PTR Print(GetAssetpackIntegrationCode("platf
                , testlisturl :=     testlisturl
                , testsiteroot :=    testsiteroot
                , webhareversionnumber := GetWebhareVersionNumber()
-               , hasdevmodule := IsModuleInstalled("dev")
+               , hasdevkitmodule := IsModuleInstalled("devkit")
                ];
 
 testrunwitty->RunComponent("hostingpage", data);

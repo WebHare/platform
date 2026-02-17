@@ -41,6 +41,6 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
      CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundle_tag))
          , body := PTR pagebody(context)
-         , hasdevmodule := IsModuleInstalled("dev")
+         , hasdevkitmodule := IsModuleInstalled("devkit")
          ]);
 }

@@ -14,6 +14,10 @@ assetPacks:
   browser:
     entryPoint: "webdesigns/browser/frontend/frontend"
     supportedLanguages: [en]
+  devtools:
+    entryPoint: "webdesigns/devtools/devtools"
+    supportedLanguages: [en]
+    whPolyfills: false
   tolliumtools:
     entryPoint: "webdesigns/tolliumtools/tolliumtools"
     supportedLanguages: [en]
@@ -22,3 +26,6 @@ assetPacks:
 wrdSchemas:
   devsupport:
     schema: data/wrdschemas/devsupport.wrdschema.xml
+
+siteProfiles:
+  - path: data/devkit.siteprl.xml
