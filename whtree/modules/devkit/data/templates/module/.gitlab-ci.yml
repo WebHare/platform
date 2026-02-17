@@ -1,0 +1,2 @@
+include:
+- remote: 'https://build.webhare.dev/ci/gitlab-test-module.yaml'

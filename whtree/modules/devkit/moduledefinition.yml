@@ -11,7 +11,14 @@ selfChecks:
   - checker: js/validation/checks.ts#checkModules
 
 assetPacks:
+  browser:
+    entryPoint: "webdesigns/browser/frontend/frontend"
+    supportedLanguages: [en]
   tolliumtools:
     entryPoint: "webdesigns/tolliumtools/tolliumtools"
     supportedLanguages: [en]
     whPolyfills: false
+
+wrdSchemas:
+  devsupport:
+    schema: data/wrdschemas/devsupport.wrdschema.xml

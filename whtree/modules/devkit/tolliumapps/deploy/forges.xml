@@ -1,0 +1,34 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="tolliumapps.deploy.forges"
+         library="forges.whlib">
+
+  <screen name="forges" footerbuttons="close">
+    <body>
+      <wrd:entitiesedit name="forges" entityeditscreen="#editforge" wrdtype="forge" minwidth="60x" minheight="4gr">
+        <column name="url" type="text" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>
+
+  <screen name="editforge" footerbuttons="ok cancel">
+    <actions>
+      <windowopenaction name="opennewtoken" onwindowopen="onopennewtoken" title="" />
+    </actions>
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body>
+      <line layout="left">
+        <text name="abouttoken" title="" valuetid=".abouttoken" wordwrap="true"/>
+      </line>
+      <textedit composition="entity" cellname="url" required="true" />
+      <textedit composition="entity" cellname="token" required="true" />
+      <line layout="right">
+        <text name="requestnewttoken" title="" valuetid=".requestnewtoken" action="opennewtoken"  />
+      </line>
+    </body>
+  </screen>
+
+</screens>

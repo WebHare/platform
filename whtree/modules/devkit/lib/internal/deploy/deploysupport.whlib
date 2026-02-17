@@ -1,0 +1,19 @@
+<?wh
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+PUBLIC RECORD FUNCTION MigrateForges(OBJECT wrdschema) {
+  OBJECT source := OpenWRDSchema("dev:devsupport");
+  IF(ObjectExists(source)) {
+    FOREVERY(RECORD forge FROM source->^forge->RunQuery(
+      [ outputcolumns := CELL[ "wrd_id","url","token" ]
+      ])) {
+        wrdschema->^forge->CreateEntity(CELL[forge.url, forge.token]);
+        source->^forge->CloseEntity(forge.wrd_id);
+      }
+  }
+
+
+  RETURN DEFAULT RECORD;
+}

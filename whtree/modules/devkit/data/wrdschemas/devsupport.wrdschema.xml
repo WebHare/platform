@@ -1,0 +1,12 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <migration tag="migrate_from_dev" updatefunction="mod::devkit/lib/internal/deploy/deploysupport.whlib#MigrateForges" at="create" stage="afterEntities"/>
+
+  <domain tag="FORGE">
+    <attributes>
+      <free tag="URL" unique="true" required="true" />
+      <free tag="TOKEN" unsafetocopy="true" />
+    </attributes>
+  </domain>
+
+</schemadefinition>

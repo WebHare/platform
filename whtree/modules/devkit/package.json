@@ -3,6 +3,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "dependencies": {
+    "@gitbeaker/rest": "^43.8.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "simple-git": "^3.27.0",
     "typedoc": "^0.28.8",

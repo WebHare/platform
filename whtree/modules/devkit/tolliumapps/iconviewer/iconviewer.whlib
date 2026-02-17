@@ -1,0 +1,223 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+// LOADLIB "mod::dev/lib/internal/codegrep.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::tollium/lib/internal/icons.whlib";
+
+
+PUBLIC RECORD ARRAY FUNCTION ScanDirectory(STRING module, STRING modulepath, STRING localpath, STRING ARRAY module_extensions)
+{
+  RECORD ARRAY results;
+
+  RECORD ARRAY entries := ReadDiskDirectory(modulepath || localpath, "*");
+  entries := SELECT * FROM entries ORDER BY name;
+  FOREVERY (RECORD entry FROM entries)
+  {
+    IF (entry.name IN [ ".", "..", "node_modules" ])
+      CONTINUE;
+    STRING subpath := localpath || entry.name;
+    IF (entry.type = 1)
+      results := results CONCAT ScanDirectory(module, modulepath, subpath || "/", module_extensions);
+    ELSE IF (GetExtensionFromPath(entry.name) IN module_extensions)
+      INSERT [ data :=        GetDiskResource(modulepath || subpath)
+             , source :=
+                  [ source :=       "module"
+                  , module :=       module
+                  , localpath :=    subpath
+                  , fullpath :=     modulepath || subpath
+                  ]
+             ] INTO results AT END;
+  }
+  RETURN results;
+}
+
+PUBLIC STATIC OBJECTTYPE IconViewer EXTEND TolliumScreenBase
+<
+  INTEGER refreshcntr;
+
+  MACRO Init(RECORD data)
+  {
+    this->GotIconSelection();
+  }
+
+  ASYNC MACRO GotFileChange(RECORD ARRAY events)
+  {
+    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
+    this->GotIconSelection();
+  }
+
+  MACRO GotIconSelection()
+  {
+    RECORD ARRAY icons := GetIconMatches(^iconname->value);
+    ^icons->rows :=
+        SELECT TEMPORARY icon := ^icons->GetIcon(name)
+             , rowkey :=    name
+             , name
+             , icon :=      icon
+             , icon2 :=     icon
+             , type :=      DeTokenize(types, ", ")
+             , icontypes := DeTokenize(icontypes, ", ")
+             , allvalid
+             , has16b :=    "16x16.b.svg" IN icontypes ? 1 : 0
+             , has16c :=    "16x16.c.svg" IN icontypes ? 1 : 0
+             , has16w :=    "16x16.w.svg" IN icontypes ? 1 : 0
+             , has24b :=    "24x24.b.svg" IN icontypes ? 1 : 0
+             , has24c :=    "24x24.c.svg" IN icontypes ? 1 : 0
+             , has24w :=    "24x24.w.svg" IN icontypes ? 1 : 0
+             , empty1 :=    ""
+             , empty2 :=    ""
+          FROM icons
+         WHERE ArraysIntersect(types, ^icontypes->value)
+      ORDER BY name;
+
+    ^icons->value := SELECT AS STRING rowkey FROM ^icons->rows ORDER BY name != ^iconname->value, name;
+  }
+
+  MACRO GotIconSelect()
+  {
+    STRING iconname := this->^icons->value;
+
+    RECORD ARRAY matches := GetIconMatches(iconname);
+    RECORD display := (SELECT * FROM matches WHERE name = iconname) ?? matches;
+
+    IF (NOT RecordExists(display))
+      RETURN;
+
+    STRING todisplay := display.name;
+    STRING ARRAY eventmasks;
+
+    IF (todisplay LIKE "*:*")
+    {
+      STRING modulename := Tokenize(todisplay, ":")[0];
+      STRING subpath := Left(Tokenize(todisplay, ":")[1], SearchLastSubstring(Tokenize(todisplay, ":")[1], "/") + 1);
+      INSERT  `system:modulefolder.mod::${modulename}/web/img/${subpath}` INTO eventmasks AT END;
+    }
+
+    FOREVERY (RECORD rec FROM
+        [ [ x := 16, color := "b" ]
+        , [ x := 24, color := "b" ]
+        , [ x := 16, color := "c" ]
+        , [ x := 24, color := "c" ]
+        , [ x := 16, color := "w" ]
+        , [ x := 24, color := "w" ]
+        ])
+    {
+      RECORD ARRAY imgs := GetImage(todisplay, rec.x, rec.x, "", rec.color, [ nocache := TRUE ]);
+      FOREVERY (RECORD img FROM imgs)
+        eventmasks := eventmasks CONCAT img.eventmasks;
+    }
+
+    this->^eventlistener->masks := GetSortedSet(eventmasks);
+
+    this->refreshcntr := this->refreshcntr + 1;
+    this->^counter->value := ToString(this->refreshcntr);
+
+    this->^displayed->value := todisplay;
+    this->^b16->SetImageSrc(todisplay, "", "b");
+    this->^b24->SetImageSrc(todisplay, "", "b");
+    this->^c16->SetImageSrc(todisplay, "", "c");
+    this->^c24->SetImageSrc(todisplay, "", "c");
+    this->^bs16->SetImageSrc(todisplay, "", "b");
+    this->^bs24->SetImageSrc(todisplay, "", "b");
+    this->^cs16->SetImageSrc(todisplay, "", "c");
+    this->^cs24->SetImageSrc(todisplay, "", "c");
+    this->^w16->SetImageSrc(todisplay, "", "w");
+    this->^w24->SetImageSrc(todisplay, "", "w");
+  }
+
+  ASYNC MACRO DoRefresh()
+  {
+    AWAIT this->contexts->controller->ExecuteClientCall("ClearIconCache");
+    this->GotIconSelection();
+  }
+>;
+
+BOOLEAN FUNCTION IsValidIconType(STRING type)
+{
+  IF (type IN
+    [ "ixo", "b.ixo", "c.ixo", "w.ixo"
+    , "16x16.ixo", "16x16.b.ixo", "16x16.c.ixo", "16x16.w.ixo"
+    , "24x24.ixo", "24x24.b.ixo", "24x24.c.ixo", "24x24.w.ixo"
+    , "svg", "b.svg", "c.svg", "w.svg"
+    , "12x12.svg", "12x12.b.svg", "12x12.c.svg", "12x12.w.svg"
+    , "16x16.svg", "16x16.b.svg", "16x16.c.svg", "16x16.w.svg"
+    , "24x24.svg", "24x24.b.svg", "24x24.c.svg", "24x24.w.svg"
+    ])
+    RETURN TRUE;
+
+  IF (type IN [ "png" ] OR type LIKE "*.png")
+    RETURN TRUE;
+
+  RETURN FALSE;
+}
+
+RECORD ARRAY FUNCTION GetIconMatches(STRING curtext)
+{
+  RECORD ARRAY icons;
+  FOREVERY (STRING modulename FROM GetInstalledModuleNames())
+  {
+    STRING path := GetModuleInstallationRoot(modulename);
+    IF (path NOT LIKE "*/")
+      path := path || "/";
+
+    path := path || "web/img/";
+    icons := icons CONCAT ScanDirectory(modulename, path, "", [ ".png", ".svg", ".ixo" ]);
+  }
+
+  /// FIXME: In tollium/web/ui/js/images.es use e.g. `icon: toddImages.createImage("tollium:actions/crop", 24, 24, "b")` instead of throwing data over the line!
+
+  /// Format the data into the fields we want
+  icons := SELECT TEMPORARY filename := GetBasenameFromPath(source.localpath) || GetExtensionFromPath(source.localpath)
+                , TEMPORARY icontype := SubString(filename, SearchSubstring(filename, ".") + 1)
+                , module := source.module
+                , localname := Tokenize(Tokenize(source.localpath, ".")[0], "/")[END-1]
+                , name := source.module || ":" || Substring(source.localpath, 0, SearchSubstring(source.localpath, ".", 0))
+                , type := GetExtensionFromPath(source.localpath)
+                , file := GetBasenameFromPath(source.localpath) || GetExtensionFromPath(source.localpath)
+                , allvalid := IsValidIconType(icontype) ? 0 : 2
+                , icontype := IsValidIconType(icontype) ? icontype : `INVALID: ${icontype}`
+/*                  , variants := [ base64 := EncodeBase64(BlobToString(data))
+                              , pathcomponents := Tokenize(Tokenize(source.localpath, ".")[0], "/")
+                              , size := source.localpath LIKE "*.png" ? ArraySlice(Tokenize(source.localpath, "."), 1, 1)[0] : "24"
+                              , path := Tokenize(source.localpath, ".")[0]
+                              , title := source.module || ":" || Substring(source.localpath, 0, SearchSubstring(source.localpath, ".", 0))
+                              , color := source.localpath LIKE "*.png" ? ToColor(ArraySlice(Tokenize(source.localpath, "."), 2, 1)) : "b,w"
+                              , fullpath := source.fullpath
+                              , htmlid := Substitute("goto-" || source.module || "-" || Substitute(Substitute(source.localpath || "$", ".", "-"), "/", "-"), "-png$", "")
+                              , mimetype := source.localpath LIKE "*.png" ? "image/png" : "image/svg+xml"
+                              , isixo := source.localpath LIKE "*.ixo"
+                              , issvg := source.localpath LIKE "*.svg"
+                              ]
+*/
+             FROM icons;
+
+  /// Group the icons per module, icon and add the variants (sorted)
+  icons := SELECT module
+                , name
+                , localname
+                , types :=        GetSortedSet(GroupedValues(type))
+                , files :=        GetSortedSet(GroupedValues(file))
+                , icontypes :=    GetSortedSet(GroupedValues(icontype))
+                , allvalid :=     MAX(allvalid)
+//                  , variants := SortedGroupedValues(variants)
+             FROM icons
+         GROUP BY module
+                , name
+                , localname
+         ORDER BY module DESC
+                , name;
+
+
+    icons :=
+        SELECT *
+          FROM icons
+         WHERE ToUppercase(name) LIKE "*" || Touppercase(curtext) || "*";
+
+  RETURN icons;
+}
