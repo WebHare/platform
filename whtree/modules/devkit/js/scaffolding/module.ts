@@ -81,10 +81,6 @@ export async function createModule(subpath: string, modulename: string, options:
 
   await instantiateTemplateFolder(backendConfig.module["devkit"].root + "data/templates/module/", destpath + "/", retval);
 
-  //FIXME don't rely/require dev: for hooks, but also modernize to support WH hooks then
-  if (backendConfig.module["dev"])
-    await loadlib("mod::system/lib/resources.whlib").RunModuleHookTarget("dev:devtools_modulecreation", { module: modulename, destpath: destpath });
-
   if (options.afterModuleCreation)
     options.afterModuleCreation({ moduleroot: destpath + "/" });
 
