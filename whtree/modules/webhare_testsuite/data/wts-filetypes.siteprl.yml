@@ -14,7 +14,7 @@ types:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
 
 apply:
-  - comment: Configure widgets. We need this rule so basetest webdesig can also run base_test.testsuite_rtd_ts files
+  - comment: Configure widgets. We need this rule so basetest webdesign can also run base_test.testsuite_rtd_ts files
     to:
       all
     setWidget:
