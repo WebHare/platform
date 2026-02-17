@@ -7,15 +7,13 @@ LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 INTEGER capturing_stream;
 
 PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
-  OpenPrimary();
-
   OBJECT webdesign := GetWebDesign(fileid);
 
   capturing_stream := CreateStream();
@@ -63,7 +61,6 @@ MACRO ResetResponse() {
 
 PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER fileid) {
   MockUsingClientInfo(webclientinfo);
-  OpenPrimary();
 
   OBJECT webdesign := GetWebDesign(fileid);
 
@@ -124,4 +121,20 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     sendhttpheaders := RECORD[];
     RETURN CELL[ headers, sendfile := e->data ];
   }
+}
+
+PUBLIC RECORD FUNCTION RenderHSWidget(INTEGER targetobject, STRING widgettype, RECORD dbloc) {
+  OBJECT webdesign := GetWebDesign(targetobject);
+  RECORD widget := dbloc.source = 1 ? OpenWHFSType(widgettype)->GetInstanceData(dbloc.id) : GetWHFSInstanceDirect(dbloc.id);
+
+  INTEGER widgetstream := CreateStream();
+  INTEGER oldoutput := RedirectOutputTo(widgetstream);
+  BLOB content;
+  TRY {
+    webdesign->CallWithScope(PTR webdesign->RenderWidgetInstance(widget));
+  } FINALLY {
+    RedirectOutputTo(oldoutput);
+    content := MakeBlobFromStream(widgetstream);
+  }
+  RETURN CELL [ content := BlobToString(content) ];
 }

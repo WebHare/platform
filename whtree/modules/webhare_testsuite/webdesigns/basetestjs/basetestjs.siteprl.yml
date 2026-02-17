@@ -87,12 +87,6 @@ types:
       extControlledField:
         type: string
         title: extControlledField
-  testsuite_rtd:
-    metaType: page
-    workflow: true
-    apply:
-      bodyRenderer: # TODO rename this or a least renderer to be closer to 'ContentPageRequest'
-        contentBuilder: ./webdesign/webdesign.ts#renderRTD
   jswidget1:
     comment: Our first TypeScript widget
     metaType: blockWidget
@@ -175,9 +169,3 @@ apply:
       pageHooks: "../basetest/lib/basetest.whlib#CaptchaFormHooks"
     captcha:
       skipFunction: "../basetest/lib/basetest.whlib#SkipCaptcha"
-  - comment: Configure widgets
-    to:
-      all
-    setWidget:
-      "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
-        widgetBuilder: ./webdesign/webdesign.ts#renderWidgetBlock

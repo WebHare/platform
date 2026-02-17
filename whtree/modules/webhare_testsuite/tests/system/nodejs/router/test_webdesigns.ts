@@ -132,7 +132,7 @@ async function testPageResponseMarkdown() {
 
 async function testPageResponseJSRTD() {
   {
-    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
 
     //small differences with the TS output: imgheight rounded down, more stray spaces there
     const expectContent = [
@@ -149,13 +149,12 @@ async function testPageResponseJSRTD() {
     ];
     test.eq(expectContent, contentElements);
 
-    const { contentElements: fetchedContentElements } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    const { contentElements: fetchedContentElements } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
     test.eq(expectContent, fetchedContentElements);
   }
 
   {
-    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
-    test.eq([
+    const expectContent = [
       `<p class="normal">indirect html widget:</p>`,
       `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><b>htmlwidget</b></div> </div>`,
       `<p class="normal">indirect jswidget:</p>`,
@@ -166,17 +165,27 @@ async function testPageResponseJSRTD() {
       `<div>jswidget-direct2</div>`,
       /^<p class="normal">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="107"\/><\/p>$/,
       /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
-    ], contentElements);
+    ];
+
+    //
+    const { contentElements: contentElementsTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
+    test.eq(expectContent, contentElementsTSTS);
+
+    const { contentElements: contentElementsHSTS } = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/widgetholder-ts");
+    test.eq(expectContent, contentElementsHSTS);
+
+    const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
+    test.eq(expectContent, contentElements);
   }
 
   //Test widget preview in testsite (HS renderer)
   const htmlWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/htmlwidget");
   test.eq([`<b>htmlwidget</b>`], htmlWidgetHSSite.bodyElements);
-  test.eq(["wh-widgetpreview","wh-preview"], htmlWidgetHSSite.htmlClasses);
+  test.eq(["wh-widgetpreview", "wh-preview"], htmlWidgetHSSite.htmlClasses);
 
   const jsWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/jswidget");
   test.eq([`<div>js widget</div>`], jsWidgetHSSite.bodyElements);
-  test.eq(["wh-widgetpreview","wh-preview"], jsWidgetHSSite.htmlClasses);
+  test.eq(["wh-widgetpreview", "wh-preview"], jsWidgetHSSite.htmlClasses);
 
   //Test widget preview in testsitejs (JS renderer)
   const htmlWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/htmlwidget");

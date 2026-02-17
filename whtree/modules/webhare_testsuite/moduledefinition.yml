@@ -79,6 +79,7 @@ assetPacks:
 
 siteProfiles:
   - path: data/wts.siteprl.yml
+  - path: data/wts-filetypes.siteprl.yml
   - path: tests/consilio/data/consiliotests.siteprl.xml
 
 webFeatures:

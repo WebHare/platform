@@ -1,0 +1,22 @@
+types:
+  base_test.testsuite_rtd_ts: # Forced use of the JS renderer
+    metaType: page
+    workflow: true
+    apply:
+      bodyRenderer:
+        contentBuilder: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
+
+  base_test.testsuite_rtd_hs: # Forced use of the HS renderer
+    metaType: page
+    workflow: true
+    apply:
+      bodyRenderer:
+        objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
+
+apply:
+  - comment: Configure widgets. We need this rule so basetest webdesign can also run base_test.testsuite_rtd_ts files
+    to:
+      all
+    setWidget:
+      "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
+        widgetBuilder: mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderWidgetBlock
