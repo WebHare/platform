@@ -2,13 +2,14 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import type { LoginOptions } from "@webhare/auth/src/identity";
-import { rpc } from "@webhare/rpc/src/rpc";
+import { rpc } from "@webhare/rpc";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
 import { PublicCookieSuffix, type LoginErrorCode, type LoginResult, type LoginTweaks } from "@webhare/auth/src/shared";
 import { parseTyped, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
+import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 
 /** WRDAuth configuration */
 export interface WRDAuthOptions {
@@ -224,12 +225,17 @@ export interface MyService {
 }
 
 interface SSOLoginOptions {
-  /** Passive/silent mode. Do not show a login prompt but just test if the user is logged in */
+  /** @deprecated use prompt: "none" from WH6.0 up */
   passive?: boolean;
+  /** Set the prompt flag for the authorize request */
+  prompt?: OAuth2PromptFlag;
 }
 
 export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Promise<void> {
   const client = createClient<MyService>("wrd:auth");
+
+  if (options?.passive)
+    options = { prompt: "none", ...options, passive: undefined }; //force prompt to none in passive mode, and remove the passive flag since it doesn't mean anything to the server
 
   //Launch SSO login for the current page.
   //TODO also pass getLoginTweaks() at least to OIDC logins as soon as we've ported this to authservice

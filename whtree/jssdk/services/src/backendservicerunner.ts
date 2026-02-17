@@ -188,7 +188,7 @@ export class ServiceHandlerBase {
       const result = await (state.handler as BackendServiceConnection & ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
       state.link.send({ result: message.jsargs ? stringify(result, { typed: true }) : result }, msg.msgid);
     } catch (e) {
-      state.link.sendException(e as Error, msg.msgid);
+      state.link.sendException(e, msg.msgid);
     }
   }
 
