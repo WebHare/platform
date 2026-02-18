@@ -677,8 +677,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     INTEGER insertpos := 1;
 
     FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
-      RECORD insertresult := this->renderer->RenderTypeIntoTabs(type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
-      insertpos := insertpos + insertresult.sections;
+      RECORD insertresult := this->renderer->RenderTypeIntoTabs(this->contexts, type, ^maintabs, insertpos, [ dirtylistener := ^dirtylistener ]);
+      insertpos := insertresult.insertpos;
     }
 
     this->RefreshMetaTabsReadonly();

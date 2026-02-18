@@ -130,6 +130,28 @@ ASYNC MACRO ObjectProps()
   AWAIT ExpectScreenChange(-1, PTR TTescape);
 }
 
+ASYNC MACRO ObjectPropsWithYamlFields()
+{
+  //Test that we can round trip YAML fields through the object props dialog, and that they are properly applied to the instance data of the object
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "allprops", publish := TRUE, typens := "platform:filetypes.html" ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ testfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TT(":str")->value := "Set a string!";
+
+  //close and reopen to verify values are saved
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq("Set a string!", TT(":str")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close publisher
+}
+
 ASYNC MACRO TestRenameSiteConflict()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ OpenTestsuiteSite()->rootobject->whfspath ] ]));
@@ -181,6 +203,7 @@ ASYNC MACRO TestObjectPropsThroughObjectEditor()
 
 
 RunTestframework([ PTR ObjectProps
+                 , PTR ObjectPropsWithYamlFields
                  , PTR TestRenameSiteConflict
                  , PTR TestPinFlip
                  , PTR TestObjectPropsThroughObjectEditor

@@ -439,7 +439,7 @@ PUBLIC STATIC OBJECTTYPE MetatabsRenderer <
 
   PUBLIC RECORD FUNCTION RenderTypeIntoTabs(OBJECT contexts, RECORD type, OBJECT maintabs, INTEGER insertpos, RECORD options DEFAULTSTO DEFAULT RECORD) {
     FOREVERY(RECORD section FROM this->PrepareTypeSections(contexts, type, options)) {
-      OBJECT newtab := maintabs->InsertTabAt(insertpos, GetTid(section.title));
+      OBJECT newtab := maintabs->InsertTabAt(insertpos, section.title);
       insertpos := insertpos + 1;
 
       FOREVERY(RECORD line FROM section.lines) {
