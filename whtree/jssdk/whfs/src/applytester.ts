@@ -149,7 +149,7 @@ async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: bool
 }
 
 function isNotLikeMask(input: string | null, mask: string): boolean {
-  return input !== null && isNotLike(input.toUpperCase(), mask.toUpperCase());
+  return input === null || isNotLike(input.toUpperCase(), mask.toUpperCase());
 }
 
 async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
@@ -191,9 +191,6 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     if (typeinfo?.metaType === "fileType" && typeinfo.isWebPage)
       typeneedstemplate = true;
   }
-  if (!obj.parent && obj.isFile)
-    throw new Error(`File ${obj.id} has no parent folder`);
-
   //TODO don't actually open the objects if we can avoid it.
   return {
     ...siteapply,
@@ -326,7 +323,7 @@ export class WHFSApplyTester {
   }
 
   private async testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): Promise<boolean> {
-    if (rec.pathmask && (!this.objinfo.site || isNotLikeMask(this.getPath("sitePath"), rec.pathmask)))
+    if (rec.pathmask && isNotLikeMask(this.getPath("sitePath"), rec.pathmask))
       return false;
     if (rec.parentmask && (!parentitem || isNotLikeMask(parentitem.sitePath, rec.parentmask)))
       return false;

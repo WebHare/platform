@@ -1,3 +1,5 @@
+/* Run mod::system/scripts/internal/webhareservice-startup.ts to reapply the bootstrap */
+
 import type { PostgresPoolClient } from "kysely";
 import { createTableImmediately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
 
@@ -485,7 +487,7 @@ BEGIN
      WHERE o.id = _id;
     _path := '/' || _name || _path;
     IF _id IS NULL THEN
-      RETURN _path;
+      RETURN COALESCE(_path, '');
     END IF;
     _maxdepth := _maxdepth - 1;
   END LOOP;
@@ -530,6 +532,8 @@ CREATE OR REPLACE FUNCTION webhare_trigger_system_fs_objects_writeaccess() RETUR
 DECLARE
   _parenttype int4;
   _issite bool;
+  _maxdepth int4;
+  _parent int4;
 BEGIN
   IF tg_op = 'DELETE' THEN
     IF old.isfolder AND webhare_proc_foldercontainssite(old.id) THEN
@@ -553,7 +557,18 @@ BEGIN
     RAISE EXCEPTION 'Cannot create objects inside foreign folder #%', new.parent;
   END IF;
 
-  IF webhare_proc_fs_objects_whfspath(new.id, new.isfolder) = '' THEN
+  /* check how deep our parent is. whfspath checks for _maxdepth 20 so we'll permit 19 to not count the object itself */
+  _maxdepth := 19;
+  _parent := new.parent;
+
+  WHILE _parent IS NOT NULL AND _maxdepth <> 0 LOOP
+    SELECT o.parent INTO _parent
+      FROM system.fs_objects o
+     WHERE o.id = _parent;
+    _maxdepth := _maxdepth - 1;
+  END LOOP;
+
+  IF _maxdepth = 0 THEN
     RAISE EXCEPTION 'folders too deep';
   END IF;
 

@@ -297,6 +297,13 @@ async function testWHFS() {
   test.eq(ensuredfile2.created, ensuredfile.created, "Creation date should be unchanged");
 
   await whdb.commitWork();
+
+  //Test a regression when invalid parent references causes whfsPath to return 'null' instead of a string
+  await whdb.beginWork();
+  await whdb.db<PlatformDB>().updateTable("system.fs_objects").set("parent", -1).where("id", "=", ensuredfile.id).execute();
+  const badFileInfo = await openFile(ensuredfile.id);
+  test.eq("", badFileInfo.whfsPath); //not sure what it should be, but 'null' is bad
+  await whdb.rollbackWork();
 }
 
 async function testGenerateUniqueName() {

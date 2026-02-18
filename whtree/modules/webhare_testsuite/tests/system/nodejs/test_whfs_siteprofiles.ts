@@ -15,6 +15,18 @@ async function getMyCustomNodesThroughYaml(obj: whfs.WHFSObject): Promise<string
 
 async function testBeforeSite() { //port of HS TestBeforeSite
   await whdb.beginWork();
+  const rootFile = await (await whfs.openFolder("/", { allowRoot: true })).createFile("subfile");
+  const rootFileTester = await getApplyTesterForObject(rootFile);
+  test.eq([
+    {
+      source: {
+        siteProfile: 'mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml'
+      }, dataAttribute: "applytest-megaglobal"
+    }
+  ], await rootFileTester.getPluginSettings("webhareTestsuite:testYaml"));
+  await whdb.rollbackWork();
+
+  await whdb.beginWork();
 
   const siteroot2 = await (await test.getWHFSTestRoot()).ensureFolder("webhare_testsuite.site2");
   const aSystemFolder = await (await test.getTestSiteHSTemp()).createFolder("systemfolder", { type: "http://www.webhare.net/xmlns/publisher/systemfolder" });

@@ -332,6 +332,8 @@ RECORD FUNCTION VerifyMetadata(RECORD metadata, BOOLEAN isfolder)
     DELETE CELL typens FROM metadata;
     INSERT CELL type := settype INTO metadata;
   }
+  IF(CellExists(metadata,"type") AND TYPEID(metadata.type) != TYPEID(INTEGER))
+      THROW NEW WHFSException("OTHER","Type must be of type integer. Use typens to refer to types by scopedtype/namespace");
 
   IF(CellExists(metadata,'type') AND metadata.type!=0)
   {
