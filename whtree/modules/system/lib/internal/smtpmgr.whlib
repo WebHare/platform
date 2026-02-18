@@ -20,6 +20,12 @@ PUBLIC STRING FUNCTION GetSNSEndpoint()
                               "/.system/endpoints/mail-sns.shtml?key=" || EncryptForThisServer("system:mail-sns", "endpoint", [ algorithm := "SHA-1,BLOWFISH+CBC,0" ])); //encrypt result is URL safe
 }
 
+PUBLIC STRING FUNCTION GetSendGridEndpoint()
+{
+  RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),
+                              "/.wh/endpoints/sendgrid?key=" || EncryptForThisServer("platform:endpoint", "sendgrid", [ algorithm := "SHA-1,BLOWFISH+CBC,0" ])); //encrypt result is URL safe
+}
+
 
 /** Keeps active SMTP connections for reuse, avoiding TLS setup
 */
