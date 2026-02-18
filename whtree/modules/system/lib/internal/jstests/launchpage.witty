@@ -4,7 +4,7 @@
     <link rel="shortcut icon" href="favicon.ico" />
     <title>[forevery mask][if first][else],[/if][mask][/forevery] (JSTests)</title>
     [printheaders]
-    [if hasdevkitmodule]<script src="/.wh/mod/devkit/public/debug.mjs"></script>[/if]
+    [if hasdevkitmodule]<script src="/.wh/mod/devkit/public/debug.mjs" type="module"></script>[/if]
   </head>
   <body data-testslist="[testlisturl]"
         >

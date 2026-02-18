@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     [printheaders]
-    [if hasdevkitmodule]<script src="/.wh/mod/devkit/public/debug.mjs"></script>[/if]
+    [if hasdevkitmodule]<script src="/.wh/mod/devkit/public/debug.mjs" type="module"></script>[/if]
   </head>
   <body>
     [body]
