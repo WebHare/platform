@@ -223,12 +223,12 @@ class Instance {
 
   #typeInfo: WHFSTypeInfo;
   #data: InstanceData;
-  #dbLoc;
+  #dbLoc: WebHareDBLocation | null;
 
-  constructor(typeinfo: WHFSTypeInfo, data: InstanceData, loc?: WebHareDBLocation) {
+  constructor(typeinfo: WHFSTypeInfo, data: InstanceData, loc?: WebHareDBLocation | null) {
     this.#typeInfo = typeinfo;
     this.#data = data;
-    this.#dbLoc = loc;
+    this.#dbLoc = loc ?? null;
   }
 
   get whfsType(): string {
@@ -630,7 +630,7 @@ export async function buildInstance<
   const Type extends string,
   Data extends object,
 >(data: ([NoInfer<Type>] extends [symbol] ?
-  { whfsType: Type; data?: Data;[dbLoc]?: WebHareDBLocation } :
+  { whfsType: Type; data?: Data;[dbLoc]?: WebHareDBLocation | null } :
   (string extends NoInfer<Type> ?
     InstanceSource : {
       whfsType: WHFSTypeName;
@@ -645,7 +645,7 @@ export async function buildInstance<
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
 
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true }), data[dbLoc]) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true }), data[dbLoc] ?? null) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */
