@@ -1,0 +1,1193 @@
+# Examples from https://docs.aws.amazon.com/ses/latest/dg/notification-examples.html
+
+- description: Bounce notification with a DSN (classic events)
+  innerMessage: |
+   {
+       "notificationType":"Bounce",
+       "bounce":{
+          "bounceType":"Permanent",
+          "reportingMTA":"dns; email.example.com",
+          "bouncedRecipients":[
+             {
+                "emailAddress":"jane@example.com",
+                "status":"5.1.1",
+                "action":"failed",
+                "diagnosticCode":"smtp; 550 5.1.1 <jane@example.com>... User"
+             }
+          ],
+          "bounceSubType":"General",
+          "timestamp":"2016-01-27T14:59:38.237Z",
+          "feedbackId":"00000138111222aa-33322211-cccc-cccc-cccc-ddddaaaa068a-000000",
+          "remoteMtaIp":"127.0.2.0"
+       },
+       "mail":{
+          "timestamp":"2016-01-27T14:59:38.237Z",
+          "source":"john@example.com",
+          "sourceArn": "arn:aws:ses:us-east-1:888888888888:identity/example.com",
+          "sourceIp": "127.0.3.0",
+          "sendingAccountId":"123456789012",
+          "callerIdentity": "IAM_user_or_role_name",
+          "messageId":"00000138111222aa-33322211-cccc-cccc-cccc-ddddaaaa0680-000000",
+          "destination":[
+            "jane@example.com",
+            "mary@example.com",
+            "richard@example.com"],
+          "headersTruncated":false,
+          "headers":[
+           {
+             "name":"From",
+             "value":"\"John Doe\" <john@example.com>"
+           },
+           {
+             "name":"To",
+             "value":"\"Jane Doe\" <jane@example.com>, \"Mary Doe\" <mary@example.com>, \"Richard Doe\" <richard@example.com>"
+           },
+           {
+             "name":"Message-ID",
+             "value":"custom-message-ID"
+           },
+           {
+             "name":"Subject",
+             "value":"Hello"
+           },
+           {
+             "name":"Content-Type",
+             "value":"text/plain; charset=\"UTF-8\""
+           },
+           {
+             "name":"Content-Transfer-Encoding",
+             "value":"base64"
+           },
+           {
+             "name":"Date",
+             "value":"Wed, 27 Jan 2016 14:05:45 +0000"
+           }
+          ],
+          "commonHeaders":{
+             "from":[
+                "John Doe <john@example.com>"
+             ],
+             "date":"Wed, 27 Jan 2016 14:05:45 +0000",
+             "to":[
+                "Jane Doe <jane@example.com>, Mary Doe <mary@example.com>, Richard Doe <richard@example.com>"
+             ],
+             "messageId":"custom-message-ID",
+             "subject":"Hello"
+           }
+        }
+    }
+  expect:
+    ourmessageid: "custom-message-ID"
+    basictype: "bounce"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2016-01-27T14:59:38.237Z"
+      remotemtaip: "127.0.2.0"
+      reportingmta: "dns; email.example.com"
+      feedbackid: "00000138111222aa-33322211-cccc-cccc-cccc-ddddaaaa068a-000000"
+      ispermanent: true
+      bouncetype: "Permanent"
+      bouncesubtype: "General"
+      bouncestatus: 5.1.1
+      bounceaction: failed
+      bouncediagnosticcode: "smtp; 550 5.1.1 <jane@example.com>... User"
+      bounceemailaddress: "jane@example.com"
+
+- description: Bounce notification without a DSN (classic events)
+  innerMessage: |
+   {
+      "notificationType":"Bounce",
+      "bounce":{
+         "bounceType":"Permanent",
+         "bounceSubType": "General",
+         "bouncedRecipients":[
+            {
+               "emailAddress":"jane@example.com"
+            },
+            {
+               "emailAddress":"richard@example.com"
+            }
+         ],
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "feedbackId":"00000137860315fd-869464a4-8680-4114-98d3-716fe35851f9-000000",
+         "remoteMtaIp":"127.0.2.0"
+      },
+      "mail":{
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "messageId":"00000137860315fd-34208509-5b74-41f3-95c5-22c1edc3c924-000000",
+         "source":"john@example.com",
+         "sourceArn": "arn:aws:ses:us-east-1:888888888888:identity/example.com",
+         "sourceIp": "127.0.3.0",
+         "sendingAccountId":"123456789012",
+         "callerIdentity": "IAM_user_or_role_name",
+         "destination":[
+            "jane@example.com",
+            "mary@example.com",
+            "richard@example.com"
+         ],
+        "headersTruncated":false,
+        "headers":[
+         {
+            "name":"From",
+            "value":"\"John Doe\" <john@example.com>"
+         },
+         {
+            "name":"To",
+            "value":"\"Jane Doe\" <jane@example.com>, \"Mary Doe\" <mary@example.com>, \"Richard Doe\" <richard@example.com>"
+         },
+         {
+            "name":"Message-ID",
+            "value":"custom-message-ID"
+         },
+         {
+            "name":"Subject",
+            "value":"Hello"
+         },
+         {
+            "name":"Content-Type",
+            "value":"text/plain; charset=\"UTF-8\""
+         },
+         {
+            "name":"Content-Transfer-Encoding",
+            "value":"base64"
+         },
+         {
+            "name":"Date",
+            "value":"Wed, 27 Jan 2016 14:05:45 +0000"
+          }
+         ],
+         "commonHeaders":{
+           "from":[
+              "John Doe <john@example.com>"
+           ],
+           "date":"Wed, 27 Jan 2016 14:05:45 +0000",
+           "to":[
+              "Jane Doe <jane@example.com>, Mary Doe <mary@example.com>, Richard Doe <richard@example.com>"
+           ],
+           "messageId":"custom-message-ID",
+           "subject":"Hello"
+         }
+      }
+    }
+  expect:
+    ourmessageid: "custom-message-ID"
+    basictype: "bounce"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2016-01-27T14:59:38.237Z"
+      remotemtaip: "127.0.2.0"
+      reportingmta: ""
+      feedbackid: "00000137860315fd-869464a4-8680-4114-98d3-716fe35851f9-000000"
+      ispermanent: true
+      bouncetype: "Permanent"
+      bouncesubtype: "General"
+      bouncestatus: ""
+      bounceaction: ""
+      bouncediagnosticcode: ""
+      bounceemailaddress: "jane@example.com"
+
+- description: Amazon SNS complaint notification examples (classic events)
+  innerMessage: |
+   {
+      "notificationType":"Complaint",
+      "complaint":{
+         "userAgent":"AnyCompany Feedback Loop (V0.01)",
+         "complainedRecipients":[
+            {
+               "emailAddress":"richard@example.com"
+            }
+         ],
+         "complaintFeedbackType":"abuse",
+         "arrivalDate":"2016-01-27T14:59:38.237Z",
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "feedbackId":"000001378603177f-18c07c78-fa81-4a58-9dd1-fedc3cb8f49a-000000"
+      },
+      "mail":{
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "messageId":"000001378603177f-7a5433e7-8edb-42ae-af10-f0181f34d6ee-000000",
+         "source":"john@example.com",
+         "sourceArn": "arn:aws:ses:us-east-1:888888888888:identity/example.com",
+         "sourceIp": "127.0.3.0",
+         "sendingAccountId":"123456789012",
+         "callerIdentity": "IAM_user_or_role_name",
+         "destination":[
+            "jane@example.com",
+            "mary@example.com",
+            "richard@example.com"
+         ],
+          "headersTruncated":false,
+          "headers":[
+           {
+             "name":"From",
+             "value":"\"John Doe\" <john@example.com>"
+           },
+           {
+             "name":"To",
+             "value":"\"Jane Doe\" <jane@example.com>, \"Mary Doe\" <mary@example.com>, \"Richard Doe\" <richard@example.com>"
+           },
+           {
+             "name":"Message-ID",
+             "value":"custom-message-ID"
+           },
+           {
+             "name":"Subject",
+             "value":"Hello"
+           },
+           {
+             "name":"Content-Type",
+             "value":"text/plain; charset=\"UTF-8\""
+           },
+           {
+             "name":"Content-Transfer-Encoding",
+             "value":"base64"
+           },
+           {
+             "name":"Date",
+             "value":"Wed, 27 Jan 2016 14:05:45 +0000"
+           }
+         ],
+         "commonHeaders":{
+           "from":[
+              "John Doe <john@example.com>"
+           ],
+           "date":"Wed, 27 Jan 2016 14:05:45 +0000",
+           "to":[
+              "Jane Doe <jane@example.com>, Mary Doe <mary@example.com>, Richard Doe <richard@example.com>"
+           ],
+           "messageId":"custom-message-ID",
+           "subject":"Hello"
+         }
+      }
+   }
+  expect:
+    ourmessageid: "custom-message-ID"
+    basictype: "complaint"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2016-01-27T14:59:38.237Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: "000001378603177f-18c07c78-fa81-4a58-9dd1-fedc3cb8f49a-000000"
+      complaintfeedbacktype: "abuse"
+      complainedemailaddress: "richard@example.com"
+      useragent: "AnyCompany Feedback Loop (V0.01)"
+
+- description: Complaint notification without a feedback report (classic events)
+  innerMessage: |
+   {
+      "notificationType":"Complaint",
+      "complaint":{
+         "complainedRecipients":[
+            {
+               "emailAddress":"richard@example.com"
+            }
+         ],
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "feedbackId":"0000013786031775-fea503bc-7497-49e1-881b-a0379bb037d3-000000"
+      },
+      "mail":{
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "messageId":"0000013786031775-163e3910-53eb-4c8e-a04a-f29debf88a84-000000",
+         "source":"john@example.com",
+         "sourceArn": "arn:aws:ses:us-east-1:888888888888:identity/example.com",
+         "sourceIp": "127.0.3.0",
+         "sendingAccountId":"123456789012",
+         "callerIdentity": "IAM_user_or_role_name",
+         "destination":[
+            "jane@example.com",
+            "mary@example.com",
+            "richard@example.com"
+         ],
+         "headersTruncated":false,
+         "headers":[
+          {
+            "name":"From",
+            "value":"\"John Doe\" <john@example.com>"
+          },
+          {
+            "name":"To",
+            "value":"\"Jane Doe\" <jane@example.com>, \"Mary Doe\" <mary@example.com>, \"Richard Doe\" <richard@example.com>"
+          },
+          {
+            "name":"Message-ID",
+            "value":"custom-message-ID"
+          },
+          {
+            "name":"Subject",
+            "value":"Hello"
+          },
+          {
+            "name":"Content-Type",
+            "value":"text/plain; charset=\"UTF-8\""
+          },
+          {
+            "name":"Content-Transfer-Encoding",
+            "value":"base64"
+          },
+          {
+            "name":"Date",
+            "value":"Wed, 27 Jan 2016 14:05:45 +0000"
+          }
+          ],
+          "commonHeaders":{
+             "from":[
+                "John Doe <john@example.com>"
+             ],
+             "date":"Wed, 27 Jan 2016 14:05:45 +0000",
+             "to":[
+                "Jane Doe <jane@example.com>, Mary Doe <mary@example.com>, Richard Doe <richard@example.com>"
+             ],
+             "messageId":"custom-message-ID",
+             "subject":"Hello"
+          }
+       }
+   }
+  expect:
+    ourmessageid: "custom-message-ID"
+    basictype: "complaint"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2016-01-27T14:59:38.237Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: "0000013786031775-fea503bc-7497-49e1-881b-a0379bb037d3-000000"
+      complaintfeedbacktype: ""
+      complainedemailaddress: "richard@example.com"
+      useragent: ""
+
+
+- description: Amazon SNS delivery notification example (classic events)
+  innerMessage: |
+   {
+      "notificationType":"Delivery",
+      "mail":{
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "messageId":"0000014644fe5ef6-9a483358-9170-4cb4-a269-f5dcdf415321-000000",
+         "source":"john@example.com",
+         "sourceArn": "arn:aws:ses:us-east-1:888888888888:identity/example.com",
+         "sourceIp": "127.0.3.0",
+         "sendingAccountId":"123456789012",
+         "callerIdentity": "IAM_user_or_role_name",
+         "destination":[
+            "jane@example.com"
+         ],
+          "headersTruncated":false,
+          "headers":[
+           {
+              "name":"From",
+              "value":"\"John Doe\" <john@example.com>"
+           },
+           {
+              "name":"To",
+              "value":"\"Jane Doe\" <jane@example.com>"
+           },
+           {
+              "name":"Message-ID",
+              "value":"custom-message-ID"
+           },
+           {
+              "name":"Subject",
+              "value":"Hello"
+           },
+           {
+              "name":"Content-Type",
+              "value":"text/plain; charset=\"UTF-8\""
+           },
+           {
+              "name":"Content-Transfer-Encoding",
+              "value":"base64"
+           },
+           {
+              "name":"Date",
+              "value":"Wed, 27 Jan 2016 14:58:45 +0000"
+           }
+          ],
+          "commonHeaders":{
+            "from":[
+               "John Doe <john@example.com>"
+            ],
+            "date":"Wed, 27 Jan 2016 14:58:45 +0000",
+            "to":[
+               "Jane Doe <jane@example.com>"
+            ],
+            "messageId":"custom-message-ID",
+            "subject":"Hello"
+          }
+       },
+      "delivery":{
+         "timestamp":"2016-01-27T14:59:38.237Z",
+         "recipients":["jane@example.com"],
+         "processingTimeMillis":546,
+         "reportingMTA":"a8-70.smtp-out.amazonses.com",
+         "smtpResponse":"250 ok:  Message 64111812 accepted",
+         "remoteMtaIp":"127.0.2.0"
+      }
+   }
+  expect:
+    ourmessageid: "custom-message-ID"
+    basictype: "delivery"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2016-01-27T14:59:38.237Z"
+      remotemtaip: "127.0.2.0"
+      reportingmta: "a8-70.smtp-out.amazonses.com"
+      feedbackid: ""
+      smtpresponse: "250 ok:  Message 64111812 accepted"
+
+
+
+# v2 events from https://docs.aws.amazon.com/ses/latest/dg/event-publishing-retrieving-sns-examples.html
+- description: The following is an example of a Bounce event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType":"Bounce",
+      "bounce":{
+        "bounceType":"Permanent",
+        "bounceSubType":"General",
+        "bouncedRecipients":[
+          {
+            "emailAddress":"recipient@example.com",
+            "action":"failed",
+            "status":"5.1.1",
+            "diagnosticCode":"smtp; 550 5.1.1 user unknown"
+          }
+        ],
+        "timestamp":"2017-08-05T00:41:02.669Z",
+        "feedbackId":"01000157c44f053b-61b59c11-9236-11e6-8f96-7be8aexample-000000",
+        "reportingMTA":"dsn; mta.example.com"
+      },
+      "mail":{
+        "timestamp":"2017-08-05T00:40:02.012Z",
+        "source":"Sender Name <sender@example.com>",
+        "sourceArn":"arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId":"123456789012",
+        "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination":[
+          "recipient@example.com"
+        ],
+        "headersTruncated":false,
+        "headers":[
+          {
+            "name":"From",
+            "value":"Sender Name <sender@example.com>"
+          },
+          {
+            "name":"To",
+            "value":"recipient@example.com"
+          },
+          {
+            "name":"Subject",
+            "value":"Message sent from Amazon SES"
+          },
+          {
+            "name":"MIME-Version",
+            "value":"1.0"
+          },
+          {
+            "name":"Content-Type",
+            "value":"multipart/alternative; boundary=\"----=_Part_7307378_1629847660.1516840721503\""
+          }
+        ],
+        "commonHeaders":{
+          "from":[
+            "Sender Name <sender@example.com>"
+          ],
+          "to":[
+            "recipient@example.com"
+          ],
+          "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject":"Message sent from Amazon SES"
+        },
+        "tags":{
+          "ses:configuration-set":[
+            "ConfigSet"
+          ],
+          "ses:source-ip":[
+            "192.0.2.0"
+          ],
+          "ses:from-domain":[
+            "example.com"
+          ],
+          "ses:caller-identity":[
+            "ses_user"
+          ]
+        }
+      }
+    }
+  expect:
+    ourmessageid: "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000"
+    basictype: "bounce"
+    recipient: "recipient@example.com"
+    basicobject:
+      timestamp: "2017-08-05T00:41:02.669Z"
+      remotemtaip: ""
+      reportingmta: "dsn; mta.example.com"
+      feedbackid: 01000157c44f053b-61b59c11-9236-11e6-8f96-7be8aexample-000000
+      ispermanent: true
+      bouncetype: "Permanent"
+      bouncesubtype: "General"
+      bouncestatus: 5.1.1
+      bounceaction: failed
+      bouncediagnosticcode: "smtp; 550 5.1.1 user unknown"
+      bounceemailaddress: "recipient@example.com"
+
+- description: The following is an example of a Complaint event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType":"Complaint",
+      "complaint": {
+        "complainedRecipients":[
+          {
+            "emailAddress":"recipient@example.com"
+          }
+        ],
+        "timestamp":"2017-08-05T00:41:02.669Z",
+        "feedbackId":"01000157c44f053b-61b59c11-9236-11e6-8f96-7be8aexample-000000",
+        "userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36",
+        "complaintFeedbackType":"abuse",
+        "arrivalDate":"2017-08-05T00:41:02.669Z"
+      },
+      "mail":{
+        "timestamp":"2017-08-05T00:40:01.123Z",
+        "source":"Sender Name <sender@example.com>",
+        "sourceArn":"arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId":"123456789012",
+        "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination":[
+          "recipient@example.com"
+        ],
+        "headersTruncated":false,
+        "headers":[
+          {
+            "name":"From",
+            "value":"Sender Name <sender@example.com>"
+          },
+          {
+            "name":"To",
+            "value":"recipient@example.com"
+          },
+          {
+            "name":"Subject",
+            "value":"Message sent from Amazon SES"
+          },
+          {
+            "name":"MIME-Version","value":"1.0"
+          },
+          {
+            "name":"Content-Type",
+            "value":"multipart/alternative; boundary=\"----=_Part_7298998_679725522.1516840859643\""
+          }
+        ],
+        "commonHeaders":{
+          "from":[
+            "Sender Name <sender@example.com>"
+          ],
+          "to":[
+            "recipient@example.com"
+          ],
+          "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject":"Message sent from Amazon SES"
+        },
+        "tags":{
+          "ses:configuration-set":[
+            "ConfigSet"
+          ],
+          "ses:source-ip":[
+            "192.0.2.0"
+          ],
+          "ses:from-domain":[
+            "example.com"
+          ],
+          "ses:caller-identity":[
+            "ses_user"
+          ]
+        }
+      }
+    }
+  expect:
+    ourmessageid: "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000"
+    basictype: "complaint"
+    recipient: "recipient@example.com"
+    basicobject:
+      timestamp: "2017-08-05T00:41:02.669Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: "01000157c44f053b-61b59c11-9236-11e6-8f96-7be8aexample-000000"
+      complaintfeedbacktype: "abuse"
+      complainedemailaddress: "recipient@example.com"
+      useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+
+- description: The following is an example of a Delivery event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType": "Delivery",
+      "mail": {
+        "timestamp": "2016-10-19T23:20:52.240Z",
+        "source": "sender@example.com",
+        "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId": "123456789012",
+        "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination": [
+          "recipient@example.com"
+        ],
+        "headersTruncated": false,
+        "headers": [
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=UTF-8"
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "7bit"
+          }
+        ],
+        "commonHeaders": {
+          "from": [
+            "sender@example.com"
+          ],
+          "to": [
+            "recipient@example.com"
+          ],
+          "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject": "Message sent from Amazon SES"
+        },
+        "tags": {
+          "ses:configuration-set": [
+            "ConfigSet"
+          ],
+          "ses:source-ip": [
+            "192.0.2.0"
+          ],
+          "ses:from-domain": [
+            "example.com"
+          ],
+          "ses:caller-identity": [
+            "ses_user"
+          ],
+          "ses:outgoing-ip": [
+            "192.0.2.0"
+          ],
+          "myCustomTag1": [
+            "myCustomTagValue1"
+          ],
+          "myCustomTag2": [
+            "myCustomTagValue2"
+          ]
+        }
+      },
+      "delivery": {
+        "timestamp": "2016-10-19T23:21:04.133Z",
+        "processingTimeMillis": 11893,
+        "recipients": [
+          "recipient@example.com"
+        ],
+        "smtpResponse": "250 2.6.0 Message received",
+        "remoteMtaIp": "123.456.789.012",
+        "reportingMTA": "mta.example.com"
+      }
+    }
+  expect:
+    ourmessageid: "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000"
+    basictype: "delivery"
+    recipient: "recipient@example.com"
+    basicobject:
+      timestamp: "2016-10-19T23:21:04.133Z"
+      remotemtaip: "123.456.789.012" # sic.
+      reportingmta: "mta.example.com"
+      feedbackid: ""
+      smtpresponse: "250 2.6.0 Message received"
+
+- description: The following is an example of a Send event record that Amazon SES publishes to Amazon SNS. Some fields are not always present. For example, with a templated email, the subject is rendered later and included in subsequent events.
+  innerMessage: |
+    {
+      "eventType": "Send",
+      "mail": {
+        "timestamp": "2016-10-14T05:02:16.645Z",
+        "source": "sender@example.com",
+        "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId": "123456789012",
+        "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination": [
+          "recipient@example.com"
+        ],
+        "headersTruncated": false,
+        "headers": [
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "multipart/mixed;  boundary=\"----=_Part_0_716996660.1476421336341\""
+          },
+          {
+            "name": "X-SES-MESSAGE-TAGS",
+            "value": "myCustomTag1=myCustomTagValue1, myCustomTag2=myCustomTagValue2"
+          }
+        ],
+        "commonHeaders": {
+          "from": [
+            "sender@example.com"
+          ],
+          "to": [
+            "recipient@example.com"
+          ],
+          "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject": "Message sent from Amazon SES"
+        },
+        "tags": {
+          "ses:configuration-set": [
+            "ConfigSet"
+          ],
+          "ses:source-ip": [
+            "192.0.2.0"
+          ],
+          "ses:from-domain": [
+            "example.com"
+          ],
+          "ses:caller-identity": [
+            "ses_user"
+          ],
+          "myCustomTag1": [
+            "myCustomTagValue1"
+          ],
+          "myCustomTag2": [
+            "myCustomTagValue2"
+          ]
+        }
+      },
+      "send": {}
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of a Reject event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType": "Reject",
+      "mail": {
+        "timestamp": "2016-10-14T17:38:15.211Z",
+        "source": "sender@example.com",
+        "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId": "123456789012",
+        "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination": [
+          "sender@example.com"
+        ],
+        "headersTruncated": false,
+        "headers": [
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "multipart/mixed; boundary=\"qMm9M+Fa2AknHoGS\""
+          },
+          {
+            "name": "X-SES-MESSAGE-TAGS",
+            "value": "myCustomTag1=myCustomTagValue1, myCustomTag2=myCustomTagValue2"
+          }
+        ],
+        "commonHeaders": {
+          "from": [
+            "sender@example.com"
+          ],
+          "to": [
+            "recipient@example.com"
+          ],
+          "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject": "Message sent from Amazon SES"
+        },
+        "tags": {
+          "ses:configuration-set": [
+            "ConfigSet"
+          ],
+          "ses:source-ip": [
+            "192.0.2.0"
+          ],
+          "ses:from-domain": [
+            "example.com"
+          ],
+          "ses:caller-identity": [
+            "ses_user"
+          ],
+          "myCustomTag1": [
+            "myCustomTagValue1"
+          ],
+          "myCustomTag2": [
+            "myCustomTagValue2"
+          ]
+        }
+      },
+      "reject": {
+        "reason": "Bad content"
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of an Open event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType": "Open",
+      "mail": {
+        "commonHeaders": {
+          "from": [
+            "sender@example.com"
+          ],
+          "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject": "Message sent from Amazon SES",
+          "to": [
+            "recipient@example.com"
+          ]
+        },
+        "destination": [
+          "recipient@example.com"
+        ],
+        "headers": [
+          {
+            "name": "X-SES-CONFIGURATION-SET",
+            "value": "ConfigSet"
+          },
+          {
+            "name":"X-SES-MESSAGE-TAGS",
+            "value":"myCustomTag1=myCustomValue1, myCustomTag2=myCustomValue2"
+          },
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "multipart/alternative; boundary=\"XBoundary\""
+          }
+        ],
+        "headersTruncated": false,
+        "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "sendingAccountId": "123456789012",
+        "source": "sender@example.com",
+        "tags": {
+          "myCustomTag1":[
+            "myCustomValue1"
+          ],
+          "myCustomTag2":[
+            "myCustomValue2"
+          ],
+          "ses:caller-identity": [
+            "IAM_user_or_role_name"
+          ],
+          "ses:configuration-set": [
+            "ConfigSet"
+          ],
+          "ses:from-domain": [
+            "example.com"
+          ],
+          "ses:source-ip": [
+            "192.0.2.0"
+          ]
+        },
+        "timestamp": "2017-08-09T21:59:49.927Z"
+      },
+      "open": {
+        "ipAddress": "192.0.2.1",
+        "timestamp": "2017-08-09T22:00:19.652Z",
+        "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_3 like Mac OS X) AppleWebKit/603.3.8 (KHTML, like Gecko) Mobile/14G60"
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of a Click event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType": "Click",
+      "click": {
+        "ipAddress": "192.0.2.1",
+        "link": "http://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-smtp.html",
+        "linkTags": {
+          "samplekey0": [
+            "samplevalue0"
+          ],
+          "samplekey1": [
+            "samplevalue1"
+          ]
+        },
+        "timestamp": "2017-08-09T23:51:25.570Z",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+      },
+      "mail": {
+        "commonHeaders": {
+          "from": [
+            "sender@example.com"
+          ],
+          "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+          "subject": "Message sent from Amazon SES",
+          "to": [
+            "recipient@example.com"
+          ]
+        },
+        "destination": [
+          "recipient@example.com"
+        ],
+        "headers": [
+          {
+            "name": "X-SES-CONFIGURATION-SET",
+            "value": "ConfigSet"
+          },
+          {
+            "name":"X-SES-MESSAGE-TAGS",
+            "value":"myCustomTag1=myCustomValue1, myCustomTag2=myCustomValue2"
+          },
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "multipart/alternative; boundary=\"XBoundary\""
+          },
+          {
+            "name": "Message-ID",
+            "value": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000"
+          }
+        ],
+        "headersTruncated": false,
+        "messageId": "EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "sendingAccountId": "123456789012",
+        "source": "sender@example.com",
+        "tags": {
+          "myCustomTag1":[
+            "myCustomValue1"
+          ],
+          "myCustomTag2":[
+            "myCustomValue2"
+          ],
+          "ses:caller-identity": [
+            "ses_user"
+          ],
+          "ses:configuration-set": [
+            "ConfigSet"
+          ],
+          "ses:from-domain": [
+            "example.com"
+          ],
+          "ses:source-ip": [
+            "192.0.2.0"
+          ]
+        },
+        "timestamp": "2017-08-09T23:50:05.795Z"
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of a Rendering Failure event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType":"Rendering Failure",
+      "mail":{
+        "timestamp":"2018-01-22T18:43:06.197Z",
+        "source":"sender@example.com",
+        "sourceArn":"arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId":"123456789012",
+        "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination":[
+          "recipient@example.com"
+        ],
+        "headersTruncated":false,
+        "tags":{
+          "ses:configuration-set":[
+            "ConfigSet"
+          ]
+        }
+      },
+      "failure":{
+        "errorMessage":"Attribute 'attributeName' is not present in the rendering data.",
+        "templateName":"MyTemplate"
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of a DeliveryDelay event record that Amazon SES publishes to Amazon SNS.
+  innerMessage: |
+    {
+      "eventType": "DeliveryDelay",
+      "mail":{
+        "timestamp":"2020-06-16T00:15:40.641Z",
+        "source":"sender@example.com",
+        "sourceArn":"arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId":"123456789012",
+        "messageId":"EXAMPLE7c191be45-e9aedb9a-02f9-4d12-a87d-dd0099a07f8a-000000",
+        "destination":[
+          "recipient@example.com"
+        ],
+        "headersTruncated":false,
+        "tags":{
+          "ses:configuration-set":[
+            "ConfigSet"
+          ]
+        }
+      },
+      "deliveryDelay": {
+        "timestamp": "2020-06-16T00:25:40.095Z",
+        "delayType": "TransientCommunicationFailure",
+        "expirationTime": "2020-06-16T00:25:40.914Z",
+        "delayedRecipients": [{
+          "emailAddress": "recipient@example.com",
+          "status": "4.4.1",
+          "diagnosticCode": "smtp; 421 4.4.1 Unable to connect to remote host"
+        }]
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+
+- description: The following is an example of a Subscription event record that Amazon SES publishes to Firehose.
+  innerMessage: |
+    {
+      "eventType": "Subscription",
+      "mail": {
+        "timestamp": "2022-01-12T01:00:14.340Z",
+        "source": "sender@example.com",
+        "sourceArn": "arn:aws:ses:us-east-1:123456789012:identity/sender@example.com",
+        "sendingAccountId": "123456789012",
+        "messageId": "EXAMPLEe4bccb684-777bc8de-afa7-4970-92b0-f515137b1497-000000",
+        "destination": ["recipient@example.com"],
+        "headersTruncated": false,
+        "headers": [
+          {
+            "name": "From",
+            "value": "sender@example.com"
+          },
+          {
+            "name": "To",
+            "value": "recipient@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "Message sent from Amazon SES"
+          },
+          {
+            "name": "MIME-Version",
+            "value": "1.0"
+          },
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=UTF-8"
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "7bit"
+          }
+        ],
+        "commonHeaders": {
+          "from": ["sender@example.com"],
+          "to": ["recipient@example.com"],
+          "messageId": "EXAMPLEe4bccb684-777bc8de-afa7-4970-92b0-f515137b1497-000000",
+          "subject": "Message sent from Amazon SES"
+        },
+        "tags": {
+          "ses:operation": ["SendEmail"],
+          "ses:configuration-set": ["ConfigSet"],
+          "ses:source-ip": ["192.0.2.0"],
+          "ses:from-domain": ["example.com"],
+          "ses:caller-identity": ["ses_user"],
+          "myCustomTag1": ["myCustomValue1"],
+          "myCustomTag2": ["myCustomValue2"]
+        }
+      },
+      "subscription": {
+        "contactList": "ContactListName",
+        "timestamp": "2022-01-12T01:00:17.910Z",
+        "source": "UnsubscribeHeader",
+        "newTopicPreferences": {
+          "unsubscribeAll": true,
+          "topicSubscriptionStatus": [
+            {
+              "topicName": "ExampleTopicName",
+              "subscriptionStatus": "OptOut"
+            }
+          ]
+        },
+        "oldTopicPreferences": {
+          "unsubscribeAll": false,
+          "topicSubscriptionStatus": [
+            {
+              "topicName": "ExampleTopicName",
+              "subscriptionStatus": "OptOut"
+            }
+          ]
+        }
+      }
+    }
+  expect:
+    basictype: "" #we're ignoring these notifications for now
+    basicobject: null
+    recipient: "recipient@example.com"
+    ourmessageid: "EXAMPLEe4bccb684-777bc8de-afa7-4970-92b0-f515137b1497-000000"

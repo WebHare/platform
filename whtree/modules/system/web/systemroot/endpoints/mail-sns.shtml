@@ -1,6 +1,8 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -32,6 +34,21 @@ RECORD data := DecodeJSONBlob(GetRequestBody());
 
 IF(data.type = "SubscriptionConfirmation")
 {
+  /* Example message. Should move to our TS based parser too ?
+
+  "Type" : "SubscriptionConfirmation",
+  "MessageId" : "2efaa...",
+  "Token" : "233641...",
+  "TopicArn" : "arn:aws:sns:eu-west-1:00000:webhare-mail",
+  "Message" : "You have chosen to subscribe to the topic arn:aws:sns:eu-west-1:00000:webhare-mail.\nTo confirm the subscription, visit the SubscribeURL included in this message.",
+  "SubscribeURL" : "https://sns.eu-west-1.amazonaws.com/...",
+  "Timestamp" : "2026-01-07T10:53:42.494Z",
+  "SignatureVersion" : "1",
+  "Signature" : "A4ZL...",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-7506a1e35b36ef5a444dd1a8e7cc3ed8.pem"
+}
+*/
+
   OBJECT browser := NEW WebBrowser;
   IF(UnpackURL(data.SubscribeURL).host NOT LIKE "*.amazonaws.com")
     Abort(`Untrusted subscription host '${UnpackURL(data.SubscribeURL).host}'`);
@@ -45,58 +62,28 @@ IF(data.type!="Notification")
 
 //Notification is actual SNS content.
 RECORD snsmessage := DecodeJSON(data.message);
+/* TODO cannot find a record of us receiving this message type recently. I do have a
+
+<ConfirmSubscriptionResponse xmlns="http://sns.amazonaws.com/doc/2010-03-31/">
+  <ConfirmSubscriptionResult>
+    <SubscriptionArn>arn:aws:sns:eu-west-1:0000:webhare-mail:0000-00-00-000000</SubscriptionArn>
+  </ConfirmSubscriptionResult>
+  <ResponseMetadata>
+    <RequestId>0000-00-00-00000</RequestId>
+  </ResponseMetadata>
+</ConfirmSubscriptionResponse>
+
+but that's in response to the subscription confirmation above.
+*/
 IF(CellExists(snsmessage,'notificationtype') AND snsmessage.notificationtype = "AmazonSnsSubscriptionSucceeded")
   RETURN;
 
-STRING ourmessageid := SELECT AS STRING value FROM snsmessage.mail.headers WHERE ToUppercase(name) = "MESSAGE-ID";
-IF(ourmessageid = "") //Since SESv2 Amazon seems to put its own messageid into commonheaders, so we only fallback to it
-  ourmessageid := snsmessage.mail.commonheaders.messageid; //NOTE Apparently AWS doesn't always send it..
+RECORD parseresult := CallJS("mod::platform/js/email/aws-ses.ts#parseSNSMessage", BlobToString(GetRequestBody()));
+IF(parseresult.basictype = "" OR NOT RecordExists(parseresult.basicobject)) //not caring about this type yet
+  RETURN;
 
-//SES event publishing uses eventType, old format uses notificationType
-STRING type := CellExists(snsmessage, "eventtype") ? snsmessage.eventtype : snsmessage.notificationtype;
-RECORD typedmessage := GetCell(snsmessage, type);
-RECORD basicobject := [ timestamp    := MakeDateFromText(typedmessage.timestamp)
-                      , remotemtaip  := CellExists(typedmessage,'remotemtaip') ? typedmessage.remotemtaip : ''
-                      , reportingmta := CellExists(typedmessage,'reportingmta') ? typedmessage.reportingmta : ''
-                      , feedbackid   := CellExists(typedmessage,'feedbackid') ? typedmessage.feedbackid : ''
-                      ];
-STRING basictype;
-
-IF(type = "Bounce")
-{
-  basicobject := CELL[ ...basicobject
-                     , ispermanent := typedmessage.bouncetype="Permanent"
-                     , bouncetype := typedmessage.bouncetype
-                     , bouncesubtype := typedmessage.bouncesubtype
-                     , bouncestatus := CellExists(typedmessage.bouncedrecipients[0], "status") ? typedmessage.bouncedrecipients[0].status : ""
-                     , bounceaction := CellExists(typedmessage.bouncedrecipients[0], "action") ? typedmessage.bouncedrecipients[0].action : ""
-                     , bouncediagnosticcode := CellExists(typedmessage.bouncedrecipients[0], "diagnosticcode") ? typedmessage.bouncedrecipients[0].diagnosticcode : ""
-                     , bounceemailaddress := CellExists(typedmessage.bouncedrecipients[0], "emailaddress") ? typedmessage.bouncedrecipients[0].emailaddress : ""
-                     ];
-  basictype := "bounce";
-}
-ELSE IF (type = "Complaint")
-{
-  basicobject := CELL[ ...basicobject
-                     , complaintfeedbacktype :=  CellExists(snsmessage.complaint,'complaintFeedbackType') ? snsmessage.complaint.complaintFeedbackType : ""
-                     , complainedemailaddress := CellExists(snsmessage.complaint.complainedrecipients[0], "emailaddress") ? snsmessage.complaint.complainedrecipients[0].emailaddress : ""
-                     , useragent := CellExists(snsmessage.complaint,'useragent') ? snsmessage.complaint.useragent : ""
-                     ];
-  basictype := "complaint";
-}
-ELSE IF(type = "Delivery")
-{
-  basicobject := CELL[ ...basicobject
-                     , smtpresponse := typedmessage.smtpresponse
-                     ];
-  basictype := "delivery";
-}
-ELSE //TODO Handle Open, Send ?
-{
-  RETURN; //ignoring -  we have many more message types now but don't proces most
-}
-
-STRING recipient := snsmessage.mail.destination[0];
+STRING recipient := parseresult.recipient;
+STRING ourmessageid := parseresult.ourmessageid;
 IF(ourmessageid LIKE "<*@smtp.webhare.net>") //this path handles QueueMail(InWork) emails
 {
   OBJECT trans := OpenPrimary();
@@ -108,23 +95,23 @@ IF(ourmessageid LIKE "<*@smtp.webhare.net>") //this path handles QueueMail(InWor
   RECORD task := DescribeManagedTask(ourtaskid);
   IF(NOT RecordExists(task) OR task.tasktype != "system:outgoingmail" OR task.data.receiver != recipient)
     RETURN;// ABORT(CELL[task,recipient]);
-  IF(CellExists(task.metadata,basictype)) //already have delivery info
+  IF(CellExists(task.metadata, parseresult.basictype)) //already have delivery info
     RETURN;
 
   trans->BeginWork();
-  SetManagedTaskMetadata(ourtaskid, basictype, basicobject);
+  SetManagedTaskMetadata(ourtaskid, parseresult.basictype, parseresult.basicobject);
   IF(CellExists(task.data,'callback'))
-    ScheduleManagedTask("system:mailstatuscallback", [ ...task.data.callback, type := basictype, status := basicobject ]);
+    ScheduleManagedTask("system:mailstatuscallback", [ ...task.data.callback, type := parseresult.basictype, status := parseresult.basicobject ]);
 
   trans->CommitWork();
 }
 ELSE IF(ourmessageid LIKE "<*@news.webhare.net>") //TODO support a future registration api..
 {
-  MakeFunctionPtr("mod::newsletter/lib/incoming.whlib#ProcessIncomingBounce")(ourmessageid, basictype, basicobject);
+  MakeFunctionPtr("mod::newsletter/lib/incoming.whlib#ProcessIncomingBounce")(ourmessageid, parseresult.basictype, parseresult.basicobject);
 }
 ELSE IF(ourmessageid LIKE "<*@connect.webhare.net>")
 {
-  MakeFunctionPtr("mod::connect/lib/internal/hooks.whlib#ProcessIncomingBounce")(ourmessageid, basictype, basicobject);
+  MakeFunctionPtr("mod::connect/lib/internal/hooks.whlib#ProcessIncomingBounce")(ourmessageid, parseresult.basictype, parseresult.basicobject);
 }
 ELSE
 {
