@@ -97,7 +97,7 @@ export function parseSNSMessage(postBody: string) {
   const parsedBody = JSON.parse(postBody);
   const parsedMessage = JSON.parse(parsedBody.Message) as BounceMessageRoot;
 
-  //TODO so why isn't AWS SES c2 putting our messaeg-id in `messageId` or give us some other *guaranteed* marker? MessageId in 'headers' looks dangerous as 'headersTruncated' exists
+  //TODO so why isn't AWS SES c2 putting our message-id in `messageId` or give us some other *guaranteed* marker? MessageId in 'headers' looks dangerous as 'headersTruncated' exists
   const ourmessageid = parsedMessage.mail?.headers?.find(h => h.name.toLowerCase() === "message-id")?.value || parsedMessage.mail?.messageId || "";
   const recipient = parsedMessage.mail?.destination[0] || "";
 
