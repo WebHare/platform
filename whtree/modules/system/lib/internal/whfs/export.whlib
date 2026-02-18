@@ -29,7 +29,6 @@ INTEGER64 archive_export_breakup_limit;
 
 BOOLEAN archive_export_breakup;
 BLOB ARRAY archive_export_archives;
-RECORD parentsiterec;
 BOOLEAN showhidden;
 OBJECT fpe;
 
@@ -95,7 +94,8 @@ RECORD FUNCTION DescribeType(OBJECT intype)
 RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files, OBJECT encoder)
 {
   STRING ARRAY errors;
-  RECORD folderdata := SELECT title,
+  RECORD folderdata := folderid != 0 ?
+                RECORD(SELECT title,
                               description,
                               keywords,
                               type,
@@ -106,8 +106,17 @@ RECORD FUNCTION CreateFolderMetadata(INTEGER folderid, RECORD ARRAY store_files,
                               isunlisted
                          FROM system.fs_objects
                         WHERE id = VAR folderid
-                              AND isfolder = TRUE;
-
+                              AND isfolder = TRUE)
+    : [ title := "root"
+      , description := ""
+      , keywords := ""
+      , type := 0
+      , ordering := 0
+      , fullpath := "/"
+      , indexdoc := 0
+      , ispinned := FALSE
+      , isunlisted := FALSE
+      ];
 
   //Convert ID fields to plain fields
   STRING folderindex;
@@ -282,8 +291,7 @@ MACRO ExecuteExportPlan(RECORD ARRAY files, FUNCTION PTR statuscallback)
     @cell return.archives List of all created archives, in order.
     @cell return.error String containing errors while creating the archive */
 
-PUBLIC OBJECTTYPE WHFSExporter
-<
+PUBLIC OBJECTTYPE WHFSExporter <
   OBJECT startfolder;
   RECORD result;
 
@@ -313,7 +321,6 @@ PUBLIC OBJECTTYPE WHFSExporter
       THROW NEW Exception("Duplicate run invocation");
 
     RECORD folderinfo := SELECT * FROM system.fs_objects WHERE id=this->startfolder->id;
-    parentsiterec := SELECT * FROM system.sites WHERE id = folderinfo.parentsite;
     showhidden := this->skip_hidden=FALSE;
 
     fpe := NEW WHFSBulkSender(this->startfolder->id, this->initialname);
@@ -371,28 +378,29 @@ PUBLIC OBJECTTYPE WHFSExporter
     RETURN this->result.archives;
   }
 
-  RECORD ARRAY FUNCTION CreateExportPlan(RECORD folderrec, STRING path_sofar, BOOLEAN recursive, OBJECT encoder)
-  {
+  RECORD ARRAY FUNCTION CreateExportPlan(RECORD folderrec, STRING path_sofar, BOOLEAN recursive, OBJECT encoder) {
+    INTEGER parentid := RecordExists(folderrec) ? folderrec.id : 0;
+    STRING parentname := RecordExists(folderrec) ? folderrec.name : "root";
     RECORD ARRAY store_files  := SELECT *
                                    FROM system.fs_objects
-                                  WHERE parent = VAR folderrec.id
+                                  WHERE parent = VAR parentid
                                         AND (Length(this->limitobjects) > 0 ? id IN this->limitobjects : TRUE)
                                         AND NOT isfolder;
 
     //Create the metadata file
-    encoder->dirid := "folder-" || folderrec.id;
+    encoder->dirid := "folder-" || parentid;
 
     RECORD ARRAY addedfiles;
     IF(this->withmetadata)
     {
-      RECORD addedinfo := CreateFolderMetadata(folderrec.id, store_files, encoder);
+      RECORD addedinfo := CreateFolderMetadata(parentid, store_files, encoder);
       DATETIME now := GetCurrentDateTime();
 
       addedfiles := addedfiles CONCAT
           [ [ path :=       path_sofar || "/^^webhare_folder_metadata.xml"
             , data :=       addedinfo.xml_data
             , modtime :=    now
-            , name :=       folderrec.name
+            , name :=       parentname
             ]
           ];
 
@@ -402,7 +410,7 @@ PUBLIC OBJECTTYPE WHFSExporter
                , modtime := now
                , name :=    name
             FROM addedinfo.blobs
-           WHERE dirid = "folder-" || folderrec.id;
+           WHERE dirid = "folder-" || parentid;
     }
     ELSE
     {
@@ -429,7 +437,7 @@ PUBLIC OBJECTTYPE WHFSExporter
       RECORD ARRAY subfolders := SELECT id
                                       , name
                                    FROM system.fs_objects
-                                  WHERE parent = folderrec.id
+                                  WHERE parent = parentid
                                         AND (Length(this->limitobjects) > 0 ? id IN this->limitobjects : TRUE)
                                     AND isfolder;
 
