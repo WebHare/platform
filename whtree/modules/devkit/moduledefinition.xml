@@ -41,6 +41,13 @@
                  tid="tolliumapps.iconviewer.iconviewer">
       <accesscheck />
     </application>
+    <application name="setupwebhareuser"
+                 startmacro="/tolliumapps/deploy/setupwebhareuser.whlib#runsetupwebhareuser"
+                 supportedlanguages="en">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
   </portal>
 
   <consilio>
@@ -54,6 +61,11 @@
   <backend>
     <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
   </backend>
+
+  <moduleregistry>
+    <string name="webhareuser"
+            description="The user account for the developer on this server. Used when a command line tool needs to act as a WebHare user" />
+  </moduleregistry>
 
   <rewriters xmlns="http://www.webhare.net/xmlns/dev/moduledefinition">
     <xmlrewriter getrulesfunction="lib/rewrite/platform-rewrites.whlib#GetWebharePlatformRewrites" priority="-100" />

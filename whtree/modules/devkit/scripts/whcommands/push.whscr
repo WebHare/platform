@@ -1,0 +1,161 @@
+<?wh (*WASMENGINE*)
+// syntax: <destserver> <module...>
+// short: Push module to specified server
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::devkit/lib/internal/deploy/moduleimexport.whlib";
+LOADLIB "mod::devkit/lib/internal/deploy/cli-connect.whlib";
+LOADLIB "mod::devkit/tolliumapps/deploy/diffs.whlib";
+
+
+MACRO Main()
+{
+  RECORD ARRAY syntax := [ ...cliconnect_syntax
+                         , [ name := "debug", type := "switch" ]
+                         , [ name := "dryrun", type := "switch" ]
+                         , [ name := "firstpush", type := "switch" ]
+                         , [ name := "destserver", type := "param", required := TRUE ]
+                         , [ name := "modules", type := "paramlist", required := TRUE ]
+                         ];
+
+  RECORD args := ParseArguments(GetConsoleArguments(), syntax);
+  IF(NOT RecordExists(args) OR Length(args.modules) = 0)
+  {
+    Print("Syntax: wh devkit:push <destserver> <module...]\n");
+    Print("       destserver should be the full URLs, exactly as specified in your list of peers\n");
+    Print("       use '@outdated' as a module name to only update remotely outdated modules\n");
+    Print("       --dryrun    Do not actually push, show what would be pushed\n");
+    Print("       --firstpush Skip 'first push' warnings\n");
+    Print("       --debug     Show debug info (ie why modules are not considered outdated)\n");
+    TerminateScriptWithError("");
+  }
+
+  OBJECT user := GetCLIUser(args);
+
+  IF(args.debug)
+    Print(`Working as: ${user->login}\n`);
+  RECORD peer := OpenCLIPeer(user, args.destserver, args);
+
+  STRING ARRAY updated,failed;
+  STRING ARRAY pushmodules := args.modules;
+  IF("@outdated" IN pushmodules)
+  {
+    INTEGER outdatedpos := SearchElement(pushmodules,"@outdated");
+    RECORD ARRAY modules := peer.peer->InvokeAdminService("ListInstalledModules");
+    STRING ARRAY outdatedmodules;
+    FOREVERY(RECORD remotemod FROM modules)
+    {
+      IF(NOT remotemod.packagingupgrade)
+      {
+        IF(args.debug)
+          Print(`Remote module '${remotemod.name}' is not upgradable\n`);
+        CONTINUE;
+      }
+      IF(remotemod.name NOT IN GetInstalledModuleNames())
+      {
+        IF(args.debug)
+          Print(`We do not have a local version of remote module '${remotemod.name}'\n`);
+        CONTINUE;
+      }
+
+      RECORD localmodule := GetRevisionOfSingleModuleDev(remotemod.name);
+      STRING remote_branch := Tokenize(remotemod.source_repository_url || "\t", "\t")[1];
+      IF (localmodule.branch != remote_branch)
+      {
+        Print(`Remote module '${remotemod.name}' is on a different branch (we: '${localmodule.branch}', they '${remote_branch}'\n`);
+        INSERT remotemod.name INTO failed AT END;
+        CONTINUE;
+      }
+      IF (remotemod.source_revision = localmodule.revision)
+      {
+        IF(args.debug)
+          Print(`Remote module '${remotemod.name}' is up-to-date (both are at commit ${localmodule.revision})\n`);
+        CONTINUE;
+      }
+
+      INTEGER ourcommitpos := (SELECT AS INTEGER #commits + 1 FROM localmodule.commits WHERE id = remotemod.source_revision)-1;
+      IF(ourcommitpos = -1)
+      {
+        IF(args.debug)
+          Print(`Cannot find remote module '${remotemod.name}' commit '${remotemod.source_revision}' in our commit log\n`);
+        CONTINUE;
+      }
+
+      RECORD ARRAY missingcommits := ArraySlice(localmodule.commits, 0, ourcommitpos);
+      Print(`Pushing ${Length(missingcommits)} commits for module ${remotemod.name}:\n`);
+      FOREVERY(RECORD commit FROM missingcommits)
+        Print(`- ${Left(commit.id,7)} ${commit.author.email ?? commit.author.name}: ${UCTruncate(Tokenize(commit.message,'\n')[0],120)}  \n`);
+
+      Print("\n");
+
+      INSERT remotemod.name INTO outdatedmodules AT END;
+    }
+    pushmodules := STRING[ ...ArraySlice(pushmodules, 0, outdatedpos)
+                         , ...outdatedmodules
+                         , ...ArraySlice(pushmodules, outdatedpos + 1)
+                         ];
+  }
+
+  // Get the list of external modules
+  //RECORD ARRAY modules := peer.peer->InvokeAdminService("ListInstalledModules");
+  //dumpvalue(modules);
+  FOREVERY(STRING modulename FROM pushmodules)
+  {
+    OBJECT pusher := NEW ModulePusher(modulename, peer.peer);
+
+    RECORD ARRAY issues := pusher->GatherPrePushIssues();
+    IF(Length(issues) = 0)
+      issues := issues CONCAT pusher->PreparePush(user->login, user->realname, CELL[args.firstpush]);
+
+    IF(Length(issues) > 0)
+    {
+      FOREVERY(RECORD issue FROM issues)
+      {
+        Print(`Cannot push '${modulename}': ${issue.message} (${issue.type})\n`);
+        IF(CellExists(issue,'paths'))
+          FOREVERY(RECORD path FROM issue.paths)
+            Print(`- ${path.path}\n`);
+      }
+      INSERT modulename INTO failed AT END;
+      CONTINUE;
+    }
+
+    IF(args.dryrun)
+    {
+      Print(`Would push: ${modulename}\n`);
+      CONTINUE;
+    }
+    RECORD uploadresult := pusher->UploadModule();
+    IF(uploadresult.uploaded)
+    {
+      Print(`Pushed '${modulename}'\n`);
+      INSERT modulename INTO updated AT END;
+    }
+    ELSE
+    {
+      INSERT modulename INTO failed AT END;
+    }
+    FOREVERY (STRING str FROM uploadresult.errors)
+      Print(`- Error pushing '${modulename}': ${str}\n`);
+    FOREVERY (STRING str FROM uploadresult.warnings)
+      Print(`- Warning pushing '${modulename}': ${str}\n`);
+  }
+
+  Print("\n");
+  IF(Length(updated) > 0)
+  {
+    Print(`Pushed modules: ${Detokenize(updated,' ')}\n`);
+  }
+  IF(Length(failed) > 0)
+  {
+    Print(`FAILED TO PUSH: ${Detokenize(failed,' ')}\n`);
+    SetConsoleExitCode(1);
+  }
+}
+
+OpenPrimary();
+Main();

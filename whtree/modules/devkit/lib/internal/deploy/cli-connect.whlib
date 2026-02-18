@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
+LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
+
+PUBLIC CONSTANT RECORD ARRAY cliconnect_syntax :=
+    [ [ name := "reset", type := "switch" ]
+    ];
+
+MACRO OpenURL(STRING url)
+{
+  Print("Go to " || url || "\n");
+  IF(NOT IsWasm())
+  {
+    OBJECT proc := CreateProcess("/usr/bin/open", [ url ], [take_input := FALSE, take_output := FALSE, take_errors := FALSE]);
+    proc->Start();
+    proc->Detach();
+  }
+}
+
+PUBLIC OBJECT FUNCTION GetCLIUser(RECORD cmdargs)
+{
+  IF(cmdargs.reset)
+  { //a hidden option to clear all associated registry keys so we are forced to run through all the dialogs. for developing dev:push itself
+    GetPrimary()->BeginWork();
+    WriteRegistryKey("devkit.webhareuser","");
+    GetPrimary()->CommitWork();
+  }
+
+  OBJECT userapi := GetPrimaryWebhareUserAPI();
+  IF(ReadRegistryKey("devkit.webhareuser") = "" OR NOT ObjectExists(userapi->GetUserByGUID(ReadRegistryKey("devkit.webhareuser"))))
+  {
+    Print("Setup your user account first. Waiting for it to be configured, CTRL+C to abort...\n");
+
+    STRING url := GetPrimaryWebhareInterfaceURL() || "?app=devkit:setupwebhareuser&appmode=singleapp";
+    OpenURL(url);
+    WHILE(ReadRegistryKey("devkit.webhareuser") = "" OR NOT ObjectExists(userapi->GetUserByGUID(ReadRegistryKey("devkit.webhareuser"))))
+      Sleep(1000);
+  }
+
+  RETURN userapi->GetUserByGUID(ReadRegistryKey("devkit.webhareuser"));
+}
+
+PUBLIC RECORD FUNCTION OpenCLIPeer(OBJECT user, STRING destserver, RECORD cmdargs)
+{
+  RECORD peer := OpenUserWebHarePeer(user, destserver, [ scopes := ["system:sysop"]
+                                                               , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
+                                                               ]);
+  IF(peer.status != "ok" OR cmdargs.reset)
+  {
+    RECORD tokenrequest := GetHeadlessWebHareRequestTokenURL(user->entity, destserver);
+    OpenURL(tokenrequest.requesturl);
+    waitForPromise(tokenrequest.tokenpromise);
+
+    peer := OpenUserWebHarePeer(user, destserver, [ scopes := ["system:sysop"]
+                                                  , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
+                                                  ]);
+  }
+
+  IF(peer.status != "ok")
+    TerminateScriptWithError(`Unable to connect to peer: ${peer.status}`);
+
+  RETURN peer;
+}

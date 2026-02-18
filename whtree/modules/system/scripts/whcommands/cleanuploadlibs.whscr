@@ -1,5 +1,0 @@
-<?wh
-LOADLIB "wh::os.whlib";
-
-Print("This script has been replaced by wh dev:cleanupmodule\n");
-SetConsoleExitCode(1);

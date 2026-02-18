@@ -172,5 +172,12 @@
       <text tid="untranslated_button">Untranslated</text>
       <text tid="verifyfirstlanguagefile">The first language file you create will be the default language file for the module. Are you sure you want to make this language the default?</text>
     </textgroup>
+    <textgroup gid="peering">   <!-- tolliumapps.peering -->
+      <textgroup gid="setupwebhareuser">   <!-- tolliumapps.peering.setupwebhareuser -->
+        <text tid="choosedevuser">Select the default user for wh devkit:* command line actions</text>
+        <text tid="setupwebhareuser">Set development user</text>
+        <text tid="webhareuser">WebHare user</text>
+      </textgroup>
+    </textgroup>
   </textgroup>
 </language>

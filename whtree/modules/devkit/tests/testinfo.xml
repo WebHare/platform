@@ -10,6 +10,7 @@
   <test script="test_processing.whscr" />
   <test script="test_toyaml.ts" />
   <test script="test_createstuff.ts" />
+  <test script="test_module_imexport.whscr" />
   <test name="lsp" path="lsp/" />
   <test name="langedit" path="langedit/" />
 </group>
