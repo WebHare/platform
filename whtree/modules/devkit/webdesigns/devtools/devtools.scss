@@ -1,0 +1,38 @@
+
+html.wh-outputtool--active wh-outputtools
+{
+  display:flex;
+  flex-direction: column;
+}
+
+wh-outputtools-info
+{
+  all: initial;
+  font: 14px Arial,Helvetica,sans-serif;
+  position: fixed;
+  z-index: 999999997;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  padding: 20px 2px 8px 2px;
+
+  &:empty {
+    display: none;
+  }
+}
+wh-outputtools-info.wh-outputtools-info--error
+{
+  background: #ff9999;
+  color: #000;
+}
+wh-outputtools-info.wh-outputtools-info--warning
+{
+  background: #70ba70;
+  pointer-events: none;
+}
+
+wh-outputtools-info ul
+{
+  margin: 0;
+}

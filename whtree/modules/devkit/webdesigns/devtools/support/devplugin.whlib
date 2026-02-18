@@ -1,0 +1,65 @@
+<?wh
+
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/wittytracing.whlib";
+
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC STATIC OBJECTTYPE DevSupportPlugin EXTEND WebDesignPluginBase
+<
+  RECORD config;
+
+  MACRO NEW()
+  {
+    IF(IsRequest())
+     EnableWittyTracing();
+  }
+
+  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
+  {
+    RETURN [ adddebugscript := ParseXSBoolean(node->GetAttribute("adddebugscript"))
+           ];
+  }
+
+  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
+  {
+    this->config := config;
+  }
+
+  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  {
+    webdesign->InsertHTML(`<script src="/.wh/mod/devkit/public/debug.mjs" async type="module"></script>`,"dependencies-bottom");
+    IF(IsRequest())
+      webdesign->InsertWithCallback(PTR this->PrintUsedResources(webdesign), "body-devbottom");
+  }
+
+  MACRO PrintUsedResources(OBJECT webdesign)
+  {
+    // List all harescript libraries outside of the base modules
+    STRING ARRAY resources :=
+        (SELECT AS STRING ARRAY liburi
+          FROM GetAllUsedHarescriptLibraries());
+
+    resources := resources CONCAT
+        SELECT AS STRING ARRAY DISTINCT Detokenize(ArraySlice(Tokenize(component, ":"), 0, 3), ":")
+          FROM GetInvokedWitties();
+
+    // Filter out anything inside the builtinmodules
+    resources :=
+        SELECT AS STRING ARRAY uri
+          FROM TorecordArray(resources, "uri")
+         WHERE uri LIKE "mod::*/*"
+           AND SubString(Tokenize(uri, "/")[0], 5) NOT IN VAR whconstant_builtinmodules;
+
+    RECORD outputtoolsdata := CELL
+        [ resources :=      GetSortedSet(resources CONCAT webdesign->resourcedependencies)
+        ];
+
+    Print(`<script type="application/json" id="wh-outputtoolsdata">${EncodeJSON(outputtoolsdata)}</script>`);
+  }
+>;

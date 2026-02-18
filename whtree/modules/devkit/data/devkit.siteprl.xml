@@ -1,0 +1,17 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <apply priority="-100">
+    <to type="all" />
+    <devsupport xmlns="http://www.webhare.net/xmlns/devkit" adddebugscript="true" />
+  </apply>
+
+  <apply priority="-1">
+    <!-- make sure our settings appear first, to stabilize ordering -->
+    <to type="all" />
+    <debugsettings title="dev settings">
+      <option tag="devdebug" title="Debug devkit/debug.js" />
+      <option tag="nofhp" title="Disable prefiller in debugmode" />
+    </debugsettings>
+  </apply>
+
+</siteprofile>

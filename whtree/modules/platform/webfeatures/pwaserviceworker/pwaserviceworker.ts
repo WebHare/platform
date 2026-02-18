@@ -264,12 +264,10 @@ function onFetch(event: FetchEvent) {
 
   const urlpath = new URL(event.request.url).pathname;
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
-    || urlpath.startsWith('/.wh/dev/')
     || urlpath.startsWith('/.wh/devkit/')
-    || urlpath.startsWith('/.dev/debug.js')
-    || urlpath.startsWith(getAssetPackBase("dev:devtools"))
+    || urlpath.startsWith('/.wh/mod/devkit/public/')
+    || urlpath.startsWith(getAssetPackBase("devkit:devtools"))
     || urlpath.startsWith(getAssetPackBase("platform:authormode"))
-    || urlpath.startsWith('/.publisher/sd/dev/devtools/')
     || urlpath.startsWith('/.wh/ea/config/') //TODO the publisher shouldn't fetch this for PWAs but publisher integration doesn't know about PWAs yet
     || urlpath.startsWith("/.px/") //old pxl url. new url introduced with WH5.7
     || urlpath.startsWith("/.wh/ea/pxl/")) {

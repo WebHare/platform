@@ -58,6 +58,13 @@
     <catalog tag="www_webhare_dev" />
   </consilio>
 
+  <publisher>
+    <webdesignplugin name="devsupport"
+                     composerhook="webdesigns/devtools/support/devplugin.ts#devSupportHook"
+                     namespace="http://www.webhare.net/xmlns/devkit"
+                     objectname="webdesigns/devtools/support/devplugin.whlib#DevSupportPlugin" />
+  </publisher>
+
   <backend>
     <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
   </backend>
