@@ -558,7 +558,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
             onLog({ expect, actual });
             throw new TestError(`Expected property '${key}', didn't find it, at ${path}`, options);
           }
-          eqPropsRecurse(value, (actual as { [k: string]: unknown })[key], `${path}.${key}`, ignore);
+          eqPropsRecurse(value, (actual as { [k: string]: unknown })[key], `${path}.${key}`, ignore, options);
         }
         return;
       }
