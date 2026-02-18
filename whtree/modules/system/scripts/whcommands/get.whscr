@@ -32,6 +32,10 @@ SWITCH(args.parameter)
   {
     Print(GetSNSEndpoint()||"\n");
   }
+  CASE "sendgridendpoint"
+  {
+    Print(GetSendGridEndpoint()||"\n");
+  }
   CASE "backendurl", "primarywebhareinterfaceurl"
   {
     Print(GetPrimaryWebhareInterfaceURL()||"\n");
