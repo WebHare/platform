@@ -993,7 +993,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       matchtype,
       realm: '',
       authrequired: true,
-      errorpath: '',
+      errorpath: rule?.errorPath ?? '',
       finalerrorpath: false,
       extauthscript: '',
       allowallmethods: rule.methods === "*",
