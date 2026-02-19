@@ -34,6 +34,9 @@ function wrapSESv2MessageinBoilerplate(message: unknown) {
 
 async function testSNSParser() {
   for (const [idx, msg] of decodeYAML<SNSTestData>(readFileSync(__dirname + "/data/sns-test-data.yaml", "utf-8")).entries()) {
+    if (typeof msg.expect.basicobject?.timestamp === "string")
+      msg.expect.basicobject.timestamp = Temporal.Instant.from(msg.expect.basicobject.timestamp);
+
     // console.log(idx, msg.description);
     const msgBody = "innerMessage" in msg ? wrapSESv2MessageinBoilerplate(msg.innerMessage) : msg.message;
     const result = parseSNSMessage(msgBody);
