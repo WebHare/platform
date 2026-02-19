@@ -1,4 +1,4 @@
-import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow, CSPDynamicExecution } from "./siteprofiles";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow, CSPDynamicExecution, CSPBaseProperties } from "./siteprofiles";
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -483,6 +483,25 @@ export class WHFSApplyTester {
           });
     }
     return extendProps;
+  }
+
+  async getBaseProperties() {
+    const baseProperties: CSPBaseProperties = {
+      description: true,
+      isunlisted: false,
+      keywords: this.objinfo.isfile,
+      seotab: false,
+      noindex: false,
+      nofollow: false,
+      noarchive: false,
+      requiretitle: false,
+      seotitle: false,
+    };
+    for (const apply of await this.getMatchingRules('baseproperties'))
+      for (const fld of apply.baseproperties.haslist)
+        if (fld.toLowerCase() in baseProperties)
+          baseProperties[fld.toLowerCase() as keyof CSPBaseProperties] = apply.baseproperties[fld.toLowerCase() as keyof CSPBaseProperties];
+    return baseProperties;
   }
 
   async getObjectEditor() {

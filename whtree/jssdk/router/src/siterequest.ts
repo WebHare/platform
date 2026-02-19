@@ -3,7 +3,7 @@
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
-import { describeWHFSType, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
+import { describeWHFSType, openFileOrFolder, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
@@ -17,7 +17,7 @@ import { dtapStage } from "@webhare/env";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { stringify, throwError } from "@webhare/std";
+import { omit, stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetaData } from "./metadata";
@@ -44,6 +44,14 @@ type ContentPageRequestOptions = {
   statusCode?: number;
   contentObject?: WHFSObject;
 };
+
+/** Convert a camelCaseName to corresponding kebab-case-name
+ * @param name - Name to convert
+ * @returns Converted name
+*/
+function nameToKebabCase(name: string) {
+  return name.replaceAll(/[A-Z]/g, c => '-' + c.toLowerCase());
+}
 
 export class CPageRequest {
   readonly webRequest: WebRequest | null;
@@ -101,6 +109,56 @@ export class CPageRequest {
     this._contentApplyTester = this.targetObject.type === "platform:filetypes.contentlink" ? await getApplyTesterForObject(this._contentObject) : this._applyTester; //if we're a contentlink, we want to use the applytester of our target for things like rendering and getting frontend data, but we still want to keep track of the original content object for plugins and such
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
+
+    //initialize the page metadata before returning the rendering function
+    this.pageMetaData.title = this._contentObject.title || this.targetFolder.title;
+    const seoSettings = {
+      ...await this.getInstance("platform:web.config"),
+      ...await this.getInstance("platform:web.metadata"),
+    };
+    if (!this.targetObject.isFolder && seoSettings?.seoTitle)
+      this.pageMetaData.title = seoSettings.seoTitle;
+    if (!this.pageMetaData.title && this.targetFolder.id !== this.targetFolder.parentSite) // Try the site root folder's title
+      this.pageMetaData.title = (await openFolder(this.targetSite.id)).title;
+    if (!this.pageMetaData.title) // Still no title
+      this.pageMetaData.title = this.targetSite.name;
+    this.pageMetaData.description = this.targetObject.description; //No fallback to folder. a folder's description is unlikely to apply to a file?
+    if (this.targetObject.isFile)
+      this.pageMetaData.keywords = this.targetObject.keywords;
+
+    if (seoSettings.canonical) {
+      const canonicalTarget = (await openFileOrFolder(seoSettings.canonical, { allowMissing: true }))?.link;
+      if (canonicalTarget)
+        this.pageMetaData.canonicalUrl = canonicalTarget;
+    }
+    //TODO The form filetype should deal with this instead of hardcoding a type reference here
+    if (!this.pageMetaData.canonicalUrl && (!this.webRequest || this.targetObject.type === "platform:filetypes.form"))
+      this.pageMetaData.canonicalUrl = this.targetObject.link;
+
+    // Initialize robots tag
+    const parents: Array<{ id: number }> = [];
+    for (let parent = this.targetObject.parent; parent; parent = (await openFileOrFolder(parent))?.parent)
+      parents.unshift({ id: parent });
+
+    const seoItems = (await whfsType("platform:web.config").enrich(parents, "id", ["noIndex", "noFollow", "noArchive", "customRobots", "canonical"])).map(_ => omit(_, ["id"]));
+    seoItems.push(seoSettings);
+    for (const seoItem of seoItems) {
+      if (seoItem.noIndex)
+        this.pageMetaData.robotsTag.noIndex = true;
+      if (seoItem.noFollow)
+        this.pageMetaData.robotsTag.noFollow = true;
+      if (seoItem.noArchive)
+        this.pageMetaData.robotsTag.noArchive = true;
+      if (seoItem.customRobots)
+        this.pageMetaData.robotsTag.custom = seoItem.customRobots;
+    }
+    const baseProps = await this._applyTester.getBaseProperties();
+    if (baseProps.noindex)
+      this.pageMetaData.robotsTag.noIndex = true;
+    if (baseProps.nofollow)
+      this.pageMetaData.robotsTag.noFollow = true;
+    if (baseProps.noarchive)
+      this.pageMetaData.robotsTag.noArchive = true;
   }
 
   get siteLanguage() {
@@ -145,7 +203,7 @@ export class CPageRequest {
 
     const typeInfo = await describeWHFSType(this._contentApplyTester.type);
     if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
-      return async (request: ContentPageRequest) => {
+      return async (_request: ContentPageRequest) => {
         const data = await whfsType(this._contentApplyTester.type).get(this._contentObject.id);
         const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data });
         this.pageMetaData.htmlClasses.push('wh-widgetpreview');
@@ -236,6 +294,33 @@ export class CPageRequest {
     }
     return rawLitty(output);
   }
+
+  private renderRobotsTag() {
+    const tagParts: string[] = [];
+    for (const usualProp of ["noIndex", "noFollow", "noArchive", "noImageIndex", "noSnippet"])
+      if (this.pageMetaData.robotsTag[usualProp as keyof typeof this.pageMetaData.robotsTag])
+        tagParts.push(usualProp.toLowerCase());
+
+    if (this.pageMetaData.robotsTag.noIndex && !this.pageMetaData.robotsTag.noFollow)
+      tagParts.push("follow"); //various sources seem to recommend explicitly setting follow/nofollow after a noindex, and it shouldn't do harm
+
+    if (this.pageMetaData.robotsTag.unavailableAfter)
+      tagParts.push("unavailable_after:" + this.pageMetaData.robotsTag.unavailableAfter.toZonedDateTimeISO("UTC").toString({
+        calendarName: "never",
+        smallestUnit: "second",
+        timeZoneName: "never",
+        offset: "never",
+      }));
+
+    if (this.pageMetaData.robotsTag.custom)
+      tagParts.push(this.pageMetaData.robotsTag.custom);
+
+    const tag = tagParts.join(",");
+    if (tag)
+      return litty`<meta name="robots" content="${tag}">`;
+    return '';
+  }
+
   private async renderBodyFinale(): Promise<Litty> {
     return litty`
       ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
@@ -255,25 +340,25 @@ export class CPageRequest {
         ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}`;
   }
 
-
   private async buildPage(head: Litty | undefined, body: Litty, settings: SiteResponseSettings): Promise<Litty> {
     const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === settings.assetpack);
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${settings.assetpack}' not found`);
 
-    const htmlclasses = [...this.pageMetaData.htmlClasses, ...settings.htmlclasses];
     return litty`<!DOCTYPE html>
 <html lang="${settings.lang}"
-      dir="${settings.htmldirection}"
-      ${htmlclasses ? litty`class="${htmlclasses.join(" ")}"` : ''}
-      ${Object.entries(settings.htmlprefixes).length ? litty`prefix="${Object.entries(settings.htmlprefixes).map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
+      dir="${this.pageMetaData.htmlDirection}"
+      ${this.pageMetaData.htmlClasses ? litty`class="${this.pageMetaData.htmlClasses.join(" ")}"` : ''}
+      ${this.pageMetaData.htmlPrefixes.length ? litty`prefix="${this.pageMetaData.htmlPrefixes.map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
+      ${Object.entries(this.pageMetaData.htmlDataSet).length ? litty`${Object.entries(this.pageMetaData.htmlDataSet).map(([key, value]) => `data-${nameToKebabCase(key)}="${value}"`).join(" ")}` : ''}
       data-wh-ob="${getWHFSObjRef(this.targetObject)}">
   <head>
     <meta charset="utf-8">
-    <title>${settings.pagetitle}</title>
+    <title>${this.pageMetaData.title}</title>
     ${this.pageMetaData.viewport ? litty`<meta name="viewport" content="${this.pageMetaData.viewport}">` : ''}
-    ${settings.pagedescription ? litty`<meta name="description" content="${settings.pagedescription}">` : ''}
-    ${settings.canonicalurl ? litty`<link rel="canonical" href="${settings.canonicalurl}">` : ''}
+    ${this.pageMetaData.description ? litty`<meta name="description" content="${this.pageMetaData.description}">` : ''}
+    ${this.pageMetaData.keywords ? litty`<meta name="keywords" content="${this.pageMetaData.keywords}">` : ''}
+    ${this.pageMetaData.canonicalUrl ? litty`<link rel="canonical" href="${this.pageMetaData.canonicalUrl}">` : ''}
     ${head ?? ''}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
     ${litty`<script type="application/json" id="wh-config">${rawLitty(stringify(this.frontendConfig, { target: "script", typed: true }))}</script>`}
@@ -284,6 +369,7 @@ export class CPageRequest {
 
       rawLitty(getAssetPackIntegrationCode(settings.assetpack))}
     ${this.__insertions["dependencies-bottom"] ? await this.__renderInserts("dependencies-bottom") : ''}
+    ${this.renderRobotsTag()}
     ${
       //FIXME
       // IF(Length(this->structuredbreadcrumb) > 0)
