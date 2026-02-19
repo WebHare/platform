@@ -144,7 +144,7 @@ export async function logRPCTraffic(
   }
 
   data = typeof data === "function" ? await data() : data; //allow lazy evaluation of log data to avoid expensive calculations when logging is disabled
-  console.dir({ logSource, transport, direction, data, options }, { depth: null });
+  //console.dir({ logSource, transport, direction, data, options }, { depth: null });
 
   let encodedData = stringify(typeof data === "function" ? await data() : data, { typed: true });
   const byteLength = Buffer.byteLength(encodedData, "utf-8");

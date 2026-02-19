@@ -667,7 +667,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
     const port = bridge.createPort(var_portname.getString(), { global: var_globalport.getBoolean() });
-    /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
+    /* the WASM eventloop does not depend on the objects it waits on to keep the script running, so drop the
              ref to keep the port from stopping node from closing */
     port.dropReference();
     const hsport = new HSIPCPort(vm, port);
@@ -699,7 +699,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       }
     }
 
-    /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
+    /* the WASM eventloop does not depend on the objects it waits on to keep the script running, so drop the
              ref to keep the link from stopping node from closing */
     link?.dropReference();
 
