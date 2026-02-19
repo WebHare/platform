@@ -6,6 +6,12 @@
 
 LOADLIB "wh::files.whlib";
 
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/testfw/forms.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -299,12 +305,15 @@ ASYNC MACRO TestViewAsBart()
 
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform2" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform2" ], target := DEFAULT RECORD ]));
+  TTClick("open");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp);
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   TestEq(FALSE, TTClick("{item}:Edit", [ allowfailure := TRUE ]));
   TestEq(FALSE, TT("doceditor->resultsbuttons", [ findinvisible := TRUE] )->visible);
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close app
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close editor
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close pulisher
 }
 
 
@@ -313,8 +322,9 @@ ASYNC MACRO TestEditAsLisa()
   testfw->SetTestUser("lisa");
 
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  OBJECT customform2 := webtoolsfolder->OpenByName("customform2");
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform2" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(GetWHFSSApplicationLink(customform2->id, [ verb := "edit" ])));
   TestEq(TRUE, TT("doceditor->resultsbuttons")->visible);
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
@@ -329,19 +339,39 @@ ASYNC MACRO TestEditAsLisa()
   IF(ObjectExists(webtoolsfolder->OpenByName("customform-nomailtemplates")))
     webtoolsfolder->OpenByName("customform-nomailtemplates")->RecycleSelf();
 
-  webtoolsfolder->OpenByName("customform2")->UpdateMetadata([name := "customform-nomailtemplates" ]);
+  customform2->UpdateMetadata([name := "customform-nomailtemplates" ]);
   testfw->CommitWork();
 
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "customform-nomailtemplates" ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(GetWHFSSApplicationLink(customform2->id, [ verb := "edit" ])));
   TT("doceditor->questions")->selection := SELECT * FROM TT("doceditor->questions")->rows WHERE title = "Email response to visitor";
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":OK"), [ messagemask := "*is not*required*" ]);
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR);
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick(":Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  WaitforPublishCompletion(customform2->id);
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Results")); //can open reuslts
+  //Submit a result
+  testfw->browser->GotoWebPage(OpenWHFSObject(customform2->id)->link);
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  OBJECT webtoolform := OpenFormFileDefinition(customform2);
+  RECORD ARRAY fields := webtoolform->ListFields();
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Renamed email field";
+  RECORD submitrec;
+  submitrec := CellInsert(submitrec, emailfieldname, "testfw+formtest@beta.webhare.net");
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+  STRING resultguid := res.result.resultsguid;
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Results")); //can open results
+  TestAssert(RecordExists(SELECT FROM TT("results")->rows WHERE guid = VAR resultguid));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  //Test direct open
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApplicationLink(GetFormResultApplicationLink(customform2->id, resultguid)));
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }

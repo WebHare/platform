@@ -4,6 +4,8 @@
 
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
@@ -612,9 +614,10 @@ PUBLIC MACRO RunFormResultsDialog(OBJECT parentscreen, OBJECT formresults, RECOR
     @param resultguid Result guid
     @cell(string array) options.hidefields List of base fields to hide (ipaddress, ipcountrycode, url, useragent, when)
     @return False if the requested results could not be found */
-PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT formresults, STRING resultguid, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, INTEGER formid, STRING resultguid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ hidefields := STRING[] ], options);
+  options := ValidateOptions(CELL[ hidefields := STRING[], asapp := FALSE ], options);
+  OBJECT formresults := OpenFormFileResults(OpenWHFSObject(formid));
 
   INTEGER existingresult := GetFinalResultId(formresults->GetStorageObject()->id, "webtoolform", resultguid);
   IF(existingresult = 0)
@@ -639,6 +642,7 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
       CELL[ row := data
           , cols
           , resultid := existingresult
+          , options.asapp
           ]);
   RETURN TRUE;
 }

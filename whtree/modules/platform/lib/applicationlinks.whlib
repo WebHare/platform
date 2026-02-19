@@ -1,8 +1,5 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::datetime.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
@@ -29,18 +26,26 @@ PUBLIC STRING FUNCTION GetWHFSSApplicationLink(INTEGER fsobjid, RECORD options D
   RETURN GetWebHareApplicationLink("whfs/" || GetFullWHFSObjLink(fsobjid), options);
 }
 
+PUBLIC STRING FUNCTION GetFormResultApplicationLink(INTEGER fsobjid, STRING resultguid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(shareopts, options, CELL [ enums := CELL [ verb := [ "" ] ] ]);
+
+  RETURN GetWebHareApplicationLink("formresult/" || GetFullWHFSObjLink(fsobjid) || "/" || EncodeURL(resultguid), options);
+}
+
 PUBLIC RECORD FUNCTION __DecodeWHFSApplicationLink(STRING applink) {
   STRING ARRAY parts := Tokenize(applink, "/-/");
   STRING verb := Length(parts) > 1 ? parts[1] : "";
 
-  IF(parts[0] LIKE "whfs/*") {
-    STRING fsobjpart := Substring(parts[0], 5); //"whfs/"
+  STRING ARRAY linktoks := Tokenize(parts[0],'/');
+  IF((linktoks[0] = "whfs" AND Length(linktoks) = 2) OR (linktoks[0] = "formresult" AND Length(linktoks) = 3)) {
+    STRING fsobjpart := linktoks[1];
 
     INTEGER objid := ToInteger(Tokenize(fsobjpart, "-")[0],0);
     IF(objid = 0 OR fsobjpart != GetFullWHFSObjLink(objid))
       RETURN DEFAULT RECORD;
 
-    RETURN CELL [ type := "whfs", fsobjid := objid, verb ];
+    STRING formresult := linktoks[0] = "formresult" ? linktoks[2] : "";
+    RETURN CELL [ type := "whfs", fsobjid := objid, verb, formresult ];
   }
 
   RETURN DEFAULT RECORD;

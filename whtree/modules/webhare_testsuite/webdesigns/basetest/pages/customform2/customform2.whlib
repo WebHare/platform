@@ -215,15 +215,17 @@ PUBLIC STATIC OBJECTTYPE CustomFormHooks EXTEND WebtoolFormHooks
     RECORD emailfield := SELECT * FROM this->form->ListFields() WHERE title=":Email";
     // When testing duplicate submission, we don't want to overwrite existing results
     BOOLEAN overwriteexisting := GetFormWebVariable("testduplicate") != "1";
-    this->form->SetIDField(emailfield.obj->value, CELL[ overwriteexisting ]);
+    IF(RecordExists(emailfield))
+      this->form->SetIDField(emailfield.obj->value, CELL[ overwriteexisting ]);
 
     this->form->pagedata := CELL[ ...this->form->pagedata
                                 , editlink := UpdateURLVariables(GetFormRequestURL(), [ editguid := EncryptForThisServer("webhare_testsuite:customform", this->form->resultguid) ])
                                 ];
 
-    IF(emailfield.obj->value = "testfw+dontmailme@beta.webhare.net")
-      FOREVERY(RECORD resulthandler FROM SELECT * FROM this->form->ListHandlers() WHERE handlertype = "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler")
-        this->form->DeleteHandlerByGUID(resulthandler.guid);
+    IF(RecordExists(emailfield))
+      IF(emailfield.obj->value = "testfw+dontmailme@beta.webhare.net")
+        FOREVERY(RECORD resulthandler FROM SELECT * FROM this->form->ListHandlers() WHERE handlertype = "http://www.webhare.net/xmlns/publisher/forms#mailfeedbackhandler")
+          this->form->DeleteHandlerByGUID(resulthandler.guid);
 
     IF(MemberExists(this->form,"^pm"))
     {
