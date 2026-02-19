@@ -107,7 +107,7 @@ export function parseSNSMessage(postBody: string) {
       ourmessageid,
       recipient,
       basicobject: {
-        timestamp: parsedMessage.bounce.timestamp,
+        timestamp: Temporal.Instant.from(parsedMessage.bounce.timestamp),
         remotemtaip: parsedMessage.bounce.remoteMtaIp || '',
         reportingmta: parsedMessage.bounce.reportingMTA || "",
         feedbackid: parsedMessage.bounce.feedbackId || "",
@@ -127,7 +127,7 @@ export function parseSNSMessage(postBody: string) {
       ourmessageid,
       recipient,
       basicobject: {
-        timestamp: parsedMessage.complaint.timestamp,
+        timestamp: Temporal.Instant.from(parsedMessage.complaint.timestamp),
         remotemtaip: "",
         reportingmta: "",
         useragent: parsedMessage.complaint.userAgent || "",
@@ -143,7 +143,7 @@ export function parseSNSMessage(postBody: string) {
       ourmessageid,
       recipient,
       basicobject: {
-        timestamp: parsedMessage.delivery.timestamp,
+        timestamp: Temporal.Instant.from(parsedMessage.delivery.timestamp),
         remotemtaip: parsedMessage.delivery.remoteMtaIp,
         reportingmta: parsedMessage.delivery.reportingMTA || "",
         feedbackid: "",
