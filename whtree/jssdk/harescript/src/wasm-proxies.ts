@@ -5,7 +5,7 @@ import type { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { generateRandomId } from "@webhare/std";
 
 export interface HSVMCallsProxy {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- it's overhead to have to define the type whenever you invoke. But feel free to extend commonlibs.ts!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- you'll have to type the return arguments yourself
   [key: string]: (...args: unknown[]) => Promise<any>;
 }
 

@@ -1,5 +1,4 @@
 import { debugFlags } from "@webhare/env";
-import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { type HareScriptVM, type StartupOptions, allocateHSVM } from "./wasm-hsvm";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMObject } from "./wasm-proxies";
 
@@ -53,9 +52,6 @@ export class HSVMWrapper implements HSVM_HSVMSource {
     }
     this.vm = null;
   }
-
-  loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
-  loadlib(name: string): HSVMCallsProxy;
 
   loadlib(name: string): HSVMCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
