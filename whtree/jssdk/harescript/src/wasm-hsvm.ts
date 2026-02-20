@@ -863,7 +863,7 @@ async function createHarescriptModule() {
     useCreateModule = require(modulePath);
   }
 
-  const wasmmodule = await useCreateModule(modulefunctions);
+  const wasmmodule = await useCreateModule(modulefunctions) as WASMModule;
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
