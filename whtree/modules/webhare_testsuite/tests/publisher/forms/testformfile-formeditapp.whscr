@@ -316,7 +316,7 @@ ASYNC MACRO TestViewAsBart()
   TestEq(FALSE, TT("doceditor->resultsbuttons", [ findinvisible := TRUE] )->visible);
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close editor
-  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close pulisher
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close publisher
 }
 
 

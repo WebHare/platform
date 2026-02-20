@@ -11,7 +11,7 @@ LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 MACRO RunApplicationLinkWHFS(OBJECT controller, RECORD part) {
   IF( (NOT controller->contexts->user->HasRightOn("system:fs_browse", part.fsobjid))
       OR
-      //formeditor currently requires Write access to see Results, so do that for deeplink stoo
+      //formeditor currently requires Write access to see Results, so do that for deeplinks too
       (part.formresult != "" AND NOT controller->contexts->user->HasRightOn("system:fs_fullaccess", part.fsobjid))
     )
   {
