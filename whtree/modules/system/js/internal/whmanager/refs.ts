@@ -99,10 +99,10 @@ export class RefTracker extends EventSource<RefTrackerEvents> {
       this.hasref = true;
       this.emit("ref", void (0));
     }
-    setImmediate(() => this.asyncUpdateRef());
+    queueMicrotask(this.asyncUpdateRef);
   }
 
-  private asyncUpdateRef() {
+  private asyncUpdateRef = () => {
     const newhasref = this.locks.size !== 0;
     if (this.hasref && !newhasref) {
       this.hasref = true;
@@ -115,7 +115,7 @@ export class RefTracker extends EventSource<RefTrackerEvents> {
       else
         this.referencedObject.unref();
     }
-  }
+  };
 
   private _add(lock: RefLock) {
     this.locks.add(lock);
