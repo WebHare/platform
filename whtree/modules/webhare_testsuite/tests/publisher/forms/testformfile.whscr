@@ -646,14 +646,13 @@ ASYNC MACRO TestFormApp()
 
   //test singleresult dialog
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
-  OBJECT webtoolresults := OpenFormFileResults(formfile);
 
-  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), webtoolresults, resultguid));
+  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), formfile->id, resultguid));
   TestEq("Contentlink", TT(":First name")->value);
   TestEq(TRUE, ObjectExists(TT(":Form location", [ allowmissing := TRUE ])));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
-  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), webtoolresults, resultguid, [ hidefields := ["url"] ]));
+  AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), formfile->id, resultguid, [ hidefields := ["url"] ]));
   TestEq("Contentlink", TT(":First name")->value);
   TestEq(FALSE, ObjectExists(TT(":Form location", [ allowmissing := TRUE ])));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
