@@ -172,6 +172,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
         CELL[ row := data
             , cols
             , resultid := ^results->selection.id
+            , asapp := FALSE
             ]);
   }
 
@@ -356,6 +357,10 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
+    IF(data.asapp) { //Make it slightly more palatable when lauched as app
+      this->frame->allowresize := FALSE; //no full screen
+    }
+
     //delete unsubmitted fields
     DELETE FROM data.cols WHERE storename != "" AND ToUppercase(storename) NOT IN data.row.__rowmeta.setfields;
 
@@ -371,7 +376,8 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
 
       FOREVERY(VARIANT celldata FROM cellarray) //we'll just repeat the element if its an array (multifile)
       {
-        OBJECT text := this->CreateTolliumComponent("text");
+        BOOLEAN isurl := col.name = "url"; //the "form location" field
+        OBJECT text := this->CreateTolliumComponent(isurl ? "url" : "text");
         text->title := UCTruncate(col.title,30);
 
         IF(col.type = "file")
@@ -393,10 +399,12 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
             text->value := ToString(celldata);
           ELSE IF(col.type = "money")
             text->value := this->contexts->user->FormatMoney(celldata, 0, FALSE);
-          ELSE
+          ELSE IF(isurl)
             text->value := celldata;
-
-          text->selectable := TRUE; //selectable is incompatible with clickable hyperlink
+          ELSE {
+            text->value := celldata;
+            text->wordwrap := TRUE;
+          }
         }
 
         ^fields->InsertComponentAfter(text, DEFAULT OBJECT, TRUE);

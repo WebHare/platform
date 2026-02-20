@@ -1,6 +1,5 @@
 import { ensureScopedResource, getScopedResource, releaseScopedResource } from "@webhare/services/src/codecontexts";
 import { type HSVMCallsProxy, type HSVMObject, invokeOnVM } from "./wasm-proxies";
-import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { type HSVMWrapper, createVM } from "./machinewrapper";
 import { HSVMSymbol } from "./wasm-support";
 
@@ -44,9 +43,6 @@ class ContextLibraryProxy {
     return invokeOnVM((await ensureCodeContextHSVM())._getHSVM(), this.lib, name, args);
   }
 }
-
-export function loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
-export function loadlib(name: string): HSVMCallsProxy;
 
 /** Loads a stub to access a library in the then current code context VM. */
 export function loadlib(name: string): HSVMCallsProxy {

@@ -2,19 +2,35 @@
 
 LOADLIB "mod::platform/lib/applicationlinks.whlib";
 
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 
 MACRO RunApplicationLinkWHFS(OBJECT controller, RECORD part) {
-  IF(NOT controller->contexts->user->HasRightOn("system:fs_browse", part.fsobjid)) {
+  IF( (NOT controller->contexts->user->HasRightOn("system:fs_browse", part.fsobjid))
+      OR
+      //formeditor currently requires Write access to see Results, so do that for deeplinks too
+      (part.formresult != "" AND NOT controller->contexts->user->HasRightOn("system:fs_fullaccess", part.fsobjid))
+    )
+  {
     controller->RunSimpleScreen("error", GetTid("platform:tolliumapps.applicationlink.noaccess"));
     RETURN;
   }
 
+  IF(part.formresult != "") {
+    RunSingleFormResultDialog(controller, part.fsobjid, part.formresult, [ asapp := TRUE ]);
+    RETURN;
+  }
+
   //We need to enable untrustedparams for the doceditor to work. TODO migrate to direct targets, not params hacks
-  IF(part.verb = "edit") {
-    controller->LaunchApplicationInsideApp("publisher:edit", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]), [ allowuntrustedparams := TRUE ]);
+
+  IF(part.verb = "edit" OR part.formresult != "") {
+    STRING ARRAY params := [ToString(part.fsobjid)];
+    IF(part.formresult != "")
+      INSERT part.formresult INTO params AT END;
+    controller->LaunchApplicationInsideApp("publisher:edit", FixupLaunchAppOptions(CELL [ params ]), [ allowuntrustedparams := TRUE ]);
   } ELSE {
     controller->LaunchApplicationInsideApp("publisher:app", FixupLaunchAppOptions(CELL [ params := [ToString(part.fsobjid)] ]), [ allowuntrustedparams := TRUE ]);
   }
@@ -26,7 +42,8 @@ PUBLIC MACRO RunApplicationLink(OBJECT controller, RECORD init) {
 
   STRING applinkparam := init.params[0];
   RECORD part := __DecodeWHFSApplicationLink(applinkparam);
-  IF(RecordExists(part) AND part.type = "whfs") {
+
+  IF(RecordExists(part) AND part.type IN ["whfs","formresult"]) {
     RunApplicationLinkWHFS(controller, part);
   } ELSE {
     controller->RunSimpleScreen("error", GetTid("platform:tolliumapps.applicationlink.invalidlink"));

@@ -11,7 +11,6 @@ import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { type Mutex, JSLibraryImporter } from "@webhare/services";
-import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -580,9 +579,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
       this.wasmmodule._free(lib_str);
     }
   }
-
-  loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
-  loadlib(name: string): HSVMCallsProxy;
 
   loadlib(name: string): HSVMCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
