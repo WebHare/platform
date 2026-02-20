@@ -1,0 +1,18 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
+
+PUBLIC MACRO CreateAndLeakJob() {
+  RECORD rec := CreateJob("mod::webhare_testsuite/tests/jssdk/harescript/data/job.whscr");
+  IF (IsDefaultValue(rec.job))
+    THROW NEW Exception("Failed to create job"); //don't wait for it, just leak it and see if it gets cleaned up
+}
+
+PUBLIC MACRO Crash() {
+  ABORT("jscall aborted");
+}

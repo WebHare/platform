@@ -30,7 +30,7 @@ async function convertBody(body: BodyInit | null | undefined): Promise<WebHareBl
 }
 
 //TODO: Like PSPWebResponse extend the subset until we just have Response. But especially here internally it doesn't matter much
-export type OpenAPIResponse = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
+export type OpenAPIResponse = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer" | "clone">;
 
 /** The fetch API expected by an OpenAPICall - a subset of the actual fetch() API to allow mocking/direct connections */
 export type OpenAPIClientFetch = (input: string, init?: RequestInit) => Promise<OpenAPIResponse>;

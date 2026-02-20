@@ -1,6 +1,8 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="webhare_testsuite.testsite">
   <test name="cli"        path="cli/" />
+  <test name="harescript" path="harescript/" />
   <test name="office-formats"        path="office-formats/" />
   <test name="postgrease" path="postgrease/" />
+  <test name="services"   path="services/" />
   <test name="zip"        path="zip/" />
 </group>

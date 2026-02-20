@@ -2,6 +2,7 @@ import type { HTTPErrorCode, HTTPStatusCode } from "@webhare/router";
 import type { DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, OperationResponseTypes } from "./types";
 import type { ResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import type { OpenAPIClientFetch, OpenAPIResponse } from "@webhare/openapi-service";
+import { logRPCTraffic } from "@webhare/services/src/logging";
 
 
 // Response when the content-type indicates a JSON response
@@ -75,6 +76,9 @@ type MethodOptions<Paths extends object, Path extends keyof Paths, Method extend
  */
 export class TypedOpenAPIClient<Paths extends object, Components extends object> {
   readonly service: string | OpenAPIClientFetch;
+  readonly options: {
+    service?: string;
+  };
   defaultheaders: Record<string, string> = {};
 
   /** Build a new typed OpenAPI client
@@ -82,8 +86,10 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
    */
   constructor(service: string | OpenAPIClientFetch, options: {
     bearerToken?: string;
+    service?: string;
   } = {}) {
     this.service = service;
+    this.options = options;
     if (options?.bearerToken)
       this.defaultheaders["Authorization"] = "Bearer " + (options?.bearerToken);
   }
@@ -157,12 +163,33 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
     }
 
     const finalroute = url.toString().substring(prefix.length);
-    const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
+
+    let requestId: string | undefined;
+    if (this.options.service) {
+      await logRPCTraffic(this.options.service, finalroute, "outgoing", fetchoptions.body, {
+        transactionId: (requestId = crypto.randomUUID()),
+      });
+    }
+
+    const call = typeof this.service === "string" ?
+      await fetch(this.service + finalroute, fetchoptions) :
+      await this.service(finalroute, fetchoptions);
+
     const contenttype = call.headers.get("Content-Type") || "";
     if (contenttype.split(';')[0] === "application/json" && !options?.alwaysReturnResponse) {
+      if (this.options.service) {
+        await logRPCTraffic(this.options.service, finalroute, "incoming", () => call.clone().json(), {
+          transactionId: requestId,
+        });
+      }
       return { status: call.status, headers: call.headers, contenttype, body: await call.json(), } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
     } else
-      return { status: call.status, headers: call.headers, contenttype, response: call };
+      if (this.options.service) {
+        await logRPCTraffic(this.options.service, finalroute, "incoming", () => call.clone().blob(), {
+          transactionId: requestId,
+        });
+      }
+    return { status: call.status, headers: call.headers, contenttype, response: call };
   }
 
   async get<Path extends PathsForMethod<Paths, "get">>(route: Path, ...options: MethodOptions<Paths, Path, Exclude<keyof Paths[Path], "parameters"> & "get">): Promise<OpResponseTypes<Paths, Components, Path, "get">> {

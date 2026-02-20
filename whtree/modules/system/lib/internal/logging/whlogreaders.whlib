@@ -67,7 +67,7 @@ PUBLIC OBJECTTYPE RPCLogReader EXTEND LogReaderBase
                      , incoming      := Left(linetoks[4],1) = "<"
                      , transport     := Substring(linetoks[4],1)
                      , transactionid := linetoks[5]
-                     , rawdata       := DecodeHSON(linetoks[6])
+                     , rawdata       := linetoks[6] LIKE "hson:*" ? DecodeHSON(linetoks[6]) : DecodeJSON(linetoks[6], DEFAULT RECORD, [ typed := TRUE ])
                      ];
     RETURN retval;
   }

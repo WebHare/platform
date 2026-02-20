@@ -40,6 +40,8 @@ export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChan
 export { buildInstance, buildRTD, buildWidget, RichTextDocument } from "./richdocument";
 export type { Instance, TypedInstance, Widget, RTDSource } from "./richdocument";
 
+export { LocalCache, type LocalCacheKey, type LocalCacheOptions, type LocalCacheValueRecord } from "./localcache.ts";
+
 /** @deprecated use RTDSource instead */
 export type RTDBuildSource = RTDSource;
 

@@ -667,6 +667,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
     const port = bridge.createPort(var_portname.getString(), { global: var_globalport.getBoolean() });
+    /* the WASM eventloop does not depend on the objects it waits on to keep the script running, so drop the
+             ref to keep the port from stopping node from closing */
+    port.dropReference();
     const hsport = new HSIPCPort(vm, port);
     try {
       await hsport.port.activate();
@@ -695,6 +698,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
         return;
       }
     }
+
+    /* the WASM eventloop does not depend on the objects it waits on to keep the script running, so drop the
+             ref to keep the link from stopping node from closing */
+    link?.dropReference();
 
     ipcContext(vm).links.set(hslink.id, hslink);
     id_set.setInteger(hslink.id);
@@ -847,6 +854,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     const link = createIPCEndPointPair();
     const encodedEndpoint = link[1].encodeForTransfer();
+
+    link[0].dropReference();
 
     let env: Array<{ name: string; value: string }> | null = null;
     if (vm.wasmmodule._HasEnvironmentOverride(vm.hsvm)) {
