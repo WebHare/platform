@@ -11,7 +11,7 @@ function listNodePackageRoots(basepath: string) {
   }
 
   const trypaths = [basepath, join(basepath, 'tests'), ...webdesigndirs];
-  return trypaths.filter(x => existsSync(join(x, "package.json")));
+  return trypaths.filter(x => existsSync(join(x, "package.json")) || existsSync(join(x, "node_modules")));
 }
 
 /* ==============
@@ -65,6 +65,9 @@ async function listNPMIssues_Experimental(path: string) {
 
 async function listNPMIssues(path: string) {
   // return listNPMIssues_Experimental(path);
+
+  if (!existsSync(join(path, "package.json")))
+    return [{ basepath: path, error: "Exception validating packages: node_modules found, but package.json file does not exist" }];
 
   /* `npm ls --json --prefix <dir>` is not the same as `cd <dir> ; npm ls --json`
      looks like prefix doesn't consider workspaces */
