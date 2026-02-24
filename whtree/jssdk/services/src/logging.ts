@@ -119,7 +119,7 @@ async function getCachableRPCLogStatus(logtype: string, options?: { autoEnable?:
 
   return {
     value: logSetting,
-    masks: getRegistryKeyEventMasks([keyName]),
+    masks: getRegistryKeyEventMasks([keyName], { acceptInvalidKeyNames: true }),
   };
 }
 
