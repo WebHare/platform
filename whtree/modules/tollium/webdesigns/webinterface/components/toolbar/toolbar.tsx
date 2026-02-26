@@ -74,8 +74,8 @@ export default class ObjToolbar extends ComponentBase {
       if (!item.comp) { // divider?
         if (item.flex && current === left) {
           current = right;
+          return;
         }
-        return;
       }
       if (!item.node)
         item.node = this._buildItem(item);
