@@ -114,6 +114,8 @@ export abstract class MapObject {
   protected host: Host<MapHostProtocol>;
   // The promise that is resolved after the map is initialized
   protected initPromise?: Promise<void>;
+  // Store new settings while initializing
+  protected newSettings?: UpdatableMapSettings;
 
   // Internal property storage
   private _newContextMenu?: string;
@@ -154,9 +156,24 @@ export abstract class MapObject {
 
   // For internal use
   async update(settings: UpdatableMapSettings) {
+    this.storeSettings(settings);
     // Wait for the map to be initialized and update the settings
     await this.initPromise;
-    await this.updateSettings(settings);
+    await this.applyStoredSettings();
+  }
+
+  // Store (updated) settings while waiting for promises to resolve
+  protected storeSettings(settings: UpdatableMapSettings) {
+    this.newSettings = { ...this.newSettings, ...settings };
+  }
+
+  // Apply stored settings after promises have resolved
+  protected async applyStoredSettings() {
+    if (this.newSettings) {
+      const settings = this.newSettings;
+      this.newSettings = undefined;
+      await this.updateSettings(settings);
+    }
   }
 
   // Call this function within updateSettings to update the (map-agnostic) Tollium settings

@@ -129,6 +129,7 @@ export class LeafletMap extends MapObject {
     // The initialization promise we'll resolve after we're fully initialized
     const { promise, resolve } = Promise.withResolvers<void>();
     this.initPromise = promise;
+    this.storeSettings(settings);
 
     // Initialize the map object
     this.map = L.map(mapDiv, {
@@ -158,7 +159,7 @@ export class LeafletMap extends MapObject {
     }).addTo(this.map);
 
     // Do the initial settings update
-    await this.updateSettings(settings);
+    await this.applyStoredSettings();
     // The map is initialized
     resolve();
   }
