@@ -9,7 +9,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { buildInstance } from "@webhare/services";
+import { buildInstance, buildRTD } from "@webhare/services";
 
 function getWHConfig(parseddoc: Document) {
   const config = parseddoc.getElementById("wh-config");
@@ -115,6 +115,14 @@ async function testPageResponse() {
     data: { field1: "value1" }
   }));
   test.eq(`<div>value1</div>`, await littyToString(jsWidget1));
+
+  //Regression: the '<b></b>' part was rendered as '[Object object]'
+  const richDocument = await sitereq.renderRTD(await buildRTD([
+    { h1: ["Heading 1"] },
+    { tag: "p", items: [] }, //empty line without items
+    { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
+  ]));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
 }
 
 async function testPageResponseApplies() {
