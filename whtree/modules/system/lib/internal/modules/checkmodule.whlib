@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
@@ -132,10 +133,11 @@ OBJECTTYPE CheckerObject <
         THROW NEW Exception(`No such module '${modname}'`);
     }
 
-    OBJECT typescriptresultpromise, checkformattingpromise;
+    OBJECT typescriptresultpromise, checkformattingpromise, jsissuespromise;
     IF (this->options.checktypescript)
       typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "platform" : modname);
     checkformattingpromise := CheckModuleJavascriptFormatting(modname, CELL[ this->options.onlypaths, this->options.filemask ]);
+    jsissuespromise := ImportJS("mod::platform/js/devsupport/validation.ts")->runJSBasedGlobalValidators("all", [modname]);
 
     this->validateconfig := GetModuleValidationConfig(modname = "jssdk" ? "system" : modname);
     IF(this->validateconfig.futuremodule)
@@ -247,6 +249,9 @@ OBJECTTYPE CheckerObject <
     RECORD formatresult := WaitForPromise(checkformattingpromise);
     FOREVERY (RECORD issue FROM formatresult.issues)
       this->AddIssue(issue, issue.category);
+
+    FOREVERY (RECORD issue FROM WaitForPromise(jsissuespromise).messages)
+      this->AddIssue(issue, issue.type);
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetIssues()
