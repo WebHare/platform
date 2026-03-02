@@ -73,7 +73,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
         //FIXME put in standard RTD render ordering. Both here and in richdocument.ts
         for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
           if (item[tag])
-            part = rawLitty(`<${style}>${part}</${style}>`);
+            part = litty`<${style}>${part}</${style}>`;
         }
 
         linkpart.push(part);
