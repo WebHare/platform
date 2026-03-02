@@ -1237,6 +1237,8 @@ $defs:
           type: string
       router:
         type: string
+      errorPath:
+        type: string
 
   Component:
     type: object

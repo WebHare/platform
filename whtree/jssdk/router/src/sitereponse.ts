@@ -13,13 +13,6 @@ export class SiteResponseSettings {
   assetpack: string = '';
   witty: string = '';
   lang: string = 'en';
-  htmlclasses: string[] = [];
-  htmlprefixes: Record<string, string> = {};
-  htmldirection: "ltr" | "rtl" = "ltr";
-  htmldataset: Record<string, string> = {};
-  pagetitle: string = '';
-  pagedescription: string | null = null;
-  canonicalurl: string | null = null;
   supportedlanguages: string[] = [];
   #plugins: {
     [Api in keyof WebdesignPluginAPIs]?: PluginInterface<WebdesignPluginAPIs[Api]>;

@@ -444,7 +444,7 @@ function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>):
     out.push({
       tag: tag.toUpperCase(),
       type: "text",
-      containertag: entry.containerTag ? entry.containerTag : "",
+      containertag: entry.containerTag ?? "p",
       textstyles: entry.textStyles || [],
       hidden: false,
       tabledefaultblockstyle: "",
@@ -800,7 +800,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       ...apply.rtdDoc.bodyClass ? { bodyclass: apply.rtdDoc.bodyClass } : {},
       ...apply.rtdDoc.htmlClass ? { htmlclass: apply.rtdDoc.htmlClass } : {},
       ...apply.rtdDoc.margins ? { margins: apply.rtdDoc.margins } : {},
-      ...apply.rtdDoc.rtdType ? { rtdtype: apply.rtdDoc.rtdType } : {},
+      ...apply.rtdDoc.rtdType ? { rtdtype: context.resolveType(apply.rtdDoc.rtdType) } : {},
     };
   }
 
@@ -993,7 +993,7 @@ function parseWebRule(context: SiteProfileParserContext, rule: Sp.WebRule): CSPW
       matchtype,
       realm: '',
       authrequired: true,
-      errorpath: '',
+      errorpath: rule?.errorPath ?? '',
       finalerrorpath: false,
       extauthscript: '',
       allowallmethods: rule.methods === "*",
