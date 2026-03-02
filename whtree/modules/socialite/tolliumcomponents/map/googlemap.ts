@@ -138,6 +138,7 @@ export class GoogleMap extends MapObject {
     // The initialization promise we'll resolve after we're fully initialized
     const { promise, resolve } = Promise.withResolvers<void>();
     this.initPromise = promise;
+    this.storeSettings(settings);
 
     // Initialize the Google Map loader
     if (!settings.key)
@@ -174,7 +175,7 @@ export class GoogleMap extends MapObject {
     // Wait for the map to be initialized
     await new Promise(loaded => this.map!.addListener("idle", loaded));
     // Do the initial settings update
-    await this.updateSettings(settings);
+    await this.applyStoredSettings();
     // The map is initialized
     resolve();
   }
