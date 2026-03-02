@@ -3,11 +3,13 @@ import { prepareMail } from "@webhare/services";
 import { runInWork } from "@webhare/whdb";
 import { readFileSync } from "fs";
 import { parseSNSMessage } from "@mod-platform/js/email/aws-ses";
+import { parseSendGridMessage } from "@mod-platform/js/email/sendgrid";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import type { ParsedBounceMessage } from "@mod-platform/js/email/types";
 
 type SNSTestData = Array<{
   description: string;
-  expect: Partial<Awaited<ReturnType<typeof parseSNSMessage>>>;
+  expect: Partial<ParsedBounceMessage>;
 } & ({
   //Full SNS message
   message: string;
@@ -15,6 +17,12 @@ type SNSTestData = Array<{
   //Message we still need to wrap in the SNS boilerplate
   innerMessage: string;
 })>;
+
+type SendGridTestData = Array<{
+  description: string;
+  expect: Partial<ParsedBounceMessage>;
+  message: string;
+}>;
 
 function wrapSESv2MessageinBoilerplate(message: unknown) {
   return `
@@ -40,6 +48,17 @@ async function testSNSParser() {
     // console.log(idx, msg.description);
     const msgBody = "innerMessage" in msg ? wrapSESv2MessageinBoilerplate(msg.innerMessage) : msg.message;
     const result = parseSNSMessage(msgBody);
+    test.eqPartial(msg.expect, result, `Failed test case ${idx} (${msg.description})`);
+  }
+}
+
+async function testSendGridParser() {
+  for (const [idx, msg] of decodeYAML<SendGridTestData>(readFileSync(__dirname + "/data/sendgrid-test-data.yaml", "utf-8")).entries()) {
+    if (typeof msg.expect.basicobject?.timestamp === "string")
+      msg.expect.basicobject.timestamp = Temporal.Instant.from(msg.expect.basicobject.timestamp);
+
+    // console.log(idx, msg.description);
+    const result = parseSendGridMessage(JSON.parse(msg.message));
     test.eqPartial(msg.expect, result, `Failed test case ${idx} (${msg.description})`);
   }
 }
@@ -71,6 +90,8 @@ async function testMailAPI() {
 test.runTests([
   "SNS parser",
   testSNSParser,
+  "SendGrid parser",
+  testSendGridParser,
   "Basics mail APIs",
   testMailAPI
 ]);
