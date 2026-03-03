@@ -1,3 +1,5 @@
+import type { ParsedBounceMessage } from "./types";
+
 export type BounceMessageRoot = {
   notificationType: Extract<string, "Bounce" | "Complaint" | "Delivery">;
   mail?: Mail;
@@ -93,7 +95,7 @@ export interface CommonHeaders {
 }
 
 //Parse a SNS message, return it into a format our old HareScript code understands
-export function parseSNSMessage(postBody: string) {
+export function parseSNSMessage(postBody: string): ParsedBounceMessage {
   const parsedBody = JSON.parse(postBody);
   const parsedMessage = JSON.parse(parsedBody.Message) as BounceMessageRoot;
 
