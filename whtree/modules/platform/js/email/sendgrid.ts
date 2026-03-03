@@ -28,10 +28,7 @@ interface SendGridBaseEvent {
 
 export function parseSendGridMessage(msg: unknown): ParsedBounceMessage {
   const parsed = msg as SendGridBaseEvent;
-  let ourmessageid = parsed["smtp-id"] || "";
-  if (ourmessageid.startsWith("<") && ourmessageid.endsWith(">"))
-    ourmessageid = ourmessageid.slice(1, -1);
-
+  const ourmessageid = parsed["smtp-id"] || "";
   const recipient = parsed.email || "";
   const timestamp = Temporal.Instant.fromEpochMilliseconds(parsed.timestamp * 1000);
 
