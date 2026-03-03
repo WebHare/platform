@@ -23,7 +23,7 @@ types:
             type: whfsRef
     apply:
       editProps:
-        - type: publisher:abtest.abtestfile
+        - type: filetypes.abtest
           tabsExtension: mod::publisher/data/siteprofiles/abtest.siteprl.xml#abtest
       usePublishTemplate: mod::publisher/lib/internal/webdesign/abtest-publish.whscr
   filetypes.archive:

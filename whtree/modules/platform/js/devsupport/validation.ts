@@ -9,6 +9,7 @@ import { pick } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
+import { validateCompiledSiteProfile } from "./siteprofiles";
 
 export interface ResourcePosition {
   /** Line number, 1-based. 0 if unknown or file missing*/
@@ -264,4 +265,10 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
 
   result.messages.push({ type: "hint", resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
   return;
+}
+
+export async function runJSBasedGlobalValidators(mode: "siteprofiles" | "all", modules: string[] | "*"): Promise<ValidationResult> {
+  const result = new ValidationState({});
+  await validateCompiledSiteProfile(result, modules);
+  return result.finalize();
 }

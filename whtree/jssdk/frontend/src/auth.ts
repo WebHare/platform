@@ -231,15 +231,25 @@ interface SSOLoginOptions {
   prompt?: OAuth2PromptFlag;
 }
 
-export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Promise<void> {
+export function startSSOLogin(tag: string, options?: SSOLoginOptions): Promise<void> {
   const client = createClient<MyService>("wrd:auth");
 
   if (options?.passive)
     options = { prompt: "none", ...options, passive: undefined }; //force prompt to none in passive mode, and remove the passive flag since it doesn't mean anything to the server
 
+  const defer = Promise.withResolvers<void>();
+
   //Launch SSO login for the current page.
   //TODO also pass getLoginTweaks() at least to OIDC logins as soon as we've ported this to authservice
-  navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, toSnakeCase(options) || {}));
+  client.startLogin2(location.pathname + location.search + location.hash, tag, toSnakeCase(options) || {}).then(instr => {
+    //we leave the promise unresolved so any busy layers stay active during the actual redirect
+    //TODO can we have navigateTo detect failed navigations so we can throw ?
+    navigateTo(instr);
+  }).catch((e: Error) => {
+    defer.reject(e);
+  });
+
+  return defer.promise;
 }
 
 /** Configure WebHare external auth buttons (even hidden ones) to listen for bookmarklet login requests */

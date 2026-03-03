@@ -3,6 +3,8 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import type { CSPContentType } from "@webhare/whfs/src/siteprofiles";
 import { regExpFromWildcards } from "@webhare/std";
+import type { ValidationState } from "./validation";
+import { parseResourcePath } from "@webhare/services";
 
 interface ListedFSContentType {
   id: number;
@@ -65,4 +67,26 @@ export async function listFSContentTypes(mask: string): Promise<ListedFSContentT
 
   const regexp = regExpFromWildcards(mask, { caseInsensitive: true });
   return result.filter(_ => `${_.namespace} ${_.codesource}`.match(regexp));
+}
+
+export async function validateCompiledSiteProfile(result: ValidationState, modules: string[] | "*"): Promise<void> {
+  const csp = getExtractedHSConfig("siteprofiles");
+  const types = new Map<string, CSPContentType>(csp.contenttypes.map(ct => [ct.namespace, ct]));
+  const scopedtypes = new Map<string, string>(csp.contenttypes.filter(ct => ct.scopedtype).map(ct => [ct.scopedtype, ct.namespace]));
+  const availabletypes = new Set<string>([...types.keys(), ...scopedtypes.keys()]);
+
+  for (const apply of csp.applies) {
+    if (modules !== "*") {
+      if (!apply.siteprofile)
+        continue;
+
+      const mod = parseResourcePath(apply.siteprofile)?.module;
+      if (!mod || !modules.includes(mod))
+        continue;
+    }
+
+    for (const extendProp of apply.extendproperties)
+      if (extendProp.contenttype && !availabletypes.has(extendProp.contenttype))
+        result.messages.push({ type: "error", resourcename: apply.siteprofile, line: apply.line, col: apply.col, message: `Unknown content type '${extendProp.contenttype}'`, source: "validateCompiledSiteProfiles" });
+  }
 }
