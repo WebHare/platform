@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -165,7 +166,29 @@ MACRO MailSendWithCallbackTest()
   RECORD mimemessage := DecodeMIMEMessage(mailserverobject->messages[0].data);
   STRING messageid := SELECT AS STRING value FROM mimemessage.headers WHERE ToUppercase(field)="MESSAGE-ID";
 
-  SendBounceToSNSEndpoint(messageid, "Bounce", "to@smtp.beta.webhare.net");
+  //Fake a sendgrid bounce
+  RECORD basesendgridmessage := CELL[
+    email := "to@smtp.beta.webhare.net",
+    timestamp := 1513299569,
+    "smtp-id" := messageid,
+    sg_event_id := "6g4ZI7SA-xmRDv57GoPIPw==",
+    sg_message_id := "14c5d75ce93.dfd.64b469.filter0001.16648.5515E0B88.0"
+  ];
+
+  STRING sendgridbounce := EncodeJSON(
+    [[ ...basesendgridmessage
+     , event := "delivered"
+     ],
+     [ ...basesendgridmessage
+     , event := "bounce"
+     , category := "cat facts"
+     , reason := "500 unknown recipient"
+     , status := "5.0.0"
+     , type := "bounce"
+  ]]);
+  OBJECT bounceres := FetchSync(GetSendGridEndpoint(), [ method := "POST", body := sendgridbounce, headers := ["Content-Type" := "application/json" ] ]);
+  Testeq(TRUE, bounceres->ok);
+
   //Wait for all notification tasks to be done
   FOREVERY(RECORD task FROM LookupManagedTasks("system:mailstatuscallback"))
     RetrieveManagedTaskResult(task.id, MAX_DATETIME);

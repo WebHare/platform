@@ -1,0 +1,114 @@
+- description: Delivery notification
+  message: |
+      {
+        "email": "jane@example.com",
+        "event": "delivered",
+        "ip": "159.183.231.20",
+        "response": "250 2.0.0 OK  1771508276 6a1803df08f44-8971cdde7e6si241694756d6.462 - gsmtp",
+        "sg_event_id": "ZGVsaXZlcmVkLTAtNjAwMTkxNTMtUVZqR0tFYzhTYnlhNVVDNjlSelo2Zy0w",
+        "sg_message_id": "QVjGKEc8Sbya5UC69RzZ6g.recvd-6cfbc69475-pzzdv-1-69971232-11.0",
+        "smtp-id": "<h6M8FDVQ1NqU2g.o5RSwXXhQbq1tS_X.qaArx1fZHEe7vYuDtwqpHw@smtp.webhare.net>",
+        "timestamp": 1771508276,
+        "tls": 1
+      }
+  expect:
+    ourmessageid: "<h6M8FDVQ1NqU2g.o5RSwXXhQbq1tS_X.qaArx1fZHEe7vYuDtwqpHw@smtp.webhare.net>"
+    basictype: "delivery"
+    recipient: "jane@example.com"
+    basicobject:
+      timestamp: "2026-02-19T13:37:56.000Z"
+      remotemtaip: "159.183.231.20"
+      reportingmta: ""
+      feedbackid: ""
+      smtpresponse: "250 2.0.0 OK  1771508276 6a1803df08f44-8971cdde7e6si241694756d6.462 - gsmtp"
+
+
+- description: Bounce notification
+  message: |
+    {
+        "email": "alex@example.com",
+        "timestamp": 1513299569,
+        "smtp-id": "<14c5d75ce93.dfd.64b469@ismtpd-555>",
+        "bounce_classification": "Invalid Address",
+        "event": "bounce",
+        "category": "cat facts",
+        "sg_event_id": "6g4ZI7SA-xmRDv57GoPIPw==",
+        "sg_message_id": "14c5d75ce93.dfd.64b469.filter0001.16648.5515E0B88.0",
+        "reason": "500 unknown recipient",
+        "status": "5.0.0",
+        "type": "bounce"
+    }
+  expect:
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
+    basictype: "bounce"
+    recipient: "alex@example.com"
+    basicobject:
+      timestamp: "2017-12-15T00:59:29.000Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: ""
+      ispermanent: true
+      bouncetype: "Permanent"
+      bouncesubtype: ""
+      bouncestatus: "5.0.0"
+      bounceaction: ""
+      bouncediagnosticcode: "500 unknown recipient"
+      bounceemailaddress: "alex@example.com"
+
+- description: Drop notification
+  message: |
+      {
+        "email": "example@test.com",
+        "timestamp": 1771507562,
+        "smtp-id": "\u003c14c5d75ce93.dfd.64b469@ismtpd-555\u003e",
+        "event": "dropped",
+        "category": [
+          "cat facts"
+        ],
+        "sg_event_id": "19qAoKFIOlJg_UIyVWJi9g==",
+        "sg_message_id": "14c5d75ce93.dfd.64b469.filter0001.16648.5515E0B88.0",
+        "reason": "Bounced Address",
+        "status": "5.0.0"
+      }
+  expect:
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
+    basictype: "bounce"
+    recipient: "example@test.com"
+    basicobject:
+      timestamp: "2026-02-19T13:26:02Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: ""
+      ispermanent: true
+      bouncetype: "Permanent"
+      bouncesubtype: ""
+      bouncestatus: "5.0.0"
+      bounceaction: ""
+      bouncediagnosticcode: "Bounced Address"
+      bounceemailaddress: "example@test.com"
+
+- description: Spam report
+  message: |
+      {
+        "email": "example@test.com",
+        "timestamp": 1771507562,
+        "smtp-id": "\u003c14c5d75ce93.dfd.64b469@ismtpd-555\u003e",
+        "event": "spamreport",
+        "category": [
+          "cat facts"
+        ],
+        "sg_event_id": "ZUNQAxR0O_aWommlu97cWg==",
+        "sg_message_id": "14c5d75ce93.dfd.64b469.filter0001.16648.5515E0B88.0"
+      }
+  expect:
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
+    basictype: "complaint"
+    recipient: "example@test.com"
+    basicobject:
+      timestamp: "2026-02-19T13:26:02Z"
+      remotemtaip: ""
+      reportingmta: ""
+      feedbackid: ""
+      complaintfeedbacktype: ""
+      complainedemailaddress: "example@test.com"
+      useragent: ""

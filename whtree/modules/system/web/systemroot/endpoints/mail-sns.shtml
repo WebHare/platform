@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/internal/mail/incoming.whlib";
 
 
 /* For the JSON format for the generic SNS subscribe/unsubscribe messagess:
@@ -79,41 +80,4 @@ IF(CellExists(snsmessage,'notificationtype') AND snsmessage.notificationtype = "
   RETURN;
 
 RECORD parseresult := CallJS("mod::platform/js/email/aws-ses.ts#parseSNSMessage", BlobToString(GetRequestBody()));
-IF(parseresult.basictype = "" OR NOT RecordExists(parseresult.basicobject)) //not caring about this type yet
-  RETURN;
-
-STRING recipient := parseresult.recipient;
-STRING ourmessageid := parseresult.ourmessageid;
-IF(ourmessageid LIKE "<*@smtp.webhare.net>") //this path handles QueueMail(InWork) emails
-{
-  OBJECT trans := OpenPrimary();
-  INTEGER ourtaskid := DecryptForThisServer("system:messageid", Tokenize(Substring(ourmessageid, 1), '@')[0], [fallback := 0]);
-
-  IF(ourtaskid=0)
-    RETURN;
-
-  RECORD task := DescribeManagedTask(ourtaskid);
-  IF(NOT RecordExists(task) OR task.tasktype != "system:outgoingmail" OR task.data.receiver != recipient)
-    RETURN;// ABORT(CELL[task,recipient]);
-  IF(CellExists(task.metadata, parseresult.basictype)) //already have delivery info
-    RETURN;
-
-  trans->BeginWork();
-  SetManagedTaskMetadata(ourtaskid, parseresult.basictype, parseresult.basicobject);
-  IF(CellExists(task.data,'callback'))
-    ScheduleManagedTask("system:mailstatuscallback", [ ...task.data.callback, type := parseresult.basictype, status := parseresult.basicobject ]);
-
-  trans->CommitWork();
-}
-ELSE IF(ourmessageid LIKE "<*@news.webhare.net>") //TODO support a future registration api..
-{
-  MakeFunctionPtr("mod::newsletter/lib/incoming.whlib#ProcessIncomingBounce")(ourmessageid, parseresult.basictype, parseresult.basicobject);
-}
-ELSE IF(ourmessageid LIKE "<*@connect.webhare.net>")
-{
-  MakeFunctionPtr("mod::connect/lib/internal/hooks.whlib#ProcessIncomingBounce")(ourmessageid, parseresult.basictype, parseresult.basicobject);
-}
-ELSE
-{
-  THROW NEW Exception(`Unrecognized message id: ${ourmessageid}`);
-}
+ProcessBounce(parseresult);
