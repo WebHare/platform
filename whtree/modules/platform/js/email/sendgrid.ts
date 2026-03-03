@@ -32,7 +32,7 @@ export function parseSendGridMessage(msg: unknown): ParsedBounceMessage {
   const recipient = parsed.email || "";
   const timestamp = Temporal.Instant.fromEpochMilliseconds(parsed.timestamp * 1000);
 
-  if (parsed.event === "delivered") //parse according to test message below
+  if (parsed.event === "delivered")
     return {
       basictype: "delivery",
       ourmessageid,
@@ -46,7 +46,7 @@ export function parseSendGridMessage(msg: unknown): ParsedBounceMessage {
       }
     };
 
-  if (parsed.event === "bounce" || parsed.event === "dropped") { //parse according to test message below
+  if (parsed.event === "bounce" || parsed.event === "dropped") {
     const ispermanent = parsed.status?.startsWith("5.") || false;
     return {
       basictype: "bounce",
