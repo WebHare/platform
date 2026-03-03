@@ -25,7 +25,7 @@ run({
         throw new Error(`Invalid listening port ${rescuePort}`);
 
       if (parts[1])
-        rescueIp = parts[1];
+        rescueIp = parts[1].slice(0, -1);
 
       console.log(`Opening rescue interface on http://${rescueIp}:${rescuePort}/`);
     }
