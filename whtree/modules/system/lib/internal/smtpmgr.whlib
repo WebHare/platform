@@ -23,7 +23,7 @@ PUBLIC STRING FUNCTION GetSNSEndpoint()
 PUBLIC STRING FUNCTION GetSendGridEndpoint()
 {
   RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),
-                              "/.wh/endpoints/sendgrid?key=" || EncryptForThisServer("platform:endpoint", "sendgrid", [ algorithm := "SHA-1,BLOWFISH+CBC,0" ])); //encrypt result is URL safe
+                              "/.wh/endpoints/sendgrid?key=" || EncryptForThisServer("platform:endpoint", CELL[ type := "sendgrid"] )); //encrypt result is URL safe
 }
 
 
