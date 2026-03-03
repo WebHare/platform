@@ -12,7 +12,7 @@
         "tls": 1
       }
   expect:
-    ourmessageid: "h6M8FDVQ1NqU2g.o5RSwXXhQbq1tS_X.qaArx1fZHEe7vYuDtwqpHw@smtp.webhare.net"
+    ourmessageid: "<h6M8FDVQ1NqU2g.o5RSwXXhQbq1tS_X.qaArx1fZHEe7vYuDtwqpHw@smtp.webhare.net>"
     basictype: "delivery"
     recipient: "jane@example.com"
     basicobject:
@@ -39,7 +39,7 @@
         "type": "bounce"
     }
   expect:
-    ourmessageid: "14c5d75ce93.dfd.64b469@ismtpd-555"
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
     basictype: "bounce"
     recipient: "alex@example.com"
     basicobject:
@@ -71,7 +71,7 @@
         "status": "5.0.0"
       }
   expect:
-    ourmessageid: "14c5d75ce93.dfd.64b469@ismtpd-555"
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
     basictype: "bounce"
     recipient: "example@test.com"
     basicobject:
@@ -101,7 +101,7 @@
         "sg_message_id": "14c5d75ce93.dfd.64b469.filter0001.16648.5515E0B88.0"
       }
   expect:
-    ourmessageid: "14c5d75ce93.dfd.64b469@ismtpd-555"
+    ourmessageid: "<14c5d75ce93.dfd.64b469@ismtpd-555>"
     basictype: "complaint"
     recipient: "example@test.com"
     basicobject:
