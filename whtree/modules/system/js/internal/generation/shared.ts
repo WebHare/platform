@@ -87,10 +87,11 @@ export function getApplicabilityError(webhareversioninfo: WebHareVersionInfo, re
     if (!split)
       return `Invalid envVars setting`;
 
-    const actualvalue = webhareversioninfo.env[split[1]];
-    if (actualvalue === undefined)
+    const expectValue = split[3] ?? "";
+    const actualvalue = webhareversioninfo.env[split[1]] ?? "";
+    if (!actualvalue)
       return `Required environment variable '${split[1]}' not set`;
-    if (split[3] !== undefined && actualvalue !== split[3])
+    if (expectValue && actualvalue !== expectValue)
       return `Environment variable '${split[1]}' set to '${webhareversioninfo.env[split[1]]}' not '${split[3]}'`;
   }
 

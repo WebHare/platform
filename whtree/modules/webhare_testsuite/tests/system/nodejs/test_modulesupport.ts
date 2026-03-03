@@ -61,12 +61,12 @@ function testApplicabilityXML() {
   test.eq(/System.*not installed/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "System" })));
 
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM" })));
-  test.eq(/WEBHARE_PLATFORM/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM=" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM=" })));
   test.eq(/Requirement that should not be met is met:/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM" })));
   test.eq(/WEBHARE_PLATFORM.*set to '.*' not 'dummy'/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM=dummy" })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `WEBHARE_PLATFORM=${platform} WEBHARE_PLATFORM` })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy OTHERENV" })));
-  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=" })));
+  test.eq(/WEBHARE_PLATFORM/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=" })));
   test.eq(/Requirement that should not be met is met/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `WEBHARE_PLATFORM=${platform}` })));
   test.eq(/Requirement that should not be met is met/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy WEBHARE_PLATFORM" })));
 
@@ -77,12 +77,26 @@ function testApplicabilityXML() {
 
   baseApplicability.env.TESTDUMMY = "";
 
+  test.eq(/Required environment variable 'TESTDUMMY' not set/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY` })));
+  test.eq(/Required environment variable 'TESTDUMMY' not set/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY=` })));
+  test.eq(/Required environment variable 'TESTDUMMY' not set/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY=x` })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY` })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY=` })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY=x` })));
+
+  baseApplicability.env.TESTDUMMY = "y";
+
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY` })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY=` })));
   test.eq(/not 'x'/, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: `TESTDUMMY=x` })));
   test.eq(/Requirement that should not be/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY` })));
   test.eq(/Requirement that should not be/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY=` })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY=x` })));
+
+  test.eq(/WEBHARE_PLATFORM/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM TESTDUMMY=y" })));
+  test.eq(/WEBHARE_PLATFORM/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM TESTDUMMY=x" })));
+  test.eq(/TESTDUMMY/, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy TESTDUMMY=y" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: "WEBHARE_PLATFORM=dummy TESTDUMMY=x" })));
 }
 
 test.runTests([
