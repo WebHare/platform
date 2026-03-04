@@ -223,7 +223,7 @@ class Work implements WorkObject {
 
   async tryLockMutex(name: string, waitUntil: WaitPeriod, options?: { __skipNameCheck?: boolean }): Promise<boolean> {
     if (this.hasMutex(name))
-      throw new Error(`"Mutex ${JSON.stringify(name)} has already been locked by this session"`);
+      throw new Error(`Mutex ${JSON.stringify(name)} has already been locked by this session`);
     const lock = await lockMutex(name, { timeout: waitUntil, ...options });
     if (lock)
       this.locks.push(lock);
