@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildInstance, buildRTD, IntExtLink } from "@webhare/services";
 import { exportIntExtLink, importIntExtLink } from "@webhare/services/src/descriptor";
 import { whconstant_whfsid_private } from "@mod-system/js/internal/webhareconstants";
-import { whfsType, type TypedInstanceExport, type TypedInstanceSource } from "@webhare/whfs";
+import { whfsType, type ExportedTypedInstance, type TypedInstanceSource } from "@webhare/whfs";
 import { beginWork, commitWork } from "@webhare/whdb";
 import type { CodecExportMemberType } from "@webhare/whfs/src/codecs";
 
@@ -176,9 +176,9 @@ const exportMappedSubInstanceData = (storedOnDisk: boolean): test.RecursiveTesta
     aWhfsRef: 'x-custom::xmap'
   },
   myWhfsRef: 'x-custom::xmap'
-} satisfies test.RecursiveTestable<TypedInstanceExport<"webhare_testsuite:global.generic_test_type">["data"]>);
+} satisfies test.RecursiveTestable<ExportedTypedInstance<"webhare_testsuite:global.generic_test_type">["data"]>);
 
-const exportMappedInstanceData = (storedOnDisk: boolean): test.RecursiveTestable<TypedInstanceExport<"webhare_testsuite:global.generic_test_type">["data"]> => ({
+const exportMappedInstanceData = (storedOnDisk: boolean): test.RecursiveTestable<ExportedTypedInstance<"webhare_testsuite:global.generic_test_type">["data"]> => ({
   anInstance: {
     whfsType: 'webhare_testsuite:global.generic_test_type',
     data: exportMappedSubInstanceData(storedOnDisk),
@@ -189,7 +189,7 @@ const exportMappedInstanceData = (storedOnDisk: boolean): test.RecursiveTestable
   myWhfsRefArray: ['x-custom::xmap', 'x-custom::xmap']
 });
 
-const exportMappedInstance = (storedOnDisk: boolean): test.RecursiveTestable<TypedInstanceExport<"webhare_testsuite:global.generic_test_type">> => ({
+const exportMappedInstance = (storedOnDisk: boolean): test.RecursiveTestable<ExportedTypedInstance<"webhare_testsuite:global.generic_test_type">> => ({
   whfsType: 'webhare_testsuite:global.generic_test_type',
   data: exportMappedInstanceData(storedOnDisk)
 });

@@ -18,7 +18,7 @@ import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
-import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
+import type { ExportedInstance, InstanceSource } from "@webhare/whfs/src/contenttypes";
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
@@ -2410,7 +2410,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
-class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | InstanceSource | null, Instance | null, Instance | null, InstanceExport | null> {
+class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | InstanceSource | null, Instance | null, Instance | null, ExportedInstance | null> {
   getDefaultValue(): Instance | null {
     return null;
   }
@@ -2452,7 +2452,7 @@ class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | In
     return value;
   }
 
-  async exportValue(value: Instance | null, exportOptions?: ExportOptions): Promise<InstanceExport | null> {
+  async exportValue(value: Instance | null, exportOptions?: ExportOptions): Promise<ExportedInstance | null> {
     return await value?.export() ?? null;
   }
 }

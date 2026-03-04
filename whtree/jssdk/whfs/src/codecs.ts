@@ -8,7 +8,7 @@ import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webh
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, WebHareBlob, type RichTextDocument, type Instance } from "@webhare/services";
-import type { InstanceData, InstanceExport, InstanceSource, WHFSTypeMember } from "./contenttypes";
+import type { InstanceData, ExportedInstance, InstanceSource, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
@@ -635,7 +635,7 @@ export const codecs = {
   "instance": {
     getType: "Instance | null",
     setType: "Instance | InstanceSource | null",
-    exportType: "InstanceExport | null",
+    exportType: "ExportedInstance | null",
 
     encoder: (value: Instance | null) => {
       if (!value)
@@ -653,7 +653,7 @@ export const codecs = {
       // WHFSInstance .export() has no option to skip recursion, so leave export recursion to .exportValue
       return decodeWHFSInstance(settings[0], context);
     },
-    exportValue: (value: Instance | null, member, afterDecode, options): Promise<InstanceExport> | null => {
+    exportValue: (value: Instance | null, member, afterDecode, options): Promise<ExportedInstance> | null => {
       return value?.export(options) || null;
     },
     importValue(value: Instance | InstanceSource | null, member, beforeEncode, options): MaybePromise<Instance> | null {
@@ -926,7 +926,7 @@ export type CodecExportMemberType =
   { [K in string]?: CodecExportMemberType } |
   RTDExport |
   ExportedResource |
-  InstanceExport |
+  ExportedInstance |
   ExportedIntExtLink |
   TypedStringifyable;
 

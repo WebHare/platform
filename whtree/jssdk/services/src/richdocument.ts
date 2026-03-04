@@ -1,6 +1,6 @@
 import { omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { InstanceExport, InstanceSource, TypedInstanceData, TypedInstanceExport, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
@@ -45,7 +45,7 @@ type RTDSourceParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 export type RTDListType = typeof rtdListTypes[number];
 
-type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? InstanceExport : Mode extends "inMemory" ? Instance : Instance | InstanceSource;
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? ExportedInstance : Mode extends "inMemory" ? Instance : Instance | InstanceSource;
 
 type BuildOnly<Mode extends RTDItemMode, V> = "build" extends Mode ? V : never;
 
@@ -243,7 +243,7 @@ class Instance {
     return this.#dbLoc ?? null;
   }
 
-  async export(options?: ExportOptions): Promise<InstanceExport> {
+  async export(options?: ExportOptions): Promise<ExportedInstance> {
     const data = await exportData(this.#typeInfo.members, this.#data, options);
     return {
       whfsType: this.whfsType,
@@ -270,7 +270,7 @@ class Instance {
 interface TypedInstanceImpl<Type extends WHFSTypeName> extends Instance {
   get whfsType(): Type;
   get data(): TypedInstanceData<Type>;
-  export(options?: ExportOptions): Promise<TypedInstanceExport<Type>>;
+  export(options?: ExportOptions): Promise<ExportedTypedInstance<Type>>;
 }
 
 // Distribute over WHFSTypeName
@@ -321,7 +321,7 @@ function omitFalsy<T extends object, K extends DistributedKeys<T>>(obj: T, keys:
 }
 
 /** @deprecated use Instance instead */
-type WidgetInterface = { whfsType: string; data: InstanceData; export(): Promise<InstanceExport> };
+type WidgetInterface = { whfsType: string; data: InstanceData; export(): Promise<ExportedInstance> };
 
 
 /** A Rich Text Document (RTD) */
@@ -532,7 +532,7 @@ export class RichTextDocument {
     return getArrayPromise(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
-        return { ...item, inlineWidget: await item.inlineWidget.export(options) satisfies InstanceExport } as RTDBaseInlineItem<"export">;
+        return { ...item, inlineWidget: await item.inlineWidget.export(options) satisfies ExportedInstance } as RTDBaseInlineItem<"export">;
       if ("image" in item) {
         return { ...omitFalsy(item, ["alt", "width", "height", "float"]), image: await item.image.export(options) satisfies ExportedResource } as RTDBaseInlineItem<"export">;
       }

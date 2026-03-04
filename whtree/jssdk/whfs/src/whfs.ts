@@ -10,9 +10,9 @@ export type {
   WHFSTypeName,
   InstanceData,
   InstanceSource,
-  InstanceExport,
+  ExportedInstance,
   TypedInstanceData,
-  TypedInstanceExport,
+  ExportedTypedInstance,
   TypedInstanceSource,
   WHFSTypeMember,
 } from "./contenttypes";

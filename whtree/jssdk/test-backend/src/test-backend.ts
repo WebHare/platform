@@ -18,7 +18,7 @@ import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
 import { type IntExtLink, type Instance, openBackendService, backendConfig } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
-import type { InstanceExport, WHFSTypeName, TypedInstanceExport, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
+import type { ExportedInstance, WHFSTypeName, ExportedTypedInstance, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
 import { getPrioOrErrorFromPublished, getWHFSDescendantIds } from "@webhare/whfs/src/support";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -336,10 +336,10 @@ export function expectInstance(expectType: string, expectData?: object, { partia
 }
 
 /** Build a test callback whether a field is an expected Instance export */
-export function expectInstanceExport<Type extends WHFSTypeName>(expectType: Type, expectData: test.RecursivePartialTestable<TypedInstanceExport<NoInfer<Type>>["data"]>, options: { partial: true }): (instance: InstanceExport | null) => true;
-export function expectInstanceExport<Type extends WHFSTypeName>(expectType: Type, expectData?: test.RecursiveTestable<TypedInstanceExport<NoInfer<Type>>["data"]>, options?: { partial?: false }): (instance: InstanceExport | null) => true;
+export function expectInstanceExport<Type extends WHFSTypeName>(expectType: Type, expectData: test.RecursivePartialTestable<ExportedTypedInstance<NoInfer<Type>>["data"]>, options: { partial: true }): (instance: ExportedInstance | null) => true;
+export function expectInstanceExport<Type extends WHFSTypeName>(expectType: Type, expectData?: test.RecursiveTestable<ExportedTypedInstance<NoInfer<Type>>["data"]>, options?: { partial?: false }): (instance: ExportedInstance | null) => true;
 export function expectInstanceExport(expectType: string, expectData?: object, { partial = false } = {}) {
-  return ((instance: InstanceExport | null) => {
+  return ((instance: ExportedInstance | null) => {
     test.assert(instance);
     test.eq(expectType, instance.whfsType);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need to use 'any' here because we can't distinguish between partial and non-partial mode here
