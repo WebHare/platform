@@ -1,4 +1,4 @@
-import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen, overrideQueryArgType } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen, overrideQueryArgType, hasMutex, tryLockMutex } from "@webhare/whdb";
 import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
@@ -536,8 +536,12 @@ function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
   id_set.setBoolean(isWorkOpen());
 }
 
-function cbHasMutex(vm: HareScriptVM, id_set: HSVMVar) {
-  id_set.setBoolean(isWorkOpen());
+function cbHasMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVMVar) {
+  id_set.setBoolean(hasMutex(mutexname.getString()));
+}
+
+async function cbTryLockMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVMVar, wait_until: HSVMVar) {
+  id_set.setBoolean(await tryLockMutex(mutexname.getString(), wait_until.getDateTime()));
 }
 
 async function cbDoBeginWork(vm: HareScriptVM, locks: HSVMVar) {
@@ -720,4 +724,5 @@ export function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("__WASMPG_ISWORKOPEN::B:", cbIsWorkOpen);
   wasmmodule.registerExternalFunction("__WASMPG_HASMUTEX::B:S", cbHasMutex);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_BEGINWORK:::SA", cbDoBeginWork);
+  wasmmodule.registerAsyncExternalFunction("__WASMPG_TRYLOCKMUTEX::B:SD", cbTryLockMutex);
 }
