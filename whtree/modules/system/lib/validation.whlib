@@ -349,17 +349,17 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     RECORD ARRAY list := GetCell(result,checklist);
     IF(RecordExists(SELECT FROM list WHERE NOT CellExists(list,'resourcename')))
     {
-      DumpValue(list,'boxed');
+      //DumpValue(list,'boxed');
       THROW NEW Exception(`Member ${checklist} has rows without resourcename (validating ${resourcename})`);
     }
     IF(RecordExists(SELECT FROM list WHERE CellExists(list,'filename')))
     {
-      DumpValue(list,'boxed');
+      //DumpValue(list,'boxed');
       THROW NEW Exception(`Member ${checklist} has rows which still have filename (validating ${resourcename})`);
     }
     IF(resourcename != "" AND RecordExists(SELECT FROM list WHERE list.resourcename=""))
     {
-      DumpValue(list,'boxed');
+      //DumpValue(list,'boxed');
       THROW NEW Exception(`Member ${checklist} has rows which have an empty resource name even though a resourcename was set (validating ${resourcename})`);
     }
   }
