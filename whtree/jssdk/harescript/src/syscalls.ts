@@ -60,32 +60,38 @@ export function finishWork(hsvm: HareScriptVM, { commit }: { commit: boolean }):
   return cbDoFinishWork(hsvm, commit);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+let executeInlineMap = new Map<string, Function>;
+
 /** Run JavaScript code directly (no TypeScript!) */
 export function executeInline(hsvm: HareScriptVM, { func, param }: { func: string; param?: unknown }): Promise<unknown> {
   const compileOptions = {
     contextExtensions: [{ require }]
   };
 
-  /* When the keyword "await" is present in the function code, it needs to be run in an async function. For false
-     positives, this might result in a somewhat slower execution, but no correctness problems.
-  */
-  if (func.indexOf("await") !== -1) {
-    if (param !== undefined) {
-      const tocall = vm.compileFunction(`async function wrapper(vm, param) { ${func} }; return wrapper($vm, $param);`, ["$vm", "$param"], compileOptions);
-      return tocall(hsvm, param);
+  const key = (param === undefined ? `1_` : `2_`) + func;
+  executeInlineMap ??= new Map;
+  let tocall = executeInlineMap.get(key);
+  if (!tocall) {
+    /* When the keyword "await" is present in the function code, it needs to be run in an async function. For false
+       positives, this might result in a somewhat slower execution, but no correctness problems.
+    */
+    if (func.indexOf("await") !== -1) {
+      if (param !== undefined) {
+        tocall = vm.compileFunction(`async function wrapper(vm, param) { ${func} }; return wrapper($vm, $param);`, ["$vm", "$param"], compileOptions);
+      } else {
+        tocall = vm.compileFunction(`async function wrapper(vm) { ${func} }; return wrapper($vm);`, ["$vm"], compileOptions);
+      }
     } else {
-      const tocall = vm.compileFunction(`async function wrapper(vm) { ${func} }; return wrapper($vm);`, ["$vm"], compileOptions);
-      return tocall(hsvm);
+      if (param !== undefined) {
+        tocall = vm.compileFunction(func, ["vm", "param"], compileOptions);
+      } else {
+        tocall = vm.compileFunction(func, ["vm"], compileOptions);
+      }
     }
-  } else {
-    if (param !== undefined) {
-      const tocall = vm.compileFunction(func, ["vm", "param"], compileOptions);
-      return tocall(hsvm, param);
-    } else {
-      const tocall = vm.compileFunction(func, ["vm"], compileOptions);
-      return tocall(hsvm);
-    }
+    executeInlineMap.set(key, tocall);
   }
+  return tocall(hsvm, param);
 }
 
 export function formatISO8601DateTime(_hsvm: HareScriptVM, params: {
