@@ -1,10 +1,10 @@
-import type { HareScriptVM, MessageList } from "./wasm-hsvm";
+import type { HareScriptVM, LoadedLibrariesInfo, MessageList } from "./wasm-hsvm";
 import { type IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { log, logError } from "@webhare/services/src/logging.ts";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { HSVMVar } from "./wasm-hsvmvar";
+import type { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, recompileHarescriptLibrary } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, isPromise, sleep } from "@webhare/std";
@@ -170,11 +170,6 @@ class HSIPCLink extends OutputObjectBase {
   }
 }
 
-type LoadedLibrariesInfo = {
-  errors: MessageList;
-  libraries: Array<{ liburi: string; outofdate: boolean; compile_id: Date }>;
-};
-
 //The HSJob is the object the parent communicates with. It holds the reference to the worker
 class HSJob extends OutputObjectBase {
   linkinparent: IPCEndPoint | undefined;
@@ -286,6 +281,8 @@ class HSJob extends OutputObjectBase {
     this.jobobj.terminate().catch(e => 0);
     this.jobobj.close();
     this.worker.close();
+    this.linkinparent?.close();
+    this.linkinparent = undefined;
 
     this.release();
   }
@@ -470,9 +467,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     await newvm.loadScript(filename.getString());
     await newvm.wasmmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
-    newvm.wasmmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
+    const errors = newvm.parseMessageList();
     id_set.setJSValue({
-      errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
+      errors,
       output: Buffer.concat(stdout_buffers).toString()
     });
   });
@@ -1059,6 +1056,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     await job.jobobj.setEnvironment(newdata);
   });
   wasmmodule.registerAsyncExternalFunction("__HS_GETJOBLOADEDLIBRARIESINFO::R:IB", async (vm, id_set, var_jobid) => {
+    // onlyloadedlibraries parameter is ignored, as the job obly stores the list of all libraries when the job terminates
     const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
@@ -1505,11 +1503,7 @@ export class HareScriptJob {
     this.errors = this.vm.parseMessageList();
     if (this.errors.length)
       this.exitCode = -1; // hsvm_processmgr does it too
-    {
-      using scratchvar = this.vm.allocateVariable();
-      this.vm.wasmmodule._GetLoadedLibrariesInfo(this.vm.hsvm, scratchvar.id, 0);
-      this.loadedLibraries = scratchvar.getJSValue() as LoadedLibrariesInfo;
-    }
+    this.loadedLibraries = this.vm.getLoadedLibrariesInfo();
     this.outputEndPoint?.close();
     this.doneDefer.resolve();
   }
