@@ -391,3 +391,20 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
   gotoUrl.searchParams.set("oauth2session", state);
   return createRedirectResponse(gotoUrl.toString());
 }
+
+export async function fetchUserInfo(wrdSchema: WRDSchema, client: number, accessToken: string) {
+  const spData = await wrdSchema.getFields("wrdauthOidcClient", client, ["metadataurl"]);
+  const providerInfo = await getOpenIDConnectMetadata(spData.metadataurl);
+  if (!providerInfo.config.userinfo_endpoint)
+    throw new Error(`OIDC provider at ${spData.metadataurl} has no userinfo_endpoint, can't fetch user info`);
+
+  const res = await fetch(providerInfo.config.userinfo_endpoint, {
+    headers: {
+      "Authorization": `Bearer ${accessToken}`
+    }
+  });
+  if (!res.ok)
+    throw new Error(`Error retrieving userinfo`);
+
+  return await res.json();
+}
