@@ -29,7 +29,7 @@ import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
-import { isError, sleep } from '@webhare/std';
+import { isError, sleep, type WaitPeriod } from '@webhare/std';
 import { DatabaseError } from '../vendor/postgrejs/src';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
@@ -221,6 +221,15 @@ class Work implements WorkObject {
     return this.locks.some(lock => lock.name === m);
   }
 
+  async tryLockMutex(name: string, waitUntil: WaitPeriod, options?: { __skipNameCheck?: boolean }): Promise<boolean> {
+    if (this.hasMutex(name))
+      throw new Error(`Mutex ${JSON.stringify(name)} has already been locked by this session`);
+    const lock = await lockMutex(name, { timeout: waitUntil, ...options });
+    if (lock)
+      this.locks.push(lock);
+    return Boolean(lock);
+  }
+
   addMutex(m: Mutex) {
     this.locks.push(m);
   }
@@ -374,6 +383,10 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
     return this.openwork?.hasMutex(mutex) || false;
   }
 
+  tryLockMutex(name: string, waitUntil: WaitPeriod, options?: { __skipNameCheck?: boolean }): Promise<boolean> {
+    return this.openwork?.tryLockMutex(name, waitUntil, options) ?? Promise.resolve(false);
+  }
+
   private checkState(expectwork: true): Work; //guaranteed to return a work object or throw
   private checkState(expectwork: false): null; //guaranteed to return null or throw
   private checkState(expectwork: undefined): Work | null;
@@ -475,7 +488,7 @@ export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, 
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
@@ -583,6 +596,10 @@ export function isWorkOpen() {
 */
 export function hasMutex(mutex: string) {
   return getConnection().hasMutex(mutex);
+}
+
+export function tryLockMutex(mutex: string, waitUntil: Date | Temporal.Instant, options?: { __skipNameCheck?: boolean }): Promise<boolean> {
+  return getConnection().tryLockMutex(mutex, waitUntil, options);
 }
 
 /** Get the next primary key value for a specific column
