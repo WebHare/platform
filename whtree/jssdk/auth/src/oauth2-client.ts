@@ -41,6 +41,8 @@ declare module "@webhare/services" {
 export interface OAuth2LoginRequestOptions {
   prompt?: string;
   addScopes?: string[];
+  /** Enable to receive a 'raw' landing on the returnto url (eg the OIDC metadata */
+  rawLanding?: boolean;
 }
 
 export interface OAuth2AuthorizeRequestOptions extends OAuth2LoginRequestOptions {
@@ -148,9 +150,9 @@ export class OAuth2Client {
    * @param options - Options for the authorize request
    */
   async createLoginRequest(redirectTo: string, options?: OAuth2LoginRequestOptions): Promise<NavigateInstruction> {
-    const finalurl = new URL("/.wrd/endpoints/oidc.shtml", redirectTo);
+    const finalurl = options?.rawLanding ? redirectTo : new URL("/.wrd/endpoints/oidc.shtml", redirectTo).toString();
 
-    return await this.createAuthorizeLink(finalurl.toString(), {
+    return await this.createAuthorizeLink(finalurl, {
       ...options,
       // One scope for all logins should be enough, we'll still verify the provider
       clientScope: "platform:openidlogin",
@@ -390,4 +392,21 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
   const gotoUrl = new URL(sessdata.finalreturnurl);
   gotoUrl.searchParams.set("oauth2session", state);
   return createRedirectResponse(gotoUrl.toString());
+}
+
+export async function fetchUserInfo(wrdSchema: WRDSchema, client: number, accessToken: string) {
+  const spData = await wrdSchema.getFields("wrdauthOidcClient", client, ["metadataurl"]);
+  const providerInfo = await getOpenIDConnectMetadata(spData.metadataurl);
+  if (!providerInfo.config.userinfo_endpoint)
+    throw new Error(`OIDC provider at ${spData.metadataurl} has no userinfo_endpoint, can't fetch user info`);
+
+  const res = await fetch(providerInfo.config.userinfo_endpoint, {
+    headers: {
+      "Authorization": `Bearer ${accessToken}`
+    }
+  });
+  if (!res.ok)
+    throw new Error(`Error retrieving userinfo`);
+
+  return await res.json();
 }

@@ -74,6 +74,8 @@ export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition =
   jwtPayload: JWTPayload;
   /** Final URL the user will be redirected to if the login is successful */
   finalUrl: string;
+  /** Access token provided by the openid server */
+  accessToken: string | null;
 }
 
 export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends LoginUsernameLookupOptions {
