@@ -399,9 +399,9 @@ PUBLIC RECORD FUNCTION GetUserUnitPolicy(OBJECT wrdschema, INTEGER user) {
 }
 
 PUBLIC RECORD FUNCTION CreateOAuth2AuthorizeRequest(STRING wrdschematag, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
-  options := ValidateOptions(CELL[ prompt := "", raw_landing := FALSE, userdata := DEFAULT RECORD ], options);
+  options := ValidateOptions(CELL[ prompt := "", userdata := DEFAULT RECORD, add_scopes := STRING[] ], options);
   RETURN CallJS("mod::platform/js/auth/harescript.ts#createOAuth2AuthorizeRequest", wrdschematag, serviceprovidertag, redirectto,
-    CELL[ options.prompt, user_data := options.userdata ]);
+    CELL[ options.prompt, user_data := options.userdata, options.add_scopes ]);
 }
 
 PUBLIC RECORD FUNCTION CreateOAuth2LoginRequest(STRING wrdschematag, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD) {
