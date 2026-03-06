@@ -1,5 +1,5 @@
 import type { JsschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import type { LookupUsernameParameters, AuthCustomizer, OpenIdAuthenticationParameters, LoginDeniedInfo } from "@webhare/auth";
+import { type LookupUsernameParameters, type AuthCustomizer, type OpenIdAuthenticationParameters, type LoginDeniedInfo, fetchUserInfo } from "@webhare/auth";
 import { WRDSchema } from "@webhare/wrd";
 import { runInWork } from "@webhare/whdb";
 import type { NavigateInstruction } from "@webhare/env";
@@ -35,6 +35,10 @@ export class OIDCTestCustomizer implements AuthCustomizer {
     if (matchUser) {
       return matchUser;
     }
+
+    const userInfo = await fetchUserInfo(params.wrdSchema, params.provider, params.accessToken!);
+    if (userInfo.family_name !== params.jwtPayload.testfw_lastname)
+      throw new Error(`Userinfo endpoint did not return expected data - family_name = ${userInfo.family_name}, expected ${params.jwtPayload.testfw_lastname}`);
 
     return await runInWork(async () => {
       const [autounit] = await schemaSP.upsert("whuserUnit", { wrdTag: "AUTOUNIT" }, { wrdTitle: "OIDC Auto added users" });
