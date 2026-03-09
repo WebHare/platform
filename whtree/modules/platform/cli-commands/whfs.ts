@@ -5,7 +5,7 @@ import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webha
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
 import { stringify } from '@webhare/std';
-import type { InstanceExport } from '@webhare/whfs/src/contenttypes';
+import type { ExportedInstance } from '@webhare/whfs/src/contenttypes';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
 import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
@@ -25,7 +25,7 @@ type ExportedProperties = {
   whfsType: string; //File/folder type namespace
   title?: string;
   /** Other instances (ie *not* the primary content) */
-  instances?: InstanceExport[];
+  instances?: ExportedInstance[];
 };
 
 /* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format

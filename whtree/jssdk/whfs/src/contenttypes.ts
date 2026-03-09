@@ -40,7 +40,7 @@ export type InstanceSource = {
 };
 
 /** Generic instance export format */
-export type InstanceExport = {
+export type ExportedInstance = {
   whfsType: WHFSTypeName | string;
   data?: { [key in string]?: CodecExportMemberType };
 };
@@ -51,7 +51,7 @@ export type InstanceExport = {
 export type TypedInstanceData<Type extends WHFSTypeName> = WHFSTypes[Type]["GetFormat"];
 
 /** The result of a .export() operation on an instance of a specific type */
-export type TypedInstanceExport<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
+export type ExportedTypedInstance<Type extends WHFSTypeName> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
 
 /** The input of buildInstance for an instance of a specific type, usable for set()
 */
@@ -480,7 +480,7 @@ export async function visitResources(callback: VisitCallback, scope: {
 
 export function whfsType<const Type extends keyof WHFSTypes | string & {}>(ns: string extends Type ? Type : WHFSTypeName): [Type] extends [WHFSTypeName] ?
   WHFSTypeAccessor<WHFSTypes[Type]["GetFormat"], WHFSTypes[Type]["SetFormat"], WHFSTypes[Type]["ExportFormat"]> :
-  WHFSTypeAccessor<InstanceData, NonNullable<InstanceSource["data"]>, NonNullable<InstanceExport["data"]>> {
+  WHFSTypeAccessor<InstanceData, NonNullable<InstanceSource["data"]>, NonNullable<ExportedInstance["data"]>> {
 
   //export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
   //export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;

@@ -1,5 +1,6 @@
 import { frontendConfig, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement, register } from "@webhare/dompack";
+import "@webhare/frontend/styling/reset.css";
 import "@webhare/tollium-iframe-api/styling/tollium.css";
 import './css/webinterface.scss';
 import './pages/forms';

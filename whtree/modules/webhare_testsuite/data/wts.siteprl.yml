@@ -55,6 +55,8 @@ types:
         members:
           richMember:
             type: richdocument
+          form:
+            type: composedDocument
           intMember:
             type: integer
           aWhfsRef:

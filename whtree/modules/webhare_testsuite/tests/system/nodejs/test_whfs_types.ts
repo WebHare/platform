@@ -295,6 +295,34 @@ async function testInstanceData() {
   const directinstance = await whfsType("platform:filetypes.richdocument").getBySettingId(outinstance[dbLoc].id);
   test.eq({ tag: "p", items: [{ text: "asdf def" }] }, directinstance.data?.blocks[0]);
 
+  const exportedComposedDoc = (await testtype.get(testfile.id, { export: true })).aDoc;
+  test.eqPartial({
+    type: 'platform:formdefinition',
+    text: '\n' +
+      '      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">\n' +
+      '        <form name="webtoolform">\n' +
+      '          <page>\n' +
+      '            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="asdf def" guid="wtfrm:9A757BDEF63422BC86F6C5586FDA3508"/>\n' +
+      '          </page>\n' +
+      '        </form>\n' +
+      '      </formdefinitions>',
+    instances: {
+      'Yl98JQ8ztbgW3-KdqLzYBA': {
+        whfsType: 'platform:filetypes.richdocument',
+        data: {
+          data: [{ tag: 'p', items: [{ text: 'asdf def' }] }]
+        }
+      }
+    }
+  }, exportedComposedDoc);
+
+  await testtype.set(testfile.id, { aDoc: null });
+  test.eqPartial({ aDoc: null }, await testtype.get(testfile.id));
+
+  await testtype.set(testfile.id, { aDoc: exportedComposedDoc });
+  const exportedComposedDoc2 = (await testtype.get(testfile.id, { export: true })).aDoc;
+  test.eq(exportedComposedDoc, exportedComposedDoc2);
+
   // STORY: Further instance update tests
 
   // Test: Build instance from scratch
@@ -473,13 +501,15 @@ async function testInstanceData() {
         ],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       },
       {
         aSubArray: [],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       },
       {
         aSubArray: [
@@ -489,7 +519,8 @@ async function testInstanceData() {
         ],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       }
     ], (await testtype.get(testfile.id)).anArray);
 
@@ -655,6 +686,19 @@ async function testInstanceData() {
     const checked = (await db<PlatformDB>().selectFrom("consilio.checked_objectlinks").selectAll().where("system_fs_setting", "in", settings).execute());
     test.eq(3, checked.length, "There should be 3 checked_objectlinks");
   }
+
+  // STORY: complex types in an array
+  await beginWork();
+  await testtype.set(testfile.id, {
+    anArray: [
+      {
+        form: inComposedDoc
+      }
+    ]
+  });
+  await commitWork();
+
+  test.eqPartial({ anArray: [{ form: exportedComposedDoc }] }, await testtype.get(testfile.id, { export: true }));
 
   const scenarios = [
     { setVisibleEdit: true, cloneType: "onCopy", expectModDateChange: true },

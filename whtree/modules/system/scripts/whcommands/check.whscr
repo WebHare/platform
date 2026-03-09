@@ -1,10 +1,11 @@
 ﻿<?wh
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 
-Print(GetWHVersionInfo().versionname);
+Print("WebHare " || GetWebhareVersionInfo().version);
 
 OBJECT db;
 TRY db := OpenPrimary();
