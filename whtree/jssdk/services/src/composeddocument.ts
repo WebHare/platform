@@ -73,7 +73,7 @@ export async function buildComposedDocument(cd: ExportedComposedDocument, option
   if (cd.embedded)
     for (const [key, val] of Object.entries(cd.embedded))
       embedded.set(key, await ResourceDescriptor.import(val, options));
-  console.log(cd);
+
   return new ComposedDocument(cd.type, WebHareBlob.from(cd.text), { instances, links, embedded });
 }
 

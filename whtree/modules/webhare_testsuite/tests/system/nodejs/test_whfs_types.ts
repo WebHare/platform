@@ -501,13 +501,15 @@ async function testInstanceData() {
         ],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       },
       {
         aSubArray: [],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       },
       {
         aSubArray: [
@@ -517,7 +519,8 @@ async function testInstanceData() {
         ],
         intMember: 0,
         richMember: null,
-        aWhfsRef: null
+        aWhfsRef: null,
+        form: null
       }
     ], (await testtype.get(testfile.id)).anArray);
 
@@ -683,6 +686,19 @@ async function testInstanceData() {
     const checked = (await db<PlatformDB>().selectFrom("consilio.checked_objectlinks").selectAll().where("system_fs_setting", "in", settings).execute());
     test.eq(3, checked.length, "There should be 3 checked_objectlinks");
   }
+
+  // STORY: complex types in an array
+  await beginWork();
+  await testtype.set(testfile.id, {
+    anArray: [
+      {
+        form: inComposedDoc
+      }
+    ]
+  });
+  await commitWork();
+
+  test.eqPartial({ anArray: [{ form: exportedComposedDoc }] }, await testtype.get(testfile.id, { export: true }));
 
   const scenarios = [
     { setVisibleEdit: true, cloneType: "onCopy", expectModDateChange: true },

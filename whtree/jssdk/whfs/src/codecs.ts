@@ -716,7 +716,6 @@ export const codecs = {
       return decodeComposedDocument(settings, type, context);
     },
     exportValue(value: ComposedDocument | null, member, afterDecode, options): MaybePromise<ExportedComposedDocument | null> {
-      // If afterDecode is true, the getData call will already have done the export conversion
       return value ? value.export() : null;
     },
     importValue(value: ComposedDocument | ExportedComposedDocument | null, member, beforeEncode, options): MaybePromise<ComposedDocument | null> {
