@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { buildContentPageRequest, type WidgetBuilderFunction } from "./siterequest";
+import { buildContentPageRequest, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -148,6 +148,9 @@ export async function renderTSWidgetHS(context: {
   whfsfileid: number;
   widgetbuilder: string;
   targetobject: number;
+  targetfolder: number;
+  targetsite: number;
+  sitelanguage: string;
 }) {
   const type = whfsType(context.whfstype);
   //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
@@ -155,7 +158,9 @@ export async function renderTSWidgetHS(context: {
   //HareScript will tell us the widgetBuilder so we can avoid doing an applytest
   const renderFunction = await importJSFunction<WidgetBuilderFunction>(context.widgetbuilder);
 
-  const pagePartRequest = {
+  const targetObject = await whfs.openFileOrFolder(context.targetobject);
+
+  const pagePartRequest: PagePartRequest = {
     //Consider taking the parent rendering context if available (or at least reuse the pagereq between invocations)
     renderRTD: async (rtd: RichTextDocument) => {
       const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
@@ -164,7 +169,11 @@ export async function renderTSWidgetHS(context: {
     renderWidget: async (widget: Instance) => {
       const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
       return pagereq.renderWidget(widget);
-    }
+    },
+    targetObject: targetObject,
+    targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
+    targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
+    siteLanguage: context.sitelanguage
   };
 
   const result = await renderFunction(pagePartRequest, instance);
