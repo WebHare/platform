@@ -14,7 +14,7 @@ export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout, getUserInfo, se
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, setupFormAnalytics, type PxlData } from "./pxl";
 export { getRemoteIPAddress, getGeoIPInfo, type GetIPInfoOptions, type GeoIPInfoResult } from "./analytics";
-export { setupGTM, setupFormAnalyticsForGTM, pushToDataLayer, setupDataLayerTags } from "./gtm";
+export { setupGTM, setupFormAnalyticsForGTM, pushToDataLayer, setupDataLayerTags, getCurrentDataLayerVariables } from "./gtm";
 export { setupLinksInNewWindow, type LinkOpenOptions } from "./linkhandler";
 
 export type * from "./gtm-types";

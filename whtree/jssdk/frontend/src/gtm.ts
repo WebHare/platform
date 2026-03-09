@@ -2,25 +2,29 @@ import { qSA } from "@webhare/dompack";
 import { debugFlags } from "@webhare/env";
 import type { FormAnalyticsEvent } from "@webhare/forms";
 import type { DataLayerEntry } from "./gtm-types";
+import { omit } from "@webhare/std";
 
 declare global {
   interface Window {
-    dataLayer: DataLayerEntry[];
+    /** The google tag manager (GTM) datalayer */
+    dataLayer: DataLayerEntry[]; //technically window.dataLayer may not exist and should be optional, but we already used to declare it as existing from gtm.ts
   }
+  //It's safer to access dataLayer through globalThis, which will always be available in all environments unlike 'window'
+  var dataLayer: DataLayerEntry[] | undefined;
 }
 
 //ADDME if we ever figure out a bundler trick to flush this command to the top of all imports/loads, that would be great (we could consider *ALWAYS* putting this in the generated startup code, or we'd need to do a tree pre-walk to see if gtm.es is loaded anywhere)
-window.dataLayer ||= [];
+(globalThis as unknown as Window).dataLayer ||= [];
 let lastSeen: DataLayerEntry | undefined;
 
 function showDataLayerUpdates() {
-  if (typeof window.dataLayer === 'undefined')
+  if (!globalThis.dataLayer)
     return; //not set up (yet?)
 
   if (debugFlags.anl)
-    window.dataLayer.slice(window.dataLayer.indexOf(lastSeen!) + 1).forEach(entry => console.log("[anl] dataLayer.push:", entry));
+    globalThis.dataLayer.slice(globalThis.dataLayer.indexOf(lastSeen!) + 1).forEach(entry => console.log("[anl] dataLayer.push:", entry));
 
-  lastSeen = window.dataLayer[window.dataLayer.length - 1];
+  lastSeen = globalThis.dataLayer[globalThis.dataLayer.length - 1];
 }
 
 /** Push to the dataLayer
@@ -36,7 +40,7 @@ export function pushToDataLayer(vars: DataLayerEntry, options?: { timeout?: numb
     setTimeout(() => newcallback, options?.timeout || 200);
   }
 
-  window.dataLayer.push(vars);
+  globalThis.dataLayer?.push(vars);
   showDataLayerUpdates();
 }
 
@@ -154,4 +158,16 @@ function processClickDataLayerTags(event: MouseEvent) {
 export function setupDataLayerTags() {
   //we capture so we can also simply set variables for any existing GTM handlers
   window.addEventListener("click", processClickDataLayerTags, { capture: true });
+}
+
+/** Get the current variables in the GTM datalayer
+ * @param win - The window to get the dataLayer from (default: current window)
+ * @return The current variables in the GTM datalayer, merged together from all entries. Note that this is a snapshot and won't update as the dataLayer changes
+*/
+export function getCurrentDataLayerVariables<DataLayerFormat extends object = Record<string, unknown>>(win: Window = window): DataLayerFormat {
+  const state: DataLayerFormat = {} as DataLayerFormat;
+  if (win.dataLayer)
+    win.dataLayer.forEach(entry =>
+      Object.assign(state, structuredClone(omit(entry, ["event", "eventCallback", "gtm.uniqueEventId"]))));
+  return state;
 }
