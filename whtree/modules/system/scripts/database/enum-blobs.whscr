@@ -187,6 +187,7 @@ PRINT(AnyToString(lsubs, "boxed"));
 PRINT("Reading all WRD entity settings:\n");
 RECORD ARRAY entity_settings :=
     SELECT attribute
+         , blobcount := SUM(IsValueSet(blobdata) ? 1 : 0)
          , size :=      SUM(Length64(blobdata))
       FROM wrd.entity_settings
   GROUP BY attribute;
@@ -201,6 +202,7 @@ INTEGER64 total_wrd := SELECT AS INTEGER64(SUM(size)) FROM entity_settings;
 PRINT("WRD schemas:\n");
 PRINT(AnyToString((
     SELECT name
+         , count :=         SUM(blobcount)
          , size_mb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024), 0.01m, "half-up")
          , size_gb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024 / 1024), 0.01m, "half-up")
          , perc :=          RoundToMultiple(total_wrd = 0 ? 0m : MONEY(SUM(size)) / (MONEY(total_wrd) / 100m), 0.01m, "half-up")
@@ -211,6 +213,7 @@ PRINT(AnyToString((
 PRINT("Per type (only types with > 1% of WRD total):\n");
 RECORD ARRAY pertype :=
     SELECT name :=          `${name} - ${tag}`
+         , count :=         SUM(blobcount)
          , size_mb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024), 0.01m, "half-up")
          , size_gb :=       RoundToMultiple(MONEY(SUM(size) / 1024 / 1024 / 1024), 0.01m, "half-up")
          , perc :=          RoundToMultiple(total_wrd = 0 ? 0m : MONEY(SUM(size)) / (MONEY(total_wrd) / 100m), 0.01m, "half-up")

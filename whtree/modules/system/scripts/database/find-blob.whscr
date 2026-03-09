@@ -4,6 +4,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
 
 
 RECORD info := ParseArguments(GetConsoleArguments(),
@@ -38,8 +39,6 @@ FOREVERY(RECORD col FROM relevant_columns)
     CONTINUE;
 
   STRING name := col.table_schema || "." || col.table_name || "." || col.column_name;
-  Print(`${name}\n`);
-  FlushOutputBuffer();
   INTEGER numbytes, num_mb; //ADDME switch to integer64 as soon as 2.37 is gone everywhere
 
   BOOLEAN have_id := trans->ColumnExists(col.table_schema, col.table_name, "ID");
@@ -49,7 +48,27 @@ FOREVERY(RECORD col FROM relevant_columns)
   {
     STRING cmd := `select ${have_id ? "id" : "ctid"} from ${tablename} where (${PostgreSQLEscapeIdentifier(col.column_name)}).id = ${PostgreSQLEscapeLiteral("AAAB" || id)}`;
     RECORD ARRAY results := trans->__ExecSQL(cmd);
-    FOREVERY(RECORD row FROM results)
-      Print(`Match ${name}: ${have_id ? `id=${row.id}` : `ctid=${row.ctid}`} has blob ${id}\n`);
+    FOREVERY(RECORD row FROM results) {
+      STRING extra_info;
+      IF (name LIKE "wrd.entity_settings.*") {
+        RECORD entity_settings := SELECT entity, attribute FROM wrd.entity_settings WHERE COLUMN id = row.id;
+        RECORD attr := SELECT tag, type FROM wrd.attrs WHERE COLUMN id = entity_settings.attribute;
+        RECORD type := SELECT tag, wrd_schema FROM wrd.types WHERE COLUMN id = attr.type;
+        RECORD wrdschema := SELECT COLUMN name FROM wrd.schemas WHERE COLUMN id = type.wrd_schema;
+        extra_info := ` (attribute=${wrdschema.name}.${type.tag}.${attr.tag},entity=${entity_settings.entity})`;
+      } ELSE IF (name LIKE "system.fs_settings.*") {
+        RECORD fs_setting := SELECT fs_instance, fs_member FROM system.fs_settings WHERE COLUMN id = row.id;
+        RECORD fs_instance := SELECT fs_object FROM system.fs_instances WHERE COLUMN id = fs_setting.fs_instance;
+        RECORD fs_member := SELECT fs_type, COLUMN name FROM system.fs_members WHERE COLUMN id = fs_setting.fs_member;
+        RECORD fs_type := SELECT namespace FROM system.fs_types WHERE COLUMN id = fs_member.fs_type;
+        RECORD fs_object := SELECT COLUMN id, whfspath FROM system.fs_objects WHERE COLUMN id = fs_instance.fs_object;
+        extra_info := ` (fs_object=${fs_object.id}:${fs_object.whfspath},fs_member=${fs_type.namespace}.${fs_member.name})`;
+      } ELSE IF (name LIKE "system.fs_objects.*") {
+        RECORD fs_object := SELECT COLUMN id, whfspath FROM system.fs_objects WHERE COLUMN id = row.id;
+        extra_info := ` (fs_object=${fs_object.id}:${fs_object.whfspath})`;
+      }
+
+      Print(`Match ${name}: ${have_id ? `id=${row.id}` : `ctid=${row.ctid}`} has blob ${id}${extra_info}\n`);
+    }
   }
 }
