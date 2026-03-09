@@ -377,6 +377,8 @@ while true; do
   elif [ "$1" == "--port" ]; then
     shift
     DOCKERARGS="$DOCKERARGS -p $1:13679"
+    # shellcheck disable=SC2034
+    TESTFW_WEBHARE_RESCUEPORT_BINDIP=0.0.0.0
     shift
   elif [ "$1" == "--generatexmltests" ]; then
     GENERATEXMLTESTS=1
@@ -806,7 +808,7 @@ do
   fi
 
   # When the current tested branch starts with feature/..., try to check out the same branch in the module when it exists
-  if [ -z "$MODULEBRANCH" ] && [ -n "$TESTINGMODULEBRANCH" ] && [[ $TESTINGMODULEBRANCH == "feature/"* ]]; then
+  if [ -z "$MODULEBRANCH" ] && [ -n "$TESTINGMODULEBRANCH" ] && { [[ $TESTINGMODULEBRANCH == "feature/"* ]] || [[ $TESTINGMODULEBRANCH == "custom/"* ]] ; }; then
     if git -C "$TARGETDIR" rev-parse --verify "origin/$TESTINGMODULEBRANCH" 2> /dev/null > /dev/null; then
       echo "Checking out $MODULENAME branch $TESTINGMODULEBRANCH because it matches the tested module branch"
       if ! git -C "$TARGETDIR" checkout --recurse-submodules "$TESTINGMODULEBRANCH" || ! git -C "$TARGETDIR" submodule update --init --recursive; then
