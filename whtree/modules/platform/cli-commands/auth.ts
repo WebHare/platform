@@ -1,10 +1,11 @@
 // @webhare/cli: Control WebHare users and rights
 
+import jwt from "jsonwebtoken";
 import { WRDSchema, type AnyWRDSchema } from '@webhare/wrd/src/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
-import { backendConfig, importJSObject } from '@webhare/services';
-import { beginWork, commitWork } from '@webhare/whdb';
+import { backendConfig, importJSObject, type SessionScopes } from '@webhare/services';
+import { beginWork, commitWork, db } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -12,6 +13,8 @@ import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { prepAuthForURL } from '@webhare/auth/src/support';
+import type { PlatformDB } from '@mod-platform/generated/db/platform';
+import { readAnyFromDatabase } from '@webhare/whdb/src/formats';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -79,6 +82,29 @@ run({
           console.log("OpenID Metadata: " + (idp.metadataUrl || "not set"));
         }
       }
+    },
+    "list-oauth2-initiations": {
+      shortDescription: "List active and recent OAuth2 request initiations",
+      flags: {
+        "tokens": { description: "Show raw tokens too" }
+      },
+      main: async ({ opts, args }) => {
+        //TODO a listSessions API which understands scope and decodes data would be nice? or two apis, one for raw lists and one for decoding data too ?
+        const sessions = await db<PlatformDB>().selectFrom("system.sessions").select(["id", "data", "datablob", "sessionid", "created"]).where("scope", "=", "system:oauth2").execute();
+        const withData = await Promise.all(sessions.map(async s => ({ ...s, data: await readAnyFromDatabase(s.data, s.datablob) as SessionScopes["system:oauth2"] })));
+        const finalList = withData.map(s => ({
+          created: s.created,
+          sessionid: s.sessionid,
+          userData: s.data?.user_data || null,
+          idToken: s.data?.tokeninfo?.id_token ? jwt.decode(s.data.tokeninfo.id_token, { complete: true }) : null,
+          ...opts.tokens ? { tokens: s.data?.tokeninfo || null } : {}
+        }));
+        if (opts.json)
+          console.log(JSON.stringify(finalList, null, 2));
+        else
+          console.dir(finalList, { depth: null });
+      }
+
     },
     "idp-setup": {
       shortDescription: "Setup an identity provider for a schema",
