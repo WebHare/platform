@@ -1,6 +1,6 @@
 import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 import type { GenerateContext } from "./shared";
-import { elements, getAttr, getQualifiedAttr } from "./xmlhelpers";
+import { elements, getAttr, getQualifiedAttr, parseXMLTidPtr } from "./xmlhelpers";
 
 export type UserRightDefinition = {
   /** Fully qualified name */
@@ -18,6 +18,8 @@ export type RightsTargetObject = {
   table: string;
   /** Parent column in that table */
   parentColumn: string | null;
+  /** Title for this object type */
+  title: string;
 };
 
 export interface UserRights {
@@ -47,7 +49,8 @@ export async function generateUserRights(context: GenerateContext): Promise<stri
       const objType: RightsTargetObject = {
         name: `${mod.name}:${getAttr(objecttype, "name")}`,
         parentColumn: getAttr(objecttype, "parentfield", "") || null,
-        table
+        table,
+        title: parseXMLTidPtr(mod.resourceBase, "", objecttype, "title")
       };
 
       retval.targets.push(objType);
