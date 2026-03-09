@@ -299,6 +299,7 @@ run({
       const child = spawn("bash", ["-c", `"$0" "$@"`, ...args.command], {
         env: {
           ...process.env,
+          PGHOST: opts.socketDir,
           WEBHARE_PGHOST: opts.socketDir,
         },
         stdio: ["inherit", "inherit", "inherit"]
