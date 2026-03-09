@@ -117,7 +117,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
 
   DATETIME now := GetCurrentDatetime();
   RECORD ARRAY current := wrdschema->^server_check->RunQuery(
-    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","message_tid","wrd_limitdate","is_critical"]
+    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","message_tid","wrd_limitdate","is_critical","jump_to"]
          , filters := [[ field := "check_task", value := task ]]
          , historymode := "all"
          ]);
@@ -163,6 +163,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
     //We assume something like jumpto won't change without the message changing
     IF(current[match].message_text != check.message_text
        OR EncodeHSON(current[match].message_tid) != EncodeHSON(check.message_tid)
+       OR EncodeHSON(current[match].jump_to) != EncodeHSON(check.jump_to)
        OR current[match].wrd_limitdate != MAX_DATETIME
        OR current[match].is_critical != check.is_critical) //update it!
     {
