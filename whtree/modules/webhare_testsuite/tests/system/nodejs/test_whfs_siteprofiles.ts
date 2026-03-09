@@ -168,6 +168,7 @@ async function testSiteUpdates() {
   const tester = await getApplyTesterForObject(await testsitejs.openFolder("."));
 
   test.eq(null, await tester.getUserData("webhare_testsuite:blub"));
+  test.eq(null, await tester.getUserData("webhare_testsuite:setting"));
 
   await whdb.beginWork();
   await testsitejs.update({ webFeatures: [], webDesign: "publisher:nodesign" });
@@ -183,6 +184,7 @@ async function testSiteUpdates() {
 
   const tester2 = await getApplyTesterForObject(await testsitejs.openFolder("."));
   test.eq({ fish: true }, await tester2.getUserData("webhare_testsuite:blub"));
+  test.eq({ hasTestFeature: true }, await tester2.getUserData("webhare_testsuite:setting"));
 }
 
 

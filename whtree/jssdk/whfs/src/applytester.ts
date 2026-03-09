@@ -1,5 +1,5 @@
 import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow, CSPDynamicExecution, CSPBaseProperties } from "./siteprofiles";
-import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
+import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions, whfsType } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
@@ -273,7 +273,7 @@ export class WHFSApplyTester {
         }
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
           return false;
-        if (element.webfeatures?.length && !this.matchWebFeatures(element.webfeatures))
+        if (element.webfeatures?.length && !await this.matchWebFeatures(element.webfeatures))
           return false;
 
         //TODO can we somehow share with GetMatchesBySiteFilter ?
@@ -376,17 +376,9 @@ export class WHFSApplyTester {
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */
-  matchWebFeatures(masks: string[]) {
-    /*
-    PUBLIC BOOLEAN FUNCTION MatchWebfeatures(STRING ARRAY masks)
-    {
-      OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-      FOREVERY (STRING feature FROM sitesettingstype->GetInstanceData(this.objsite).webfeatures)
-        IF (MatchCommonXMLWildcardMasks(feature, masks))
-          RETURN TRUE;
-      RETURN FALSE;
-    }*/
-    return false; //FIXME implement but shouldn't this be in the site applicability cache and thus already available?
+  async matchWebFeatures(features: string[]) {
+    const { webfeatures } = await whfsType("platform:web.sitesettings").get(this.objinfo.site?.id || 0);
+    return features.some(_ => webfeatures?.includes(_));
   }
 
   matchType(folderType: string | number | null, matchwith: string, isfolder: boolean) {
