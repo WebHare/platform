@@ -1285,7 +1285,7 @@
         <text tid="serverurl">SMTP server</text>
         <text tid="setheaders">Set mail headers</text>
         <text tid="smtp_test_error">Testing the mailserver gave the following error:<br/><param p="1"/></text>
-        <text tid="smtp_test_success">Could succesfully connect to the specified SMTP server</text>
+        <text tid="smtp_test_success">Successfully connected to the specified SMTP server</text>
         <text tid="smtpserver">Server</text>
         <text tid="smtpserver-null">Black hole (block all email)</text>
         <text tid="smtpserver-use">Use SMTP server</text>
