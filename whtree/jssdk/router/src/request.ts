@@ -47,7 +47,7 @@ export type RPCAPI = Record<string, (context: RPCContext, ...args: any[]) => unk
 export type RPCFilter = (context: RPCContext, args: unknown[]) => Promise<{ result?: unknown } | void> | { result?: unknown } | void;
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
-export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text" | "formData">;
+export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "blob" | "json" | "text" | "formData">;
 
 /** Reconstruct the client's URL based on a pathname and unforgable headers (Origin or Referer) and on requesturl otherwise (if it's not a browser invoking us)
   @param req - Request object
@@ -103,6 +103,8 @@ export interface WebRequest extends SupportedRequestSubset {
   text(): Promise<string>;
   ///Request body as JSON
   json(): Promise<unknown>;
+  ///Request body as Blob
+  blob(): Promise<Blob>;
 
   //Base URL for this route. Usually https://example.net/ but when forwarding to a deeper router this will get updated
   readonly baseURL: string;
@@ -170,6 +172,9 @@ export class IncomingWebRequest implements WebRequest {
   }
   async json() {
     return JSON.parse(this.__body ? new TextDecoder().decode(this.__body) : "");
+  }
+  async blob() {
+    return new Blob([this.__body || new ArrayBuffer(0)]);
   }
 
   get baseURL() {
@@ -269,6 +274,7 @@ class ForwardedWebRequest implements WebRequest {
   get clientIp() { return this.original.clientIp; }
   async text() { return this.original.text(); }
   async json() { return this.original.json(); }
+  async blob() { return this.original.blob(); }
   async formData() { return this.original.formData(); }
 
   getAllCookies(): Record<string, string> { return this.original.getAllCookies(); }

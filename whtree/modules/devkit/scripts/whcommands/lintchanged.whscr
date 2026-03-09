@@ -70,9 +70,13 @@ STRING FUNCTION FindGitRoot(STRING path)
   RETURN path;
 }
 
+// When checking platform, also check webhare_testsuite and devkit, as wh checkmodule doesn't check when checking platform.
 STRING ARRAY allmodules := [ argmodule ];
-IF ("platform" IN allmodules)
-  INSERT "webhare_testsuite" INTO allmodules AT END;
+IF ("platform" IN allmodules) {
+  FOREVERY (RECORD mod FROM allmoduleroots)
+    IF (mod.module IN [ "webhare_testsuite", "devkit" ])
+      INSERT mod.module INTO allmodules AT END;
+}
 
 STRING ARRAY allchanged;
 

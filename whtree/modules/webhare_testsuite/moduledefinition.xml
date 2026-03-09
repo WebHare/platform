@@ -73,6 +73,9 @@
     <application name="runscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true">
       <accesscheck />
     </application>
+    <application name="runwasmscreen" startmacro="lib/tollium.whlib#RunScreen" allowuntrustedparams="true" engine="wasm">
+      <accesscheck />
+    </application>
     <application name="runyamlscreen" startmacro="lib/tollium.whlib#RunYamlScreenApp" allowuntrustedparams="true">
       <accesscheck />
     </application>

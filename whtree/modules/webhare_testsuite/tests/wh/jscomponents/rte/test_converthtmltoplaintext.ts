@@ -1,10 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 
-function jsdom(code) {
+function jsdom(code: string) {
   const div = document.createElement("div");
   div.innerHTML = code;
   return div;
@@ -20,10 +17,8 @@ test.runTests(
       test.eq("a b c d", convertHtmlToPlainText(dom));
     },
     function () {
-      let dom;
-
       // coalescing
-      dom = jsdom("a  \u00A0\t\r\nb\r\n");
+      const dom = jsdom("a  \u00A0\t\r\nb\r\n");
       test.eq("a b ", convertHtmlToPlainText(dom));
     },
 

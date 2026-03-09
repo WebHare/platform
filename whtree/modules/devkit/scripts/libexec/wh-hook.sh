@@ -137,29 +137,35 @@ if [ "$INSTR" == "monthly-prestart-cleanup" ]; then
 fi
 
 if [ "$INSTR" == "status" ] || [ "$INSTR" == "st" ]; then
-  echo "=== Status of $WEBHARE_CHECKEDOUT_TO ==="
-
   gather_repo_dirs
   UNCOMMITEDCHANGES=""
   UNPUSHEDCHANGES=""
 
   FETCH=
   VERBOSE=
+  CI=
   # parse args starting with '-'
   while [[ "$1" =~ ^- ]]; do
     case "$1" in
     (--fetch) FETCH=1 ;;
     (--verbose) VERBOSE=1 ;;
     (-v) VERBOSE=1 ;;
+    (--ci) CI=1 ;;
     (--) break;
     # shellcheck disable=SC2211
     (*)
       echo "Illegal option: $1"
-      echo "Usage: wh dev status [--fetch] [--verbose] [<modulename-regex>]"
+      echo "Usage: wh dev status [--fetch] [--verbose] [--ci] [<modulename-regex>]"
       exit 1 ;;
     esac
     shift
   done
+
+  if [ -n "$1" ]; then
+    echo "=== Status of modules matching '$1' ==="
+  else
+    echo "=== Status of $1$WEBHARE_CHECKEDOUT_TO ==="
+  fi
 
   for P in "$WEBHARE_CHECKEDOUT_TO" $DIRS; do
     if [ -d "$P/.git/refs/remotes" ]; then
@@ -178,28 +184,32 @@ if [ "$INSTR" == "status" ] || [ "$INSTR" == "st" ]; then
         git -C "$P" fetch -q
       fi
 
-      BRANCH=
-      if [ -n "$VERBOSE" ]; then
-        BRANCH=" (branch: $(git -C "$P" rev-parse --abbrev-ref HEAD))"
-      fi
+      BRANCH=" (branch: $(git -C "$P" rev-parse --abbrev-ref HEAD))"
 
       # run git status once just to see if there's output (seems to be the easiest way to check for 'any changes')
       ANYCHANGE=
       if [ -n "$(git -C "$P" status -uall -s)" ]; then
-        echo "Uncomitted changes in ${MODNAME}${BRANCH}:"
+        echo "${MODNAME}: Uncomitted changes${BRANCH}:"
         git -C "$P" status -uall -s
         UNCOMMITEDCHANGES="$UNCOMMITEDCHANGES $MODNAME"
         ANYCHANGE=1
       fi
 
+      if ! git -C "$P" status -sb | grep -e "^##.*\.\.\." > /dev/null ; then
+        echo "${MODNAME}: No upstream configured${BRANCH}"
+        continue
+      fi
       if [ -n "$(git -C "$P" cherry --abbrev=7 -v "@{upstream}")" ]; then
-        echo "Unpushed changes in ${MODNAME}${BRANCH}:"
+        echo "${MODNAME}: Unpushed changes${BRANCH}:"
         git -C "$P" cherry --abbrev=7 -v "@{upstream}"
         UNPUSHEDCHANGES="$UNPUSHEDCHANGES $MODNAME"
         ANYCHANGE=1
       fi
       if [ -z "$ANYCHANGE" ] && [ -n "$VERBOSE" ]; then
         echo "${MODNAME} is clean${BRANCH}"
+      fi
+      if [ -n "$CI" ]; then
+        echo "${MODNAME} CI status: $(wh devkit:ci-status -c "$P" 2> /dev/null)"
       fi
     fi
   done
