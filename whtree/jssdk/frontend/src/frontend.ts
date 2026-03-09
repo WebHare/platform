@@ -9,7 +9,6 @@ declare module "@webhare/frontend" {
 }
 
 import { onDomReady } from "@webhare/dompack";
-import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere post WH5.6!
 export { frontendConfig, getFrontendData, getSiteRoot } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout, getUserInfo, setupWebHareSSOTrigger } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
