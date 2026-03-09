@@ -38,17 +38,17 @@ function tryOrFallback<T>(func: () => Promise<T>, fallback: T): Promise<T> {
   return func().catch(() => fallback);
 }
 
-export async function getRepoInfo(dir: string) {
+export async function getRepoInfo(dir: string, options: { branch?: string } = {}) {
   const gitty = simpleGit({ baseDir: dir });
 
-  let branch = 'HEAD';
+  let branch;
   try {
-    branch = (await gitty.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'HEAD';
+    branch = options.branch || (await gitty.revparse(['--abbrev-ref', 'HEAD'])).trim() || 'HEAD';
   } catch (e) {
-    branch = 'HEAD';
+    branch = options.branch || 'HEAD';
   }
 
-  const head_oid = await tryOrFallback(() => gitty.revparse(['HEAD']), '');
+  const head_oid = await tryOrFallback(() => gitty.revparse([branch]), '');
   const origin_oid = await tryOrFallback(() => gitty.revparse([`origin/${branch}`]), '');
 
   const remotes = await gitty.getRemotes(true);
