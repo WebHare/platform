@@ -20,7 +20,7 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
     IF(Length(data.params) = 1 AND data.params[0] = "sleep")
       Sleep(500); //give focus steal test an unfair chance
 
-    INTEGER my_targetid := RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0;
+    INTEGER my_targetid := CellExists(this->tolliumcontroller->applicationtarget, "TEST") ? this->tolliumcontroller->applicationtarget.test : 0;
     this->targetval->value := my_targetid;
     ^engine->value := IsWasm() ? "wasm" : "native";
     this->UpdateTitle();
@@ -29,7 +29,7 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
 
   MACRO UpdateTitle()
   {
-    this->frame->title := "app_" || (RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0) || "_" || this->incomingmsgcount;
+    this->frame->title := "app_" || (CellExists(this->tolliumcontroller->applicationtarget, "TEST") ? this->tolliumcontroller->applicationtarget.test : 0) || "_" || this->incomingmsgcount;
   }
 
   MACRO UpdateExpiryDate()
@@ -62,7 +62,12 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
   {
     ABORT([[text := "DoAbortApp requested"],...RepeatElement([text := "Extra line"],40)]); //generate enough content to cause the errordialog to need scroll
   }
-
+  MACRO DoOOMApp()
+  {
+    STRING s := "OOM test";
+    WHILE (TRUE)
+      s := s || s; //exponentially grow the string to reach OOM faster
+  }
   MACRO DoOpenNoclose()
   {
     this->LoadScreen(".noclose")->RunModal();
