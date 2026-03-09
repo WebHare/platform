@@ -24,6 +24,7 @@ import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
 import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
+import { ComposedDocument } from "@webhare/services/src/composeddocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -2354,7 +2355,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       }
     }
 
-    return buildRTDFromComposedDocument({ text: val.blobdata, embedded, type: "platform:richtextdocument", links: new Map(), instances: new Map() });
+    return buildRTDFromComposedDocument(new ComposedDocument("platform:richtextdocument", val.blobdata, { embedded }));
   }
 
   validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): void {

@@ -15,7 +15,7 @@ import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/
 import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
-import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/src/composeddocument";
+import { buildComposedDocument, ComposedDocument, isComposedDocument, type ComposedDocumentType, type ExportedComposedDocument } from "@webhare/services/src/composeddocument";
 import { dbLoc } from "@webhare/services/src/symbols";
 
 /// Returns T or a promise resolving to T
@@ -693,7 +693,8 @@ export const codecs = {
   },
   "composedDocument": {
     getType: "ComposedDocument | null",
-    // FIXME: export format!
+    setType: "ComposedDocument | ExportedComposedDocument | null",
+    exportType: "ExportedComposedDocument | null",
 
     encoder: (value: ComposedDocument | null) => {
       if (!value)
@@ -713,7 +714,16 @@ export const codecs = {
           : throwError(`Unsupported composed document type indicator '${settings[0].setting}'`);
 
       return decodeComposedDocument(settings, type, context);
-    }
+    },
+    exportValue(value: ComposedDocument | null, member, afterDecode, options): MaybePromise<ExportedComposedDocument | null> {
+      // If afterDecode is true, the getData call will already have done the export conversion
+      return value ? value.export() : null;
+    },
+    importValue(value: ComposedDocument | ExportedComposedDocument | null, member, beforeEncode, options): MaybePromise<ComposedDocument | null> {
+      if (value && !isComposedDocument(value)) //looks like an ExportedComposedDocument
+        return buildComposedDocument(value, options);
+      return value;
+    },
   }
 } satisfies { [key in MemberType]: TypeCodec };
 
