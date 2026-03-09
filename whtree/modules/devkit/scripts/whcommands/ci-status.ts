@@ -1,13 +1,9 @@
 import { devsupportSchema } from "wh:wrd/devkit";
-import { executeGitCommand, executeGitCommandForeground, getRepoInfo } from '@mod-devkit/lib/internal/deploy/git';
+import { getRepoInfo } from '@mod-devkit/lib/internal/deploy/git';
 import process from 'node:process';
-import { Gitlab, type MergeRequestSchema, type PipelineSchema } from '@gitbeaker/rest';
-import { GitbeakerRequestError } from '@gitbeaker/requester-utils';
-import { pick, sleep } from '@webhare/std';
-import { logDebug } from '@webhare/services';
+import { Gitlab } from '@gitbeaker/rest';
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
 import { run } from "@webhare/cli";
-import { simpleGit } from 'simple-git';
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
