@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
@@ -16,6 +17,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
 
@@ -91,6 +93,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   BOOLEAN isnew;
   /// Parent folder of the new/edited object
   OBJECT parentfolder;
+  /// Source item (original file for duplications, draft or edited file when editing).
+  OBJECT sourceitem;
 
   RECORD basesettings;
 
@@ -202,7 +206,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       type := objinfo.type;
     }
     this->curtype := DescribeContentTypeById(type, CELL[ isfolder, mockifmissing := TRUE ]);
-    this->namefollowstitle := type != whconstant_whfstype_foreignfolder AND (isfolder OR this->curtype.ispublishedassubdir);
+    this->namefollowstitle := type != whconstant_whfstype_foreignfolder;
 
     STRING ARRAY workflowtypes := STRING[ "platform:web.config", "platform:web.metadata", ...options.workflowtypes ];
 
@@ -233,19 +237,24 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     Reflect(this->renderer->metatabsconfig);
   }
 
-  STRING FUNCTION GetSuggestedSlug() {
+  STRING FUNCTION GetSuggestedSlug(INTEGER parentfolder) {
+    IF(^title->value != "" OR this->itemid = 0) { //generates based on actual title, or fall back to a type-based name
+      STRING extension := ObjectExists(this->sourceitem) ? GetExtensionFromPath(this->sourceitem->name) : "";
+      RETURN SuggestSeoNameFromTitle(^title->value, CELL[ typeinfo := this->curtype, language := GetTidLanguage(), parentfolder, extension ]);
+    }
+
     //FIXME don't select from database, we should just load this info at startup. we need it for the titlebar anyway
-    RETURN ^title->value != "" ? SuggestSeoNameFromTitle(^title->value, [ typeinfo := this->curtype ]) : SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;
+    RETURN SELECT AS STRING name FROM system.fs_objects WHERE id = this->itemid;
   }
 
   MACRO SyncNameWithTitle()  {
-    ^name->placeholder := this->GetSuggestedSlug();
+    ^name->placeholder := this->GetSuggestedSlug(0);
     //TODO can Tollium control the refresh button's visibility based on title set/not set ?
     ^refreshnamebutton->visible := ^title->value != "";
   }
 
   MACRO DoRefreshName() {
-    ^name->value := this->GetSuggestedSlug();
+    ^name->value := this->GetSuggestedSlug(0);
   }
 
   MACRO RefreshMetaTabsReadonly()
@@ -270,7 +279,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->recyclebininfo := MemberExists(sourceobject, 'whfspath') AND IsRecycleBinWHFSPath(sourceobject->whfspath) ? GetRecycledObjectInfo(this->contexts->user, sourceobject->id) : DEFAULT RECORD;
 
     RECORD metadata := sourceobject->GetMetadata();
-    ^name->value := metadata.name;
+    IF(NOT this->isnew)
+      ^name->value := metadata.name;
     ^title->value := metadata.title;
     ^keywords->value := metadata.keywords;
     ^description->value := metadata.description;

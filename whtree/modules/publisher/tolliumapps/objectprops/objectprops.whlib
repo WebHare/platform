@@ -169,9 +169,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   /// system.sites record of the current folder (so only set when the current folder is a site)
   RECORD cursite;
 
-  /// Source item (original file for duplications, draft or edited file when editing)
-  OBJECT sourceitem;
-
   /**@}*/
 
   RECORD ARRAY addtabs;
@@ -236,8 +233,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     }
 
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ]) {
-      this->CalculateNameForNewObject();
-
       this->frame->title := this->isfolder ? this->GetTid(".newfolder-title")
                                            : this->GetTid(".newfile-title");
 
@@ -456,36 +451,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   //
   // Dialog init filling
   //
-
-  /// Sets the name field for a new object
-  MACRO CalculateNameForNewObject() {
-    IF (ObjectExists(this->sourceitem))
-    {
-      // Calculate unique name for duplicate of file
-      ^name->value := this->parentfolder->GenerateUniqueName(this->sourceitem->name);
-    }
-    ELSE IF(NOT this->namefollowstitle)
-    {
-      // The new file name
-      STRING newname;
-      IF (".html" IN this->curtype.extensions AND this->parentfolder->indexdoc = 0)
-      {
-        // The file is of an acceptable index type and there is no index document yet, so name the new file after an index file
-        newname := GetWebserverDefaultPage(RecordExists(this->parentsite) ? this->parentsite.outputweb : 0);
-      }
-      ELSE
-      {
-        // Create a new file name based on the type name
-        newname := GetTid(this->curtype.title);
-        IF (Length(this->curtype.extensions) > 0)
-          newname := newname || this->curtype.extensions[0];
-        //ADDME: Deze tid zet gewoon 'nieuw' voor het bestandstype, wat een beetje lelijk is in het geval van niet-onzijdige
-        //       typenamen, bijvoorbeeld 'nieuw contentopsomming.html'...
-        newname := this->parentfolder->GenerateUniqueName(ToLowercase(this->GetTid(".newfile-name", newname)));
-      }
-      ^name->value := newname;
-    }
-  }
 
   MACRO FillBaseFields()
   {
@@ -973,21 +938,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     RETURN TRUE;
   }
 
-  STRING FUNCTION GenerateAutoTitle()
-  {
-    STRING suggestedname := GetSafeFileName(UCLeft(^title->value, whconstant_publisher_autonamelength));
-    IF (suggestedname LIKE "*_")
-      suggestedname := Left(suggestedname,Length(suggestedname)-1);
-    IF (suggestedname = "")
-      suggestedname := "webhare";
-
-    // Add extension for file type
-    IF (NOT this->isfolder AND Length(this->curtype.extensions) > 0)
-      suggestedname := suggestedname || this->curtype.extensions[0];
-
-    RETURN this->parentfolder->GenerateUniqueName(suggestedname);
-  }
-
   MACRO UpdateTasks(INTEGER objid)
   {
     //First, delete old tasks
@@ -1251,7 +1201,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       INTEGER objid := this->itemid;
       IF(this->isnew) {
         IF(ObjectExists(this->sourceitem)) { //cloning an item
-          draftitem := this->sourceitem->CopyTo(this->parentfolder, metadata.name, [ createdby := this->contexts->user ]);
+          STRING name := CellExists(metadata, "name") ? metadata.name : this->GetSuggestedSlug(this->parentfolder->id);
+          draftitem := this->sourceitem->CopyTo(this->parentfolder, name, [ createdby := this->contexts->user ]);
           draftitem->UpdateMetadata(metadata);
         } ELSE IF (this->isfolder) {
           draftitem := this->parentfolder->CreateFolder(metadata, [ createdby := this->contexts->user ]);

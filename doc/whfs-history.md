@@ -64,6 +64,20 @@ with the snapshot pointing to the same draft (so there may be two version events
 Reverting a draft moves it to the snapshots folder and creates a 'revert' event pointing to the snapshot. A revert keeps
 its version number and a new draft generated from the source will have an incremented minor version.
 
+### File named and workflow
+Principles behind the 'name' field and its effect on the UI/WHFS:
+- A newly created RTD suggests its name based on the title (and if empty, a 'new document' like title).
+- As long as the user hasn't published the RTD, we want the name/title in WHFS to follow what the RTD is suggesting
+- 'New file/folder from template' and 'Duplicate' should act a lot like 'New file/folder' when in doubt. They should not suggest the original's filename but
+  re-suggest based on the title
+
+In practice:
+- Saving (draft) a publishable but unpublished document will immediately apply its name and title to WHFS
+  - This also ensures that a scheduled task publishing an unpublished draft does not need to rename at that moment.
+  - We will probably need UI to warn you about scheduling publication for a published
+- Publishing a document will apply the name and title to WHFS
+
+
 ## Background information
 - We use the `/webhare-private/system/whfs-XXX/<siteid>/` structure with fixed IDs for the whfs- folders so it only takes
   one `parent=xx and filelink=yy` query to find it.
