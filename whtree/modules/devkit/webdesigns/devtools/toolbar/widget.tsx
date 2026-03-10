@@ -1,8 +1,10 @@
 import * as dompack from '@webhare/dompack';
 import { onDomReady } from "@webhare/dompack";
 import { getToolsOrigin } from '../support/dtsupport';
-import type { BundleStatus, DevToolsSettings, FileStatus } from '../devtools';
+import type { FileStatus } from '../devtools';
 import { devState } from '../support';
+import type { UpdateAssetPacksEventDetail } from '../bundlewatcher/bundlewatcher';
+import type { DevToolsSettings } from '../support/settings';
 
 export class ToolbarWidget {
   //TODO Make these all private
@@ -82,7 +84,7 @@ export class ToolbarWidget {
     pageReloadScheduled?: boolean;
     pageRepublishReloadScheduled?: boolean;
     fileStatus?: FileStatus;
-    bundleStatus?: BundleStatus;
+    bundleStatus?: UpdateAssetPacksEventDetail;
   }) {
     if (changes.pageReloadScheduled !== undefined)
       this.toolbar_pagereload.classList.toggle("wh-outputtool__pagereload-scheduled", changes.pageReloadScheduled);
@@ -91,7 +93,7 @@ export class ToolbarWidget {
 
     if (changes.bundleStatus) {
       const assetsstatus = changes.bundleStatus.isUnknown ? { title: "unknown", description: "Connection to assetpack control failed" }
-        : changes.bundleStatus.isCompiling ? { title: "compiling", description: "At least one assetpack is recompiling" }
+        : changes.bundleStatus.isAnyCompiling ? { title: "compiling", description: "At least one assetpack is recompiling" }
           : changes.bundleStatus.anyErrors ? { title: "ERRORS", description: "Error in assetpacks prevent them from being uopdated" }
             : changes.bundleStatus.isStale ? { title: "STALE", description: "The page initialized with a stale assetpack. Refresh should fix unless caching is interfering" }
               : changes.bundleStatus.anyWarnings ? { title: "Warnings", description: "Assetpacks triggered warnings (but they were updated)" }
