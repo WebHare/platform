@@ -212,20 +212,28 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->ReadUserSettings();
 
     // Fill in the data about the object to edit/create.
-    this->SetCurrentObjectData(); //handles SetupEditBaseForExistingObject / SetupEditBaseForNewObject
+    this->SetCurrentObjectData(); //handles SetupEditBaseForExistingObject / SetupEditBaseForNewObject. this sets this->sourceitem for both Edit, Duplicate and template-based New
 
     /// Fill base fields from the source
     this->FillBaseFields(); //name,title,description
 
-    BOOLEAN canschedule := RecordExists(this->parentsite) AND this->parentsite.outputweb != 0; // site is published _some_where
     IF (this->isfolder) {
-      ^publish->visible := FALSE;
       ^makeindex->visible := FALSE;
       ^tasksettings->visible := FALSE;
     }
 
     //ADDME: Set using site profile?
+    BOOLEAN iscurrentlypublished := this->startdata.why = "edit" AND this->sourceitem->isfile AND this->sourceitem->publish;
     ^keywords->visible := NOT this->isfolder;
+    ^publish->visible := this->curtype.ispublishable OR iscurrentlypublished;
+
+    //For existing items, copy actual publish setting. For new items, look at initialpublish setting. don't distinguish between duplicate/templates etc, KISS
+    ^publish->value := this->startdata.why = "edit" ? iscurrentlypublished : ^publish->visible AND this->curtype.initialpublish;
+    ^notpublished->visible := NOT ^publish->value;
+
+    IF(NOT ^publish->visible) {
+      ^notpublishedtext->value := this->GetTid(".typenotpublished", ^type->value);
+    }
 
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ]) {
       this->CalculateNameForNewObject();
@@ -238,17 +246,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           ^path->folder := this->parentfolder->id;
         }
 
-        canschedule := canschedule AND this->curtype.ispublishable;
-        BOOLEAN cansetpublish := canschedule;
-
-        BOOLEAN initialpublish := cansetpublish AND this->curtype.initialpublish;
-
-        ^notpublished->visible := NOT cansetpublish;
-        ^notpublishedtext->value := this->curtype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
-        ^publish->visible := cansetpublish;
-        //ADDME introduce 'initialpublish' or something like that for all file types. or it should somehow be linked to the use of the editdocument app, i can image editdocument to be more internalized than 'just an editor app'
-        ^publish->value := initialpublish;
-
         // First file in the parentfolder? (no need to check if this type is acceptable, is done later)
         IF(NOT RecordExists(SELECT FROM system.fs_objects WHERE parent=this->parentfolder->id AND isfolder=FALSE))
           ^makeindex->value := TRUE;
@@ -260,13 +257,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       IF (RecordExists(this->recyclebininfo))
         this->InitFieldsForItemInRecycleBin();
 
-      canschedule := canschedule AND this->sourceitem->isactive;
-
       IF (NOT this->isfolder)
-      {
-        canschedule := canschedule AND this->curtype.ispublishable;
         this->InitConsilioInfo();
-      }
 
       this->frame->title := RecordExists(this->cursite)
                                ? this->GetTid(".editsite-title", this->sourceitem->name)
@@ -304,16 +296,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
           }
         }
       }
-      //illegal filename? (can happen through webdav: eg word temp files)
-      BOOLEAN cansetpublish := canschedule OR (this->sourceitem->publish AND (NOT inittype.ispublishable OR NOT IsValidWHFSName(this->sourceitem->name,FALSE)));
-
-      ^notpublished->visible := NOT cansetpublish;
-      ^notpublishedtext->value := NOT this->sourceitem->isactive ? this->GetTid(".trashnotpublished") : inittype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
-      ^publish->visible := cansetpublish;
-      IF(this->startdata.why = "edit")
-      {
-        ^publish->value := this->sourceitem->publish;
-      }
 
       IF(NOT this->isduplicate)
       {
@@ -325,7 +307,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     this->UpdateMakeIndexVisibility();
 
     // Tasks
-    ^tasksettings->visible := canschedule;
     this->ReloadTaskList();
     this->SetupObjectProps();
 
@@ -563,7 +544,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       ^cancel_button->title := GetTid("~ok");
     }
     ^publicationsettings->visible := ^publish->visible OR ^makeindex->visible;
-    ^publishpanel->visible := ^notpublished->visible OR ^publicationsettings->visible OR ^tasksettings->visible;
+    ^publishpanel->visible := ^notpublished->visible OR ^publicationsettings->visible;
   }
 
   MACRO InitFieldsForItemInRecycleBin()
