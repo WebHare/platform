@@ -1,8 +1,9 @@
-<?wh
+<?wh (*WASMENGINE*)
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -106,10 +107,9 @@ FOREVERY(STRING modname FROM checklist)
 
   IF (NOT args.silent)
     Print(`Checking module ${modname}...${args.nowarnings ? " (no warnings)" : ""}${args.hidehints ? " (hide hints)" : ""}${args.nochecktypescript ? " (no typescript checking)" : ""}${args.onlytids ? " (only tids)":""}\n`);
-  OBJECT promise := AsyncCallFunctionFromJob(
-              "mod::system/lib/internal/modules/checkmodule.whlib#CheckModule",
-              modname, CELL
-              [ printissues := TRUE
+
+  RECORD settings :=
+         CELL[ printissues := TRUE
               , args.debug
               , args.onlytids
               , args.filemask
@@ -118,7 +118,14 @@ FOREVERY(STRING modname FROM checklist)
               , checktypescript := checktypescript AND NOT args.nochecktypescript
               , args.hidehints
               , onlypaths
-              ]);
+              ];
+
+  OBJECT promise;
+  IF(Length(checklist) > 1) //run in parallel
+    promise := AsyncCallFunctionFromJob("mod::system/lib/internal/modules/checkmodule.whlib#CheckModule", modname, settings);
+  ELSE
+    promise := CreateResolvedPromise(MakeFunctionPtr("mod::system/lib/internal/modules/checkmodule.whlib#CheckModule")(modname, settings));
+
   INSERT promise INTO promises AT END;
 
   IF (args."sync")
