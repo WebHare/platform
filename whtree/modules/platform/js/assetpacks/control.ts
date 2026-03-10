@@ -11,11 +11,10 @@ import { buildRecompileSettings, recompile } from "@mod-platform/js/assetpacks/c
 import type { AssetPack } from "@mod-system/js/internal/generation/gen_extracts";
 import { debugFlags } from "@webhare/env";
 import * as fs from "node:fs/promises";
-import { loadAssetPacksConfig, type AssetPacksConfig } from "./api";
+import { loadAssetPacksConfig, type AssetPacksConfig, type AssetPackBundleStatus, type AssetPackMiniStatus } from "./api";
 import { runInWork } from "@webhare/whdb";
 import { getAssetPackState, readBundleSettings, writeBundleSettings, type BundleSettings } from "./support";
 import type { AssetPackState } from "./types";
-import type { AssetPackBundleStatus, AssetPackMiniStatus } from "../devsupport/devbridge";
 
 let updatedAssetPacks: Set<string> | undefined;
 

@@ -8,6 +8,7 @@ https://webhare.moe.sf.webhare.dev/?app=devkit:browsemodule(dev)
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT browsemodule := ImportJS("./browsemodule.ts");
 OBJECT devbridge := ImportJS("@mod-platform/js/devsupport/devbridge.ts");
@@ -22,7 +23,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->module := data.target.module;
     ELSE IF(Length(data.params) > 0)
       this->module := data.params[0];
-    ELSE IF(this->module IN devbridge->getBuiltinModules()) //this includes 'platform'
+    ELSE IF(this->module IN whconstant_builtinmodules) //this includes 'platform'
       this->module := "platform";
 
     this->frame->title := `Browse: ${this->module}`;

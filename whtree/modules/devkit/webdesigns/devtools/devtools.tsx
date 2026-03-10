@@ -11,7 +11,7 @@ import type { ValidationMessageWithType } from "@mod-platform/js/devsupport/vali
 import { debugFlags } from "@webhare/env";
 import { ToolbarWidget } from "./toolbar/widget";
 import { getToolsOrigin } from "./support/dtsupport";
-import type { AssetPackBundleStatus } from "@mod-platform/js/devsupport/devbridge";
+import type { AssetPackBundleStatus } from "@mod-platform/js/assetpacks/api";
 import { parseTyped, pick } from "@webhare/std";
 import { devState } from "./support";
 
@@ -460,9 +460,5 @@ const toolbarWidget = new ToolbarWidget(settings, {
 dompack.onDomReady(onDomReady);
 setupWebsocket();
 void getToolsSocketPromise().then(socket => initForFile(socket));
-
-window.whDev = {
-  watchAssetPack: bundlewatcher.watchAssetPack
-};
 
 addEventListener("wh-devkit:updateassetpacks", () => updateAssetPackStatus);
