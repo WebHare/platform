@@ -1528,12 +1528,17 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="webfeatures" type="sc:WildcardMasks">
+    <xs:attribute name="webfeatures">
       <xs:annotation>
         <xs:documentation>
           Masks of active webfeatures to match
         </xs:documentation>
       </xs:annotation>
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[a-z0-9][a-z0-9_.]*:[a-z0-9_]+"/>
+        </xs:restriction>
+      </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="filetype" type="xs:string" />
     <xs:attribute name="foldertype" type="xs:string" />

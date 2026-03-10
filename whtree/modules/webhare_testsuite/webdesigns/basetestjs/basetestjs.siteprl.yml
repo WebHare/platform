@@ -169,3 +169,7 @@ apply:
       pageHooks: "../basetest/lib/basetest.whlib#CaptchaFormHooks"
     captcha:
       skipFunction: "../basetest/lib/basetest.whlib#SkipCaptcha"
+  - to:
+      webFeature: "webhare_testsuite:testfeature"
+    userData:
+      webhare_testsuite:setting: '{"hasTestFeature":true}'

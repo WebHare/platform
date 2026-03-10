@@ -627,7 +627,7 @@ $defs:
           webFeature:
             type: string
             description: "Matches if the containing site has enabled the specific webfeature"
-            pattern: "^[a-z][a-z0-9_.]:[a-z0-9]$"
+            pattern: "^[a-z][a-z0-9_.]*:[a-z0-9]+$"
       - type: string # TODO considering removing all but 'all'
         enum:
           - "all"
