@@ -184,6 +184,16 @@ export class CPageRequest {
       this.pageMetaData.robotsTag.noFollow = true;
     if (baseProps.noarchive)
       this.pageMetaData.robotsTag.noArchive = true;
+
+    // Initialize the breadcrumb
+    const breadcrumb = this.pageMetaData.breadcrumb;
+    for (const pathEntry of this.targetPath) {
+      breadcrumb.push({
+        "@type": "ListItem",
+        url: pathEntry.link || undefined,
+        name: pathEntry.title || pathEntry.name || undefined,
+      });
+    }
   }
 
   get siteLanguage() {
@@ -346,7 +356,15 @@ export class CPageRequest {
     return '';
   }
 
+  private getFinalStructuredData() {
+    return this.pageMetaData.structuredData.map(item => ({
+      "@context": "https://schema.org",
+      ...item
+    }));
+  }
+
   private async renderBodyFinale(): Promise<Litty> {
+    const schemaOrgItems = this.getFinalStructuredData();
     return litty`
       ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
       ${
@@ -362,7 +380,8 @@ export class CPageRequest {
       //   PrintInvokedWitties();
       //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
       ""}
-        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}`;
+        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}
+        <script type="application/ld+json">${rawLitty(stringify(schemaOrgItems, { target: "script" }))}</script>`;
   }
 
   private async buildPage(head: Litty | undefined, body: Litty, settings: SiteResponseSettings): Promise<Litty> {

@@ -1,3 +1,5 @@
+import type { ListItem, Thing } from "schema-dts";
+
 const INITIAL_ROBOTS_TAG = {
   noIndex: false,
   noFollow: false,
@@ -19,6 +21,9 @@ export class PageMetaData {
   keywords = "";
   canonicalUrl: string | null = null;
 
+  /** schema.org metadata for this page */
+  structuredData: Array<Exclude<Thing, string>> = [];
+
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
   #htmlPrefixes: Map<string, [string, string]> = new Map();
   get htmlPrefixes(): ReadonlyArray<[string, string]> {
@@ -35,6 +40,17 @@ export class PageMetaData {
 
   constructor() {
     this.viewport = "width=device-width, initial-scale=1.0";
+  }
+
+  /** Breadcrumb to the current page. Initialized using the targetPath by default, starts at site root and ends at the current targetObject */
+  get breadcrumb(): ListItem[] {
+    let crumb = this.structuredData.find(_ => _["@type"] === "BreadcrumbList");
+    if (!crumb) {
+      crumb = { "@type": "BreadcrumbList" };
+      this.structuredData.push(crumb);
+    }
+    crumb.itemListElement ||= [];
+    return crumb.itemListElement as ListItem[];
   }
 
   /** Register a prefix on the <html> node

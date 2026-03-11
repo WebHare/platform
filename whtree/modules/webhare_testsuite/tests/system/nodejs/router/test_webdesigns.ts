@@ -203,11 +203,11 @@ async function testPageResponseJSRTD() {
 
   //Test widget preview in testsitejs (JS renderer)
   const htmlWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/htmlwidget");
-  test.eq([`<b>htmlwidget</b>`], htmlWidgetJSSite.bodyElements);
+  test.eq([`<b>htmlwidget</b>`, /^<script type="application\/ld\+json">.*<\/script>$/], htmlWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], htmlWidgetJSSite.htmlClasses);
 
   const jsWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/jswidget");
-  test.eq([`<div>js widget</div>`], jsWidgetJSSite.bodyElements);
+  test.eq([`<div>js widget</div>`, /^<script type="application\/ld\+json">.*<\/script>$/], jsWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], jsWidgetJSSite.htmlClasses);
 }
 

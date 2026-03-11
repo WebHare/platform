@@ -3,4 +3,5 @@
   <test script="test_markdown.ts" />
   <test script="test_webdesigns.ts" />
   <test script="test_jswebserver.ts" />
+  <test script="test_structureddata.ts" />
 </group>
