@@ -11,24 +11,15 @@ import type { ValidationMessageWithType } from "@mod-platform/js/devsupport/vali
 import { debugFlags } from "@webhare/env";
 import { ToolbarWidget } from "./toolbar/widget";
 import { getToolsOrigin } from "./support/dtsupport";
-import type { AssetPackBundleStatus } from "@mod-platform/js/devsupport/devbridge";
 import { parseTyped, pick } from "@webhare/std";
 import { devState } from "./support";
+import { __settings, getSettings, type DevToolsSettings } from "./support/settings";
 
 declare global {
   interface Window {
     //initialized by debugLoader so we should be able to assume its present
     __loadedDevTools: Set<string>;
   }
-}
-
-export class DevToolsSettings {
-  //the values here are the defaults
-  cssReload = true;
-  fullReload = false;
-  resourceReload = false;
-  tools = true;
-  showWarnings = true;
 }
 
 type WHOutputToolData = { //inferred, get from devbridge
@@ -48,18 +39,7 @@ type RenderingSummary = { //inferred type, link back to a devbridge type
   }>;
 };
 
-// let toolbar_resstatus = null, toolbar_resreload = null, toolbar_resreloadcheck = null;
-// let toolbar_fullreload = null, toolbar_fullreloadcheck = null;
-
-let bundlestatus = {
-  isUnknown: true,
-  isCompiling: false,
-  isStale: false,
-  anyErrors: false,
-  anyWarnings: false
-};
-
-export type BundleStatus = typeof bundlestatus;
+let bundlestatus: bundlewatcher.UpdateAssetPacksEventDetail | undefined;
 
 export type FileStatus = {
   hasfile: boolean;
@@ -75,11 +55,6 @@ let reloadonok = false;
 /// Have we loaded outdated assetpacks already?  this is worse than outdated status which appears due to a recompile *after* pageload
 const watchedresources = new Array<string>();
 let infonode: HTMLElement | null = null;
-
-const settings = new DevToolsSettings();
-
-//Assets we've seen compiling so that we know to reload when they're done (TODO not really robust, we may have missed the recompile if its completion races page load)
-const seenCompiling = new Set<string>;
 
 function clearInfoNode() {
   if (infonode) {
@@ -111,20 +86,17 @@ function setInfoNode(data: { wait?: string; messages?: ValidationMessageWithType
   }
 }
 
-type SocketBundleStatus = (AssetPackBundleStatus & { getstatuserror: "" }) | ({ getstatuserror: Exclude<string, ""> } & { outputtag: string });
-
 function formatValidationMessage(msg: ValidationMessageWithType): string {
   return `${msg.resourcename}:${msg.line}:${msg.col}: ${msg.type[0].toUpperCase()}${msg.type.substring(1)}: ${msg.message}`;
 }
 
-let packs: SocketBundleStatus[] = [];
-
-function handleAssetPackStatus(newPacks: SocketBundleStatus[]) {
-  packs = newPacks;
-  updateAssetPackStatus();
+function handleAssetPackStatus(newPacks: bundlewatcher.SocketBundleStatus[]) {
+  bundlewatcher.handleStatusUpdates(newPacks);
+  // updateAssetPackStatus();
 }
 
-function updateAssetPackStatus() {
+function updateAssetPackStatus(event: CustomEvent<bundlewatcher.UpdateAssetPacksEventDetail>) {
+  /*
   if (packs.some(pack => pack.getstatuserror)) {
     console.warn("Your assetpack has been removed");
     for (const pack of packs) {
@@ -135,68 +107,26 @@ function updateAssetPackStatus() {
     bundlestatus.isUnknown = true;
     updateToolbar();
     return;
+  }*/
+
+  if (event.detail.isAnyCompiling && getSettings().fullReload && !reloadonok) {
+    toolbarWidget.updateState({ pageReloadScheduled: true });
+    reloadonok = true;
   }
 
-  //NOTE: If we get here, no packs have a non-empty getstatus. activePacks is there to keep TS happy
-  const activePacks = packs as AssetPackBundleStatus[];
-  const doneCompiling = [...seenCompiling].filter(outputtag => !activePacks.some(pack => pack.outputtag === outputtag && pack.iscompiling));
-  doneCompiling.forEach(outputtag => seenCompiling.delete(outputtag));
-  activePacks.filter(pack => pack.iscompiling).forEach(pack => seenCompiling.add(pack.outputtag));
-  const anyCompiling = activePacks.some(pack => pack.iscompiling);
-  const anyMessages = activePacks.some(pack => !pack.iscompiling && pack.messages.length);
-  const outdated = activePacks.filter(pack => pack.lastcompile && window.whAssetPacks?.[pack.outputtag] && new Date(window.whAssetPacks[pack.outputtag]).getTime() !== pack.lastcompile.getTime());
-  if (window.whAssetPacks && outdated.length) {
-    for (const outdatedpack of outdated)
-      if (outdatedpack.lastcompile!.getTime() < new Date(window.whAssetPacks?.[outdatedpack.outputtag]).getTime())
-        console.error(`Assetpack ${outdatedpack.outputtag} actual compilationtime ${window.whAssetPacks[outdatedpack.outputtag]} is newer than lastcompile time ${outdatedpack.lastcompile!.toISOString()} as reported by assetpack service - this may be caused by multiple assetpack controllers running`);
-      else if (debugFlags.devdebug)
-        console.log(`[dev/debugjs] Outdated pack: ${outdatedpack.outputtag}, lastcompile=${outdatedpack.lastcompile!.toISOString()}, whAssetPacks=${window.whAssetPacks[outdatedpack.outputtag]}`);
-  }
-  const anyErrors = activePacks.some(pack => !pack.iscompiling && pack.messages.some(msg => msg.type === "error"));
-  if (anyCompiling) {
-    console.warn("Your assets are out of date and are being recompiled");
-    if (debugFlags.devdebug)
-      console.log(`[dev/debugjs] Currently compiling: ${activePacks.filter(pack => pack.iscompiling).map(pack => pack.outputtag).join(", ")}`);
-    devState.hadrecompile = true;
-    if (settings.fullReload && !reloadonok) {
-      toolbarWidget.updateState({ pageReloadScheduled: true });
-      reloadonok = true;
-    }
-    setInfoNode({ wait: "Your assets are out of date and are being recompiled" });
-  } else if (anyMessages) {
-    if (anyErrors)
-      console.error("Your assets are out of date because of a compilation error");
-    else
-      console.warn("Your assets are reporting warnings");
-
-    const messages = [];
-    for (const pack of activePacks)
-      for (const msg of pack.messages) {
-        messages.push(msg);
-        if (msg.type === "error" || settings.showWarnings)
-          console.log(`(${pack.outputtag}: ${formatValidationMessage(msg)}`);
-      }
-
-    setInfoNode({ messages: messages });
-  } else {
-    if (debugFlags.devdebug)
-      console.log(`[dev/debugjs] Currently not compiling`);
+  if (event.detail.allMessages.length)
+    setInfoNode({ messages: event.detail.allMessages });
+  else
     clearInfoNode();
-  }
 
-  bundlestatus = {
-    isUnknown: false,
-    isCompiling: anyCompiling,
-    isStale: outdated.length > 0,
-    anyErrors: anyErrors,
-    anyWarnings: activePacks.some(pack => pack.messages.some(msg => msg.type === "warning")),
-  };
-  updateToolbar();
+  if (filestatus)
+    toolbarWidget.updateState({
+      fileStatus: filestatus,
+      bundleStatus: event.detail
+    });
 
+  bundlestatus = event.detail;
   checkReload();
-
-  for (const pack of doneCompiling)
-    onCompilingDone(pack);
 }
 
 
@@ -223,7 +153,7 @@ function handleToolssocketMessage(event: MessageEvent) {
       console.warn("This file is being republished");
       devState.hadrepublish = true;
 
-      if (settings.fullReload && !reloadonok) {
+      if (getSettings().fullReload && !reloadonok) {
         toolbarWidget.updateState({ pageRepublishReloadScheduled: true });
         reloadonok = true;
       }
@@ -250,7 +180,7 @@ function handleToolssocketMessage(event: MessageEvent) {
   }
   if (msgdata.type === "resource-change") {
     devState.hadresourcechange = true;
-    if (settings.resourceReload)
+    if (getSettings().resourceReload)
       reloadonok = true;
     updateToolbar();
     checkReload();
@@ -273,14 +203,14 @@ function setupWebsocket() {
   toolssocket.addEventListener('message', handleToolssocketMessage);
 }
 
-function checkReload() {
+function checkReload() { //TODO move to bundlewatcher? that one explicitly tracks isCompilationComplete as an edge trigger. but doesn't know about FileStatus
   if (!reloadonok)
     return;
 
-  const bundle_done = !bundlestatus || (!bundlestatus.isCompiling);
+  const bundle_done = !bundlestatus || (!bundlestatus.isAnyCompiling);
   const file_done = !filestatus || (!filestatus.isdeleted && !filestatus.ispublishing);
   if (bundle_done && file_done) {
-    const bundle_ok = !bundlestatus.isUnknown && !bundlestatus.anyErrors;
+    const bundle_ok = bundlestatus && !bundlestatus.isUnknown && !bundlestatus.anyErrors;
     const file_ok = !filestatus || filestatus.isok;
 
     if (bundle_ok && file_ok) {
@@ -299,12 +229,6 @@ function checkReload() {
   }
 }
 
-function onCompilingDone(bundletag: string) {
-  if (debugFlags.devdebug)
-    console.log(`[dev/debugjs] Compilation of ${bundletag} completed`);
-  if (settings.cssReload)
-    void bundlewatcher.reloadCSSForBundle(bundletag);
-}
 
 
 async function onPageReloadClick(e: MouseEvent) {
@@ -317,10 +241,9 @@ async function onPageReloadClick(e: MouseEvent) {
   const livesocket = await getToolsSocketPromise();
   toolbarWidget.updateState({ pageReloadScheduled: true });
   reloadonok = true;
-  if (!bundlestatus || (!bundlestatus.isCompiling && (!devState.hadrecompile || bundlestatus.anyErrors))) {
+  if (!bundlestatus || (!bundlestatus.isAnyCompiling && (!devState.hadrecompile || bundlestatus.anyErrors))) {
     livesocket.send(JSON.stringify({ type: 'recompileassetpack', uuids: bundlewatcher.getAllBundleIds() }));
-    bundlestatus.isCompiling = true;
-    updateToolbar();
+    bundlewatcher.markAllAsCompiling(); //otherwise checkReload will think we're done immediaely
   }
 
   // Also republish if republishing had failed
@@ -351,10 +274,11 @@ async function onPageRepublishReloadClick(e: MouseEvent) {
   }
 
   // Also recompile if bundle compile failed
-  if (!bundlestatus || (!bundlestatus.isCompiling && bundlestatus.anyErrors)) {
+  if (!bundlestatus || (!bundlestatus.isAnyCompiling && bundlestatus.anyErrors)) {
     livesocket.send(JSON.stringify({ type: 'recompileassetpack', uuids: bundlewatcher.getAllBundleIds() }));
-    bundlestatus.isCompiling = true;
-    updateToolbar();
+    bundlewatcher.markAllAsCompiling(); //otherwise checkReload will think we're done immediaely
+    // bundlestatus.isCompiling = true;
+    // updateToolbar();
   }
 
   checkReload();
@@ -402,10 +326,7 @@ async function processResourceData(data: WHOutputToolData) {
 
 function updateToolbar() {
   if (filestatus)
-    toolbarWidget.updateState({
-      fileStatus: filestatus,
-      bundleStatus: bundlestatus
-    });
+    toolbarWidget.updateState({ fileStatus: filestatus });
 
   window.__loadedDevTools.add("devkit:devtools");
 }
@@ -417,7 +338,7 @@ function initForFile(toolssocket: WebSocket) {
 }
 
 function updateSettings(newSettings: Partial<DevToolsSettings>) {
-  Object.assign(settings, pick(newSettings, Object.keys(settings) as Array<keyof DevToolsSettings>));
+  Object.assign(__settings, pick(newSettings, Object.keys(__settings) as Array<keyof DevToolsSettings>));
 
   if (newSettings.fullReload !== undefined) {
     if (devState.hadrecompile || devState.hadrepublish) {
@@ -440,8 +361,8 @@ function updateSettings(newSettings: Partial<DevToolsSettings>) {
     }
   }
 
-  document.documentElement.classList.toggle("wh-outputtool--showtools", settings.tools);
-  dompack.setLocal<DevToolsSettings>("whoutputtool-settings", settings);
+  document.documentElement.classList.toggle("wh-outputtool--showtools", __settings.tools);
+  dompack.setLocal<DevToolsSettings>("whoutputtool-settings", __settings);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -451,7 +372,7 @@ function updateSettings(newSettings: Partial<DevToolsSettings>) {
 
 // Initialize and load settings
 updateSettings(dompack.getLocal<Partial<DevToolsSettings>>("whoutputtool-settings") || {});
-const toolbarWidget = new ToolbarWidget(settings, {
+const toolbarWidget = new ToolbarWidget(getSettings(), {
   onPageReloadClick,
   onPageRepublishReloadClick,
   onSettingsUpdate: updateSettings
@@ -461,8 +382,4 @@ dompack.onDomReady(onDomReady);
 setupWebsocket();
 void getToolsSocketPromise().then(socket => initForFile(socket));
 
-window.whDev = {
-  watchAssetPack: bundlewatcher.watchAssetPack
-};
-
-addEventListener("wh-devkit:updateassetpacks", () => updateAssetPackStatus);
+addEventListener("wh-devkit:updateassetpacks", e => updateAssetPackStatus(e));
