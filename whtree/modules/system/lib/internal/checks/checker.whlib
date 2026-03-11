@@ -30,7 +30,7 @@ PUBLIC RECORD FUNCTION GetWHVersionInfo()
 {
   RECORD versioninfo := GetWebhareVersionInfo();
   STRING versionname := `WebHare ${versioninfo.version} (`;
-  IF(versioninfo.branch != "" AND versioninfo.branch NOT LIKE "release/*")
+  IF(versioninfo.branch != "")
     versionname := versionname || versioninfo.branch || "@";
   versionname := versionname || Left(versioninfo.committag,7) || ")";
 

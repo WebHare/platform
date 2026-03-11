@@ -30,6 +30,7 @@ MACRO SimpleTest()
   TestEq(TRUE, ObjectExists(firstfolder));
 
   TestEq(TRUE, firstfolder->isfolder);
+  TestEq(FALSE, firstfolder->isfile);
   TestEq(firstfolder->id, OpenWHFSObjectByPath('/webhare-tests/' || firstfolder->name)->id);
   TestEq(firstfolder->id, OpenWHFSObjectByPath(firstfolder->whfspath)->id);
   TestEq(FALSE, ObjectExists(OpenWHFSObjectByPath(firstfolder->whfspath || "bla")));
@@ -69,6 +70,8 @@ MACRO SimpleTest()
   TestEq("Testfile", BlobToString(subfolder->GetResource("testfile.txt")));
   TestEq("Testfile", BlobToString(subfolder->GetResource("../sub/testfile.txt")));
   TestEq("Testfile", BlobToString(subfolder2->GetResource("../sub/testfile.txt")));
+  TestEq(FALSE, testfile->isfolder);
+  TestEq(TRUE, testfile->isfile);
 
   TestEq("Testfile", BlobToString(subfolder2->GetResource("whfs::" || testfile->whfspath)));
 

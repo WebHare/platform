@@ -378,6 +378,8 @@ OBJECTTYPE WHFSObject <
   /// Whether this is a folder
   BOOLEAN pvt_isfolder;
 
+  /// Whether this is a file
+  BOOLEAN pvt_isfile;
 
   /// Whether this object exists (isn't deleted)
   BOOLEAN pvt_exists;
@@ -468,6 +470,8 @@ OBJECTTYPE WHFSObject <
   /// Whether this is a folder
   PUBLIC PROPERTY isfolder(pvt_isfolder,-);
 
+  /// Whether this is a file (NOT isfolder)
+  PUBLIC PROPERTY isfile(pvt_isfile,-);
 
   /// Id of this object
   PUBLIC PROPERTY id(pvt_id,-);
@@ -613,6 +617,7 @@ OBJECTTYPE WHFSObject <
     this->pvt_fsobjectdata := me;
     this->pvt_id := me.id;
     this->pvt_isfolder := me.isfolder;
+    this->pvt_isfile := NOT me.isfolder;
     this->pvt_parent := me.parent;
     this->pvt_parentsite := me.parentsite;
     this->pvt_highestparent := me.highestparent;
