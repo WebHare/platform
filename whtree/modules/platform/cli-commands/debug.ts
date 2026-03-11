@@ -6,7 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import { spawn, spawnSync } from "node:child_process";
-import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, run, type CLIArgumentType } from "@webhare/cli";
 import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
@@ -21,8 +21,18 @@ function parseHostPort(str: string) {
   return { host: matchRes[2] || null, port: parseInt(matchRes[3]) };
 }
 
+function threadOption(): CLIArgumentType<string> {
+  return {
+    parseValue: (arg: string) => {
+      if (!/^[0-9]+(\.[0-9]+)?$/.test(arg))
+        throw new CLISyntaxError(`Invalid thread format: ${arg}, expected pid or pid.workerid format`);
+      return arg;
+    }
+  };
+}
+
 const argProcess = { name: "<process>", description: "Target process pid" } as const;
-const argThread = { name: "<thread>", description: "Target process with optional workerid in pid[.workerid] format" } as const;
+const argThread = { name: "<thread>", description: "Target process with optional workerid in pid[.workerid] format", type: threadOption() } as const;
 const forceFlagOption = { "f,force": { description: "Force the change even if flag is unknown or undocument" } } as const;
 
 run({
