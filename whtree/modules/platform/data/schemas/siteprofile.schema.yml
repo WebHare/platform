@@ -509,6 +509,8 @@ $defs:
         $ref: "#/$defs/ApplyForms"
       captcha:
         $ref: "#/$defs/ApplyCaptcha"
+      videoWidget:
+        $ref: "#/$defs/ApplyVideoWidget"
       fileTypes:
         $ref: "#/$defs/ApplyTypes"
       folderTypes:
@@ -986,6 +988,27 @@ $defs:
     properties:
       skipFunction:
         type: string
+
+  ApplyVideoWidget:
+    type: object
+    additionalProperties: false
+    # TODO would be nice to merge v1 & v2 video again, eg offer an 'opt-out' for 'click to load' to match v1 behavior ?
+    description: Configure the video widget. If this property is set (even without subporoperties) the videowidget is replaced by a click-before-load and it can optionally require consent too
+    properties:
+      requireConsent:
+        description: The type of consent required (as defined in your consent handler, eg 'marketing')
+        type: string
+      breakpoints:
+        description: A list of pixel sizes for which smaller images will be prepared
+        type: array
+        items:
+          type: number
+          minimum: 1
+      limitNetworks:
+        description: List of network masks to which we should limit our network selection
+        type: array
+        items:
+          type: string
 
   ApplyFolderSettings:
     type: object

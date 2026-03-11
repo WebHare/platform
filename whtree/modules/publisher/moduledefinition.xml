@@ -517,7 +517,9 @@
                      objectname="lib/internal/pwa/pwafileplugin.whlib#pwafileplugin" />
     <webdesignplugin name="videowidget"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-                     objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin" />
+                     objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin"
+                     yamlproperty="videoWidget"
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetVideoWidgetAsYaml" />
 
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />
