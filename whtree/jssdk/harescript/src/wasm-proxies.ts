@@ -171,9 +171,40 @@ export class HSVMMarshallableOpaqueObject {
       const id = (this as unknown as { __hsvm_id: string }).__hsvm_id;
       const mod = value.vm._getHSVM().wasmmodule;
       mod._HSVM_ObjectInitializeEmpty(value.vm.hsvm, value.id);
-      value.insertMember("^$WASMTYPE", "JSProxy", { isPrivate: true });
-      value.insertMember("^$OBJECTID", id, { isPrivate: true });
+      const lib = value.vm.wasmmodule.stringToNewUTF8("wh::javascript.whlib");
+      const obj = value.vm.wasmmodule.stringToNewUTF8("__JSPROXY");
+      const extendResult = mod._HSVM_ObjectExtend(value.vm.hsvm, value.id, lib, obj);
+      if (!extendResult)
+        throw new Error(`Failed to extend object with JSProxy functionality. Make sure the library 'mod::system/whlibs/javascript.whlib' is loaded in the HSVM.`);
+      value.getMemberRef("^$WASMTYPE").setString("JSProxy");
+      value.getMemberRef("^$OBJECTID").setString(id);
       value.vm.proxies.set(id, this);
     }
   };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function __callMember(obj: any, name: string, args: unknown[]) {
+  if (typeof obj !== "object" || obj === null)
+    throw new Error(`Cannot call member '${name}' of non-object value`);
+
+  if (typeof obj[name] !== "function")
+    throw new Error(`Member '${name}' is not a function`);
+
+  return obj[name](...args);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function __getMember(obj: any, name: string) {
+  if (typeof obj !== "object" || obj === null)
+    throw new Error(`Cannot call member '${name}' of non-object value`);
+
+  return obj[name];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function __setMember(obj: any, name: string, value: any) {
+  if (typeof obj !== "object" || obj === null)
+    throw new Error(`Cannot call member '${name}' of non-object value`);
+  obj[name] = value;
 }

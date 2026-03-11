@@ -153,6 +153,10 @@ IF(IsWasm()) { //Support opaque object marshalling
   TestEq(11, CallJS("./data/calls.ts#getObjectValue", jsobj_11_b));
   TestAssert(jsobj_11_b != jsobj_11, "Objects on the HS side don't yet have the same identity. Would have been nice...");
 
+  TestEQ(11, jsobj_11->GetMember("num"));
+  jsobj_11->SetMember("num", 12);
+  TestEQ(14, jsobj_11->Call("call", 2));
+
   // Correct handling of calling throwing setters on JS objects when using calljs
   PRINT(`test throwing setter\n`);
   TestThrowsLike("throwing setter", PTR CallJS("./data/calls.ts#setThrowingProperty", NEW ThrowingGetterSetter));

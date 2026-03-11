@@ -197,3 +197,27 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
 
   RETURN calljsservice->Invoke(lib,name,args,hscontext);
 }
+
+/** @private */
+PUBLIC STATIC OBJECTTYPE __JSProxy
+<
+  STRING "^$OBJECTID";
+  STRING "^$WASMTYPE";
+
+  MACRO NEW()
+  {
+    THROW NEW Exception("JSProxy objects cannot be created directly");
+  }
+
+  PUBLIC VARIANT FUNCTION GetMember(STRING name) {
+    RETURN CallJS("@webhare/harescript/src/wasm-proxies.ts#__getMember", this, name);
+  }
+
+  PUBLIC MACRO SetMember(STRING name, VARIANT value) {
+    CallJS("@webhare/harescript/src/wasm-proxies.ts#__setMember", this, name, value);
+  }
+
+  PUBLIC VARIANT FUNCTION Call(STRING name, VARIANT ARRAY ...args) {
+    RETURN CallFunctionPtrVA(PTR CallJS, VARIANT[ "@webhare/harescript/src/wasm-proxies.ts#__callMember", this, name, args ]);
+  }
+>;
