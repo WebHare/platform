@@ -49,6 +49,11 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
           ga4plugin->anonymizeip := ParseXSBoolean(GetWebVariable("ga4_anonymizeip"));
       }
     }
+
+    IF(GetWebVariable("shareimage") = "1") {
+      this->webdesign->ogshareimage := this->webdesign->targetsite->webroot || "TestPages/rangetestfile.jpeg";
+    }
+
     RETURN PTR Print(`<div id="dynamicpage"></div>`);
   }
 >;
