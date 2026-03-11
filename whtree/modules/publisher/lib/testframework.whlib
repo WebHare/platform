@@ -22,9 +22,9 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
 
   testfw->BeginWork(); */
 
-  OBJECT dynamicpageshtml := siteroot->CreateFile([name:="dynamicpage.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/dynamicpage.shtml"), publish := TRUE ]);
+  OBJECT dynamicpageshtml := siteroot->CreateFile([name:="dynamicpage.shtml", type := 25, publish := TRUE ]);
 
-  OBJECT standalonedynamicpageshtml := siteroot->CreateFile([name:="standalone-dynamicpage.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/standalone-dynamicpage.shtml"), publish := TRUE ]);
+  OBJECT standalonedynamicpageshtml := siteroot->CreateFile([name:="standalone-dynamicpage.shtml", type := 25, publish := TRUE ]);
   OBJECT contentlinkshtml := siteroot->CreateFile([name:="contentlink.shtml", type := 20, filelink := dynamicpageshtml->id, publish := TRUE ]);
   OBJECT headingsdoc := siteroot->CreateFile([name:="headings.doc", data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/simpletest.doc"), publish := TRUE ]);
   OBJECT dynfolder := siteroot->CreateFolder( [ name:="dynfolder"
@@ -42,9 +42,6 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
   OBJECT externallinkshtml := siteroot->CreateFile([name:="externallink.shtml", type := 18, externallink := "http://www.b-lex.nl/", publish := TRUE ]);
   OBJECT internallinkpublishedshtml := siteroot->CreateFile([name:="internallink-published.shtml", type := 19, filelink := dynamicpageshtml->id, publish := TRUE ]);
   OBJECT internallinkunpublishedshtml := siteroot->CreateFile([name:="internallink-unpublished.shtml", type := 19, filelink := dynamicpagewitty->id, publish := TRUE ]);
-
-  OBJECT redirectshtml := siteroot->CreateFile([name:="redirect.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/redirect.shtml"), publish := TRUE ]);
-  OBJECT redirectjsshtml := siteroot->CreateFile([name:="redirect-js.shtml", type := 25, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/redirect-js.shtml"), publish := TRUE ]);
 
   dynfolder->CreateFile([name := "index.shtml", type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents")->id, publish := TRUE ]);
   OBJECT statichtmldoc := siteroot->CreateFile([name:="static.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
