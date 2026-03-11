@@ -2369,7 +2369,7 @@
       <text tid="suredelete">Are you sure you want to delete <ifparam p="1" value="1">this item<else/>these items</ifparam>?</text>
       <text tid="toomanyusers">You cannot create new users, because you have reached the maximum number of users.</text>
       <text tid="unitnametoolong">The name of the unit is too long, it can contain a maximum of 256 characters.</text>
-      <text tid="verifygrantonroot">You are granting a right to all objects of type '<param p="1"/>' - are you sure it shouldn't be granted on  a lower level ?</text>
+      <text tid="verifygrantonroot">You are granting a right to all objects of type '<param p="1"/>' - are you sure it shouldn't be granted on a lower level?</text>
     </textgroup>
     <textgroup gid="editnotification">   <!-- userrights.editnotification -->
       <text tid="high">High</text>
