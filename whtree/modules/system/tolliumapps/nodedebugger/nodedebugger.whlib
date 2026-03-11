@@ -1,0 +1,72 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internal/wasm.whlib";
+
+LOADLIB "mod::tollium/lib/commondialogs.whlib";
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/tolliumapps/webservers/support.whlib";
+
+MACRO Id() {}
+
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase <
+  OBJECT app;
+
+  MACRO Init(RECORD data) {
+    this->app := CallJS(Resolve("nodedebugger.ts#getNodeDebuggerApp"), this);
+    this->app->Call("init");
+  }
+
+  MACRO GotUnload() {
+    this->app->Call("close");
+  }
+
+  MACRO GotProcessListSelect() {
+    this->app->Call("gotProcessListSelection", ^processlist->value);
+  }
+
+  MACRO GotWorkerListSelect() {
+    this->app->Call("gotWorkerListSelection", ^workerlist->value);
+  }
+
+  PUBLIC MACRO UpdateInterface() {
+    // Call to get tollium to check for screen changes
+    CreateResolvedPromise(DEFAULT RECORD)->Then(PTR id);
+  }
+
+  PUBLIC MACRO GotError(STRING error) {
+    CreateExceptionDialog(this, NEW Exception(error))->RunModal();
+  }
+
+  MACRO DoDebugWorker(OBJECT receiver) {
+    STRING connectid := ^workerlist->selection.connectid;
+    STRING localurl := this->app->Call("inspectWorker", connectid);
+    IF (localurl = "") {
+      receiver->Cancel();
+      this->RunSimpleScreen("error", "connection failed: " || connectid);
+      RETURN;
+    }
+    STRING token := EncryptForThisServer("system:nodeinspectorurl", localurl);
+
+    STRING socketurl := UpdateUrlVariables(GetPrimaryWebhareInterfaceUrl() || ".wh/common/debug/node_inspector.whsock", CELL [ token ]);
+    STRING varname := socketurl LIKE "https://*" ? "wss" : "ws";
+    socketurl := SubString(socketurl, SearchSubString(socketurl, "://") + 3);
+
+    STRING devtoolsurl := AddVariableToUrl(`https://devtools.webhare.dev/js_app.html`, varname, socketurl);
+    receiver->SendURL(devtoolsurl);
+  }
+>;

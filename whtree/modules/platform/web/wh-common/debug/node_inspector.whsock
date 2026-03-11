@@ -1,0 +1,82 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/http.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/websocket.whlib";
+
+OBJECT handler;
+
+STRING url := DecryptForThisServer("system:nodeinspectorurl", GetVariableFromURL(GetRequestURL(), "token"));
+RECORD websocketres := (NEW WebBrowser)->OpenWebSocket(url, RECORD[]);
+IF (NOT websocketres.success) {
+  ABORT(CELL[ url, websocketres ]);
+}
+
+OBJECT websocket := websocketres.conn;
+
+handler := CreateWebSocketHandler();
+handler->ondata := PTR OnData;
+handler->onclose := PTR OnClose;
+handler->onbinary := PTR OnBinary;
+
+HandleWebsocket();
+handler->Run();
+
+MACRO SendError(STRING code, STRING message)
+{
+  RECORD result :=
+      [ type :=     "error"
+      , code :=     code
+      , message :=  message
+      ];
+
+  handler->SendData(EncodeJSON(result));
+  handler->SendClose(1000, "Closed due to error");
+}
+
+ASYNC MACRO HandleWebsocket() {
+  TRY {
+    WHILE (TRUE) {
+      RECORD packet := AWAIT websocket->AsyncReceivePacket(MAX_DATETIME);
+      IF (packet.status = "gone") {
+        handler->Close();
+        RETURN;
+      }
+      SWITCH (packet.op) {
+        CASE 1 { // data
+          PRINTTO(2, "FROM NODE:" || packet.data || "\n");
+          handler->SendData(packet.data);
+        }
+        DEFAULT {
+          ABORT(packet);
+        }
+      }
+    }
+  }
+  CATCH (OBJECT e)
+  {
+    ABORT("Error in node inspector websocket: " || e->message);
+  }
+  FINALLY
+  {
+    websocket->Close();
+  }
+};
+
+MACRO OnData(STRING data)
+{
+  PRINTTO(2, "FROM WEB:" || data || "\n");
+  websocket->SendData(data);
+}
+
+MACRO OnBinary(BLOB data) {
+  ABORT("binary");
+};
+
+MACRO OnClose(INTEGER code, STRING message) {
+  websocket->Close();
+};

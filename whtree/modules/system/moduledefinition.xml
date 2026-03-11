@@ -131,6 +131,18 @@
         <requireright right="system:webservermgmt" />
       </accesscheck>
     </application>
+    <application name="nodedebugger"
+                 group="development"
+                 icon="tollium:objects/bug"
+                 isdeveloperapp="true"
+                 screen="tolliumapps/nodedebugger/nodedebugger.xml#main"
+                 supportedlanguages="en"
+                 engine="wasm"
+                 title="Node debugger">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
 
     <dashboardgroup name="ap" orderbefore="*" screen="tolliumapps/dashboard/platform.xml" tid="monitor.groups.ap" />
     <dashboardgroup name="tasks" orderbefore="dev other" tid="monitor.groups.tasks" />

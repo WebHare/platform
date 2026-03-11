@@ -1,0 +1,49 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.nodedebugger" library="nodedebugger.whlib">
+
+  <screen name="main"
+          width="120x"
+          height="30x"
+          allowresize="true"
+          flags="issysop"
+          onunload="GotUnload"
+          savestate="size"
+          tid=".apptitle">
+    <actions>
+      <windowopenaction name="debugworker" onwindowopen="DoDebugWorker">
+        <enableon source="workerlist" min="1" />
+      </windowopenaction>
+    </actions>
+
+    <body height="1pr">
+      <split type="horizontal">
+        <part width="2pr">
+          <list name="processlist"
+                borders="left top bottom"
+                onselect="GotProcessListSelect"
+                selectmode="single"
+                sortcolumn="started">
+            <column name="pid" type="integer" width="12x" align="right" />
+            <column name="script" type="text" />
+            <column name="arguments" type="text" width="2pr" />
+            <column name="started" type="datetime" width="20x" precision="milliseconds" storeutc="true" />
+          </list>
+          <text name="status" />
+        </part>
+        <part width="1pr">
+          <grid height="1pr">
+            <cell width="1pr">
+              <list name="workerlist" borders="right top bottom" onselect="GotWorkerListSelect" selectmode="single">
+                <column name="workernr" type="integer" width="10x" align="right" />
+                <column name="workerid" type="text" />
+              </list>
+            </cell>
+            <cell>
+              <button action="debugworker" />
+            </cell>
+          </grid>
+        </part>
+      </split>
+    </body>
+  </screen>
+
+</screens>
