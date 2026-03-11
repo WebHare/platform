@@ -205,6 +205,61 @@ void EMWrappedOutputObject::SetWriteSignalled(bool writesignalled)
         event_write.SetSignalled(writesignalled);
 }
 
+namespace {
+
+emscripten::val StoreMessageForWASM(HareScript::Message const &msg, bool is_trace, bool is_error) {
+        emscripten::val message = emscripten::val::object();
+        message.set("iserror", is_error && !is_trace);
+        message.set("iswarning", !is_error && !is_trace);
+        message.set("istrace", is_trace);
+        message.set("filename", msg.filename);
+        message.set("line", msg.position.line);
+        message.set("col", msg.position.column);
+        message.set("code", msg.code);
+        message.set("param1", msg.msg1);
+        message.set("param2", msg.msg2);
+        message.set("func", msg.func);
+        if (msg.code < 0) {
+                message.set("message", "");
+        } else {
+                message.set("message", GetMessageString(msg));
+        }
+        return message;
+}
+
+void StoreMessagesForWASM(emscripten::val &messages, HareScript::ErrorHandler::MessageList const &msgs, bool is_error) {
+        for (auto &msg: msgs) {
+                messages.call<emscripten::val>("push", StoreMessageForWASM(msg, false, is_error));
+        }
+}
+
+emscripten::val BuildMessageList(HSVM *vm, bool with_trace) {
+        auto &errhandler = HareScript::GetVirtualMachine(vm)->GetErrorHandler();
+
+        emscripten::val messages = emscripten::val::array();
+        StoreMessagesForWASM(messages, errhandler.GetWarnings(), false);
+        StoreMessagesForWASM(messages, errhandler.GetErrors(), true);
+        if (with_trace)
+        {
+                int tracecount = -1;
+                for (HareScript::ErrorHandler::StackTrace::const_iterator itr = errhandler.GetStackTrace().begin();
+                     itr != errhandler.GetStackTrace().end();
+                     ++itr)
+                {
+                        HareScript::Message tracemsg(true, tracecount, itr->func);
+                        tracemsg.func = itr->func;
+                        tracemsg.filename = itr->filename;
+                        tracemsg.position = itr->position;
+
+                        messages.call<emscripten::val>("push", StoreMessageForWASM(tracemsg, true, false));
+                        --tracecount;
+                }
+        }
+        return messages;
+}
+
+}
+
 extern "C"
 {
 
@@ -339,39 +394,36 @@ void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data)
         HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment = override;
 }
 
-void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded)
+emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, bool onlydirectloaded)
 {
-        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
-        HSVM_VariableId var_errors = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ERRORS"));
-        HSVM_SetDefault(hsvm, var_errors, HSVM_VAR_RecordArray);
+        auto retval = emscripten::val::object();
+        auto errors = emscripten::val::array();
+        auto libraries = emscripten::val::array();
 
-        HSVM_VariableId var_libraries = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LIBRARIES"));
-        HSVM_SetDefault(hsvm, var_libraries, HSVM_VAR_RecordArray);
+        retval.set("errors", errors);
+        retval.set("libraries", libraries);
 
         std::vector< HareScript::LibraryInfo > info;
-        try
-        {
+        try {
                 if (onlydirectloaded)
                     HareScript::GetVirtualMachine(hsvm)->GetLoadedLibrariesInfo(&info);
                 else
                     HareScript::GetVirtualMachine(hsvm)->GetAllLibrariesInfo(&info);
-        }
-        catch (HareScript::VMRuntimeError &e)
-        {
+        } catch (HareScript::VMRuntimeError &e) {
                 HareScript::GetVirtualMachine(hsvm)->GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(hsvm, var_errors, 0);
-
+                retval.set("errors", BuildMessageList(hsvm, false));
                 HareScript::GetVirtualMachine(hsvm)->GetErrorHandler().Reset();
         }
 
-        for (std::vector< HareScript::LibraryInfo >::iterator it = info.begin(); it != info.end(); ++it)
-        {
-                HSVM_VariableId var_elt = HSVM_ArrayAppend(hsvm, var_libraries);
-
-                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "LIBURI")),  it->uri);
-                HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "OUTOFDATE")), it->outofdate);
-                HSVM_DateTimeSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "COMPILE_ID")), it->compile_id.GetDays(), it->compile_id.GetMsecs());
+        emscripten::val Date = emscripten::val::global("Date");
+        for (auto &itr: info) {
+                emscripten::val libinfo = emscripten::val::object();
+                libinfo.set("uri", itr.uri);
+                libinfo.set("outofdate", itr.outofdate);
+                libinfo.set("compile_id", Date.new_(static_cast<double>(itr.compile_id.GetDays() - 719163) * 86400000 + itr.compile_id.GetMsecs()));
+                libraries.call<void>("push", libinfo);
         }
+        return retval.release_ownership();
 }
 
 static std::string lasthash;
@@ -415,5 +467,10 @@ const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm)
         memcpy(buf, trace.c_str(), trace.size() + 1); // include null terminator
         return buf;
 }
+
+emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetMessageList(HSVM *vm, bool with_trace) {
+        return BuildMessageList(vm, with_trace).release_ownership();
+}
+
 
 } // extern "C"

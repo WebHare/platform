@@ -1734,6 +1734,17 @@
         <text tid="welcome">To reset your password, please enter the email address associated with your account</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="nodedebugger">   <!-- tolliumapps.nodedebugger -->
+      <text tid="apptitle">Node debugger</text>
+      <text tid="arguments">Arguments</text>
+      <text tid="debugworker">Debug</text>
+      <text tid="pid">PID</text>
+      <text tid="script">Script</text>
+      <text tid="started">Started</text>
+      <text tid="status">Status</text>
+      <text tid="workerid">Worker ID</text>
+      <text tid="workernr">Worker nr</text>
+    </textgroup>
     <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Revoke right grant</text>

@@ -776,6 +776,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   connectionactive = false;
   connectcounter = 0;
   localbridges = new Map<string, LocalBridgeData>;
+  _start = Date.now();
   _ready = Promise.withResolvers<void>();
   _conntimeout?: NodeJS.Timeout;
 
@@ -822,7 +823,9 @@ class MainBridge extends EventSource<BridgeEvents> {
       name: getScriptName(),
       parameters: {
         interpreter: process.argv[0] || '',
-        script: process.argv[1] || ''
+        script: process.argv[1] || '',
+        arguments: JSON.stringify(process.argv.slice(2)),
+        started: new Date(this._start).toISOString(),
       }
     });
 

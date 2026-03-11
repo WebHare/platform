@@ -62,6 +62,8 @@ class TestObject extends HSVMMarshallableOpaqueObject {
   }
 
   get num() { return this.#num; }
+  set num(val: number) { this.#num = val; }
+  call(a: number) { return this.#num + a; }
 }
 
 const objects = new Map<number, TestObject>();

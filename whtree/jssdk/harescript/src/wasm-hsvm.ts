@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, getTypedArray, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { isTruthy } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
@@ -44,6 +44,11 @@ export type MessageList = Array<{
   func: string;
   message: string;
 }>;
+
+export type LoadedLibrariesInfo = {
+  errors: MessageList;
+  libraries: Array<{ liburi: string; outofdate: boolean; compile_id: Date }>;
+};
 
 export class HareScriptLibraryOutOfDateError extends Error {
 }
@@ -572,8 +577,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
       if (fptrresult)
         return; //Success!
 
-      this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-      const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+      const parsederrors = this.parseMessageList();
       throwFirstError(`Error loading library ${lib}`, parsederrors);
     } finally {
       this.wasmmodule._free(lib_str);
@@ -593,8 +597,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
       return;
     }
 
-    this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-    const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+    const parsederrors = this.parseMessageList();
     const error = getFirstError(`Error executing script`, parsederrors);
     this.unresolvedPromises.forEach((p) => p.reject(error));
     throw error;
@@ -611,8 +614,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         case -2: {
           let parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
           if (parsederrors.length === 0) { //runtime errors are in the VM's mesage list
-            this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-            parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+            parsederrors = this.parseMessageList();
           }
           throwFirstError(`Error loading library ${lib}`, parsederrors);
         } break;
@@ -724,18 +726,19 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   parseMessageList(): MessageList {
-    const errorlist = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
-    this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
-    const retval = this.quickParseVariable(errorlist) as MessageList;
-    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, errorlist);
-    return retval;
+    return getTypedArray(VariableType.RecordArray, this.wasmmodule.Emval.toValue(this.wasmmodule._GetMessageList(this.hsvm, 1)) as MessageList);
+  }
+
+  getLoadedLibrariesInfo(): LoadedLibrariesInfo {
+    const res = this.wasmmodule.Emval.toValue(this.wasmmodule._GetLoadedLibrariesInfo(this.hsvm, 1)) as LoadedLibrariesInfo;
+    return {
+      errors: getTypedArray(VariableType.RecordArray, res.errors),
+      libraries: getTypedArray(VariableType.RecordArray, res.libraries),
+    };
   }
 
   private throwVMErrors(): never {
-    const errorlist = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
-    this.wasmmodule._HSVM_SetDefault(this.hsvm, errorlist, VariableType.RecordArray as HSVM_VariableType);
-    this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
-    const parsederrors = this.quickParseVariable(errorlist) as MessageList;
+    const parsederrors = this.parseMessageList();
 
     // If no errors are found, the abort flag must have been set to 1 - silent abort.
     if (parsederrors.length === 0)

@@ -1543,6 +1543,17 @@
         <text tid="welcome">Om uw wachtwoord te herstellen voert u het emailadres dat aan uw account is gekoppeld in</text>
       </textgroup>
     </textgroup>
+    <textgroup gid="nodedebugger">   <!-- tolliumapps.nodedebugger -->
+      <text tid="apptitle">Node debugger</text>
+      <text tid="arguments">Argumenten</text>
+      <text tid="debugworker">Debug</text>
+      <text tid="pid">PID</text>
+      <text tid="script">Script</text>
+      <text tid="started">Gestart</text>
+      <text tid="status">Status</text>
+      <text tid="workerid">Worker ID</text>
+      <text tid="workernr">Worker nr</text>
+    </textgroup>
     <textgroup gid="userrights">   <!-- tolliumapps.userrights -->
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Rechtentoekenning intrekken</text>

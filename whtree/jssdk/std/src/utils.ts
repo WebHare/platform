@@ -37,3 +37,11 @@ export function combineAbortSignals(signals: AbortSignals): AbortSignal {
   }
   return abortController.signal;
 }
+
+/** Returns a signal that can be used like `using signal = getScopeSignal()` and will be aborted when going out of scope */
+export function getScopeSignal(): AbortSignal & { [Symbol.dispose](): void } {
+  const ctrl = new AbortController();
+  const signal = ctrl.signal as AbortSignal & { [Symbol.dispose](): void };
+  signal[Symbol.dispose] = () => ctrl.abort();
+  return signal;
+}

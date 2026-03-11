@@ -164,10 +164,10 @@ export async function readRegistryKeysByMask(keymask: string): Promise<Array<{ n
 /** Get the event masks to use to listen to specific registry keys
     @param keys - List of registry keys
     @returns A list of event mask(s) */
-export function getRegistryKeyEventMasks(keys: string[]): string[] {
+export function getRegistryKeyEventMasks(keys: string[], opts?: { acceptInvalidKeyNames: boolean }): string[] {
   return [
     ...new Set(keys.map(key => {
-      const { storenode } = splitRegistryKey(key);
+      const { storenode } = splitRegistryKey(key, opts);
       return `system:registry.${storenode.substring(0, storenode.length - 1)}`;
     }))
   ].toSorted();

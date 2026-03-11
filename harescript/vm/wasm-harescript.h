@@ -38,13 +38,15 @@ void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set);
 
 void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data);
 
-void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded);
+emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, bool onlydirectloaded);
 
 bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library, uint64_t *modtime, HSVM_VariableId cachetag, const char **store_hash);
 
 bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector);
 
 const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm);
+
+emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetMessageList(HSVM *vm, bool with_trace);
 
 } // extern "C"
 
