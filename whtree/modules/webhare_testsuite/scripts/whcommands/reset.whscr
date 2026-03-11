@@ -323,6 +323,7 @@ Test http://example.net/linkify.`
   testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
 
   OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage", publish := TRUE ] );
+  OBJECT dynamicpagejs := testpages->CreateFile( [ name := "dynamicpage-js", typens := "webhare_testsuite:base_test.dynamic_page", publish := TRUE ] );
 
   OBJECT authtest_router_protected_folder := testpages->CreateFolder([ name := "wrdauthtest-router-protected" ]);
   authtest_router_protected_folder->CreateFile(

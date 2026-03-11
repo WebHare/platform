@@ -431,6 +431,9 @@ $defs:
         type: string
       webPageObjectName:
         type: string
+      contentBuilder:
+        description: JS callback to render content
+        type: string
       routerFunction:
         type: string
       cacheTtl:

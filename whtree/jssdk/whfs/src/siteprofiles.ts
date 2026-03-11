@@ -58,6 +58,7 @@ export interface CSPMember extends CSPMemberBasics {
 
 export interface CSPDynamicExecution {
   cachettl: number;
+  contentbuilder?: string;
   routerfunction: string;
   startmacro: string;
   webpageobjectname: string;

@@ -95,7 +95,7 @@ MACRO CheckPublication()
   TestEq(100000, testextlink->published, "external.whlink failed");
 
   testvalidclink := OpenWHFSObject(testvalidclink->id);
-  TestEq(100000, testvalidclink->published);
+  TestEq(102, testvalidclink->published, "A contentlink to a shtml file isn't permitted either due to the scripting block");
 
   testwhsock := OpenWHFSObject(testwhsock->id);
   TestEq(3004, testwhsock->published);
