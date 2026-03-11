@@ -2,14 +2,15 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 
 /** This dialog adds a grant (global right, or one or more objects) to pre-chosen users
 */
-PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -48,8 +49,7 @@ PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase
   /** @param data
       @cell data.grantee
   */
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
     // Get right info
     this->rightsinfo := GetRightsInfoObject(this->tolliumuser);
     this->pvt_grantees := OBJECT ARRAY(data.grantees);
@@ -75,19 +75,26 @@ PUBLIC OBJECTTYPE AddGrantToUsers EXTEND TolliumScreenBase
   // Other tollium stuff
   //
 
-  BOOLEAN FUNCTION Submit()
-  {
+  BOOLEAN FUNCTION Submit() {
+    IF (NOT RecordExists(this->rightslist->selection)) {
+      this->RunSimpleScreen("error", GetTid("system:userrights.dialogues.needselectright"));
+      RETURN FALSE;
+    }
+
+    RECORD toplevelobject := SELECT * FROM ^objecttree->selection WHERE isglobal = FALSE AND objectid = 0;
+    IF(RecordExists(toplevelobject)) {
+      STRING typetitle := GetTid( (SELECT AS STRING title FROM __GetExtractedConfig("userrights").targets WHERE name = toplevelobject.objecttypename) ?? ":" || toplevelobject.objecttypename);
+      IF(this->RunSimpleScreen("verify", GetTid("system:userrights.dialogues.verifygrantonroot", typetitle)) != "yes")
+        RETURN FALSE;
+    }
+
+    INTEGER ARRAY objectids := this->objecttree->value.objectids;
+
     OBJECT work := this->BeginWork();
 
-    IF (NOT RecordExists(this->rightslist->selection))
-    {
-      work->AddError(GetTid("system:userrights.dialogues.needselectright"));
-      RETURN work->Finish();
-    }
     STRING right_name := this->rightslist->value;
     BOOLEAN withgrantoption := this->grantwithgrantoption->value;
 
-    INTEGER ARRAY objectids := this->objecttree->value.objectids;
 
     FOREVERY (OBJECT obj FROM this->pvt_grantees)
       IF (NOT obj->ExistsInDatabase())

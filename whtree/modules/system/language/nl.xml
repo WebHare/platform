@@ -2178,6 +2178,7 @@
       <text tid="suredelete">Weet je zeker dat u <ifparam p="1" value="1">dit item<else/>deze items</ifparam> wilt verwijderen?</text>
       <text tid="toomanyusers">Je kunt geen nieuwe gebruikers aanmaken, omdat het maximum aantal gebruikers is bereikt.</text>
       <text tid="unitnametoolong">De naam van de eenheid is te lang; deze mag maximaal 256 karakters bevatten.</text>
+      <text tid="verifygrantonroot">U verleent een recht op alle objecten van het type '<param p="1"/>'. Weet u zeker dat dit niet op een lager niveau moet worden verleend?</text>
     </textgroup>
     <textgroup gid="editnotification">   <!-- userrights.editnotification -->
       <text tid="high">Hoog</text>

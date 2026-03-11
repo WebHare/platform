@@ -26,6 +26,8 @@ PUBLIC OBJECTTYPE ObjectTree EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY value(this->objectlist->value, this->objectlist->value);
 
+  PUBLIC PROPERTY selection(this->objectlist->selection, -);
+
   /// Boolean that indicates that multiple rightsgroups/objecttypes have been selected
   PUBLIC PROPERTY typesmixed(GetTypesMixed, -);
 
