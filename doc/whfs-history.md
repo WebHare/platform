@@ -74,7 +74,7 @@ Principles behind the 'name' field and its effect on the UI/WHFS:
 In practice:
 - Saving (draft) a publishable but unpublished document will immediately apply its name and title to WHFS
   - This also ensures that a scheduled task publishing an unpublished draft does not need to rename at that moment.
-  - We will probably need UI to warn you about scheduling publication for a published
+  - We will probably need UI to warn you about scheduling publication for an already published file (especially with a draft open)
 - Publishing a document will apply the name and title to WHFS
 
 

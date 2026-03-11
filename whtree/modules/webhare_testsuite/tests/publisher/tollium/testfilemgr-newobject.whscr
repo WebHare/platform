@@ -186,7 +186,7 @@ ASYNC MACRO CreateUsingTemplates() {
 ASYNC MACRO TestDuplicateObjectDialog() {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath || "/imgeditfile.jpeg" ]]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
-  TestEq("", TT("name")->value, "The name is initially unset for a duplicate, just like new file (from template) would, so the name can be re-based on the new title if");
+  TestEq("", TT("name")->value, "The name is initially unset for a duplicate, just like new file (from template) would, so the name can be re-generated based on the new title");
   TestEq("ImgEditFile", TT("title")->value);
   TT("name")->value := "";
   TestEq("imgeditfile.jpeg", TT("name")->placeholder, "The name placeholder should still suggest a unique name based on title. But placeholders don't speculate on the -<number> suffix");
