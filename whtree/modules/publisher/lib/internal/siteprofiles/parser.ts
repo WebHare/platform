@@ -767,7 +767,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       has_previewcomponent: setWidget.previewComponent !== undefined,
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
-      wittycomponent: setWidget.wittyComponent || '',
+      wittycomponent: setWidget.wittyComponent ? context.resolve(setWidget.wittyComponent) : '',
       ...setWidget.widgetBuilder ? { widgetbuilder: context.resolve(setWidget.widgetBuilder) } : {},
     });
   }
