@@ -4,7 +4,7 @@ import { runTests } from './testrunner';
 declare module "@webhare/test" {
 }
 
-export { triggerGarbageCollection, getActiveGenerators } from './testsupport';
+export { triggerGarbageCollection, getActiveGenerators, extractSchemaOrgData } from './testsupport';
 export { runTests } from './testrunner';
 
 export {
