@@ -1,6 +1,8 @@
+import { getScopeSignal, sleep } from "@webhare/std";
 import EventSource from "../eventsource";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, type ForwardByRequestType } from "./debug";
+import { pid } from "process";
 
 
 type ProcessRegistration = {
@@ -158,18 +160,27 @@ class DebugMgrClient {
         return proc;
     }
 
+    //as a processid is formatted as `pid.workernr`, parseint will just give us the PID
+    const findpid = parseInt(processid);
+    if (findpid === pid) { // the debugmgr itself doesn't connect to the debug IPC port
+      return undefined;
+    }
+
+    using signal = getScopeSignal();
+    const timeout = sleep(100, { signal }).then(() => false);
+
     for (; ;) {
       const defer = Promise.withResolvers<void>();
       this.processlistwaits.add(defer);
 
       const processlist = await bridge.getProcessList();
-      const findpid = parseInt(processid); //as a processid is formatted as `pid.workernr`, parseint will just give us the PID
       const process = processlist.find(p => p.pid === findpid);
       if (!process) {  // process is gone
         return undefined;
       }
 
-      await defer.promise;
+      if (await Promise.race([defer.promise, timeout]) === false)
+        return undefined;
       this.processlistwaits.delete(defer);
 
       const proc = this.handler.processes.get(processid);
