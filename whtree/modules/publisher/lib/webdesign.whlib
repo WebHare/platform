@@ -223,6 +223,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   /// The RTD rendering engine used by this webdesign and embedded widgets
   PUBLIC OBJECT rtd_rendering_engine;
 
+  /// Share image property. Adds the opengraph plugin without requiring you to explicitly declare it
+  PUBLIC PROPERTY ogshareimage(GetOGShareImage, SetOGShareImage);
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -375,6 +378,37 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //
   // Getters and setters
   //
+
+  STRING FUNCTION GetOGShareImage() {
+    OBJECT ogplugin := this->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
+    IF(NOT ObjectExists(ogplugin))
+      RETURN "";
+    RETURN ogplugin->ogproperties.image;
+  }
+
+  MACRO SetOGShareImage(STRING newimage) {
+    BOOLEAN needs_prepare;
+    IF(NOT RecordExists(SELECT FROM this->pvt_plugins WHERE namespace = "http://www.webhare.net/xmlns/socialite" AND name = "opengraph")) {
+      IF(newimage = "")
+       RETURN;
+
+      //Ensure we can instantiate the OG plugin even if the siteprofiles didn't declare it. Hardcoding specs as socialite isn't moving much anyway
+      INSERT CELL[ namespace := "http://www.webhare.net/xmlns/socialite",
+                   name := "opengraph",
+                   pluginobj := DEFAULT OBJECT,
+                   init := FALSE,
+                   object_name := "mod::socialite/lib/internal/webdesignplugin.whlib#opengraphplugin",
+                   yaml_property := "",
+                   datas := RECORD[]
+                 ] INTO this->pvt_plugins AT END;
+      needs_prepare := TRUE;
+    }
+
+    OBJECT ogplugin := this->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
+    IF(needs_prepare)
+      ogplugin->PrepareForRendering(this);
+    ogplugin->ogproperties := CELL[...ogplugin->ogproperties, image := newimage ];
+  }
 
   OBJECT FUNCTION GetWebtoolForm()
   {
@@ -1521,7 +1555,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignPluginBase <
   }
 
   PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) { //override this to receive configuration from plugins with yaml_property=
-    THROW NEW Exception("Plugin at  did not override ConfigureYamlPlugin"); //we'll require overriding us if you don't want to read anything to make sure you didn't forget to port the plugin
+    THROW NEW Exception(`Plugin '${GetObjectTypeName(this)}' did not override ConfigureYamlPlugin`); //we'll require overriding us if you don't want to read anything to make sure you didn't forget to port the plugin
   }
 
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)

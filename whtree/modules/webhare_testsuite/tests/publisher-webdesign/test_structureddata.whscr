@@ -48,5 +48,13 @@ MACRO CheckBreadcrumbs()
   TestEq("Testsuite Folder Template", data[0]."item-list-element"[end-1].name);
 }
 
+MACRO TestShareImage()
+{
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage")->url || "?shareimage=1") );
+  OBJECT ogimage := testfw->browser->QSA(`meta[property="og:image"]`)[0];
+  TestEq(OpenTestsuiteSite()->webroot || "TestPages/rangetestfile.jpeg", ogimage->GetAttribute("content"));
+}
+
 RunTestframework([ PTR CheckBreadcrumbs
+                 , PTR TestShareImage
                  ]);

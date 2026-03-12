@@ -64,7 +64,12 @@ PUBLIC OBJECTTYPE OpenGraphPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
   {
-    this->settings := CELL[ ...config
+    this->settings := CELL[ type := ""
+                          , site_name := ""
+                          , admins := ""
+                          , image := ""
+                          , app_id := ""
+                          , ...config
                           , description := ""
                           , title := ""
                           , url := ""
@@ -73,8 +78,7 @@ PUBLIC OBJECTTYPE OpenGraphPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
   {
-    IF(MemberExists(webdesign,"RegisterHTMLPrefix")) //this version supports HTML prefixes
-      webdesign->RegisterHTMLPrefix("og", "http://ogp.me/ns#");
+    webdesign->RegisterHTMLPrefix("og", "http://ogp.me/ns#");
     webdesign->InsertWithCallback(PTR this->PrintOpenGraphNode(webdesign),'dependencies-top');
   }
 
@@ -128,7 +132,6 @@ PUBLIC OBJECTTYPE OpenGraphPlugin EXTEND WebDesignPluginBase
       THROW NEW Exception("Robots values cannot be updated after the <meta> tags have been rendered");
     this->settings := MakeUpdatedRecord(this->settings, props);
   }
-
 >;
 
 
