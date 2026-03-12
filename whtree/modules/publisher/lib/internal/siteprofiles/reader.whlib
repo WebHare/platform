@@ -1400,6 +1400,11 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RECORD plugin := SELECT * FROM this->GetWebDesignPlugins() AS plugins WHERE plugins.namespace = VAR namespace AND plugins.name = VAR localname;
     IF(NOT RecordExists(plugin))
       RETURN DEFAULT RECORD;
+
+    IF(plugin.yaml_property != "") {
+      RETURN CELL[ plugin.yaml_property, plugin.datas ];
+    }
+
     RETURN CombinePartialNodes(plugin.datas);
   }
 

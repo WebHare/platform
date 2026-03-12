@@ -126,3 +126,16 @@ PUBLIC RECORD FUNCTION GetCaptchaIntegrationAsYaml(OBJECT node) {
     captchaintegration := CELL[ ...captchaintegration, skip_function := node->GetAttribute("skipfunction") ];
   RETURN captchaintegration;
 }
+
+PUBLIC RECORD FUNCTION GetVideoWidgetAsYaml(OBJECT node) {
+  RECORD videowidget := CELL[];
+
+  IF(node->HasAttribute("breakpoints"))
+    videowidget := CELL[ ...videowidget, breakpoints := (SELECT AS INTEGER ARRAY ToInteger(val,0) FROM ToRecordArray(ParseXSList(node->GetAttribute("breakpoints")),'val')) ];
+  IF(node->HasAttribute("requireconsent"))
+    videowidget := CELL[ ...videowidget, require_consent := node->GetAttribute("requireconsent") ];
+  IF(node->HasAttribute("limitnetworks"))
+    videowidget := CELL[ ...videowidget, limit_networks := ParseXSList(node->GetAttribute("limitnetworks")) ];
+
+  RETURN videowidget;
+}

@@ -5,27 +5,19 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 //We exist to allow <videowidget> to be parsed during siteprofile compilation (originally videowidget had to open XML files as it used applytester->GetCustomSettings)
-PUBLIC STATIC OBJECTTYPE VideoWidgetPlugin EXTEND WebDesignPluginBase
-<
-  RECORD config;
+PUBLIC STATIC OBJECTTYPE VideoWidgetPlugin EXTEND WebDesignPluginBase <
+  PUBLIC STRING requireconsent;
+  PUBLIC INTEGER ARRAY breakpoints;
+  PUBLIC STRING ARRAY limitnetworks;
 
-  PUBLIC PROPERTY requireconsent(this->config.requireconsent,-);
-  PUBLIC PROPERTY breakpoints(this->config.breakpoints,-);
-  PUBLIC PROPERTY limitnetworks(this->config.limitnetworks,-);
-
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RETURN [ requireconsent := node->GetAttribute("requireconsent")
-           , breakpoints := (SELECT AS INTEGER ARRAY ToInteger(val,0) FROM ToRecordArray(ParseXSList(node->GetAttribute("breakpoints")),'val'))
-           , limitnetworks := ParseXSList(node->GetAttribute("limitnetworks"))
-           ];
-  }
-
-  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
-  {
-    this->config := config ?? [ requireconsent := ""
-                              , breakpoints := INTEGER[]
-                              , limitnetworks := STRING[""]
-                              ];
+  UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY props) {
+    FOREVERY(RECORD p FROM props) {
+      IF(CellExists(p, "require_consent"))
+        this->requireconsent := p.require_consent;
+      IF(CellExists(p, "breakpoints"))
+        this->breakpoints := p.breakpoints;
+      IF(CellExists(p, "limit_networks"))
+        this->limitnetworks := p.limit_networks;
+    }
   }
 >;

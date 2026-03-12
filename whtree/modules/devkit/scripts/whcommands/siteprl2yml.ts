@@ -46,7 +46,7 @@ function unresolvePath(ctx: Pick<ImportContext, "resourcePath">, targetPath: str
 function uniqueName(suggested: string, seen: Set<string>) {
   let count = 1;
   for (; ;) {
-    const tryname = count > 1 || suggested === fallbacknameTypeName ? `${suggested}-${count}` : suggested;
+    const tryname = count > 1 || suggested === fallbacknameTypeName ? `${suggested}_${count}` : suggested;
     if (!seen.has(tryname)) {
       seen.add(tryname);
       return tryname;
@@ -471,6 +471,9 @@ function myCSPRuleCompare(renamedTypes: Map<string, string>, expect: unknown, ac
   if (path.endsWith(".siteprofile"))
     return true;
   if (path.endsWith(".whfstype") && typeof expect === "string" && renamedTypes.get(expect) === actual)
+    return true;
+  //witty components may have changed from resource:comp to resource#comp syntax
+  if (path.endsWith(".wittycomponent") && typeof expect === "string" && typeof actual === "string" && expect.replaceAll(':', '#') === actual.replaceAll(':', '#'))
     return true;
 
   //these are double imported, we only check those in webtoolsformrules
