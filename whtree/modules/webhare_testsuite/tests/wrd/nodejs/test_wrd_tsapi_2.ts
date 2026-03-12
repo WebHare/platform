@@ -72,6 +72,19 @@ async function testSettingReuse() {
   test.eq([reorderedArray[1][wrdSettingId]], slicedArray.map(e => e[wrdSettingId]));
   test.eq([reorderedArray[1].testImage!.dbLoc!.id], slicedArray.map(e => e.testImage!.dbLoc!.id));
 
+  // When inserting a new element at position 0, the array was written back incorrectly as settingId re-use confused the updater
+  const newArray = [{ testInt: 4, testImage: new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" }) }, ...slicedArray];
+  await schema.update("wrdPerson", newPerson, {
+    testArray: newArray
+  });
+
+  const splicedArray = await schema.getFields("wrdPerson", newPerson, "testArray");
+  assertHasSettingIds(splicedArray);
+  test.eqPartial([{ testInt: 4 }, { testInt: 2 }], splicedArray);
+
+  await schema.update("wrdPerson", newPerson, { testArray: [...splicedArray, ...splicedArray] });
+  test.eqPartial([{ testInt: 4 }, { testInt: 2 }, { testInt: 4 }, { testInt: 2 }], (await schema.getFields("wrdPerson", newPerson, "testArray")));
+
   await whdb.commitWork();
 }
 
