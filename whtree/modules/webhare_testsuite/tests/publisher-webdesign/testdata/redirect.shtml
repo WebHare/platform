@@ -1,3 +1,0 @@
-<?wh
-LOADLIB "mod::system/lib/webserver.whlib";
-Redirect("nonexisting.html");

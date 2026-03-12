@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 CONSTANT STRING ARRAY badalgorithms := [ "MD5", "NETASP-SHA1", "LCR"];
+BOOLEAN warn_max_datetime := GetEnvironmentVariable("WEBHARE_WARN_MAX_DATETIME") != "";
 
 STRING FUNCTION GetBadPWDAlgorithm(STRING rawdata)
 {
@@ -54,14 +56,29 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
   DATETIME now := GetCurrentDatetime();
   RECORD ARRAY date_fs_members := SELECT * FROM system.fs_members WHERE type = 4;
   STRING maxdatetime := GetDayCount(MAX_DATETIME) || ":" || GetMsecondCount(MAX_DATETIME);
-  RECORD ARRAY fs_maxdatetime_settings := SELECT fs_member, num:=count(*)
-                                            FROM system.fs_settings
-                                           WHERE setting = maxdatetime
-                                        GROUP BY fs_member;
-  fs_maxdatetime_settings := SELECT date_fs_members.name, fs_maxdatetime_settings.num, namespace := (SELECT AS STRING namespace FROM system.fs_types WHERE id = date_fs_members.fs_type)
-                               FROM date_fs_members, fs_maxdatetime_settings
-                              WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
+  RECORD ARRAY fs_maxdatetime_settings,wrd_brokendates;
 
+  IF(warn_max_datetime) {
+    fs_maxdatetime_settings := SELECT fs_member, num:=count(*)
+                                FROM system.fs_settings
+                                WHERE setting = maxdatetime
+                            GROUP BY fs_member;
+    fs_maxdatetime_settings := SELECT date_fs_members.name, fs_maxdatetime_settings.num, namespace := (SELECT AS STRING namespace FROM system.fs_types WHERE id = date_fs_members.fs_type)
+                                FROM date_fs_members, fs_maxdatetime_settings
+                                WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
+
+    RECORD ARRAY datesmembers := SELECT id
+                                    FROM wrd.attrs
+                                    WHERE attributetype IN [ wrd_attributetype_datetime, wrd_attributetype_date ];
+
+   wrd_brokendates := SELECT entities := GroupedValues(entity), attribute, num := COUNT(*)
+                        FROM wrd.entity_settings
+                       WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM datesmembers)
+                             AND rawdata ="2147483647,86399999"
+                    GROUP BY attribute;
+
+    wrd_brokendates := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokendates;
+  }
   RECORD ARRAY emailmembers := SELECT attrs.id
                                  FROM wrd.attrs
                                 WHERE attributetype = wrd_attributetype_email;
@@ -98,18 +115,6 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 
   wrd_brokenaddresses := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenaddresses;
 
-  RECORD ARRAY datesmembers := SELECT id
-                                   FROM wrd.attrs
-                                  WHERE attributetype IN [ wrd_attributetype_datetime, wrd_attributetype_date ];
-
-  RECORD ARRAY wrd_brokendates := SELECT entities := GroupedValues(entity), attribute, num := COUNT(*)
-                                    FROM wrd.entity_settings
-                                   WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM datesmembers)
-                                         AND rawdata ="2147483647,86399999"
-                                GROUP BY attribute;
-
-  wrd_brokendates := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokendates;
-
   INTEGER ARRAY broken_entities;
   FOREVERY(RECORD tocheck FROM wrd_brokenaddresses CONCAT wrd_brokenemails CONCAT wrd_brokenpasswords CONCAT wrd_brokendates)
     broken_entities := broken_entities CONCAT tocheck.entities;
@@ -141,11 +146,19 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
 {
   Print(`Deprecation scan generated ${EncodeJSON(report.creationdate)} on ${report.name} (${report.versioninfo.version}). ${report.numissues > 0 ? report.numissues || " issues found." : "No known deprecation issues"}\n`);
 
-  IF(Length(report.fs_maxdatetime_settings) > 0)
-    FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
-      Print(`* ${toreport.namespace}#${toreport.name} has ${toreport.num} instances of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
-  ELSE
-    Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
+  IF(warn_max_datetime) {
+    IF(Length(report.fs_maxdatetime_settings) > 0)
+      FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
+        Print(`* ${toreport.namespace}#${toreport.name} has ${toreport.num} instances of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
+    ELSE
+      Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
+
+    IF(Length(report.wrd_brokendates) > 0)
+      FOREVERY(RECORD wrd_brokendate FROM report.wrd_brokendates)
+        Print(`* WRD Attribute #${wrd_brokendate.attribute} (${wrd_brokendate.attributetag}) contains ${wrd_brokendate.num} instance(s) of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
+    ELSE
+      Print(`- Good! No WRD attribute values with a MAX_DATETIME value\n`);
+  }
 
   IF(Length(report.wrd_brokenemails) > 0)
     FOREVERY(RECORD wrd_brokenemail FROM report.wrd_brokenemails)
@@ -158,12 +171,6 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
       Print(`* WRD Attribute #${wrd_brokenpassword.attribute} (${wrd_brokenpassword.attributetag}) contains ${wrd_brokenpassword.num} instance(s) of a future unacceptable password algorithm '${wrd_brokenpassword.alg}'\n`);
   ELSE
     Print(`- Good! No WRD Password attribute values with a broken hash algorithm\n`);
-
-  IF(Length(report.wrd_brokendates) > 0)
-    FOREVERY(RECORD wrd_brokendate FROM report.wrd_brokendates)
-      Print(`* WRD Attribute #${wrd_brokendate.attribute} (${wrd_brokendate.attributetag}) contains ${wrd_brokendate.num} instance(s) of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
-  ELSE
-    Print(`- Good! No WRD attribute values with a MAX_DATETIME value\n`);
 
   IF(Length(report.wrd_brokenaddresses) > 0)
     FOREVERY(RECORD wrd_brokenaddress FROM report.wrd_brokenaddresses)

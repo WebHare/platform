@@ -272,6 +272,10 @@ export async function connectSocket(connectionOptions: {
     return new PGPacketSocket(socket);
   } catch (e) {
     socket.destroy();
+
+    if ((e as NodeJS.ErrnoException).code === "ENOENT" && (e as NodeJS.ErrnoException).syscall === "connect")
+      throw new Error(`The database is offline or unreachable`, { cause: e });
+
     throw e;
   }
 }
