@@ -703,7 +703,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                        , filetype     := crit->GetAttribute("filetype")
                        , foldertype   := crit->GetAttribute("foldertype")
                        , typeneedstemplate := ParseXSBoolean(crit->GetAttribute("typeneedstemplate"))
-                       , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
+                       , webfeatures  := ParseXSList(crit->GetAttribute("webfeatures" ))
                        ];
 
             this->ValidateSiteFilter(crit, applyto);
