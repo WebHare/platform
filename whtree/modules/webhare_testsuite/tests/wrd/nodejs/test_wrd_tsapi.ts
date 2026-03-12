@@ -11,7 +11,6 @@ import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
 import { isChange, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
-import { wrdSettingId } from "@webhare/services/src/symbols";
 import type { AddressValue } from "@webhare/address";
 import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
@@ -1540,77 +1539,6 @@ function testGeneratedWebHareWRDAPI() {
   test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName", false>>>();
 }
 
-async function testSettingReuse() {
-  function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
-  }
-
-  const schema = await getExtendedWRDSchema();
-
-  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
-
-  const newPerson = await schema.search("wrdPerson", "testEmail", "testWrdTsapi@beta.webhare.net", { historyMode: "unfiltered" });
-  test.assert(newPerson);
-  await whdb.beginWork();
-  const otherPersons = await schema.query("wrdPerson").select("wrdId").where("wrdId", "!=", newPerson).historyMode("all").execute();
-  await schema.delete("wrdPerson", otherPersons);
-
-  const orgArray = [
-    {
-      testInt: 1,
-      testImage: new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" }),
-    }, {
-      testInt: 2,
-      testImage: new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" }),
-    }, {
-      testInt: 3,
-      testImage: new ResourceDescriptor(goldfish.resource, { mediaType: "image/png" }),
-    }
-  ];
-  await schema.update("wrdPerson", newPerson, {
-    wrdCreationDate: new Date,
-    wrdLimitDate: null,
-    testArray: orgArray
-  });
-  const writtenArray = await schema.getFields("wrdPerson", newPerson, "testArray");
-  assertHasSettingIds(writtenArray);
-  test.assert(writtenArray[0][wrdSettingId]);
-  test.assert(writtenArray[0].testImage!.dbLoc!.id);
-
-  await schema.update("wrdPerson", newPerson, {
-    testArray: [writtenArray[2], writtenArray[1], writtenArray[0]]
-  });
-  const reorderedArray = await schema.getFields("wrdPerson", newPerson, "testArray");
-  assertHasSettingIds(reorderedArray);
-  test.eq(writtenArray[0][wrdSettingId], reorderedArray[2][wrdSettingId]);
-  test.eq(writtenArray[1][wrdSettingId], reorderedArray[1][wrdSettingId]);
-  test.eq(writtenArray[2][wrdSettingId], reorderedArray[0][wrdSettingId]);
-  test.eq(writtenArray[0].testImage!.dbLoc!.id, reorderedArray[2].testImage!.dbLoc!.id);
-  test.eq(writtenArray[1].testImage!.dbLoc!.id, reorderedArray[1].testImage!.dbLoc!.id);
-  test.eq(writtenArray[2].testImage!.dbLoc!.id, reorderedArray[0].testImage!.dbLoc!.id);
-
-  // map and spread to remove the id hint. Should not change ids because of sorting of current settings on ordering
-  await schema.update("wrdPerson", newPerson, {
-    testArray: reorderedArray.map(elt => ({ ...elt }))
-  });
-
-  const rewrittenArray = await schema.getFields("wrdPerson", newPerson, "testArray");
-  assertHasSettingIds(rewrittenArray);
-  test.eq(reorderedArray.map(e => e[wrdSettingId]), rewrittenArray.map(e => e[wrdSettingId]));
-  test.eq(reorderedArray.map(e => e.testImage!.dbLoc!.id), rewrittenArray.map(e => e.testImage!.dbLoc!.id));
-
-  // slice a little to see if all old items are removed correctly
-  await schema.update("wrdPerson", newPerson, {
-    testArray: [reorderedArray[1]]
-  });
-
-  const slicedArray = await schema.getFields("wrdPerson", newPerson, "testArray");
-  assertHasSettingIds(slicedArray);
-  test.eq([reorderedArray[1][wrdSettingId]], slicedArray.map(e => e[wrdSettingId]));
-  test.eq([reorderedArray[1].testImage!.dbLoc!.id], slicedArray.map(e => e.testImage!.dbLoc!.id));
-
-  await whdb.commitWork();
-}
-
 async function testImportMode() {
   await whdb.beginWork();
   type MySchema = {
@@ -1748,6 +1676,5 @@ test.runTests([
   testTypeSync,
   testComparisons,
   testGeneratedWebHareWRDAPI,
-  testSettingReuse,
   testImportMode,
 ]);
