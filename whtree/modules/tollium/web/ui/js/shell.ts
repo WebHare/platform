@@ -56,7 +56,7 @@ import { getTid } from "@webhare/gettid";
 import "../common.lang.json";
 
 import TolliumShell, { type AppStartResponse } from "@mod-tollium/shell/platform/shell";
-import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup } from '@mod-platform/js/tollium/types';
+import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup, NewsItem } from '@mod-platform/js/tollium/types';
 import { logout } from '@webhare/frontend';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
@@ -69,14 +69,23 @@ function preventNavigation(event: BeforeUnloadEvent) {
 
 let indyshellinstance: IndyShell | undefined;
 
+type WrappedCachedImage = {
+  width: number;
+  height: number;
+  link: string;
+  refpoint_backgroundposition: string;
+  dominantcolor: string;
+  css: string;
+};
+
 class ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   lang = 'en';
   eventgroups: string[] = [];
   now: string = ''; //TODO why not a Instant ?
   apps: MenuAppGroup[] = [];
-  newsitems: unknown[] = [];
+  newsitems: NewsItem[] = [];
   dashboard: boolean = false;
-  dashboardbg: unknown | null = null; //TODO WrapCachedImage result
+  dashboardbg: WrappedCachedImage | null = null;
   displayimage: string = '';
   displayname: string = '';
   personalsettings: AppLaunchInstruction | null = null;

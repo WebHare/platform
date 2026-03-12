@@ -21,6 +21,8 @@ import { getIndyShell, handleApplicationErrors } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
 import { debugFlags } from "@webhare/env";
 import type { AppStartResponse } from '@mod-tollium/shell/platform/shell';
+import type { AppMenuItem } from './types';
+import type { ShellInstruction } from '@mod-platform/js/tollium/types';
 
 require("../common.lang.json");
 
@@ -90,6 +92,8 @@ export class ApplicationBase {
   /// Application language
   lang = 'en';
 
+  appmenu: AppMenuItem[] = [];
+
   //Is the app closing?
   protected appIsClosing = false;
 
@@ -136,7 +140,6 @@ export class ApplicationBase {
     this.hasissues = false;
     this.isdebugged = false;
     this.isdebugpaused = false;
-    this.appmenu = [];
 
     this._apploaddeferred = Promise.withResolvers();
     this._apploadlock = dompack.flagUIBusy();
@@ -547,11 +550,11 @@ export class ApplicationBase {
   // Application menu
   //
 
-  generateAppMenu() {
+  generateAppMenu(): AppMenuItem[] {
     return this.appmenu.slice(0);
   }
 
-  executeCommand(cmd) {
+  executeCommand(cmd: ShellInstruction | { type: "currentapp:restart" }) {
     if (cmd.type === 'currentapp:restart') {
       this.restartApp();
       return;
@@ -778,7 +781,7 @@ export class BackendApplication extends ApplicationBase {
     this.frontendid = frontendid;
   }
 
-  generateAppMenu() {
+  generateAppMenu(): AppMenuItem[] {
     return [
       {
         title: getTid('tollium:shell.restartapp'),
