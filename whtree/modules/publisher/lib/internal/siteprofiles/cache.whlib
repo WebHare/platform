@@ -172,7 +172,8 @@ PUBLIC STRING FUNCTION SuggestSeoNameFromTitle(STRING title, RECORD options DEFA
     typeinfo := DEFAULT RECORD,
     type := 0,
     isfolder := FALSE,
-    language := ""
+    language := "",
+    extension := ""
   ], options);
 
   INTEGER ignoreobject := ObjectExists(options.fsobject) ? options.fsobject->id : 0;
@@ -183,7 +184,7 @@ PUBLIC STRING FUNCTION SuggestSeoNameFromTitle(STRING title, RECORD options DEFA
                                                : DescribeContentTypeById(options.type, CELL[ options.isfolder, mockifmissing := TRUE ]);
   }
 
-  STRING extension := typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions);
+  STRING extension := options.extension ?? (typeinfo.ispublishedassubdir ? "" : PickFirst(typeinfo.extensions));
   IF(title = "" AND options.language != "")
     title := GetTidForLanguage(options.language, "platform:tolliumapps.publisher.common.newobject-name", GetTidForLanguage(options.language, typeinfo.title));
 

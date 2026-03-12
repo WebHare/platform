@@ -17,6 +17,10 @@ ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the 
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynfolder (webhare_testsuite)";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  //Expect prefilled placeholder just like New RTD would do
+  TestEq("", TT("title")->value);
+  TestEq("", TT("name")->value);
+  TestEq("new-webdesign-dynfolder-webhare-testsuite", TT("name")->placeholder);
   TT("name")->value := "dynfolder";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
@@ -50,8 +54,7 @@ ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the 
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 }
 
-ASYNC MACRO TestCreateObjectDialog()
-{
+ASYNC MACRO TestCreateObjectDialog() {
   AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id, [ isfolder := FALSE ] ));
   //dumpvalue(TT("types")->rows,'boxed');
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
@@ -95,8 +98,7 @@ ASYNC MACRO TestCreateObjectDialog()
          ], AWAIT res.expectcallreturn());
 }
 
-ASYNC MACRO CreateUsingTemplates()
-{
+ASYNC MACRO CreateUsingTemplates() {
   OBJECT created;
 
   //Create a file from 'imgeditfile.jpeg'
@@ -104,7 +106,7 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "imgeditfile.jpeg";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
-  TestEq(TRUE, TT("publish")->value);
+  TestEq(TRUE, TT("publish")->value, "Should match the template's publish value");
   TT("publish")->value := FALSE;
   TT("title")->value := "ImgEditFile";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
@@ -121,6 +123,7 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TestEq(FALSE, TT("publish")->value);
   TT("publish")->value := TRUE;
+  TT("title")->value := "index";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   created := GetTestsuiteTempFolder()->OpenByName("index.rtd");
@@ -138,6 +141,9 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "Testsuite Folder Template";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TestEq("Testsuite Folder Template", TT("title")->value); //FIXME are we sure we want this title here, and not to use it in eg frame title?
+  TestEq("", TT("name")->value);
+  TT("name")->value := "foldertemplate";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   created := GetTestsuiteTempFolder()->OpenByName("foldertemplate"); //it's still named after the file, even though it had a different title
@@ -153,7 +159,8 @@ ASYNC MACRO CreateUsingTemplates()
   TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "index.rtd";
   topscreen->frame->focused := TT("filelist");
   AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
-  TestEq("index-2.rtd", TT("name")->value);
+  TestEq("", TT("name")->value, "Name is not auto-set for RTDs");
+  TT("name")->value := "index-2.rtd";
   TestEq("TestDuplication", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", "any_field")->value);
   // The 'nocopyprops' properties (having cloneoncopy set to false) should not have been copied
   TestEq("", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/nocopyprops", "idfield")->value);
@@ -172,11 +179,38 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape());
+  AWAIT ExpectScreenChange(-1, PTR TTEscape()); //close app
 }
 
+
+ASYNC MACRO TestDuplicateObjectDialog() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath || "/imgeditfile.jpeg" ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
+  TestEq("", TT("name")->value, "The name is initially unset for a duplicate, just like new file (from template) would, so the name can be re-generated based on the new title");
+  TestEq("ImgEditFile", TT("title")->value);
+  TT("name")->value := "";
+  TestEq("imgeditfile.jpeg", TT("name")->placeholder, "The name placeholder should still suggest a unique name based on title. But placeholders don't speculate on the -<number> suffix");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  RECORD newimage := TT("filelist")->selection;
+  TestEq("imgeditfile-2.jpeg", newimage.name, "New name should have been based on the title ImgEditFile and the template's original extension, and this caused a conflict");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("duplicate"));
+  TestEq("", TT("name")->value);
+  TestEq("imgeditfile.jpeg", TT("name")->placeholder);
+  TT("title")->value := "Another image";
+  TestEq("another-image.jpeg", TT("name")->placeholder);
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  newimage := TT("filelist")->selection;
+  TestEq("another-image.jpeg", newimage.name, "New name should have been based on the original extension");
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape()); //close app
+}
 RunTestframework([ PTR DynFolderIndex
                  , PTR TestCreateObjectDialog
                  , PTR CreateUsingTemplates
+                 , PTR TestDuplicateObjectDialog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);

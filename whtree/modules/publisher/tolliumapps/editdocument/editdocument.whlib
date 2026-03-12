@@ -90,7 +90,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
     this->SetupEditBaseForExistingObject(data.id, CELL[ data.readonly, data.assumewriteaccess, useworkflow := TRUE, workflowtypes := data.objeditor.types ]);
 
-    OBJECT fsobject := OpenWHFSObject(this->itemid);
+    this->sourceitem := OpenWHFSObject(this->itemid);
 
     IF(this->workflowmgr->IsReadOnly() AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->itemid)) //not even browse access?
     {
@@ -104,20 +104,20 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     //ADDME deal with cases where users already make other modifications while we're stil opening ?
 
-    IF(NOT ObjectExists(fsobject))
+    IF(NOT ObjectExists(this->sourceitem))
     {
       this->tolliumresult := "cancel";
       RETURN;
     }
 
 
-    this->filetypeinfo := DescribeContentTypeById(fsobject->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
+    this->filetypeinfo := DescribeContentTypeById(this->sourceitem->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
 
     //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->itemid, data.objeditor);
     this->RefreshReadonly();
 
-    ^publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
+    ^publicationlistener->masks := [ "system:whfs.folder." || this->sourceitem->parent, "publisher:publish.folder." || this->sourceitem->parent ];
 
     RECORD competingdraft := this->workflowmgr->GetCurrentDraft();
     IF(RecordExists(competingdraft) AND NOT competingdraft.mine) {
@@ -601,7 +601,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   }
 
   MACRO DoPublish() { //Save and publish the file
-    RECORD metadata;
     OBJECT targetfile := OpenWHFSObject(this->itemid);
 
     IF(targetfile->publish = FALSE AND targetfile->ispinned) { // The file's publish status is locked by the pin
