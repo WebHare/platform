@@ -223,7 +223,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   /// The RTD rendering engine used by this webdesign and embedded widgets
   PUBLIC OBJECT rtd_rendering_engine;
 
-  /// share image property. access the opengraph plugin without requiring you to explicitly declare it
+  /// Share image property. Adds the opengraph plugin without requiring you to explicitly declare it
   PUBLIC PROPERTY ogshareimage(GetOGShareImage, SetOGShareImage);
 
   // ---------------------------------------------------------------------------
