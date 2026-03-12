@@ -13,19 +13,6 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
 {
-
-  /* ADDME allow combining
-           To prevent a race between Publishing & siteprofile compile (which both start at COmmit, we'll commit the siteprofile before adding files to publish) */
-  OBJECT dynamicpagewitty := siteroot->CreateFile([name:="dynamicpage.witty", type := 26, data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/dynamicpage.witty") ]);
-
-/*  testfw->CommitWork();
-
-  testfw->BeginWork(); */
-
-  OBJECT dynamicpageshtml := siteroot->CreateFile([name:="dynamicpage.shtml", type := 25, publish := TRUE ]);
-
-  OBJECT standalonedynamicpageshtml := siteroot->CreateFile([name:="standalone-dynamicpage.shtml", type := 25, publish := TRUE ]);
-  OBJECT contentlinkshtml := siteroot->CreateFile([name:="contentlink.shtml", type := 20, filelink := dynamicpageshtml->id, publish := TRUE ]);
   OBJECT headingsdoc := siteroot->CreateFile([name:="headings.doc", data := testfw->GetModuleTestBlob("webhare_testsuite","publisher-webdesign/testdata/simpletest.doc"), publish := TRUE ]);
   OBJECT dynfolder := siteroot->CreateFolder( [ name:="dynfolder"
                                               , type := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder")->id
@@ -40,8 +27,6 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
                                                   ]);
 
   OBJECT externallinkshtml := siteroot->CreateFile([name:="externallink.shtml", type := 18, externallink := "http://www.b-lex.nl/", publish := TRUE ]);
-  OBJECT internallinkpublishedshtml := siteroot->CreateFile([name:="internallink-published.shtml", type := 19, filelink := dynamicpageshtml->id, publish := TRUE ]);
-  OBJECT internallinkunpublishedshtml := siteroot->CreateFile([name:="internallink-unpublished.shtml", type := 19, filelink := dynamicpagewitty->id, publish := TRUE ]);
 
   dynfolder->CreateFile([name := "index.shtml", type := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dynamicfoldercontents")->id, publish := TRUE ]);
   OBJECT statichtmldoc := siteroot->CreateFile([name:="static.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
