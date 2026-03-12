@@ -324,10 +324,8 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
     STRING extension := GetExtensionFromPath(resname);
     STRING filename := GetNameFromPath(resname);
     IF (extension NOT IN
-        [ ".whscr", ".whlib", ".shtml", ".tpl", ".html", ".whsock"
+        [ ".whscr", ".whlib", ".shtml", ".whsock"
         , ".xsd"
-        , ".js", ".jsx", ".es", ".esx"
-        , ".css"
         ] AND filename NOT IN [ "moduledefinition.xml" ])
     {
       RETURN
@@ -352,7 +350,7 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
     RECORD retval;
     SWITCH (filetype)
     {
-      CASE ".whscr", ".whlib", ".shtml", ".tpl", ".html", ".whsock"
+      CASE ".whscr", ".whlib", ".shtml", ".whsock"
       {
         retval := ParseHarescript(this->source, resname);
 
@@ -446,15 +444,6 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
         INSERT CELL modtime := modtime INTO retval;
         INSERT CELL objects := objects INTO retval;
       }
-      CASE ".css"
-      {
-        // Just add the file
-        retval :=
-            [ sourcetype := "css"
-            , modtime :=    modtime
-            , objects :=    [ [ id := resname || "#file" ] ]
-            ];
-      }
       CASE "moduledefinition"
       {
         RECORD ARRAY parts := ParseModuleDefinitionDocumentation(this->fs, resname);
@@ -467,15 +456,6 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
                                                   ? `${resname}#schema#${schemaname}`
                                                   : `${resname}#table#${schemaname}#${ToLowercase(name)}`
                                 FROM parts
-            ];
-      }
-      CASE ".xml", ".siteprl"
-      {
-        // Just add the file. ADDME: parse screen files
-        retval :=
-            [ sourcetype := "xml"
-            , modtime :=    modtime
-            , objects :=    [ [ id := resname || "#file" ] ]
             ];
       }
       DEFAULT
@@ -581,21 +561,9 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
       {
         RETURN this->FetchHarescriptObject(indexdate, groupid, objectid, idparts, data);
       }
-      CASE "javascript"
-      {
-        RETURN this->FetchJavascriptObject(indexdate, groupid, objectid, idparts, data);
-      }
       CASE "xsd"
       {
         RETURN this->FetchXSDObject(indexdate, groupid, objectid, idparts, data);
-      }
-      CASE "css"
-      {
-        RETURN this->FetchCSSObject(indexdate, groupid, objectid, idparts, data);
-      }
-      CASE "xml"
-      {
-        RETURN this->FetchXMLObject(indexdate, groupid, objectid, idparts, data);
       }
       CASE "moduledefinition"
       {
@@ -862,71 +830,6 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
     RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
   }
 
-  RECORD FUNCTION FetchJavascriptObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
-  {
-    SWITCH (idparts[1])
-    {
-      CASE "file"
-      {
-        RETURN
-            [ status := "result"
-            , document_fields :=
-                  [ type :=     "file"
-                  , path :=     groupid
-                  , title :=    "file " || groupid
-                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
-                  , fullname := groupid
-                  , objtype :=  ""
-                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , position := ""
-                  , suggestfields := "title"
-                  , definition := "File " || groupid
-                  , sourcetype := "javascript"
-                  , symbolparts := ""
-                  , objectcount := LENGTH(data.objects)
-                  ]
-            , indexdate := data.modtime
-            ];
-      }
-      CASE "variable", "function", "method", "member", "class"
-      {
-        RECORD rec :=
-            SELECT *
-              FROM data.allvars
-             WHERE type = idparts[1]
-               AND COLUMN left = idparts[2];
-
-        IF (RecordExists(rec))
-        {
-          STRING objtype := Left(idparts[2], SearchLastSubString(idparts[2], ".")) || ".";
-          objtype := Substitute(objtype, ".prototype.", ".");
-          objtype := Left(objtype, LENGTH(objtype) - 1);
-
-          RETURN MakeResult(
-                CELL[ type :=     idparts[1]
-                    , path :=     groupid
-                    , title :=    idparts[1] || " " || groupid || " " || idparts[2]
-                    , name :=     SubString(idparts[2], SearchLastSubString(idparts[2], ".") + 1)
-                    , fullname := idparts[2]
-                    , objtype :=  objtype
-                    , position :=  rec.location.line || ":" || (rec.location."column" + 1)
-                    , ispublic := "true"
-                    , docpublic := "true"
-                    , suggestfields := "title"
-                    , definition := idparts[1] || " " || idparts[2] || rec.args
-                    , sourcetype := "javascript"
-                    , commenttext := rec.comment
-                    , symbolparts := Detokenize(DeconstructSymbol(idparts[2]), " ")
-                    , data.modtime
-                    ]);
-        }
-      }
-    }
-
-    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
-  }
-
   RECORD FUNCTION FetchXSDObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
   {
     SWITCH (idparts[1])
@@ -1093,67 +996,6 @@ PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
       }
 
 
-    }
-
-    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
-  }
-
-  RECORD FUNCTION FetchCSSObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
-  {
-    SWITCH (idparts[1])
-    {
-      CASE "file"
-      {
-        RETURN MakeResult(
-              CELL[ type :=     "file"
-                  , path :=     groupid
-                  , title :=    "file " || groupid
-                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
-                  , fullname := groupid
-                  , objtype :=  ""
-                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , position := ""
-                  , suggestfields := "title"
-                  , definition := "File " || groupid
-                  , sourcetype := "css"
-                  , objectcount := LENGTH(data.objects)
-                  , symbolparts := ""
-                  , data.modtime
-                  ]);
-      }
-    }
-
-    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
-  }
-
-  RECORD FUNCTION FetchXMLObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
-  {
-    SWITCH (idparts[1])
-    {
-      CASE "file"
-      {
-        RETURN
-            [ status := "result"
-            , document_fields :=
-                  [ type :=     "file"
-                  , path :=     groupid
-                  , title :=    "file " || groupid
-                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
-                  , fullname := groupid
-                  , objtype :=  ""
-                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
-                  , position := ""
-                  , suggestfields := "title"
-                  , definition := "File " || groupid
-                  , sourcetype := "xml"
-                  , objectcount := LENGTH(data.objects)
-                  , symbolparts := ""
-                  ]
-            , indexdate := data.modtime
-            ];
-      }
     }
 
     RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
