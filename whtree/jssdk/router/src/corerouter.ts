@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { buildContentPageRequest, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
+import { buildContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -173,6 +173,7 @@ export async function renderTSWidgetHS(context: {
     targetObject: targetObject,
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
+    targetPath: await buildTargetPath(targetObject),
     siteLanguage: context.sitelanguage
   };
 

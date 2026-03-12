@@ -86,6 +86,12 @@ async function testPageResponse() {
   // Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const sitereq = await buildContentPageRequest(new IncomingWebRequest(markdowndoc.link!), markdowndoc);
+  test.eq([
+    { id: markdowndoc.parentSite!, name: "webhare_testsuite.testsitejs", title: "", link: (await whfs.openSite(markdowndoc.parentSite!)).webRoot },
+    { id: markdowndoc.parent!, name: "TestPages", title: "", link: null },
+    { id: markdowndoc.id, name: "markdownpage", title: "Markdown page", link: markdowndoc.link },
+  ], sitereq.targetPath);
+
   sitereq.setFrontendData("webhare_testsuite:otherdata", { otherData: 112233 });
 
   const response: WebResponse = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
@@ -197,11 +203,11 @@ async function testPageResponseJSRTD() {
 
   //Test widget preview in testsitejs (JS renderer)
   const htmlWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/htmlwidget");
-  test.eq([`<b>htmlwidget</b>`], htmlWidgetJSSite.bodyElements);
+  test.eq([`<b>htmlwidget</b>`, /^<script type="application\/ld\+json">.*<\/script>$/], htmlWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], htmlWidgetJSSite.htmlClasses);
 
   const jsWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/jswidget");
-  test.eq([`<div>js widget</div>`], jsWidgetJSSite.bodyElements);
+  test.eq([`<div>js widget</div>`, /^<script type="application\/ld\+json">.*<\/script>$/], jsWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], jsWidgetJSSite.htmlClasses);
 }
 

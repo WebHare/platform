@@ -9,7 +9,10 @@ import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/tra
 import '@mod-system/js/internal/whmanager/bridge'; // for whmanager registration and automatic error reporting
 import { dirname } from "node:path";
 import { getTSPolyfills } from "@mod-system/js/internal/generation/gen_typescript";
-
+import type { Thing, WithContext } from "schema-dts";
+import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
+import type * as xmldom from "@xmldom/xmldom";
+import { omit } from "@webhare/std";
 
 export function reportAssertError(stack: string) {
   const badline = stacktrace_parser.parse(stack)[1];
@@ -157,6 +160,27 @@ export async function triggerGarbageCollection() {
       resolve();
     });
   });
+}
+
+//we should probably find a better location for this API
+export function extractSchemaOrgData(doc: Document | xmldom.Document): Exclude<Thing, string>[] {
+  const things: WithContext<Exclude<Thing, string>>[] = [];
+
+  for (const scriptelement of elements((doc as Document).getElementsByTagName("script"))) {
+    if (scriptelement.getAttribute("type") === "application/ld+json") {
+      try {
+        const data = JSON.parse(scriptelement.textContent!);
+        if (Array.isArray(data))
+          things.push(...data);
+        else
+          things.push(data);
+      } catch (e) {
+        throw new Error("Unable to parse schema.org data", { cause: e });
+      }
+    }
+  }
+
+  return omit(things.filter(_ => _["@context"] === "https://schema.org"), ["@context"]) satisfies Exclude<Thing, string>[];
 }
 
 export { getActiveGenerators } from "./inspect-helpers";

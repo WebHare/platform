@@ -5,6 +5,7 @@ import * as std from '@webhare/std';
 
 // import * as util from 'node:util';
 import * as child_process from 'node:child_process';
+import { parseDocAsXML } from '@mod-system/js/internal/generation/xmlhelpers';
 
 async function testChecks() {
   //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
@@ -132,6 +133,38 @@ async function testChecks() {
     test.eq(readOnlyExpect, { a: [{ b: [1] }] });
     test.eqPartial(readOnlyExpect, { a: [{ b: [1] }] });
   }
+}
+
+async function testSupport() {
+  const doc = parseDocAsXML(`<html><body><script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": "http://cathscafe.example.com/",
+        "mainEntity": {
+          "@type": "Restaurant",
+          "name": "Cath's Cafe",
+          "openingHours": "Mo,Tu,We,Th,Fr,Sa,Su 11:00-20:00",
+          "telephone": "+155501003344",
+          "hasMenu": "/menu"
+        }
+    }
+    </script></body></html>`, 'text/html');
+
+  const data = test.extractSchemaOrgData(doc);
+  test.eq([
+    {
+      '@type': 'WebPage',
+      '@id': 'http://cathscafe.example.com/',
+      mainEntity: {
+        '@type': 'Restaurant',
+        name: "Cath's Cafe",
+        openingHours: 'Mo,Tu,We,Th,Fr,Sa,Su 11:00-20:00',
+        telephone: '+155501003344',
+        hasMenu: '/menu'
+      }
+    }
+  ], data);
 }
 
 async function ensureWaitAbortable(expectState: string, cb: () => Promise<unknown>) {
@@ -296,6 +329,7 @@ async function checkTestFailures() {
 
 test.runTests([
   testChecks,
+  testSupport,
   testTestMonitoring,
   testWaits,
   testLoadTypes,

@@ -17,7 +17,7 @@ import { dtapStage } from "@webhare/env";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { omit, stringify, throwError } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetaData } from "./metadata";
@@ -53,6 +53,30 @@ function nameToKebabCase(name: string) {
   return name.replaceAll(/[A-Z]/g, c => '-' + c.toLowerCase());
 }
 
+/** Type of targetPath entries */
+export type TargetPathEntry = {
+  /** The WHFS object ID */
+  id: number;
+  /** The name of the object id */
+  name: string;
+  /** TThe title of the object */
+  title: string;
+  /** Link to the object, if published */
+  link: string | null;
+};
+
+// Build a path to a targetObject
+export async function buildTargetPath(targetObject: WHFSObject) {
+  const targetPath: TargetPathEntry[] = [];
+  //TODO more efficient DB query, have DB help? And probably @webhare/whfs should be offering APIs for building trees
+  for (let item: WHFSObject | null = targetObject; item; item = item.parent ? await openFileOrFolder(item.parent) : null) {
+    targetPath.unshift({ id: item.id, name: item.name, title: item.title, link: item.link });
+    if (item.id === targetObject.parentSite)
+      break; //found site root
+  }
+  return targetPath;
+}
+
 export class CPageRequest {
   readonly webRequest: WebRequest | null;
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
@@ -61,6 +85,9 @@ export class CPageRequest {
   readonly targetFolder: WHFSFolder;
   //mark webRoot as set, or we wouldn't be rendering a ContentPageRequest
   readonly targetSite: Site & { webRoot: string };
+
+  /** The navigation path entries from the site root to the current targetObject */
+  targetPath: Array<TargetPathEntry> = [];
 
   readonly pageMetaData = new PageMetaData();
 
@@ -135,14 +162,12 @@ export class CPageRequest {
     if (!this.pageMetaData.canonicalUrl && (!this.webRequest || this.targetObject.type === "platform:filetypes.form"))
       this.pageMetaData.canonicalUrl = this.targetObject.link;
 
-    // Initialize robots tag
-    const parents: Array<{ id: number }> = [];
-    for (let parent = this.targetObject.parent; parent; parent = (await openFileOrFolder(parent))?.parent)
-      parents.unshift({ id: parent });
+    // Build path to the target. We'll need it to initialize the breadcrumb and inital SEO settings
+    this.targetPath.push(...await buildTargetPath(this.targetObject));
 
-    const seoItems = (await whfsType("platform:web.config").enrich(parents, "id", ["noIndex", "noFollow", "noArchive", "customRobots", "canonical"])).map(_ => omit(_, ["id"]));
-    seoItems.push(seoSettings);
-    for (const seoItem of seoItems) {
+    // Initialize robots tag
+    const seoItems = (await whfsType("platform:web.config").enrich(this.targetPath.slice(0, this.targetPath.length - 1), "id", ["noIndex", "noFollow", "noArchive", "customRobots", "canonical"]));
+    for (const seoItem of [...seoItems, seoSettings]) {
       if (seoItem.noIndex)
         this.pageMetaData.robotsTag.noIndex = true;
       if (seoItem.noFollow)
@@ -159,6 +184,16 @@ export class CPageRequest {
       this.pageMetaData.robotsTag.noFollow = true;
     if (baseProps.noarchive)
       this.pageMetaData.robotsTag.noArchive = true;
+
+    // Initialize the breadcrumb
+    const breadcrumb = this.pageMetaData.breadcrumb;
+    for (const pathEntry of this.targetPath) {
+      breadcrumb.push({
+        "@type": "ListItem",
+        url: pathEntry.link || undefined,
+        name: pathEntry.title || pathEntry.name || undefined,
+      });
+    }
   }
 
   get siteLanguage() {
@@ -321,7 +356,15 @@ export class CPageRequest {
     return '';
   }
 
+  private getFinalStructuredData() {
+    return this.pageMetaData.structuredData.map(item => ({
+      "@context": "https://schema.org",
+      ...item
+    }));
+  }
+
   private async renderBodyFinale(): Promise<Litty> {
+    const schemaOrgItems = this.getFinalStructuredData();
     return litty`
       ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
       ${
@@ -337,7 +380,8 @@ export class CPageRequest {
       //   PrintInvokedWitties();
       //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
       ""}
-        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}`;
+        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}
+        <script type="application/ld+json">${rawLitty(stringify(schemaOrgItems, { target: "script" }))}</script>`;
   }
 
   private async buildPage(head: Litty | undefined, body: Litty, settings: SiteResponseSettings): Promise<Litty> {
@@ -472,7 +516,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "siteLanguage">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage">;
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect

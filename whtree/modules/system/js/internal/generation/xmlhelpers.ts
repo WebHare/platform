@@ -4,11 +4,11 @@
 import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy } from "@webhare/std";
-import { DOMParser, type Document, type Node, type Element, type NodeList } from "@xmldom/xmldom";
+import * as xmldom from "@xmldom/xmldom";
 
 /** Build a \@xmldom/xmldom DOCParser that doesn't make noise about broken docs */
-export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): Document {
-  const parser = new DOMParser({
+export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): xmldom.Document {
+  const parser = new xmldom.DOMParser({
     onError: w => { } //just ignore
   });
 
@@ -18,11 +18,15 @@ export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): D
   return parser.parseFromString(data, format);
 }
 
-export function elements<T extends Element>(collection: NodeList<Node>): T[] {
+//Build an elements API that accepts both xmldom nodes and true HTML nodes
+export function elements<T extends xmldom.Element>(collection: xmldom.NodeList<xmldom.Node>): T[];
+export function elements<T extends Element>(collection: HTMLCollectionBase): T[];
+
+export function elements<T extends xmldom.Element | Element>(collection: xmldom.NodeList<xmldom.Node> | HTMLCollectionBase): T[] {
   const items: T[] = [];
   for (let i = 0; i < collection.length; ++i)
     if (collection[i].nodeType === collection[i].ELEMENT_NODE)
-      items.push(collection[i] as T);
+      items.push(collection[i] as typeof items[number]);
   return items;
 }
 
@@ -38,13 +42,13 @@ function parseXSList(input: string | null): string[] {
  * as JavaScript can't realyl differentiate between arrays of different types. Fortunately non-string arrays are
  * rare in WebHare's XML formats
 */
-export function getAttr(node: Element, attr: string): string;
-export function getAttr(node: Element, attr: string, fallback: string[]): string[];
-export function getAttr(node: Element, attr: string, fallback: number): number;
-export function getAttr(node: Element, attr: string, fallback: boolean): boolean;
-export function getAttr(node: Element, attr: string, fallback: string): string;
+export function getAttr(node: xmldom.Element, attr: string): string;
+export function getAttr(node: xmldom.Element, attr: string, fallback: string[]): string[];
+export function getAttr(node: xmldom.Element, attr: string, fallback: number): number;
+export function getAttr(node: xmldom.Element, attr: string, fallback: boolean): boolean;
+export function getAttr(node: xmldom.Element, attr: string, fallback: string): string;
 
-export function getAttr<T>(node: Element, attr: string, fallback: T = "" as T): T {
+export function getAttr<T>(node: xmldom.Element, attr: string, fallback: T = "" as T): T {
   //TODO it would be nice if we could work without as T but the default value is preventing that
   const attrval: string | null = node.getAttribute(attr);
   if (attrval === null || (!attrval && !node.hasAttribute(attr)))
@@ -58,7 +62,7 @@ export function getAttr<T>(node: Element, attr: string, fallback: T = "" as T): 
   return attrval as T;
 }
 
-export function getQualifiedAttr(defaultmodule: string, node: Element, attr: string): ModuleQualifiedName | null {
+export function getQualifiedAttr(defaultmodule: string, node: xmldom.Element, attr: string): ModuleQualifiedName | null {
   let val = getAttr(node, attr, "");
   if (val && !val.includes(':'))
     val = `${defaultmodule}:${val}`;
@@ -69,7 +73,7 @@ function isAbsoluteTid(tid: string) {
   return tid.includes(':') || tid.startsWith('~');
 }
 
-function getXMLTidFromName(defaultmodule: string, currentgid: string, el: Element) {
+function getXMLTidFromName(defaultmodule: string, currentgid: string, el: xmldom.Element) {
   for (const attr of ["cellname", "name"]) {
     if (el.hasAttribute(attr)) {
       let name = el.getAttribute(attr)!.toLowerCase();
@@ -87,11 +91,11 @@ function getXMLTidFromName(defaultmodule: string, currentgid: string, el: Elemen
 
 /** Parse a title/tid combination, considering any groupid, default module and name/cellname rules. Returns an empty string if unset, ':' prefixed string for untranslated texts, and otherwise a module:tid combination
  */
-export function parseXMLTidPtr(resourcename: string, currentgid: string, el: Element, attrname: string) {
+export function parseXMLTidPtr(resourcename: string, currentgid: string, el: xmldom.Element, attrname: string) {
   return parseXMLTidPtrNS(resourcename, currentgid, el, null, attrname, false);
 }
 
-export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: Element, ns: string | null, attrname: string, richtid: boolean) {
+export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: xmldom.Element, ns: string | null, attrname: string, richtid: boolean) {
   if (!isAbsoluteResource(resourcename))
     throw new Error(`parseXMLTidPtr call with invalid resource name '${resourcename}'`);
 
@@ -139,9 +143,9 @@ export function parseXMLTidPtrNS(resourcename: string, currentgid: string, el: E
   return '';
 }
 
-export function determineNodeGid(resourcename: string, node: Node | null): string {
+export function determineNodeGid(resourcename: string, node: xmldom.Node | null): string {
   while (node && node.nodeType === node.ELEMENT_NODE) {
-    const localgid = (node as Element).getAttribute("gid");
+    const localgid = (node as xmldom.Element).getAttribute("gid");
     if (!localgid) {
       node = node.parentNode;
       continue;
