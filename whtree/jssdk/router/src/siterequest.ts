@@ -394,7 +394,7 @@ export class CPageRequest {
       dir="${this.pageMetaData.htmlDirection}"
       ${this.pageMetaData.htmlClasses ? litty`class="${this.pageMetaData.htmlClasses.join(" ")}"` : ''}
       ${this.pageMetaData.htmlPrefixes.length ? litty`prefix="${this.pageMetaData.htmlPrefixes.map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
-      ${Object.entries(this.pageMetaData.htmlDataSet).length ? litty`${Object.entries(this.pageMetaData.htmlDataSet).map(([key, value]) => `data-${nameToKebabCase(key)}="${value}"`).join(" ")}` : ''}
+      ${Object.entries(this.pageMetaData.htmlDataSet).length ? Object.entries(this.pageMetaData.htmlDataSet).map(([key, value]) => litty`data-${nameToKebabCase(key)}="${value}" `) : ''}
       data-wh-ob="${getWHFSObjRef(this.targetObject)}">
   <head>
     <meta charset="utf-8">
