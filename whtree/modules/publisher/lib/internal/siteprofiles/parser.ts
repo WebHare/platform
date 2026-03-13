@@ -761,7 +761,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
   for (const [type, setWidget] of Object.entries(apply.setWidget || {})) {
     rule.setwidget.push({
-      contenttype: type,
+      contenttype: context.resolveType(type),
       editor: setWidget.editor ? parseEditor(context, setWidget.editor) : null,
       renderer: setWidget.renderer ? { objectname: context.resolve(setWidget.renderer) } : null,
       has_previewcomponent: setWidget.previewComponent !== undefined,
