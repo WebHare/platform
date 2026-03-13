@@ -142,11 +142,13 @@ class ImportSession {
         baseMetaData = resolveResult.data;
     }
 
-    const newName = item.name.substring(0, item.name.length - 9); //strip .whfs.yml
+    const newName = item.name.replace(/\.whfs\.yml$/i, '');
     const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](newName, {
       type: meta.type,
       ...baseMetaData
     });
+    if (typeinfo.foldertype)
+      this.folderMap.set("/" + toCLocaleLowercase(item.subPath.replace(/\.whfs\.yml$/i, '')), newObj as WHFSFolder);
 
     for (const instance of meta.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")

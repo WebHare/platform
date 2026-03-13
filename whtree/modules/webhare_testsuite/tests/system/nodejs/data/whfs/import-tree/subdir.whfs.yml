@@ -1,0 +1,6 @@
+# Export of folder "/TestPages/" from WebHare v6.0.0 on arnold.whdev at 2026-03-13T21:46:39.473Z
+type: platform:foldertypes.default
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: "My subfolder"

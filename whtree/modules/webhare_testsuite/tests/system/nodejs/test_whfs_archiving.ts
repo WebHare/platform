@@ -13,6 +13,10 @@ async function verifyImportTree(importTree: WHFSFolder) {
   test.eq("Root file", rootfile.title);
   test.eq(true, rootfile.publish);
   test.eq([{ tag: "p", items: [{ text: "This is a file in the root" }] }], (await whfsType("platform:filetypes.richdocument").get(rootfile.id, { export: true })).data);
+
+  //Verify directory with metadata
+  const subdir = await importTree.openFolder("subdir");
+  test.eq("My subfolder", subdir.title);
 }
 
 async function testWHFSImportArchive() {
