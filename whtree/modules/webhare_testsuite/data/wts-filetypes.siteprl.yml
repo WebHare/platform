@@ -13,6 +13,13 @@ types:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD
 
+  base_test.dynamic_page:
+    metaType: page
+    workflow: false
+    title: WTS JS dynamic page
+    dynamicExecution:
+      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
+
 apply:
   - comment: Configure widgets. We need this rule so basetest webdesign can also run base_test.testsuite_rtd_ts files
     to:

@@ -12,8 +12,9 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/analyzer.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestTestSite()
 {
@@ -118,12 +119,12 @@ MACRO TestSimplePages()
 MACRO TestDynPage()
 {
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  STRING url := siteroot->url || "dynamicpage.shtml";
+  //WebHare won't let us publish SHTML files anymore, so manually create one on the output
+  RECORD outputfile := DescribeDiskOutput(siteroot->id, "dynamicpagetest.shtml");
+  StoreDiskFile(outputfile.outputfolder, StringToBlob(`<?wh Print("Can't run me!");`));
+  STRING url := siteroot->url || "dynamicpagetest.shtml";
   testfw->browser->GotoWebPage(url);
   TestEq(403, testfw->browser->GetHTTPStatusCode(), testfw->browser->url);
-
-  testfw->browser->GotoWebPage(siteroot->url || "contentlink.shtml");
-  TestEq(403, testfw->browser->GetHTTPStatusCode(), siteroot->url || "contentlink.shtml");
 }
 
 MACRO TestErrorPages()

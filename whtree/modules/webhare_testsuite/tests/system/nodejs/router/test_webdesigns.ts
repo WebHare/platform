@@ -131,6 +131,13 @@ async function testPageResponse() {
   test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
 }
 
+async function testDynamicPage() {
+  const dynamicpage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-js");
+  const fetchResult = await fetch(dynamicpage.link + "?echo=1234");
+  const response = parseResponse(await fetchResult.text());
+  test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+}
+
 async function testPageResponseApplies() {
   //test various <apply>s and that they affect the webdesign
   const { doc: langPsAFDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
@@ -266,6 +273,7 @@ async function testRouter_JSWebDesign() {
 
 test.runTests([
   testPageResponse,
+  testDynamicPage,
   testPageResponseApplies,
   testPageResponseMarkdown,
   testPageResponseJSRTD,

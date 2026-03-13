@@ -935,6 +935,7 @@ function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceP
   return {
     cachettl: exec.cacheTtl || 0,
     routerfunction: context.resolve(exec.routerFunction || ''),
+    ...exec.contentBuilder ? { contentbuilder: context.resolve(exec.contentBuilder) } : null,
     startmacro: context.resolve(exec.startMacro || ''),
     webpageobjectname: context.resolve(exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],

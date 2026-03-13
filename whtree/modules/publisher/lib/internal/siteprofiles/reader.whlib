@@ -636,6 +636,8 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
     }
 
     settings := result.dyn;
+    //both webdesign and a dynamicpage setting contentBuilder trigger JS rendering
+    js := js OR result.js;
   }
 
   INSERT CELL folders := folders INTO settings;
@@ -1620,7 +1622,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
 
     dyn := contenttype.dynamicexecution;
     IF(RecordExists(dyn))
-      RETURN [ success := TRUE, dyn := dyn ];
+      RETURN [ success := TRUE, dyn := dyn, js := CellExists(dyn,'contentbuilder') ];
 
     RETURN [ success := FALSE, badtype := FALSE ];
   }
