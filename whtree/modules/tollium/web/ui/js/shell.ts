@@ -588,62 +588,61 @@ class IndyShell extends TolliumShell {
 
     this.transportmgr.destroy();
   }
-}
 
-
-export async function handleApplicationErrors(app: ApplicationBase, data: AppStartResponse) {
-  const $shell = getIndyShell();
-  if ("error" in data && data.error) { //An error code from StartApp
-    switch (data.error) {
-      case "notloggedin": {
-        await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-          $shell.doLogoff();
-        return;
-      }
-      case "unexpectedprotocolversion": {
-        await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-          location.reload();
-        return;
-      }
-      default: {
-        // TODO unexpectedprotocolversion is being updated to transmit an errormessage.. once rolled out sufficiently we can rely on that and remove the case above
-        await runSimpleScreen(app, { text: data.errormessage || data.error, buttons: [{ name: 'ok', title: getTid("~ok") }] });
-        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-          location.reload();
-        return;
+  async handleApplicationErrors(app: ApplicationBase, data: AppStartResponse) {
+    const $shell = app.shell;
+    if ("error" in data && data.error) { //An error code from StartApp
+      switch (data.error) {
+        case "notloggedin": {
+          await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
+          if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+            $shell.doLogoff();
+          return;
+        }
+        case "unexpectedprotocolversion": {
+          await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
+          if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+            location.reload();
+          return;
+        }
+        default: {
+          // TODO unexpectedprotocolversion is being updated to transmit an errormessage.. once rolled out sufficiently we can rely on that and remove the case above
+          await runSimpleScreen(app, { text: data.errormessage || data.error, buttons: [{ name: 'ok', title: getTid("~ok") }] });
+          if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+            location.reload();
+          return;
+        }
       }
     }
-  }
 
-  if ("type" in data && data.type === "expired") { //StartApp error
-    await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-    app.__startAppClose();
-    location.reload();
-    return;
-  }
-
-  if (!("errors" in data) || !data.errors?.length) {
-    //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
-    app.terminateApplication();
-    return;
-  }
-
-  console.log("Received error message for app", app, data);
-  let messages = '';
-  let trace = '\nTrace:\n';
-
-  for (let i = 0; i < data.errors.length; ++i) {
-    if (data.errors[i].message) {
-      messages += data.errors[i].message + "\n";
-      messages += "At " + data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ")\n";
-    } else {
-      trace += data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ") " + data.errors[i].func + "\n";
+    if ("type" in data && data.type === "expired") { //StartApp error
+      await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
+      app.__startAppClose();
+      location.reload();
+      return;
     }
-  }
 
-  app.requireComponentTypes(['panel', 'button', 'action', 'textarea'], reportApplicationError.bind(null, app, data, messages, trace));
+    if (!("errors" in data) || !data.errors?.length) {
+      //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
+      app.terminateApplication();
+      return;
+    }
+
+    console.log("Received error message for app", app, data);
+    let messages = '';
+    let trace = '\nTrace:\n';
+
+    for (let i = 0; i < data.errors.length; ++i) {
+      if (data.errors[i].message) {
+        messages += data.errors[i].message + "\n";
+        messages += "At " + data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ")\n";
+      } else {
+        trace += data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ") " + data.errors[i].func + "\n";
+      }
+    }
+
+    app.requireComponentTypes(['panel', 'button', 'action', 'textarea'], reportApplicationError.bind(null, app, data, messages, trace));
+  }
 }
 
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
@@ -723,7 +722,7 @@ function debugApp(crashdialog, app, data, x, ondone) {
   crashdialog.actionEnabler();
 
   // appid is A:<groupid>
-  getIndyShell().sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });
+  app.shell.sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });
   ondone();
 }
 

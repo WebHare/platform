@@ -5,9 +5,7 @@ import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRe
 import type { CurrentDragData } from './dragdrop';
 import { isTruthy, throwError } from '@webhare/std';
 import { flagUIBusy } from '@webhare/dompack';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require("../common.lang.json");
+import "../common.lang.json";
 
 
 export type TolliumUploadedCallback = (files: Array<{

@@ -3,7 +3,6 @@ import { getTid } from "@webhare/gettid";
 import { createImage } from "@mod-tollium/js/icons";
 import { runSimpleScreen } from "@mod-tollium/web/ui/js/dialogs/simplescreen";
 import { getActiveApplication } from "@mod-tollium/web/ui/js/support";
-import { getIndyShell } from "@mod-tollium/web/ui/js/shell";
 import { prepareFeedback } from "@mod-publisher/js/feedback/screenshot";
 
 function filterDOM(node: Element) {
@@ -104,7 +103,7 @@ export default class TolliumFeedbackAPI {
     uploadcontroller.close();
     */
 
-    getIndyShell().executeInstruction({
+    app.shell.executeInstruction({
       type: "appmessage",
       app: "connect:submitfeedback",
       target: {
