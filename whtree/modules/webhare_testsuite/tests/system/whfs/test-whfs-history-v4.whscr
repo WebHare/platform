@@ -114,7 +114,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file") ], workflowmgr->GetMetadata());
+  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   TestEqMembers([
     title := "Test!",
@@ -132,7 +132,7 @@ MACRO DraftingTest() {
                 , [ name := "", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
                 ], ListObjectHistory(testfile->id), "*");
   TestEq(0, GetLastPublicDraft(testfile->id), "An autosave is not a draft");
-  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
+  TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   //Unclaimed instances cannot be managed through the workflow
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
@@ -140,7 +140,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
 
   workflowmgr->UpdateMetadata(CELL[ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ]);
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
   TestEq([ with_workflow_string := "pvt_draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
@@ -246,9 +246,9 @@ MACRO DraftingTest() {
 
   //Create a draft. Verify it clones metadata properly
   Sleep(1);
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft")  ], workflowmgr->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file, but now with more data!")  ], workflowmgr->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file, but now with more data!"), isunlisted := FALSE ], workflowmgr->GetMetadata());
   workflowmgr->UpdateMetadata([ title := "Jolly Good Autosave"]);
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "jolly-good-autosave" ]);
 
@@ -288,7 +288,7 @@ MACRO DraftingTest() {
 
   //Let's save another draft
   TestEq([ with_workflow_string := "draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file with some data added by Homer!") ], workflowmgr->GetMetadata());
+  TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file with some data added by Homer!"), isunlisted := FALSE ], workflowmgr->GetMetadata());
   workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
   workflowmgr->Save();
 

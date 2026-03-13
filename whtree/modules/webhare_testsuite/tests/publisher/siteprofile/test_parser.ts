@@ -527,6 +527,58 @@ types:
                 valueType: integer
       `));
 
+  // Test widget type and setWidget
+  test.eqPartial({
+    contenttypes: [
+      {
+        scopedtype: 'webhare_testsuite:widgets.coolblock',
+        filetype: {
+          generatepreview: true
+        },
+        isembeddedobjecttype: true,
+        type: "widgettype",
+        embedtype: "block",
+        widgetbuilder: 'mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidget'
+      }
+    ],
+    applyrules: [
+      {
+        tos: [
+          {
+            pathmask: '/news/*',
+          }
+        ],
+        yaml: true,
+        setwidget: [
+          {
+            contenttype: "webhare_testsuite:widgets.coolblock",
+            widgetbuilder: "mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidgetForNews"
+          }
+        ]
+      }
+    ]
+
+  }, await parseSP(`---
+types:
+  widgets.coolblock:
+    metaType: blockWidget
+    editor:
+      tabsExtension: /tolliumapps/widgets/widget.screens.xml#coolblock
+    widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidget
+    members:
+      data:
+        type: string
+apply:
+  - to:
+      sitePath: /news/*
+    comment: Override widget rendering in news section
+    setWidget:
+      widgets.coolblock:
+        widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidgetForNews
+
+`));
+
+
 
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type
   //     for backwardscompat/clarity no harm in separating old filetype/foldertype matching from new scopedtype matching,

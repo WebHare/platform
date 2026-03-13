@@ -158,7 +158,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     //Take the fields from the snapshot (or live version if this version has no snapshot)
     INTEGER metabaseid := (RecordExists(activeversion) ? activeversion.snapshot : 0) ?? this->baseobject->id;
-    RECORD metadata := SELECT name, title, keywords, description, data FROM system.fs_objects WHERE id = metabaseid;
+    RECORD metadata := SELECT name, title, keywords, description, data, isunlisted FROM system.fs_objects WHERE id = metabaseid;
 
     //But if a specific version is associated we can take the file name from there
     IF(RecordExists(activeversion))
