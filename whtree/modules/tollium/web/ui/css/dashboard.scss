@@ -70,7 +70,7 @@
   text-decoration: underline;
 }
 
-
+// When adjusting structure/top/bottom padding, also change calculateFinalRelativePositions!
 .dashboard__apps
 {
   position:absolute;
@@ -97,6 +97,9 @@
 {
   opacity: 0;
   overflow:hidden;
+}
+.dashboard__apps--disabletransition .dashboard__menuitem {
+  transition: none;
 }
 .dashboard__apps ul
 {
