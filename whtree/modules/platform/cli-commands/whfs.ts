@@ -1,11 +1,8 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { describeWHFSType, lookupURL, openFileOrFolder, openSite, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
+import { describeWHFSType, lookupURL, openFileOrFolder, openSite, type WHFSFile } from '@webhare/whfs';
 import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webhare/cli";
-import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
-import { stringify } from '@webhare/std';
-import type { ExportedInstance } from '@webhare/whfs/src/contenttypes';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
 import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
@@ -16,56 +13,8 @@ import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platfo
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
+import { createWHFSExportZip } from '@webhare/whfs/src/export';
 
-interface ExportWHFSTreeOptions {
-  space?: string | number;
-}
-
-type ExportedProperties = {
-  whfsType: string; //File/folder type namespace
-  title?: string;
-  /** Other instances (ie *not* the primary content) */
-  instances?: ExportedInstance[];
-};
-
-/* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format
-    wh whfs create-experimental-archive --pretty --force 'site::My Site' '/tmp/mysite.zip'
-*/
-
-async function exportWHFSTree(source: WHFSObject, basePath: string, target: CreateArchiveController, options?: ExportWHFSTreeOptions) {
-  if (!source.isFolder)
-    throw new CLIRuntimeError("Source is not a folder");
-
-  for (const entry of await source.list()) {
-    const entryPath = `${basePath}/${entry.name}`;
-    const obj = await openFileOrFolder(entry.id);
-    console.log(obj.name, obj.type, entryPath);
-
-    const typeinfo = await describeWHFSType(obj.type);
-    if (obj.isFolder) {
-      //FIXME export directory metadata
-      await target.addFolder(entryPath, null);
-      await exportWHFSTree(obj, entryPath, target, options);
-    } else {
-
-      //FIXME this needs further generalization, allow 'any' type to be the content.json?
-      const richdata = await whfsType("platform:filetypes.richdocument").get(obj.id, { export: true });
-      if (richdata.data) {
-        await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modified);
-      }
-
-      const props: ExportedProperties = {
-        whfsType: obj.type,
-        title: obj.name,
-      };
-      await target.addFile(entryPath + "!props.json", stringify(props, { typed: true, space: options?.space }), obj.modified);
-
-      if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-        await target.addFile(entryPath, obj.data.resource.stream(), obj.modified);
-      }
-    }
-  }
-}
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
   const settings = await db<PlatformDB>()
@@ -267,10 +216,7 @@ run({
       },
       main: async ({ opts, args }) => {
         const base = await resolveWHFSPathArgument(args.source);
-        const archive = createArchive({
-          build: out => exportWHFSTree(base, base.name, out, { space: opts.pretty ? 2 : undefined }),
-        });
-
+        const archive = createWHFSExportZip(base, { space: opts.pretty ? 2 : undefined });
         await storeDiskFile(args.target, archive, { overwrite: true });
       }
     },
