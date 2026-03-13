@@ -29,7 +29,11 @@ async function testFS() {
   await test.throws(/file already exists/, storeDiskFile(path.join(tempdir, "2.txt"), "test 3", { inPlace: true }));
   test.eq("test 2", readFileSync(path.join(tempdir, "2.txt"), 'utf8'));
 
-  await storeDiskFile(path.join(tempdir, "1.txt"), "test 4", { overwrite: true, inPlace: false });
+  const buf = new ArrayBuffer(6);
+  new Uint8Array(buf).set("test 4".split("").map(c => c.charCodeAt(0)));
+  await storeDiskFile(path.join(tempdir, "1.txt"), buf, { overwrite: true, inPlace: false });
+  test.eq("test 4", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
+  await storeDiskFile(path.join(tempdir, "1.txt"), new Uint8Array(buf), { overwrite: true, inPlace: false });
   test.eq("test 4", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
 
   await storeDiskFile(path.join(tempdir, "1.txt"), "test 5", { overwrite: true, inPlace: true });
