@@ -1,6 +1,6 @@
 import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
-import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSObject } from "@webhare/whfs";
+import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
 import { join } from "node:path";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -82,10 +82,19 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
   }
 }
 
-async function exportWHFSTree(source: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
-  if (!source.isFolder)
-    throw new Error("Source is not a folder");
+async function exportWHFS(sources: WHFSObject | WHFSObject[], target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
+  if (!Array.isArray(sources))
+    sources = [sources];
 
+  for (const source of sources) {
+    if (!source.isFolder)
+      throw new Error(`Source '${source.whfsPath}' is not a folder`);
+
+    await exportWHFSTree(source, source.name, target, options);
+  }
+}
+
+async function exportWHFSTree(source: WHFSFolder, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
   const exportOptions = { export: true, exportResources: "base64" } as const;
 
   for (const entry of await source.list()) {
@@ -108,15 +117,21 @@ async function exportWHFSTree(source: WHFSObject, basePath: string, target: Pick
   }
 }
 
-export function createWHFSExportZip(source: WHFSObject, options?: ExportWHFSOptions): ReadableStream<Uint8Array<ArrayBuffer>> {
+/** Export WHFS objects as zip file
+ @param source A WHFS object or array of objects to export.
+*/
+export function createWHFSExportZip(source: WHFSObject | WHFSObject[], options?: ExportWHFSOptions): ReadableStream<Uint8Array<ArrayBuffer>> {
   const archive = createArchive({
-    build: out => exportWHFSTree(source, source.name, out, options),
+    build: out => exportWHFS(source, out, options),
   });
   return archive;
 }
 
-export async function storeWHFSExport(target: string, source: WHFSObject, options?: ExportWHFSOptions): Promise<void> {
-  await exportWHFSTree(source, source.name, {
+/** Export WHFS objects to disk
+ @param source A WHFS object or array of objects to export.
+*/
+export async function storeWHFSExport(target: string, source: WHFSObject | WHFSObject[], options?: ExportWHFSOptions): Promise<void> {
+  await exportWHFS(source, {
     addFile: async (path, content, modified) => {
       await storeDiskFile(join(target, path), content, { overwrite: true, mkdir: true });
     }, addFolder: async (path) => {

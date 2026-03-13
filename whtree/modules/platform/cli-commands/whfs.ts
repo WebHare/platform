@@ -9,7 +9,7 @@ import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
 import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
 import YAML from 'yaml';
-import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platform/js/cli/cli-tools';
+import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArrayArgument } from '@mod-platform/js/cli/cli-tools';
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
@@ -207,16 +207,16 @@ run({
     "export": {
       description: "Export files or folders from WHFS",
       arguments: [
-        { name: "<source>", description: "Path or ID to export" },
+        { name: "<source...>", description: "Path or ID to export" },
         { name: "<target>", description: "Target file or folder" },
       ],
       main: async ({ opts, args }) => {
-        const base = await resolveWHFSPathArgument(args.source);
+        const bases = await resolveWHFSPathArrayArgument(args.source);
         const options: ExportWHFSOptions = {};
         if (args.target.endsWith("/")) {
-          await storeWHFSExport(args.target, base, options);
+          await storeWHFSExport(args.target, bases, options);
         } else if (args.target.endsWith(".whexport.zip")) {
-          const archive = createWHFSExportZip(base, options);
+          const archive = createWHFSExportZip(bases, options);
           await storeDiskFile(args.target, archive, { overwrite: true });
         } else
           throw new CLISyntaxError("Target must be a folder (ending with '/') or a .whexport.zip file");
