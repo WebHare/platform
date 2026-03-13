@@ -119,7 +119,7 @@ MACRO TestSimplePages()
 MACRO TestDynPage()
 {
   OBJECT siteroot := testfw->GetTestSite()->rootobject;
-  //WebHare won't let us publish SHTML files anymore, so manually create one on the outptu
+  //WebHare won't let us publish SHTML files anymore, so manually create one on the output
   RECORD outputfile := DescribeDiskOutput(siteroot->id, "dynamicpagetest.shtml");
   StoreDiskFile(outputfile.outputfolder, StringToBlob(`<?wh Print("Can't run me!");`));
   STRING url := siteroot->url || "dynamicpagetest.shtml";
