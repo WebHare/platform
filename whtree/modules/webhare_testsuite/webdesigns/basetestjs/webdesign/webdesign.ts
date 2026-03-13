@@ -3,6 +3,7 @@ import type { PageBuildRequest, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
 import type { PageBuilderFunction, PagePartRequest, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
+import type { SchemaOrg } from "@webhare/deps";
 
 export async function renderJSWidget1(partReq: PagePartRequest, data: TypedInstanceData<"webhare_testsuite:base_test.jswidget1">) {
   return litty`<div>${data.field1}</div>`;
@@ -26,6 +27,30 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   //@ts-expect-error should be detected as nonexistent
   req.setFrontendData("webhare_testsuite:nosuchtype", { invalidData: 41 });
 
+  //Test schema.org data with the example from https://developers.google.com/search/docs/appearance/structured-data/faqpage
+  if (req.targetObject.whfsPath.endsWith("/StaticPage")) {
+    const FAQPage: SchemaOrg.FAQPage = {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How to find an apprenticeship?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "<p>We provide an official service to search through available apprenticeships. To get started, create an account here, specify the desired region, and your preferences. You will be able to search through all officially registered open apprenticeships.</p>"
+          }
+        }, {
+          "@type": "Question",
+          "name": "Whom to contact?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can contact the apprenticeship office through our official phone hotline above, or with the web-form below. We generally respond to written requests within 7-10 days."
+          }
+        }
+      ]
+    };
+    req.pageMetaData.structuredData.push(FAQPage);
+  }
 
   const contentobjectpath = "FIXME"; //are we receiving contentObject yet ? do we want it?
   const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?

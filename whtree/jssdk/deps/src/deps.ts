@@ -10,6 +10,10 @@ export * as ESBuild from "esbuild";
 // We need to expose Kysely to generated db/ files
 export type * as Kysely from "kysely";
 
+////////////////////////////// Schema.org //////////////////////
+// Expose schema.org types
+export type * as SchemaOrg from "schema-dts";
+
 ////////////////////////////// SHARP //////////////////////////
 import type * as sharp from "sharp";
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
