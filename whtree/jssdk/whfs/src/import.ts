@@ -1,0 +1,194 @@
+import YAML from 'yaml';
+import { compareProperties, toCLocaleLowercase } from "@webhare/std";
+import { listDirectory } from "@webhare/system-tools";
+import type { UnpackArchiveResult } from "@webhare/zip";
+import { stat } from "fs/promises";
+import { openFolder, type WHFSFolder, type WHFSObject } from "./objects";
+import { dirname } from "path";
+import { ResourceDescriptor } from "@webhare/services";
+import { openAsBlob } from "fs";
+import { getType } from './describe';
+import { whfsType, type ExportedInstance } from '@webhare/whfs/src/contenttypes';
+
+export interface ImportWHFSOptions {
+}
+
+export interface ImportWHFSResult {
+  messages: Array<{
+    subPath: string;
+    type: "error" | "warning";
+    message: string;
+  }>;
+}
+
+type ImportItem = {
+  name: string;
+  subPath: string;
+  blob: () => Promise<Blob>;
+};
+
+export type ImportedVirtualMetaData = {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  isUnlisted?: boolean;
+  publish?: boolean;
+  indexDoc?: number | null;
+};
+
+export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>): Promise<{
+  data: ImportedVirtualMetaData | null;
+  errors: string[];
+}> {
+  const data: ImportedVirtualMetaData = {};
+  const errors = [];
+
+  for (const [key, value] of Object.entries(inData)) {
+    switch (key) {
+      case "title":
+      case "description":
+      case "keywords":
+        if (typeof value !== "string")
+          errors.push(`'${key}' must be a string`);
+        else
+          data[key] = value;
+        break;
+      case "indexDoc":
+        if (typeof value !== "string")
+          errors.push(`'indexDoc' must be a string or null`);
+        else if (!value)
+          data.indexDoc = null;
+        else {
+          if (!target?.isFolder)
+            errors.push(`'indexDoc' can only be set on (existing) folders`);
+          else {
+            const targetDoc = await target.openFile(value as string, { allowMissing: true });
+            if (!targetDoc) //TODO allow lookup/assignment to be delayed
+              errors.push(`indexDoc file '${value}' not found`);
+            else
+              data.indexDoc = targetDoc.id;
+          }
+        }
+        break;
+      case "isUnlisted":
+      case "publish":
+        if (typeof value !== "boolean")
+          errors.push(`'${key}' must be a boolean`);
+        else
+          data[key] = value;
+        break;
+      default:
+        errors.push(`unknown property '${key}'`);
+    }
+  }
+  return { data: Object.keys(data).length > 0 ? data : null, errors };
+}
+
+class ImportSession {
+  result: ImportWHFSResult = {
+    messages: []
+  };
+  items;
+  folderMap;
+
+  constructor(items: ImportItem[], public targetFolder: WHFSFolder) {
+    items.sort(compareProperties(["subPath"])); //ensure parent folders come before their children
+    this.items = new Map(items.map(item => [toCLocaleLowercase(item.subPath), item]));
+    this.folderMap = new Map<string, WHFSFolder>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)
+  }
+
+  async ensureFolder(subPath: string): Promise<WHFSFolder> {
+    let pathsofar = '', currentFolder = this.targetFolder;
+    if (subPath === '.' || !subPath)
+      return currentFolder;
+
+    for (const pathEntry of subPath.split('/')) {
+      pathsofar += '/' + toCLocaleLowercase(pathEntry);
+      if (this.folderMap.get(pathsofar)) {
+        currentFolder = this.folderMap.get(pathsofar)!;
+      } else {
+        currentFolder = await currentFolder.createFolder(pathEntry);
+        this.folderMap.set(pathsofar, currentFolder);
+      }
+    }
+    return currentFolder;
+  }
+
+  async importByMetadata(item: ImportItem) {
+    const storeFolder = await this.ensureFolder(dirname(item.subPath));
+
+    //TODO import data if type hasData and available
+    const meta = YAML.parse(await (await item.blob()).text()) as {
+      type?: string;
+      instances?: ExportedInstance[];
+    };
+    if (!meta.type) {
+      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Missing type` });
+      return;
+    }
+
+    const typeinfo = getType(meta.type);
+    if (!typeinfo) {
+      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Unknown type '${meta.type}'` });
+      return;
+    }
+
+    const objectData = meta.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
+    let baseMetaData: ImportedVirtualMetaData = {};
+    if (objectData) {
+      const resolveResult = await resolveVirtualMetaData(null, objectData);
+      resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
+      if (resolveResult.data)
+        baseMetaData = resolveResult.data;
+    }
+
+    const newName = item.name.substring(0, item.name.length - 9); //strip .whfs.yml
+    const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](newName, {
+      type: meta.type,
+      ...baseMetaData
+    });
+
+    for (const instance of meta.instances || []) {
+      if (instance.whfsType === "platform:virtual.objectdata")
+        continue;
+      const typeHandler = whfsType(instance.whfsType);
+      await typeHandler.set(newObj.id, instance.data as object || {});
+    }
+  }
+}
+
+/** Import data into WHFS
+ * @param source - unpacked archive or path on disk containing files/folders to import
+ */
+export async function importIntoWHFS(source: UnpackArchiveResult | string, targetFolder: WHFSFolder, options?: ImportWHFSOptions): Promise<ImportWHFSResult> {
+  if (typeof source !== "string")
+    throw new Error(`NOT IMPLEMENTED YET - Need to support archives`);
+
+  const sourceInfo = await stat(source);
+  if (!sourceInfo.isDirectory()) //TODO consider supporting files as source? but have to automatically pick up peer metadata then?
+    throw new Error(`Source '${source}' is not a directory`);
+
+  const items = (await listDirectory(source, { recursive: true })).filter(_ => _.type === "file").map(entry => ({
+    name: entry.name,
+    subPath: entry.subPath,
+    blob: () => openAsBlob(entry.fullPath)
+  }));
+
+  const importer = new ImportSession(items, targetFolder);
+
+  for (const item of importer.items.values()) {
+    if (!item.subPath.endsWith(".whfs.yml")) { //skip this
+      continue;
+    }
+
+    importer.items.delete(item.subPath); //mark as processed
+    await importer.importByMetadata(item);
+  }
+
+  for (const item of importer.items.values()) {
+    const storeFolder = await importer.ensureFolder(dirname(item.subPath));
+    await storeFolder.createFile(item.name, { data: await ResourceDescriptor.fromBlob(await item.blob()) });
+  }
+
+  return importer.result;
+}

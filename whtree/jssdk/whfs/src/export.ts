@@ -80,6 +80,8 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
       data: data || {}
     });
   }
+
+  return exportMeta;
 }
 
 async function exportWHFS(sources: WHFSObject | WHFSObject[], target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {

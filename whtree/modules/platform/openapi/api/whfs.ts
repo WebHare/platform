@@ -6,6 +6,7 @@ import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
 import type { ExportResourcesOptions } from "@webhare/services/src/descriptor";
+import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -89,52 +90,12 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   }
 }
 
-async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>): Promise<{
-  title?: string;
-  description?: string;
-  keywords?: string;
-  isUnlisted?: boolean;
-  publish?: boolean;
-  type?: string;
-  indexDoc?: number | null;
-} | null> {
+async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>): Promise<ImportedVirtualMetaData | null> {
+  const result = await resolveVirtualMetaData(target, data);
+  if (result.errors.length > 0)
+    throw new WHFSAPIError(`Invalid virtual metadata: ${result.errors.join("; ")}`, 400);
 
-  const retval: Awaited<ReturnType<typeof mapVirtualMetaData>> = {};
-  for (const key of Object.keys(data)) {
-    switch (key) {
-      case "title":
-      case "description":
-      case "keywords":
-      case "type":
-        if (typeof data[key] !== "string")
-          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a string`, 400);
-        retval[key] = data[key] as string;
-        break;
-      case "indexDoc":
-        if (typeof data.indexDoc !== "string")
-          throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' must be a string or null`, 400);
-        else if (!data.indexDoc)
-          retval.indexDoc = null;
-        else {
-          if (!target?.isFolder)
-            throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' can only be set on (existing) folders`, 400);
-          const targetDoc = await target.openFile(data.indexDoc as string, { allowMissing: true });
-          if (!targetDoc)
-            throw new WHFSAPIError(`Invalid virtual metadata: indexDoc file ${data.indexDoc}' not found`, 400);
-          retval.indexDoc = targetDoc.id;
-        }
-        break;
-      case "isUnlisted":
-      case "publish":
-        if (typeof data[key] !== "boolean")
-          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a boolean`, 400);
-        retval[key] = data[key] as boolean;
-        break;
-      default:
-        throw new WHFSAPIError(`Invalid virtual metadata: unknown property '${key}'`, 400);
-    }
-  }
-  return Object.keys(retval).length > 0 ? retval : null;
+  return result.data;
 }
 
 async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"]) {

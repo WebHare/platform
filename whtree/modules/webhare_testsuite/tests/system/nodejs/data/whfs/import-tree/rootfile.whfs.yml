@@ -1,0 +1,12 @@
+type: platform:filetypes.richdocument
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: "Root file"
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - text: This is a file in the root
