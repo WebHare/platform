@@ -104,6 +104,8 @@ apply:
   - to: all
     webDesign:
       pageBuilder: webdesign/webdesign.ts#baseTestJSPageBuilder
+    fileTypes:
+      - allowType: http://www.webhare.net/xmlns/webhare_testsuite/pagelist
   - to:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]
@@ -146,6 +148,8 @@ apply:
 
   - to:
       whfsPath: "*allprops*"
+    baseProps:
+      isUnlisted: true
     editProps:
       - type: global.generic_test_type
         layout: all

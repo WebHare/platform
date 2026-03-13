@@ -665,7 +665,7 @@ OBJECTTYPE WHFSObject <
 
   /** Get core versionable metadata */
   PUBLIC RECORD FUNCTION GetMetadata() {
-    RETURN CELL[ this->name, this->title, this->keywords, this->description ];
+    RETURN CELL[ this->name, this->title, this->keywords, this->description, this->isunlisted ];
   }
 
   /** @short Update the metadata for this whfs object. Throws on invalid data.

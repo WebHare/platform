@@ -189,8 +189,8 @@ STATIC OBJECTTYPE WHFSDraft <
 
   PUBLIC RECORD FUNCTION GetMetadata() {
     RECORD draftmeta := this->pvt_fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
-    RECORD basefields := SELECT title, keywords, description, data FROM system.fs_objects WHERE id = this->id;
-    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description, basefields.data ];
+    RECORD basefields := SELECT title, keywords, description, data, isunlisted FROM system.fs_objects WHERE id = this->id;
+    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description, basefields.data, basefields.isunlisted ];
   }
 
   PUBLIC MACRO UpdateMetadata(RECORD updates) {

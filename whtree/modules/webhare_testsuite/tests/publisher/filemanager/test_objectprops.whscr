@@ -3,6 +3,7 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -86,6 +87,8 @@ ASYNC MACRO ObjectProps()
     TTFillByTitle("types", "Testsuite: pagelists"); //just open something that won't launch a new document editor
     AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
 
+    TestEq(FALSE, TTIsVisible("isunlisted"));
+
     OBJECT betatab := TT(":Beta test tab");
     OBJECT arrayedit := SELECT AS OBJECT comp FROM ToRecordArray(betatab->GetTopDownAllComponents(), "comp") WHERE comp->name LIKE "*!arraytest";
     AWAIT ExpectScreenChange(+1, PTR arrayedit->addbutton->TolliumClick());
@@ -134,21 +137,58 @@ ASYNC MACRO ObjectPropsWithYamlFields()
 {
   //Test that we can round trip YAML fields through the object props dialog, and that they are properly applied to the instance data of the object
   testfw->BeginWork();
-  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile([ name := "allprops", publish := TRUE, typens := "platform:filetypes.html" ]);
+  OBJECT allpropsfolder := GetTestsuiteJSTempFolder()->CreateFolder([name := "allprops"]);
+  OBJECT testfile := allpropsfolder->CreateFile([ name := "testfile", publish := TRUE, typens := "platform:filetypes.html" ]);
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ testfile->whfspath ] ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TT(":str")->value := "Set a string!";
+  TestEq(TRUE, TTIsVisible("isunlisted"));
+  TestEq(FALSE, TT("isunlisted")->enabled, "cannot edit here, need to go through workflow");
+  TestEq(FALSE, TT("isunlisted")->value);
 
   //close and reopen to verify values are saved
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq("Set a string!", TT(":str")->value);
+  TestEq(FALSE, TT("isunlisted")->enabled);
+  TestEq(FALSE, TT("isunlisted")->value);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  { //Create a new file. https://gitlab.com/webhare/platform/-/issues/22 reported site= being broken then
+
+    AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+    TTFillByTitle("types", "Testsuite: pagelists"); //just open something that won't launch a new document editor
+    AWAIT ExpectScreenChange(0, PTR TTClick(":Ok")); // ok new file, immediately opens props
+
+    TestEq(TRUE, TTIsVisible("isunlisted"));
+    TestEq(TRUE, TT("isunlisted")->enabled);
+    TestEq(FALSE, TT("isunlisted")->value);
+    TT("isunlisted")->value := TRUE;
+
+    TT(":Title")->value := "My pagelist title";
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //adds the new file
+
+    TestEqMembers([[ name := 'my-pagelist-title' ]], TT("filelist")->selection, "*");
+    TestEq(TRUE, OpenWHFSObject(TT("filelist")->selection.id)->isunlisted);
+
+    AWAIT ExpectScreenChange(+1, PTR TTClick("props")); //edit it
+    TestEq(TRUE, TTIsVisible("isunlisted"));
+    TestEq(TRUE, TT("isunlisted")->enabled);
+    TestEq(TRUE, TT("isunlisted")->value);
+    TT("isunlisted")->value := FALSE;
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //close edit
+
+
+    AWAIT ExpectScreenChange(+1, PTR TTClick("props")); //edit it again
+    TestEq(FALSE, TT("isunlisted")->value, "false should have persisted");
+    AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //close edit
+  }
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close publisher
 }
 
