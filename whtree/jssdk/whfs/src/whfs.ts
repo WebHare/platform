@@ -25,3 +25,5 @@ export type { CreateFSObjectMetadata, CreateFileMetadata, CreateFolderMetadata, 
 export { openFile, openFolder, openFileOrFolder, nextWHFSObjectId } from "./objects";
 export { openSite, listSites, type Site } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
+
+export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";

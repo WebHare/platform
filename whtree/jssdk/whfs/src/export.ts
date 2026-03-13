@@ -1,51 +1,106 @@
+import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
-import { stringify } from '@webhare/std';
-import { describeWHFSType, openFileOrFolder, whfsType, type ExportedInstance, type WHFSObject } from "@webhare/whfs";
+import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
+import { join } from "node:path";
+import { storeDiskFile } from "@webhare/system-tools";
+import { mkdir } from "node:fs/promises";
+import { backendConfig } from "@webhare/services";
+import type { FileTypeInfo } from '@webhare/whfs/src/contenttypes';
+import type { ExportOptions, ResourceDescriptor } from '@webhare/services';
 
-export interface ExportWHFSOptions {
-  space?: string | number;
-}
+/* The WHFS Tree Export (Zip) format is defined as follows:
+   - Folders and the data for files (if they have a non-zero data member) are stored under their own name
+   - Metadata for folders and files is stored in an accompanying `<name>.whfs.yml` file
+     - A folder's metadata will be stored next to its folder, not inside the folder
+     - This makes it purposefully impossible to store metadata about the 'root' of an archive (unlike HS wharcvhive)
 
-type ExportedProperties = {
-  whfsType: string; //File/folder type namespace
-  title?: string;
-  /** Other instances (ie *not* the primary content) */
-  instances?: ExportedInstance[];
-};
+  Eg a folder 'my-folder' with one image 'my-image' and one RTD 'index' would be stored as:
 
-/* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format
-    wh whfs create-experimental-archive --pretty --force 'site::My Site' '/tmp/mysite.zip'
+  /my-folder/
+  /my-folder.whfs.yml
+  /my-folder/my-image.jpg
+  /my-folder/my-image.jpg.whfs.yml
+  /my-folder/index.whfs.yml
+
+  It's an error to attempt to export/archive a file or folder whose name ends in `.whfs.yml`, or where adding the
+  extension would cause a name longer than 255 characters (TODO whfs should prevent such long names anyway)
 */
 
-async function exportWHFSTree(source: WHFSObject, basePath: string, target: CreateArchiveController, options?: ExportWHFSOptions) {
+
+export interface ExportWHFSOptions {
+}
+
+type VirtualObjectData = {
+  indexDoc?: string;
+  publish?: boolean;
+  data?: ResourceDescriptor;
+  keywords?: string;
+  isUnlisted?: boolean;
+  title: string;
+  description: string;
+};
+
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: false }): Promise<Omit<VirtualObjectData, "data">>;
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }): Promise<VirtualObjectData>;
+
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }): Promise<VirtualObjectData> {
+  const typeinfo = await obj.describeType();
+  return {
+    title: obj.title,
+    description: obj.description,
+    ...obj.isUnlisted ? { isUnlisted: true } : {},
+    ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
+    ...includeData && obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
+    ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
+    ...obj.isFolder && obj.indexDoc ? { indexDoc: (await openFile(obj.indexDoc)).name } : {},
+  };
+}
+
+async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions & { export: true }) {
+  const exportMeta = {
+    type: obj.type,
+    created: obj.created.toString(),
+    modified: obj.modified.toString(),
+    instances: [] as ExportedInstance[]
+  };
+  exportMeta.instances.push({
+    whfsType: 'platform:virtual.objectdata',
+    data: await getVirtualObjectData(obj, { includeData: false })
+  });
+
+  const instances = await listInstances(obj.id);
+  for (const instance of instances) {
+    if (instance.orphan || instance.clone === "never")
+      continue;
+
+    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, exportOptions);
+    exportMeta.instances.push({
+      whfsType: instance.scopedType || instance.namespace,
+      data: data || {}
+    });
+  }
+}
+
+async function exportWHFSTree(source: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
   if (!source.isFolder)
     throw new Error("Source is not a folder");
+
+  const exportOptions = { export: true, exportResources: "base64" } as const;
 
   for (const entry of await source.list()) {
     const entryPath = `${basePath}/${entry.name}`;
     const obj = await openFileOrFolder(entry.id);
-    // console.log(obj.name, obj.type, entryPath);
+    const meta = await buildExportMetadata(obj, exportOptions);
+    const header = `# Export of ${obj.isFolder ? "folder" : "file"} "${obj.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
+    await target.addFile(entryPath + ".whfs.yml", header + YAML.stringify(meta), obj.modified);
 
-    const typeinfo = await describeWHFSType(obj.type);
     if (obj.isFolder) {
       //FIXME export directory metadata
       await target.addFolder(entryPath, null);
       await exportWHFSTree(obj, entryPath, target, options);
     } else {
-
-      //FIXME this needs further generalization, allow 'any' type to be the content.json?
-      const richdata = await whfsType("platform:filetypes.richdocument").get(obj.id, { export: true });
-      if (richdata.data) {
-        await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modified);
-      }
-
-      const props: ExportedProperties = {
-        whfsType: obj.type,
-        title: obj.name,
-      };
-      await target.addFile(entryPath + "!props.json", stringify(props, { typed: true, space: options?.space }), obj.modified);
-
+      const typeinfo = await describeWHFSType(obj.type);
       if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
         await target.addFile(entryPath, obj.data.resource.stream(), obj.modified);
       }
@@ -55,7 +110,17 @@ async function exportWHFSTree(source: WHFSObject, basePath: string, target: Crea
 
 export function createWHFSExportZip(source: WHFSObject, options?: ExportWHFSOptions): ReadableStream<Uint8Array<ArrayBuffer>> {
   const archive = createArchive({
-    build: out => exportWHFSTree(source, source.name, out, { space: options?.space }),
+    build: out => exportWHFSTree(source, source.name, out, options),
   });
   return archive;
+}
+
+export async function storeWHFSExport(target: string, source: WHFSObject, options?: ExportWHFSOptions): Promise<void> {
+  await exportWHFSTree(source, source.name, {
+    addFile: async (path, content, modified) => {
+      await storeDiskFile(join(target, path), content, { overwrite: true, mkdir: true });
+    }, addFolder: async (path) => {
+      await mkdir(join(target, path), { recursive: true });
+    }
+  });
 }

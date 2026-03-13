@@ -1,7 +1,7 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { describeWHFSType, lookupURL, openFileOrFolder, openSite, type WHFSFile } from '@webhare/whfs';
-import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webhare/cli";
+import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
+import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, run } from "@webhare/cli";
 import { storeDiskFile } from "@webhare/system-tools";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
@@ -13,7 +13,6 @@ import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platfo
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
-import { createWHFSExportZip } from '@webhare/whfs/src/export';
 
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
@@ -205,19 +204,22 @@ run({
         console.log(opts.json ? JSON.stringify({ id: base.id }, null, 2) : `Updated ${base.id}`);
       }
     },
-    "create-experimental-archive": {
-      description: "Export from the WHFS - EXPERIMENTAL",
+    "export": {
+      description: "Export files or folders from WHFS",
       arguments: [
         { name: "<source>", description: "Path or ID to export" },
-        { name: "<target>", description: "Target file" },
+        { name: "<target>", description: "Target file or folder" },
       ],
-      flags: {
-        "pretty": "Pretty print JSON metadata"
-      },
       main: async ({ opts, args }) => {
         const base = await resolveWHFSPathArgument(args.source);
-        const archive = createWHFSExportZip(base, { space: opts.pretty ? 2 : undefined });
-        await storeDiskFile(args.target, archive, { overwrite: true });
+        const options: ExportWHFSOptions = {};
+        if (args.target.endsWith("/")) {
+          await storeWHFSExport(args.target, base, options);
+        } else if (args.target.endsWith(".whexport.zip")) {
+          const archive = createWHFSExportZip(base, options);
+          await storeDiskFile(args.target, archive, { overwrite: true });
+        } else
+          throw new CLISyntaxError("Target must be a folder (ending with '/') or a .whexport.zip file");
       }
     },
     "get-output-path": {
