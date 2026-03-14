@@ -510,6 +510,16 @@ export class WHFSFolder extends WHFSBaseObject {
       published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
     }
 
+    //Find conflicting entries so we can report errors normally instead of through database unique violation exceptinos
+    const exists = await db<PlatformDB>().
+      selectFrom("system.fs_objects").
+      select(["id", "isfolder"]).
+      where("parent", "=", this.id).
+      where(sql`upper(name)`, "=", sql`upper(${name})`).
+      execute();
+    if (exists.length)
+      throw new Error(`A ${exists[0].isfolder ? "folder" : "file"} named '${name}' (#${exists[0].id}) already exists in folder '${this.whfsPath}'`);
+
     const { externallink, filelink, forceType } = decodeTarget((metadata as CreateFileMetadata)?.target || null, metadata && "type" in metadata ? type.scopedtype : null, Boolean(metadata && "type" in metadata));
     if (forceType)
       type = getType(forceType, "fileType") ?? std.throwError(`Forced type '${forceType}' not found`);

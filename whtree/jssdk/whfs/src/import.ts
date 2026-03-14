@@ -104,12 +104,15 @@ class ImportSession {
 
     for (const pathEntry of subPath.split('/')) {
       pathsofar += '/' + toCLocaleLowercase(pathEntry);
-      if (this.folderMap.get(pathsofar)) {
-        currentFolder = this.folderMap.get(pathsofar)!;
-      } else {
-        currentFolder = await currentFolder.createFolder(pathEntry);
-        this.folderMap.set(pathsofar, currentFolder);
+      let tryfolder: WHFSFolder | null = this.folderMap.get(pathsofar) || null;
+      if (!tryfolder) {
+        tryfolder = await currentFolder.openFolder(pathEntry, { allowMissing: true });
+        if (!tryfolder)
+          tryfolder = await currentFolder.createFolder(pathEntry);
+
+        this.folderMap.set(pathsofar, tryfolder);
       }
+      currentFolder = tryfolder;
     }
     return currentFolder;
   }
@@ -143,6 +146,13 @@ class ImportSession {
     }
 
     const newName = item.name.replace(/\.whfs\.yml$/i, '');
+    const exists = await storeFolder.openFileOrFolder(newName, { allowMissing: true });
+    if (exists) {
+      //TODO implement overwrite modes
+      this.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${storeFolder.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
+      return;
+    }
+
     const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](newName, {
       type: meta.type,
       ...baseMetaData
@@ -189,8 +199,29 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
 
   for (const item of importer.items.values()) {
     const storeFolder = await importer.ensureFolder(dirname(item.subPath));
+    const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
+    if (exists) {
+      //TODO implement overwrite modes
+      importer.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${storeFolder.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
+      continue;
+    }
     await storeFolder.createFile(item.name, { data: await ResourceDescriptor.fromBlob(await item.blob()) });
   }
 
   return importer.result;
+}
+
+export async function importIntoWHFS_HS(target: number, options: {
+  sourcepath: string;
+}): Promise<{
+  messages: Array<{
+    subpath: string;
+    type: "error" | "warning";
+    message: string;
+  }>;
+}> {
+  const result = await importIntoWHFS(options.sourcepath, await openFolder(target));
+  return {
+    messages: result.messages.map(m => ({ subpath: m.subPath, type: m.type, message: m.message }))
+  };
 }

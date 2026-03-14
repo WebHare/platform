@@ -35,6 +35,12 @@ async function testWHFSImportArchive() {
     await commitWork();
 
     await verifyImportTree(importTree);
+
+    { //Reimport, should report existence errors
+      await beginWork();
+      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree);
+      test.assert(reimportResult.messages.find(msg => msg.type === "error" && /already exists/.test(msg.message)));
+    }
   }
 }
 
