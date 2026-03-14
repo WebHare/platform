@@ -1,0 +1,9 @@
+# Export of file "/photoalbum/goudvis.png" from WebHare v6.0.0 on arnold.whdev at 2026-03-13T21:46:40.669Z
+type: platform:filetypes.image
+created: 2026-03-13T19:03:06.63Z
+modified: 2026-03-13T19:03:06.63Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: "Een goudvis"
+      publish: true

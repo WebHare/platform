@@ -17,6 +17,13 @@ async function verifyImportTree(importTree: WHFSFolder) {
   //Verify directory with metadata
   const subdir = await importTree.openFolder("subdir");
   test.eq("My subfolder", subdir.title);
+
+  //Verify the goudvis.
+  //FIXME export/import goudvis with changed dominantColor/fileName setting and ensure we see that in the resource descriptor (as scanData currently seems to be ignored in the export)
+  const goudvis = await subdir.openFile("goudvis.png");
+  test.eq("Een goudvis", goudvis.title);
+  test.eq(true, goudvis.publish);
+  test.eq(75125, goudvis.data.resource.size);
 }
 
 async function testWHFSImportArchive() {

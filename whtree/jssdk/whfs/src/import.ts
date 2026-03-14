@@ -3,7 +3,7 @@ import { compareProperties, toCLocaleLowercase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
-import { openFolder, type WHFSFolder, type WHFSObject } from "./objects";
+import { openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
 import { dirname } from "path";
 import { ResourceDescriptor } from "@webhare/services";
 import { openAsBlob } from "fs";
@@ -137,7 +137,7 @@ class ImportSession {
     }
 
     const objectData = meta.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
-    let baseMetaData: ImportedVirtualMetaData = {};
+    let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
     if (objectData) {
       const resolveResult = await resolveVirtualMetaData(null, objectData);
       resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
@@ -146,6 +146,7 @@ class ImportSession {
     }
 
     const newName = item.name.replace(/\.whfs\.yml$/i, '');
+    const newSubPath = item.subPath.replace(/\.whfs\.yml$/i, '');
     const exists = await storeFolder.openFileOrFolder(newName, { allowMissing: true });
     if (exists) {
       //TODO implement overwrite modes
@@ -153,12 +154,18 @@ class ImportSession {
       return;
     }
 
+    const dataFile = this.items.get(toCLocaleLowercase(newSubPath));
+    if (dataFile) {
+      baseMetaData.data = await ResourceDescriptor.fromBlob(await dataFile.blob());
+      this.items.delete(toCLocaleLowercase(newSubPath)); //mark as processed
+    }
+
     const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](newName, {
       type: meta.type,
       ...baseMetaData
     });
     if (typeinfo.foldertype)
-      this.folderMap.set("/" + toCLocaleLowercase(item.subPath.replace(/\.whfs\.yml$/i, '')), newObj as WHFSFolder);
+      this.folderMap.set("/" + toCLocaleLowercase(newSubPath), newObj as WHFSFolder);
 
     for (const instance of meta.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")
