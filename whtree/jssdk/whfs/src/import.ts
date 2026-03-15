@@ -3,13 +3,15 @@ import { appendToArray, compareProperties, toCLocaleLowercase } from "@webhare/s
 import { listDirectory } from "@webhare/system-tools";
 import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
-import { openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
-import { dirname } from "path";
-import { ResourceDescriptor } from "@webhare/services";
+import { nextWHFSObjectId, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
+import { dirname, join } from "path";
+import { ResourceDescriptor, type IntExtLink } from "@webhare/services";
 import { openAsBlob } from "fs";
 import { getType } from './describe';
 import { whfsType, type ExportedInstance } from '@webhare/whfs/src/contenttypes';
 import type { CSPContentType } from './siteprofiles';
+import { importIntExtLink, type ImportOptions } from '@webhare/services/src/descriptor';
+import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
 
 export interface ImportWHFSOptions {
 }
@@ -33,6 +35,7 @@ type CombinedImportItem = {
   subPath: string;
   blob?: () => Promise<Blob>;
   metadata?: () => Promise<Blob>;
+  id?: number;
 };
 
 export type ImportedVirtualMetaData = {
@@ -42,9 +45,10 @@ export type ImportedVirtualMetaData = {
   isUnlisted?: boolean;
   publish?: boolean;
   indexDoc?: number | null;
+  target?: IntExtLink | null;
 };
 
-export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>): Promise<{
+export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>, importOptions?: ImportOptions): Promise<{
   data: ImportedVirtualMetaData | null;
   errors: string[];
 }> {
@@ -78,6 +82,14 @@ export async function resolveVirtualMetaData(target: WHFSObject | null, inData: 
           }
         }
         break;
+      case "target":
+        if (typeof value !== "object")
+          errors.push(`'target' must be an object or null`);
+        else if (value)
+          data.target = await importIntExtLink(value as ExportedIntExtLink, importOptions);
+        else
+          data.target = null;
+        break;
       case "isUnlisted":
       case "publish":
         if (typeof value !== "boolean")
@@ -97,36 +109,75 @@ class ImportSession {
     messages: []
   };
   items;
-  folderMap;
+  outputMap;
 
   constructor(items: CombinedImportItem[], public targetFolder: WHFSFolder) {
     items.sort(compareProperties(["subPath"])); //ensure parent folders come before their children
     this.items = new Map(items.map(item => [toCLocaleLowercase(item.subPath), item]));
-    this.folderMap = new Map<string, WHFSFolder>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)
+    this.outputMap = new Map<string, WHFSObject>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)
   }
 
-  async ensureFolder(subPath: string): Promise<WHFSFolder> {
+  async ensureFolder(subPath: string): Promise<WHFSFolder | null> {
+    const wantPath = dirname(subPath); //ensureFolder should be called with the path of the metadata file, but we need to create folders based on the path, so we need to get the directory of the metadata file
     let pathsofar = '', currentFolder = this.targetFolder;
-    if (subPath === '.' || !subPath)
+    if (wantPath === '.' || !wantPath)
       return currentFolder;
 
-    for (const pathEntry of subPath.split('/')) {
+    for (const pathEntry of wantPath.split('/')) {
       pathsofar += '/' + toCLocaleLowercase(pathEntry);
-      let tryfolder: WHFSFolder | null = this.folderMap.get(pathsofar) || null;
+      let tryfolder: WHFSObject | null = this.outputMap.get(pathsofar) || null;
       if (!tryfolder) {
-        tryfolder = await currentFolder.openFolder(pathEntry, { allowMissing: true });
+        tryfolder = await currentFolder.openFileOrFolder(pathEntry, { allowMissing: true });
         if (!tryfolder)
           tryfolder = await currentFolder.createFolder(pathEntry);
 
-        this.folderMap.set(pathsofar, tryfolder);
+        this.outputMap.set(pathsofar, tryfolder);
       }
+
+      if (!tryfolder.isFolder) {
+        this.result.messages.push({ subPath: subPath, type: "error", message: `Expected '${pathEntry}' in path '${wantPath}' to be a folder but it is a file` });
+        return null; //fall back to parent folder
+      }
+
       currentFolder = tryfolder;
     }
     return currentFolder;
   }
 
+  async unmapWhfsLink(baseFolder: WHFSFolder, subPath: string, mappedPath: string) {
+    if (mappedPath.includes('::'))
+      return undefined; //fall through any namespaced link.
+
+    //Construct an absolute path
+    const finalPath = join(baseFolder.whfsPath, mappedPath);
+    if (!finalPath.startsWith(this.targetFolder.whfsPath)) {
+      this.result.messages.push({ subPath, type: "error", message: `Mapped path '${mappedPath}' resolves to '${finalPath}' which is outside of the target folder '${this.targetFolder.whfsPath}'` });
+      return null;
+    }
+
+    const findSubPath = finalPath.slice(this.targetFolder.whfsPath.length);
+    const entry = this.outputMap.get("/" + toCLocaleLowercase(findSubPath));
+    if (entry) {
+      return entry.id;
+    }
+
+    //It doesn't exist yet. We expect anything we could refer to to have an whfs.yaml metadata so look straight for that one
+    const futureItem = this.items.get(toCLocaleLowercase(findSubPath));
+    if (futureItem) {
+      if (!futureItem.id)
+        futureItem.id = await nextWHFSObjectId();
+
+      return futureItem.id;
+    }
+
+    this.result.messages.push({ subPath, type: "error", message: `Mapped path '${mappedPath}' resolves to '${finalPath}' but it was not found in the target folder` });
+    return null;
+  }
+
   async import(item: CombinedImportItem) {
-    const storeFolder = await this.ensureFolder(dirname(item.subPath));
+    const storeFolder = await this.ensureFolder(item.subPath);
+    if (!storeFolder)
+      return;
 
     //TODO import data if type hasData and available
     let meta, typeinfo: CSPContentType;
@@ -151,12 +202,18 @@ class ImportSession {
 
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
     let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
+
     if (objectData) {
-      const resolveResult = await resolveVirtualMetaData(null, objectData);
+      const resolveResult = await resolveVirtualMetaData(null, objectData, {
+        unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder, item.subPath, ref)
+      });
       resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
       if (resolveResult.data)
         baseMetaData = resolveResult.data;
     }
+
+    if (item.id)
+      baseMetaData.id = item.id; //pre-allocated ID
 
     const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
     if (exists) {
@@ -173,8 +230,7 @@ class ImportSession {
       type: typeinfo?.scopedtype,
       ...baseMetaData
     });
-    if (typeinfo.foldertype)
-      this.folderMap.set("/" + toCLocaleLowercase(item.subPath), newObj as WHFSFolder);
+    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), newObj);
 
     for (const instance of meta?.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")
@@ -227,6 +283,7 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
   }));
 
   const importer = new ImportSession(collapseMetadata(items), targetFolder);
+  //TODO when replacing we should figure out all existing IDs
   for (const item of importer.items.values()) {
     await importer.import(item);
   }

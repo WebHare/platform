@@ -55,18 +55,19 @@ export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" 
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type ExportResourcesOptions = "fetch" | "base64";
+export type ExportMapWhfsLinkInfo = {
+  id: number;
+  whfsPath: string;
+  isFolder: boolean;
+  parentSite: number | null;
+  parentSiteName: string | null;
+  sitePath: string;
+  defaultMapping: string;
+};
 export type ExportOptions = {
   export?: boolean;
   exportResources?: ExportResourcesOptions;
-  mapWhfsLink?: (data: {
-    id: number;
-    whfsPath: string;
-    isFolder: boolean;
-    parentSite: number | null;
-    parentSiteName: string | null;
-    sitePath: string;
-    defaultMapping: string;
-  }) => string | null | Promise<string | null>;
+  mapWhfsLink?: (data: ExportMapWhfsLinkInfo) => string | null | Promise<string | null>;
 };
 
 export type ImportOptions = {
@@ -330,8 +331,7 @@ export async function mapExternalWHFSRef(inId: number, options?: ExportOptions):
       sitePath: objinfo.fullpath,
       defaultMapping: mapped,
     });
-    if (mapped && !mapped.startsWith("site::") && !mapped.startsWith("whfs::") && !mapped?.startsWith("relative::") && !mapped.startsWith("x-custom::"))
-      throw new Error(`mapWhfsLink returned invalid mapped path '${mapped}', should start with site::, whfs::, relative:: or x-custom::`);
+    //we're not validating the return value: unmapWhfsLink is always preprocessing and it's your responsibility to match both sides of export/import
   }
   return mapped;
 }

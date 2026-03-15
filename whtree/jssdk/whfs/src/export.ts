@@ -2,12 +2,15 @@ import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
 import { backendConfig } from "@webhare/services";
 import type { FileTypeInfo } from '@webhare/whfs/src/contenttypes';
 import type { ExportOptions, ResourceDescriptor } from '@webhare/services';
+import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
+import { whconstant_linktypes } from '@mod-system/js/internal/webhareconstants';
+import { exportIntExtLink, type ExportMapWhfsLinkInfo } from '@webhare/services/src/descriptor';
 
 /* The WHFS Tree Export (Zip) format is defined as follows:
    - Folders and the data for files (if they have a non-zero data member) are stored under their own name
@@ -35,16 +38,17 @@ type VirtualObjectData = {
   indexDoc?: string;
   publish?: boolean;
   data?: ResourceDescriptor;
+  target?: ExportedIntExtLink | null;
   keywords?: string;
   isUnlisted?: boolean;
   title: string;
   description: string;
 };
 
-export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: false }): Promise<Omit<VirtualObjectData, "data">>;
-export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }): Promise<VirtualObjectData>;
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: false }, exportOptions?: ExportOptions): Promise<Omit<VirtualObjectData, "data">>;
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }, exportOptions?: ExportOptions): Promise<VirtualObjectData>;
 
-export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }): Promise<VirtualObjectData> {
+export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { includeData: boolean }, exportOptions?: ExportOptions): Promise<VirtualObjectData> {
   const typeinfo = await obj.describeType();
   return {
     title: obj.title,
@@ -54,6 +58,9 @@ export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { i
     ...includeData && obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
     ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
     ...obj.isFolder && obj.indexDoc ? { indexDoc: (await openFile(obj.indexDoc)).name } : {},
+    ...whconstant_linktypes.includes(obj.type) ? {
+      target: (obj as WHFSFile).target ? await exportIntExtLink((obj as WHFSFile).target, exportOptions) : null
+    } : {},
   };
 }
 
@@ -66,7 +73,7 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
   };
   exportMeta.instances.push({
     whfsType: 'platform:virtual.objectdata',
-    data: await getVirtualObjectData(obj, { includeData: false })
+    data: await getVirtualObjectData(obj, { includeData: false }, exportOptions)
   });
 
   const instances = await listInstances(obj.id);
@@ -92,12 +99,24 @@ async function exportWHFS(sources: WHFSObject | WHFSObject[], target: Pick<Creat
     if (!source.isFolder)
       throw new Error(`Source '${source.whfsPath}' is not a folder`);
 
-    await exportWHFSTree(source, source.name, target, options);
+    await exportWHFSTree(source, source, source.name, target, options);
   }
 }
 
-async function exportWHFSTree(source: WHFSFolder, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
-  const exportOptions = { export: true, exportResources: "base64" } as const;
+function mapWhfsLink(start: WHFSFolder, source: WHFSFolder, link: ExportMapWhfsLinkInfo) {
+  //TODO with multiple starting points we should permit links between their namespaces as they'll end up next to each other anyway.
+  if (link.whfsPath.startsWith(start.whfsPath)) { //is it inside the export root ?
+    return relative(source.whfsPath, link.whfsPath);
+  }
+  return link.defaultMapping;
+}
+
+async function exportWHFSTree(start: WHFSFolder, source: WHFSFolder, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
+  const exportOptions: ExportOptions & { export: true } = {
+    export: true,
+    exportResources: "base64",
+    mapWhfsLink: link => mapWhfsLink(start, source, link)
+  };
 
   for (const entry of await source.list()) {
     const entryPath = `${basePath}/${entry.name}`;
@@ -109,7 +128,7 @@ async function exportWHFSTree(source: WHFSFolder, basePath: string, target: Pick
     if (obj.isFolder) {
       //FIXME export directory metadata
       await target.addFolder(entryPath, null);
-      await exportWHFSTree(obj, entryPath, target, options);
+      await exportWHFSTree(start, obj, entryPath, target, options);
     } else {
       const typeinfo = await describeWHFSType(obj.type);
       if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
