@@ -7,7 +7,7 @@ import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
 import { convertToWillPublish, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
-import { backendConfig, encryptForThisServer, readRegistryKey, type WebHareBlob } from "@webhare/services";
+import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings } from "@mod-system/js/internal/webhareconstants";
@@ -44,6 +44,7 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   publish?: boolean;
   firstPublish?: Temporal.Instant | null;
   contentModified?: Temporal.Instant | null;
+  target?: IntExtLink | null;
 }
 
 export interface CreateFolderMetadata extends CreateFSObjectMetadata {
@@ -86,9 +87,35 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
   return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
 }
 
+function decodeTarget(target: IntExtLink | null, type: string | null, explicitType: boolean): { externallink: string; filelink: number | null; forceType?: string } {
+  if (!target)
+    return { externallink: "", filelink: null };
+  if (type === "platform:filetypes.contentlink") {
+    if (target.externalLink || target.append)
+      throw new Error(`A contentlink target must be an internalLink without any appended parts`);
+    return { externallink: "", filelink: target.internalLink || null };
+  }
+
+  if (type && (type !== "platform:filetypes.internallink" && type !== "platform:filetypes.externallink")) {
+    //this also blocks xml names, but I'm not sure we need to support those as both short scoped names and 'target' were added in WH6.0
+    throw new Error(`Type '${type}' does not support a target`);
+  }
+  if (target.externalLink) {
+    if (explicitType && type === "platform:filetypes.internallink")
+      throw new Error(`An internallink can't have an externalLink target`);
+
+    return { externallink: target.externalLink, filelink: null, forceType: "platform:filetypes.externallink" };
+  } else {
+    if (explicitType && type === "platform:filetypes.externallink")
+      throw new Error(`An externallink can't have an internalLink target`);
+
+    return { externallink: target.append || "", filelink: target.internalLink || null, forceType: "platform:filetypes.internallink" };
+  }
+}
+
 abstract class WHFSBaseObject {
   protected dbrecord: FsObjectRow;
-  private readonly _typens: string;
+  private _typens: string;
 
   constructor(dbrecord: FsObjectRow, typens: string) {
     this.dbrecord = dbrecord;
@@ -227,6 +254,15 @@ abstract class WHFSBaseObject {
       }
     }
 
+    if (this.isFile && "target" in metadata) { //must handle before handling metadata.type
+      const { externallink, filelink, forceType } = decodeTarget(metadata.target || null, metadata.type || this.type, "type" in metadata);
+      storedata.externallink = externallink;
+      storedata.filelink = filelink;
+
+      if (forceType)
+        metadata.type = forceType;
+    }
+
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
       if (!type)
@@ -267,7 +303,7 @@ abstract class WHFSBaseObject {
         }
       }
 
-      if (fileMetadata?.data) {
+      if (fileMetadata?.data) { //FIXME how exactly do we clear data ?
         const resdescr = fileMetadata?.data;
         if (resdescr) {
           storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
@@ -312,6 +348,10 @@ abstract class WHFSBaseObject {
     Object.assign(this.dbrecord, storedata);
     Object.assign(this.dbrecord, updatedRec);
 
+    //TODO share with the WHFSFolder constructor:
+    const matchtype = getType(this.dbrecord.type || 0, this.dbrecord.isfolder ? "folderType" : "fileType");
+    this._typens = matchtype?.scopedtype || matchtype?.namespace || "#" + this.dbrecord.type;
+
     if (emitRename && this.id === this.parentSite && this.isFolder) {
       await db<PlatformDB>().updateTable("system.sites").set({ name: this.dbrecord.name }).where("id", "=", this.id).execute();
       whfsFinishHandler().checkSiteSettings();
@@ -355,6 +395,14 @@ export class WHFSFile extends WHFSBaseObject {
   get contentModified(): Temporal.Instant | null {
     const time = this.dbrecord.contentmodificationdate.getTime();
     return time <= defaultDateTime.getTime() ? null : Temporal.Instant.fromEpochMilliseconds(time);
+  }
+  get target(): IntExtLink | null {
+    if (this.type === "platform:filetypes.contentlink" || this.type === "platform:filetypes.internallink")
+      return this.dbrecord.filelink ? new IntExtLink(this.dbrecord.filelink, { append: this.dbrecord.externallink }) : null;
+    else if (this.type === "platform:filetypes.externallink")
+      return this.dbrecord.externallink ? new IntExtLink(this.dbrecord.externallink) : null;
+    else
+      return null;
   }
   get data(): ResourceDescriptor {
     const meta: ResourceMetaDataInit = {
@@ -462,6 +510,10 @@ export class WHFSFolder extends WHFSBaseObject {
       published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
     }
 
+    const { externallink, filelink, forceType } = decodeTarget((metadata as CreateFileMetadata)?.target || null, metadata && "type" in metadata ? type.scopedtype : null, Boolean(metadata && "type" in metadata));
+    if (forceType)
+      type = getType(forceType, "fileType") ?? std.throwError(`Forced type '${forceType}' not found`);
+
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
@@ -473,7 +525,8 @@ export class WHFSFolder extends WHFSBaseObject {
         title: metadata?.title || "",
         description: metadata?.description || "",
         errordata: "",
-        externallink: "",
+        externallink,
+        filelink,
         isfolder,
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: (metadata as CreateFileMetadata)?.firstPublish

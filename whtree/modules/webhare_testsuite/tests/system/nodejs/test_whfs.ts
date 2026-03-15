@@ -3,7 +3,7 @@ import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
 import { openFile, openFileOrFolder } from "@webhare/whfs";
-import { backendConfig, ResourceDescriptor, WebHareBlob } from "@webhare/services";
+import { backendConfig, IntExtLink, ResourceDescriptor, WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
 import { maxDateTime } from "@webhare/hscompat";
@@ -304,6 +304,55 @@ async function testWHFS() {
   const badFileInfo = await openFile(ensuredfile.id);
   test.eq("", badFileInfo.whfsPath); //not sure what it should be, but 'null' is bad
   await whdb.rollbackWork();
+}
+
+async function testLinkTypes() {
+  await whdb.beginWork();
+  const tmpfolder = await test.getTestSiteHSTemp();
+  const goldFish = await tmpfolder.openFile("goldfish.png");
+  const goldFish2 = await tmpfolder.openFile("goldfish2.png");
+
+  //test CLink
+  await test.throws(/must be an internalLink /, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink("http://example.com") }));
+  await test.throws(/must be an internalLink /, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink(goldFish.id, { append: "#vis" }) }));
+  await test.throws(/Type.*does not support a target/, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.plaintext", target: new IntExtLink(goldFish.id) }));
+  await tmpfolder.createFile("not-a-clink", { type: "platform:filetypes.plaintext", target: null }); //null target is fine for non-clinks
+
+  const goldFish_clink = await tmpfolder.createFile("goldfish-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink(goldFish.id), publish: true });
+  test.eq(goldFish.id, goldFish_clink.target?.internalLink);
+
+  await goldFish_clink.update({ target: new IntExtLink(goldFish2.id) });
+  test.eq(goldFish2.id, goldFish_clink.target?.internalLink);
+
+  await goldFish_clink.update({ target: null });
+  test.eq(null, goldFish_clink.target);
+
+  //test IntLink
+  const goldFish_intlink = await tmpfolder.createFile("goldfish-intlink", { type: "platform:filetypes.internallink", target: new IntExtLink(goldFish.id), publish: true });
+  test.eq(goldFish.id, goldFish_intlink.target?.internalLink);
+  test.eq("platform:filetypes.internallink", goldFish_intlink.type);
+
+  await test.throws(/An internallink can't have an externalLink target/, () => tmpfolder.createFile("bad-intlink", { type: "platform:filetypes.internallink", target: new IntExtLink("http://example.com") }));
+  await test.throws(/An externallink can't have an internalLink target/, () => tmpfolder.createFile("bad-intlink", { type: "platform:filetypes.externallink", target: new IntExtLink(goldFish.id) }));
+
+  //But if you create without setting any type, its automatically an internallink or externallink
+  const goldFish_autolink1 = await tmpfolder.createFile("goldfish-autolink1", { target: new IntExtLink(goldFish.id) });
+  test.eq(goldFish.id, goldFish_autolink1.target?.internalLink);
+  test.eq("platform:filetypes.internallink", goldFish_autolink1.type);
+
+  await goldFish_intlink.update({ target: new IntExtLink(goldFish2.id, { append: "#vis" }) });
+  test.eq(goldFish2.id, goldFish_intlink.target?.internalLink);
+  test.eq("#vis", goldFish_intlink.target?.append);
+  test.eq("platform:filetypes.internallink", goldFish_intlink.type);
+
+  // No auto-switch if you're explictily updating using the wrong type
+  await test.throws(/An internallink can't have an externalLink target/, () => goldFish_intlink.update({ target: new IntExtLink("http://example.com"), type: "platform:filetypes.internallink" }));
+
+  await goldFish_intlink.update({ target: new IntExtLink("http://example.com/goudvis") });
+  test.eq("platform:filetypes.externallink", goldFish_intlink.type);
+  test.eq("http://example.com/goudvis", goldFish_intlink.target?.externalLink);
+
+  await whdb.commitWork();
 }
 
 async function testGenerateUniqueName() {
@@ -669,6 +718,7 @@ async function testLookup() {
 test.runTests([
   test.resetWTS,
   testWHFS,
+  testLinkTypes,
   testGenerateUniqueName,
   testLookupWithoutConfig,
   testLookup
