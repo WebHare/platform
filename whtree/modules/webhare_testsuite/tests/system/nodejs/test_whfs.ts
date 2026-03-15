@@ -272,12 +272,6 @@ async function testWHFS() {
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data.mediaType);
 
-  //test auto index doc setting
-  test.eq(null, tmpfolder.indexDoc);
-  const newindex = await tmpfolder.createFile("index.html");
-  test.eq(newindex.id, tmpfolder.indexDoc);
-  test.eq(newindex.id, (await whfs.openFolder(tmpfolder.id)).indexDoc);
-
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);
   test.eq("sub1", (await tmpfolder.ensureFolder("sub1")).name);
@@ -285,6 +279,12 @@ async function testWHFS() {
   test.eq("platform:foldertypes.default", ensuredfolder.type);
   const ensuredfolder2 = await tmpfolder.ensureFolder("sub1");
   test.eq(ensuredfolder.id, ensuredfolder2.id);
+
+  //test auto index doc setting
+  test.eq(null, ensuredfolder.indexDoc);
+  const newindex = await ensuredfolder.createFile("index.html");
+  test.eq(newindex.id, ensuredfolder.indexDoc);
+  test.eq(newindex.id, (await whfs.openFolder(ensuredfolder.id)).indexDoc);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.created, ensuredfile.modified);
