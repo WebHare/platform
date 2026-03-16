@@ -440,7 +440,11 @@ async function testImgCache() {
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const snowbeagleAvifFile = await testsitejs.openFile("photoalbum/snowbeagle.avif");
   const snowBeagleWebpFile = await testsitejs.openFile("photoalbum/snowbeagle.webp");
-  const wrappedBeagle = snowbeagle.data.toResized({ method: "none", format: "keep" });
+  const snowbeaglewithrefpoint = snowbeagle.data;
+  snowbeaglewithrefpoint.refPoint = { x: 107, y: 142 }; // Set refPoint in horizontal 1/4 and vertical middle of the image
+  const wrappedBeagle = snowbeaglewithrefpoint.toResized({ method: "none", format: "keep" });
+  test.eq("#EBEDF0",wrappedBeagle.dominantColor);
+  test.eq("25.0000% 50.0000%", wrappedBeagle.objectPosition);
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true, format: "keep" })).link);
   test.eq(428, wrappedBeagle.width);
   test.eq(284, wrappedBeagle.height);
