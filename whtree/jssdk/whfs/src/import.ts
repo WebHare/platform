@@ -53,6 +53,7 @@ export type ImportedVirtualMetaData = {
   publish?: boolean;
   indexDoc?: number | null;
   target?: IntExtLink | null;
+  order?: number;
 };
 
 export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>, importOptions?: ImportOptions): Promise<{
@@ -92,6 +93,12 @@ export async function resolveVirtualMetaData(target: WHFSObject | null, inData: 
       case "publish":
         if (typeof value !== "boolean")
           errors.push(`'${key}' must be a boolean`);
+        else
+          data[key] = value;
+        break;
+      case "order":
+        if (typeof value !== "number")
+          errors.push(`'order' must be a number`);
         else
           data[key] = value;
         break;

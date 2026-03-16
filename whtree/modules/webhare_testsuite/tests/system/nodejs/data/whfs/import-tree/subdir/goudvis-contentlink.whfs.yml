@@ -5,3 +5,4 @@ instances:
       publish: true
       target:
         internalLink: goudvis.png
+      order: 2

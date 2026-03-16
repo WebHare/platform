@@ -35,7 +35,7 @@ type BaseFSObjectMetadata = {
   description?: string;
   isPinned?: boolean;
   isUnlisted?: boolean;
-  ordering?: number;
+  order?: number;
   modified?: Temporal.Instant;
 };
 
@@ -154,7 +154,7 @@ abstract class WHFSBaseObject {
   get link(): string | null {
     return this.dbrecord.link || null;
   }
-  get ordering(): number {
+  get order(): number {
     return this.dbrecord.ordering;
   }
   get sitePath(): string | null {
@@ -216,12 +216,14 @@ abstract class WHFSBaseObject {
   abstract describeType(): Promise<WHFSTypeInfo>;
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name", "ordering"]);
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
     const moddate = metadata.modified || Temporal.Now.instant();
     const finishHandler = whfsFinishHandler();
 
     if ("isPinned" in metadata)
       storedata.ispinned = metadata.isPinned;
+    if ("order" in metadata)
+      storedata.ordering = metadata.order;
     if ("isUnlisted" in metadata)
       storedata.isunlisted = metadata.isUnlisted;
     if ("indexDoc" in metadata && metadata.indexDoc !== undefined) {
@@ -557,7 +559,7 @@ export class WHFSFolder extends WHFSBaseObject {
         lastpublishsize: 0,
         lastpublishtime: 0,
         scandata,
-        ordering: metadata?.ordering ?? 0,
+        ordering: metadata?.order ?? 0,
         published,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,

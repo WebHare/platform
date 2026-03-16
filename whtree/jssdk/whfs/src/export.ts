@@ -41,6 +41,7 @@ type VirtualObjectData = {
   target?: ExportedIntExtLink | null;
   keywords?: string;
   isUnlisted?: boolean;
+  order: number;
   title: string;
   description: string;
 };
@@ -53,6 +54,7 @@ export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { i
   return {
     title: obj.title,
     description: obj.description,
+    order: obj.order,
     ...obj.isUnlisted ? { isUnlisted: true } : {},
     ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
     ...includeData && obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},

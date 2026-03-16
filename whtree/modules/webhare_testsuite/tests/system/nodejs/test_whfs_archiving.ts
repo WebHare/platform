@@ -53,11 +53,13 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
   test.eq("Een goudvis", goudvis.title);
   test.eq(true, goudvis.publish);
   test.eq(75125, goudvis.data.resource.size);
+  test.eq(1, goudvis.order);
   test.eq(subdirIndex.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 
   //Verify the goudvis link
   const goudvisCLink = await subdir.openFile("goudvis-contentlink");
   test.eq(goudvis.id, goudvisCLink.target?.internalLink);
+  test.eq(2, goudvisCLink.order);
 }
 
 async function testWHFSImportArchive() {
