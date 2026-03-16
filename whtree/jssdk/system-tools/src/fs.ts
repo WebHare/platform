@@ -51,7 +51,7 @@ export interface StoreDiskFileOptions {
     @param data - Blob to write
     @returns \{ skipped: true \} if onlyIfChanged was set and the file was already up-to-date
 */
-export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
+export async function storeDiskFile(path: string, data: string | ArrayBuffer | Uint8Array | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
   if (options?.onlyIfChanged) { //we'll check the content of any existing target first
@@ -79,7 +79,8 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
       reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
     }
 
-    await writeFile(writepath ?? path, (typeof data === "object" && "stream" in data) ? data.stream() : data, { flag: options?.overwrite ? "w" : "wx" });
+    const writeData = (typeof data === "object" && "stream" in data) ? data.stream() : data instanceof ArrayBuffer ? Buffer.from(data) : data instanceof Uint8Array ? Buffer.from(data) : data;
+    await writeFile(writepath ?? path, writeData, { flag: options?.overwrite ? "w" : "wx" });
     if (writepath) {
       await rename(writepath, path);
       writepath = null;

@@ -11,12 +11,12 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-PUBLIC RECORD FUNCTION LaunchScriptJS(STRING scriptname, STRING ARRAY args)
+RECORD FUNCTION LaunchScriptWithRun(STRING scriptname, STRING ARRAY args)
 {
   TRY
   {
-    OBJECT process := CreateProcess(`${GetWebHareConfiguration().installationroot}/modules/system/scripts/whcommands/node.sh`,
-          [ GetWebHareResourceDiskPath(scriptname), ...args ], [ take_output := TRUE, take_errors := TRUE, merge_output_errors := TRUE ]);
+    OBJECT process := CreateProcess(`${GetWebHareConfiguration().installationroot}/bin/wh`,
+          [ "run", GetWebHareResourceDiskPath(scriptname), ...args ], [ take_output := TRUE, take_errors := TRUE, merge_output_errors := TRUE ]);
 
     process->Start();
     STRING output;
@@ -45,7 +45,11 @@ PUBLIC RECORD FUNCTION LaunchScriptJS(STRING scriptname, STRING ARRAY args)
 PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args, BOOLEAN showinfo)
 {
   IF(GetExtensionFromPath(scriptname) IN whconstant_javascript_extensions)
-    RETURN LaunchScriptJS(scriptname, args);
+    RETURN LaunchScriptWithRun(scriptname, args);
+
+  STRING code := BlobToString(GetWebhareResource(scriptname),400);
+  IF(SearchSubstring(ToUppercase(code), "(*WASMENGINE*)") >= 0)
+    RETURN LaunchScriptWithRun(scriptname, args);
 
   RECORD jobdata := CreateJob(scriptname);
   IF (NOT RecordExists(jobdata))

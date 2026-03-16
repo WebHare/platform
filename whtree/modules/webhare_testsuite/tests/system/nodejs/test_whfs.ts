@@ -173,7 +173,7 @@ async function testWHFS() {
   test.eq(0, imgfile.data.rotation);
   test.eq(false, imgfile.data.mirrored);
   test.eq(null, imgfile.data.refPoint);
-  test.eq("#EFF0EB", imgfile.data.dominantColor);
+  test.eq("#E8E8E8", imgfile.data.dominantColor, "Was #EFF0EB with HareScript reset.whscr");
   test.eq("imgeditfile.jpeg", imgfile.data.fileName);
 
   // Get the sha256 of the file

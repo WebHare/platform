@@ -1,7 +1,7 @@
 import { getTid, getTidLanguage } from "@webhare/gettid";
-import type { PageBuildRequest, WebResponse } from "@webhare/router";
+import type { PagePartRequest, PageBuildRequest, WebResponse } from "@webhare/router";
 import { litty } from "@webhare/litty";
-import type { PageBuilderFunction, PagePartRequest, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
+import type { PageBuilderFunction, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
 import type { SchemaOrg } from "@webhare/deps";
 
