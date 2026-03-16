@@ -1,5 +1,5 @@
 import YAML from 'yaml';
-import { appendToArray, compareProperties, toCLocaleLowercase } from "@webhare/std";
+import { appendToArray, compareProperties, pick, toCLocaleLowercase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
@@ -18,10 +18,10 @@ export type ImportWHFSProgress = {
   subPath: string;
 };
 
-export interface ImportWHFSOptions {
+export type ImportWHFSOptions = {
   onProgress?: ((progress: ImportWHFSProgress) => void);
   ifExists?: "overwrite" | "skip";
-}
+} & Pick<ImportOptions, "allowResourceImports">;
 
 export interface ImportWHFSResult {
   messages: Array<{
@@ -213,7 +213,8 @@ class ImportSession {
     }
 
     const importOptions: ImportOptions = {
-      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref)
+      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref),
+      ...pick(this.options || {}, ["allowResourceImports"])
     };
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
     let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
@@ -327,6 +328,7 @@ export async function importIntoWHFS_HS(target: number, options: {
   printprogress: boolean;
   managework: boolean;
   ifexists: "overwrite" | "skip";
+  allowresourceimports: boolean;
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -338,7 +340,8 @@ export async function importIntoWHFS_HS(target: number, options: {
     await beginWork();
   const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
     onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined,
-    ifExists: options.ifexists
+    ifExists: options.ifexists,
+    allowResourceImports: options.allowresourceimports
   });
   if (options.managework)
     await commitWork();

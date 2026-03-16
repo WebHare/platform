@@ -696,10 +696,10 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, { testFile: snowbeagle.data, testImage: snowbeagleImage });
     const { testFile: asFile, testImage: asImage } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
     test.eq('image/jpeg', asFile?.mediaType);
-    test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', asFile?.hash);
+    test.eq(test.wellKnownHashes.snowbeagleJPG, asFile?.hash);
     test.eq(null, asFile?.sourceFile);
     test.eq('image/jpeg', asImage?.mediaType);
-    test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', asImage?.hash);
+    test.eq(test.wellKnownHashes.snowbeagleJPG, asImage?.hash);
     test.eq(snowbeagle.id, asImage?.sourceFile);
   }
 

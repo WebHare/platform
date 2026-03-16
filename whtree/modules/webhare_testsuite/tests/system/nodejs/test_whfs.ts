@@ -221,7 +221,7 @@ async function testWHFS() {
   test.eq(false, openedGoldFish.isUnlisted);
   test.eq("image/jpeg", openedGoldFish.data.mediaType);
   test.eq(428, openedGoldFish.data.width);
-  test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);
+  test.eq(test.wellKnownHashes.snowbeagleJPG, openedGoldFish.data.hash);
   test.eq("goldfish.png", openedGoldFish.data.fileName, "a file's resource name is fixed to its fsobject");
 
   const goldFish2 = await tmpfolder.createFile("goldfish2.png", {

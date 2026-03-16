@@ -10,3 +10,27 @@ instances:
         - tag: p
           items:
             - text: This is a file in the root
+        - widget:
+            whfsType: platform:widgets.video
+            data:
+              creationdate: 2008-10-28T19:31:29Z
+              description: |-
+                One of the most popular dogs in America, the beagle is one of the most beloved hounds! Charming and upbeat, they are everything you want in a dog!
+
+                Watch More At: http://animal.discovery.com/videos/dogs-101-season-one/?smid=YTAPC-YTD-PLP
+
+                This popular dog is a hound's hound.
+              duration: 316
+              network: youtube
+              playratio: 1.7777777777777777
+              thumbnail:
+                data:
+                  resource: mod::system/web/tests/snowbeagle.jpg
+                extension: .jpg
+                mediaType: image/jpeg
+                width: 1280
+                height: 720
+                dominantColor: "#0838D8"
+                fileName: preview-baf7lcyexag.jpg
+              title: "The Beloved Hound: The Beagle | Dogs 101"
+              videoid: BAf7lcYEXag

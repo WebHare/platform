@@ -203,7 +203,8 @@ PUBLIC RECORD FUNCTION ImportIntoWHFS(INTEGER target, RECORD options) {
     sourcepath := "",
     printprogress := FALSE,
     managework := FALSE,
-    ifexists := "skip"
+    ifexists := "skip",
+    allowresourceimports := FALSE
   ], options, [ enums := [ ifexists := [ "overwrite", "skip" ]]]);
 
   RECORD result := CallJS("@webhare/whfs/src/import.ts#importIntoWHFS_HS", target, options);

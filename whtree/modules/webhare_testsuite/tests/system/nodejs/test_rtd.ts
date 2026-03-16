@@ -149,7 +149,7 @@ async function testReader() {
             mediaType: 'image/jpeg',
             width: 428,
             height: 284,
-            hash: 'eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw',
+            hash: test.wellKnownHashes.snowbeagleJPG,
             dominantColor: /^#.*$/,
             fileName: "imagecid-81400"
           },

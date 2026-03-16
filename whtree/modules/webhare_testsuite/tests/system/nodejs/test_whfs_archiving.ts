@@ -23,9 +23,18 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
   const rootfile = await importTree.openFile("rootfile");
   test.eq("Root file", rootfile.title);
   test.eq(true, rootfile.publish);
-  test.eq([{ tag: "p", items: [{ text: "This is a file in the root" }] }], (await whfsType("platform:filetypes.richdocument").get(rootfile.id, { export: true })).data);
   if (!flags?.isOverwrite)
     test.eq(rootfile.created, rootfile.modified, "created === modified as we're building a new tree");
+
+  const rootfileRTD = (await whfsType("platform:filetypes.richdocument").get(rootfile.id)).data;
+  test.assert(rootfileRTD);
+  test.eq({ tag: "p", items: [{ text: "This is a file in the root" }] }, rootfileRTD.blocks[0]);
+
+  const rootfileRTDWidget1 = rootfileRTD.blocks[1];
+  test.assert("widget" in rootfileRTDWidget1);
+  test.eq("platform:widgets.video", rootfileRTDWidget1.widget.whfsType);
+  test.eq(45081, rootfileRTDWidget1.widget.as("platform:widgets.video").data.thumbnail?.resource.size);
+  test.eq(test.wellKnownHashes.snowbeagleJPG, rootfileRTDWidget1.widget.as("platform:widgets.video").data.thumbnail?.hash);
 
   //Verify directory with metadata
   const subdir = await importTree.openFolder("subdir");
@@ -71,7 +80,7 @@ async function testWHFSImportArchive() {
     await beginWork();
     const importTree = await target.createFolder("dest1");
     console.log(`Importing tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
-    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress });
+    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress, allowResourceImports: true });
     test.eq([], importResult.messages);
     await commitWork();
 
@@ -80,7 +89,7 @@ async function testWHFSImportArchive() {
     { //Reimport, should report existence errors
       await beginWork();
       console.log(`Re-importing tree into ${importTree.whfsPath}...`);
-      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress });
+      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress, allowResourceImports: true });
       test.assert(reimportResult.messages.find(msg => msg.type === "error" && /already exists/.test(msg.message)));
       await rollbackWork();
     }
@@ -90,7 +99,7 @@ async function testWHFSImportArchive() {
     await beginWork();
     const importTree = await target.openFolder("dest1");
     console.log(`Overwriting tree into ${importTree.whfsPath}...`);
-    const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress, ifExists: "overwrite" });
+    const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress, ifExists: "overwrite", allowResourceImports: true });
     test.eq([], reimportResult.messages);
     await commitWork();
 
@@ -119,7 +128,7 @@ async function testWHFSExportArchive() {
     await beginWork();
     const importTree = await target.createFolder("re-import-1");
     console.log(`Importing exported tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
-    const importResult = await importIntoWHFS(join(workdir, "dest1"), importTree, { onProgress: onImportProgress });
+    const importResult = await importIntoWHFS(join(workdir, "dest1"), importTree, { onProgress: onImportProgress, allowResourceImports: true });
     test.eq([], importResult.messages);
     await commitWork();
 
