@@ -1,0 +1,14 @@
+# Export of file "/TestPages/foldertemplate/sub/contentlink" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:26.064Z
+type: platform:filetypes.contentlink
+created: 2026-03-20T20:42:30.775Z
+modified: 2026-03-20T20:42:30.775Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true
+      target:
+        internalLink: ../staticpage

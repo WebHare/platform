@@ -1,0 +1,11 @@
+# Export of folder "/TestPages/foldertemplate/" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:22.904Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder
+created: 2026-03-20T20:42:30.711Z
+modified: 2026-03-20T20:42:30.76Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Testsuite Folder Template
+      description: ""
+      order: 0
+      indexDoc: staticpage

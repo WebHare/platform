@@ -1,0 +1,12 @@
+# Export of file "/portal1/portal" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:06:58.577Z
+type: http://www.webhare.net/xmlns/tollium/applicationportal
+created: 2026-03-20T20:42:29.459Z
+modified: 2026-03-20T20:42:29.459Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

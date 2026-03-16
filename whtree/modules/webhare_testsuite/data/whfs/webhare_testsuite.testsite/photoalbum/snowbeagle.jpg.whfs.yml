@@ -1,0 +1,13 @@
+# Export of file "/photoalbum/snowbeagle.jpg" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:37.599Z
+type: platform:filetypes.image
+created: 2026-03-20T20:42:30.507Z
+modified: 2026-03-20T20:42:30.507Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Snowy-nose as jpg
+      description: A picture of a young male beagle with a snow powdered nose on a
+        snowy roof
+      order: 3
+      keywords: ""
+      publish: true

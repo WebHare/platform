@@ -1,0 +1,12 @@
+# Export of file "/portal1/requiresysop-or-consilio/index.shtml" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:06:57.799Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest
+created: 2026-03-20T20:42:29.532Z
+modified: 2026-03-20T20:42:29.532Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

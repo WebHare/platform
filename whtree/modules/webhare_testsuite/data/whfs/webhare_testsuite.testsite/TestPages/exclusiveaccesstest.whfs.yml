@@ -1,0 +1,12 @@
+# Export of file "/TestPages/exclusiveaccesstest" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:34.729Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest
+created: 2026-03-20T20:42:32.209Z
+modified: 2026-03-20T20:42:32.209Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

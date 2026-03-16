@@ -1,0 +1,12 @@
+# Export of file "/TestPages/search-customized" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:19.748Z
+type: platform:filetypes.search
+created: 2026-03-20T20:42:31.214Z
+modified: 2026-03-20T20:42:31.214Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Search - customized
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

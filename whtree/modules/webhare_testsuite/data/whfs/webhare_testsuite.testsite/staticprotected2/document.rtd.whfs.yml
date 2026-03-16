@@ -1,0 +1,18 @@
+# Export of file "/staticprotected2/document.rtd" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:07.533Z
+type: platform:filetypes.richdocument
+created: 2026-03-20T20:42:29.831Z
+modified: 2026-03-20T20:42:33.476Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - text: THE PROTECTED CONTENT

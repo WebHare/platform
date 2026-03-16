@@ -1,0 +1,11 @@
+# Export of folder "/portal1-oidc/requiresysop/" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:01.930Z
+type: platform:foldertypes.default
+created: 2026-03-20T20:42:29.663Z
+modified: 2026-03-20T20:42:29.681Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      indexDoc: index.shtml

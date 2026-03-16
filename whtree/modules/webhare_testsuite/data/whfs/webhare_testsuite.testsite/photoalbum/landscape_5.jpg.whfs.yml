@@ -1,0 +1,13 @@
+# Export of file "/photoalbum/landscape_5.jpg" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:36.898Z
+type: platform:filetypes.image
+created: 2026-03-20T20:42:30.448Z
+modified: 2026-03-20T20:42:30.448Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: A waterfall, in landscape
+      description: A picture of a waterfall in jungle-like forest with the number 5 in
+        the middle
+      order: 1
+      keywords: ""
+      publish: true

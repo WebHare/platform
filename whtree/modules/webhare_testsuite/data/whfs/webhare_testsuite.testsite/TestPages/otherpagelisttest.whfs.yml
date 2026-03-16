@@ -1,0 +1,12 @@
+# Export of file "/TestPages/otherpagelisttest" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:15.217Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/pagelist
+created: 2026-03-20T20:42:30.708Z
+modified: 2026-03-20T20:42:30.708Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: other
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

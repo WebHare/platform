@@ -1,0 +1,12 @@
+# Export of file "/test-saml/portal-idp/saml-idp" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:08.418Z
+type: platform:samlidpendpoint
+created: 2026-03-20T20:42:29.892Z
+modified: 2026-03-20T20:42:29.892Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: false

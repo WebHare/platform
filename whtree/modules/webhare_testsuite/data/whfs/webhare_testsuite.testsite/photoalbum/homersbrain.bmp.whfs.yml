@@ -1,0 +1,12 @@
+# Export of file "/photoalbum/homersbrain.bmp" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:39.434Z
+type: platform:filetypes.image
+created: 2026-03-20T20:42:30.656Z
+modified: 2026-03-20T20:42:30.656Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 6
+      keywords: ""
+      publish: true

@@ -1,0 +1,11 @@
+# Export of file "/webtools/mailresult-custom.html.witty" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:12.824Z
+type: platform:filetypes.witty
+created: 2026-03-20T20:42:30.384Z
+modified: 2026-03-20T20:42:30.384Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""

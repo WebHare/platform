@@ -1,0 +1,12 @@
+# Export of file "/TestPages/wrdauthtest-router-extended" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:16.873Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router
+created: 2026-03-20T20:42:30.801Z
+modified: 2026-03-20T20:42:30.801Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

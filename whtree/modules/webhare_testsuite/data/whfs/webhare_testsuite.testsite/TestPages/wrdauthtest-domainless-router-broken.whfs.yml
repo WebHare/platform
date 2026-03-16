@@ -1,0 +1,12 @@
+# Export of file "/TestPages/wrdauthtest-domainless-router-broken" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:17.543Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router
+created: 2026-03-20T20:42:31.094Z
+modified: 2026-03-20T20:42:31.094Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

@@ -1,0 +1,12 @@
+# Export of file "/photoalbum/portrait_4.jpg" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:38.429Z
+type: platform:filetypes.image
+created: 2026-03-20T20:42:30.476Z
+modified: 2026-03-20T20:42:30.476Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: A waterfall, in portrait
+      description: A picture of a waterfall near a road with the number 4 in the middle
+      order: 2
+      keywords: ""
+      publish: true

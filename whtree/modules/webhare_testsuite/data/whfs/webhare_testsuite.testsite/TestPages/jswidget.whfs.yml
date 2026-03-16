@@ -1,0 +1,14 @@
+# Export of file "/TestPages/jswidget" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:26.849Z
+type: webhare_testsuite:base_test.jswidget1
+created: 2026-03-20T20:42:30.128Z
+modified: 2026-03-20T20:42:33.48Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+  - whfsType: webhare_testsuite:base_test.jswidget1
+    data:
+      field1: js widget

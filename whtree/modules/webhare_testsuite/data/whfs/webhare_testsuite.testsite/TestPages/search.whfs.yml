@@ -1,0 +1,12 @@
+# Export of file "/TestPages/search" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:33.959Z
+type: platform:filetypes.search
+created: 2026-03-20T20:42:31.208Z
+modified: 2026-03-20T20:42:31.208Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Search
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

@@ -56,8 +56,28 @@ OBJECT testsite_js := EnsureTestSite("webhare_testsuite.testsitejs", [ recycleco
 IF(IsDebugTagEnabled("startup"))
   Print("Created JS site\n");
 
-MACRO SetupTestSite(OBJECT testsite)
-{
+MACRO SetupTestSite(OBJECT testsite) {
+  /* To rerun the old process:
+     WEBHARE_LEGACY_RESET=1 wh run '/Users/arnold/projects/webhare/whtree/modules/webhare_testsuite/scripts/whcommands/reset.whscr'
+
+     and to then re-export:
+     rm -rf "$(wh getmoduledir webhare_testsuite)data/whfs/webhare_testsuite.testsite"
+     wh whfs export --link-resources-from mod::system/web/tests/ --link-resources-from mod::webhare_testsuite/ "site::webhare_testsuite.testsite" "$(wh getmoduledir webhare_testsuite)data/whfs/"
+  */
+
+  IF(GetEnvironmentVariable("WEBHARE_LEGACY_RESET") = "") {
+    RECORD result := ImportIntoWHFS(testsite->rootobject->parent, [
+        sourcepath := GetWebHareResourceDiskPath("mod::webhare_testsuite/data/whfs"),
+        printprogress := TRUE,
+        allowresourceimports := TRUE,
+        rename := [["from" := "webhare_testsuite.testsite/", "to" := testsite->name || "/"]],
+        ifexists := "overwrite"
+        ]);
+    FOREVERY(RECORD msg FROM result.messages)
+      Print(`${testsite->name} ${msg.type}: ${msg.message}\n`);
+    RETURN;
+  }
+
   //root index
   OBJECT root := testsite->rootobject->CreateFile(
     [ name := "index.rtd"
@@ -372,6 +392,10 @@ IF(IsDebugTagEnabled("startup"))
   Print("Setup HS testsite\n");
 
 SetupTestSite(testsite_js);
+testsite_js->UpdateSiteMetadata(CELL[ webdesign := "webhare_testsuite:basetestjs"
+                                    , webfeatures := ["platform:identityprovider"]
+                                    ]);
+
 IF(IsDebugTagEnabled("startup"))
   Print("Setup JS testsite\n");
 
