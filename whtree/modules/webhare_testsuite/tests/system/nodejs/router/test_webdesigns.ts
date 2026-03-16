@@ -240,7 +240,7 @@ async function testCaptureJSRendered() {
   const resultpage = await captureJSPage(markdowndoc.id);
 
   // Note that captureJSPage is designed to be invoked from HareScript therefore it returns a HS Blob
-  test.eq(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
+  test.eq(/<html.* data-test=".*".* data-other-field=".*".*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
 
   const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
   const jsresultpage = await captureJSPage(jsrendereddoc.id);
@@ -248,6 +248,10 @@ async function testCaptureJSRendered() {
   test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
   test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
   test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
+
+  test.eq("test", jsresultdoc.documentElement?.getAttribute("data-test"));
+  test.eq("", jsresultdoc.documentElement?.getAttribute("data-other-field"));
+  test.eq(null, jsresultdoc.documentElement?.getAttribute("data-nonexisting"));
 
   test.eq("en", getTidLanguage(), "ensure captureJSPage didn't affect our language");
 }

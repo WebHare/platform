@@ -51,6 +51,8 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
     };
     req.pageMetaData.structuredData.push(FAQPage);
   }
+  req.pageMetaData.htmlDataSet.test = "test";
+  req.pageMetaData.htmlDataSet.otherField = "";
 
   const contentobjectpath = "FIXME"; //are we receiving contentObject yet ? do we want it?
   const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?
