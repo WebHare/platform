@@ -282,9 +282,19 @@ async function testWHFS() {
 
   //test auto index doc setting
   test.eq(null, ensuredfolder.indexDoc);
-  const newindex = await ensuredfolder.createFile("index.html");
+  const setCreated = Temporal.Now.instant().subtract({ seconds: 10 }).round({ smallestUnit: "second" });
+  const setModified = Temporal.Now.instant().subtract({ seconds: 5 }).round({ smallestUnit: "second" });
+  const newindex = await ensuredfolder.createFile("index.html", { created: setCreated, modified: setModified });
   test.eq(newindex.id, ensuredfolder.indexDoc);
   test.eq(newindex.id, (await whfs.openFolder(ensuredfolder.id)).indexDoc);
+  test.eq(setCreated, newindex.created);
+  test.eq(setModified, newindex.modified);
+
+  const setCreated2 = Temporal.Now.instant().subtract({ seconds: 8 }).round({ smallestUnit: "second" });
+  const setModified2 = Temporal.Now.instant().subtract({ seconds: 6 }).round({ smallestUnit: "second" });
+  await newindex.update({ created: setCreated2, modified: setModified2 } as whfs.UpdateFileMetadata);
+  test.eq(setCreated, (await whfs.openFile(newindex.id)).created, "Attempt to update 'created' will have been ignored");
+  test.eq(setModified2, (await whfs.openFile(newindex.id)).modified);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.created, ensuredfile.modified);
