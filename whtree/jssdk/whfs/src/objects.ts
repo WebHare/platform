@@ -562,7 +562,8 @@ export class WHFSFolder extends WHFSBaseObject {
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
         isunlisted: metadata?.isUnlisted || false,
-        data: data
+        data: data,
+        indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null
       }).returning(['id']).executeTakeFirstOrThrow();
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.

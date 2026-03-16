@@ -2,11 +2,15 @@ import { YAML } from "@webhare/deps";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { toFSPath } from "@webhare/services";
 import { beginWork, commitWork, rollbackWork } from "@webhare/whdb";
-import { importIntoWHFS, storeWHFSExport, whfsType, type WHFSFolder } from "@webhare/whfs";
+import { importIntoWHFS, storeWHFSExport, whfsType, type ImportWHFSProgress, type WHFSFolder } from "@webhare/whfs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from 'node:fs';
+
+function onImportProgress(progress: ImportWHFSProgress) {
+  console.log(`- import: ${progress.subPath}`);
+}
 
 async function verifyImportTree(importTree: WHFSFolder) {
   //FIXME verify file types, but TS WebHare should do type detection of files without metadata!
@@ -18,17 +22,26 @@ async function verifyImportTree(importTree: WHFSFolder) {
   test.eq("Root file", rootfile.title);
   test.eq(true, rootfile.publish);
   test.eq([{ tag: "p", items: [{ text: "This is a file in the root" }] }], (await whfsType("platform:filetypes.richdocument").get(rootfile.id, { export: true })).data);
+  test.eq(rootfile.created, rootfile.modified, "created === modified as we're building a new tree");
 
   //Verify directory with metadata
   const subdir = await importTree.openFolder("subdir");
   test.eq("My subfolder", subdir.title);
+  test.eq(subdir.created, subdir.modified, "created === modified as we're building a new tree");
+  test.eq(subdir.created, rootfile.created, "All items touched by a single import should have matching creationdates (if new)");
+  test.eq(subdir.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 
-  //Verify the goudvis.
+  const subdirIndex = await subdir.openFile("index");
+  test.eq(subdirIndex.id, subdir.indexDoc);
+  test.eq(subdirIndex.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
+
+  //Verify the goudvis (created without metadata!)
   //FIXME export/import goudvis with changed dominantColor/fileName setting and ensure we see that in the resource descriptor (as scanData currently seems to be ignored in the export)
   const goudvis = await subdir.openFile("goudvis.png");
   test.eq("Een goudvis", goudvis.title);
   test.eq(true, goudvis.publish);
   test.eq(75125, goudvis.data.resource.size);
+  test.eq(subdirIndex.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 
   //Verify the goudvis link
   const goudvisCLink = await subdir.openFile("goudvis-contentlink");
@@ -36,17 +49,15 @@ async function verifyImportTree(importTree: WHFSFolder) {
 }
 
 async function testWHFSImportArchive() {
-  //See https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsitejs/tmp/)
-
   await beginWork();
   const target = await test.getTestSiteJSTemp();
-  console.log("Importing into", target.whfsPath);
   await commitWork();
 
   {
     await beginWork();
     const importTree = await target.createFolder("import-tree-1");
-    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree);
+    console.log(`Importing tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
+    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree, { onProgress: onImportProgress });
     test.eq([], importResult.messages);
     await commitWork();
 
@@ -54,7 +65,8 @@ async function testWHFSImportArchive() {
 
     { //Reimport, should report existence errors
       await beginWork();
-      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree);
+      console.log(`Re-importing tree into ${importTree.whfsPath}...`);
+      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree, { onProgress: onImportProgress });
       test.assert(reimportResult.messages.find(msg => msg.type === "error" && /already exists/.test(msg.message)));
       await rollbackWork();
     }
@@ -77,7 +89,8 @@ async function testWHFSExportArchive() {
   {
     await beginWork();
     const importTree = await target.createFolder("re-import-1");
-    const importResult = await importIntoWHFS(join(workdir, "import-tree-1"), importTree);
+    console.log(`Importing exported tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
+    const importResult = await importIntoWHFS(join(workdir, "import-tree-1"), importTree, { onProgress: onImportProgress });
     test.eq([], importResult.messages);
     await commitWork();
 

@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
-import { openFile, openFileOrFolder } from "@webhare/whfs";
+import { openFile, openFileOrFolder, openFolder } from "@webhare/whfs";
 import { backendConfig, IntExtLink, ResourceDescriptor, WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
@@ -314,6 +314,14 @@ async function testWHFS() {
   const badFileInfo = await openFile(ensuredfile.id);
   test.eq("", badFileInfo.whfsPath); //not sure what it should be, but 'null' is bad
   await whdb.rollbackWork();
+
+  //Test future indexdoc support (TODO deferred pre-commit validation whether the indexdoc is actually a file in the right folder?)
+  await whdb.beginWork();
+  const futureIndexId = await whfs.nextWHFSObjectId();
+  const subFolderWithFutureIndex = await tmpfolder.createFolder("subfolder-future-index", { indexDoc: futureIndexId });
+  const futureIndexFile = await subFolderWithFutureIndex.createFile("index", { id: futureIndexId, type: "platform:filetypes.richdocument" });
+  await whdb.commitWork();
+  test.eq(futureIndexFile.id, (await openFolder(subFolderWithFutureIndex.id)).indexDoc);
 }
 
 async function testLinkTypes() {

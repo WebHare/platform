@@ -4,3 +4,4 @@ instances:
   - whfsType: platform:virtual.objectdata
     data:
       title: "My subfolder"
+      indexDoc: index

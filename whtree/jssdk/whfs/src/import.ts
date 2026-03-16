@@ -5,7 +5,7 @@ import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
 import { nextWHFSObjectId, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
 import { dirname, join } from "path";
-import { ResourceDescriptor, type IntExtLink } from "@webhare/services";
+import { ResourceDescriptor, unmapExternalWHFSRef, type IntExtLink } from "@webhare/services";
 import { openAsBlob } from "fs";
 import { getType } from './describe';
 import { whfsType, type ExportedInstance } from '@webhare/whfs/src/contenttypes';
@@ -13,7 +13,12 @@ import type { CSPContentType } from './siteprofiles';
 import { importIntExtLink, type ImportOptions } from '@webhare/services/src/descriptor';
 import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
 
+export type ImportWHFSProgress = {
+  subPath: string;
+};
+
 export interface ImportWHFSOptions {
+  onProgress?: ((progress: ImportWHFSProgress) => void);
 }
 
 export interface ImportWHFSResult {
@@ -70,17 +75,8 @@ export async function resolveVirtualMetaData(target: WHFSObject | null, inData: 
           errors.push(`'indexDoc' must be a string or null`);
         else if (!value)
           data.indexDoc = null;
-        else {
-          if (!target?.isFolder)
-            errors.push(`'indexDoc' can only be set on (existing) folders`);
-          else {
-            const targetDoc = await target.openFile(value as string, { allowMissing: true });
-            if (!targetDoc) //TODO allow lookup/assignment to be delayed
-              errors.push(`indexDoc file '${value}' not found`);
-            else
-              data.indexDoc = targetDoc.id;
-          }
-        }
+        else
+          data.indexDoc = await unmapExternalWHFSRef(value, importOptions);
         break;
       case "target":
         if (typeof value !== "object")
@@ -110,8 +106,9 @@ class ImportSession {
   };
   items;
   outputMap;
+  importDT = Temporal.Now.instant();
 
-  constructor(items: CombinedImportItem[], public targetFolder: WHFSFolder) {
+  constructor(items: CombinedImportItem[], public targetFolder: WHFSFolder, public options?: ImportWHFSOptions) {
     items.sort(compareProperties(["subPath"])); //ensure parent folders come before their children
     this.items = new Map(items.map(item => [toCLocaleLowercase(item.subPath), item]));
     this.outputMap = new Map<string, WHFSObject>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)
@@ -144,12 +141,13 @@ class ImportSession {
     return currentFolder;
   }
 
-  async unmapWhfsLink(baseFolder: WHFSFolder, subPath: string, mappedPath: string) {
+  async unmapWhfsLink(basePath: string, subPath: string, mappedPath: string) {
     if (mappedPath.includes('::'))
       return undefined; //fall through any namespaced link.
 
     //Construct an absolute path
-    const finalPath = join(baseFolder.whfsPath, mappedPath);
+    const finalPath = join(basePath, mappedPath);
+    // console.log(basePath, subPath, mappedPath, finalPath);
     if (!finalPath.startsWith(this.targetFolder.whfsPath)) {
       this.result.messages.push({ subPath, type: "error", message: `Mapped path '${mappedPath}' resolves to '${finalPath}' which is outside of the target folder '${this.targetFolder.whfsPath}'` });
       return null;
@@ -205,7 +203,7 @@ class ImportSession {
 
     if (objectData) {
       const resolveResult = await resolveVirtualMetaData(null, objectData, {
-        unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder, item.subPath, ref)
+        unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref)
       });
       resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
       if (resolveResult.data)
@@ -227,7 +225,9 @@ class ImportSession {
     }
 
     const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
-      type: typeinfo?.scopedtype,
+      created: this.importDT,
+      modified: this.importDT,
+      type: typeinfo?.scopedtype || typeinfo?.namespace,
       ...baseMetaData
     });
     this.outputMap.set("/" + toCLocaleLowercase(item.subPath), newObj);
@@ -236,7 +236,7 @@ class ImportSession {
       if (instance.whfsType === "platform:virtual.objectdata")
         continue;
       const typeHandler = whfsType(instance.whfsType);
-      await typeHandler.set(newObj.id, instance.data as object || {});
+      await typeHandler.set(newObj.id, instance.data as object || {}, { isVisibleEdit: false });
     }
   }
 }
@@ -282,9 +282,10 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
     blob: () => openAsBlob(entry.fullPath)
   }));
 
-  const importer = new ImportSession(collapseMetadata(items), targetFolder);
+  const importer = new ImportSession(collapseMetadata(items), targetFolder, options);
   //TODO when replacing we should figure out all existing IDs
   for (const item of importer.items.values()) {
+    importer.options?.onProgress?.({ subPath: item.subPath });
     await importer.import(item);
   }
 
@@ -293,6 +294,7 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
 
 export async function importIntoWHFS_HS(target: number, options: {
   sourcepath: string;
+  printprogress: boolean;
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -300,7 +302,9 @@ export async function importIntoWHFS_HS(target: number, options: {
     message: string;
   }>;
 }> {
-  const result = await importIntoWHFS(options.sourcepath, await openFolder(target));
+  const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
+    onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined
+  });
   return {
     messages: result.messages.map(m => ({ subpath: m.subPath, type: m.type, message: m.message }))
   };

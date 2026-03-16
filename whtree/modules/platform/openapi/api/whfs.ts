@@ -5,8 +5,9 @@ import { listInstances, openFileOrFolder, whfsType, type WHFSObject } from "@web
 import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
-import type { ExportResourcesOptions } from "@webhare/services/src/descriptor";
+import type { ExportResourcesOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
+import { dirname } from "path";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -90,20 +91,20 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   }
 }
 
-async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>): Promise<ImportedVirtualMetaData | null> {
-  const result = await resolveVirtualMetaData(target, data);
+async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetaData | null> {
+  const result = await resolveVirtualMetaData(target, data, importOptions);
   if (result.errors.length > 0)
     throw new WHFSAPIError(`Invalid virtual metadata: ${result.errors.join("; ")}`, 400);
 
   return result.data;
 }
 
-async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"]) {
+async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"], importOptions?: ImportOptions) {
   for (const instance of instances || []) {
     if (instance.whfsType === "platform:virtual.objectdata")
       continue;
     const typeHandler = whfsType(instance.whfsType);
-    await typeHandler.set(obj.id, instance.data as object || {});
+    await typeHandler.set(obj.id, instance.data as object || {}, importOptions);
   }
 }
 
@@ -137,15 +138,32 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
   }
 }
 
+async function unmapWhfsLink(targetObject: WHFSObject, ref: string) {
+  if (!ref.includes("::")) {
+    //local reference
+    let base = targetObject.whfsPath;
+    if (!targetObject.isFolder) //strip last component
+      base = dirname(base);
+
+    const target = await openFileOrFolder(base + "/" + ref);
+    return target.id;
+  }
+  return undefined;
+}
+
 export async function applyWHFSObjectUpdates(targetObject: WHFSObject, body: TypedRestRequest<AuthorizedWRDAPIUser, "patch /whfs/object">["body"]) {
+  const importOptions: ImportOptions = {
+    unmapWhfsLink: ref => unmapWhfsLink(targetObject, ref)
+  };
+
   const virtualMetadata = body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
   if (virtualMetadata) {
-    const updates = await mapVirtualMetaData(targetObject, virtualMetadata);
+    const updates = await mapVirtualMetaData(targetObject, virtualMetadata, importOptions);
     if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
       await targetObject.update(updates);
     }
   }
-  await applyInstanceUpdates(targetObject, body.instances);
+  await applyInstanceUpdates(targetObject, body.instances, importOptions);
 
 }
 

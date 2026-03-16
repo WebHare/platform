@@ -27,4 +27,4 @@ export { openSite, listSites, type Site } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
 
 export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";
-export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult } from "./import";
+export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress } from "./import";
