@@ -1078,10 +1078,17 @@ export class ResourceDescriptor implements ResourceMetaData {
   toResized(method: ResizeMethod) {
     const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
     const processing = explainImageProcessing(this.getMetaData(), { ...method, format: setFormat });
+
+    const objectPosition = this.refPoint && this.width && this.height ?
+      (this.refPoint.x * 100 / this.width).toFixed(4) + "% " + (this.refPoint.y * 100 / this.height).toFixed(4) + "%"
+      : null;
+
     return {
       link: getUnifiedCacheURL(1, this, method),
       width: processing.outWidth,
-      height: processing.outHeight
+      height: processing.outHeight,
+      dominantColor: this.dominantColor,
+      objectPosition: objectPosition
     };
   }
 
