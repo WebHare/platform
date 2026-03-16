@@ -254,7 +254,7 @@ abstract class WHFSBaseObject {
       }
     }
 
-    if (this.isFile && "target" in metadata) { //must handle before handling metadata.type
+    if (this.isFile && "target" in metadata && metadata.target !== undefined) { //must handle before handling metadata.type
       const { externallink, filelink, forceType } = decodeTarget(metadata.target || null, metadata.type || this.type, "type" in metadata);
       storedata.externallink = externallink;
       storedata.filelink = filelink;
