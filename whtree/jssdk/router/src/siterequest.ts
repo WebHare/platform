@@ -220,7 +220,7 @@ export class CPageRequest {
   }
 
   /** Load the function that can actually generate pages for us */
-  async getPageRenderer(): Promise<ContentBuilderFunction | null> {
+  async getPageRenderer(): Promise<ContentBuilderFunction> {
     //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
     const renderinfo = await this._contentApplyTester.getObjRenderInfo();
     if (renderinfo?.contentBuilder) { //JS renderer is always preferred
@@ -246,7 +246,8 @@ export class CPageRequest {
       };
     }
 
-    return null;
+    //It's possible a filetype has no renderer at all.. the webdesign may handle it by itself based on type id (often done for contenlistings)
+    return (request: ContentPageRequest) => request.buildWebPage(litty``);
   }
 
   /** Render the given HTML using the proper pageBuilder call (aka WebDesign in HareScript)

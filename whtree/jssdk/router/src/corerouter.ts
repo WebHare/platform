@@ -129,16 +129,13 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile) : undefined;
   const whfsreq = await buildContentPageRequest(req, targetObject, { statusCode: options?.errorcode, contentObject });
   if (options?.errorcode) {
-    //FIXMES We need to create proper error page body. Pass sufficient info to the webdesign?
+    //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
     const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
     return resp.asWebResponseInfo();
   }
 
   const renderer = await whfsreq.getPageRenderer();
-  if (renderer)
-    return (await renderer(whfsreq)).asWebResponseInfo();
-
-  throw new Error(`No renderer found for '${targetObject.whfsPath} (#${targetId}) ${contentObject ? ` (content link to ${contentObject.whfsPath} (${contentObject.id}))` : ""} - should not have been routed through us ? `);
+  return (await renderer(whfsreq)).asWebResponseInfo();
 }
 
 /** Renders TypeScript based widgets for HareScript widget embedders */

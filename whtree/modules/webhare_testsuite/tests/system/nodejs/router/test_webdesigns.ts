@@ -151,6 +151,19 @@ async function testPageResponseMarkdown() {
   test.eq("This is a commonmark marked down file with a JS link.", contentdiv?.getElementsByTagName("p")[0]?.textContent);
 }
 
+async function testPageResponsePlainPages() {
+  {
+    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage.html");
+    const contentdiv = doc.getElementById("content");
+    test.eq("HTML CODE", contentdiv?.getElementsByTagName("p")[0].getElementsByTagName("b")[0]?.textContent); //expect <p>b>HTML CODE
+  }
+  {
+    const { doc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/contentlisting");
+    const contentdiv = doc.getElementById("content");
+    test.eq('', contentdiv?.textContent?.trim()); //TODO once we minify should be able to do this without trim ?
+  }
+}
+
 async function testPageResponseJSRTD() {
   {
     const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
@@ -280,6 +293,7 @@ test.runTests([
   testDynamicPage,
   testPageResponseApplies,
   testPageResponseMarkdown,
+  testPageResponsePlainPages,
   testPageResponseJSRTD,
   testPublishedJSSite,
   testCaptureJSRendered,

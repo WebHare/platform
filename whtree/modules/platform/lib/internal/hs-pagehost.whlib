@@ -18,8 +18,7 @@ PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER 
 
   capturing_stream := CreateStream();
   RedirectOutputTo(capturing_stream);
-
-  INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(hspageobjecttype,'#')[0]) INTO __pageinfo;
+  __pageinfo := CELL[...__pageinfo, pagefolder := GetDirectoryFromPath(Tokenize(hspageobjecttype,'#')[0])];
 
   OBJECT pageobject := MakeObject(hspageobjecttype, webdesign->contentobject);
   pageobject->PrepareForPageConfig(webdesign);

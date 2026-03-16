@@ -252,6 +252,8 @@ MACRO SetupTestSite(OBJECT testsite)
 
   OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
 
+  OBJECT contentlisting := testpages->CreateFile( [ name := "contentlisting", typens := "platform:filetypes.contentlisting", publish := TRUE ] );
+
   OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
   OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
 
@@ -307,6 +309,7 @@ Test http://example.net/linkify.`
 
   testpages->CreateFile( [ name := "staticpage-contentlink", typens := "http://www.webhare.net/xmlns/publisher/contentlink", filelink := staticpage->id, publish := TRUE ]);
   testpages->CreateFile( [ name := "staticpage-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := staticpage->id, publish := TRUE ]);
+  testpages->CreateFile( [ name := "staticpage.html", publish := TRUE, data := StringToBlob("<p><b>HTML CODE</b></p>") ]);
   testpages->CreateFile( [ name := "staticpage-nl-jsrendered.html", publish := TRUE ]);
   testpages->CreateFile( [ name := "externallink", typens := "http://www.webhare.net/xmlns/publisher/externallink", externallink := "https://www.webhare.dev/" , publish := TRUE ]);
   testpages->CreateFile( [ name := "unknownfile", type := 0, publish := TRUE, data := StringToBlob("\x00\x01\x02\x03") ]);
