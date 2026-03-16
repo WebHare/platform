@@ -1,71 +1,19 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
-import { describeWHFSType, lookupURL, openFileOrFolder, openSite, whfsType, type WHFSFile, type WHFSObject } from '@webhare/whfs';
-import { CLIRuntimeError, enumOption, floatOption, intOption, run } from "@webhare/cli";
-import { createArchive, type CreateArchiveController } from "@webhare/zip";
+import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
+import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, run } from "@webhare/cli";
 import { storeDiskFile } from "@webhare/system-tools";
-import { stringify } from '@webhare/std';
-import type { ExportedInstance } from '@webhare/whfs/src/contenttypes';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
 import { selectFSWHFSPath } from '@webhare/whdb/src/functions';
 import { whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots } from '@mod-system/js/internal/webhareconstants';
 import { applyWHFSObjectUpdates, exportWHSFObject } from '@mod-platform/openapi/api/whfs';
 import YAML from 'yaml';
-import { commonFlags, commonOptions, resolveWHFSPathArgument } from '@mod-platform/js/cli/cli-tools';
+import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArrayArgument } from '@mod-platform/js/cli/cli-tools';
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
 
-interface ExportWHFSTreeOptions {
-  space?: string | number;
-}
-
-type ExportedProperties = {
-  whfsType: string; //File/folder type namespace
-  title?: string;
-  /** Other instances (ie *not* the primary content) */
-  instances?: ExportedInstance[];
-};
-
-/* The exporter is still experimental, untested and has an unverified formats. ToBe further developed into a WHFS Sync format
-    wh whfs create-experimental-archive --pretty --force 'site::My Site' '/tmp/mysite.zip'
-*/
-
-async function exportWHFSTree(source: WHFSObject, basePath: string, target: CreateArchiveController, options?: ExportWHFSTreeOptions) {
-  if (!source.isFolder)
-    throw new CLIRuntimeError("Source is not a folder");
-
-  for (const entry of await source.list()) {
-    const entryPath = `${basePath}/${entry.name}`;
-    const obj = await openFileOrFolder(entry.id);
-    console.log(obj.name, obj.type, entryPath);
-
-    const typeinfo = await describeWHFSType(obj.type);
-    if (obj.isFolder) {
-      //FIXME export directory metadata
-      await target.addFolder(entryPath, null);
-      await exportWHFSTree(obj, entryPath, target, options);
-    } else {
-
-      //FIXME this needs further generalization, allow 'any' type to be the content.json?
-      const richdata = await whfsType("platform:filetypes.richdocument").get(obj.id, { export: true });
-      if (richdata.data) {
-        await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modified);
-      }
-
-      const props: ExportedProperties = {
-        whfsType: obj.type,
-        title: obj.name,
-      };
-      await target.addFile(entryPath + "!props.json", stringify(props, { typed: true, space: options?.space }), obj.modified);
-
-      if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-        await target.addFile(entryPath, obj.data.resource.stream(), obj.modified);
-      }
-    }
-  }
-}
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
   const settings = await db<PlatformDB>()
@@ -256,22 +204,22 @@ run({
         console.log(opts.json ? JSON.stringify({ id: base.id }, null, 2) : `Updated ${base.id}`);
       }
     },
-    "create-experimental-archive": {
-      description: "Export from the WHFS - EXPERIMENTAL",
+    "export": {
+      description: "Export files or folders from WHFS",
       arguments: [
-        { name: "<source>", description: "Path or ID to export" },
-        { name: "<target>", description: "Target file" },
+        { name: "<source...>", description: "Path or ID to export" },
+        { name: "<target>", description: "Target file or folder" },
       ],
-      flags: {
-        "pretty": "Pretty print JSON metadata"
-      },
       main: async ({ opts, args }) => {
-        const base = await resolveWHFSPathArgument(args.source);
-        const archive = createArchive({
-          build: out => exportWHFSTree(base, base.name, out, { space: opts.pretty ? 2 : undefined }),
-        });
-
-        await storeDiskFile(args.target, archive, { overwrite: true });
+        const bases = await resolveWHFSPathArrayArgument(args.source);
+        const options: ExportWHFSOptions = {};
+        if (args.target.endsWith("/")) {
+          await storeWHFSExport(args.target, bases, options);
+        } else if (args.target.endsWith(".whexport.zip")) {
+          const archive = createWHFSExportZip(bases, options);
+          await storeDiskFile(args.target, archive, { overwrite: true });
+        } else
+          throw new CLISyntaxError("Target must be a folder (ending with '/') or a .whexport.zip file");
       }
     },
     "get-output-path": {

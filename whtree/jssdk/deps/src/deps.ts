@@ -14,6 +14,10 @@ export type * as Kysely from "kysely";
 // Expose schema.org types
 export type * as SchemaOrg from "schema-dts";
 
+////////////////////////////// YAML //////////////////////
+// Expose schema.org types
+export { default as YAML } from "yaml";
+
 ////////////////////////////// SHARP //////////////////////////
 import type * as sharp from "sharp";
 let sharppromise: Promise<typeof sharp> | undefined = undefined;

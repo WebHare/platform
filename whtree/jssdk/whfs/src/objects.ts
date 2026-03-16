@@ -27,17 +27,24 @@ export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects">
   publish: boolean;
 }
 
-export interface CreateFSObjectMetadata {
+type BaseFSObjectMetadata = {
   id?: number;
+  name?: string;
   type?: string;
   title?: string;
   description?: string;
   isPinned?: boolean;
   isUnlisted?: boolean;
   ordering?: number;
-}
+  modified?: Temporal.Instant;
+};
 
-export interface CreateFileMetadata extends CreateFSObjectMetadata {
+type CreateFSObjectMetadata = {
+  id?: number;
+  created?: Temporal.Instant;
+};
+
+type BaseFileMetadata = {
   data?: ResourceDescriptor | null;
   fileLink?: number | null;
   keywords?: string;
@@ -45,21 +52,16 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   firstPublish?: Temporal.Instant | null;
   contentModified?: Temporal.Instant | null;
   target?: IntExtLink | null;
-}
+};
 
-export interface CreateFolderMetadata extends CreateFSObjectMetadata {
+type BaseFolderMetadata = {
   indexDoc?: number | null;
-}
+};
 
-export interface UpdateFileMetadata extends CreateFileMetadata {
-  id?: never;
-  name?: string;
-}
-
-export interface UpdateFolderMetadata extends CreateFolderMetadata {
-  id?: never;
-  name?: string;
-}
+export type CreateFileMetadata = BaseFSObjectMetadata & BaseFileMetadata & CreateFSObjectMetadata;
+export type CreateFolderMetadata = BaseFSObjectMetadata & BaseFolderMetadata & CreateFSObjectMetadata;
+export type UpdateFileMetadata = BaseFSObjectMetadata & BaseFileMetadata;
+export type UpdateFolderMetadata = BaseFSObjectMetadata & BaseFolderMetadata;
 
 const ensureObjectLock = new std.LocalMutex;
 
@@ -215,7 +217,7 @@ abstract class WHFSBaseObject {
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name", "ordering"]);
-    const moddate = Temporal.Now.instant();
+    const moddate = metadata.modified || Temporal.Now.instant();
     const finishHandler = whfsFinishHandler();
 
     if ("isPinned" in metadata)
@@ -488,7 +490,9 @@ export class WHFSFolder extends WHFSBaseObject {
   }
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
-    const creationdate = new Date();
+    const creationdate = metadata?.created ? new Date(metadata.created.epochMilliseconds) : new Date();
+    const modificationdate = metadata?.modified ? new Date(metadata.modified.epochMilliseconds) : creationdate;
+
     let data: WebHareBlob | null = null, scandata = '';
     if (!type.foldertype) {
       const resdescr = (metadata as CreateFileMetadata)?.data;
@@ -510,6 +514,16 @@ export class WHFSFolder extends WHFSBaseObject {
       published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
     }
 
+    //Find conflicting entries so we can report errors normally instead of through database unique violation exceptions
+    const exists = await db<PlatformDB>().
+      selectFrom("system.fs_objects").
+      select(["id", "isfolder"]).
+      where("parent", "=", this.id).
+      where(sql`upper(name)`, "=", sql`upper(${name})`).
+      execute();
+    if (exists.length)
+      throw new Error(`A ${exists[0].isfolder ? "folder" : "file"} named '${name}' (#${exists[0].id}) already exists in folder '${this.whfsPath}'`);
+
     const { externallink, filelink, forceType } = decodeTarget((metadata as CreateFileMetadata)?.target || null, metadata && "type" in metadata ? type.scopedtype : null, Boolean(metadata && "type" in metadata));
     if (forceType)
       type = getType(forceType, "fileType") ?? std.throwError(`Forced type '${forceType}' not found`);
@@ -518,8 +532,8 @@ export class WHFSFolder extends WHFSBaseObject {
       .insertInto("system.fs_objects")
       .values({
         id: metadata?.id || undefined,
-        creationdate: creationdate,
-        modificationdate: creationdate,
+        creationdate,
+        modificationdate,
         parent: this.id,
         name,
         title: metadata?.title || "",
@@ -548,7 +562,8 @@ export class WHFSFolder extends WHFSBaseObject {
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
         isunlisted: metadata?.isUnlisted || false,
-        data: data
+        data: data,
+        indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null
       }).returning(['id']).executeTakeFirstOrThrow();
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.

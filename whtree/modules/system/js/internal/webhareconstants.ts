@@ -265,3 +265,5 @@ export const whwebserverconfig_proxywebserverid = -1000; //catches any usage of 
 export const whwebserverconfig_redirecthostoffset = -2000; //all redirecting hosts that mirror a real webserver, are offset by this index
 
 export const whconstant_defaultwidgetgroup = "platform:generalwidgets";
+
+export const whconstant_linktypes = ["platform:filetypes.contentlink", "platform:filetypes.internallink", "platform:filetypes.externallink"];

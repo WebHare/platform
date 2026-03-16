@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
-import { openFile, openFileOrFolder } from "@webhare/whfs";
+import { openFile, openFileOrFolder, openFolder } from "@webhare/whfs";
 import { backendConfig, IntExtLink, ResourceDescriptor, WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
@@ -282,9 +282,19 @@ async function testWHFS() {
 
   //test auto index doc setting
   test.eq(null, ensuredfolder.indexDoc);
-  const newindex = await ensuredfolder.createFile("index.html");
+  const setCreated = Temporal.Now.instant().subtract({ seconds: 10 }).round({ smallestUnit: "second" });
+  const setModified = Temporal.Now.instant().subtract({ seconds: 5 }).round({ smallestUnit: "second" });
+  const newindex = await ensuredfolder.createFile("index.html", { created: setCreated, modified: setModified });
   test.eq(newindex.id, ensuredfolder.indexDoc);
   test.eq(newindex.id, (await whfs.openFolder(ensuredfolder.id)).indexDoc);
+  test.eq(setCreated, newindex.created);
+  test.eq(setModified, newindex.modified);
+
+  const setCreated2 = Temporal.Now.instant().subtract({ seconds: 8 }).round({ smallestUnit: "second" });
+  const setModified2 = Temporal.Now.instant().subtract({ seconds: 6 }).round({ smallestUnit: "second" });
+  await newindex.update({ created: setCreated2, modified: setModified2 } as whfs.UpdateFileMetadata);
+  test.eq(setCreated, (await whfs.openFile(newindex.id)).created, "Attempt to update 'created' will have been ignored");
+  test.eq(setModified2, (await whfs.openFile(newindex.id)).modified);
 
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.created, ensuredfile.modified);
@@ -304,6 +314,14 @@ async function testWHFS() {
   const badFileInfo = await openFile(ensuredfile.id);
   test.eq("", badFileInfo.whfsPath); //not sure what it should be, but 'null' is bad
   await whdb.rollbackWork();
+
+  //Test future indexdoc support (TODO deferred pre-commit validation whether the indexdoc is actually a file in the right folder?)
+  await whdb.beginWork();
+  const futureIndexId = await whfs.nextWHFSObjectId();
+  const subFolderWithFutureIndex = await tmpfolder.createFolder("subfolder-future-index", { indexDoc: futureIndexId });
+  const futureIndexFile = await subFolderWithFutureIndex.createFile("index", { id: futureIndexId, type: "platform:filetypes.richdocument" });
+  await whdb.commitWork();
+  test.eq(futureIndexFile.id, (await openFolder(subFolderWithFutureIndex.id)).indexDoc);
 }
 
 async function testLinkTypes() {

@@ -21,7 +21,10 @@ export { openTagManager } from "./tagmanager";
 export type { TagManager, Tag } from "./tagmanager";
 export { isValidName } from "./support";
 
-export type { CreateFSObjectMetadata, CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";
+export type { CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";
 export { openFile, openFolder, openFileOrFolder, nextWHFSObjectId } from "./objects";
 export { openSite, listSites, type Site } from "./sites";
 export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";
+
+export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";
+export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress } from "./import";

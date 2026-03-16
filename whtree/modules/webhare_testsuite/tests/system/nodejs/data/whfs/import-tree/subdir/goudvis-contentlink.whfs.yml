@@ -1,0 +1,7 @@
+type: platform:filetypes.contentlink
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      publish: true
+      target:
+        internalLink: goudvis.png

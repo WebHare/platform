@@ -1,11 +1,13 @@
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import type { AuthorizedWRDAPIUser, HTTPSuccessCode, OpenAPIResponse, OpenAPIResponseType } from "@webhare/openapi-service";
 import { getAuthorizationInterface } from "@webhare/auth";
-import { listInstances, openFile, openFileOrFolder, whfsType, type WHFSFile, type WHFSObject } from "@webhare/whfs";
-import type { FileTypeInfo } from "@webhare/whfs/src/contenttypes";
+import { listInstances, openFileOrFolder, whfsType, type WHFSObject } from "@webhare/whfs";
+import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
-import type { ExportResourcesOptions } from "@webhare/services/src/descriptor";
+import type { ExportResourcesOptions, ImportOptions } from "@webhare/services/src/descriptor";
+import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
+import { dirname } from "path";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -23,20 +25,11 @@ export async function resolvePath(req: { params: { path?: string }; authorizatio
 }
 
 async function getInstances(obj: WHFSObject, exportResources: ExportResourcesOptions) {
-  const typeinfo = await obj.describeType();
   const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>["instances"] = [
     {
       whfsType: 'platform:virtual.objectdata',
       clone: 'onCopy',
-      data: {
-        title: obj.title,
-        description: obj.description,
-        ...obj.isUnlisted ? { isUnlisted: true } : {},
-        ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
-        ...obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
-        ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
-        ...obj.isFolder && obj.indexDoc ? { indexDoc: (await openFile(obj.indexDoc)).name } : {},
-      }
+      data: await getVirtualObjectData(obj, { includeData: true })
     }
   ];
 
@@ -98,60 +91,20 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   }
 }
 
-async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>): Promise<{
-  title?: string;
-  description?: string;
-  keywords?: string;
-  isUnlisted?: boolean;
-  publish?: boolean;
-  type?: string;
-  indexDoc?: number | null;
-} | null> {
+async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetaData | null> {
+  const result = await resolveVirtualMetaData(target, data, importOptions);
+  if (result.errors.length > 0)
+    throw new WHFSAPIError(`Invalid virtual metadata: ${result.errors.join("; ")}`, 400);
 
-  const retval: Awaited<ReturnType<typeof mapVirtualMetaData>> = {};
-  for (const key of Object.keys(data)) {
-    switch (key) {
-      case "title":
-      case "description":
-      case "keywords":
-      case "type":
-        if (typeof data[key] !== "string")
-          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a string`, 400);
-        retval[key] = data[key] as string;
-        break;
-      case "indexDoc":
-        if (typeof data.indexDoc !== "string")
-          throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' must be a string or null`, 400);
-        else if (!data.indexDoc)
-          retval.indexDoc = null;
-        else {
-          if (!target?.isFolder)
-            throw new WHFSAPIError(`Invalid virtual metadata: 'indexDoc' can only be set on (existing) folders`, 400);
-          const targetDoc = await target.openFile(data.indexDoc as string, { allowMissing: true });
-          if (!targetDoc)
-            throw new WHFSAPIError(`Invalid virtual metadata: indexDoc file ${data.indexDoc}' not found`, 400);
-          retval.indexDoc = targetDoc.id;
-        }
-        break;
-      case "isUnlisted":
-      case "publish":
-        if (typeof data[key] !== "boolean")
-          throw new WHFSAPIError(`Invalid virtual metadata: '${key}' must be a boolean`, 400);
-        retval[key] = data[key] as boolean;
-        break;
-      default:
-        throw new WHFSAPIError(`Invalid virtual metadata: unknown property '${key}'`, 400);
-    }
-  }
-  return Object.keys(retval).length > 0 ? retval : null;
+  return result.data;
 }
 
-async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"]) {
+async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"], importOptions?: ImportOptions) {
   for (const instance of instances || []) {
     if (instance.whfsType === "platform:virtual.objectdata")
       continue;
     const typeHandler = whfsType(instance.whfsType);
-    await typeHandler.set(obj.id, instance.data as object || {});
+    await typeHandler.set(obj.id, instance.data as object || {}, importOptions);
   }
 }
 
@@ -185,15 +138,32 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
   }
 }
 
+async function unmapWhfsLink(targetObject: WHFSObject, ref: string) {
+  if (!ref.includes("::")) {
+    //local reference
+    let base = targetObject.whfsPath;
+    if (!targetObject.isFolder) //strip last component
+      base = dirname(base);
+
+    const target = await openFileOrFolder(base + "/" + ref);
+    return target.id;
+  }
+  return undefined;
+}
+
 export async function applyWHFSObjectUpdates(targetObject: WHFSObject, body: TypedRestRequest<AuthorizedWRDAPIUser, "patch /whfs/object">["body"]) {
+  const importOptions: ImportOptions = {
+    unmapWhfsLink: ref => unmapWhfsLink(targetObject, ref)
+  };
+
   const virtualMetadata = body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
   if (virtualMetadata) {
-    const updates = await mapVirtualMetaData(targetObject, virtualMetadata);
+    const updates = await mapVirtualMetaData(targetObject, virtualMetadata, importOptions);
     if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
       await targetObject.update(updates);
     }
   }
-  await applyInstanceUpdates(targetObject, body.instances);
+  await applyInstanceUpdates(targetObject, body.instances, importOptions);
 
 }
 
