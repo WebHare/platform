@@ -2,7 +2,7 @@ import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
 import { backendConfig } from "@webhare/services";
@@ -99,41 +99,39 @@ async function exportWHFS(sources: WHFSObject | WHFSObject[], target: Pick<Creat
     if (!source.isFolder)
       throw new Error(`Source '${source.whfsPath}' is not a folder`);
 
-    await exportWHFSTree(source, source, source.name, target, options);
+    await exportWHFSTree(source, source, dirname(source.name), target, options);
   }
 }
 
-function mapWhfsLink(start: WHFSFolder, source: WHFSFolder, link: ExportMapWhfsLinkInfo) {
+function mapWhfsLink(start: WHFSFolder, sourcePath: string, link: ExportMapWhfsLinkInfo) {
   //TODO with multiple starting points we should permit links between their namespaces as they'll end up next to each other anyway.
   if (link.whfsPath.startsWith(start.whfsPath)) { //is it inside the export root ?
-    return relative(source.whfsPath, link.whfsPath);
+    return relative(sourcePath, link.whfsPath);
   }
   return link.defaultMapping;
 }
 
-async function exportWHFSTree(start: WHFSFolder, source: WHFSFolder, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
+async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
   const exportOptions: ExportOptions & { export: true } = {
     export: true,
     exportResources: "base64",
-    mapWhfsLink: link => mapWhfsLink(start, source, link)
+    mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
   };
 
-  for (const entry of await source.list()) {
-    const entryPath = `${basePath}/${entry.name}`;
-    const obj = await openFileOrFolder(entry.id);
-    const meta = await buildExportMetadata(obj, exportOptions);
-    const header = `# Export of ${obj.isFolder ? "folder" : "file"} "${obj.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
-    await target.addFile(entryPath + ".whfs.yml", header + YAML.stringify(meta), obj.modified);
+  const entryPath = `${basePath}/${item.name}`;
+  const meta = await buildExportMetadata(item, exportOptions);
+  const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
+  await target.addFile(entryPath + ".whfs.yml", header + YAML.stringify(meta), item.modified);
 
-    if (obj.isFolder) {
-      //FIXME export directory metadata
-      await target.addFolder(entryPath, null);
-      await exportWHFSTree(start, obj, entryPath, target, options);
-    } else {
-      const typeinfo = await describeWHFSType(obj.type);
-      if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-        await target.addFile(entryPath, obj.data.resource.stream(), obj.modified);
-      }
+  if (item.isFolder) {
+    await target.addFolder(entryPath, item.modified);
+    for (const entry of await item.list()) {
+      await exportWHFSTree(start, await openFileOrFolder(entry.id), entryPath, target, options);
+    }
+  } else {
+    const typeinfo = await describeWHFSType(item.type);
+    if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
+      await target.addFile(entryPath, item.data.resource.stream(), item.modified);
     }
   }
 }

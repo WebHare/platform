@@ -267,6 +267,12 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
   return outItems;
 }
 
+function filterItems(item: ImportItem) {
+  if ([".ds_store", "thumbs.db"].includes(item.name.toLowerCase()))
+    return false;
+  return true;
+}
+
 /** Import data into WHFS
  * @param source - unpacked archive or path on disk containing files/folders to import
  */
@@ -282,7 +288,7 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
     name: entry.name,
     subPath: entry.subPath,
     blob: () => openAsBlob(entry.fullPath)
-  }));
+  })).filter(filterItems);
 
   const importer = new ImportSession(collapseMetadata(items), targetFolder, options);
   //TODO when replacing we should figure out all existing IDs

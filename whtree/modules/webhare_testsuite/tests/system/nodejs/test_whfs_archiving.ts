@@ -13,6 +13,8 @@ function onImportProgress(progress: ImportWHFSProgress) {
 }
 
 async function verifyImportTree(importTree: WHFSFolder) {
+  test.eq("The Tree To Import", importTree.title);
+
   //FIXME verify file types, but TS WebHare should do type detection of files without metadata!
   const snowBeagle = await importTree.openFile("no-meta-dir/no-meta-subdir/snowbeagle.webp");
   test.eq(22060, snowBeagle.data.resource.size);
@@ -63,18 +65,18 @@ async function testWHFSImportArchive() {
 
   {
     await beginWork();
-    const importTree = await target.createFolder("import-tree-1");
+    const importTree = await target.createFolder("dest1");
     console.log(`Importing tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
-    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree, { onProgress: onImportProgress });
+    const importResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress });
     test.eq([], importResult.messages);
     await commitWork();
 
-    await verifyImportTree(importTree);
+    await verifyImportTree(await importTree.openFolder("import-tree"));
 
     { //Reimport, should report existence errors
       await beginWork();
       console.log(`Re-importing tree into ${importTree.whfsPath}...`);
-      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/import-tree"), importTree, { onProgress: onImportProgress });
+      const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress });
       test.assert(reimportResult.messages.find(msg => msg.type === "error" && /already exists/.test(msg.message)));
       await rollbackWork();
     }
@@ -86,11 +88,15 @@ async function testWHFSExportArchive() {
   console.log(`Export work dir: ${workdir}`);
 
   const target = await test.getTestSiteJSTemp();
-  const source = await target.openFolder("import-tree-1");
-  await storeWHFSExport(join(workdir, "import-tree-1"), [source]);
+  const source = await target.openFolder("dest1/import-tree");
+  await storeWHFSExport(join(workdir, "dest1"), [source]);
+
+  //verify the root metadata was created
+  const rootMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree.whfs.yml"), "utf-8"));
+  test.eq("The Tree To Import", rootMetadata.instances[0].data.title);
 
   //verify proper relative link
-  const goldFishContentLinkMetadata = YAML.parse(readFileSync(join(workdir, "import-tree-1", "import-tree-1", "subdir/goudvis-contentlink.whfs.yml"), "utf-8"));
+  const goldFishContentLinkMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree", "subdir/goudvis-contentlink.whfs.yml"), "utf-8"));
   test.eq({ internalLink: "goudvis.png" }, goldFishContentLinkMetadata.instances[0].data.target);
 
   //Reimport it
@@ -98,12 +104,12 @@ async function testWHFSExportArchive() {
     await beginWork();
     const importTree = await target.createFolder("re-import-1");
     console.log(`Importing exported tree into ${importTree.whfsPath}... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
-    const importResult = await importIntoWHFS(join(workdir, "import-tree-1"), importTree, { onProgress: onImportProgress });
+    const importResult = await importIntoWHFS(join(workdir, "dest1"), importTree, { onProgress: onImportProgress });
     test.eq([], importResult.messages);
     await commitWork();
 
     //TODO hmm, does it make sense that export followed by import would add a level?
-    await verifyImportTree(await importTree.openFolder("import-tree-1"));
+    await verifyImportTree(await importTree.openFolder("import-tree"));
   }
 }
 
