@@ -574,25 +574,9 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase <
       IF (CellExists(newval, "REFPOINT"))
         value.refpoint := newval.refpoint;
 
-      IF (RecordExists(this->imgsize))
-      {
-        RECORD method := this->imgsize; //invokes FixImgSize which will set format to "" if unset.
-        IF(method.format IN ["image/webp","image/avif"]) //We can throw, you're explicitly setting an unsupported format (we could support it but would have to involve TS/Sharp)
-          THROW NEW Exception(`Unsupported image format '${method.format}' in imageedit property`);
-        IF(method.format = "")
-          method.format := "keep";
-
-        IF ((method.setwidth > 0 AND value.width > method.setwidth)
-            OR (method.setheight > 0 AND value.height > method.setheight)
-            OR (method.format != "keep" AND value.mimetype != method.format)
-            OR (method.fixorientation AND (value.rotation != 0 OR value.mirrored)))
-        {
-          DELETE CELL "allowedactions" FROM method;
-          DELETE CELL "allowedfilters" FROM method;
-
-          value := MakeUpdatedRecord(value, GfxResizeImageBlobWithMethod(value.data, method));
-        }
-      }
+      /* Until wH 5.9 images were autoconverted using the image size settings. That's too dangerous when converting
+         repeatedly, so it has been removed
+      */
 
       this->pvt_value := value;
       this->pvt_src := this->AddInlineDownload(this->pvt_value.data, this->pvt_value.mimetype, this->pvt_value.filename);
