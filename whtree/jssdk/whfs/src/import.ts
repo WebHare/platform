@@ -12,6 +12,7 @@ import { whfsType, type ExportedInstance } from '@webhare/whfs/src/contenttypes'
 import type { CSPContentType } from './siteprofiles';
 import { importIntExtLink, type ImportOptions } from '@webhare/services/src/descriptor';
 import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
+import { beginWork, commitWork } from '@webhare/whdb';
 
 export type ImportWHFSProgress = {
   subPath: string;
@@ -296,6 +297,7 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
 export async function importIntoWHFS_HS(target: number, options: {
   sourcepath: string;
   printprogress: boolean;
+  managework: boolean;
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -303,9 +305,13 @@ export async function importIntoWHFS_HS(target: number, options: {
     message: string;
   }>;
 }> {
+  if (options.managework)
+    await beginWork();
   const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
     onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined
   });
+  if (options.managework)
+    await commitWork();
   return {
     messages: result.messages.map(m => ({ subpath: m.subPath, type: m.type, message: m.message }))
   };

@@ -201,7 +201,8 @@ PUBLIC RECORD FUNCTION ImportWHFSArchive(OBJECT folder, BLOB archive, RECORD opt
 PUBLIC RECORD FUNCTION ImportIntoWHFS(INTEGER target, RECORD options) {
   options := ValidateOptions(CELL[
     sourcepath := "",
-    printprogress := FALSE
+    printprogress := FALSE,
+    managework := FALSE
   ], options);
 
   RECORD result := CallJS("@webhare/whfs/src/import.ts#importIntoWHFS_HS", target, options);
