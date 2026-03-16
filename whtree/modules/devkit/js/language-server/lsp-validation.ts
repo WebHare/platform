@@ -69,8 +69,9 @@ export async function getDiagnostics(document: TextDocumentLike): Promise<Diagno
 
   const languageId = document.languageId;
   let diagnostics: Diagnostic[] = [];
+  const startTime = Date.now();
   diagnostics = await getHSDiagnostics(respath, content);
-  console.log(`getDiagnostic ${respath}: ${content.length} bytes, languageid = ${languageId}, ${diagnostics.length} diagnostics`);
+  console.log(`getDiagnostic ${respath}: ${content.length} bytes, languageid = ${languageId}, ${diagnostics.length} diagnostics, took ${Date.now() - startTime} ms`);
   return diagnostics;
 }
 

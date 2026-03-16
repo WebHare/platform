@@ -28,6 +28,7 @@ async function testCLIMainParse() {
       "with-blabla": { default: "", description: "String param" }
     },
     arguments: [{ name: "<file>", description: "The file to process" }],
+    mixedFlags: false,
   }, ["a", "--with-blabla", "b"]));
 
   // After the first argument flags and options are not parsed when mixedFlags is false
@@ -57,7 +58,6 @@ async function testCLIMainParse() {
     options: {
       "with-blabla": { default: "", description: "String param" }
     },
-    mixedFlags: true,
     arguments: [{ name: "<file>", description: "The file to process" }],
   }, ["a", "--with-blabla", "b"]));
 

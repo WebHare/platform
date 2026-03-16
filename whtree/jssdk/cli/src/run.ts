@@ -76,6 +76,7 @@ type SubCommandTemplate = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
+  /** Override whether arguments, options and flags can be freely mixed for this subcommand */
   mixedFlags?: boolean;
   arguments?: readonly [...Array<Argument<unknown>>];
   main?: unknown;
@@ -86,19 +87,15 @@ export type ParseData = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
+  /** Whether arguments, options and flags can be freely mixed on the command line. This is the default */
   mixedFlags?: boolean;
   arguments?: ReadonlyArray<Argument<unknown>>;
+} & ({
   subCommands?: never;
   main?: unknown;
 } | {
-  name?: string;
-  description?: string;
-  options?: Record<string, OptionsTemplate>;
-  flags?: Record<string, FlagTemplate>;
-  mixedFlags?: boolean;
-  arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: Record<string, SubCommandTemplate>;
-};
+});
 
 type OptArgBase = {
   options?: Record<string, OptionsTemplate>;
@@ -339,7 +336,7 @@ export function parse<
   let gotArgument = false;
   let gotOptionTerminator = false;
   let showHelp = false;
-  let mixedFlags = data.mixedFlags;
+  let mixedFlags = data.mixedFlags ?? true;
   const argList: string[] = [];
   argvloop:
   for (let i = 0; i < argv.length; i++) {

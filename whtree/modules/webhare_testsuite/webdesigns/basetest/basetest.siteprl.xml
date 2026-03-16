@@ -978,6 +978,11 @@
     <extendproperties extension="#testeditor" contenttype="http://www.webhare.net/xmlns/beta/test" />
   </apply>
 
+  <apply>
+    <to type="all" webfeatures="webhare_testsuite:testfeature" />
+    <userdata key="webhare_testsuite:webfeatures" value='{"feature":"webhare_testsuite:testfeature"}' />
+  </apply>
+
   <screen xmlns="http://www.webhare.net/xmlns/tollium/screens"
           name="editrow"
           footerbuttons="ok cancel"

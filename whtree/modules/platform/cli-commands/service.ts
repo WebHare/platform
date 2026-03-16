@@ -116,6 +116,7 @@ run({
     "debug": {
       description: "Debug a service",
       arguments: [{ name: "<service>", description: "Service name" }],
+      mixedFlags: false,
       main: async ({ opts, args }) => {
         const serviceinfo = (await getAllServices())[args.service];
         if (serviceinfo) {
