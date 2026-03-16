@@ -198,13 +198,14 @@ class ImportSession {
       typeinfo = getType("platform:filetypes.unknown")!; //FIXME type detect
     }
 
+    const importOptions: ImportOptions = {
+      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref)
+    };
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
     let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
 
     if (objectData) {
-      const resolveResult = await resolveVirtualMetaData(null, objectData, {
-        unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref)
-      });
+      const resolveResult = await resolveVirtualMetaData(null, objectData, importOptions);
       resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
       if (resolveResult.data)
         baseMetaData = resolveResult.data;
@@ -236,7 +237,7 @@ class ImportSession {
       if (instance.whfsType === "platform:virtual.objectdata")
         continue;
       const typeHandler = whfsType(instance.whfsType);
-      await typeHandler.set(newObj.id, instance.data as object || {}, { isVisibleEdit: false });
+      await typeHandler.set(newObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
     }
   }
 }

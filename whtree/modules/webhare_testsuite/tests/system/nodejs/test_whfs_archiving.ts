@@ -35,7 +35,15 @@ async function verifyImportTree(importTree: WHFSFolder) {
   test.eq(subdirIndex.id, subdir.indexDoc);
   test.eq(subdirIndex.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 
-  //Verify the goudvis (created without metadata!)
+  const subdirIndexRTD = (await whfsType("platform:filetypes.richdocument").get(subdirIndex.id)).data;
+  test.assert(subdirIndexRTD);
+  test.eq({ tag: "p", items: [{ text: "This is a file in the subdir" }] }, subdirIndexRTD.blocks[0]);
+  const subdirIndexRTDWidget1 = subdirIndexRTD.blocks[1];
+  test.assert("widget" in subdirIndexRTDWidget1);
+  test.eq("webhare_testsuite:global.generic_test_type", subdirIndexRTDWidget1.widget.whfsType);
+  test.eq(snowBeagle.id, subdirIndexRTDWidget1.widget.as("webhare_testsuite:global.generic_test_type").data.myLink?.internalLink);
+
+  //Verify the goudvis
   //FIXME export/import goudvis with changed dominantColor/fileName setting and ensure we see that in the resource descriptor (as scanData currently seems to be ignored in the export)
   const goudvis = await subdir.openFile("goudvis.png");
   test.eq("Een goudvis", goudvis.title);

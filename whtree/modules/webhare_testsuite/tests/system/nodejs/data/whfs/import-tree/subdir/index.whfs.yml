@@ -10,3 +10,9 @@ instances:
         - tag: p
           items:
             - text: This is a file in the subdir
+        - widget:
+            whfsType: "webhare_testsuite:global.generic_test_type"
+            data:
+              myLink:
+                internalLink: ../no-meta-dir/no-meta-subdir/snowbeagle.webp
+                append: "#test"
