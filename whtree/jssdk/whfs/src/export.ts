@@ -16,7 +16,7 @@ import { exportIntExtLink, type ExportMapWhfsLinkInfo } from '@webhare/services/
    - Folders and the data for files (if they have a non-zero data member) are stored under their own name
    - Metadata for folders and files is stored in an accompanying `<name>.whfs.yml` file
      - A folder's metadata will be stored next to its folder, not inside the folder
-     - This makes it purposefully impossible to store metadata about the 'root' of an archive (unlike HS wharcvhive)
+     - This makes it purposefully impossible to store metadata about the 'root' of an archive (unlike HS wharchive)
 
   Eg a folder 'my-folder' with one image 'my-image' and one RTD 'index' would be stored as:
 

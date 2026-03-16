@@ -248,7 +248,7 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
   const itemMap = new Map<string, ImportItem>(items.map(item => [toCLocaleLowercase(item.subPath), item]));
   const outItems: CombinedImportItem[] = [];
 
-  //first add all items that have metadta
+  //first add all items that have metadata
   for (const [subpath, item] of itemMap) {
     if (subpath.endsWith(".whfs.yml")) {
       const actualData = itemMap.get(subpath.slice(0, -9)); //remove .whfs.yml from filename

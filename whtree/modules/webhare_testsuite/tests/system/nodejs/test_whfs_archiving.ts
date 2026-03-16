@@ -102,7 +102,7 @@ async function testWHFSExportArchive() {
     test.eq([], importResult.messages);
     await commitWork();
 
-    //TODO hmm, does it make sense that eport followed by import would add a level?
+    //TODO hmm, does it make sense that export followed by import would add a level?
     await verifyImportTree(await importTree.openFolder("import-tree-1"));
   }
 }

@@ -514,7 +514,7 @@ export class WHFSFolder extends WHFSBaseObject {
       published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
     }
 
-    //Find conflicting entries so we can report errors normally instead of through database unique violation exceptinos
+    //Find conflicting entries so we can report errors normally instead of through database unique violation exceptions
     const exists = await db<PlatformDB>().
       selectFrom("system.fs_objects").
       select(["id", "isfolder"]).
