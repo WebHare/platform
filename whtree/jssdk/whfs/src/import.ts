@@ -3,7 +3,7 @@ import { appendToArray, compareProperties, toCLocaleLowercase } from "@webhare/s
 import { listDirectory } from "@webhare/system-tools";
 import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
-import { nextWHFSObjectId, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
+import { nextWHFSObjectId, openFileOrFolder, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
 import { dirname, join } from "path";
 import { ResourceDescriptor, unmapExternalWHFSRef, type IntExtLink } from "@webhare/services";
 import { openAsBlob } from "fs";
@@ -20,6 +20,7 @@ export type ImportWHFSProgress = {
 
 export interface ImportWHFSOptions {
   onProgress?: ((progress: ImportWHFSProgress) => void);
+  ifExists?: "overwrite" | "skip";
 }
 
 export interface ImportWHFSResult {
@@ -160,6 +161,11 @@ class ImportSession {
       return entry.id;
     }
 
+    //Check if the item exists in the database
+    const whfsMatch = await openFileOrFolder(finalPath, { allowMissing: true });
+    if (whfsMatch)
+      return whfsMatch.id; //TODO cache in the item list? or even pre-check all items we'll import for existence and their id
+
     //It doesn't exist yet. We expect anything we could refer to to have an whfs.yaml metadata so look straight for that one
     const futureItem = this.items.get(toCLocaleLowercase(findSubPath));
     if (futureItem) {
@@ -216,8 +222,7 @@ class ImportSession {
       baseMetaData.id = item.id; //pre-allocated ID
 
     const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
-    if (exists) {
-      //TODO implement overwrite modes
+    if (exists && this.options?.ifExists !== "overwrite") {
       this.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${storeFolder.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
       return;
     }
@@ -226,19 +231,29 @@ class ImportSession {
       baseMetaData.data = await ResourceDescriptor.fromBlob(await item.blob());
     }
 
-    const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
-      created: this.importDT,
-      modified: this.importDT,
-      type: typeinfo?.scopedtype || typeinfo?.namespace,
-      ...baseMetaData
-    });
-    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), newObj);
+    let finalObj: WHFSObject;
+    if (exists) {
+      finalObj = exists;
+      await finalObj.update({
+        ...baseMetaData,
+        modified: this.importDT //override modified to ensure all items touched by the import have the same modified date (makes testing easier and also makes sense as we're essentially doing a bulk update of all these items)
+      });
+    } else {
+      finalObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
+        created: this.importDT,
+        modified: this.importDT,
+        type: typeinfo?.scopedtype || typeinfo?.namespace,
+        ...baseMetaData
+      });
+    }
+
+    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), finalObj);
 
     for (const instance of meta?.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")
         continue;
       const typeHandler = whfsType(instance.whfsType);
-      await typeHandler.set(newObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
+      await typeHandler.set(finalObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
     }
   }
 }
@@ -304,6 +319,7 @@ export async function importIntoWHFS_HS(target: number, options: {
   sourcepath: string;
   printprogress: boolean;
   managework: boolean;
+  ifexists: "overwrite" | "skip";
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -314,7 +330,8 @@ export async function importIntoWHFS_HS(target: number, options: {
   if (options.managework)
     await beginWork();
   const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
-    onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined
+    onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined,
+    ifExists: options.ifexists
   });
   if (options.managework)
     await commitWork();

@@ -12,7 +12,7 @@ function onImportProgress(progress: ImportWHFSProgress) {
   console.log(`- import: ${progress.subPath}`);
 }
 
-async function verifyImportTree(importTree: WHFSFolder) {
+async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: boolean }) {
   test.eq("The Tree To Import", importTree.title);
 
   //FIXME verify file types, but TS WebHare should do type detection of files without metadata!
@@ -24,12 +24,14 @@ async function verifyImportTree(importTree: WHFSFolder) {
   test.eq("Root file", rootfile.title);
   test.eq(true, rootfile.publish);
   test.eq([{ tag: "p", items: [{ text: "This is a file in the root" }] }], (await whfsType("platform:filetypes.richdocument").get(rootfile.id, { export: true })).data);
-  test.eq(rootfile.created, rootfile.modified, "created === modified as we're building a new tree");
+  if (!flags?.isOverwrite)
+    test.eq(rootfile.created, rootfile.modified, "created === modified as we're building a new tree");
 
   //Verify directory with metadata
   const subdir = await importTree.openFolder("subdir");
   test.eq("My subfolder", subdir.title);
-  test.eq(subdir.created, subdir.modified, "created === modified as we're building a new tree");
+  if (!flags?.isOverwrite)
+    test.eq(subdir.created, subdir.modified, "created === modified as we're building a new tree");
   test.eq(subdir.created, rootfile.created, "All items touched by a single import should have matching creationdates (if new)");
   test.eq(subdir.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 
@@ -80,6 +82,17 @@ async function testWHFSImportArchive() {
       test.assert(reimportResult.messages.find(msg => msg.type === "error" && /already exists/.test(msg.message)));
       await rollbackWork();
     }
+  }
+
+  { //Reimport and overwrite
+    await beginWork();
+    const importTree = await target.openFolder("dest1");
+    console.log(`Overwriting tree into ${importTree.whfsPath}...`);
+    const reimportResult = await importIntoWHFS(toFSPath("mod::webhare_testsuite/tests/system/nodejs/data/whfs/"), importTree, { onProgress: onImportProgress, ifExists: "overwrite" });
+    test.eq([], reimportResult.messages);
+    await commitWork();
+
+    await verifyImportTree(await importTree.openFolder("import-tree"), { isOverwrite: true });
   }
 }
 

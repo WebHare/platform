@@ -232,13 +232,13 @@ abstract class WHFSBaseObject {
         const toUpdate = [this.dbrecord.indexdoc, metadata.indexDoc].filter(_ => _ !== null && _ !== undefined);
         const filesData = await db<PlatformDB>()
           .selectFrom("system.fs_objects")
-          .select(["id", "parent", "published", "isfolder", selectFSIsActive().as("isactive")])
+          .select(["id", "parent", "published", "isfolder", selectFSIsActive().as("isactive"), selectFSWHFSPath().as("whfspath")])
           .where("id", "=", sql<number>`any(${toUpdate})`)
           .execute();
         if (metadata.indexDoc) {
           const newIndexDocData = filesData.find(_ => _.id === metadata.indexDoc);
-          if (!newIndexDocData || newIndexDocData.parent !== this.id)
-            throw new Error(`Folder is not the parent of new index document #${metadata.indexDoc}`);
+          if (newIndexDocData && newIndexDocData?.parent !== this.id) //TODO validate future indexDocs on commit
+            throw new Error(`Folder '${this.whfsPath}' (#${this.id}} is not the parent of new index document '${newIndexDocData?.whfspath}' (#${metadata.indexDoc})`);
         }
         for (const rec of filesData) {
           if (!rec.isfolder && rec.isactive) {
