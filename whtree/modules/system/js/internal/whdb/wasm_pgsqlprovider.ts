@@ -637,13 +637,17 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
   }
 }
 
-async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVar) {
+async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVar, readdNulls: boolean) {
   const values: Record<string, unknown> = {};
   for (const column of query.tablesources[0].columns)
     if (column.fase & Fases.Updated) {
       const cell = newfields.getCell(column.name);
-      if (!cell)
+      if (!cell) {
+        if (readdNulls && column.nulldefault_valid)
+          values[column.dbase_name] = null;
+
         continue;
+      }
 
       //We'll manually get the individual cells so we can retrieve binary data where needed
       const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
@@ -661,7 +665,7 @@ async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVa
 
 async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
   const query = queryparam.getJSValue() as Query;
-  const values = await decodeNewFields(vm, query, newfields);
+  const values = await decodeNewFields(vm, query, newfields, false);
 
   const name = query.tablesources[0].name;
   const whdb = db<Record<string, unknown>>();
@@ -673,7 +677,7 @@ async function cbInsertRecords(vm: HareScriptVM, queryparam: HSVMVar, newfields:
   const values = new Array<Promise<Record<string, unknown>>>;
   const len = newfields.arrayLength();
   for (let i = 0; i < len; ++i)
-    values.push(decodeNewFields(vm, query, newfields.arrayGetRef(i) as HSVMVar));
+    values.push(decodeNewFields(vm, query, newfields.arrayGetRef(i) as HSVMVar, false));
   const resolvedValues = await Promise.all(values);
 
   const name = query.tablesources[0].name;
@@ -684,7 +688,7 @@ async function cbInsertRecords(vm: HareScriptVM, queryparam: HSVMVar, newfields:
 export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowdataparam: HSVMVar, newfields: HSVMVar) {
   const query = queryparam.getJSValue() as Query;
   const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
-  const values = await decodeNewFields(vm, query, newfields);
+  const values = await decodeNewFields(vm, query, newfields, true);
   if (!Object.keys(values).length) //nothing to update!
     return;
 
