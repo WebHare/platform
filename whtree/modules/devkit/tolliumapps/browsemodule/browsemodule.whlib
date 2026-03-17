@@ -11,7 +11,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 OBJECT browsemodule := ImportJS("./browsemodule.ts");
-OBJECT devbridge := ImportJS("@mod-platform/js/devsupport/devbridge.ts");
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
@@ -19,10 +18,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    IF(RecordExists(data.target))
-      this->module := data.target.module;
-    ELSE IF(Length(data.params) > 0)
+    IF(Length(data.params) > 0)
       this->module := data.params[0];
+    ELSE IF(RecordExists(data.target))
+      this->module := data.target.module;
     ELSE IF(this->module IN whconstant_builtinmodules) //this includes 'platform'
       this->module := "platform";
 
