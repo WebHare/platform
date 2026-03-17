@@ -246,7 +246,7 @@ export class CPageRequest {
       };
     }
 
-    //It's possible a filetype has no renderer at all.. the webdesign may handle it by itself based on type id (often done for contenlistings)
+    //It's possible a filetype has no renderer at all.. the webdesign may handle it by itself based on type id (often done for contentlistings)
     return (request: ContentPageRequest) => request.buildWebPage(litty``);
   }
 
