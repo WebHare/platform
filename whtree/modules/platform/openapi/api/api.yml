@@ -152,6 +152,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/xschema"
         - $ref: "#/components/parameters/type"
+        - $ref: "#/components/parameters/exportResources"
       requestBody:
         description: The query
         required: true
@@ -295,6 +296,15 @@ components:
       schema:
         type: string
         description: The WHFS path to an object (defaults to root folder if not provided)
+
+    exportResources:
+      in: query
+      name: exportResources
+      required: false
+      schema:
+        type: string
+        enum: [base64, fetch]
+        description: Option for export endpoints to specify how the exported resources should be included in the response (as base64-encoded strings or as URLs to fetch them from)
 
   schemas:
     ## Global types
@@ -552,6 +562,14 @@ components:
               type: string
               description: The created API token
       unevaluatedProperties: false
+
+    ExportOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        exportResources:
+          type: string
+          enum: [base64, fetch]
 
   securitySchemes:
     bearerAuth:

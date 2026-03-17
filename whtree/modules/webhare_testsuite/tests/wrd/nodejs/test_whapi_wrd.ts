@@ -5,6 +5,7 @@ import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { omit } from "@webhare/std";
+import { ResourceDescriptor } from "@webhare/services";
 
 let apiSysopToken = '';
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
@@ -46,7 +47,7 @@ async function testWRDAPI() {
     }, {
       params: {
         schema: "webhare_testsuite:testschema",
-        type: "wrdPerson"
+        type: "wrdPerson",
       },
     });
 
@@ -129,6 +130,49 @@ async function testWRDAPI() {
 
     test.assert(keys.status === 200);
     test.eq(omit([apiKey1.body, apiKey2.body], ["token"]), keys.body);
+  }
+
+  // Test blob access
+  {
+    const resInsert = await api.post("/wrd/{schema}/type/{type}/entity", {
+      fields: {
+        file: await (await ResourceDescriptor.from("123")).export(),
+      }
+    }, { params: { schema: "webhare_testsuite:testschema", type: "testApiExport" } });
+    console.dir(resInsert);
+
+    const resQueryBase64 = await api.post("/wrd/{schema}/type/{type}/query", {
+      fields: ["file"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "testApiExport" } });
+    test.assert(resQueryBase64.status === 200, `Expected 200 got ${resQueryBase64.status}`);
+
+    test.eq([
+      {
+        file: {
+          data: { base64: "MTIz" },
+          mediaType: "application/octet-stream",
+          hash: "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
+        }
+      }
+    ], resQueryBase64.body.results);
+
+    const resQueryFetch = await api.post("/wrd/{schema}/type/{type}/query", {
+      fields: ["file"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "testApiExport", exportResources: "fetch" } });
+    test.assert(resQueryFetch.status === 200, `Expected 200 got ${resQueryFetch.status}`);
+
+    test.eq([
+      {
+        file: {
+          data: { fetch: /^https?:\/\//, size: 3 },
+          mediaType: "application/octet-stream",
+          hash: "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
+        }
+      }
+    ], resQueryFetch.body.results);
+
+    const fetchRes = await fetch((resQueryFetch.body.results[0] as { file: { data: { fetch: string } } }).file.data.fetch);
+    test.eq("123", await fetchRes.text(), "Fetched resource did not match original content");
   }
 }
 

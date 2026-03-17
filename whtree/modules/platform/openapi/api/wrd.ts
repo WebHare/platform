@@ -46,7 +46,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
 
-  const results = await query.execute({ export: true });
+  const results = await query.execute({ export: true, exportResources: req.params.exportResources });
   results.sort((a, b) => a.wrdId - b.wrdId); //sort by wrdId
 
   return req.createJSONResponse(HTTPSuccessCode.Ok, {
