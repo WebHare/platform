@@ -1,9 +1,9 @@
 import YAML from 'yaml';
-import { appendToArray, compareProperties, toCLocaleLowercase } from "@webhare/std";
+import { appendToArray, compareProperties, pick, toCLocaleLowercase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
-import { nextWHFSObjectId, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
+import { nextWHFSObjectId, openFileOrFolder, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
 import { dirname, join } from "path";
 import { ResourceDescriptor, unmapExternalWHFSRef, type IntExtLink } from "@webhare/services";
 import { openAsBlob } from "fs";
@@ -18,9 +18,10 @@ export type ImportWHFSProgress = {
   subPath: string;
 };
 
-export interface ImportWHFSOptions {
+export type ImportWHFSOptions = {
   onProgress?: ((progress: ImportWHFSProgress) => void);
-}
+  ifExists?: "overwrite" | "skip";
+} & Pick<ImportOptions, "allowResourceImports">;
 
 export interface ImportWHFSResult {
   messages: Array<{
@@ -52,6 +53,7 @@ export type ImportedVirtualMetaData = {
   publish?: boolean;
   indexDoc?: number | null;
   target?: IntExtLink | null;
+  order?: number;
 };
 
 export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>, importOptions?: ImportOptions): Promise<{
@@ -91,6 +93,12 @@ export async function resolveVirtualMetaData(target: WHFSObject | null, inData: 
       case "publish":
         if (typeof value !== "boolean")
           errors.push(`'${key}' must be a boolean`);
+        else
+          data[key] = value;
+        break;
+      case "order":
+        if (typeof value !== "number")
+          errors.push(`'order' must be a number`);
         else
           data[key] = value;
         break;
@@ -160,6 +168,11 @@ class ImportSession {
       return entry.id;
     }
 
+    //Check if the item exists in the database
+    const whfsMatch = await openFileOrFolder(finalPath, { allowMissing: true });
+    if (whfsMatch)
+      return whfsMatch.id; //TODO cache in the item list? or even pre-check all items we'll import for existence and their id
+
     //It doesn't exist yet. We expect anything we could refer to to have an whfs.yaml metadata so look straight for that one
     const futureItem = this.items.get(toCLocaleLowercase(findSubPath));
     if (futureItem) {
@@ -200,7 +213,8 @@ class ImportSession {
     }
 
     const importOptions: ImportOptions = {
-      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref)
+      unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref),
+      ...pick(this.options || {}, ["allowResourceImports"])
     };
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
     let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
@@ -216,8 +230,7 @@ class ImportSession {
       baseMetaData.id = item.id; //pre-allocated ID
 
     const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
-    if (exists) {
-      //TODO implement overwrite modes
+    if (exists && this.options?.ifExists !== "overwrite") {
       this.result.messages.push({ subPath: item.subPath, type: "error", message: `Cannot import '${item.name}' at '${storeFolder.whfsPath}' - a ${exists.isFolder ? "folder" : "file"} with that name already exists` });
       return;
     }
@@ -226,19 +239,29 @@ class ImportSession {
       baseMetaData.data = await ResourceDescriptor.fromBlob(await item.blob());
     }
 
-    const newObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
-      created: this.importDT,
-      modified: this.importDT,
-      type: typeinfo?.scopedtype || typeinfo?.namespace,
-      ...baseMetaData
-    });
-    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), newObj);
+    let finalObj: WHFSObject;
+    if (exists) {
+      finalObj = exists;
+      await finalObj.update({
+        ...baseMetaData,
+        modified: this.importDT //override modified to ensure all items touched by the import have the same modified date (makes testing easier and also makes sense as we're essentially doing a bulk update of all these items)
+      });
+    } else {
+      finalObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
+        created: this.importDT,
+        modified: this.importDT,
+        type: typeinfo?.scopedtype || typeinfo?.namespace,
+        ...baseMetaData
+      });
+    }
+
+    this.outputMap.set("/" + toCLocaleLowercase(item.subPath), finalObj);
 
     for (const instance of meta?.instances || []) {
       if (instance.whfsType === "platform:virtual.objectdata")
         continue;
       const typeHandler = whfsType(instance.whfsType);
-      await typeHandler.set(newObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
+      await typeHandler.set(finalObj.id, instance.data as object || {}, { isVisibleEdit: false, ...importOptions });
     }
   }
 }
@@ -267,6 +290,12 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
   return outItems;
 }
 
+function filterItems(item: ImportItem) {
+  if ([".ds_store", "thumbs.db"].includes(item.name.toLowerCase()))
+    return false;
+  return true;
+}
+
 /** Import data into WHFS
  * @param source - unpacked archive or path on disk containing files/folders to import
  */
@@ -282,7 +311,7 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
     name: entry.name,
     subPath: entry.subPath,
     blob: () => openAsBlob(entry.fullPath)
-  }));
+  })).filter(filterItems);
 
   const importer = new ImportSession(collapseMetadata(items), targetFolder, options);
   //TODO when replacing we should figure out all existing IDs
@@ -298,6 +327,8 @@ export async function importIntoWHFS_HS(target: number, options: {
   sourcepath: string;
   printprogress: boolean;
   managework: boolean;
+  ifexists: "overwrite" | "skip";
+  allowresourceimports: boolean;
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -308,7 +339,9 @@ export async function importIntoWHFS_HS(target: number, options: {
   if (options.managework)
     await beginWork();
   const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
-    onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined
+    onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined,
+    ifExists: options.ifexists,
+    allowResourceImports: options.allowresourceimports
   });
   if (options.managework)
     await commitWork();

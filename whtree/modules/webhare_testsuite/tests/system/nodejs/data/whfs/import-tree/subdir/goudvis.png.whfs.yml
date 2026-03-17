@@ -7,3 +7,4 @@ instances:
     data:
       title: "Een goudvis"
       publish: true
+      order: 1

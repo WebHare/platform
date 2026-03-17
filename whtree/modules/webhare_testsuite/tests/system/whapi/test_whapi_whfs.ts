@@ -133,6 +133,7 @@ async function testWHFSAPI() {
         description: "",
         keywords: "",
         publish: true,
+        order: 0 //order is always specified so we ensure its reset for all existing files when importing
       }
     }, simpleTestDoc.instances?.find(_ => _.whfsType === "platform:virtual.objectdata"));
 
@@ -185,7 +186,8 @@ async function testWHFSAPI() {
     title: "An updated title",
     description: "An updated descr",
     keywords: "Updated keywords",
-    isUnlisted: true
+    isUnlisted: true,
+    order: 0
   }, newFilePathRetrieved.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   test.eq({
     myWhfsRefArray: ["site::webhare_testsuite.testsitejs/tmp/"],
@@ -236,7 +238,8 @@ async function testWHFSAPI() {
     test.eq({
       title: "",
       description: "",
-      indexDoc: "newfile"
+      indexDoc: "newfile",
+      order: 0
     }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   }
 
@@ -258,6 +261,7 @@ async function testWHFSAPI() {
     test.eq({
       title: "",
       description: "",
+      order: 0
     }, updatedFolder.body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data);
   }
 }

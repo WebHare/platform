@@ -72,6 +72,8 @@ export type ExportOptions = {
 
 export type ImportOptions = {
   unmapWhfsLink?: (mappedPath: string) => number | null | undefined | Promise<number | null | undefined>;
+  /** Set to allow resource: references to be imported where a blob is expected */
+  allowResourceImports?: boolean;
 };
 
 export type LinkMethod = {
@@ -159,11 +161,18 @@ export interface ExportedResourceMetaData extends ResourceBaseMetaData {
   sourceFile: string | null;
 }
 
+/** An exported blob reference */
 export type ExportedBlobReference = {
-  base64: string; // base64 encoded data
+  /** Directly embedded base64 encoded data */
+  base64: string;
 } | {
-  fetch: string; //URL to fetch
-  size: number; //Size of the resource
+  /** URL to fetch */
+  fetch: string;
+  /** Size of the resource */
+  size: number;
+} | {
+  /** Reference to a resource shipped with a module */
+  resource: string;
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
@@ -983,6 +992,11 @@ export class ResourceDescriptor implements ResourceMetaData {
     let blob;
     if ("base64" in resource.data && resource.data.base64 !== undefined) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
+    } else if ("resource" in resource.data && resource.data.resource) {
+      if (!options?.allowResourceImports)
+        throw new Error(`Cannot import resource '${resource.data.resource}' without allowResourceImports enabled`);
+
+      blob = await WebHareBlob.fromDisk(toFSPath(resource.data.resource));
     } else if ("fetch" in resource.data && resource.data.fetch !== undefined) {
       if (resource.data.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
         const url = new URL(resource.data.fetch);

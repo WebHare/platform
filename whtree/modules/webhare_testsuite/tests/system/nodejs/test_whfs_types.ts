@@ -842,7 +842,7 @@ async function testVisitor() {
 
   const finalRTD = await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(aboutAFish.id, { export: true });
   test.eq((aboutAFishData as any).data[0].items[1].image.fileName, (finalRTD as any).data[0].items[1].image.fileName, "verify contentid was preserved");
-  test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw" }, (finalRTD as any).data[0].items[1].image);
+  test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: test.wellKnownHashes.snowbeagleJPG }, (finalRTD as any).data[0].items[1].image);
 }
 
 async function testXMLInstanceData() {

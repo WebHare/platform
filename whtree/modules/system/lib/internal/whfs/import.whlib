@@ -202,8 +202,10 @@ PUBLIC RECORD FUNCTION ImportIntoWHFS(INTEGER target, RECORD options) {
   options := ValidateOptions(CELL[
     sourcepath := "",
     printprogress := FALSE,
-    managework := FALSE
-  ], options);
+    managework := FALSE,
+    ifexists := "skip",
+    allowresourceimports := FALSE
+  ], options, [ enums := [ ifexists := [ "overwrite", "skip" ]]]);
 
   RECORD result := CallJS("@webhare/whfs/src/import.ts#importIntoWHFS_HS", target, options);
   RETURN result;
