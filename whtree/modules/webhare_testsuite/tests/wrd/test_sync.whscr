@@ -92,7 +92,7 @@ MACRO TestSync()
 {
   OBJECT userapi := GetWRDAuthUserAPI(testfw->wrdschema);
 
-  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("wrd_readrights")->entityid, STRING[]);
+  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("wrd_readrights")->entityid, STRING[], "CI test_sync");
 
   STRING token := tokenrec.token;
 

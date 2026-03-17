@@ -43,7 +43,7 @@ class OauthApp {
 
     if (this.oauth_clientid === "")
       error = getTid("tollium:shell.oauth.messages.missing_client");
-    else if (!scopes.length)
+    else if (!scopes.length || scopes.some(scope => scope !== "webhare") || !scopes.includes("webhare"))
       error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
     else if (this.oauth_redirect === "")
       error = getTid("tollium:shell.oauth.messages.missing_redirect");
@@ -151,7 +151,8 @@ class OauthApp {
       const options =
       {
         type: "getoauthtoken",
-        scopes: this.oauth_scopes
+        scopes: ["system:sysop"], //currently the only supported scope by WebHare
+        client: this.oauth_clientid
       };
 
       const result = await $shell.tolliumservice.executeAction(options);
