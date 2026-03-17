@@ -764,3 +764,8 @@ INTEGER example6 := SearchLastSubstring("ababab", "ab", 0);
 PUBLIC INTEGER FUNCTION SearchLastSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 PUBLIC RECORD __auditcontext;
+
+/** Are we running in a WASM (__EMSCRIPTEN__) environment?
+    @loadlib wh::javascript.whlib
+*/
+PUBLIC BOOLEAN FUNCTION IsWASM() __ATTRIBUTES__(EXTERNAL, CONSTANT);

@@ -17,11 +17,6 @@ export { fulfillResurrectedPromise } from "./wasm-resurrection";
    is used for initial API implementation. Once a syscall is too slow or inefficient, it should use the faster
    externalfunction/dllinterface APIs */
 
-// Used by wasm.whlib to detect the WASM environment (the C++ EM_Syscall implementation would always return null)
-export function init() {
-  return { iswasm: true };
-}
-
 export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string; wait_until: Date }) {
   if (hsvm.mutexes.some(_ => _?.name === params.mutexname)) //JS is allowed to overlap mutexes in a context due to its async nature, but HS wasn't designed to support it so block it
     throw new Error(`Mutex '${params.mutexname}' has already been locked by this Harescript VM`);

@@ -3373,6 +3373,13 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
         }
 }
 
+void IsWasm(HSVM_VariableId id_set, VirtualMachine *vm) {
+        #ifdef __EMSCRIPTEN__
+        HSVM_BooleanSet(*vm, id_set, true);
+        #else
+        HSVM_BooleanSet(*vm, id_set, false);
+        #endif
+}
 
 } // End of namespace Baselibs
 
@@ -3519,6 +3526,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion));
 
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISWASM::B:", IsWasm));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYNCSYSCALL::R:SV", EM_Syscall));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_RUNASYNCJSCODE::B:", EM_HandleRunRequests));
