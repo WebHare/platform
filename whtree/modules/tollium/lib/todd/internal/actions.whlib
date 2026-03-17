@@ -12,7 +12,7 @@ PUBLIC RECORD FUNCTION ExecuteAction(OBJECT userapi, OBJECT user, RECORD action)
     CASE "getoauthtoken"
     {
       STRING ARRAY scopes := action.scopes;
-      RECORD tokendata := userapi->GenerateOAuthAccessToken(user->entityid, scopes);
+      RECORD tokendata := userapi->GenerateOAuthAccessToken(user->entityid, scopes, "WebHare peer: " || action.client);
       RETURN
           [ token :=          tokendata.token
           , scopes :=         scopes
