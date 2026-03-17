@@ -1,0 +1,15 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestBrowseModule() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("devkit:browsemodule", [ params := STRING[ "webhare_testsuite" ]]));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close app
+}
+
+RunTestframework([ PTR TestBrowseModule
+                 ], [ testusers := [[ login := "sysop" , grantrights := ["system:sysop"] ]
+                                   ]
+                    ]);

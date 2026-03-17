@@ -57,9 +57,6 @@ MACRO PrepareSchemaContent()
 
   testfw->BeginWork();
 
-  //fix rights
-  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata", testfw->wrdschema->id, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
-
   // Add a payment
   OBJECT pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
@@ -92,7 +89,7 @@ MACRO TestSync()
 {
   OBJECT userapi := GetWRDAuthUserAPI(testfw->wrdschema);
 
-  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("wrd_readrights")->entityid, STRING[]);
+  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("sysop")->entityid, STRING["system:sysop"], "CI test_sync");
 
   STRING token := tokenrec.token;
 
@@ -104,7 +101,6 @@ MACRO TestSync()
         [ title := "webhare_testsuite schema, sync target"
         , description := "The webhare_testsuite WRD schema sync target"
         ]);
-  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata", synctarget->id, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
 
   OBJECT linktometype := testfw->GetWRDSchema()->CreateDomain("ZZ_LAST");
   OBJECT linktome1 := linktometype->CreateEntity([wrd_tag := "LINKTOME1"]);
@@ -121,18 +117,7 @@ MACRO TestSync()
             ]
       ]);
 
-  //RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
-  testfw->BeginWork();
-  TestThrowsLike("*Access denied*", PTR RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag)); //set syncpeer to DEFAULT OBJECT to test locally
-  IF (GetPrimary()->IsNestedWorkOpen())
-    GetPrimary()->PopWork();
-  testfw->RollbackWork();
-
-  testfw->BeginWork();
-  testfw->GetUserObject("wrd_readrights")->UpdateGrant("grant", "wrd:read", testfw->wrdschema->id, testfw->GetUserObject("wrd_readrights"), [ allowselfassignment := TRUE ]);
-  testfw->CommitWork();
-
-  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
+   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
 
   RECORD ARRAY org_persons :=
       SELECT *
@@ -382,7 +367,6 @@ RunTestframework(
     , PTR TestNoSettingsBreaks
     ],
     [ testusers :=
-          [ [ login := "wrd_metadatarights" ]
-          , [ login := "wrd_readrights" ]
+          [ [ login := "sysop", grantrights := ["system:sysop"] ]
           ]
     ]);

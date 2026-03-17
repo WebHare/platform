@@ -5,7 +5,7 @@ import { getGeneratedFilePath } from "@mod-system/js/internal/generation/shared"
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { getAssetPackIntegrationCode } from "@webhare/router";
 import { backendConfig, toResourcePath } from "@webhare/services";
-import { encodeString, stringify } from "@webhare/std";
+import { encodeString, pick, stringify } from "@webhare/std";
 import { readFileSync } from "fs";
 
 function stripJSTSExtension(importPath: string) {
@@ -63,7 +63,7 @@ export async function getModuleGeneratedFiles(module: string) {
   for (const schema of (await getWRDDefs({ module })).schemas)
     files.push({ path: `wrd:${module}:${schema.wrdSchema}`, type: "wrdschema", importPath: '', html: true });
 
-  return files;
+  return pick(files, ["importPath", "path", "html", "type"]);
 }
 
 export async function getContent(path: string) {

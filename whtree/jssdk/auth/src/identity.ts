@@ -662,7 +662,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param token - The token to verify
    * @param options - Optional parameters for token verification
   */
-  async verifyAccessToken(type: "id" | "api" | "oidc", token: string, options?: { ignoreAccountStatus?: boolean }): Promise<VerifyAccessTokenResult | { error: string }> {
+  async verifyAccessToken(type: "id" | "api" | "oidc", token: string, options?: { ignoreAccountStatus?: boolean; requireScopes?: string[] }): Promise<VerifyAccessTokenResult | { error: string }> {
     const hashed = hashSHA256(token);
     const matchToken = await db<PlatformDB>().
       selectFrom("wrd.tokens").
@@ -705,11 +705,15 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { error: `Token owner does not exist anymore` };
     }
 
+    const scopes = matchToken.scopes.length ? matchToken.scopes.split(' ') : [];
+    if (options?.requireScopes?.some(scope => !scopes.includes(scope)))
+      return { error: `Token does not have scope '${options.requireScopes.find(scope => !scopes.includes(scope))}'` };
+
     return {
       entity: matchToken.entity,
       tokenId: matchToken.id,
       accountStatus,
-      scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
+      scopes,
       client: matchToken.client,
       expires: matchToken.expirationdate?.toTemporalInstant() ?? null
     };

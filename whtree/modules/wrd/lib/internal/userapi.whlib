@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -882,72 +883,47 @@ STATIC OBJECTTYPE WHUserApi <
     RETURN result;
   }
 
-  PUBLIC RECORD FUNCTION TryOAuthLogin(STRING access_token)
-  {
+  PUBLIC RECORD FUNCTION TryOAuthLogin(STRING access_token) { //This is currently only used for WebHare peering, so enforce sysop scope check
     IF (access_token = "")
       RETURN [ success := FALSE, errormessage := "Access token is empty" ];
 
-    RECORD data := DecryptForThisServer("wrd:userapi-oauth", access_token, [ fallback := DEFAULT RECORD ]);
-    IF (NOT RecordExists(data))
-      RETURN [ success := FALSE, errormessage := "Cannot decrypt the oauth token" ];
+    RECORD result := CallJS("mod::platform/js/auth/harescript.ts#verifyAPIAccessToken", this->wrdschema->tag, access_token, ["system:sysop"]);
+    IF(CellExists(result,"error"))
+      RETURN [ success := FALSE, errormessage := result.error ];
 
-    IF (data.v != 1)
-      RETURN [ success := FALSE, errormessage := `Incompatible version ${data.v}` ];
-
-    DATETIME expiry := MakeDatetimeFromUnixTimestamp(data.e);
-    DATETIME now := GetCurrentDatetime();
-    IF (expiry < now)
-      RETURN [ success := FALSE, errormessage := `Token expired at ${FormatISO8601Datetime(expiry)}, it is now ${FormatISO8601Datetime(now)}` ];
-
-    RECORD fields := this->accounttype->GetEntityFields(data.u,
-        [ "WRD_GUID"
-        , this->wrdschema->accountpasswordtag
-        , this->wrdschema->accountlogintag
-        ]);
-
-    // User deleted?
-    IF (NOT RecordExists(fields))
+    /* result should be snakecased VerifyAccessTokenResult
+        // wrdId of the found subject
+        entity: number;
+        // authAccountStatus of the found subject, if available
+        accountStatus: WRDAuthAccountStatus | null;
+        // decoded scopes
+        scopes: string[];
+        // client to which the token was provided
+        client: number | null;
+        // expiration date
+        expires: Temporal.Instant | null;
+        // id of the used token (refers to wrd.tokens table)
+        tokenId: number;
+    */
+    OBJECT user := this->GetUser(result.entity);
+    IF(NOT ObjectExists(user))
       RETURN [ success := FALSE, errormessage := `User does not exist` ];
-
-    // Password changed?
-    IF (data.p != GetPasswordFromAuthField(GetCell(fields, this->wrdschema->accountpasswordtag)))
-      RETURN [ success := FALSE, errormessage := `Password has changed` ];
-
-    STRING loginname := GetCell(fields, this->wrdschema->accountlogintag);
+    IF(NOT user->HasRight("system:sysop"))
+     RETURN [ success := FALSE, errormessage := `User does not have sysop rights` ];
 
     RETURN
         [ success := TRUE
         , errormessage := ""
-        , wrdentityid :=  data.u
-        , loginname :=    loginname
-        , scope :=        data.s
-        , expires :=      expiry
+        , wrdentityid :=  result.entity
+        , loginname :=    user->login
+        , scope :=        result.scopes
+        , expires :=      result.expires
         ];
   }
 
-  PUBLIC RECORD FUNCTION GenerateOAuthAccessToken(INTEGER userid, STRING ARRAY scopes, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION GenerateOAuthAccessToken(INTEGER userid, STRING ARRAY scopes,  STRING title)
   {
-    RECORD fields := this->accounttype->GetEntityFields(userid,
-        [ "WRD_GUID"
-        , this->wrdschema->accountpasswordtag
-        , this->wrdschema->accountlogintag
-        ]);
-
-    //Your oauth token will always be valid till 5am UTC the next day (ADDME long lived tokens, base on localtime or config ?)
-    DATETIME expirydate := AddTimeTodate(whconstant_oauthtoken_validuntil, GetRoundedDatetime(AddDaysTodate(whconstant_oauthoken_days,GetCurrentDatetime()),86400*1000));
-
-    RECORD data :=
-        [ v := 1
-        , u := userid
-        , p := GetPasswordFromAuthField(GetCell(fields, this->wrdschema->accountpasswordtag))
-        , s := scopes
-        , e := GetUnixTimeStamp(expirydate)
-        ];
-
-    RETURN
-        [ token :=    EncryptForThisServer("wrd:userapi-oauth", data)
-        , expires :=  expirydate
-        ];
+    RETURN CallJS("mod::platform/js/auth/harescript.ts#createAPIToken", this->wrdschema->tag, userid, title, scopes, whconstant_oauthoken_days);
   }
 
   PUBLIC RECORD FUNCTION TryAppPasswordLogin(STRING scope, STRING username, STRING password, BOOLEAN allownormalpassword)

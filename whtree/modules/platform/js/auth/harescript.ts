@@ -1,7 +1,7 @@
 /* HareScript auth entry points */
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { type AuthCustomizer, type AuthAuditContext, type LoginDeniedInfo, type JWTPayload, writeAuthAuditEvent, createOAuth2Client, type OAuth2AuthorizeRequestOptions, handleOAuth2AuthorizeLanding } from "@webhare/auth";
+import { type AuthCustomizer, type AuthAuditContext, type LoginDeniedInfo, type JWTPayload, writeAuthAuditEvent, createOAuth2Client, type OAuth2AuthorizeRequestOptions, handleOAuth2AuthorizeLanding, createFirstPartyToken } from "@webhare/auth";
 import { buildPublicAuthData, IdentityProvider, prepareLogin, verifyAllowedToLogin, wrapAuthCookiesIntoForm } from "@webhare/auth/src/identity";
 import { getAuthSettings, prepAuth, type WRDAuthPluginSettings_Request } from "@webhare/auth/src/support";
 import { defaultDateTime, toCamelCase, type ToSnakeCase } from "@webhare/hscompat";
@@ -14,7 +14,7 @@ import { getCompleteAccountNavigation } from "@webhare/auth/src/shared";
 import type { NavigateInstruction } from "@webhare/env";
 import jwt from "jsonwebtoken";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { parseTyped } from "@webhare/std";
+import { parseTyped, toSnakeCase } from "@webhare/std";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { runInWork } from "@webhare/whdb";
 import type { AnySchemaTypeDefinition } from "@webhare/wrd/src/types";
@@ -288,6 +288,17 @@ export async function prepareLoginCookies(targetUrl: WRDAuthPluginSettings_HS, u
       return result;
   }
   return { headers: returnHeaders(hdrs => doLoginHeaders(setAuthCookies, hdrs)) };
+}
+
+export async function createAPIToken(wrdSchema: string, user: number, title: string, scopes: string[], expiryDays: number) {
+  const token = await createFirstPartyToken(new WRDSchema(wrdSchema), "api", user, { expires: expiryDays * 24 * 60 * 60 * 1000, scopes, title });
+  return { token: token.accessToken, expires: token.expires };
+}
+
+export async function verifyAPIAccessToken(wrdSchema: string, token: string, requireScopes: string[]) {
+  const idp = new IdentityProvider(new WRDSchema(wrdSchema));
+  const tokenInfo = await idp.verifyAccessToken("api", token, { requireScopes });
+  return toSnakeCase(tokenInfo);
 }
 
 /** Update the publicauthdata cookie */
