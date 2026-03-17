@@ -448,17 +448,20 @@ async function testAuthAPI() {
   test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(openIdResult.accessToken, openIdCustomizer));
 
   //Test simple login tokens
-  const login1 = await createFirstPartyToken(oidcAuthSchema, "id", testuser);
+  const login1 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { scopes: ["cooltoken"] });
   const login2 = await createFirstPartyToken(oidcAuthSchema, "id", testuser);
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 
   test.eqPartial({ entity: testuser, accountStatus: { status: "active" } }, await provider.verifyAccessToken("id", login1.accessToken));
+  test.eqPartial({ entity: testuser, accountStatus: { status: "active" } }, await provider.verifyAccessToken("id", login1.accessToken, { requireScopes: ["cooltoken"] }));
 
   // STORY: test if wrdauthAccountStatus is handled & passed on correctly, entity deletion is detected
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "blocked", reason: "for test" } }));
   test.eqPartial({ error: "Token owner has been disabled" }, await provider.verifyAccessToken("id", login1.accessToken));
+  test.eqPartial({ error: `Token does not have scope 'dummy'` }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true, requireScopes: ["cooltoken", "dummy"] }));
   test.eqPartial({ entity: testuser, accountStatus: { status: "blocked" } }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true }));
+  test.eqPartial({ entity: testuser, accountStatus: { status: "blocked" } }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true, requireScopes: ["cooltoken"] }));
   await whdb.runInWork(() => oidcAuthSchema.close("wrdPerson", testuser));
   test.eqPartial({ error: "Token owner does not exist anymore" }, await provider.verifyAccessToken("id", login1.accessToken));
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdLimitDate: null, wrdauthAccountStatus: { status: "active" } }));
