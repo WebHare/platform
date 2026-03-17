@@ -3381,6 +3381,10 @@ void IsWasm(HSVM_VariableId id_set, VirtualMachine *vm) {
         #endif
 }
 
+void WasmOnlyFunction(HSVM_VariableId, VirtualMachine *vm) {
+        HSVM_ThrowException(*vm, "This function is only available in WebAssembly mode");
+}
+
 } // End of namespace Baselibs
 
 int BaselibsEntryPoint(struct HSVM_RegData *regdata, void * /*context_ptr*/)
@@ -3534,6 +3538,10 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 #ifdef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIADB",EM_WaitForMultipleUntil));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETSOCKETTIMEOUT::I:I",EM_HS_TCPIP_GetSocketTimeout));
+#else
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_WASM_GETSTDINASBLOB::X:", WasmOnlyFunction));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_WASM_READCONSOLEINPUT::S:", WasmOnlyFunction));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_WASM_ISCONSOLECLOSED::B:", WasmOnlyFunction));
 #endif // __EMSCRIPTEN__
 }
 
