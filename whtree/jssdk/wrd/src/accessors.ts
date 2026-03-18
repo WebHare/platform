@@ -12,7 +12,7 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD, type ResourceSource, isResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
@@ -2261,7 +2261,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
   }
 
   validateInput(value: ResourceDescriptor | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
-    if (value && "data" in value && value.data instanceof Buffer)
+    if (value && (("data" in value && value.data instanceof Buffer) || ("file" in value && value.file instanceof Buffer)))
       throw new Error(`Invalid value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use ResourceDescriptor instead of Buffer`);
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
@@ -2286,12 +2286,12 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
     };
   }
 
-  importValue(value: ResourceDescriptor | NullIfNotRequired<Required> | ExportedResource): Promise<ResourceDescriptor | NullIfNotRequired<Required>> | ResourceDescriptor | NullIfNotRequired<Required> {
-    if (value && "data" in value && value.data instanceof Buffer)
+  importValue(value: ResourceSource | NullIfNotRequired<Required>): Promise<ResourceDescriptor | NullIfNotRequired<Required>> | ResourceDescriptor | NullIfNotRequired<Required> {
+    if (value && (("data" in value && value.data instanceof Buffer) || ("file" in value && value.file instanceof Buffer)))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we're letting validateInput complain about this as it has more metadata. somewhere after WH5.8 if noone has hit it that check and this can perhaps go away
       return value as any;
 
-    if (value && "data" in value) { //looks like an ExportedResource?
+    if (value && !isResourceDescriptor(value)) { //looks like an ExportedResource?
       return ResourceDescriptor.import(value);
     }
     return value;

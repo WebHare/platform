@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition, type WRDAttr } from "@webhare/wrd/src/types";
 import type { ResourceDescriptor } from "@webhare/services";
-import type { ExportedResource } from "@webhare/services/src/descriptor";
+import type { ExportedResource, ResourceSource } from "@webhare/services/src/descriptor";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>, Export extends boolean> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>, Export>;
 
@@ -183,8 +183,8 @@ function testTypes() {
     wrdTitlesSuffix?: string | undefined;
     wrd_titles?: string | undefined;
     whuser_unit: string | number;
-    requiredFile: ResourceDescriptor | ExportedResource;
-    requiredImage: ResourceDescriptor | ExportedResource;
+    requiredFile: ResourceDescriptor | ResourceSource;
+    requiredImage: ResourceDescriptor | ResourceSource;
     transitions?: Array<{ condition?: string | number | null }>;
   };
 

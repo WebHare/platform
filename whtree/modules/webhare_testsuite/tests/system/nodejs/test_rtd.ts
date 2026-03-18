@@ -123,7 +123,7 @@ async function testReader() {
         { text: 'Een afbeelding: ' },
         {
           image: {
-            data: { base64: /^\/9j/ },
+            file: { base64: /^\/9j/ },
             sourceFile: "site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg",
             extension: '.jpg',
             mediaType: 'image/jpeg',
@@ -324,7 +324,7 @@ async function testBuilder() {
           {
             alt: "Goudvis",
             height: 120,
-            image: (ex: ExportedResource) => Boolean("base64" in ex.data && ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            image: (ex: ExportedResource) => Boolean("base64" in ex.file && ex.file.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
             width: 240
           }
         ],
@@ -337,7 +337,7 @@ async function testBuilder() {
             float: "left",
             height: 120,
             width: 240,
-            image: (ex: ExportedResource) => Boolean("base64" in ex.data && ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            image: (ex: ExportedResource) => Boolean("base64" in ex.file && ex.file.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
             link: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
           }
         ]
@@ -473,7 +473,7 @@ async function testBuildWHFSInstance() {
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
     data: {
       thumbnail: {
-        data: {
+        file: {
           base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=="
         },
         sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
@@ -499,7 +499,7 @@ async function testBuildWHFSInstance() {
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
     data: {
       thumbnail: {
-        data: {
+        file: {
           base64: /^iVBO/ //base64 of goudvis
         },
         sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
@@ -610,7 +610,7 @@ async function testBuildingRTDsWithInstances() {
           whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
           data: {
             thumbnail: {
-              data: {
+              file: {
                 base64: /^iVBO/ //base64 of goudvis
               },
               sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,

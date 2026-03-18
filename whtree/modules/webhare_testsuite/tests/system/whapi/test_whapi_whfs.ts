@@ -106,7 +106,7 @@ async function testWHFSAPI() {
                 duration: 316,
                 thumbnail: (thumb: ExportedResource) => {
                   test.eqPartial({
-                    data: {
+                    file: {
                       fetch: /^http/
                     },
                     extension: '.jpg',
@@ -114,7 +114,7 @@ async function testWHFSAPI() {
                     width: 1280,
                     height: 720
                   }, thumb);
-                  test.assert(!("base64" in thumb.data));
+                  test.assert(!("base64" in thumb.file));
                   return true;
                 }
               }
@@ -190,7 +190,7 @@ async function testWHFSAPI() {
   test.eq({
     myWhfsRefArray: ["site::webhare_testsuite.testsitejs/tmp/"],
     blubImg: (exp: ExportedResource) => {
-      test.assert("fetch" in exp.data);
+      test.assert("fetch" in exp.file);
       test.eq("image/png", exp.mediaType);
       test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", exp.hash);
       test.eq(385, exp.width);
