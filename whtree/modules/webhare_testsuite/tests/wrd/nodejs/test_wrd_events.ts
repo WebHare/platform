@@ -2,10 +2,11 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@webhare/wrd/src/types";
-import { wrd } from "@webhare/wrd";
-import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
+import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
 import { subscribeToEventStream, toResourcePath, type BackendEvent } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
+
+type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
 
 async function testEventMasks() {
   const schema = await getExtendedWRDSchema();

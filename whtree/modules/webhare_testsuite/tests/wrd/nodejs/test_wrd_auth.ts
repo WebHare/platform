@@ -9,7 +9,6 @@ import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { rpc } from "@webhare/rpc";
-import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, prepAuthForURL } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -20,6 +19,7 @@ let robotClient: ClientConfig | undefined;
 let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
 
+const systemUsermgmtSchema = wrd("system:usermgmt");
 const oidcAuthSchema = wrd<WRDSchemaDefinitions["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
 
 declare module "@webhare/auth" {

@@ -5,7 +5,6 @@ import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsReq
 import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
-import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
@@ -20,7 +19,10 @@ import { buildInstance } from "@webhare/services/src/richdocument";
 import type { HSVMObject } from "@webhare/harescript";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
+const wrdTestschemaSchema = wrd("wrd:testschema");
 type TestschemaSchemaType = WRDSchemaDefinitions["webhare_testsuite:testschema"];
+type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
+type Platform_BasewrdschemaSchemaType = WRDSchemaDefinitions["platform:basewrdschema"];
 
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
@@ -1532,6 +1534,8 @@ async function testComparisons() {
     await whdb.commitWork();
   }
 }
+
+type System_Usermgmt_WRDAuthdomainSamlIdp = WRDSchemaDefinitions["system:usermgmt"]["wrdAuthdomainSamlIdp"];
 
 function testGeneratedWebHareWRDAPI() {
   // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
