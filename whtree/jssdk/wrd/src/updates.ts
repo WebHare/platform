@@ -226,6 +226,9 @@ function isSameSetting(cur: CurrentSettingRec, item: Partial<CurrentSettingRec>)
 
 async function findSameSetting<T extends EntitySettingsRec>(current: Array<T & { used: boolean }>, item: Partial<T>): Promise<(T & { used: boolean }) | null> {
   for (const cur of current) {
+    if (cur.used)
+      continue;
+
     const compareres = isSameSetting(cur, item);
     if (compareres === true)
       return cur;
