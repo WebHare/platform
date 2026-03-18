@@ -33,9 +33,9 @@ async function testWHFSCli() {
     test.assert("image" in imageNode);
 
     if (resourceMode === "base64") {
-      test.assert("base64" in imageNode.image.data);
+      test.assert("base64" in imageNode.image.file);
     } else {
-      test.assert(!("base64" in imageNode.image.data));
+      test.assert(!("base64" in imageNode.image.file));
     }
 
     // test being able to update it

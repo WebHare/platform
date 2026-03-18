@@ -2,10 +2,11 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as services from "@webhare/services";
 import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
-import type { Rotation } from "@webhare/services/src/descriptor";
+import type { ResourceSource, Rotation } from "@webhare/services/src/descriptor";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
+import { omit } from "@webhare/std";
 
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
@@ -230,6 +231,16 @@ async function testResourceDescriptors() {
     test.eq(`site::${testsitejs.name}${imgEditFile.sitePath}`, exp.sourceFile);
     const expImported = await services.ResourceDescriptor.import(exp);
     test.eq(exp, await expImported.export());
+
+    // Test that giving a WebHareBlob and numeric ref to sourceFile also works
+    const expImported2 = await services.ResourceDescriptor.import({ ...exp, file: clone3.file, sourceFile: clone3.sourceFile });
+    test.eq(exp, await expImported2.export());
+
+    // Test if import also accepts a ResourceDescriptor
+    test.eq(exp, await (await services.ResourceDescriptor.import(clone3)).export());
+
+    // WH 5.9 originally used 'data' as resource field in ExportedResource, test the fallback for that
+    test.eq(exp, await (await services.ResourceDescriptor.import({ ...omit(exp, ["file"]), data: exp.file } as unknown as ResourceSource)).export());
   }
 
   {

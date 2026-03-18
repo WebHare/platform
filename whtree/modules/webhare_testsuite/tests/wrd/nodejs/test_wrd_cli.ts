@@ -46,9 +46,9 @@ async function testWRDCli() { //  tests
     test.assert("image" in imageNode);
 
     if (resourceMode === "base64") {
-      test.assert("base64" in imageNode.image.data);
+      test.assert("base64" in imageNode.image.file);
     } else {
-      test.assert(!("base64" in imageNode.image.data));
+      test.assert(!("base64" in imageNode.image.file));
     }
 
     const insertPerson = omit(exportData, ["wrdId", "wrdGuid"]);

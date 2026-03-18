@@ -232,7 +232,7 @@ async function testInstanceData() {
 
   //Test export of the goldfish
   test.eq({
-    data: {
+    file: {
       base64: /^iVBO/ //base64 of goudvis
     },
     fileName: "goudvis.png",
@@ -768,9 +768,9 @@ async function testExportImport() {
   test.assert(aboutAFishDataFetch.data);
   test.assert("items" in aboutAFishDataFetch.data[0]);
   test.assert("image" in aboutAFishDataFetch.data[0].items[1]);
-  test.assert("fetch" in aboutAFishDataFetch.data[0].items[1].image.data, "Image should be a fetch descriptor");
-  test.eq(theActualFish.resource.size, aboutAFishDataFetch.data[0].items[1].image.data.size);
-  const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.data.fetch);
+  test.assert("fetch" in aboutAFishDataFetch.data[0].items[1].image.file, "Image should be a fetch descriptor");
+  test.eq(theActualFish.resource.size, aboutAFishDataFetch.data[0].items[1].image.file.size);
+  const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.file.fetch);
   test.eq(theActualFish.hash, (await ResourceDescriptor.fromBlob(await fetchFish.blob(), { getHash: true })).hash);
 
   const clonedFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "platform:filetypes.richdocument" });

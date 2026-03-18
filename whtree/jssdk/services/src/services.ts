@@ -20,7 +20,7 @@ export type { BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export type { LoggableRecord } from "./logmessages";
 
-export { ResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef, type ExportOptions } from "./descriptor";
+export { ResourceDescriptor, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef, type ExportOptions, type ExportedResource, type ResourceSource } from "./descriptor";
 export { lockMutex, hasMutex, type Mutex } from "./mutex";
 
 export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";

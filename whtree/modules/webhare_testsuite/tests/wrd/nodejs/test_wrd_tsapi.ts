@@ -635,7 +635,7 @@ async function testNewAPI() {
 
   // verify File/Image fields (blob)
   //@ts-expect-error data:Buffer is no longer valid to avoid confusion between the 5.3 compat option and the 5.8 ExportedResource
-  await test.throws(/use ResourceDescriptor instead of Buffer/, () => schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } }));
+  await test.throws(/use ResourceDescriptor instead of Buffer/, () => schema.update("wrdPerson", newperson, { testFile: { file: Buffer.from("Hey everybody") } }));
   await schema.update("wrdPerson", newperson, { testFile: await ResourceDescriptor.from("Hey everybody") });
   let file: ResourceDescriptor = (await schema.query("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
   test.eq("Hey everybody", await file.resource.text());
