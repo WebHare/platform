@@ -1,4 +1,4 @@
-import { WRDSchema } from "@webhare/wrd";
+import { wrd } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -15,7 +15,7 @@ import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
 const keepHistoryDays = 1;
 
 async function testChanges() { //  tests
-  const wrdschema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
+  const wrdschema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("wrdPerson"));
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("personattachment"));
 

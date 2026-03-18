@@ -1,6 +1,4 @@
 import * as test from "@webhare/test-backend";
-import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
-import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
 import { createSchema, openSchemaById } from "@webhare/wrd";
 import { testschemaSchema } from "wh:wrd/webhare_testsuite";
@@ -74,18 +72,8 @@ async function testSchemaApply() {
   await commitWork();
 }
 
-async function testFileGeneration() {
-  const context = await buildGeneratorContext(["system"], true);
-  let result = await generateWRDDefs(context, "platform");
-
-  //Basic sanity checks - we don't want to set up a full TS parser (yet?)
-  result = result.replaceAll("\n", " ");
-  test.eq(/whuserComment/, result, "HS type WHUSER_DCOMMENT should appear as whuserComment in the output");
-}
-
 test.runTests([
   test.reset,
   testSchemaParser,
-  testSchemaApply,
-  testFileGeneration,
+  testSchemaApply
 ]);

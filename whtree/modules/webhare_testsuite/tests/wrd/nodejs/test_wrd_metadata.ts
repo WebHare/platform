@@ -1,11 +1,12 @@
 import * as test from "@webhare/test-backend";
-import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
+import { generateWRDDefs, WRDSchemaCache } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
-import { createSchema, openSchemaById } from "@webhare/wrd";
-import { testschemaSchema } from "wh:wrd/webhare_testsuite";
+import { createSchema, openSchemaById, wrd } from "@webhare/wrd";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { throwError } from "@webhare/std";
+
+const testschemaSchema = wrd("webhare_testsuite:testschema");
 
 async function testSchemaParser() {
   // \xEF\xBB\xBF doesn't actually make a BOM - "\xEF\xBB\xBF".length === 3. we need \uFEFF, the character the BOM encodes as:
@@ -76,7 +77,7 @@ async function testSchemaApply() {
 
 async function testFileGeneration() {
   const context = await buildGeneratorContext(["system"], true);
-  let result = await generateWRDDefs(context, "platform");
+  let result = await generateWRDDefs(context, new WRDSchemaCache, "platform");
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");

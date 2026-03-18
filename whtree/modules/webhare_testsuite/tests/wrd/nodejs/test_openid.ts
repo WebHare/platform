@@ -2,7 +2,6 @@
    WEBHARE_DEBUG=show-browser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
 */
 
-import { WRDSchema } from "@webhare/wrd/src/schema";
 import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 
@@ -13,8 +12,7 @@ import { registerRelyingParty, initializeIssuer, type WRDAuthLoginSettings } fro
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
-import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { AuthenticationSettings, createSchema, updateSchemaSettings } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, updateSchemaSettings, wrd, type AnySchemaType, type WRDSchemaDefinitions } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oauth2-client";
 import { generateRandomId } from "@webhare/std";
@@ -23,7 +21,7 @@ const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
 let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
-const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
+const oidcAuthSchema = wrd<WRDSchemaDefinitions["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
 const newPassword = "pass$" + Math.random().toString(36).substring(2, 16);
 
 class RequestRecorder implements Disposable {
@@ -141,7 +139,7 @@ async function setupOIDC() {
     //Also register it ourselves for later use
     const testsite = await test.getTestSiteJS();
 
-    const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+    const schemaSP = wrd<WRDSchemaDefinitions["wrd:testschema"]>("webhare_testsuite:oidc-sp");
     await schemaSP.insert("wrdauthOidcClient", {
       wrdTag: "TESTFW_OIDC_SP",
       wrdTitle: "OIDC self sp",
@@ -411,7 +409,7 @@ async function verifyAsOpenIDSP() {
     }
 
     //verify user's lastlogin was updated
-    const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+    const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
     const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
     test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
 
@@ -521,7 +519,7 @@ async function verifyCustomOpenIDFlow() {
   { //Test user autocreation
     const autocreateContext = await puppeteer!.createBrowserContext(); //separate cookie storage
     try {
-      const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+      const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
       test.eq(null, await schemaSP.find("wrdPerson", { wrdContactEmail: test.getUser("bart").login }), "User bart should not exist yet");
 
       const page = await autocreateContext.newPage();
@@ -572,7 +570,7 @@ async function verifySSOAPI() {
       await page.click("#ssobutton");
       await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: newPassword });
 
-      const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+      const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
       const targetBart = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("bart").login).select(["wrdId", "wrdLastName", "whuserComment"]).executeRequireExactlyOne();
       test.eq(String(targetBart.wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
 

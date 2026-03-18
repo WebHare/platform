@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { WRDSchema, describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
+import { type WRDSchema, describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -16,11 +16,11 @@ import { generateRandomId, isValidUUID, compare, Money, throwError, type Compara
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
-import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { buildInstance } from "@webhare/services/src/richdocument";
 import type { HSVMObject } from "@webhare/harescript";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
+type TestschemaSchemaType = WRDSchemaDefinitions["webhare_testsuite:testschema"];
 
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
@@ -241,7 +241,7 @@ type Extensions = {
 };
 
 async function testNewAPI() {
-  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
   const schemaById = await openSchemaById(await schema.getId());
   test.assert(schemaById);
   test.eq(schema.tag, schemaById.tag);
@@ -991,7 +991,7 @@ async function testNewAPI() {
 }
 
 async function testBaseTypes() {
-  const schema = new WRDSchema<Platform_BasewrdschemaSchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schema = wrd<Platform_BasewrdschemaSchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
   const wrdSettingsEntity = await schema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
   test.assert(wrdSettingsEntity);
   test.eq({ "wrdGuid": "07004000-0000-4000-a000-00bea61ef00d" }, await schema.getFields("wrdSettings", wrdSettingsEntity, ["wrdGuid"]));
@@ -1008,7 +1008,7 @@ async function testBaseTypes() {
 
 async function testMetaData() {
   await whdb.beginWork();
-  const wrdschema = new WRDSchema(testSchemaTag);
+  const wrdschema = wrd(testSchemaTag);
   const newType = await wrdschema.createType("newType", { metaType: "object" });
   test.eq("newType", newType.tag);
   await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
@@ -1019,7 +1019,7 @@ async function testMetaData() {
 }
 
 async function testDates() {
-  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
   //Verify Date/DateTime support
   await whdb.beginWork();
@@ -1039,7 +1039,7 @@ async function testDates() {
 }
 
 async function testBadValues() {
-  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
   await whdb.beginWork();
 

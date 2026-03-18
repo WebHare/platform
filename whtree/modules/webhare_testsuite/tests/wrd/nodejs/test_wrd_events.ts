@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@webhare/wrd/src/types";
-import { WRDSchema } from "@webhare/wrd";
+import { wrd } from "@webhare/wrd";
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { subscribeToEventStream, toResourcePath, type BackendEvent } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -47,7 +47,7 @@ async function expectEvent(itr: AsyncIterator<BackendEvent>, options?: { check?:
 }
 
 async function testEvents() {
-  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
   const wrdPersonTypeId = await schema.__toWRDTypeId("wrdPerson");
   const testDomain_1TypeId = await schema.__toWRDTypeId("testDomain_1");
 

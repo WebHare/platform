@@ -52,7 +52,7 @@ interface DeclaredAttribute extends WRDAttributeConfigurationWithChildren {
   typeDeclaration?: string;
 }
 
-interface ModuleWRDSchemaDef {
+interface ModuleWRDSchemaBaseDef {
   /** @deprecated 'module' should already be in our parent object */
   module: string;
   /** Full module:tag schema name. May contain wildcards */
@@ -67,6 +67,15 @@ interface ModuleWRDSchemaDef {
   abstract: boolean;
   /** Should this schema be autocreated? */
   autoCreate: boolean;
+}
+
+interface ModuleWRDSchemaDef extends ModuleWRDSchemaBaseDef {
+  /** Type base name for the schema */
+  schemaTypeBase: string;
+  /** Type name for the schema */
+  schemaTypeName: string;
+  /** Object name for the schema (deprecated, used by the wh:wrd/... typescript files) */
+  schemaObject: string;
 }
 
 interface PaymentProviderDef {
@@ -86,7 +95,7 @@ export interface WRDSchemasExtract {
 }
 
 function parseXMLWRDSchemas(mod: string, doc: Document) {
-  const schemas = new Array<ModuleWRDSchemaDef>();
+  const schemas = new Array<ModuleWRDSchemaBaseDef>();
 
   for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
     for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
@@ -113,7 +122,7 @@ function parseXMLWRDSchemas(mod: string, doc: Document) {
 }
 
 function parseYMLWRDSchemas(mod: string, yml: WRDSchemas) {
-  const schemas = new Array<ModuleWRDSchemaDef>();
+  const schemas = new Array<ModuleWRDSchemaBaseDef>();
 
   for (const [tag, def] of Object.entries(yml)) {
     const fulltag = mod + ":" + tag;
@@ -132,8 +141,34 @@ function parseYMLWRDSchemas(mod: string, yml: WRDSchemas) {
   return schemas;
 }
 
+export class WRDSchemaCache {
+  cache = new Map<string, ModuleWRDSchemaDef[]>();
+
+  async getSchemas(context: GenerateContext, modulename: string): Promise<ModuleWRDSchemaDef[]> {
+    let schemas = this.cache.get(modulename);
+    if (!schemas) {
+      schemas = await getModuleWRDSchemas(context, modulename);
+      this.cache.set(modulename, schemas);
+    }
+    return schemas;
+  }
+}
+
+function addTypeNames(schemaptr: ModuleWRDSchemaBaseDef): ModuleWRDSchemaDef {
+  const [modulename, schematag] = schemaptr.wrdSchema.split(":");
+  const isPlatformPart = whconstant_builtinmodules.includes(modulename);
+  const modprefix = isPlatformPart ? `${generateTypeName(modulename)}_` : ``;
+  const schemaTypeBase = `${modprefix}${generateTypeName(schematag)}`;
+  return {
+    ...schemaptr,
+    schemaTypeBase,
+    schemaTypeName: `${schemaTypeBase}SchemaType`,
+    schemaObject: generatePropertyName((isPlatformPart ? `${modulename}_` : ``) + schematag + "_schema"),
+  };
+}
+
 export async function getModuleWRDSchemas(context: GenerateContext, modulename: string): Promise<ModuleWRDSchemaDef[]> {
-  const schemas = new Array<ModuleWRDSchemaDef>();
+  const schemas = [];
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
 
   for (const mod of context.moduledefs) {
@@ -145,8 +180,7 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
     if (mod.modYml?.wrdSchemas)
       schemas.push(...parseYMLWRDSchemas(mod.name, mod.modYml.wrdSchemas));
   }
-
-  return schemas;
+  return schemas.map(addTypeNames);
 }
 
 export async function getModulePaymentProviders(context: GenerateContext, modulename: string): Promise<PaymentProviderDef[]> {
@@ -222,12 +256,9 @@ function buildAttrsFromArray(attrs: ParsedAttr[]): Record<string, DeclaredAttrib
 }
 
 export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Promise<ParsedWRDSchemaDef> {
-  const [modulename, schematag] = schemaptr.wrdSchema.split(":");
-  const isPlatformPart = whconstant_builtinmodules.includes(modulename);
-  const modprefix = isPlatformPart ? `${generateTypeName(modulename)}_` : ``;
   const parsedschemadef: ParsedWRDSchemaDef = {
-    schemaTypeName: `${modprefix}${generateTypeName(schematag)}SchemaType`,
-    schemaObject: generatePropertyName((isPlatformPart ? `${modulename}_` : ``) + schematag + "_schema"),
+    schemaTypeName: schemaptr.schemaTypeName,
+    schemaObject: schemaptr.schemaObject,
     types: {}
   };
 
@@ -235,7 +266,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
 
   for (const type of schemadef.types) {
     const typeinfo: ParsedWRDSchemaDef["types"][string] = {
-      typeName: `${modprefix}${generateTypeName(schematag)}_${generateTypeName(type.tag)}`,
+      typeName: `${schemaptr.schemaTypeBase}_${generateTypeName(type.tag)}`,
       attrdefs: {
         wrdId: { attributeType: "integer", isGenerated: false, isRequired: false, defstr: null },
         wrdGuid: { attributeType: "string", isGenerated: false, isRequired: false, defstr: null },
@@ -294,7 +325,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
   return parsedschemadef;
 }
 
-export async function generateWRDDefs(context: GenerateContext, modulename: string): Promise<string> {
+export async function generateWRDDefs(context: GenerateContext, cache: WRDSchemaCache, modulename: string): Promise<string> {
   let fullfile = "";
   const typeDeclNames = new Set<string>;
   const typeDeclImports = new Map<string, Map<string, string>>;
@@ -318,7 +349,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
   }
 
   // Sort on schema name
-  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).sort((a, b) => a.wrdSchema < b.wrdSchema ? -1 : 1);
+  const schemasptrs = (await cache.getSchemas(context, modulename)).sort((a, b) => a.wrdSchema < b.wrdSchema ? -1 : 1);
 
   const schemaconsts = [];
   for (const schemaptr of schemasptrs) {
@@ -327,7 +358,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
 
     const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
-    let fulldef = `export type ${wrddef.schemaTypeName} = {\n`;
+    let fulldef = `export type ${wrddef.schemaTypeName} = { //Refer to this schema type using WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
 
     // Process the types sorted on tag
     for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
@@ -350,7 +381,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     fulldef += `};\n\n`;
 
     if (!schemaptr.abstract)
-      schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)});`);
+      schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)}); //Replace with wrd(${JSON.stringify(schemaptr.wrdSchema)})`);
 
     fullfile += def + fulldef;
 
@@ -423,20 +454,60 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
   return typedef;
 }
 
+export async function generateWRDPointers(context: GenerateContext, cache: WRDSchemaCache, platform: boolean, mods: string[]): Promise<string> {
+  const schemas = [];
+  for (const mod of mods) {
+    for (const schema of await cache.getSchemas(context, mod)) {
+      schemas.push({
+        wrdSchema: schema.wrdSchema,
+        type: schema.schemaTypeName,
+        import: platform ? `@mod-platform/generated/wrd/webhare.ts` : `wh:wrd/${schema.module}.ts`,
+      });
+    }
+  }
+
+  return `${generatorBanner}
+
+declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" : "wh:ts/wrd.ts")} {
+}
+
+${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
+
+declare module "@mod-platform/generated/ts/wrd.ts" {
+  export interface WRDSchemaDefinitions {
+    ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
+  }
+}
+`;
+}
+
 export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
+  const cache = new WRDSchemaCache;
 
   return [
     {
       path: "wrd/webhare.ts",
       module: "platform",
       type: "wrd",
-      generator: (options: GenerateContext) => generateWRDDefs(options, "platform")
+      generator: (options: GenerateContext) => generateWRDDefs(options, cache, "platform")
     }, ...noncoremodules.map((module: string): FileToUpdate => ({
       path: `wrd/${module}.ts`,
       module,
       type: "wrd",
-      generator: (options: GenerateContext) => generateWRDDefs(options, module)
-    }))
+      generator: (options: GenerateContext) => generateWRDDefs(options, cache, module)
+    })),
+    {
+      path: `ts/wrd.ts`,
+      module: "platform",
+      type: "ts",
+      generator: (context: GenerateContext) => generateWRDPointers(context, cache, true, ["platform"])
+    }, {
+
+      path: `ts/wrd.ts`,
+      module: "dummy-installed",
+      type: "ts",
+      generator: (context: GenerateContext) => generateWRDPointers(context, cache, false, noncoremodules)
+    }
   ];
 }

@@ -4,11 +4,11 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, db, rollbackWork } from "@webhare/whdb";
-import { WRDSchema } from "@webhare/wrd";
+import { wrd, type AnySchemaType } from "@webhare/wrd";
 
 async function testIntegrityChecks() {
   await beginWork();
-  const schema = new WRDSchema(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schema = wrd<AnySchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
 
   const parentType = schema.getType("testDomain_1");
   const childType = schema.getType("testDomain1Child");

@@ -1,13 +1,12 @@
-import type { JsschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { WRDSchema } from "@webhare/wrd";
+import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
 import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { omit } from "@webhare/std";
 
 let apiSysopToken = '';
-const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
+const jsAuthSchema = wrd<WRDSchemaDefinitions["webhare_testsuite:jsschema"]>("webhare_testsuite:testschema");
 
 async function setup() {
   await test.reset({

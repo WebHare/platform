@@ -7,7 +7,7 @@ export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "./types";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable, SchemaTypeDefinition } from "./types";
 import { encodeWRDGuid } from "./accessors";
 import { tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
@@ -26,6 +26,13 @@ import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
+import type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
+
+//TODO this should become the wrd() compatible schema
+export type { AnySchemaTypeDefinition as AnySchemaType } from "./types";
+export type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
+// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
+import type { } from "wh:ts/wrd.ts";
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;
@@ -172,4 +179,16 @@ export async function extendSchema(tag: string, options: { schemaDefinitionXML: 
   const schemadef = await parseSchema("mod::wrd/dummy.wrdschema.xml", true, options?.schemaDefinitionXML);
   const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(tag);
   await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isCreate: false });
+}
+
+/** Open a WRD schema by tag */
+export function wrd<T extends keyof WRDSchemaDefinitions>(tag: T): WRDSchema<WRDSchemaDefinitions[T]>;
+/** Open a WRD schema by tag
+ * @typeParam S - Specify the schema structure. Use AnySchemaType to disable type checking
+*/
+export function wrd<S extends SchemaTypeDefinition = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+  : WRDSchema<S>; //not defaulting to AnySchemaTypeDefinition .. so you need to be explicit about unrecognized schemas
+
+export function wrd(tag: string): WRDSchema {
+  return new WRDSchema(tag);
 }

@@ -1,4 +1,4 @@
-import { WRDSchema } from "@webhare/wrd";
+import { wrd } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -13,7 +13,7 @@ import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhar
 
 async function testExport() { //  tests
   type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
-  const wrdschema = new WRDSchema<TestSchemaType>(testSchemaTag);
+  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
   await createWRDTestSchema();
 
   await whdb.beginWork(); //change 0 - initial insert
