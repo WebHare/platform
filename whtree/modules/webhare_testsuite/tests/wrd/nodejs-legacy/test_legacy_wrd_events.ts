@@ -11,14 +11,14 @@ async function testEventMasks() {
   const schema = await getExtendedWRDSchema();
 
   const selectMasks = await schema.query("wrdPerson").getEventMasks();
-  const selectExpect = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
+  const selectExpect = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
   test.eq(selectExpect.sort(), selectMasks);
 
   test.eq(selectMasks, await schema.getType("wrdPerson").getEventMasks());
   test.eq(selectMasks, await schema.getEventMasks("wrdPerson"));
 
   const enrichMasks = await schema.query("wrdPerson").select(["wrdId"]).enrich("testDomain_1", "wrd_id", ["wrdLeftEntity"]).getEventMasks();
-  const enrichExpect = [...selectExpect, ...await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "TEST_DOMAIN_1")];
+  const enrichExpect = [...selectExpect, ...await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "TEST_DOMAIN_1")];
   test.eq([...new Set(enrichExpect)].sort(), enrichMasks);
   test.eq(enrichMasks, await schema.getEventMasks(["wrdPerson", "testDomain_1"]));
 }

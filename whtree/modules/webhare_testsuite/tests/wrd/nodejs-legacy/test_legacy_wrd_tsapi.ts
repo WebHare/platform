@@ -713,7 +713,7 @@ async function testNewAPI() {
 
   // Set the 'richie' rich document document through HareScript
   let testHTML = `<html><body><p class="normal">blabla</p></body></html>`;
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
   // Read the rich document in TypeScript
   let richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
@@ -722,14 +722,14 @@ async function testNewAPI() {
   testHTML = `<html><body><p class="normal">test</p></body></html>`;
   await schema.update("wrdPerson", newperson, { richie: await buildRTD([{ p: "test" }]) });
   // Read the rich document in HareScript
-  richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
+  richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
   // Read the rich document in TypeScript
   richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
 
   // Set the 'linkie' intextlink field through HareScript to an internal link
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
   // Read the intextlink in TypeScript
   let linkInfo = (await schema.getFields("wrdPerson", newperson, ["linkie", "testlink"]));
   test.assert(linkInfo.linkie);
@@ -742,7 +742,7 @@ async function testNewAPI() {
   let testLink = new IntExtLink(whconstant_whfsid_webharebackend, { append: "?app=publisher" });
   await schema.update("wrdPerson", newperson, { linkie: testLink, testlink: whconstant_whfsid_webharebackend });
   // Read the intextlink in HareScript
-  let hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  let hsLink = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
   test.assert(hsLink);
   test.eq(whconstant_whfsid_webharebackend, hsLink.internallink);
   test.eq("", hsLink.externallink);
@@ -756,7 +756,7 @@ async function testNewAPI() {
   test.eq(whconstant_whfsid_webharebackend, linkInfo.testlink);
 
   // Set the 'linkie' intextlink field through HareScript to an external link
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
   // Read the intextlink in TypeScript
   let tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
   test.eq(null, tsLink!.internalLink);
@@ -767,7 +767,7 @@ async function testNewAPI() {
   testLink = new IntExtLink("https://webhare.dev/");
   await schema.update("wrdPerson", newperson, { linkie: testLink });
   // Read the intextlink in HareScript
-  hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  hsLink = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
   test.assert(hsLink);
   test.eq(0, hsLink.internallink);
   test.eq("https://webhare.dev/", hsLink.externallink);
@@ -779,7 +779,7 @@ async function testNewAPI() {
   test.eq(null, tsLink!.append);
 
   // Set instance data through HS
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestInstanceField(testSchemaTag, newperson, {
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestInstanceField(testSchemaTag, newperson, {
     whfstype: "http://www.webhare.net/xmlns/beta/embedblock1",
     id: "TestInstance-1",
     fsref: 16
@@ -809,7 +809,7 @@ async function testNewAPI() {
     id: "TestInstance-2",
     fsref: 1,
     styletitle: "Test style"
-  }, (await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestInstanceField(testSchemaTag, newperson)));
+  }, (await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestInstanceField(testSchemaTag, newperson)));
 
   // test array & nested record selectors
   {
@@ -973,8 +973,8 @@ async function testNewAPI() {
     await test.throws(/2/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "TOOLONG" } }));
     await test.throws(/uppercase/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "nl" } }));
 
-    test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
-    await await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
+    test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
+    await await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
     test.eq({ street: "street", city: "city", houseNumber: "15", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
   }
 

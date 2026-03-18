@@ -249,7 +249,7 @@ async function setupOpenID() {
     }
   });
   await whdb.beginWork();
-  await createSchema(oidcAuthSchema.tag, { schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml") });
+  await createSchema(oidcAuthSchema.tag, { schemaDefinitionResource: toResourcePath(__dirname + "/../nodejs/data/usermgmt_oidc.wrdschema.xml") });
   await whdb.commitWork();
 
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests

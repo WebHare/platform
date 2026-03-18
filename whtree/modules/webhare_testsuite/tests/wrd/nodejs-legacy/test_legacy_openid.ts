@@ -124,7 +124,7 @@ async function setupOIDC() {
       bart: {}
     },
     wrdSchema: "webhare_testsuite:testschema",
-    schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
+    schemaDefinitionResource: toResourcePath(__dirname + "/../nodejs/data/usermgmt_oidc.wrdschema.xml"),
   });
 
   await runInWork(async () => {
