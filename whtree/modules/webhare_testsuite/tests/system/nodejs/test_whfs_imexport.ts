@@ -91,7 +91,7 @@ const inputInstance: TypedInstanceSource<"webhare_testsuite:global.generic_test_
                   }
                 }, {
                   image: {
-                    data: {
+                    file: {
                       base64: "eG1hcF9pbWFnZTE=", // "xmap_image1"
                     },
                     sourceFile: "x-custom::xmap10",
@@ -111,7 +111,7 @@ const inputInstance: TypedInstanceSource<"webhare_testsuite:global.generic_test_
                 data: {
                   myWhfsRef: "x-custom::xmap7",
                   blubImg: {
-                    data: {
+                    file: {
                       base64: "eG1hcF9pbWFnZTI=", // "xmap_image2"
                     },
                   },
@@ -137,7 +137,7 @@ const exportMappedSubInstanceData = (storedOnDisk: boolean): test.RecursiveTesta
             link: { internalLink: 'x-custom::xmap' }
           }, {
             image: {
-              data: {
+              file: {
                 base64: "eG1hcF9pbWFnZTE=", // "xmap_image1"
               },
               mediaType: 'application/octet-stream',
@@ -163,7 +163,7 @@ const exportMappedSubInstanceData = (storedOnDisk: boolean): test.RecursiveTesta
           data: {
             myWhfsRef: 'x-custom::xmap',
             blubImg: {
-              data: {
+              file: {
                 base64: "eG1hcF9pbWFnZTI=", // "xmap_image2"
               },
               mediaType: 'application/octet-stream',
@@ -227,7 +227,7 @@ async function testRtd() {
             }
           }, {
             image: {
-              data: {
+              file: {
                 base64: "eG1hcF9pbWFnZTE=", // "xmap_image1"
               },
               sourceFile: "x-custom::xmap10",
@@ -247,7 +247,7 @@ async function testRtd() {
           data: {
             myWhfsRef: "x-custom::xmap7",
             blubImg: {
-              data: {
+              file: {
                 base64: "eG1hcF9pbWFnZTI=", // "xmap_image2"
               },
             }
@@ -271,7 +271,7 @@ async function testRtd() {
           link: { internalLink: 'x-custom::xmap' }
         }, {
           image: {
-            data: {
+            file: {
               base64: "eG1hcF9pbWFnZTE=", // "xmap_image1"
             },
             mediaType: 'application/octet-stream',
@@ -293,7 +293,7 @@ async function testRtd() {
         data: {
           myWhfsRef: 'x-custom::xmap',
           blubImg: {
-            data: {
+            file: {
               base64: "eG1hcF9pbWFnZTI=", // "xmap_image2"
             },
             mediaType: 'application/octet-stream',

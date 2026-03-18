@@ -175,7 +175,7 @@ export type ExportedBlobReference = {
   resource: string;
 };
 
-export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
+export type ExportedResource = Partial<ExportedResourceMetaData> & { file: ExportedBlobReference };
 
 export type WebHareDBLocation = {
   /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
@@ -192,6 +192,15 @@ export interface ResourceMetaData extends ResourceBaseMetaData {
   /** Database location support cached URL generation */
   dbLoc?: WebHareDBLocation;
 }
+
+export interface ResourceSourceMetaData extends ResourceBaseMetaData {
+  /** Original in image library */
+  sourceFile: string | number | null;
+}
+
+export type ResourceSource = Partial<ResourceSourceMetaData> & {
+  file: ExportedBlobReference | WebHareBlob;
+};
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
 
@@ -988,18 +997,21 @@ export class ResourceDescriptor implements ResourceMetaData {
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
   }
 
-  static async import(resource: ExportedResource, options?: ImportOptions): Promise<ResourceDescriptor> {
+  static async import(resource: ResourceSource, options?: ImportOptions): Promise<ResourceDescriptor> {
+    if (isResourceDescriptor(resource))
+      return resource;
+    const file = resource.file ?? ("data" in resource ? resource.data as ResourceSource["file"] ?? throwError("Resource source must have a file property or data property containing a file reference") : undefined);
     let blob;
-    if ("base64" in resource.data && resource.data.base64 !== undefined) {
-      blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
-    } else if ("resource" in resource.data && resource.data.resource) {
+    if ("base64" in file && file.base64 !== undefined) {
+      blob = WebHareBlob.from(Buffer.from(file.base64, 'base64'));
+    } else if ("resource" in file && file.resource) {
       if (!options?.allowResourceImports)
-        throw new Error(`Cannot import resource '${resource.data.resource}' without allowResourceImports enabled`);
+        throw new Error(`Cannot import resource '${file.resource}' without allowResourceImports enabled`);
 
-      blob = await WebHareBlob.fromDisk(toFSPath(resource.data.resource));
-    } else if ("fetch" in resource.data && resource.data.fetch !== undefined) {
-      if (resource.data.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
-        const url = new URL(resource.data.fetch);
+      blob = await WebHareBlob.fromDisk(toFSPath(file.resource));
+    } else if ("fetch" in file && file.fetch !== undefined) {
+      if (file.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
+        const url = new URL(file.fetch);
         const ref = url.searchParams.get("ref");
         const decoded = decryptForThisServer("platform:blob", ref || "");
         blob = createPGBlobByBlobRec(decoded.db, null);
@@ -1007,21 +1019,21 @@ export class ResourceDescriptor implements ResourceMetaData {
         throw new Error("External fetching of resources is not enabled");
       }
       /* TODO once we allow external fetching through an importOption:
-      const response = await fetch(resource.data.fetch);
+      const response = await fetch(file.fetch);
       if (!response.ok)
-        throw new Error(`Failed to fetch resource from '${resource.data.fetch}', status ${response.status}`);
+        throw new Error(`Failed to fetch resource from '${file.fetch}', status ${response.status}`);
       blob = WebHareBlob.fromBlob(await response.blob());
       */
-    } else if (WebHareBlob.isWebHareBlob(resource.data)) {
+    } else if (WebHareBlob.isWebHareBlob(file)) {
       //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
-      blob = resource.data;
+      blob = file;
     } else {
-      throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
+      throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`);
     }
 
     const importData: ResourceMetaDataInit = {
       ...resource,
-      sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile, options) : null,
+      sourceFile: typeof resource.sourceFile === "string" ? await unmapExternalWHFSRef(resource.sourceFile, options) : resource.sourceFile,
       mediaType: resource.mediaType || "application/octet-stream"
     };
     if (importData.width && (typeof importData.mirrored !== "boolean" || typeof importData.rotation !== "number")) {
@@ -1033,7 +1045,11 @@ export class ResourceDescriptor implements ResourceMetaData {
     return new ResourceDescriptor(blob, importData);
   }
 
+  /// @deprecated Use .file instead
   get resource() {
+    return this._resource;
+  }
+  get file() {
     return this._resource;
   }
   get extension() {
@@ -1118,7 +1134,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     }
 
     return {
-      data: data || { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
+      file: data || { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
       ...(this.sourceFile ? { sourceFile: await mapExternalWHFSRef(this.sourceFile, options) } : {}),
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };
