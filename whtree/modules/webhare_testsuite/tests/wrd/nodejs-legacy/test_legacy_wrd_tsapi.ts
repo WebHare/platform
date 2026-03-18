@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
+import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";

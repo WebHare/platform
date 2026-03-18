@@ -1,4 +1,4 @@
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
@@ -110,7 +110,7 @@ export async function getExtendedWRDSchema() {
   return wrdschema;
 }
 
-async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
+async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
   options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
   const persontype = schemaobj.getType("wrdPerson");
 

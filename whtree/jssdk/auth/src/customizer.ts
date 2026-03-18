@@ -1,6 +1,6 @@
 import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { NavigateInstruction } from "@webhare/env";
-import type { WRDSchema } from "@webhare/wrd";
+import type { WRDSchemaType } from "@webhare/wrd";
 import type { LoginErrorCode } from "./shared";
 import type { MaybePromise } from "@webhare/std";
 
@@ -67,7 +67,7 @@ export interface LoginUsernameLookupOptions {
 
 export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** Provider id (references wrdauthOidcClient) */
   provider: number;
   /** JWT payload */
@@ -80,14 +80,14 @@ export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition =
 
 export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends LoginUsernameLookupOptions {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** Username to look up */
   username: string;
 }
 
 export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> { //Could imagine adding IP/GEO and browser info to these parameters
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** User id to check */
   user: number;
   /** IP Address */
@@ -96,7 +96,7 @@ export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = Any
 
 export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** User id to check (available since WH 5.8) */
   user: number;
 
@@ -110,7 +110,7 @@ export type FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchem
 
 export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /// ID of the client requesting the token
   client: number;
   /// Requested scopes

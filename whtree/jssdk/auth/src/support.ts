@@ -1,6 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
-import type { WRDSchema } from "@webhare/wrd";
+import type { WRDSchema, WRDSchemaType } from "@webhare/wrd";
 import type { WRDAuthSettings } from "./identity";
 import { db } from "@webhare/whdb";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
@@ -102,7 +102,7 @@ export function prepAuth(settings: WRDAuthPluginSettings_Request): PrepAuthResul
   };
 }
 
-export async function getUserValidationSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, unit: number | null): Promise<string> {
+export async function getUserValidationSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchemaType<T>, unit: number | null): Promise<string> {
   const s = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
 
   if (unit) {
@@ -118,7 +118,7 @@ export async function getUserValidationSettings<T extends SchemaTypeDefinition>(
   return (await getSchemaSettings(s, ["passwordValidationChecks"])).passwordValidationChecks;
 }
 
-export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings | null> {
+export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchemaType<T>): Promise<WRDAuthSettings | null> {
   const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accounttype", "accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
   if (!settings)
     throw new Error(`No such WRD schema '${wrdschema.tag}'`);

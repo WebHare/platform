@@ -2,14 +2,14 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { type WRDSchema, describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
+import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
-import { isChange, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
+import { isChange, type WRDSchemaType, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import type { AddressValue } from "@webhare/address";
 import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType } from "@webhare/std";
@@ -930,7 +930,7 @@ async function testNewAPI() {
     // @ts-expect-error -- TS cannot know about the type change (TODO this would be a good place to give an example on how to rebuild the schema type to match the new reality - we'd need a helper to build the Enum allowedValues?)
     await schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value", testEnumarray: ["enumarray2", "wrong-enum-value"] });
 
-    const anyschema: WRDSchema = schema as unknown as WRDSchema; //Wonder why can't we cast directly anyway ?
+    const anyschema: WRDSchemaType<AnySchemaType> = schema as unknown as WRDSchemaType<AnySchemaType>; //Wonder why can't we cast directly anyway ?
     test.eq("wrong-enum-value", await anyschema.getFields("wrdPerson", newperson, "testEnum"));
     test.eq(["enumarray2", "wrong-enum-value"], await anyschema.getFields("wrdPerson", newperson, "testEnumarray"));
 

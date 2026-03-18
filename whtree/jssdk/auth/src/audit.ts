@@ -2,7 +2,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { lookupCountryInfo } from "@webhare/geoip";
 import { broadcastOnCommit, db, type Insertable, type Selectable } from "@webhare/whdb/src/impl";
-import { describeEntity, WRDSchema } from "@webhare/wrd";
+import { describeEntity, WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { getAuthSettings } from "./support";
 import { convertFlexibleInstantToDate, stringify, type FlexibleInstant } from "@webhare/std";
 import { log } from "@webhare/services";
@@ -89,7 +89,7 @@ async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Selectabl
 
 /** Get audit events in a WRD Schema */
 export async function getAuditEvents<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(
-  w: WRDSchema<S>,
+  w: WRDSchemaType<S>,
   filter?: {
     type?: string;
     since?: FlexibleInstant;
@@ -133,7 +133,7 @@ export function updateAuditContext(updates: AuthAuditContext) {
     @param wrdSchema - Target schema
     @param event - Event data
 */
-export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(wrdSchema: WRDSchema<S>, event: AuthAuditEvent<Type>) {
+export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(wrdSchema: WRDSchemaType<S>, event: AuthAuditEvent<Type>) {
   const schemaId = await wrdSchema.getId();
 
   //FIXME if we receive the *Login values in the eventdata, actually use that instead of bothering with a lookup

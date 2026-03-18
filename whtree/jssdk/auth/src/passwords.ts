@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import { parseDuration, subtractDuration } from "@webhare/std";
-import { AuthenticationSettings, type WRDSchema } from "@webhare/wrd";
+import { AuthenticationSettings, type WRDSchemaType } from "@webhare/wrd";
 import { getTid } from "@webhare/gettid";
 import { getUserValidationSettings } from "./support";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
@@ -340,7 +340,7 @@ export function describePasswordChecks(checks: string, options?: { lang?: string
   return getTid("wrd:site.forms.authpages.passwordcheck.requirements", [lines.join("\n")], { langCode: options?.lang });
 }
 
-export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string, authAuditContext: AuthAuditContext) {
+export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchemaType<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string, authAuditContext: AuthAuditContext) {
   /* Verify the user is sufficiently secure, ie HIBP and complexity/age requirements, 2FA requirements
       If not, the user should go through a forced password change but we'll pass him a 'signin' token
       that will be valid to complete signin

@@ -152,9 +152,9 @@ class SchemaUpdateListener {
   /** WeakMap to keep track of the schemas and their invalidation callbacks. Also the weakRef key used for the schemaDataMap, so that key is stable
    * Keep the invalidation callback here, instead as reachable property
    */
-  schemaWeakMap = new WeakMap<WRDLegacySchema<any>, { weakRef: WeakRef<WRDLegacySchema<any>>; invalidationCallback: () => void }>();
+  schemaWeakMap = new WeakMap<WRDSchemaType<any>, { weakRef: WeakRef<WRDSchemaType<any>>; invalidationCallback: () => void }>();
   /// WeakMaps are not iterable, so we need to keep a separate map to be able to iterate over the schemas
-  schemaDataMap = new Map<WeakRef<WRDLegacySchema<any>>, SchemaData>();
+  schemaDataMap = new Map<WeakRef<WRDSchemaType<any>>, SchemaData>();
 
   constructor() {
     whbridge.on("event", (event) => {
@@ -422,12 +422,6 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaTypeDefinit
     return typeobj;
   }
 
-  /** @deprecated use query() in WebHare 5.4.1+ */
-  selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
-    const wrdtype = this.getType(type);
-    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
-  }
-
   query<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
     return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
@@ -597,15 +591,20 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaTypeDefinit
 }
 
 export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends WRDSchemaType<S> {
+  /** @deprecated use query() in WebHare 5.4.1+ */
+  selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
+    const wrdtype = this.getType(type);
+    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
+  }
 }
 
 export type AnyWRDType = WRDType<any, any>;
 
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
-  schema: WRDLegacySchema<S>;
+  schema: WRDSchemaType<S>;
   tag: T;
 
-  constructor(schema: WRDLegacySchema<S>, tag: T) {
+  constructor(schema: WRDSchemaType<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
   }
@@ -1308,7 +1307,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
 }
 
 export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O extends object> {
-  private schema: WRDLegacySchema<S>;
+  private schema: WRDSchemaType<S>;
   private baseQuery: WRDSingleQueryBuilder<S, any, any>;
   private enriches: Array<{
     type: string;
@@ -1317,7 +1316,7 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     options: any;
   }>;
 
-  constructor(schema: WRDLegacySchema<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
+  constructor(schema: WRDSchemaType<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
     type: string;
     field: string;
     mapping: any;

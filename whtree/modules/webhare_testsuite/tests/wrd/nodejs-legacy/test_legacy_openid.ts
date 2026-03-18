@@ -2,7 +2,6 @@
    WEBHARE_DEBUG=show-browser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
 */
 
-import { WRDSchema } from "@webhare/wrd/src/schema";
 import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 
@@ -14,7 +13,7 @@ import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { AuthenticationSettings, createSchema, updateSchemaSettings } from "@webhare/wrd";
+import { WRDSchema, AuthenticationSettings, createSchema, updateSchemaSettings } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oauth2-client";
 import { generateRandomId } from "@webhare/std";

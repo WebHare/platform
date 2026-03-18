@@ -3,7 +3,7 @@ import { type WebHareRouter, type WebRequest, type WebResponse, createJSONRespon
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL } from "@webhare/std";
 import { decompressUUID, hashClientSecret, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
@@ -97,7 +97,7 @@ async function findLoginPageForSchema(schema: string) {
   return { loginPage, metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration", wrdauth: candidates[0].wrdauth };
 }
 
-function getOpenIdBase(wrdschema: WRDSchema<WRD_IdpSchemaType>) {
+function getOpenIdBase(wrdschema: WRDSchemaType<WRD_IdpSchemaType>) {
   const schemaparts = wrdschema.tag.split(":");
   return "/.wh/openid/" + encodeURIComponent(schemaparts[0]) + "/" + encodeURIComponent(schemaparts[1]) + "/";
 }
