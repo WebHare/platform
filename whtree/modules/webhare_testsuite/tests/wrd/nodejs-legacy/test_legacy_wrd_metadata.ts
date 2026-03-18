@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
-import { createSchema, openSchemaById } from "@webhare/wrd";
+import { createSchema } from "@webhare/wrd";
 import { testschemaSchema } from "wh:wrd/webhare_testsuite";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { throwError } from "@webhare/std";
@@ -46,9 +46,7 @@ async function testSchemaParser() {
 
 async function testSchemaApply() {
   await beginWork();
-  const testschemaid = await createSchema("webhare_testsuite:testschema");
-  test.eq("webhare_testsuite:testschema", (await openSchemaById(testschemaid))?.tag, "Schema tag should be the same as the one we created");
-
+  await createSchema("webhare_testsuite:testschema");
   const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
   test.assert(testentry);
 

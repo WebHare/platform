@@ -2,7 +2,7 @@ import * as test from "@webhare/test-backend";
 import { generateWRDDefs, WRDSchemaCache } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
-import { createSchema, openSchemaById, wrd } from "@webhare/wrd";
+import { createSchema, openSchemaById, wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { throwError } from "@webhare/std";
 
@@ -50,7 +50,7 @@ async function testSchemaParser() {
 async function testSchemaApply() {
   await beginWork();
   const testschemaid = await createSchema("webhare_testsuite:testschema");
-  test.eq("webhare_testsuite:testschema", (await openSchemaById(testschemaid))?.tag, "Schema tag should be the same as the one we created");
+  test.eq("webhare_testsuite:testschema", (await openSchemaById<WRDSchemaDefinitions["webhare_testsuite:testschema"]>(testschemaid))?.tag, "Schema tag should be the same as the one we created");
 
   const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
   test.assert(testentry);

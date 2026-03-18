@@ -152,9 +152,9 @@ class SchemaUpdateListener {
   /** WeakMap to keep track of the schemas and their invalidation callbacks. Also the weakRef key used for the schemaDataMap, so that key is stable
    * Keep the invalidation callback here, instead as reachable property
    */
-  schemaWeakMap = new WeakMap<WRDSchema<any>, { weakRef: WeakRef<WRDSchema<any>>; invalidationCallback: () => void }>();
+  schemaWeakMap = new WeakMap<WRDLegacySchema<any>, { weakRef: WeakRef<WRDLegacySchema<any>>; invalidationCallback: () => void }>();
   /// WeakMaps are not iterable, so we need to keep a separate map to be able to iterate over the schemas
-  schemaDataMap = new Map<WeakRef<WRDSchema<any>>, SchemaData>();
+  schemaDataMap = new Map<WeakRef<WRDLegacySchema<any>>, SchemaData>();
 
   constructor() {
     whbridge.on("event", (event) => {
@@ -184,7 +184,7 @@ class SchemaUpdateListener {
   }
 
   /** Register the cached data for a schema */
-  addSchema(schema: WRDSchema<any>, schemaData: SchemaData, invalidations: Invalidation[], invalidationCallback: () => void) {
+  addSchema(schema: WRDSchemaType<any>, schemaData: SchemaData, invalidations: Invalidation[], invalidationCallback: () => void) {
     // check if the schema was invalidated during loading
     const invalidated = invalidations.some(invalidation => isSchemaDataInvalidatedBy(schemaData, invalidation));
     let weakData = this.schemaWeakMap.get(schema);
@@ -223,18 +223,18 @@ let schemaUpdateListener: SchemaUpdateListener | null = null;
 type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
 type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
-export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T extends WRDSchema<infer S> ? S : never;
+export type WRDSchemaTypeOf<T extends WRDSchemaType<any>> = T extends WRDSchemaType<infer S> ? S : never;
 
-export type AnyWRDSchema = WRDSchema<any>;
+export type AnyWRDSchema = WRDSchemaType<any> | WRDLegacySchema<any>;
 
-export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
   private schemaData: Promise<SchemaData> | undefined;
 
   /** Open a WRD schema by tag */
   constructor(tag: string) {
-    // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll see if the tag is OK once we eventually start to open schemas
+    // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll sepaye if the tag is OK once we eventually start to open schemas
     if (!isValidWRDSchemaTag(tag)) //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
       throw new Error(`Invalid schema tag '${tag}'`);
 
@@ -556,8 +556,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getType(type).close(ids, { mode: "delete" });
   }
 
-  extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
-    return this as unknown as WRDSchema<CombineSchemas<S, T>>;
+  extendWith<T extends SchemaTypeDefinition>(): WRDLegacySchema<CombineSchemas<S, T>> {
+    return this as unknown as WRDLegacySchema<CombineSchemas<S, T>>;
   }
 
   async getEventMasks(type: keyof S & string | Array<keyof S & string>): Promise<string[]> {
@@ -596,14 +596,16 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 }
 
+export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends WRDSchemaType<S> {
+}
 
 export type AnyWRDType = WRDType<any, any>;
 
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
-  schema: WRDSchema<S>;
+  schema: WRDLegacySchema<S>;
   tag: T;
 
-  constructor(schema: WRDSchema<S>, tag: T) {
+  constructor(schema: WRDLegacySchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
   }
@@ -1306,7 +1308,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
 }
 
 export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O extends object> {
-  private schema: WRDSchema<S>;
+  private schema: WRDLegacySchema<S>;
   private baseQuery: WRDSingleQueryBuilder<S, any, any>;
   private enriches: Array<{
     type: string;
@@ -1315,7 +1317,7 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     options: any;
   }>;
 
-  constructor(schema: WRDSchema<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
+  constructor(schema: WRDLegacySchema<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
     type: string;
     field: string;
     mapping: any;

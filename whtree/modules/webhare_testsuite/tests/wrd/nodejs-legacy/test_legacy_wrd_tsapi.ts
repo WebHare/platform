@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { WRDSchema, describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
+import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -242,10 +242,6 @@ type Extensions = {
 
 async function testNewAPI() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
-  const schemaById = await openSchemaById(await schema.getId());
-  test.assert(schemaById);
-  test.eq(schema.tag, schemaById.tag);
-  test.eq(null, await openSchemaById(999999999));
 
   test.eqPartial([{ tag: "wrd:testschema", userManagement: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
@@ -260,9 +256,6 @@ async function testNewAPI() {
   test.eq(false, await schema.hasType("WRD_PERSON"));
   test.eq(false, await schema.hasType("noSuchType"));
 
-  // Ensure schemaById loads its schema data before testJsonRequired is added
-  test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
-
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   //Verify WRD type helpers
@@ -272,7 +265,6 @@ async function testNewAPI() {
 
   //Verify there's a route from a schema object back to its type
   ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["wrdPerson"]>;
-  ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRDSchemaTypeOf<typeof schema>["wrdPerson"]>;
 
   //@ts-expect-error Cannot update a wrdId
   ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["whuserUnit"]>;
@@ -409,14 +401,6 @@ async function testNewAPI() {
   await hsPersonType.UpdateEntity(firstperson, { test_json: { mixed_case: ["AAA", 42] } });
   test.eq({ testJson: { mixedCase: ["AAA", 42] } }, await schema.getFields("wrdPerson", firstperson, ["testJson"]));
   await whdb.rollbackWork();
-
-  // wait until schemaById also knows testJsonRequired
-  await test.wait(async () => {
-    try {
-      await schemaById.query("wrdPerson").select(["testJsonRequired"]).where("wrdFirstName", "=", "first").execute();
-      return true;
-    } catch (e) { return false; }
-  });
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "active" }));

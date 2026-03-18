@@ -381,7 +381,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
     fulldef += `};\n\n`;
 
     if (!schemaptr.abstract)
-      schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)}); //Replace with wrd(${JSON.stringify(schemaptr.wrdSchema)})`);
+      schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDLegacySchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)}); //Replace with wrd(${JSON.stringify(schemaptr.wrdSchema)})`);
 
     fullfile += def + fulldef;
 
@@ -399,7 +399,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
 
     fullfile = `${generatorBanner}
 import type { WRDTypeBaseSettings, WRDBaseAttributeTypeId, WRDAttributeTypeId, IsGenerated, IsRequired, WRDAttr } from "@webhare/wrd/src/types";
-import { WRDSchema } from "@webhare/wrd/src/schema";
+import { WRDLegacySchema } from "@webhare/wrd/src/schema";
 
 ${typedecls}
 ${fullfile}
