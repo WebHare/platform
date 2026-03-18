@@ -28,4 +28,5 @@
   <test name="dialogs" path="dialogs/" />
   <test name="auth" path="auth/" />
   <test name="nodejs-legacy" path="nodejs-legacy/" />
+  <test name="nodejs" path="nodejs/" />
 </group>
