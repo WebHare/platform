@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema, getLegacyWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -1052,7 +1052,7 @@ async function testBadValues() {
 
 
 async function testTSTypes() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
   const unit_id = 0;
   const testrecorddata = null as any;
 
@@ -1153,7 +1153,7 @@ async function testUpsert() {
 }
 
 async function testTypeSync() { //this is WRDType::ImportEntities
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   async function getDomain1({ withClosed = false } = {}) {
     return (await schema.query("testDomain_1")
@@ -1334,7 +1334,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 }
 
 async function testComparisons() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   const newperson = await schema.search("wrdPerson", "testEmail", "testWrdTsapi@beta.webhare.net");
   test.assert(newperson);
@@ -1562,7 +1562,7 @@ async function testImportMode() {
     } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema<MySchema>();
+  const wrdschema = await getLegacyWRDSchema<MySchema>();
   await wrdschema.createType("testImportModeDom", { metaType: "domain" });
   const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
   await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });

@@ -1,4 +1,4 @@
-import { WRDSchema, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
@@ -91,14 +91,33 @@ export type CustomExtensions = {
   } & WRDTypeBaseSettings;
 };
 
-export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchema<T>> {
+export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchemaType<T>> {
+  const wrdschema = wrd<AnySchemaType>(testSchemaTag);
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  return wrdschema as unknown as WRDSchemaType<T>;
+}
+
+export async function getExtendedWRDSchema() {
+  type Combined = Combine<[WRDSchemaDefinitions["wrd:testschema"], CustomExtensions]>;
+  const wrdschema = wrd<AnySchemaType>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  await whdb.beginWork();
+  if (!await wrdschema.hasType("testDomain_2"))
+    throw new Error(`${testSchemaTag} has not been extended. use setupTheWRDTestSchema`);
+  await whdb.commitWork();
+  return wrdschema as unknown as WRDSchemaType<Combined>;
+}
+
+export async function getLegacyWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchema<T>> {
   const wrdschema = new WRDSchema<T>(testSchemaTag);
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   return wrdschema;
 }
 
-export async function getExtendedWRDSchema() {
+export async function getLegacyExtendedWRDSchema() {
   type Combined = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
   const wrdschema = new WRDSchema<Combined>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
   if (!await wrdschema.exists())
@@ -294,7 +313,7 @@ export async function createWRDTestSchema(options?: {
   await test.reset();
 
   // FIXME here we're assuming whdb work to be global but that's just asking for conflicts in real code. See webharedev_jsbridges#4
-  const schemaobj = await getWRDSchema();
+  const schemaobj = await getLegacyWRDSchema();
   test.assert(schemaobj);
   await whdb.beginWork();
   await setupTheWRDTestSchema(schemaobj, { withRichDoc: options.withRichDoc, deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
@@ -311,5 +330,5 @@ export async function createWRDTestSchema(options?: {
   */
   await whdb.commitWork();
 
-  return await getExtendedWRDSchema();
+  return await getLegacyExtendedWRDSchema();
 }

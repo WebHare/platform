@@ -1,7 +1,7 @@
 import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { throwError } from "@webhare/std";
@@ -11,7 +11,7 @@ async function testWRDUntypedApi() { //  tests
   await test.throws(/No such WRD schema.*nosuchschema/, () => nosuchschema.getType("wrdPerson").exists());
   test.assert(! await nosuchschema.exists());
 
-  const wrdschema = await getWRDSchema();
+  const wrdschema = await getLegacyWRDSchema();
   test.assert(await wrdschema.exists());
   test.assert(await wrdschema.getType("wrdPerson").exists());
   test.assert(!await wrdschema.getType("noSuchType").exists());
@@ -307,7 +307,7 @@ async function testRequired() {
     } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema() as unknown as WRDSchema<MySchema>;
+  const wrdschema = await getLegacyWRDSchema() as unknown as WRDSchema<MySchema>;
 
   await whdb.beginWork();
   const newdomtype = await wrdschema.createType("testRequiredDom", { metaType: "domain" });
@@ -325,7 +325,7 @@ async function testRequired() {
 async function testUnique() {
   await whdb.beginWork();
 
-  const wrdschema: WRDSchema = await getWRDSchema();
+  const wrdschema: WRDSchema = await getLegacyWRDSchema();
   const newdomtype = await wrdschema.createType("testUniques", { metaType: "domain" });
   await newdomtype.createAttribute("testFree", { attributeType: "string", isUnique: true });
   await newdomtype.createAttribute("testEmail", { attributeType: "email", isUnique: true });
@@ -425,7 +425,7 @@ async function testUnique() {
 }
 
 async function testReferences1() {
-  const wrdschema = await getWRDSchema();
+  const wrdschema = await getLegacyWRDSchema();
   const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value TEST_DOMAINVALUE_1_! not found");
   const domain2value1 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1" }) ?? throwError("Domain value TEST_DOMAINVALUE_2_1 not found");
 
@@ -456,7 +456,7 @@ async function testReferences2() {
     } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema() as unknown as WRDSchema<MySchema>;
+  const wrdschema = await getLegacyWRDSchema() as unknown as WRDSchema<MySchema>;
   await wrdschema.createType("testReferencesDom1", { metaType: "domain" });
   await wrdschema.createType("testReferencesDom2", { metaType: "domain" });
   await wrdschema.createType("testReferencesLink", { metaType: "link", left: "testReferencesDom1", right: "testReferencesDom2" });

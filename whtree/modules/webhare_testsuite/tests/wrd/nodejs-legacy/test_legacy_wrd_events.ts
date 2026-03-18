@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@webhare/wrd/src/types";
 import { WRDSchema } from "@webhare/wrd";
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -8,7 +8,7 @@ import { subscribeToEventStream, toResourcePath, type BackendEvent } from "@webh
 import { loadlib } from "@webhare/harescript";
 
 async function testEventMasks() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   const selectMasks = await schema.query("wrdPerson").getEventMasks();
   const selectExpect = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
