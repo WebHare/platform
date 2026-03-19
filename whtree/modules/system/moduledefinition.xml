@@ -132,12 +132,12 @@
       </accesscheck>
     </application>
     <application name="nodedebugger"
+                 engine="wasm"
                  group="development"
                  icon="tollium:objects/bug"
                  isdeveloperapp="true"
                  screen="tolliumapps/nodedebugger/nodedebugger.xml#main"
                  supportedlanguages="en"
-                 engine="wasm"
                  title="Node debugger">
       <accesscheck>
         <requireright right="system:sysop" />

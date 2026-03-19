@@ -12,8 +12,8 @@
                 maxlength="60"
                 placeholdertid="tollium:common.examples.email"
                 required="1"
-                tid=".email"
                 suffixtid=".notshown"
+                tid=".email"
                 validationchecks="email" />
       <textarea name="message" required="1" tid=".message" />
     </page>

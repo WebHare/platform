@@ -54,7 +54,7 @@
                 sortcolumn="message">
             <column name="since" type="datetime" width="18x" storeutc="true" />
             <column name="stopped" type="datetime" width="18x" storeutc="true" />
-            <column name="message" type="text" width="2pr" sortkeyname="sortmessage"/>
+            <column name="message" type="text" width="2pr" sortkeyname="sortmessage" />
             <column name="snoozed_until" type="datetime" width="18x" storeutc="true" />
           </list>
         </cell>

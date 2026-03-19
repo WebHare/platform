@@ -150,8 +150,8 @@
               <text name="peerheading" title="" />
               <url name="peerurl" width="1pr" title="" />
               <buttongroup borders="right" layout="horizontal">
-                <button type="icon" action="disconnectremote" hinttid="~disconnect" icon="tollium:actions/delete" />
-                <button type="icon" action="refresh" hinttid="~refresh" icon="tollium:actions/reload" />
+                <button action="disconnectremote" hinttid="~disconnect" icon="tollium:actions/delete" />
+                <button action="refresh" hinttid="~refresh" icon="tollium:actions/reload" />
               </buttongroup>
             </line>
           </panel>

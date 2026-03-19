@@ -35,7 +35,9 @@
                         onwindowopen="dopreviewcurrentcontent"
                         target="webhare_publisher_editdocument" />
       <action name="openinpublisher" onexecute="doopeninpublisher" tid="tolliumapps.common.actions.revealinpublisher" />
-      <action name="shareapplicationlink" onexecute="DoShareApplicationLink" tid="platform:tolliumapps.common.actions.shareapplicationlink" />
+      <action name="shareapplicationlink"
+              onexecute="DoShareApplicationLink"
+              tid="platform:tolliumapps.common.actions.shareapplicationlink" />
       <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
@@ -115,15 +117,11 @@
         <part name="metapart" width="1pr" visible="false">
           <tabs name="filetabs" height="1pr">
             <tab name="metadatatab" tid=".metadata" vscroll="true">
-              <section name="mainsection" tid="tolliumapps.objectprops.objectprops.maintab" open="true">
+              <section name="mainsection" open="true" tid="tolliumapps.objectprops.objectprops.maintab">
                 <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
                 <line>
-                  <textedit name="title"
-                            width="1pr"
-                            maxlength="256"
-                            dirtylistener="dirtylistener"
-                            tid="~title"/>
-                  <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
+                  <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                  <select name="isunlisted" type="pulldown" rowkeytype="boolean" title="">
                     <option rowkey="false" tid="tolliumapps.objectprops.objectprops.isunlisted-false" />
                     <option rowkey="true" tid="tolliumapps.objectprops.objectprops.isunlisted-true" />
                   </select>
@@ -176,7 +174,7 @@
     <body spacers="none">
       <wizard name="wizard">
         <page name="sharepage" onnext="onsharenext" spacers="bottom">
-          <datetime name="validuntil" type="datetime" precision="minutes" storeutc="true" required="true"/>
+          <datetime name="validuntil" type="datetime" precision="minutes" required="true" storeutc="true" />
           <select name="share" type="radio" required="true">
             <option rowkey="thisversion" />
             <option rowkey="mostrecentversion" />

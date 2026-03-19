@@ -2,10 +2,7 @@
 
   <apply>
     <to type="all" />
-    <webdesign assetpack=""
-               designfolder="."
-               objectname="nowebdesign.whlib#NoWebdesign"
-               wittyencoding="HTML-NI" />
+    <webdesign assetpack="" designfolder="." objectname="nowebdesign.whlib#NoWebdesign" wittyencoding="HTML-NI" />
     <baseproperties keywords="false" />
     <denyfoldertype typemask="*" />
     <denyfiletype typemask="*" />

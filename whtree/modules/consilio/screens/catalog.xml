@@ -173,24 +173,24 @@
     </body>
   </screen>
 
-  <screen name="blacklist" height="25x" allowresize="true" gid=".blacklist" savestate="size" footerbuttons="close">
+  <screen name="blacklist" height="25x" allowresize="true" footerbuttons="close" gid=".blacklist" savestate="size">
     <body>
-        <listedit name="blacklist"
-              width="1pr"
-              height="1pr"
-              minwidth="60x"
-              minheight="10x"
-              emptytid=".nopatterns"
-              icons="tollium:status/positive"
-              onrowedit="editpattern"
-              onrowdelete="deletepattern"
-              ongetrows="getblacklistrows"
-              eventmasks="consilio:blacklistchanged">
-          <column name="pattern" type="text" />
-          <column name="noindex_icon" type="icon" />
-          <column name="nolinkcheck_to_icon" type="icon" />
-        </listedit>
-   </body>
+      <listedit name="blacklist"
+                width="1pr"
+                height="1pr"
+                minwidth="60x"
+                minheight="10x"
+                emptytid=".nopatterns"
+                eventmasks="consilio:blacklistchanged"
+                icons="tollium:status/positive"
+                ongetrows="getblacklistrows"
+                onrowdelete="deletepattern"
+                onrowedit="editpattern">
+        <column name="pattern" type="text" />
+        <column name="noindex_icon" type="icon" />
+        <column name="nolinkcheck_to_icon" type="icon" />
+      </listedit>
+    </body>
   </screen>
 
   <screen name="blacklistpattern" footerbuttons="ok cancel" gid=".blacklistpattern" title="">
@@ -232,7 +232,7 @@
         <option rowkey="1" tid=".type-module" />
       </select>
       <text name="fieldgroups" width="1pr" wordwrap="true" />
-       <heading tid=".indexmanagers" />
+      <heading tid=".indexmanagers" />
       <listedit name="attachedindices"
                 height="1pr"
                 highlightname="primary"
@@ -338,8 +338,14 @@
       <text name="id" tid="~id" />
       <text name="tag" tid="~tag" />
       <heading tid=".generalsettings" />
+
       <!-- -1 disables, TODO document or nicer screen. 0 is the default -->
-      <textedit name="contentcheckinterval" maxlength="5" emptyvalue="0" suffixtid="~units.minutes" valuetype="integer" minvalue="-1"/>
+      <textedit name="contentcheckinterval"
+                maxlength="5"
+                minvalue="-1"
+                emptyvalue="0"
+                suffixtid="~units.minutes"
+                valuetype="integer" />
       <lines layout="left">
         <checkbox name="disablesource" labeltid=".disablesource-description" title="" />
       </lines>

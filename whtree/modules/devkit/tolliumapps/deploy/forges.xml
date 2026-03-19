@@ -5,7 +5,7 @@
 
   <screen name="forges" footerbuttons="close">
     <body>
-      <wrd:entitiesedit name="forges" entityeditscreen="#editforge" wrdtype="forge" minwidth="60x" minheight="4gr">
+      <wrd:entitiesedit name="forges" minwidth="60x" minheight="4gr" entityeditscreen="#editforge" wrdtype="forge">
         <column name="url" type="text" />
       </wrd:entitiesedit>
     </body>
@@ -15,18 +15,19 @@
     <actions>
       <windowopenaction name="opennewtoken" onwindowopen="onopennewtoken" title="" />
     </actions>
+
     <compositions>
       <wrd:entity name="entity" />
     </compositions>
 
     <body>
       <line layout="left">
-        <text name="abouttoken" title="" valuetid=".abouttoken" wordwrap="true"/>
+        <text name="abouttoken" title="" valuetid=".abouttoken" wordwrap="true" />
       </line>
       <textedit composition="entity" cellname="url" required="true" />
       <textedit composition="entity" cellname="token" required="true" />
       <line layout="right">
-        <text name="requestnewttoken" title="" valuetid=".requestnewtoken" action="opennewtoken"  />
+        <text name="requestnewttoken" action="opennewtoken" title="" valuetid=".requestnewtoken" />
       </line>
     </body>
   </screen>

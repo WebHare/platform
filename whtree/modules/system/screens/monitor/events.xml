@@ -29,7 +29,6 @@
               <button action="clearlist" tid="~clear" />
             </line>
           </panel>
-
           <list name="events" height="1pr" borders="top right" onselect="onselectevent" selectmode="single">
             <column name="when" type="datetime" width="22x" precision="seconds" sortkeyname="rowkey" storeutc="true" />  <!-- 18 min -->
             <column name="event" type="text" />
@@ -48,13 +47,17 @@
                 </cell>
                 <cell>
                   <button name="button_openinwrd" width="1pr" action="openwrdschema" tid=".openwrdschema" visible="false" />
-                  <button name="button_openinpublisher" width="1pr" action="openinpublisher" tid=".openinpublisher" visible="false" />
+                  <button name="button_openinpublisher"
+                          width="1pr"
+                          action="openinpublisher"
+                          tid=".openinpublisher"
+                          visible="false" />
                 </cell>
               </row>
             </grid>
           </panel>
-          <panel height="1pr" spacers="none" borders="top">
-            <tabs name="eventtabs" height="1pr" >
+          <panel height="1pr" borders="top" spacers="none">
+            <tabs name="eventtabs" height="1pr">
               <tab name="interpreteddatatab">
                 <list name="wrdentities"
                       height="1pr"

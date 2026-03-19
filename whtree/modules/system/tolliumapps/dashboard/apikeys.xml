@@ -52,13 +52,8 @@
     </compositions>
 
     <body>
-      <select composition="api_secret"
-              cellname="api_type"
-              name="api_type"
-              type="radio"
-              onchange="ontypechange">
-      </select>
-      <textarea composition="api_secret" cellname="masks" width="1pr" required="true" placeholdertid=".masks-placeholder"/>
+      <select composition="api_secret" cellname="api_type" name="api_type" type="radio" onchange="ontypechange" />
+      <textarea composition="api_secret" cellname="masks" width="1pr" placeholdertid=".masks-placeholder" required="true" />
       <textedit name="site_key" width="1pr" required="true" />
       <textedit name="api_key" width="1pr" required="true" />
       <textarea composition="api_secret" cellname="comment" width="1pr" tid="~comments" />

@@ -52,34 +52,33 @@
   <applysiteprofile path="pages/manual/manual.siteprl.xml" />
 
   <!-- on test and above, /testportal just blocks -->
-  <sitesettings sitename="WebHare backend"> <!-- limit to our backend, others use webinterface webdesign too and they'll have to bring their own rules-->
-    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition" >
+  <sitesettings sitename="WebHare backend">
+    <!-- limit to our backend, others use webinterface webdesign too and they'll have to bring their own rules -->
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
       <webrule path="/" match="initial">
         <addheader header="X-XSS-Protection" value="1; mode=block" />
         <addheader header="X-Content-Type-Options" value="nosniff" />
         <addheader header="Referrer-Policy" value="no-referrer" />
-        <!-- note: the applicationportal will overwrite the CSP and X-Frame-Options so this policy only applies to the wrdauth (login) pages -->
-        <addheader header="X-Frame-Options" value="DENY"/>
-        <csp policy="default-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'" />
 
+        <!-- note: the applicationportal will overwrite the CSP and X-Frame-Options so this policy only applies to the wrdauth (login) pages -->
+        <addheader header="X-Frame-Options" value="DENY" />
+        <csp policy="default-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'" />
         <tryfolder path="siteoutput::[sitename]/" />
         <tryfolder path="mod::platform/web/backend/" />
       </webrule>
 
       <!-- protect the testportal page from being accessed on non-development servers -->
-      <webrule path="/testportal" match="initial" allowips="" minservertype="test">
-      </webrule>
+      <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
 
       <!-- allow testportal and testoutput to be framed -->
       <webrule path="/testportal/" match="initial" maxservertype="development">
-        <addheader header="X-Frame-Options" value=""/>
+        <addheader header="X-Frame-Options" value="" />
         <csp policy="frame-ancestors 'self'" />
       </webrule>
       <webrule path="/testoutput/" match="initial" maxservertype="development">
-        <addheader header="X-Frame-Options" value=""/>
+        <addheader header="X-Frame-Options" value="" />
         <csp policy="frame-ancestors 'self'" />
       </webrule>
-
       <openapi path="/.wh/api/v1/" service="platform:api" />
     </webruleset>
   </sitesettings>
