@@ -24,8 +24,6 @@ import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import * as PostgreJSConnectionLib from './connection-postgrejs';
 import * as PostgreaseConnectionLib from './connection-postgrease';
-import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
-import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
@@ -56,6 +54,8 @@ export interface FinishHandler {
   onBeforeCommit?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a succesful commit
   onCommit?: () => unknown | Promise<unknown>;
+  /// Callback that is invoked before we attempt to rollback
+  onBeforeRollback?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a rollback
   onRollback?: () => unknown | Promise<unknown>;
 }
@@ -63,47 +63,6 @@ export interface FinishHandler {
 export class DBReadonlyError extends Error {
   constructor() {
     super("The database is in read-only mode");
-  }
-}
-
-class HandlerList implements Disposable {
-  handlerlist = new Array<{
-    vm: HareScriptVM;
-    handlers: HSVMHeapVar;
-  }>();
-
-  async setup(iscommit: boolean) {
-    for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
-      const handlers = vm.allocateVariable();
-      using commitparam = vm.allocateVariable();
-      commitparam.setBoolean(iscommit);
-
-      //This also invokes precommit handlers for that VM
-      await vm.callWithHSVMVars("wh::internal/transbase.whlib#__PopPrimaryFinishHandlers", [commitparam], undefined, handlers);
-      if (handlers.recordExists())
-        this.handlerlist.push({ vm, handlers });
-      else
-        handlers[Symbol.dispose]();
-    }
-  }
-
-  async invoke(stage: "onCommit" | "onRollback") {
-    for (const handler of this.handlerlist) {
-      if (handler.vm.__isShutdown()) {
-        /* This may happen if the lifecycles of VMs aren't managed properly. This is because we simply invoke __CallCommitHandlers on
-           all VMs known to the context as its pretty fast and this absolves us of having to coordinate stashed works and commit handlers
-           between HSVM and TS. We should normally get away with this as loadlib VMs last as long as the codecontext and thus live longer than
-           database transactions */
-        throw new Error(`VM associated with finish handler is already shutdown`);
-      }
-      await handler.vm.loadlib("wh::internal/transbase.whlib").__CallCommitHandlers(handler.handlers, stage);
-    }
-  }
-
-  [Symbol.dispose]() {
-    for (const handler of this.handlerlist)
-      handler.handlers[Symbol.dispose]();
-    this.handlerlist = [];
   }
 }
 
@@ -129,22 +88,13 @@ class Work implements WorkObject {
 
   /* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
      even when callback handlers open new work during their execution. Runs any precommit handlers immediately */
-  private async prepareFinish(commit: boolean): Promise<HandlerList> {
-    if (commit)
-      await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onBeforeCommit?.()));
-
-    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary transaction object) state which
-       is why we need to copy the HS commithandler state at commit time (as commithandlers may start new work) */
-    const handlerlist = new HandlerList();
-    await handlerlist.setup(commit);
-    return handlerlist;
+  private async prepareFinish(commit: boolean): Promise<void> {
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[commit ? "onBeforeCommit" : "onBeforeRollback"]?.()));
   }
 
-  private async invokeFinishHandlers(handlers: HandlerList, stage: "onCommit" | "onRollback") {
+  private async invokeFinishHandlers(stage: "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[stage]?.()));
-    //serialize HSVM handlers, we don't expect them to deal with overlapping calls
-    await handlers.invoke(stage);
   }
 
   async nextVals(field: string, howMany: number): Promise<number[]> {
@@ -182,11 +132,9 @@ class Work implements WorkObject {
     if (debugFlags["db-readonly"])
       throw new DBReadonlyError();
 
-    let handlers;
-
     //FIXME support readonly mode (if it stays?). HareScript solved it at this level, but perhaps we can move the problem to PG or the user we connect with ?
     try {
-      handlers = await this.prepareFinish(true);
+      await this.prepareFinish(true);
     } catch (e) {
       try {
         await this.rollback();
@@ -204,7 +152,7 @@ class Work implements WorkObject {
 
       this.commituniqueevents.forEach(event => broadcast(event));
       this.commitdataevents.forEach(event => broadcast(event.name, event.data));
-      await this.invokeFinishHandlers(handlers, "onCommit");
+      await this.invokeFinishHandlers("onCommit");
     } finally {
       //TODO if (pre)commit fails we should
       this.__releaseMutexes();
@@ -241,10 +189,10 @@ class Work implements WorkObject {
       throw new Error(`Connection was already closed`);
 
     this.open = false;
-    using handlers = await this.prepareFinish(false);
+    await this.prepareFinish(false);
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
-      await this.invokeFinishHandlers(handlers, "onRollback");
+      await this.invokeFinishHandlers("onRollback");
     } finally {
       this.__releaseMutexes();
       this.conn.openwork = undefined;
