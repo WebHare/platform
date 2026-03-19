@@ -480,7 +480,17 @@ components:
                 type: string
                 description: The match type (e.g., '=', '!=', '>', '<', etc.)
               value:
-                type: string
+                oneOf:
+                  - const: null
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: array
+                    items:
+                      type: string
+                  - type: array
+                    items:
+                      type: number
                 description: The value to match against the field
         fields:
           type: array

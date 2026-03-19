@@ -5,6 +5,7 @@ import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { omit } from "@webhare/std";
+import { ResourceDescriptor } from "@webhare/services";
 
 let apiSysopToken = '';
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
@@ -46,7 +47,7 @@ async function testWRDAPI() {
     }, {
       params: {
         schema: "webhare_testsuite:testschema",
-        type: "wrdPerson"
+        type: "wrdPerson",
       },
     });
 
@@ -129,6 +130,34 @@ async function testWRDAPI() {
 
     test.assert(keys.status === 200);
     test.eq(omit([apiKey1.body, apiKey2.body], ["token"]), keys.body);
+  }
+
+  // Test blob access
+  {
+    const resInsert = await api.post("/wrd/{schema}/type/{type}/entity", {
+      fields: {
+        file: await (await ResourceDescriptor.from("123")).export(),
+      }
+    }, { params: { schema: "webhare_testsuite:testschema", type: "testApiExport" } });
+    console.dir(resInsert);
+
+    const resQuery = await api.post("/wrd/{schema}/type/{type}/query", {
+      fields: ["file"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "testApiExport" } });
+    test.assert(resQuery.status === 200, `Expected 200 got ${resQuery.status}`);
+
+    test.eq([
+      {
+        file: {
+          file: { fetch: /^https?:\/\//, size: 3 },
+          mediaType: "application/octet-stream",
+          hash: "pmWkWSBCL51Bfkhn79xPuKBKHz__H6B-mY6G9_eieuM",
+        }
+      }
+    ], resQuery.body.results);
+
+    const fetchRes = await fetch((resQuery.body.results[0] as { file: { file: { fetch: string } } }).file.file.fetch);
+    test.eq("123", await fetchRes.text(), "Fetched resource did not match original content");
   }
 }
 
