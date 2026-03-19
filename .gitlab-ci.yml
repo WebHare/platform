@@ -130,7 +130,17 @@ testwebserver:
 testwrd:
   stage: test
   script:
-    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wrd
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,-wrd-legacy,-wrd-nodejs wrd
+
+testwrd_legacy:
+  stage: test
+  script:
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,wrd-legacy wrd
+
+testwrd_nodejs:
+  stage: test
+  script:
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,wrd-nodejs wrd
 
 testjscomponents:
   stage: test
