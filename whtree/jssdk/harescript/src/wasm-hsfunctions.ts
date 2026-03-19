@@ -8,7 +8,6 @@ import type { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, recompileHarescriptLibrary } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, isPromise, sleep } from "@webhare/std";
-import * as syscalls from "./syscalls";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
@@ -32,6 +31,7 @@ import * as readline from "node:readline";
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
+let syscalls: SysCallsModule | null = null;
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
 function contextGetterFactory<T extends new () => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
@@ -497,11 +497,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("__EM_SYSCALL::R:SV", (vm, id_set, var_func, var_data) => {
     const func = var_func.getString();
     const data = var_data.getJSValue();
-    if (!(syscalls as SysCallsModule)[func]) {
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    syscalls ||= require("./syscalls");
+    if (!syscalls![func]) {
       id_set.setJSValue({ result: "unknown" });
       return;
     }
-    let value = (syscalls as SysCallsModule)[func](vm, data);
+    let value = syscalls![func](vm, data);
     if (value === undefined)
       value = false;
     if (isPromise(value)) { //looks like a promise
@@ -520,13 +523,16 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__EM_SYNCSYSCALL::R:SV", async (vm, id_set, var_func, var_data) => {
     const func = var_func.getString();
     const data = var_data.getJSValue();
-    if (!(syscalls as SysCallsModule)[func]) {
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    syscalls ||= require("./syscalls");
+    if (!syscalls![func]) {
       id_set.setJSValue({ result: "unknown" });
       return;
     }
     vm.inSyncSyscall = true;
     try {
-      let value = (syscalls as SysCallsModule)[func](vm, data);
+      let value = syscalls![func](vm, data);
 
       if (isPromise(value))  //looks like a promise
         value = await value;

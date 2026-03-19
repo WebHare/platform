@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { parseTyped, stringify } from "@webhare/std";
-import { decodeHSON } from "@webhare/hscompat";
+import { decodeHSON } from "@webhare/hscompat/src/hson";
 import type { ServerEncryptionScopes } from "./services";
 
 function getKeyForScope(scope: string): Buffer {
