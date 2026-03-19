@@ -1019,6 +1019,11 @@ function testCompare() {
   test.eq(-1, std.compare(Temporal.PlainTime.from("12:00:00"), Temporal.PlainTime.from("14:00:00")));
   test.eq(-1, std.compare(Temporal.ZonedDateTime.from("2025-02-02T12:00:00[Europe/Amsterdam]"), Temporal.ZonedDateTime.from("2025-02-02T14:00:00Z[Europe/Amsterdam]")));
 
+  test.throws(/Cannot compare/, () => std.compare(Temporal.Instant.from("2025-02-02T12:00:00Z"), new Date("2025-02-02T14:00:00Z")));
+  test.eq(-1, std.compare(Temporal.Instant.from("2025-02-02T12:00:00Z"), new Date("2025-02-02T14:00:00Z"), { flexibleTimeTypes: true }));
+  test.throws(/Cannot compare/, () => std.compare(new Date("2025-02-02T14:00:00Z"), Temporal.Instant.from("2025-02-02T12:00:00Z")));
+  test.eq(1, std.compare(new Date("2025-02-02T14:00:00Z"), Temporal.Instant.from("2025-02-02T12:00:00Z"), { flexibleTimeTypes: true }));
+
   if (typeof Buffer !== "undefined") { //looks like nodejs
     test.eq(-1, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x02\x01")));
     test.eq(0, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x01\x02")));
