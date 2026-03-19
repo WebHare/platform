@@ -4,7 +4,7 @@ import { uploadedblobs } from "./blobbase";
 import { pgTypeOid_int8, pgTypeOid_text } from "./oids";
 import { createPGBlobByBlobRec } from "./blobs";
 import { isDate } from "@webhare/std/src/quacks";
-import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import { buildArrayCodec } from "@webhare/postgrease/src/codec-support";
 import { Money } from "@webhare/std";
 
