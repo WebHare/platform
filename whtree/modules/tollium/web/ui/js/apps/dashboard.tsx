@@ -37,7 +37,7 @@ function setMenuLiVisible(node: DashboardHTMLElement, active: boolean) {
   }
 }
 
-/** Adjusts the scrollTop of a parent element so that a specific element transitions smoothly 
+/** Adjusts the scrollTop of a parent element so that a specific element transitions smoothly
  *  to another position visually, even if its relative position within its container changes
  *  due to concurrent animations.
  */
