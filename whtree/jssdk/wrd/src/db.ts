@@ -69,9 +69,12 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_Id, isunique: true }, // FIXME: make only insertable, not updatable!
     { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_Type, isreadonly: true }, // FIXME: make readonly!
     { ...baseEmptyAttrRec, tag: "wrdTag", fullTag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag, isunique: true },
-    { ...baseEmptyAttrRec, tag: "wrdCreationDate", fullTag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
-    { ...baseEmptyAttrRec, tag: "wrdLimitDate", fullTag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
-    { ...baseEmptyAttrRec, tag: "wrdModificationDate", fullTag: "wrdModificationDate", attributetype: WRDBaseAttributeTypeId.Base_ModificationDate },
+    { ...baseEmptyAttrRec, tag: "wrdCreationDate", fullTag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdLimitDate", fullTag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdModificationDate", fullTag: "wrdModificationDate", attributetype: WRDBaseAttributeTypeId.Base_Legacy_ModificationDate },
+    { ...baseEmptyAttrRec, tag: "wrdCreated", fullTag: "wrdCreated", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdClosed", fullTag: "wrdClosed", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
+    { ...baseEmptyAttrRec, tag: "wrdModified", fullTag: "wrdModified", attributetype: WRDBaseAttributeTypeId.Base_ModificationDate },
   ];
   if (type.metatype === WRDMetaTypeId.Domain)
     attrs.push({ ...baseEmptyAttrRec, tag: "wrdOrdering", fullTag: "wrdOrdering", attributetype: WRDBaseAttributeTypeId.Base_Integer });

@@ -27,8 +27,14 @@ async function testWRDUntypedApi() { //  tests
   test.eqPartial({ attributeType: "array", tag: "testArray.testArray2" }, await persontype.describeAttribute("testArray.testArray2"));
 
   const attributes = await persontype.listAttributes();
+  test.eq(true, attributes.some(_ => _.tag === "wrdCreated"));
+  test.eq(false, attributes.some(_ => _.tag === "wrdCreationDate"));
+
   test.eq(await persontype.describeAttribute("wrdContactEmail"), attributes.find(attr => attr.tag === "wrdContactEmail") ?? null);
   test.eq(await persontype.describeAttribute("wrdGender"), attributes.find(attr => attr.tag === "wrdGender") ?? null);
+  test.eq(null, await persontype.describeAttribute("wrdCreationDate"));
+  test.eqPartial({}, await persontype.describeAttribute("wrdCreated"));
+
   const testArrayId = (await persontype.describeAttribute("testArray"))?.id;
   test.assert(testArrayId, "testArray attribute should exist");
   let arrayAttributes = await persontype.listAttributes(testArrayId);
@@ -325,7 +331,7 @@ async function testRequired() {
 async function testUnique() {
   await whdb.beginWork();
 
-  const wrdschema: WRDSchemaType = await getWRDSchema();
+  const wrdschema = await getWRDSchema();
   const newdomtype = await wrdschema.createType("testUniques", { metaType: "domain" });
   await newdomtype.createAttribute("testFree", { attributeType: "string", isUnique: true });
   await newdomtype.createAttribute("testEmail", { attributeType: "email", isUnique: true });
@@ -375,23 +381,23 @@ async function testUnique() {
 
   // Test reactivation triggering unique checks
   await whdb.beginWork();
-  const ent1 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreationDate: new Date(2010, 1, 1), wrdLimitDate: new Date(2018, 1, 1) });
-  const ent2 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreationDate: new Date(2010, 1, 1) });
+  const ent1 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreated: new Date(2010, 1, 1), wrdClosed: new Date(2018, 1, 1) });
+  const ent2 = await wrdschema.insert("testUniques", { testFree: "testReactivation", wrdCreated: new Date(2010, 1, 1) });
   await whdb.commitWork();
 
   await whdb.beginWork();
   //TODO We might want to build nicer exceptions for this? but also a lot more work to have to look these up
-  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdLimitDate: new Date(2050, 1, 2) }));
+  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdClosed: new Date(2050, 1, 2) }));
   await whdb.rollbackWork();
 
   await whdb.beginWork();
-  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdLimitDate: null }));
+  await test.throws(/duplicate key/, wrdschema.update("testUniques", ent1, { wrdClosed: null }));
   await whdb.rollbackWork();
 
   //test swapping liveliness
   await whdb.beginWork();
-  await wrdschema.update("testUniques", ent2, { wrdLimitDate: new Date(2019, 1, 1) });
-  await wrdschema.update("testUniques", ent1, { wrdLimitDate: null });
+  await wrdschema.update("testUniques", ent2, { wrdClosed: new Date(2019, 1, 1) });
+  await wrdschema.update("testUniques", ent1, { wrdClosed: null });
   await whdb.commitWork();
 
   //test email normalization

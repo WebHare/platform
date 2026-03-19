@@ -474,7 +474,7 @@ declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" :
 ${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
 
 declare module "@mod-platform/generated/ts/wrd.ts" {
-  export interface WRDSchemaDefinitions {
+  export interface WRDSchemaDefinitionPointers {
     ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
   }
 }

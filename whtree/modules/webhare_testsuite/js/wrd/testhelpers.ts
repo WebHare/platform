@@ -1,8 +1,8 @@
-import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaDefinitions, type WRDSchemaType } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
-import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
+import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition, ModernizeWRDSchemaDefinition } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 
 export const testSchemaTag = "wrd:testschema";
@@ -91,15 +91,17 @@ export type CustomExtensions = {
   } & WRDTypeBaseSettings;
 };
 
-export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchemaType<T>> {
+export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchemaType<ModernizeWRDSchemaDefinition<T>>> {
   const wrdschema = wrd<AnySchemaType>(testSchemaTag);
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
-  return wrdschema as unknown as WRDSchemaType<T>;
+  return wrdschema as unknown as WRDSchemaType<ModernizeWRDSchemaDefinition<T>>;
 }
 
 export async function getExtendedWRDSchema() {
-  type Combined = Combine<[WRDSchemaDefinitions["wrd:testschema"], CustomExtensions]>;
+  //FIXME ModernizeWRDSchemaDefinition shouldn't be an API. WE need it now because CustomExtensions uses WRDTypeBaseSettings and that one isn't modernized
+  type Combined = Combine<[WRDSchemaDefinitions["wrd:testschema"], ModernizeWRDSchemaDefinition<CustomExtensions>]>;
+
   const wrdschema = wrd<AnySchemaType>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
@@ -107,6 +109,7 @@ export async function getExtendedWRDSchema() {
   if (!await wrdschema.hasType("testDomain_2"))
     throw new Error(`${testSchemaTag} has not been extended. use setupTheWRDTestSchema`);
   await whdb.commitWork();
+
   return wrdschema as unknown as WRDSchemaType<Combined>;
 }
 

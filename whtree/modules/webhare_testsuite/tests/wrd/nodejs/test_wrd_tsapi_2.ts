@@ -31,8 +31,8 @@ async function testSettingReuse() {
     }
   ];
   await schema.update("wrdPerson", newPerson, {
-    wrdCreationDate: new Date,
-    wrdLimitDate: null,
+    wrdCreated: new Date,
+    wrdClosed: null,
     testArray: orgArray
   });
   const writtenArray = await schema.getFields("wrdPerson", newPerson, "testArray");

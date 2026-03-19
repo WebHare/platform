@@ -1828,9 +1828,9 @@ class WRDDBBaseCreationLimitDateValue extends WRDDBDateTimeValueBase<false> {
     const defaultMatches = this.matchesValue(this.getDefaultValue(), cv);
 
     let fieldname: "creationdate" | "limitdate";
-    if (this.attr.tag === "wrdCreationDate")
+    if (this.attr.tag === "wrdCreationDate" || this.attr.tag === "wrdCreated")
       fieldname = "creationdate";
-    else if (this.attr.tag === "wrdLimitDate")
+    else if (this.attr.tag === "wrdLimitDate" || this.attr.tag === "wrdClosed")
       fieldname = "limitdate";
     else
       throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
@@ -1863,9 +1863,9 @@ class WRDDBBaseCreationLimitDateValue extends WRDDBDateTimeValueBase<false> {
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
     let val: Date | number | undefined;
-    if (this.attr.tag === "wrdCreationDate")
+    if (this.attr.tag === "wrdCreationDate" || this.attr.tag === "wrdCreated")
       val = entityrec.creationdate as Date | number;
-    else if (this.attr.tag === "wrdLimitDate")
+    else if (this.attr.tag === "wrdLimitDate" || this.attr.tag === "wrdClosed")
       val = entityrec.limitdate as Date | number;
     else
       throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
@@ -1887,7 +1887,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDDBDateTimeValueBase<false> {
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdCreationDate", "wrdLimitDate"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdCreationDate", "wrdLimitDate", "wrdCreated", "wrdClosed"]);
   }
 
   encodeValue(value: Date | null): EncodedValue {
@@ -1953,7 +1953,7 @@ class WRDDBBaseModificationDateValue extends WRDDBDateTimeValueBase<true> {
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdModificationDate"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdModificationDate", "wrdModified"]);
   }
 
   encodeValue(value: Date | null): EncodedValue {
@@ -2813,6 +2813,9 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
   [WRDBaseAttributeTypeId.Base_Id]: WRDDBBaseDomainValue<true, number>;
   [WRDBaseAttributeTypeId.Base_Type]: WRDDBBaseTypeValue;
+  //FIXME Same types as the non-legacy ones for now! but the original ones will go to Temporal
+  [WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
+  [WRDBaseAttributeTypeId.Base_Legacy_ModificationDate]: WRDDBBaseModificationDateValue;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2879,6 +2882,10 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(type, attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
     case WRDBaseAttributeTypeId.Base_Id: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Type: return new WRDDBBaseTypeValue(type, attrinfo, true) as AccessorType<T>;
+
+    //FIXME Same types - for now!
+    case WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Legacy_ModificationDate: return new WRDDBBaseModificationDateValue(type, attrinfo) as AccessorType<T>;
 
     case WRDAttributeTypeId.String: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(type, attrinfo) as AccessorType<T>;

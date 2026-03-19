@@ -53,7 +53,7 @@ async function testChanges() { //  tests
     wrdauthAccountStatus: { status: "active" } as const
   };
 
-  const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
+  const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreated", "wrdGuid", "wrdClosed"])].toSorted();
 
   const testPersonId = await wrdschema.insert("wrdPerson", { ...initialPersonData, wrdId: nextWrdId });
   test.eq(nextWrdId, testPersonId);

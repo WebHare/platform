@@ -27,8 +27,14 @@ async function testWRDUntypedApi() { //  tests
   test.eqPartial({ attributeType: "array", tag: "testArray.testArray2" }, await persontype.describeAttribute("testArray.testArray2"));
 
   const attributes = await persontype.listAttributes();
+  test.eq(false, attributes.some(_ => _.tag === "wrdCreated"));
+  test.eq(true, attributes.some(_ => _.tag === "wrdCreationDate"));
+
   test.eq(await persontype.describeAttribute("wrdContactEmail"), attributes.find(attr => attr.tag === "wrdContactEmail") ?? null);
   test.eq(await persontype.describeAttribute("wrdGender"), attributes.find(attr => attr.tag === "wrdGender") ?? null);
+  test.eq(null, await persontype.describeAttribute("wrdCreated"));
+  test.eqPartial({}, await persontype.describeAttribute("wrdCreationDate"));
+
   const testArrayId = (await persontype.describeAttribute("testArray"))?.id;
   test.assert(testArrayId, "testArray attribute should exist");
   let arrayAttributes = await persontype.listAttributes(testArrayId);

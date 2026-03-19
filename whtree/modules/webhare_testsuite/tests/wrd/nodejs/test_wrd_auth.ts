@@ -463,7 +463,7 @@ async function testAuthAPI() {
   test.eqPartial({ entity: testuser, accountStatus: { status: "blocked" } }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true, requireScopes: ["cooltoken"] }));
   await whdb.runInWork(() => oidcAuthSchema.close("wrdPerson", testuser));
   test.eqPartial({ error: "Token owner does not exist anymore" }, await provider.verifyAccessToken("id", login1.accessToken));
-  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdLimitDate: null, wrdauthAccountStatus: { status: "active" } }));
+  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdClosed: null, wrdauthAccountStatus: { status: "active" } }));
 
   // STORY: test expired token
   const login3 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { expires: "PT0.001S" });

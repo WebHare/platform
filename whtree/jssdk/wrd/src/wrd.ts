@@ -7,7 +7,7 @@ export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition as AnySchemaType } from "./types";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition as AnySchemaType, ModernizeWRDSchemaDefinition } from "./types";
 import { encodeWRDGuid } from "./accessors";
 import { tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
@@ -25,13 +25,18 @@ import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
-import type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
+import type { WRDSchemaDefinitionPointers } from "@mod-platform/generated/ts/wrd.ts";
 
 //TODO this should become the wrd() compatible schema
 export type { AnySchemaType };
-export type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
 import type { } from "wh:ts/wrd.ts";
+
+//because old code refers directly to the generated types, we can't modernize those in the generator. we'll convert them for now
+export type WRDSchemaDefinitions = {
+  [K in keyof WRDSchemaDefinitionPointers]: ModernizeWRDSchemaDefinition<WRDSchemaDefinitionPointers[K]>
+};
+
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;

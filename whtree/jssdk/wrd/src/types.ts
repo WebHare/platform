@@ -28,8 +28,8 @@ export enum WRDBaseAttributeTypeId {
   Base_Integer = -1, // wrd_ordering
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
-  Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
-  Base_ModificationDate = -10, // wrdModificationDate
+  Base_CreationLimitDate = -4, // wrdCreated, wrdClosed
+  Base_ModificationDate = -10, // wrdModified
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
   Base_GeneratedString = -6, // wrdFullName, wrdTitle
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
@@ -37,6 +37,8 @@ export enum WRDBaseAttributeTypeId {
   Base_Gender = -9, // wrd_gender
   Base_Id = -11, // wrd_id
   Base_Type = -12, // wrd_type
+  Base_Legacy_CreationLimitDate = -13, //Legacy wrdCreationDate and wrdLimitDate, will be replaced by wrdCreated and wrdClosed
+  Base_Legacy_ModificationDate = -14, //Legacy wrdModificationDate, will be replaced by wrdModified
 }
 
 export enum WRDAttributeTypeId {
@@ -112,6 +114,8 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeTypeId.Base_Gender |
   WRDBaseAttributeTypeId.Base_Id |
   WRDBaseAttributeTypeId.Base_Type |
+  WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate |
+  WRDBaseAttributeTypeId.Base_Legacy_ModificationDate |
   WRDAttributeTypeId.Domain |
   WRDAttributeTypeId.String |
   WRDAttributeTypeId.Address |
@@ -162,6 +166,9 @@ export const baseAttrCells = {
   "wrdCreationDate": "creationdate",
   "wrdLimitDate": "limitdate",
   "wrdModificationDate": "modificationdate",
+  "wrdCreated": "creationdate",
+  "wrdClosed": "limitdate",
+  "wrdModified": "modificationdate",
 } as const;
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties
@@ -231,7 +238,24 @@ export type TypeDefinition = Record<string, SimpleWRDAttributeType | WRDAttrBase
 export type RootTypeDefinition = TypeDefinition & WRDTypeBaseSettings;
 
 /** Base type for the type definition of a WRD schema */
-export type SchemaTypeDefinition = Record<string, RootTypeDefinition>;
+export type SchemaTypeDefinition = {
+  [key: string]: RootTypeDefinition;
+};
+
+export type ModernizeWRDType<Type extends RootTypeDefinition> = {
+  [FieldTag in keyof Type]: Type[FieldTag];
+} & {
+  wrdCreated: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdClosed: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdModified: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
+  wrdCreationDate: never;
+  wrdLimitDate: never;
+  wrdModificationDate: never;
+};
+
+export type ModernizeWRDSchemaDefinition<SchemaDef extends SchemaTypeDefinition> = {
+  [TypeTag in keyof SchemaDef]: ModernizeWRDType<SchemaDef[TypeTag]>;
+};
 
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
@@ -242,9 +266,10 @@ export type WRDTypeBaseSettings = {
   wrdGuid: ToWRDAttr<WRDBaseAttributeTypeId.Base_Guid>;
   wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_Type>;
   wrdTag: ToWRDAttr<WRDBaseAttributeTypeId.Base_Tag>;
-  wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
+} & {
+  wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
+  wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
+  wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_ModificationDate>;
 };
 
 /** Extracts the select result type for an attribute type */
@@ -483,11 +508,12 @@ type Simplify<T> = T extends any ? { [K in keyof T]: T[K] } : never;
 export type WRDInsertable<T extends TypeDefinition> = Simplify<{
   // Exclude all non-insertable & optional keys by remapping the key value to 'never'. Need to do the tests inline to preserve {[x: string]:any} when T is anyType.
   // TODO want to Simplify< GetInputType for better intelisense but it breaks schema.ts createEntity with stack limit exceeded
-  [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
+  [K in keyof T as[T[K]] extends [never] ? never : ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
 } & {
   // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge
-  [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
+  [K in keyof T as[T[K]] extends [never] ? never : InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
 }>;
+
 
 /** Returns the type for updating a WRD entity */
 export type WRDUpdatable<T extends TypeDefinition> = {

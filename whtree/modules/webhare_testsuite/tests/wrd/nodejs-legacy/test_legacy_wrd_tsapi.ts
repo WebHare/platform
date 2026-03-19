@@ -342,6 +342,11 @@ async function testNewAPI() {
   // find should throw when finding multiple matches
   await test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
+  //Verify blocking of modern field names
+  for (const datefield of ["wrdCreated", "wrdClosed", "wrdModified"] as const)
+    //@ts-expect-error TS should prevent using new field names in legacy schemas
+    await test.throws(new RegExp(`Cannot use.*${datefield}.*use 'wrd.*'`), () => schema.query("wrdPerson").select(["wrdId", datefield]).execute());
+
   //Verify hscompat-protection of new TS API
   for (const datefield of ["wrdCreationDate", "wrdLimitDate", "wrdModificationDate"] as const) {
     await test.throws(/Not allowed to use.*defaultDateTime /, () => schema.query("wrdPerson").select("wrdId").where(datefield, "=", defaultDateTime).execute());
