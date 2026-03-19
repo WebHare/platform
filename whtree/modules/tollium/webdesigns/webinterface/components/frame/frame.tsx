@@ -10,7 +10,6 @@ import * as domfocus from 'dompack/browserfix/focus';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js/application';
-import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, throwError, toCamelCase } from '@webhare/std';
 import type { ObjTabs } from '../tabs/tabs';
@@ -439,7 +438,7 @@ export class ObjFrame extends ToddCompBase {
       this.debugLog("messages", "Adding new component '" + name + "' (" + newcomp.type + ") to parent '" + parentcomp.name + "'", newcomp);
 
     //console.log('addComponent: Constructing ' + xmlcomp.xml.base.type + ' ' + name + ' for parent ' + parentcomp.name);
-    const createdcomp = getIndyShell().createComponent(newcomp.type, parentcomp, newcomp);
+    const createdcomp = this.hostapp.shell.createComponent(newcomp.type, parentcomp, newcomp);
     createdcomp.afterConstructor(newcomp as any);
 
     return createdcomp;
@@ -865,7 +864,7 @@ export class ObjFrame extends ToddCompBase {
             case 'notifications':
               {
                 // Request native notification permission
-                getIndyShell().towl!.checkNativeNotificationPermission();
+                this.hostapp.shell.towl!.checkNativeNotificationPermission();
                 return;
               }
           }

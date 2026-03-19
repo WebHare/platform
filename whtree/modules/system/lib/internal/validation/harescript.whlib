@@ -3,6 +3,7 @@
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/harescript.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -380,7 +381,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
   RECORD retval := [ errors := RECORD[], warnings := RECORD[], hints := RECORD[], tids := RECORD[], eventmasks := STRING[], icons := RECORD[] ];
 
   OBJECT scanresult;
-  IF(NOT options.onlytids)
+  IF(NOT options.onlytids AND NOT IsWASM()) // job creation is too expensive in WASM (startup cost is 3x scan time cost of eg filemanager/main.whlib)
     scanresult := AsyncCallFunctionFromJob(Resolve("#__ScanLib"), doc_blob, resourcename);
 
   OBJECT devcheck;
@@ -402,7 +403,7 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
   }
 
   RECORD scaninfo;
-  IF(options.onlytids)
+  IF(options.onlytids OR IsWASM())
     scaninfo := __ScanLib(doc_blob, resourcename);
   ELSE
     scaninfo := WaitForPromise(scanresult);

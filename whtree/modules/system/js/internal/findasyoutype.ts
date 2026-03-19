@@ -4,13 +4,15 @@ export default class FindAsYouType {
   findingasyoutype: { timeout: NodeJS.Timeout | 0; search: string } | null = null;
   findasyoutyperegex = null;
   searchtimeout = 0;
+  allowFocusedChildren = false;
   onsearch;
   node;
 
-  constructor(node: HTMLElement, options: { searchtimeout?: number; onsearch: (search: string) => void }) {
+  constructor(node: HTMLElement, options: { searchtimeout?: number; onsearch: (search: string) => void; allowFocusedChildren?: boolean }) {
     if (options?.searchtimeout)
       this.searchtimeout = options.searchtimeout;
     this.onsearch = options.onsearch;
+    this.allowFocusedChildren = options.allowFocusedChildren ?? false;
 
     this.node = node;
     node.addEventListener("keydown", this._onKeyboard);
@@ -18,7 +20,11 @@ export default class FindAsYouType {
   }
 
   _onKeyboard = (evt: KeyboardEvent) => {
-    if (evt.target !== this.node)
+    const closestInput = (evt.target as HTMLElement).closest("input, textarea, [contenteditable=true]");
+    if (this.allowFocusedChildren) {
+      if (closestInput && this.node.contains(closestInput))
+        return; //ignore keyboard events to embedded elements (eg inline title changes in lists)
+    } else if (evt.target !== this.node)
       return; //ignore keyboard events to embedded elements (eg inline title changes in lists)
     switch (evt.key) {
       case "Escape":
@@ -70,7 +76,9 @@ export default class FindAsYouType {
       this.stop();
   }
 
-  _onFocusOut = () => {
+  _onFocusOut = (evt: FocusEvent) => {
+    if (this.allowFocusedChildren && this.node.contains(evt.relatedTarget as Node))
+      return;
     this.stop();
   };
 

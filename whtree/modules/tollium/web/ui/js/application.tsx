@@ -16,13 +16,14 @@ import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
 import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
-import type IndyShell from './shell';
-import { getIndyShell, handleApplicationErrors } from './shell';
+import type { IndyShell } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
 import { debugFlags } from "@webhare/env";
 import type { AppStartResponse } from '@mod-tollium/shell/platform/shell';
+import type { AppMenuItem } from './types';
+import type { ShellInstruction } from '@mod-platform/js/tollium/types';
 
-require("../common.lang.json");
+import "../common.lang.json";
 
 const ToddProtocolVersion = 1;
 const busyinitialwait = 200;  //time before we show a loader
@@ -90,6 +91,8 @@ export class ApplicationBase {
   /// Application language
   lang = 'en';
 
+  appmenu: AppMenuItem[] = [];
+
   //Is the app closing?
   protected appIsClosing = false;
 
@@ -136,13 +139,12 @@ export class ApplicationBase {
     this.hasissues = false;
     this.isdebugged = false;
     this.isdebugpaused = false;
-    this.appmenu = [];
 
     this._apploaddeferred = Promise.withResolvers();
     this._apploadlock = dompack.flagUIBusy();
 
     if (options) {
-      this.container = options.container;
+      this.container = options.container ?? null;
       options.container = null;
     }
 
@@ -547,11 +549,11 @@ export class ApplicationBase {
   // Application menu
   //
 
-  generateAppMenu() {
+  generateAppMenu(): AppMenuItem[] {
     return this.appmenu.slice(0);
   }
 
-  executeCommand(cmd) {
+  executeCommand(cmd: ShellInstruction | { type: "currentapp:restart" }) {
     if (cmd.type === 'currentapp:restart') {
       this.restartApp();
       return;
@@ -576,7 +578,7 @@ export class ApplicationBase {
 
   _onMsgGetNotificationPermissionState() {
     // This function is called in a context the state may change, so let towl check too
-    getIndyShell().towl.updateForCurrentNotificationPermission();
+    this.shell.towl.updateForCurrentNotificationPermission();
 
     return window.Notification
       ? Notification.permission
@@ -778,7 +780,7 @@ export class BackendApplication extends ApplicationBase {
     this.frontendid = frontendid;
   }
 
-  generateAppMenu() {
+  generateAppMenu(): AppMenuItem[] {
     return [
       {
         title: getTid('tollium:shell.restartapp'),
@@ -1038,7 +1040,7 @@ export class BackendApplication extends ApplicationBase {
       return;
     }
 
-    handleApplicationErrors(this, metamessage);
+    this.shell.handleApplicationErrors(this, metamessage);
   }
 
   /****************************************************************************************************************************
@@ -1141,7 +1143,7 @@ export class BackendApplication extends ApplicationBase {
     if (!("status" in data) || data.status !== 'ok') {
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
-      handleApplicationErrors(this, data);
+      this.shell.handleApplicationErrors(this, data);
       this._resolveAppLoad();
       return;
     }

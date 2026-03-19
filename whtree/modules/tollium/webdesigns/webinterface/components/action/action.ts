@@ -10,11 +10,8 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
 import { omit } from '@webhare/std';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require("@mod-tollium/web/ui/common.lang.json");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
+import "@mod-tollium/web/ui/common.lang.json";
+import "@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json";
 
 type EditImage = {
   url: string;

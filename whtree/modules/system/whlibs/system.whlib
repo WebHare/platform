@@ -2282,7 +2282,10 @@ PUBLIC VARIANT FUNCTION Reflect(VARIANT value, RECORD options DEFAULTSTO DEFAULT
   IF(IsConsoleSupportAvailable() AND IsConsoleATerminal())
   {
     Print("REFLECT: Press enter to continue...");
-    ReadLineFrom(0,65536,TRUE);
+    IF (IsWasm())
+      RETURN __INTERNAL_WASM_READCONSOLEINPUT();
+    ELSE
+      ReadLineFrom(0,65536,TRUE);
     Print("\n");
   }
   RETURN value;

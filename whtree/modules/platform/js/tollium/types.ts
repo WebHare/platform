@@ -5,8 +5,9 @@ export type MenuAppGroup = {
     instr: AppLaunchInstruction;
     link: string;
     title: string;
+    shortcut?: TolliumKeyboardShortcut;
   }>;
-};
+} & ({ editinstr?: never } | { editinstr: AppLaunchInstruction; edittitle: string });
 
 export type AppLaunchInstruction = {
   type: "appmessage";
@@ -32,5 +33,11 @@ export interface TolliumKeyboardShortcut {
   shift: boolean;
   keystr: string;
 }
+
+export type NewsItem = {
+  title: string;
+  creationdate: string;
+  html: string;
+};
 
 export type ShellInstruction = AppLaunchInstruction | WindowOpenInstruction | ResetImageCacheInstruction;

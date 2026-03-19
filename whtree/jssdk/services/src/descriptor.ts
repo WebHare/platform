@@ -170,9 +170,6 @@ export type ExportedBlobReference = {
   fetch: string;
   /** Size of the resource */
   size: number;
-} | {
-  /** Reference to a resource shipped with a module */
-  resource: string;
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { file: ExportedBlobReference };
@@ -198,8 +195,13 @@ export interface ResourceSourceMetaData extends ResourceBaseMetaData {
   sourceFile: string | number | null;
 }
 
+export type SourceBlobReference = ExportedBlobReference | {
+  /** Reference to a resource shipped with a module */
+  resource: string;
+} | WebHareBlob;
+
 export type ResourceSource = Partial<ResourceSourceMetaData> & {
-  file: ExportedBlobReference | WebHareBlob;
+  file: SourceBlobReference;
 };
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;

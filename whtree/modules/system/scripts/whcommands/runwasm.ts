@@ -10,7 +10,7 @@ async function runWasmScript(script: string, params: string[]) {
     script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
 
   try {
-    const vm = await runScript(script, { consoleArguments: params });
+    const vm = await runScript(script, { consoleArguments: params, consoleSupportAvailable: true });
     setScopedResource(HSVMSymbol, vm); //ensure any loadlib stays in the script's context
     await vm.done;
     process.exitCode = vm.vm?.deref()?.exitCode ?? 254;

@@ -45,7 +45,7 @@ export interface WASMModuleInterface {
   HEAPF64:Float64Array;
   HEAP64:BigInt64Array;
   HEAPU64:BigUint64Array;
-   _malloc(size: number): Ptr;
+  _malloc(size: number): Ptr;
   _free(ptr: Ptr): void;
   ENV: Record<string, string>;
 

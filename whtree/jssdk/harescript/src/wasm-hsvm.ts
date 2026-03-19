@@ -26,6 +26,7 @@ export interface StartupOptions {
   /// Script to run. If not specified an eventloop is started
   script?: string;
   consoleArguments?: string[];
+  consoleSupportAvailable?: boolean;
   /// A hook that is executed when the main script is done but before it is cleaned up. HSVM/wasmmodule state should still be accessible
   onScriptDone?: (exception: Error | null) => void | Promise<void>;
   implicitLifetime?: boolean;
@@ -174,6 +175,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   columnnamebuf: StringPtr;
   /// 8-bute array for 2 ptrs for getstring
   stringptrs: Ptr;
+  consoleSupportAvailable: boolean;
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
@@ -220,6 +222,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
+    this.consoleSupportAvailable = startupoptions.consoleSupportAvailable ?? false;
     this.consoleArguments = startupoptions?.consoleArguments || [];
     this.integrateEvents();
     this.onScriptDone = startupoptions.onScriptDone || null;
@@ -863,7 +866,7 @@ async function createHarescriptModule() {
     useCreateModule = require(modulePath);
   }
 
-  const wasmmodule = await useCreateModule(modulefunctions);
+  const wasmmodule = await useCreateModule(modulefunctions) as WASMModule;
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);

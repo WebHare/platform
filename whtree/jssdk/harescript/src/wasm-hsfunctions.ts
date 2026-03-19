@@ -27,6 +27,9 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { isatty } from "node:tty";
 import * as path from "node:path";
 import { setHSPromiseProxy } from "./wasm-resurrection";
+import { WebHareBlob } from "@webhare/services";
+import * as readline from "node:readline";
+import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -407,6 +410,14 @@ const adhocCacheContext = contextGetterFactory("adhoccache", class {
   }
 });
 
+const stdinContext = contextGetterFactory("stdin", class {
+  itr: AsyncIterator<string> | null = null;
+  itrDone = false;
+  reftracker: RefTracker | undefined;
+  close() {
+    void this.itr?.return?.();
+  }
+});
 
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
@@ -416,6 +427,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       id_set.setString("");
     } else
       id_set.setString(mod.root);
+  });
+  wasmmodule.registerExternalFunction("ISCONSOLESUPPORTAVAILABLE::B:", (vm, id_set) => {
+    id_set.setBoolean(vm.consoleSupportAvailable);
   });
   wasmmodule.registerExternalFunction("ISCONSOLEATERMINAL::B:", (vm, id_set) => {
     id_set.setBoolean(isatty(0) && isatty(1)); //matches blexlib IsConsoleATerminal
@@ -1410,6 +1424,47 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!runCtxt)
       throw new Error("No run context store available");
     id_set.setBoolean(await runCtxt.runPendingRequests());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__INTERNAL_WASM_GETSTDINASBLOB::X:", async (vm, id_set) => {
+    if (!vm.consoleSupportAvailable)
+      throw new Error("Console input is not available in this environment");
+
+    const ctxt = stdinContext(vm);
+    if (ctxt.itr)
+      throw new Error("Standard input already used for line reading");
+    // read whole of stdin
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin)
+      chunks.push(chunk);
+    const blob = Buffer.concat(chunks);
+    id_set.setBlob(WebHareBlob.from(blob));
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__INTERNAL_WASM_READCONSOLEINPUT::S:", async (vm, id_set) => {
+    if (!vm.consoleSupportAvailable)
+      throw new Error("Console input is not available in this environment");
+
+    const ctxt = stdinContext(vm);
+    // if stdout is a terminal but stdin is not, we don't want echoing (node readline only tests stdout)
+    const terminal = process.stdin.isTTY && process.stdout.isTTY;
+    const itr = ctxt.itr ??= readline.createInterface({
+      input: process.stdin,
+      output: terminal ? process.stdout : undefined,
+      terminal,
+    })[Symbol.asyncIterator]();
+    const reftracker = ctxt.reftracker ??= new RefTracker(process.stdin, { initialref: true });
+    reftracker.dropInitialReference();
+    using lock = reftracker.getLock();
+    void lock;
+    const data = await itr.next();
+    ctxt.itrDone ||= data.done || false;
+    id_set.setString(data.value ?? "");
+  });
+
+  wasmmodule.registerExternalFunction("__INTERNAL_WASM_ISCONSOLECLOSED::B:", (vm, id_set) => {
+    const ctxt = stdinContext(vm);
+    id_set.setBoolean(vm.consoleSupportAvailable && (ctxt.itr ? ctxt.itrDone : process.stdin.destroyed || process.stdin.readableEnded));
   });
 }
 

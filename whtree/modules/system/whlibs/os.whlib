@@ -231,6 +231,8 @@ PUBLIC RECORD FUNCTION ParseArguments(STRING ARRAY arguments, RECORD ARRAY vars)
     @return A line of text read from the console, excluding any terminating \n or \r. If an empty string was returned, check IsAtEndOfStream(0) before calling the function again */
 PUBLIC STRING FUNCTION ReadConsoleInput()
 {
+  IF (IsWasm())
+    RETURN __INTERNAL_WASM_READCONSOLEINPUT();
   RETURN ReadLineFrom(0,65536,TRUE);
 }
 
@@ -239,6 +241,8 @@ PUBLIC STRING FUNCTION ReadConsoleInput()
 */
 PUBLIC BLOB FUNCTION GetSTDINAsBlob()
 {
+  IF (IsWasm())
+    RETURN __INTERNAL_WASM_GETSTDINASBLOB();
   INTEGER outputstream := __HS_CreateStream();
   WHILE (TRUE)
   {
@@ -255,6 +259,8 @@ PUBLIC BLOB FUNCTION GetSTDINAsBlob()
 */
 PUBLIC BOOLEAN FUNCTION IsConsoleClosed()
 {
+  IF (IsWasm())
+    RETURN __INTERNAL_WASM_ISCONSOLECLOSED();
   RETURN IsAtEndOfStream(0);
 }
 

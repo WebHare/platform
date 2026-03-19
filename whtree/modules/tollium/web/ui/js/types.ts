@@ -1,3 +1,4 @@
+import type { ShellInstruction } from "@mod-platform/js/tollium/types";
 import type { LinkWireMessage } from "./comm/linkendpoint";
 
 export type EnableOnRule = {
@@ -80,3 +81,8 @@ export interface TolliumToddService {
     }>;
   }>;
 }
+
+export type AppMenuItem = {
+  title: string;
+  cmd: ShellInstruction | { type: "currentapp:restart" };
+};

@@ -3,7 +3,7 @@
 
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::system.whlib";
-LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT IsWasm;
 
 RECORD ARRAY pendingpromises;
 
@@ -57,17 +57,6 @@ PUBLIC VARIANT FUNCTION EM_SyncSyscall(STRING call, RECORD data DEFAULTSTO DEFAU
     THROW NEW WasmInvalidSyscallException(`No such EM Syscall '${call}'`);
 
   RETURN res.value;
-}
-
-
-RECORD emstate := EM_SYSCALL("init") ?? [ iswasm := FALSE ];
-
-/** Are we running in a WASM (__EMSCRIPTEN__) environment?
-    @loadlib wh::javascript.whlib
-*/
-PUBLIC BOOLEAN FUNCTION IsWASM()
-{
-  RETURN emstate.iswasm;
 }
 
 /** A simple class to transfer data as a Buffer to JavaScript from a HareScriptVM. You need this when the HS/JS boundary you're using doesn't know to use getStringAsBuffer (eg EM_Syscall) */
