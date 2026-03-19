@@ -1,5 +1,4 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { loadlib } from "@webhare/harescript";
 import { stdTypeOf, throwError } from "@webhare/std";
 import { broadcastOnCommit, db, uploadBlob } from "@webhare/whdb";
 import * as crypto from "node:crypto";
@@ -152,15 +151,6 @@ export async function writeRegistryKey(key: string, value: unknown, options?: { 
   broadcastOnCommit(keyinfo.eventname);
 }
 
-
-/** Read registry keys by mask. not a public API yet in TS - it seems only to be used by maintenance of shortcuts so maybe we can get rid of it as an API ? it also differs quite a bit from readRegistryNode (and we could just give that one mask support if we want it...)
-    @param keymask - Mask to use (to search the temporary anonymous registry, the mask must look like an anonymous key ie start with <anonymous>.)
-    @returns Registry keys
-*/
-export async function readRegistryKeysByMask(keymask: string): Promise<Array<{ name: string; value: unknown }>> {
-  return loadlib("mod::system/lib/configure.whlib").ReadRegistryKeysByMask(keymask);
-}
-
 /** Get the event masks to use to listen to specific registry keys
     @param keys - List of registry keys
     @returns A list of event mask(s) */
@@ -177,22 +167,36 @@ export function getRegistryKeyEventMasks(keys: string[], opts?: { acceptInvalidK
     @param confkey - Registry node name
     @returns List of registry keys
 */
-export async function readRegistryNode(confkey: string): Promise<Array<{ fullname: string; subkey: string; data: unknown }>> {
-  return loadlib("mod::system/lib/configure.whlib").ReadRegistryNode(confkey);
+export async function readRegistryNode(confkey: string, opts?: { acceptInvalidKeyNames: boolean }): Promise<Array<{ fullname: string; subkey: string; data: unknown }>> {
+  const split = splitRegistryKey(confkey, opts);
+  const keys = await db<PlatformDB>().
+    selectFrom("system.flatregistry").select(["name", "data", "blobdata"]).where("nodehash", "=", getNameHash(split).namehash).execute();
+  return Promise.all(keys.map(async k => ({
+    fullname: confkey + "." + k.name.substring(split.storename.length + 1),
+    subkey: k.name.substring(split.storename.length + 1),
+    data: await readAnyFromDatabase(k.data, k.blobdata)
+  })));
 }
 
 /** Deletes a registry key.
     @param confkey - Key to delete
 */
-export async function deleteRegistryKey(confkey: string): Promise<void> {
-  return await loadlib("mod::system/lib/configure.whlib").DeleteRegistryKey(confkey);
+export async function deleteRegistryKey(confkey: string, opts?: { acceptInvalidKeyNames: boolean }): Promise<void> {
+  const split = splitRegistryKey(confkey, opts);
+  const { namehash } = getNameHash(split);
+  const result = await db<PlatformDB>().deleteFrom("system.flatregistry").where("namehash", "=", namehash).execute();
+  if (result[0].numDeletedRows > 0)
+    broadcastOnCommit(`system:registry.${split.storenode.substring(0, split.storenode.length - 1)}`);
 }
 
 /** Deletes a registry node
     @param confkey - Node to delete
 */
-export async function deleteRegistryNode(confkey: string): Promise<void> {
-  return await loadlib("mod::system/lib/configure.whlib").DeleteRegistryNode(confkey);
+export async function deleteRegistryNode(confkey: string, opts?: { acceptInvalidKeyNames: boolean }): Promise<void> {
+  const split = splitRegistryKey(confkey, opts);
+  const result = await db<PlatformDB>().deleteFrom("system.flatregistry").where("name", "like", split.storename + '%').execute();
+  if (result[0].numDeletedRows > 0)
+    broadcastOnCommit(`system:registry.${split.storenode}`);
 }
 
 /** Returns a signal that is aborted when one of the specified registry keys changes. Wait is only active after awaiting the promise. */

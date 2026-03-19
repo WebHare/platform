@@ -1,7 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode } from "@webhare/services";
-import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
+import { deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, db } from "@webhare/whdb";
@@ -45,7 +45,6 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
   test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
   await commitWork();
   await beginWork();
-  test.eq([{ name: basename + "webhare_testsuite_base_node.stupidvalue", value: 45 }], await readRegistryKeysByMask(basename + "webhare_testsuite_base_node.stupidvalue"));
 
   await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!"), { createIfNeeded: true, acceptInvalidKeyNames });
   test.eq("Hello, World!", await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
@@ -54,7 +53,7 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
   test.eq("Hello, World!".repeat(1000), await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
 
   {
-    const node = (await readRegistryNode(basename + "webhare_testsuite_base_node")).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname));
+    const node = (await readRegistryNode(basename + "webhare_testsuite_base_node", { acceptInvalidKeyNames })).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname));
     test.eqPartial([
       { fullname: basename + "webhare_testsuite_base_node.blobvalue", subkey: "blobvalue" },
       { fullname: basename + "webhare_testsuite_base_node.stupidvalue", subkey: "stupidvalue", data: 45 }
@@ -62,18 +61,18 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
     test.eq("Hello, World!".repeat(1000), await (node[0].data as WebHareBlob).text());
   }
 
-  await deleteRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue");
+  await deleteRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", { acceptInvalidKeyNames });
   await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue", undefined, { acceptInvalidKeyNames }));
   test.eqPartial([
     {
       fullname: basename + "webhare_testsuite_base_node.blobvalue", subkey: "blobvalue"
     }
-  ], (await readRegistryNode(basename + "webhare_testsuite_base_node")).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname)));
+  ], (await readRegistryNode(basename + "webhare_testsuite_base_node", { acceptInvalidKeyNames })).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname)));
   test.eq(47, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 47, { acceptInvalidKeyNames }));
 
   await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 48, { initialCreate: true, acceptInvalidKeyNames });
-  await deleteRegistryNode(basename + "webhare_testsuite_base_node");
-  test.eq([], await readRegistryNode(basename + "webhare_testsuite_base_node"));
+  await deleteRegistryNode(basename + "webhare_testsuite_base_node", { acceptInvalidKeyNames });
+  test.eq([], await readRegistryNode(basename + "webhare_testsuite_base_node", { acceptInvalidKeyNames }));
 }
 
 async function testRegistry() {
