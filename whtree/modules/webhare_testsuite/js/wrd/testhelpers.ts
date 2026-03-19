@@ -100,7 +100,7 @@ export type CustomExtensionsModern = {
     testAddress: WRDAttributeTypeId.Address;//", { title: "Address attribute" });
     testEmail: WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
     testPhone: WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
-    testDate: WRDAttributeTypeId.Date;//", { title: "Date attribute" });
+    testDate: WRDBaseAttributeTypeId.Modern_Date;
     testPassword: WRDAttributeTypeId.Password;//", { title: "Password attribute" });
     testMultipleDomain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
     testMultipleDomain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
@@ -108,7 +108,7 @@ export type CustomExtensionsModern = {
     testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
     testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
     testTime: WRDAttributeTypeId.Time;//", { title: "Time attribute" });
-    testDatetime: WRDAttributeTypeId.DateTime;//", { title: "Datetime attribute" });
+    testDatetime: WRDBaseAttributeTypeId.Modern_DateTime;
     testArray: WRDAttr<WRDAttributeTypeId.Array, {
       members: {
         testInt: WRDAttributeTypeId.Integer;

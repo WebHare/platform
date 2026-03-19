@@ -136,13 +136,13 @@ async function testChanges() { //  tests
         id: change0[0].id,
         entity: testPersonId,
         changetype: "new",
-        when: prefields.wrdModified,
+        when: new Date(prefields.wrdModified.epochMilliseconds), //as we're invoking HS APIs .. we'll be getting dates for now
         oldsettings: null,
         modifications: {
           ...change0[0].modifications,
           wrd_id: testPersonId,
           wrd_guid: UUIDToWrdGuid(prefields.wrdGuid),
-          wrd_creationdate: prefields.wrdCreated,
+          wrd_creationdate: new Date(prefields.wrdCreated!.epochMilliseconds),
           wrd_limitdate: defaultDateTime
         }
       }
@@ -170,7 +170,7 @@ async function testChanges() { //  tests
         id: change1[0].id,
         entity: testPersonId,
         changetype: "edit",
-        oldsettings: { wrd_modificationdate: prefields.wrdModified },
+        oldsettings: { wrd_modificationdate: new Date(prefields.wrdModified.epochMilliseconds) },
       }
     ], change1);
     test.assert(modtimeOnlyUpdate <= change1[0].when && change1[0].when <= new Date, "Changeset moddate is not exactly the set wrdModified! they can't be overridden");
@@ -231,7 +231,7 @@ async function testChanges() { //  tests
         id: change0[0].id,
         entity: testPersonId,
         changetype: "new",
-        when: prefields.wrdModified,
+        when: new Date(prefields.wrdModified.epochMilliseconds),
         oldsettings: null,
       }
     ], change0);
@@ -252,7 +252,7 @@ async function testChanges() { //  tests
           wrd_firstname: 'John'
         },
         modifications: {
-          wrd_modificationdate: intfields.wrdModified,
+          wrd_modificationdate: new Date(intfields.wrdModified.epochMilliseconds),
           test_array: [{ test_int: 1 }],
           test_file: {
             filename: 'goudvis.png',
@@ -272,7 +272,7 @@ async function testChanges() { //  tests
           test_file: {
             filename: 'goudvis.png',
           },
-          wrd_modificationdate: intfields.wrdModified,
+          wrd_modificationdate: new Date(intfields.wrdModified.epochMilliseconds),
           test_json: null
         }
       }
@@ -624,16 +624,16 @@ async function testChanges() { //  tests
         id: changes[0].id,
         changetype: 'new',
         entity: tempperson,
-        when: postfields.wrdModified,
+        when: new Date(postfields.wrdModified.epochMilliseconds),
         oldsettings: null,
         modifications: {
           wrd_contact_email: postfields.wrdContactEmail,
           whuser_unit: testunit,
-          wrd_modificationdate: postfields.wrdModified,
+          wrd_modificationdate: new Date(postfields.wrdModified.epochMilliseconds),
 
           wrd_id: tempperson, //FIXME why is this is the changeset? due to it being a tempBecomingAlive?
           wrd_guid: UUIDToWrdGuid(postfields.wrdGuid), //TODO and guid? although this sounds a bit more reasonable..
-          wrd_creationdate: postfields.wrdCreated,
+          wrd_creationdate: new Date(postfields.wrdCreated!.epochMilliseconds),
           wrd_limitdate: defaultDateTime,
           wrdauth_account_status: { status: "active" }
         }
@@ -652,13 +652,13 @@ async function testChanges() { //  tests
       {
         changetype: 'close',
         entity: tempperson,
-        when: postclosefields.wrdModified,
+        when: new Date(postclosefields.wrdModified.epochMilliseconds),
         oldsettings: {
           wrd_limitdate: defaultDateTime,
         },
         modifications: {
-          wrd_limitdate: postclosefields.wrdClosed,
-          wrd_modificationdate: postclosefields.wrdModified
+          wrd_limitdate: new Date(postclosefields.wrdClosed!.epochMilliseconds),
+          wrd_modificationdate: new Date(postclosefields.wrdModified.epochMilliseconds)
         }
       }
     ], changes2);

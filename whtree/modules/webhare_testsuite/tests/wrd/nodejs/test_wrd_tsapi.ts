@@ -11,7 +11,7 @@ import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
 import { isChange, type WRDSchemaType, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import type { AddressValue } from "@webhare/address";
-import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType } from "@webhare/std";
+import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType, isTemporalInstant } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
@@ -380,8 +380,8 @@ async function testNewAPI() {
     where("wrdModified", "=", personModDate).execute());
   test.eq([firstperson], await schema.query("wrdPerson").select("wrdId").
     where("wrdId", "=", firstperson).
-    where("wrdModified", ">", new Date(personModDate.getTime() - 2)).
-    where("wrdModified", "<", new Date(personModDate.getTime() + 2)).
+    where("wrdModified", ">", new Date(personModDate.epochMilliseconds - 2)).
+    where("wrdModified", "<", new Date(personModDate.epochMilliseconds + 2)).
     execute());
 
   await whdb.commitWork();
@@ -591,7 +591,7 @@ async function testNewAPI() {
     await schema.update("wrdPerson", secondperson, { wrdClosed: now });
     await whdb.commitWork();
     const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModified"], { historyMode: "all" })).wrdModified;
-    test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "Modification date should be updated after the change");
+    test.assert(Temporal.Instant.compare(moddateBefore, moddateAfter) < 0, "Modification date should be updated after the change");
   }
 
   // wait 1 millisecond
@@ -637,7 +637,7 @@ async function testNewAPI() {
   const moddateBefore = (await schema.getFields("wrdPerson", newperson, ["wrdModified"])).wrdModified;
   await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: domain1value1 });
   const moddateAfter = (await schema.getFields("wrdPerson", newperson, ["wrdModified"])).wrdModified;
-  test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "changing a non-base field should modify wrdModified too");
+  test.assert(Temporal.Instant.compare(moddateBefore, moddateAfter) < 0, "Modification date should be updated after the change");
 
   test.eq([], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", null).execute());
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value1).execute());
@@ -1036,21 +1036,21 @@ async function testMetaData() {
 }
 
 async function testDates() {
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
 
   //Verify Date/DateTime support
   await whdb.beginWork();
   const newperson = await schema.find("wrdPerson", { wrdContactEmail: "testWrdTsapi@beta.webhare.net" }) ?? throwError("Lost newperson");
   await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDatetime: "2024" }));
   await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDate: "2024" }));
-  await schema.update("wrdPerson", newperson, { testDate: new Date("2024-02-01"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06") });
-  test.eq({ testDate: new Date("2024-02-01T00:00:00Z"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06T00:00:00Z") }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
+  await schema.update("wrdPerson", newperson, { testDate: Temporal.PlainDate.from("2024-02-01"), testDatetime: Temporal.Instant.from("2024-02-01T12:12:12Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-02-06") });
+  test.eq({ testDate: Temporal.PlainDate.from("2024-02-01"), testDatetime: Temporal.Instant.from("2024-02-01T12:12:12Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-02-06") }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
   test.eq({ testDate: "2024-02-01", testDatetime: "2024-02-01T12:12:12Z", wrdDateOfBirth: "2024-02-06" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"], { export: true }));
 
-  await schema.update("wrdPerson", newperson, { testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z", wrdDateOfBirth: "2024-03-06" });
+  await schema.update("wrdPerson", newperson, { testDate: Temporal.PlainDate.from("2024-03-01"), testDatetime: Temporal.Instant.from("2024-03-01T12:12:12.001Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-03-06") });
   test.eq({ testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime"], { export: true }));
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [new Date("2024-01-01"), new Date("2024-03-01")]).select(["wrdId"]).execute());
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [new Date("2024-03-04"), new Date("2024-03-06")]).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [Temporal.PlainDate.from("2024-01-01"), Temporal.PlainDate.from("2024-03-01")]).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [Temporal.PlainDate.from("2024-03-04"), Temporal.PlainDate.from("2024-03-06")]).select(["wrdId"]).execute());
 
   await whdb.commitWork();
 }
@@ -1206,6 +1206,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 
   const oneinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1"))!, ["wrdId", "wrdCreated"]);
   const twoinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_2"))!, ["wrdId", "wrdCreated"]);
+  test.assert(isTemporalInstant(oneinfo.wrdCreated));
 
   const persons = (await schema.query("wrdPerson").select(["wrdId", "wrdContactEmail"]).historyMode("all").execute()).sort((a, b) => a.wrdContactEmail.localeCompare(b.wrdContactEmail));
   test.eq(3, persons.length);
@@ -1411,8 +1412,8 @@ async function testComparisons() {
   const tests = {
     wrdCreated: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
     wrdClosed: { values: [null, new Date(-1), new Date(0), new Date(1)] },
-    wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000), null] }, // need to end with null otherwise one of the tests will set death <= birth
-    testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    wrdDateOfBirth: { values: [null, Temporal.PlainDate.from("2024-01-01"), null] }, // need to end with null otherwise one of the tests will set death <= birth
+    testDate: { values: [null, Temporal.PlainDate.from("2024-01-01")] },
     testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
     testEnum: { values: [null, "enum1", "enum2"] },
     testInteger64: { values: [-(2n ** 63n), -10n, 0n, 12n, 2n ** 63n - 1n] },

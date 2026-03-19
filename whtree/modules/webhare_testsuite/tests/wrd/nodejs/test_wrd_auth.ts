@@ -494,7 +494,7 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, password: "secret123" }));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin })));
 
-  test.eq({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
+  test.eq({ whuserLastlogin: (d: Temporal.Instant | null) => Boolean(d && d.epochMilliseconds <= Date.now() && d.epochMilliseconds >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ user }) {
@@ -663,7 +663,7 @@ async function testAuthAPI() {
   //Now do a 'normal' frontend login, should update whuserLastLogin
   await prepareFrontendLogin(url, testuser);
   const { whuserLastlogin: lastLoginAfterPrepLogin } = await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]);
-  test.assert(lastLoginAfterPrepLogin && lastLoginAfterPrepLogin.getTime() > lastLoginAfterImpersonation.getTime(), "whuserLastlogin should be updated when not impersonated");
+  test.assert(lastLoginAfterPrepLogin && lastLoginAfterPrepLogin.epochMilliseconds > lastLoginAfterImpersonation.epochMilliseconds, "whuserLastlogin should be updated when not impersonated");
 }
 
 async function testAuthStatus() {

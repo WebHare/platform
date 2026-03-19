@@ -39,6 +39,9 @@ export enum WRDBaseAttributeTypeId {
   Base_Type = -12, // wrd_type
   Base_Legacy_CreationLimitDate = -13, //Legacy wrdCreationDate and wrdLimitDate, will be replaced by wrdCreated and wrdClosed
   Base_Legacy_ModificationDate = -14, //Legacy wrdModificationDate, will be replaced by wrdModified
+  Base_Legacy_Date = -15, //Legacy wrdDateOfBirth and wrdDateOfDeath
+  Modern_Date = -16, //modern version of normal attribute Date
+  Modern_DateTime = -17, //modern version of normal attribute DateTime
 }
 
 export enum WRDAttributeTypeId {
@@ -116,6 +119,9 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeTypeId.Base_Type |
   WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate |
   WRDBaseAttributeTypeId.Base_Legacy_ModificationDate |
+  WRDBaseAttributeTypeId.Base_Legacy_Date |
+  WRDBaseAttributeTypeId.Modern_Date |
+  WRDBaseAttributeTypeId.Modern_DateTime |
   WRDAttributeTypeId.Domain |
   WRDAttributeTypeId.String |
   WRDAttributeTypeId.Address |

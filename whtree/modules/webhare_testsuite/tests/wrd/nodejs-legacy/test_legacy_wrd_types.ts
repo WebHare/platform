@@ -24,8 +24,8 @@ function testTypes() {
     wrd_infix: WRDBaseAttributeTypeId.Base_NameString;
     wrdLastName: WRDBaseAttributeTypeId.Base_NameString;
     wrdTitlesSuffix: WRDBaseAttributeTypeId.Base_NameString;
-    wrdDateOfBirth: WRDBaseAttributeTypeId.Base_Date;
-    wrdDateOfDeath: WRDBaseAttributeTypeId.Base_Date;
+    wrdDateOfBirth: WRDBaseAttributeTypeId.Base_Legacy_Date;
+    wrdDateOfDeath: WRDBaseAttributeTypeId.Base_Legacy_Date;
     wrdTitle: IsGenerated<WRDBaseAttributeTypeId.Base_GeneratedString>;
     whuser_disabled: WRDAttributeTypeId.Boolean;
     whuser_disablereason: WRDAttributeTypeId.String;
@@ -163,7 +163,7 @@ function testTypes() {
     whuser_disabled?: boolean | undefined;
     whuser_disablereason?: string | undefined;
     whuser_hiddenannouncements?: Array<number | string> | number[] | undefined;
-    whuser_lastlogin?: Date | string | null | undefined;
+    whuser_lastlogin?: Date | Temporal.Instant | string | null | undefined;
     wrdCreationDate?: Date | string | null | undefined;
     wrdDateOfBirth?: Date | string | null | undefined;
     wrdDateOfDeath?: Date | string | null | undefined;

@@ -409,9 +409,9 @@ async function verifyAsOpenIDSP() {
     }
 
     //verify user's lastlogin was updated
-    const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
+    const schemaSP = wrd<WRDSchemaDefinitions["wrd:testschema"]>("webhare_testsuite:oidc-sp");
     const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
-    test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
+    test.assert(whuserLastlogin && whuserLastlogin.epochMilliseconds > starttest.getTime(), "Last login not set by OIDC login flow");
 
     //and verify audit event
     test.eqPartial({
@@ -466,7 +466,7 @@ async function verifyAsOpenIDSP() {
 
     await logoutRelyingParty(context);
 
-    await runInWork(() => schemaSP.update("wrdPerson", wrdId, { wrdauthAccountStatus: { status: "blocked" } }));
+    await runInWork(() => schemaSP.update("wrdPerson", wrdId, { wrdauthAccountStatus: { status: "blocked", reason: "test" } }));
 
     const portal1LoginRequestBlocked = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
     console.log(`portal1LoginRequestBlocked: ${portal1LoginRequestBlocked}`);

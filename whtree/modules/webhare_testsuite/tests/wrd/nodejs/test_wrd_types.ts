@@ -163,10 +163,10 @@ function testTypes() {
     whuser_disabled?: boolean | undefined;
     whuser_disablereason?: string | undefined;
     whuser_hiddenannouncements?: Array<number | string> | number[] | undefined;
-    whuser_lastlogin?: Date | string | null | undefined;
+    whuser_lastlogin?: Date | Temporal.Instant | string | null | undefined;
     wrdCreationDate?: Date | string | null | undefined;
-    wrdDateOfBirth?: Date | string | null | undefined;
-    wrdDateOfDeath?: Date | string | null | undefined;
+    wrdDateOfBirth?: Temporal.PlainDate | string | null | undefined;
+    wrdDateOfDeath?: Temporal.PlainDate | string | null | undefined;
     wrdFirstName?: string | undefined;
     wrdFirstNames?: string | undefined;
     wrd_gender?: WRDGender | null | undefined;
