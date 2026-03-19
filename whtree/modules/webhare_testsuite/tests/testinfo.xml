@@ -30,5 +30,6 @@
       <arg value="--hidehints" />
       <arg value="webhare_testsuite" />
     </test>
+    <test name="recursive_imports" script="mod::platform/scripts/jspackages/list_recursive_imports.ts" xfail="true" />
   </group>
 </group>
