@@ -23,4 +23,11 @@
     </attributes>
   </object>
 
+
+  <object tag="test_api_export">
+    <attributes>
+      <file tag="file" />
+    </attributes>
+  </object>
+
 </schemadefinition>

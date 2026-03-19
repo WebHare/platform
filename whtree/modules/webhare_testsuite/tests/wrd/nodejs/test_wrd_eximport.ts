@@ -101,7 +101,7 @@ async function testExport() { //  tests
 
   test.eq({
     testFile: {
-      data: {
+      file: {
         base64: "RWVuRG9j" //base64 of EenDoc
       },
       fileName: "testfile.doc",
@@ -110,7 +110,7 @@ async function testExport() { //  tests
       hash: "BhcncANlYsAInWd-DRO8_w94hPCpUzmgfKCwqOSBoAY",
     } satisfies ExportedResource,
     testImage: {
-      data: {
+      file: {
         base64: /^iVBO/ //base64 of goudvis
       },
       fileName: "goudvis.png",
