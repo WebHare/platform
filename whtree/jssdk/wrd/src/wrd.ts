@@ -7,7 +7,7 @@ export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition as AnySchemaType, ModernizeWRDSchemaDefinition } from "./types";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable, WRDUpdatable, AnySchemaType, SchemaTypeDefinitionModern } from "./types";
 import { encodeWRDGuid } from "./accessors";
 import { tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "./finishhandler";
@@ -25,7 +25,7 @@ import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
-import type { WRDSchemaDefinitionPointers } from "@mod-platform/generated/ts/wrd.ts";
+import type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
 
 //TODO this should become the wrd() compatible schema
 export type { AnySchemaType };
@@ -33,10 +33,7 @@ export type { AnySchemaType };
 import type { } from "wh:ts/wrd.ts";
 
 //because old code refers directly to the generated types, we can't modernize those in the generator. we'll convert them for now
-export type WRDSchemaDefinitions = {
-  [K in keyof WRDSchemaDefinitionPointers]: ModernizeWRDSchemaDefinition<WRDSchemaDefinitionPointers[K]>
-};
-
+export type { WRDSchemaDefinitions };
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;
@@ -95,11 +92,14 @@ export async function listSchemas() {
 /** Open a schema by id
  * @returns WRDSchema object or null if the schema does not exist
  */
-export async function openSchemaById<S extends SchemaTypeDefinition = never>(id: [S] extends [never] ? "You must provide a type argument <T> or AnySchemaType" : number): Promise<WRDSchemaType<S> | null> {
+export async function openSchemaById<S extends SchemaTypeDefinitionModern = never>(id: [S] extends [never] ? "You must provide a type argument <T> or AnySchemaType" : number): Promise<WRDSchemaType<S> | null>;
+export async function openSchemaById<S extends AnySchemaType = never>(id: [S] extends [never] ? "You must provide a type argument <T> or AnySchemaType" : number): Promise<WRDSchemaType<S> | null>;
+
+export async function openSchemaById<S extends SchemaTypeDefinitionModern = never>(id: [S] extends [never] ? "You must provide a type argument <T> or AnySchemaType" : number): Promise<WRDSchemaType<S> | null> {
   const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["name"]).where("id", "=", id as number).executeTakeFirst();
   if (!dbschema || dbschema.name.startsWith("$wrd$deleted"))
     return null; //because this is a rarely used API we won't bother with throws/allowMissing etc
-  return wrd<AnySchemaType>(dbschema.name) as unknown as WRDSchemaType<S>;
+  return wrd<SchemaTypeDefinitionModern>(dbschema.name) as unknown as WRDSchemaType<S>;
 }
 
 export async function deleteSchema(id: number) {
@@ -190,8 +190,11 @@ export function wrd<T extends keyof WRDSchemaDefinitions>(tag: T): WRDSchemaType
 /** Open a WRD schema by tag
  * @typeParam S - Specify the schema structure. Use AnySchemaType to disable type checking
 */
-export function wrd<S extends SchemaTypeDefinition = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+export function wrd<S extends SchemaTypeDefinitionModern = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
   : WRDSchemaType<S>; //not defaulting to AnySchemaTypeDefinition .. so you need to be explicit about unrecognized schemas
+
+export function wrd<S extends AnySchemaType = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+  : WRDSchemaType<S>;
 
 export function wrd(tag: string): WRDSchemaType {
   return new WRDSchemaType(tag);

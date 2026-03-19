@@ -12,7 +12,7 @@ import type { AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import type { NavigateInstruction } from "@webhare/env";
 import { runInWork } from "@webhare/whdb";
-import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
+import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { ResponseModesScopes } from "@webhare/auth/src/types";
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 
@@ -191,7 +191,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
   //TODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
   if (customizer?.onOpenIdReturn) {
     const redirect = await customizer.onOpenIdReturn({
-      wrdSchema: provider.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      wrdSchema: provider.wrdschema as unknown as WRDSchema<AnySchemaType>,
       client: returnInfo.clientid,
       scopes: returnInfo.scopes,
       user

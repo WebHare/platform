@@ -74,6 +74,8 @@ interface ModuleWRDSchemaDef extends ModuleWRDSchemaBaseDef {
   schemaTypeBase: string;
   /** Type name for the schema */
   schemaTypeName: string;
+  /** Modern type name for the schema */
+  schemaTypeNameModern: string;
   /** Object name for the schema (deprecated, used by the wh:wrd/... typescript files) */
   schemaObject: string;
 }
@@ -163,6 +165,7 @@ function addTypeNames(schemaptr: ModuleWRDSchemaBaseDef): ModuleWRDSchemaDef {
     ...schemaptr,
     schemaTypeBase,
     schemaTypeName: `${schemaTypeBase}SchemaType`,
+    schemaTypeNameModern: `${schemaTypeBase}SchemaTypeModern`,
     schemaObject: generatePropertyName((isPlatformPart ? `${modulename}_` : ``) + schematag + "_schema"),
   };
 }
@@ -222,6 +225,7 @@ export async function getAllModuleWRDSchemas(context: GenerateContext): Promise<
 ///A limited view to prevent devbridge from relying on generator-only propertires
 export interface PublicParsedWRDSchemaDef {
   schemaTypeName: string;
+  schemaTypeNameModern: string;
   schemaObject: string;
   types: Record<string, {
     typeName: string;
@@ -232,6 +236,7 @@ export interface PublicParsedWRDSchemaDef {
 interface ParsedWRDSchemaDef extends PublicParsedWRDSchemaDef {
   types: Record<string, {
     typeName: string;
+    typeNameModern: string;
     attrdefs: Record<string, DeclaredAttribute>;
   }>;
 }
@@ -258,6 +263,7 @@ function buildAttrsFromArray(attrs: ParsedAttr[]): Record<string, DeclaredAttrib
 export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Promise<ParsedWRDSchemaDef> {
   const parsedschemadef: ParsedWRDSchemaDef = {
     schemaTypeName: schemaptr.schemaTypeName,
+    schemaTypeNameModern: schemaptr.schemaTypeNameModern,
     schemaObject: schemaptr.schemaObject,
     types: {}
   };
@@ -267,6 +273,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
   for (const type of schemadef.types) {
     const typeinfo: ParsedWRDSchemaDef["types"][string] = {
       typeName: `${schemaptr.schemaTypeBase}_${generateTypeName(type.tag)}`,
+      typeNameModern: `${schemaptr.schemaTypeBase}_${generateTypeName(type.tag)}Modern`,
       attrdefs: {
         wrdId: { attributeType: "integer", isGenerated: false, isRequired: false, defstr: null },
         wrdGuid: { attributeType: "string", isGenerated: false, isRequired: false, defstr: null },
@@ -358,7 +365,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
 
     const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
-    let fulldef = `export type ${wrddef.schemaTypeName} = { //Refer to this schema type using WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
+    let fulldef = `export type ${wrddef.schemaTypeName} = { //To modernize: replace with WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
 
     // Process the types sorted on tag
     for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
@@ -369,7 +376,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
         if (attrdef.defstr === null)
           continue; //the ones with null are in WRDTypeBaseSettings
 
-        attrlines.push(`  ${name}: ${createTypeDef(attrdef, "  ", addTypeDeclImport)}`);
+        attrlines.push(`  ${name}: ${createTypeDef(attrdef, "  ", addTypeDeclImport, false)}`);
       }
 
       if (attrlines.length)
@@ -380,10 +387,33 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
     }
     fulldef += `};\n\n`;
 
+    let fulldefModern = `export type ${wrddef.schemaTypeNameModern} = { //Refer to this schema type using WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
+
+    // Process the types sorted on tag
+    for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+      def += `type ${type.typeNameModern} = WRDTypeBaseSettingsModern`;
+
+      const attrlines = [];
+      for (const [name, attrdef] of Object.entries(type.attrdefs)) {
+        if (attrdef.defstr === null)
+          continue; //the ones with null are in WRDTypeBaseSettings
+
+        attrlines.push(`  ${name}: ${createTypeDef(attrdef, "  ", addTypeDeclImport, true)}`);
+      }
+
+      if (attrlines.length)
+        def += ` & {\n${attrlines.join(";\n")};\n}`;
+
+      def += ';\n\n';
+      fulldefModern += `  ${tag}: ${type.typeNameModern};\n`;
+    }
+    fulldefModern += `};\n\n`;
+
+
     if (!schemaptr.abstract)
       schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDLegacySchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)}); //Replace with wrd(${JSON.stringify(schemaptr.wrdSchema)})`);
 
-    fullfile += def + fulldef;
+    fullfile += def + fulldef + fulldefModern;
 
     if (context.verbose)
       console.timeEnd("generateWRDDefs " + schemaptr.wrdSchema);
@@ -398,7 +428,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
     ).join("");
 
     fullfile = `${generatorBanner}
-import type { WRDTypeBaseSettings, WRDBaseAttributeTypeId, WRDAttributeTypeId, IsGenerated, IsRequired, WRDAttr } from "@webhare/wrd/src/types";
+import type { WRDTypeBaseSettings, WRDTypeBaseSettingsModern, WRDBaseAttributeTypeId, WRDAttributeTypeId, IsGenerated, IsRequired, WRDAttr } from "@webhare/wrd/src/types";
 import { WRDLegacySchema } from "@webhare/wrd/src/schema";
 
 ${typedecls}
@@ -412,28 +442,28 @@ ${schemaconsts.join("\n")}
   return fullfile;
 }
 
-function getEnumName(type: WRDAttributeType): string {
+function getEnumName(type: WRDAttributeType, modern: boolean): string {
   const toId = WRDAttributeTypes.indexOf(type);
-  return WRDAttributeTypeId[toId + 1];
+  return `WRDAttributeTypeId.${WRDAttributeTypeId[toId + 1]}`;
 }
 
 function hasWildcard(val: string) {
   return val.includes("*") || val.includes("?");
 }
 
-function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (decl: string) => string): string {
+function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (decl: string) => string, modern: boolean): string {
   let typedef = "";
   if (attr.attributeType === "enum" || attr.attributeType === "enumArray") {
     let allowedValues = attr.allowedValues?.filter(v => !hasWildcard(v)).map(v => JSON.stringify(v)).join(" | ");
     if (attr.allowedValues?.some(hasWildcard)) //any wildcard?
       allowedValues = allowedValues ? allowedValues + " | string" : "string";
 
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${allowedValues || "never"} }>`;
+    typedef = `WRDAttr<${getEnumName(attr.attributeType, modern)}, { allowedValues: ${allowedValues || "never"} }>`;
   } else if (attr.attributeType === "array") {
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, {\n${indent}  members: {\n`;
+    typedef = `WRDAttr<${getEnumName(attr.attributeType, modern)}, {\n${indent}  members: {\n`;
     if (attr.childAttributes) {
       for (const [tag, subattr] of Object.entries(attr.childAttributes)) {
-        const subdef = createTypeDef(subattr, indent + "    ", gottypedecl);
+        const subdef = createTypeDef(subattr, indent + "    ", gottypedecl, modern);
         if (subdef)
           typedef += `${indent}    ${tag}: ${subdef};\n`;
       }
@@ -441,12 +471,12 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
     typedef += `${indent}  };\n${indent}}>`;
   } else if (attr.attributeType === "json") {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { type: ${typedeclname} }>`;
+    typedef = `WRDAttr<${getEnumName(attr.attributeType, modern)}, { type: ${typedeclname} }>`;
   } else if (attr.attributeType === "deprecatedStatusRecord") {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")}; type: ${typedeclname} }>`;
+    typedef = `WRDAttr<${getEnumName(attr.attributeType, modern)}, { allowedValues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")}; type: ${typedeclname} }>`;
   } else {
-    typedef = `WRDAttributeTypeId.${getEnumName(attr.attributeType)}`;
+    typedef = `${getEnumName(attr.attributeType, modern)}`;
   }
   if (attr.isRequired) {
     typedef = `IsRequired<${typedef}>`;
@@ -460,7 +490,7 @@ export async function generateWRDPointers(context: GenerateContext, cache: WRDSc
     for (const schema of await cache.getSchemas(context, mod)) {
       schemas.push({
         wrdSchema: schema.wrdSchema,
-        type: schema.schemaTypeName,
+        type: schema.schemaTypeNameModern,
         import: platform ? `@mod-platform/generated/wrd/webhare.ts` : `wh:wrd/${schema.module}.ts`,
       });
     }
@@ -474,7 +504,7 @@ declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" :
 ${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
 
 declare module "@mod-platform/generated/ts/wrd.ts" {
-  export interface WRDSchemaDefinitionPointers {
+  export interface WRDSchemaDefinitions {
     ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
   }
 }
@@ -500,13 +530,13 @@ export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
     {
       path: `ts/wrd.ts`,
       module: "platform",
-      type: "ts",
+      type: "wrd",
       generator: (context: GenerateContext) => generateWRDPointers(context, cache, true, ["platform"])
     }, {
 
       path: `ts/wrd.ts`,
       module: "dummy-installed",
-      type: "ts",
+      type: "wrd",
       generator: (context: GenerateContext) => generateWRDPointers(context, cache, false, noncoremodules)
     }
   ];

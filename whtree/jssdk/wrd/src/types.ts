@@ -235,41 +235,42 @@ export type IsNonUpdatable<T extends WRDAttrBase | SimpleWRDAttributeType> = T e
 export type TypeDefinition = Record<string, SimpleWRDAttributeType | WRDAttrBase>;
 
 /** Base type for the type definition of a WRD type */
-export type RootTypeDefinition = TypeDefinition & WRDTypeBaseSettings;
+export type RootTypeDefinition = TypeDefinition & WRDTypeCoreSettings;
+
+/** Base type for the type definition of a WRD type */
+// export type RootTypeDefinitionModern = TypeDefinition & WRDTypeBaseSettingsModern;
 
 /** Base type for the type definition of a WRD schema */
 export type SchemaTypeDefinition = {
   [key: string]: RootTypeDefinition;
 };
 
-export type ModernizeWRDType<Type extends RootTypeDefinition> = {
-  [FieldTag in keyof Type]: Type[FieldTag];
-} & {
-  wrdCreated: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdClosed: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdModified: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
-  wrdCreationDate: never;
-  wrdLimitDate: never;
-  wrdModificationDate: never;
-};
-
-export type ModernizeWRDSchemaDefinition<SchemaDef extends SchemaTypeDefinition> = {
-  [TypeTag in keyof SchemaDef]: ModernizeWRDType<SchemaDef[TypeTag]>;
+/** Base type for the type definition of a modern WRD schema (ensuring selected schemas are compatible with modernSchema: true)  */
+export type SchemaTypeDefinitionModern = {
+  [key: string]: RootTypeDefinition & WRDTypeBaseSettingsModern;
 };
 
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
 
-/** Base WRD type */
-export type WRDTypeBaseSettings = {
+export type WRDTypeCoreSettings = {
   wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Id>;
   wrdGuid: ToWRDAttr<WRDBaseAttributeTypeId.Base_Guid>;
   wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_Type>;
   wrdTag: ToWRDAttr<WRDBaseAttributeTypeId.Base_Tag>;
-} & {
+};
+
+/** Base WRD type */
+export type WRDTypeBaseSettings = WRDTypeCoreSettings & {
   wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
   wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
   wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_ModificationDate>;
+};
+
+export type WRDTypeBaseSettingsModern = WRDTypeCoreSettings & {
+  wrdCreated: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdClosed: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdModified: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
 };
 
 /** Extracts the select result type for an attribute type */
@@ -508,10 +509,10 @@ type Simplify<T> = T extends any ? { [K in keyof T]: T[K] } : never;
 export type WRDInsertable<T extends TypeDefinition> = Simplify<{
   // Exclude all non-insertable & optional keys by remapping the key value to 'never'. Need to do the tests inline to preserve {[x: string]:any} when T is anyType.
   // TODO want to Simplify< GetInputType for better intelisense but it breaks schema.ts createEntity with stack limit exceeded
-  [K in keyof T as[T[K]] extends [never] ? never : ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
+  [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
 } & {
   // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge
-  [K in keyof T as[T[K]] extends [never] ? never : InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
+  [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
 }>;
 
 
@@ -531,7 +532,7 @@ export type CombineAttrs<A extends WRDAttrBase, B extends WRDAttrBase> = A exten
 /** Combines two types. Two incompatible attributes resolve to never */
 export type CombineTypes<A extends RootTypeDefinition, B extends RootTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
   [K in keyof A & keyof B]: CombineAttrs<ToWRDAttr<A[K]>, ToWRDAttr<B[K]>>;
-} & WRDTypeBaseSettings;
+} & WRDTypeCoreSettings;
 
 /** Combines two schemas. Two incompatible attributes resolve to never */
 export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
@@ -542,9 +543,9 @@ export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeD
 /** Combines an array with multiple schema types. Also accepts a simple schema, passes it through directly */
 export type Combine<S extends SchemaTypeDefinition | SchemaTypeDefinition[]> = S extends [infer A extends SchemaTypeDefinition, infer B extends SchemaTypeDefinition, ...infer C extends SchemaTypeDefinition[]] ? CombineSchemas<A, Combine<[B, ...C]>> : S extends [SchemaTypeDefinition] ? S[0] : S extends SchemaTypeDefinition ? S : never;
 
-export type AnyType = WRDTypeBaseSettings & {
+export type AnyType = WRDTypeCoreSettings & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 'unknown' might be closer but is not accepted by the rest of the WRD definitions
   [key: string]: any;
 };
 
-export type AnySchemaTypeDefinition = Record<string, AnyType>;
+export type AnySchemaType = Record<string, AnyType>;

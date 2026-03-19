@@ -1,7 +1,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
+import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettingsModern, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
@@ -239,12 +239,22 @@ interface TestRecordDataInterface {
 type Extensions = {
   wrdPerson: {
     testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
-  } & WRDTypeBaseSettings;
+  } & WRDTypeBaseSettingsModern;
 };
 
 async function testNewAPI() {
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
+  wrd("webhare_testsuite:unknownschema");
+
+  //this should be fine:
+  wrd<AnySchemaType>("webhare_testsuite:unknownschema");
+
+  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
   const schemaById = await openSchemaById<AnySchemaType>(await schema.getId());
+
+  //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
+  await openSchemaById(await schema.getId());
+
   test.assert(schemaById);
   test.eq(schema.tag, schemaById.tag);
   test.eq(null, await openSchemaById<AnySchemaType>(999999999));
@@ -354,7 +364,7 @@ async function testNewAPI() {
 
   //Verify blocking of legacy field names
   for (const datefield of ["wrdCreationDate", "wrdLimitDate", "wrdModificationDate"] as const)
-    //FIXME @ts-expect-error should prevent using legacy names too
+    //@ts-expect-error should prevent using legacy names too
     await test.throws(new RegExp(`Cannot use.*${datefield}.*use 'wrd.*'`), () => schema.query("wrdPerson").select(["wrdId", datefield]).execute());
 
   //Verify hscompat-protection of new TS API
@@ -1581,10 +1591,10 @@ async function testImportMode() {
       integer64: IsRequired<WRDAttributeTypeId.Integer64>;
       money: IsRequired<WRDAttributeTypeId.Money>;
       address: IsRequired<WRDAttributeTypeId.Address>;
-    } & WRDTypeBaseSettings;
+    } & WRDTypeBaseSettingsModern;
     testImportModeDom: {
       wrdTitle: WRDAttributeTypeId.String;
-    } & WRDTypeBaseSettings;
+    } & WRDTypeBaseSettingsModern;
   };
 
   const wrdschema = await getWRDSchema<MySchema>();

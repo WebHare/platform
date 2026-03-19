@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, nextVal, type Updateable } from "@webhare/whdb";
-import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes, type ToWRDAttr, type WRDBaseAttributeTypeId } from "./types";
+import { type AnySchemaType, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes, type ToWRDAttr, type WRDBaseAttributeTypeId } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -276,7 +276,7 @@ export type WRDSchemaTypeOf<T extends WRDSchemaType<any>> = T extends WRDSchemaT
 
 export type AnyWRDSchema = WRDSchemaType<any> | WRDLegacySchema<any>;
 
-export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
   private schemaData: Promise<SchemaData> | undefined;
@@ -650,7 +650,7 @@ export type LegacyWRDSchemaDefinition<SchemaDef extends SchemaTypeDefinition> = 
   };
 };
 
-export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends WRDSchemaType<S> {
+export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaType> extends WRDSchemaType<S> {
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
     return new WRDType<S, T>(this, type, true);
   }

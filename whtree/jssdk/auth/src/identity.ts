@@ -9,7 +9,7 @@ import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, decryptForThisServer, encryptForThisServer, importJSObject, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { AnySchemaTypeDefinition, AttrRef } from "@webhare/wrd/src/types";
+import type { AttrRef } from "@webhare/wrd/src/types";
 import { defaultDateTime } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
@@ -95,7 +95,7 @@ export type SetAuthCookies = {
 
   // The value below are needed for prepareLoginCookies
   /** WRD Schema used */
-  wrdSchema: WRDSchemaType<AnySchemaTypeDefinition>;
+  wrdSchema: WRDSchemaType<AnySchemaType>;
   /** User id logging in */
   userId: number;
   /** Customizer used */
@@ -528,7 +528,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
         await options?.customizer.onOpenIdToken({
-          wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+          wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
           user: subject,
           scopes: requestedScopes,
           client
@@ -556,7 +556,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       Object.assign(atPayload, options.claims);
     if (options?.customizer?.onFrontendIdToken)
       await options.customizer.onFrontendIdToken({
-        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         user: subject,
         entityId: subject
       }, atPayload as JWTPayload);
@@ -633,7 +633,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (customizer?.onOpenIdUserInfo)
       await customizer?.onOpenIdUserInfo({
-        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         client: tokeninfo.client,
         scopes: tokeninfo.scopes,
         user: tokeninfo.entity
@@ -725,7 +725,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (customizer?.lookupUsername)
       return await customizer.lookupUsername({
-        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         username: loginname,
         ...pick(options || {}, ["site"])
       });
@@ -835,7 +835,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (request.customizer?.isAllowedToLogin) {
       const awaitableResult = request.customizer.isAllowedToLogin({
-        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         user: userid,
         ipAddress: request.tokenOptions.authAuditContext.clientIp,
       });
@@ -1119,7 +1119,7 @@ export async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped
 
   if (customizer?.onFrontendUserInfo) {
     const addUserInfo = await customizer.onFrontendUserInfo({
-      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaType>,
       user: userId,
       entityId: userId
     });
@@ -1213,7 +1213,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   return wrapAuthCookiesIntoForm(targetUrl, setAuthCookies);
 }
 
-export async function verifyAllowedToLogin(wrdSchema: WRDSchemaType<AnySchemaTypeDefinition>, userId: number, ipAddress: string, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+export async function verifyAllowedToLogin(wrdSchema: WRDSchemaType<AnySchemaType>, userId: number, ipAddress: string, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
@@ -1227,7 +1227,7 @@ export async function verifyAllowedToLogin(wrdSchema: WRDSchemaType<AnySchemaTyp
   if (customizer?.isAllowedToLogin) {
     //It's a bit ugly to repeat the isAllowedToLogin call here and have to throw ... but prepareLoginCookies will go away once all HS Login calls go through handleFrontendLogin
     const awaitableResult = customizer.isAllowedToLogin({
-      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaTypeDefinition>,
+      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaType>,
       user: userId,
       ipAddress
     });
