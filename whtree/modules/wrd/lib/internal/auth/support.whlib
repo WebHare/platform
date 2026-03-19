@@ -4,7 +4,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/otp.whlib";
-LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 

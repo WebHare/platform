@@ -12,7 +12,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 

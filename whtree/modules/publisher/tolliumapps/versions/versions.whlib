@@ -1,33 +1,19 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::javascript.whlib";
-LOADLIB "wh::ooxml/spreadsheet.whlib";
-LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::internal/enrichment.whlib";
-LOADLIB "wh::util/comparisons.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
-LOADLIB "mod::tollium/lib/yamlcomponents.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
-LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
-LOADLIB "mod::publisher/lib/siteapi.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
 LOADLIB "mod::publisher/tolliumapps/filemanager/copymove.whlib";
-LOADLIB "mod::publisher/tolliumapps/filemanager/inspect.whlib";
 
 
 // By default, show version events within the last 30 days

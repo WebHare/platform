@@ -2,8 +2,6 @@
 /** @topic witty/api */
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::javascript.whlib";
-LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/asynctools.whlib";

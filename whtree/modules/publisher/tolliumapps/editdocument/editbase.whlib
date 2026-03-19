@@ -2,7 +2,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
-LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";

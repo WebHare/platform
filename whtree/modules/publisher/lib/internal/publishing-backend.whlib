@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";

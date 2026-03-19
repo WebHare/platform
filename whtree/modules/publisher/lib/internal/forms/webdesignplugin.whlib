@@ -1,15 +1,12 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
-
-LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
 <

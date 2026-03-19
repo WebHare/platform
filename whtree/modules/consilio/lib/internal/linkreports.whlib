@@ -6,7 +6,6 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
-LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 

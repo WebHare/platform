@@ -1,5 +1,4 @@
 <?wh (*WASMENGINE*)
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
