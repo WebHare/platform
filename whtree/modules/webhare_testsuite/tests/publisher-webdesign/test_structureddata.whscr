@@ -53,6 +53,12 @@ MACRO TestShareImage()
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage")->url || "?shareimage=1") );
   OBJECT ogimage := testfw->browser->QSA(`meta[property="og:image"]`)[0];
   TestEq(OpenTestsuiteSite()->webroot || "TestPages/rangetestfile.jpeg", ogimage->GetAttribute("content"));
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage")->url || "?sharedescription=1") );
+  OBJECT ogtitle := testfw->browser->QSA(`meta[property="og:title"]`)[0];
+  TestEq("A share title", ogtitle->GetAttribute("content"));
+  OBJECT ogdescription := testfw->browser->QSA(`meta[property="og:description"]`)[0];
+  TestEq("A share description", ogdescription->GetAttribute("content"));
 }
 
 RunTestframework([ PTR CheckBreadcrumbs
