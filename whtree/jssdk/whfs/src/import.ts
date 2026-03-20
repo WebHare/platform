@@ -273,7 +273,14 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
 
   //first add all items that have metadata
   for (const [subpath, item] of itemMap) {
-    if (subpath.endsWith(".whfs.yml")) {
+    if (subpath.endsWith("/^folder.whfs.yml")) {
+      outItems.push({
+        name: dirname(subpath).split('/').pop()!, //get the folder name from the path
+        subPath: dirname(subpath),
+        metadata: item.blob
+      });
+      itemMap.delete(subpath); //mark metadata as processed
+    } else if (subpath.endsWith(".whfs.yml")) {
       const actualData = itemMap.get(subpath.slice(0, -9)); //remove .whfs.yml from filename
       if (actualData)
         itemMap.delete(subpath.slice(0, -9)); //mark data as processed

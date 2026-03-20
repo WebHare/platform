@@ -116,7 +116,7 @@ async function testWHFSExportArchive() {
   await storeWHFSExport(join(workdir, "dest1"), [source]);
 
   //verify the root metadata was created
-  const rootMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree.whfs.yml"), "utf-8"));
+  const rootMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree/^folder.whfs.yml"), "utf-8"));
   test.eq("The Tree To Import", rootMetadata.instances[0].data.title);
 
   //verify proper relative link

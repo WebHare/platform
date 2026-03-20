@@ -14,14 +14,13 @@ import { exportIntExtLink, type ExportMapWhfsLinkInfo } from '@webhare/services/
 
 /* The WHFS Tree Export (Zip) format is defined as follows:
    - Folders and the data for files (if they have a non-zero data member) are stored under their own name
-   - Metadata for folders and files is stored in an accompanying `<name>.whfs.yml` file
-     - A folder's metadata will be stored next to its folder, not inside the folder
-     - This makes it purposefully impossible to store metadata about the 'root' of an archive (unlike HS wharchive)
+   - Metadata for files is stored in an accompanying `<name>.whfs.yml` file
+   - Metadata for folders is stored in a `^folder.whfs.yml` file inside the folder
 
   Eg a folder 'my-folder' with one image 'my-image' and one RTD 'index' would be stored as:
 
   /my-folder/
-  /my-folder.whfs.yml
+  /my-folder/^folder.whfs.yml
   /my-folder/my-image.jpg
   /my-folder/my-image.jpg.whfs.yml
   /my-folder/index.whfs.yml
@@ -123,7 +122,8 @@ async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: str
   const entryPath = `${basePath}/${item.name}`;
   const meta = await buildExportMetadata(item, exportOptions);
   const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
-  await target.addFile(entryPath + ".whfs.yml", header + YAML.stringify(meta), item.modified);
+  const metadataPath = item.isFolder ? `${entryPath}/^folder.whfs.yml` : `${entryPath}.whfs.yml`;
+  await target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
 
   if (item.isFolder) {
     await target.addFolder(entryPath, item.modified);
