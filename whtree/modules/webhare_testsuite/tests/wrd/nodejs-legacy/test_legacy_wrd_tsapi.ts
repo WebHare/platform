@@ -879,7 +879,7 @@ async function testNewAPI() {
 
   //test other attribute types
   const toset = {
-    testTime: 15 * 60 * 60_1000 + 24 * 60_000 + (34 * 1_000)
+    testTime: 15 * 60 * 60_000 + 24 * 60_000 + (34 * 1_000)
   };
   await schema.update("wrdPerson", newperson, toset);
   const retval = await schema.getFields("wrdPerson", newperson, Object.keys(toset) as Array<keyof typeof toset>);
@@ -1029,6 +1029,11 @@ async function testDates() {
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [new Date("2024-01-01"), new Date("2024-03-01")]).select(["wrdId"]).execute());
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [new Date("2024-03-04"), new Date("2024-03-06")]).select(["wrdId"]).execute());
 
+  await schema.update("wrdPerson", newperson, { testTime: 12 * 3600_000 + 45 * 60_000 + 18 * 1_000 });
+  test.eq({ testTime: 12 * 3600_000 + 45 * 60_000 + 18 * 1_000 }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  await schema.update("wrdPerson", newperson, { testTime: "12:34:56" });
+  test.eq({ testTime: 12 * 3600_000 + 34 * 60_000 + 56 * 1_000 }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  test.eq({ testTime: "12:34:56" }, await schema.getFields("wrdPerson", newperson, ["testTime"], { export: true }));
   await whdb.commitWork();
 }
 

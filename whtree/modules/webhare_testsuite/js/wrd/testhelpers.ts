@@ -107,7 +107,7 @@ export type CustomExtensionsModern = {
     testMultipleDomain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
     testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
     testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
-    testTime: WRDAttributeTypeId.Time;//", { title: "Time attribute" });
+    testTime: WRDBaseAttributeTypeId.Modern_Time;//", { title: "Time attribute" });
     testDatetime: WRDBaseAttributeTypeId.Modern_DateTime;
     testArray: WRDAttr<WRDAttributeTypeId.Array, {
       members: {

@@ -25,7 +25,7 @@ import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webh
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { cmp, getAttrBaseCells, WRDAttributeValueBase, type AddToQueryResponse } from "./accessors-support";
-import { WRDDBBaseCreationLimitDateValue, WRDDBBaseDateValue, WRDDBBaseModificationDateValue, WRDDBDateTimeValue, WRDDBDateValue } from "./accessors-datetimes";
+import { WRDDBBaseCreationLimitDateValue, WRDDBBaseDateValue, WRDDBBaseModificationDateValue, WRDDBDateTimeValue, WRDDBDateValue, WRDDBTimeValue } from "./accessors-datetimes";
 
 /// Returns `null` if Required might be false
 export type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
@@ -2278,6 +2278,7 @@ type SimpleTypeMap<Required extends boolean> = {
 
   [WRDBaseAttributeTypeId.Modern_Date]: WRDDBDateValue<Required, true>;
   [WRDBaseAttributeTypeId.Modern_DateTime]: WRDDBDateTimeValue<Required, true>;
+  [WRDBaseAttributeTypeId.Modern_Time]: WRDDBTimeValue<Required, true>;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2303,7 +2304,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.Payment]: WRDDBPaymentValue;
   [WRDAttributeTypeId.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
   [WRDAttributeTypeId.WHFSRef]: WRDDBWHFSLinkValue;
-  [WRDAttributeTypeId.Time]: WRDDBIntegerValue;
+  [WRDAttributeTypeId.Time]: WRDDBTimeValue<Required, false>;
 };
 
 /** Returns the accessor for a WRDAttr record
@@ -2330,6 +2331,7 @@ export function getAccessor<T extends WRDAttrBase>(
   attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
   parentAttrMap: Map<number | null, AttrRec[]>,
 ): AccessorType<T> {
+  //hmm.. if we're going to 'as AccessorType<T>' everything we don't need to pass as much type parameters (eg T["__required]) as we're doing now
   switch (attrinfo.attributetype) {
     case WRDBaseAttributeTypeId.Base_Integer: return new WRDDBBaseIntegerValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Guid: return new WRDDBBaseGuidValue(type, attrinfo) as AccessorType<T>;
@@ -2354,9 +2356,8 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.URL: return new WRDDBUrlValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Integer:
-    case WRDAttributeTypeId.Time:
-      return new WRDDBIntegerValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Integer: return new WRDDBIntegerValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Time: return new WRDDBTimeValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"], false>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"], false>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Domain: return new WRDDBDomainValue<T["__required"]>(type, attrinfo) as AccessorType<T>;

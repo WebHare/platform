@@ -42,6 +42,7 @@ export enum WRDBaseAttributeTypeId {
   Base_Legacy_Date = -15, //Legacy wrdDateOfBirth and wrdDateOfDeath
   Modern_Date = -16, //modern version of normal attribute Date
   Modern_DateTime = -17, //modern version of normal attribute DateTime
+  Modern_Time = -18, //modern version of normal attribute Time
 }
 
 export enum WRDAttributeTypeId {
@@ -122,6 +123,7 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeTypeId.Base_Legacy_Date |
   WRDBaseAttributeTypeId.Modern_Date |
   WRDBaseAttributeTypeId.Modern_DateTime |
+  WRDBaseAttributeTypeId.Modern_Time |
   WRDAttributeTypeId.Domain |
   WRDAttributeTypeId.String |
   WRDAttributeTypeId.Address |

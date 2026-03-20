@@ -5,7 +5,7 @@ import type { ValueQueryChecker } from "./checker";
 import type { SelectQueryBuilder } from "kysely";
 import { cmp, getAttrBaseCells, matchesValueWithCmp, WRDAttributeValueBase, type AddToQueryResponse } from "./accessors-support";
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
-import { isDate, isTemporalInstant, isTemporalPlainDate } from "@webhare/std";
+import { isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainTime } from "@webhare/std";
 
 type WRDDBDateConditions<ModernSchema extends boolean> = {
   condition: "=" | "!="; value: (ModernSchema extends true ? Temporal.PlainDate : Date) | null;
@@ -13,6 +13,14 @@ type WRDDBDateConditions<ModernSchema extends boolean> = {
   condition: ">=" | "<=" | "<" | ">"; value: ModernSchema extends true ? Temporal.PlainDate : Date;
 } | {
   condition: "in"; value: ReadonlyArray<(ModernSchema extends true ? Temporal.PlainDate : Date) | null>;
+};
+
+type WRDDBTimeConditions<ModernSchema extends boolean> = {
+  condition: "=" | "!="; value: (ModernSchema extends true ? Temporal.PlainTime : number) | null;
+} | {
+  condition: ">=" | "<=" | "<" | ">"; value: ModernSchema extends true ? Temporal.PlainTime : number;
+} | {
+  condition: "in"; value: ReadonlyArray<(ModernSchema extends true ? Temporal.PlainTime : number) | null>;
 };
 
 /* Base for date validation.
@@ -438,5 +446,88 @@ export class WRDDBBaseModificationDateValue<ModernSchema extends boolean> extend
 
   encodeValue(value: Date | null): EncodedValue {
     return { entity: { [this.getAttrBaseCells()]: value } };
+  }
+}
+
+////////////////////////////////////////
+//
+// TIME
+//
+function plainTimeToMsecs(time: Temporal.PlainTime): number {
+  return time.hour * 3600000 + time.minute * 60000 + time.second * 1000 + time.millisecond;
+}
+function msecsToPlainTime(msecs: number): Temporal.PlainTime {
+  const hour = Math.floor(msecs / 3600000);
+  msecs -= hour * 3600000;
+  const minute = Math.floor(msecs / 60000);
+  msecs -= minute * 60000;
+  const second = Math.floor(msecs / 1000);
+  msecs -= second * 1000;
+  const millisecond = msecs;
+  return new Temporal.PlainTime(hour, minute, second, millisecond);
+}
+
+export class WRDDBTimeValue<Required extends boolean, ModernSchema extends boolean> extends WRDAttributeValueBase<
+  (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>,
+  (ModernSchema extends true ? Temporal.PlainTime : number) | null,
+  (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>,
+  string | NullIfNotRequired<Required>,
+  WRDDBTimeConditions<ModernSchema>
+> {
+  getDefaultValue(): null { return null; }
+  isSet(value: (ModernSchema extends true ? Temporal.PlainTime : number) | null) { return Boolean(value); }
+
+  matchesValue(value: (ModernSchema extends true ? Temporal.PlainTime : number) | null, cv: WRDDBTimeConditions<ModernSchema>): boolean {
+    return matchesValueWithCmp(value, cv);
+  }
+
+  exportValue(value: (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    const pt = isTemporalPlainTime(value) ? value : msecsToPlainTime(value);
+    return pt.toString();
+  }
+
+  importValue(value: string | (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>): (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required> {
+    type RetVal = (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>;
+    if (typeof value === "string") {
+      const pt = Temporal.PlainTime.from(value);
+      return (this.type.legacySchema ? plainTimeToMsecs(pt) : pt) as RetVal;
+    }
+    return value;
+  }
+
+  checkFilter({ condition, value }: WRDDBTimeConditions<ModernSchema>) {
+    /* always ok */
+  }
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required> {
+    type RetVal = (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>;
+    const pt = msecsToPlainTime(parseInt(entity_settings[settings_start].rawdata));
+    return (this.type.legacySchema ? plainTimeToMsecs(pt) : pt) as RetVal;
+  }
+
+  validateInput(value: (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
+    if (value === null) {
+      if (this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+        throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+      return;
+    }
+
+    if (this.type.legacySchema) {
+      if (typeof value !== "number" || value < 0 || value >= 24 * 60 * 60 * 1000)
+        throw new Error(`Invalid time value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    } else {
+      if (!isTemporalPlainTime(value))
+        throw new Error(`Invalid time value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    }
+  }
+
+  encodeValue(value: (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>): EncodedValue {
+    if (!value)
+      return {};
+
+    const asTime = isTemporalPlainTime(value) ? plainTimeToMsecs(value) : value;
+    return { settings: { rawdata: String(asTime), attribute: this.attr.id } };
   }
 }

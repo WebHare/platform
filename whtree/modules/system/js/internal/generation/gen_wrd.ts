@@ -448,6 +448,7 @@ function getEnumName(type: WRDAttributeType, modern: boolean): string {
     switch (type) {
       case "plainDate": return "WRDBaseAttributeTypeId.Modern_Date";
       case "instant": return "WRDBaseAttributeTypeId.Modern_DateTime";
+      case "plainTime": return "WRDBaseAttributeTypeId.Modern_Time";
     }
   }
 

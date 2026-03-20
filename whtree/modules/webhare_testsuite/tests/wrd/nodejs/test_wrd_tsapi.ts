@@ -905,14 +905,6 @@ async function testNewAPI() {
     }, fields);
   }
 
-  //test other attribute types
-  const toset = {
-    testTime: 15 * 60 * 60_1000 + 24 * 60_000 + (34 * 1_000)
-  };
-  await schema.update("wrdPerson", newperson, toset);
-  const retval = await schema.getFields("wrdPerson", newperson, Object.keys(toset) as Array<keyof typeof toset>);
-  test.eq(toset, retval);
-
   const nottrue = false;
   if (nottrue) {
     // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers
@@ -1056,6 +1048,23 @@ async function testDates() {
   test.eq({ testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime"], { export: true }));
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [Temporal.PlainDate.from("2024-01-01"), Temporal.PlainDate.from("2024-03-01")]).select(["wrdId"]).execute());
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [Temporal.PlainDate.from("2024-03-04"), Temporal.PlainDate.from("2024-03-06")]).select(["wrdId"]).execute());
+
+  await schema.update("wrdPerson", newperson, { testDate: null, testDatetime: null, wrdDateOfBirth: null });
+  test.eq({ testDate: null, testDatetime: null, wrdDateOfBirth: null }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
+  test.eq({ testDate: null, testDatetime: null, wrdDateOfBirth: null }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"], { export: true }));
+
+  await schema.update("wrdPerson", newperson, { testTime: Temporal.PlainTime.from("12:45:18") });
+  test.eq({ testTime: Temporal.PlainTime.from("12:45:18") }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "=", Temporal.PlainTime.from("12:45:18")).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "in", [Temporal.PlainTime.from("12:45:18"), Temporal.PlainTime.from("12:34:56")]).select(["wrdId"]).execute());
+  test.eq([], await schema.query("wrdPerson").where("testTime", "in", [Temporal.PlainTime.from("12:34:56")]).select(["wrdId"]).execute());
+  await schema.update("wrdPerson", newperson, { testTime: "12:34:56" });
+  test.eq({ testTime: Temporal.PlainTime.from("12:34:56") }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  test.eq({ testTime: "12:34:56" }, await schema.getFields("wrdPerson", newperson, ["testTime"], { export: true }));
+  await schema.update("wrdPerson", newperson, { testTime: null });
+  test.eq({ testTime: null }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  test.eq({ testTime: null }, await schema.getFields("wrdPerson", newperson, ["testTime"], { export: true }));
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "in", [null]).select(["wrdId"]).execute());
 
   await whdb.commitWork();
 }
