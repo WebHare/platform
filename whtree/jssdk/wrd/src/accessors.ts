@@ -752,7 +752,8 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     switch (this.attr.tag) {
       case "wrdId": return entityrec["id"] || 0;
       case "wrdType": return entityrec["type"] || 0;
-      case "wrdOrdering": return entityrec["ordering"] || 0;
+      case "wrdOrdering":
+      case "wrdOrder": return entityrec["ordering"] || 0;
       default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
   }
@@ -769,7 +770,7 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdOrdering"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdOrder", "wrdOrdering"]);
   }
 
   encodeValue(value: number): EncodedValue {

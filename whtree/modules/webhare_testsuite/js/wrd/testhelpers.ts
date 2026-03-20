@@ -145,12 +145,12 @@ export type CustomExtensionsModern = {
   } & WRDTypeBaseSettingsModern;
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
     wrdTitle: WRDAttributeTypeId.String;
   } & WRDTypeBaseSettingsModern;
   testDomain_2: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-    wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
   } & WRDTypeBaseSettingsModern;
   personattachment: {
     wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;

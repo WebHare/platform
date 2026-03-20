@@ -175,6 +175,7 @@ export const baseAttrCells = {
   "wrdCreated": "creationdate",
   "wrdClosed": "limitdate",
   "wrdModified": "modificationdate",
+  "wrdOrder": "ordering",
 } as const;
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties

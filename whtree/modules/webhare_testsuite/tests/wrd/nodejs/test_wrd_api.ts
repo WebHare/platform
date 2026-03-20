@@ -16,6 +16,13 @@ async function testWRDUntypedApi() { //  tests
   test.assert(await wrdschema.getType("wrdPerson").exists());
   test.assert(!await wrdschema.getType("noSuchType").exists());
 
+  const domainType = wrdschema.getType("testDomain_1");
+  const domainAttributes = await domainType.listAttributes();
+  test.eq(true, domainAttributes.some(_ => _.tag === "wrdOrder"));
+  test.eq(false, domainAttributes.some(_ => _.tag === "wrdOrdering"));
+  test.eq(null, await domainType.describeAttribute("wrdOrdering"));
+  test.eqPartial({}, await domainType.describeAttribute("wrdOrder"));
+
   const persontype = wrdschema.getType("wrdPerson");
   test.eq(null, await persontype.describeAttribute("noSuchAttribute"));
   await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
@@ -303,7 +310,7 @@ async function testRequired() {
   type MySchema = {
     testRequiredDom: {
       wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
       wrdTitle: WRDAttributeTypeId.String;
       testFree: IsRequired<WRDAttributeTypeId.String>;
     } & WRDTypeBaseSettings;
@@ -448,12 +455,12 @@ async function testReferences2() {
   type MySchema = {
     testReferencesDom1: {
       wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
       wrdTitle: WRDAttributeTypeId.String;
     } & WRDTypeBaseSettings;
     testReferencesDom2: {
       wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
-      wrdOrdering: WRDBaseAttributeTypeId.Base_Integer;
+      wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
       wrdTitle: WRDAttributeTypeId.String;
     } & WRDTypeBaseSettings;
     testReferencesLink: {

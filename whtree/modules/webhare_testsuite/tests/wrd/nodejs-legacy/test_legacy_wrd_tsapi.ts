@@ -590,7 +590,7 @@ async function testNewAPI() {
 
   test.assert(domain1value1);
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "=", "TEST_DOMAINVALUE_1_1").execute());
-  test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
+  test.eq([{ wrdId: domain1value1, wrdOrdering: 3 }], await schema.query("testDomain_1").select(["wrdId", "wrdOrdering"]).where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
   await test.throws(/not.*0/, schema.insert("wrdPerson", { ...basePerson, testSingleDomain: 0, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "notzero@beta.webhare.net" }));
   const newperson = await schema.insert("wrdPerson", { ...basePerson, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net", testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "testWrdTsapi@beta.webhare.net", testInteger: 1 });
 
@@ -620,6 +620,11 @@ async function testNewAPI() {
 
   await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: "TEST_DOMAINVALUE_1_2" }); //verify wrdTag is supported on input
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value2 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value2).execute());
+
+  await schema.update("testDomain_1", domain1value1, { wrdOrdering: 444 });
+  test.eq({ wrdId: domain1value1, wrdOrdering: 444 }, await schema.getFields("testDomain_1", domain1value1, ["wrdId", "wrdOrdering"]));
+  //@ts-expect-error TS knows there should be no wrdOrder
+  await test.throws(/use 'wrdOrdering' instead./, () => schema.getFields("testDomain_1", domain1value1, ["wrdOrder"]));
 
   // verify File/Image fields (blob)
   //@ts-expect-error data:Buffer is no longer valid to avoid confusion between the 5.3 compat option and the 5.8 ExportedResource

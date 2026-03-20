@@ -104,7 +104,8 @@ function validateCloseMode(closeMode: string) {
 const legacyTranslations = {
   "wrdCreated": "wrdCreationDate",
   "wrdClosed": "wrdLimitDate",
-  "wrdModified": "wrdModificationDate"
+  "wrdModified": "wrdModificationDate",
+  "wrdOrder": "wrdOrdering"
 } as const;
 const invalidLegacyFields = Object.values(legacyTranslations);
 
