@@ -115,7 +115,6 @@ function mapWhfsLink(start: WHFSFolder, sourcePath: string, link: ExportMapWhfsL
 async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
   const exportOptions: ExportOptions & { export: true } = {
     export: true,
-    exportResources: "base64",
     mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
   };
 

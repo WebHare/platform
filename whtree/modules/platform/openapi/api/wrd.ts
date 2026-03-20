@@ -6,6 +6,7 @@ import { omit, pick, throwError, typedFromEntries } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
 import { listSchemas, WRDSchema } from "@webhare/wrd";
 import type { AllowedFilterConditions } from "@webhare/wrd/src/types";
+import { exportFileAsFetch } from "@webhare/services/src/descriptor";
 
 /* FIXME for nearly all APIs here:
    - privilege checks
@@ -46,7 +47,7 @@ export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "pos
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
 
-  const results = await query.execute({ export: true, exportResources: "fetch" });
+  const results = await query.execute({ export: true, exportFile: exportFileAsFetch });
   results.sort((a, b) => a.wrdId - b.wrdId); //sort by wrdId
 
   return req.createJSONResponse(HTTPSuccessCode.Ok, {
