@@ -4,13 +4,22 @@ import { parseTyped, stringify } from "@webhare/std";
 import { decodeHSON } from "@webhare/hscompat";
 import type { ServerEncryptionScopes } from "./services";
 
-function getKeyForScope(scope: string): Buffer {
-  const key = getFullConfigFile().secrets.gcm;
-  if (!key)
-    throw new Error("No gcm secret configured");
+export interface AlgorithmOptions {
+  ///Override the default secret. This allows you to encrypt data that can be decrypted by (other) servers that know this secret
+  secret?: string;
+}
 
+function getKeyForScope(scope: string, options?: AlgorithmOptions): Buffer {
   const hash = crypto.createHash("SHA-256");
-  hash.update(key, 'base64url');
+  if (options?.secret) {
+    hash.update(options.secret + "\t", 'utf8');
+  } else {
+    const key = getFullConfigFile().secrets.gcm;
+    if (!key)
+      throw new Error("No gcm secret configured");
+
+    hash.update(key, 'base64url');
+  }
   hash.update(scope, 'utf8');
   return hash.digest();
 }
@@ -32,9 +41,9 @@ declare module "@webhare/services" {
 
 const enctoken = encryptForThisServer("mymodule:myscope", { field: "value" });
 */
-export function encryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
+export function encryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown, options?: AlgorithmOptions): string {
   const iv = crypto.randomBytes(12);
-  const key = getKeyForScope(scope);
+  const key = getKeyForScope(scope, options);
   const text = stringify(data, { typed: true });
 
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
@@ -51,9 +60,9 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
     @param options.nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
 */
 export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean }): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
 
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean } & AlgorithmOptions): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
   type RetVal = S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
   const [enc, iv, authTag] = text.split(".");
   if (!enc || !iv || !authTag)
@@ -62,7 +71,7 @@ export function decryptForThisServer<S extends string>(scope: keyof ServerEncryp
     else
       throw new Error("Invalid encrypted data");
 
-  const key = getKeyForScope(scope);
+  const key = getKeyForScope(scope, options);
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
   decipher.setAuthTag(Buffer.from(authTag, 'base64url'));
   let str = decipher.update(enc, 'base64url', 'utf8');
