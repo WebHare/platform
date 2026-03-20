@@ -132,8 +132,21 @@ async function testWHFSExportArchive() {
     test.eq([], importResult.messages);
     await commitWork();
 
-    //TODO hmm, does it make sense that export followed by import would add a level?
     await verifyImportTree(await importTree.openFolder("import-tree"));
+
+    //Rename during import
+    await beginWork();
+
+    console.log(`Importing exported tree into ${importTree.whfsPath} as import-tree-3... https://my.webhare.dev/?app=publisher(${encodeURIComponent(importTree.whfsPath)}`);
+    const importResult2 = await importIntoWHFS(join(workdir, "dest1"), importTree, {
+      onProgress: onImportProgress,
+      allowResourceImports: true,
+      rename: [{ from: "import-tree/", to: "import-tree-3/" }]
+    });
+    test.eq([], importResult2.messages);
+    await commitWork();
+
+    await verifyImportTree(await importTree.openFolder("import-tree-3"));
   }
 }
 
