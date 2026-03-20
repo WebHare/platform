@@ -225,6 +225,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
   /// Share image property. Adds the opengraph plugin without requiring you to explicitly declare it
   PUBLIC PROPERTY ogshareimage(GetOGShareImage, SetOGShareImage);
+  /// Share description property. Adds the opengraph plugin without requiring you to explicitly declare it
+  PUBLIC PROPERTY ogsharetitle(GetOGShareTitle, SetOGShareTitle);
+  /// Share title property. Adds the opengraph plugin without requiring you to explicitly declare it
+  PUBLIC PROPERTY ogsharedescription(GetOGShareDescription, SetOGShareDescription);
 
   // ---------------------------------------------------------------------------
   //
@@ -386,11 +390,25 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     RETURN ogplugin->ogproperties.image;
   }
 
-  MACRO SetOGShareImage(STRING newimage) {
+  STRING FUNCTION GetOGShareTitle() {
+    OBJECT ogplugin := this->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
+    IF(NOT ObjectExists(ogplugin))
+      RETURN "";
+    RETURN ogplugin->ogproperties.title;
+  }
+
+  STRING FUNCTION GetOGShareDescription() {
+    OBJECT ogplugin := this->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
+    IF(NOT ObjectExists(ogplugin))
+      RETURN "";
+    RETURN ogplugin->ogproperties.description;
+  }
+
+  OBJECT FUNCTION EnsureOGSharePlugin(BOOLEAN must_create) {
     BOOLEAN needs_prepare;
     IF(NOT RecordExists(SELECT FROM this->pvt_plugins WHERE namespace = "http://www.webhare.net/xmlns/socialite" AND name = "opengraph")) {
-      IF(newimage = "")
-       RETURN;
+      IF(NOT must_create)
+       RETURN DEFAULT OBJECT;
 
       //Ensure we can instantiate the OG plugin even if the siteprofiles didn't declare it. Hardcoding specs as socialite isn't moving much anyway
       INSERT CELL[ namespace := "http://www.webhare.net/xmlns/socialite",
@@ -407,7 +425,25 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     OBJECT ogplugin := this->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
     IF(needs_prepare)
       ogplugin->PrepareForRendering(this);
-    ogplugin->ogproperties := CELL[...ogplugin->ogproperties, image := newimage ];
+    RETURN ogplugin;
+  }
+
+  MACRO SetOGShareImage(STRING newimage) {
+    OBJECT ogplugin := this->EnsureOGSharePlugin(newimage != "");
+    IF(ObjectExists(ogplugin))
+      ogplugin->ogproperties := CELL[...ogplugin->ogproperties, image := newimage ];
+  }
+
+  MACRO SetOGShareTitle(STRING newtitle) {
+    OBJECT ogplugin := this->EnsureOGSharePlugin(newtitle != "");
+    IF(ObjectExists(ogplugin))
+      ogplugin->ogproperties := CELL[...ogplugin->ogproperties, title := newtitle ];
+  }
+
+  MACRO SetOGShareDescription(STRING newdescription) {
+    OBJECT ogplugin := this->EnsureOGSharePlugin(newdescription != "");
+    IF(ObjectExists(ogplugin))
+      ogplugin->ogproperties := CELL[...ogplugin->ogproperties, description := newdescription ];
   }
 
   OBJECT FUNCTION GetWebtoolForm()
