@@ -35,6 +35,11 @@ export function isTemporalPlainDate(value: unknown): value is Temporal.PlainDate
   return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.PlainDate');
 }
 
+/** Test whether a value looks like an instance of Temporal.PlainTime */
+export function isTemporalPlainTime(value: unknown): value is Temporal.PlainTime {
+  return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.PlainTime');
+}
+
 /** Test whether a value looks like an instance of Temporal.ZonedDateTime */
 export function isTemporalZonedDateTime(value: unknown): value is Temporal.ZonedDateTime {
   return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.ZonedDateTime');
@@ -69,7 +74,7 @@ export function isPromise<T>(e: unknown): e is Promise<T> {
  * @param value - The value to check
  * @returns The type of the value. If the value is an object but recognized as any of Money, Date, Blob, Temporal.Instant/PlainDate/PlainDateTime, that type is returned.
  */
-export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" | "Instant" | "PlainDate" | "PlainDateTime" | "ZonedDateTime" | "File" | "Blob" {
+export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" | "Instant" | "PlainDate" | "PlainDateTime" | "PlainTime" | "ZonedDateTime" | "File" | "Blob" {
   const t = typeof value;
   if (t === "object") {
     if (!value)
@@ -84,6 +89,8 @@ export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "nu
       return "Date";
     if (isTemporalInstant(value))
       return "Instant";
+    if (isTemporalPlainTime(value))
+      return "PlainTime";
     if (isTemporalPlainDate(value))
       return "PlainDate";
     if (isTemporalPlainDateTime(value))

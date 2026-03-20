@@ -536,6 +536,7 @@ async function testTypes() {
     { value: Temporal.Now.plainDateISO(), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
     { value: Temporal.Now.plainDateTimeISO(), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
     { value: Temporal.Now.zonedDateTimeISO("Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
+    { value: Temporal.Now.plainTimeISO(), stdType: "PlainTime", quacks: [std.isTemporalPlainTime], typedStringify: true },
   ];
 
   const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);
@@ -1015,6 +1016,7 @@ function testCompare() {
 
   test.eq(-1, std.compare(Temporal.Instant.from("2025-02-02T12:00:00Z"), Temporal.Instant.from("2025-02-02T14:00:00Z")));
   test.eq(-1, std.compare(Temporal.PlainDate.from("2025-02-02"), Temporal.PlainDate.from("2025-02-03")));
+  test.eq(-1, std.compare(Temporal.PlainTime.from("12:00:00"), Temporal.PlainTime.from("14:00:00")));
   test.eq(-1, std.compare(Temporal.ZonedDateTime.from("2025-02-02T12:00:00[Europe/Amsterdam]"), Temporal.ZonedDateTime.from("2025-02-02T14:00:00Z[Europe/Amsterdam]")));
 
   if (typeof Buffer !== "undefined") { //looks like nodejs
