@@ -207,13 +207,18 @@ run({
     },
     "export": {
       description: "Export files or folders from WHFS",
+      options: {
+        "link-resources-from": { description: "Additional paths to search for resources (for export)", multiple: true },
+      },
       arguments: [
         { name: "<source...>", description: "Path or ID to export" },
         { name: "<target>", description: "Target file or folder" },
       ],
       main: async ({ opts, args }) => {
         const bases = await resolveWHFSPathArrayArgument(args.source);
-        const options: ExportWHFSOptions = {};
+        const options: ExportWHFSOptions = {
+          linkResourcesFrom: opts.linkResourcesFrom
+        };
         if (args.target.endsWith("/")) {
           await storeWHFSExport(args.target, bases, options);
         } else if (args.target.endsWith(".whexport.zip")) {

@@ -115,6 +115,9 @@ async function testWHFSExportArchive() {
   const source = await target.openFolder("dest1/import-tree");
   await storeWHFSExport(join(workdir, "dest1"), [source]);
 
+  const rootFileMeta = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree/rootfile.whfs.yml"), "utf-8"));
+  test.eq({ base64: /^\/9j\// }, rootFileMeta.instances[1].data.data[1].widget.data.thumbnail.file);
+
   //verify the root metadata was created
   const rootMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree/^folder.whfs.yml"), "utf-8"));
   test.eq("The Tree To Import", rootMetadata.instances[0].data.title);
@@ -150,8 +153,21 @@ async function testWHFSExportArchive() {
   }
 }
 
+async function testWHFSExportWithResourceLinks() {
+  const workdir = await mkdtemp(join(tmpdir(), "whfs-export-archive."));
+  console.log(`Export work dir: ${workdir}`);
+
+  const target = await test.getTestSiteJSTemp();
+  const source = await target.openFolder("dest1/import-tree");
+  await storeWHFSExport(join(workdir, "dest2"), [source], { linkResourcesFrom: ["mod::system/web/tests/"] });
+
+  const rootFileMeta = YAML.parse(readFileSync(join(workdir, "dest2", "import-tree/rootfile.whfs.yml"), "utf-8"));
+  test.eq({ resource: "mod::system/web/tests/snowbeagle.jpg" }, rootFileMeta.instances[1].data.data[1].widget.data.thumbnail.file);
+}
+
 test.runTests([
   test.resetWTS,
   testWHFSImportArchive,
   testWHFSExportArchive,
+  testWHFSExportWithResourceLinks,
 ]);

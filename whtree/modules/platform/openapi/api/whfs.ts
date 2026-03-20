@@ -49,7 +49,7 @@ async function getInstances(obj: WHFSObject, exportOptions: ExportOptions) {
   return instanceList;
 }
 
-export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportOptions: ExportOptions): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
+export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportOptions: ExportOptions & { export: true }): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
   const result: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok> = {
     name: targetObj.name,
     whfsPath: targetObj.whfsPath,
