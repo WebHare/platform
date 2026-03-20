@@ -87,3 +87,9 @@ In practice:
 -- List top 10 files with the most history entries
 select fs_object,count(*) from system.fs_history group by fs_object order by count(*) desc limit 10;
 ```
+
+## CI tests
+- `mod::webhare_testsuite/tests/publisher/tollium/testfilemgr-newobject.whscr` - tests objectprops create/duplicate (but not workflow-based editors)
+- `mod::webhare_testsuite/tests/publisher/rtd/test-rtdedit-savepublish.whscr` - tests editdocument save/publish workflow
+- `mod::webhare_testsuite/tests/publisher/versions/test-newitem-versions.whscr` - focuses on new documents and automatic name generation based on title
+- `mod::webhare_testsuite/tests/system/whfs/test-whfs-history-v4.whscr` - tests workflow APIs at a lower level
