@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -55,6 +56,10 @@ TestEq([
   date := MakeDateFromText("2024-01-01T12:13:14Z"),
   m := 1.1m
  ]));
+
+//verify we can see a blob's disk path
+BLOB snowbeagle_hs := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg");
+TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/snowbeagle.jpg"), GetBlobDiskPath(snowbeagle_hs));
 
 TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(CallJS("./data/calls.ts#getResourceFromDisk", GetWebhareResourceDiskpath("mod::system/web/tests/goudvis.png")),"SHA-256")));
 //TestEq("I am a blob", BlobToString(CallJS("./data/calls.ts#getBlob","I am a blob"))); // We're blocking Blob()s as the WASM version of CallJS requires synchronous datatypes

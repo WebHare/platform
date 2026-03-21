@@ -1623,6 +1623,25 @@ unsigned HSVM_BlobDescription (HSVM *vm, int blobhandle, char *data, unsigned ma
         return 0;
 }
 
+HSVM_PUBLIC HSVM_VariableId HSVM_BlobGetPath(struct HSVM *vm, HSVM_VariableId id)
+{
+        START_CATCH_VMEXCEPTIONS
+        BlobRefPtr blob = STACKMACHINE.GetBlob(id);
+        BlobBase *ptr = blob.GetPtr();
+        if(ptr)
+        {
+                std::string path = ptr->GetDiskPath();
+                if(!path.empty())
+                {
+                        HSVM_VariableId pathvar = HSVM_AllocateVariable(vm);
+                        HSVM_StringSetSTD(vm, pathvar, path.c_str());
+                        return pathvar;
+                }
+        }
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
 void HSVM_BlobClose (HSVM *vm, int blobhandle)
 {
         START_CATCH_VMEXCEPTIONS
