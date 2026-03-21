@@ -198,11 +198,10 @@ export class WASMModule extends WASMModuleBase {
   }
 
   resolveAbsoluteLibrary(loader_ptr: Ptr, libname_ptr: Ptr) {
-    let loader = this.UTF8ToString(loader_ptr);
     let libname = this.UTF8ToString(libname_ptr);
 
-    loader = this.doTranslateLibraryURI(loader); //get rid of any direct:: paths
     if (libname.startsWith('relative::')) {
+      const loader = this.doTranslateLibraryURI(this.UTF8ToString(loader_ptr)); //doTranslateLibraryURI gets rid of any direct:: paths
       // Grab the prefixed root. For mod/site we also want the first path component
       const split = loader.match(/^((?:wh::|(?:mod|site)::[^/]+\/))(.*)$/);
       if (!split)
@@ -247,7 +246,7 @@ export class WASMModule extends WASMModuleBase {
       }
       libname = "mod::" + modulename + subpart + libname.substring(firstslash + 1);
     } else {
-      libname = type + (type === "direct" || type === "directclib" ? "::/" : "::") + libname;
+      libname = type + "::" + libname;
     }
 
     if (libname.startsWith("mod::system/whlibs/"))
