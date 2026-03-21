@@ -61,7 +61,14 @@ TestEq([
 BLOB snowbeagle_hs := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg");
 TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/snowbeagle.jpg"), GetBlobDiskPath(snowbeagle_hs));
 
-TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(CallJS("./data/calls.ts#getResourceFromDisk", GetWebhareResourceDiskpath("mod::system/web/tests/goudvis.png")),"SHA-256")));
+BLOB goudvis_ts := CallJS("./data/calls.ts#getResourceFromDisk", GetWebhareResourceDiskpath("mod::system/web/tests/goudvis.png"));
+IF(IsWasm()) {
+  TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/goudvis.png"), GetBlobDiskPath(goudvis_ts));
+  goudvis_ts := CallJS("./data/calls.ts#echo", goudvis_ts);
+  TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/goudvis.png"), GetBlobDiskPath(goudvis_ts));
+}
+
+TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(goudvis_ts,"SHA-256")));
 //TestEq("I am a blob", BlobToString(CallJS("./data/calls.ts#getBlob","I am a blob"))); // We're blocking Blob()s as the WASM version of CallJS requires synchronous datatypes
 TestThrowsLike("*se WebHareMemoryBlob or WebHareDiskBlob*", PTR CallJS("./data/calls.ts#getBlob","I am a blob"));
 

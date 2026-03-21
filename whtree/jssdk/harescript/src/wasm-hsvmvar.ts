@@ -5,8 +5,9 @@ import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webh
 import { Money } from "@webhare/std";
 import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";
-import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import { WebHareBlob, WebHareDiskBlob } from "@webhare/services/src/webhareblob";
 import { ReadableStream } from "node:stream/web";
+import { getWHType } from "@webhare/std/src/quacks";
 
 function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
   if (from === to)
@@ -214,6 +215,13 @@ export class HSVMVar {
     if (tag?.pg)
       return createPGBlobByBlobRec(tag.pg, size);
 
+    const diskpathVar = this.vm.wasmmodule._HSVM_BlobGetPath(this.vm.hsvm, this.id);
+    if (diskpathVar) {
+      const diskpath = new HSVMVar(this.vm, diskpathVar).getString();
+      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, diskpathVar);
+      return new WebHareDiskBlob(size, diskpath);
+    }
+
     //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
     const cloneblob = this.vm.allocateVariable();
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
@@ -232,6 +240,14 @@ export class HSVMVar {
       this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
       this.vm.wasmmodule._free(fullpath_cstr);
       this.vm.setBlobJSTag(this.id, { pg: dbid });
+      this.type = HareScriptType.Blob;
+      return;
+    }
+
+    if (getWHType(blob) === "WebHareDiskBlob") { //TODO if postgres driver will also set path on an existing blob after uploading the above special case is unneeded
+      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8((blob as WebHareDiskBlob).path);
+      this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
+      this.vm.wasmmodule._free(fullpath_cstr);
       this.type = HareScriptType.Blob;
       return;
     }
