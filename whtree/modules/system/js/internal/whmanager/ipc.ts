@@ -195,7 +195,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean): boolean {
     if (envbackend.debugFlags.ipc) {
       const tolog = ctrlmsg.type === IPCEndPointImplControlMessageType.Message
-        ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
+        ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer), { diskblobsByReference: true }) }
         : { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] };
       console.log(`ipclink ${this.id} received ctrl msg`, tolog, { isqueueitem });
     }
@@ -219,7 +219,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
           }
         } break;
         case IPCEndPointImplControlMessageType.Message: {
-          const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer));
+          const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer), { diskblobsByReference: true });
           if (typeof message !== "object")
             return false;
 
@@ -298,7 +298,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   sendPortMessage(msg: IPCEndPointImplControlMessage, transferlist?: ArrayBuffer[]) {
     if (envbackend.debugFlags.ipc) {
       const tolog = msg.type === IPCEndPointImplControlMessageType.Message
-        ? { ...msg, type: IPCEndPointImplControlMessageType[msg.type], buffer: readMarshalPacket(msg.buffer) }
+        ? { ...msg, type: IPCEndPointImplControlMessageType[msg.type], buffer: readMarshalPacket(msg.buffer, { diskblobsByReference: true }) }
         : { ...msg, type: IPCEndPointImplControlMessageType[msg.type] };
       console.log(`ipclink ${this.id} sends ctrl msg`, tolog);
     }
@@ -313,7 +313,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.closed)
       return BigInt(0);
     const msgid = ++this.msgidcounter;
-    const packet = writeMarshalPacket(message);
+    const packet = writeMarshalPacket(message, { diskblobsByReference: true });
     // Copy the packet data into a new ArrayBuffer we can transfer over the MessagePort
     const buffer = bufferToArrayBuffer(packet);
     this.sendPortMessage({
