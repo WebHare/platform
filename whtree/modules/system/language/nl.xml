@@ -907,6 +907,11 @@
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="commondialogs">   <!-- tolliumapps.commondialogs -->
+      <textgroup gid="editsource">   <!-- tolliumapps.commondialogs.editsource -->
+        <textgroup gid="editsource">   <!-- tolliumapps.commondialogs.editsource.editsource -->
+          <text tid="editsource">Wijzig broncode</text>
+        </textgroup>
+      </textgroup>
       <textgroup gid="mailviewer">   <!-- tolliumapps.commondialogs.mailviewer -->
         <text tid="callbackdata">Callback data</text>
         <text tid="callbackfunc">Callback function</text>

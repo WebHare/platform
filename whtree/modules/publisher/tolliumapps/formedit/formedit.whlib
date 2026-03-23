@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/internal/forms/validation.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::publisher/tolliumapps/formedit/formcomponentapi.whlib";
 
+LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
@@ -629,10 +630,9 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   MACRO RunEditSource(BOOLEAN validateimmediately, BOOLEAN reload_afterwards)
   {
     RECORD data := this->formdefsfile->ExportAsRecord();
-    data := this->RunScreen("editsource.xml#editsource", CELL[ data, validateimmediately ]);
-    IF (RecordExists(data))
-    {
-      this->ReadFormDefinition(data, reload_afterwards);
+    RECORD updateresult := RunEditSourceDialog(this, CELL[ text := BlobToString(data.text), validateimmediately, onvalidate := PTR ValidateFormSource(data,#1) ]);
+    IF (RecordExists(updateresult)) {
+      this->ReadFormDefinition(CELL[...data, text := StringToBlob(updateresult.text)], reload_afterwards);
       this->MarkFormAsDirty();
     }
   }

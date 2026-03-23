@@ -1,4 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.formedit" library="editsource.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.commondialogs.editsource" library="editsource.whlib">
 
   <screen name="editsource"
           width="120x"
@@ -8,7 +8,7 @@
           gid=".editsource"
           savestate="size">
     <body spacers="none">
-      <codeedit name="source" type="xml" width="1pr" height="1pr" ongutterclick="onshowerror" />
+      <codeedit name="source" type="xml" width="1pr" height="1pr" ongutterclick="OnShowMessage" />
     </body>
   </screen>
 

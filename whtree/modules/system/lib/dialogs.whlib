@@ -187,3 +187,8 @@ PUBLIC MACRO RunModuleScriptDialog(OBJECT parent, STRING script, STRING ARRAY ar
   screen->Start();
   screen->RunModal();
 }
+
+PUBLIC RECORD FUNCTION RunEditSourceDialog(OBJECT parent, RECORD data) {
+  data := ValidateOptions([ validateimmediately := FALSE, onvalidate := DEFAULT MACRO PTR, text := "" ], data, [required := STRING["onvalidate","text"]]);
+  RETURN parent->contexts->opener->RunScreen("mod::system/tolliumapps/commondialogs/editsource.xml#editsource", data);
+}
