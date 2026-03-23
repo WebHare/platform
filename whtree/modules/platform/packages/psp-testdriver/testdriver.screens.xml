@@ -5,7 +5,7 @@
       <record name="methodsettings" />
     </compositions>
     <insert position="providertab" where="atend">
-      <arrayedit composition="methodsettings" cellname="methods" roweditscreen="#editmethod" name="methods">
+      <arrayedit composition="methodsettings" cellname="methods" name="methods" roweditscreen="#editmethod">
         <column name="value" type="text" title="Rowkey" />
         <column name="title" type="text" title="Title" />
       </arrayedit>
@@ -13,10 +13,11 @@
     </insert>
   </tabsextension>
 
-  <screen name="editmethod" implementation="rowedit" footerbuttons="ok cancel">
+  <screen name="editmethod" footerbuttons="ok cancel" implementation="rowedit">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
       <textedit composition="row" cellname="value" title="Rowkey" />
       <textedit composition="row" cellname="title" title="Title" />

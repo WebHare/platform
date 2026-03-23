@@ -2,7 +2,6 @@
 
 LOADLIB "mod::system/lib/database.whlib";
 
-LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/template-v2.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";

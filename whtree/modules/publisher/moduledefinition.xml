@@ -221,7 +221,9 @@
                This prevents issue due not covering all routes through which a poll(file) could be created.
     -->
     <d:obsoletetable name="polloptions" />
+
     <d:obsoletetable name="pollvoters" />
+
     <d:obsoletetable name="pollvotes" />
 
     <d:table name="formresults" primarykey="id">
@@ -472,9 +474,18 @@
   </consilio>
 
   <publisher>
-    <objecteditor name="editdocument" documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/richdocumentfile"/>
-    <objecteditor name="webtoolform" documenteditor="tolliumapps/formedit/formedit.xml#editor" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/formwebtool"/>
-    <objecteditor name="editmarkdown" documenteditor="tolliumapps/editmarkdown/editmarkdown.xml" supportsreadonly="true" types="http://www.webhare.net/xmlns/publisher/markdownfile" />
+    <objecteditor name="editdocument"
+                  documenteditor="tolliumapps/rtdedit/rtdedit.xml#richdoc"
+                  supportsreadonly="true"
+                  types="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
+    <objecteditor name="webtoolform"
+                  documenteditor="tolliumapps/formedit/formedit.xml#editor"
+                  supportsreadonly="true"
+                  types="http://www.webhare.net/xmlns/publisher/formwebtool" />
+    <objecteditor name="editmarkdown"
+                  documenteditor="tolliumapps/editmarkdown/editmarkdown.xml"
+                  supportsreadonly="true"
+                  types="http://www.webhare.net/xmlns/publisher/markdownfile" />
     <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlib#runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
     <objecteditor name="texteditor" documenteditor="tolliumapps/texteditor/texteditor.xml" supportsreadonly="true" />
@@ -489,14 +500,13 @@
     <webdesignplugin name="formintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"
-                     yamlproperty="forms"
                      toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetFormIntegrationAsYaml"
-                     />
+                     yamlproperty="forms" />
     <webdesignplugin name="captchaintegration"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"
-                     yamlproperty="captcha"
-                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetCaptchaIntegrationAsYaml" />
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetCaptchaIntegrationAsYaml"
+                     yamlproperty="captcha" />
     <webdesignplugin name="forumplugin"
                      hooksfeatures="objectprops"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
@@ -518,11 +528,15 @@
     <webdesignplugin name="videowidget"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="widgets/video/videowidgetplugin.whlib#VideoWidgetPlugin"
-                     yamlproperty="videoWidget"
-                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetVideoWidgetAsYaml" />
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetVideoWidgetAsYaml"
+                     yamlproperty="videoWidget" />
 
     <customnode name="embeddededitor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
-    <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />
+    <customnode name="debugsettings"
+                isarray="true"
+                namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
+                toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml"
+                yamlproperty="debugSettings" />
     <customnode name="extendformeditor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="allowwidgettype" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
 

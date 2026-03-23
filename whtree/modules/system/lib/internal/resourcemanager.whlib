@@ -2,7 +2,6 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 
 LOADLIB "mod::tollium/lib/dragdrop.whlib";

@@ -5,7 +5,6 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 
 LOADLIB "mod::publisher/lib/database.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 

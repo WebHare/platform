@@ -1,8 +1,6 @@
 <?wh
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 PUBLIC STATIC OBJECTTYPE Prefs EXTEND TolliumScreenBase
 <
   MACRO Init()

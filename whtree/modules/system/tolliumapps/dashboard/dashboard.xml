@@ -25,7 +25,11 @@
       </windowopenaction>
       <action name="mailroutes" frameflags="issysop" onexecute="domailroutes" shortcut="ctrl+shift+e" tid=".mailroutes" />
       <action name="webserverusagestats" onexecute="DoExportWebserverUsageStats" tid=".statistics.webserverusagestats" />
-      <action name="apikeys" frameflags="issysop" onexecute="doapikeys" shortcut="ctrl+shift+k" tid="tolliumapps.dashboard.apikeys.apikeys" />
+      <action name="apikeys"
+              frameflags="issysop"
+              onexecute="doapikeys"
+              shortcut="ctrl+shift+k"
+              tid="tolliumapps.dashboard.apikeys.apikeys" />
     </actions>
 
     <menus>

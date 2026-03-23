@@ -24,11 +24,15 @@
 
     <runonce script="migrations/6.0/scripts/import_api_keys.ts" tag="import_api_keys" when="poststart" />
 
-    <managedtask type="requestcertificate" taskrunner="js/certbot/internal/task.ts#requestCertificateTask" priority="background" />
+    <managedtask type="requestcertificate"
+                 priority="background"
+                 taskrunner="js/certbot/internal/task.ts#requestCertificateTask" />
   </servicemanager>
 
   <portal>
-    <application name="applicationlink" startmacro="tolliumapps/applicationlink/applicationlink.whlib#runApplicationLink" allowuntrustedparams="true">
+    <application name="applicationlink"
+                 allowuntrustedparams="true"
+                 startmacro="tolliumapps/applicationlink/applicationlink.whlib#runApplicationLink">
       <accesscheck />
     </application>
   </portal>
@@ -36,7 +40,10 @@
   <backend>
     <!-- For global layout/conventions, please see doc/webrules.md -->
     <webrule path="allroots:/.wh/auth/" match="initial" router="/js/auth/authpages.ts#authRouter" />
-    <webrule path="allroots:/.wh/adhocserve/" match="initial" priority="after" handlebyscript="mod::system/scripts/internal/adhocserve.shtml" />
+    <webrule path="allroots:/.wh/adhocserve/"
+             match="initial"
+             handlebyscript="mod::system/scripts/internal/adhocserve.shtml"
+             priority="after" />
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after">
       <!-- reset headers that break various buitin pages especially as some (eg preview-supporting pages) are static and can't set headers themselves -->
       <addheader header="X-Frame-Options" value="" />

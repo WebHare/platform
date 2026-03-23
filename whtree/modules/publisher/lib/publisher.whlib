@@ -8,7 +8,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/database.whlib";

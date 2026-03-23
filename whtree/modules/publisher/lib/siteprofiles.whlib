@@ -10,7 +10,6 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 /** @private Only two callers left and its pretty low level, so we should just consider just deprecating it (at least no more new callers)

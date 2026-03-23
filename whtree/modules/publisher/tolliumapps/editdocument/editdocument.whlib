@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::platform/lib/dialogs.whlib";
 LOADLIB "mod::platform/lib/applicationlinks.whlib";
@@ -15,16 +14,12 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
-LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editapi.whlib";
 LOADLIB "mod::publisher/tolliumapps/editdocument/editbase.whlib";
-
-LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 /* Saving logic:
    Always:

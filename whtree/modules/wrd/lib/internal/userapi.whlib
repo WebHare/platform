@@ -8,7 +8,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
-LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
 LOADLIB "mod::system/lib/internal/userrights/resync.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 

@@ -1,5 +1,4 @@
 ﻿<?wh
-LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 

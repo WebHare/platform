@@ -48,8 +48,8 @@
             <tab name="maintab" tid=".maintab">
               <heading name="maintab_heading" doclink="publisher:objectprops/nametitle" tid=".nametitle" />
               <line>
-                <textedit name="title" width="1pr" maxlength="256" tid="~title"/>
-                <select name="isunlisted" title="" rowkeytype="boolean" type="pulldown">
+                <textedit name="title" width="1pr" maxlength="256" tid="~title" />
+                <select name="isunlisted" type="pulldown" rowkeytype="boolean" title="">
                   <option rowkey="false" tid=".isunlisted-false" />
                   <option rowkey="true" tid=".isunlisted-true" />
                 </select>

@@ -1,9 +1,5 @@
 <?wh
 
-LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
-
-LOADLIB "mod::system/lib/database.whlib";
-
 // TODO factor out parts to share with objectprops
 PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 <

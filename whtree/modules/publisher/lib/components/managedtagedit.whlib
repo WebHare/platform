@@ -4,12 +4,9 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::publisher/lib/tagmanager.whlib";
-LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/components/whfsinstance.whlib";
 
 PUBLIC OBJECTTYPE ManagedTagedit EXTEND TolliumFragmentBase <
   // ---------------------------------------------------------------------------
