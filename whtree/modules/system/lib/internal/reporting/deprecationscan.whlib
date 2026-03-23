@@ -87,6 +87,20 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 
     wrd_brokendates := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokendates;
   }
+
+
+  RECORD ARRAY timemembers := SELECT id
+                                FROM wrd.attrs
+                                WHERE attributetype IN [ wrd_attributetype_time ];
+
+  RECORD ARRAY wrd_brokentimes := SELECT entities := GroupedValues(entity), attribute, num := COUNT(*)
+                        FROM wrd.entity_settings
+                       WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM timemembers)
+                             AND (ToInteger(rawdata,-1) < 0 OR ToInteger(rawdata,0) >= 24 * 60 * 60 * 1000)
+                    GROUP BY attribute;
+
+  wrd_brokentimes := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokentimes;
+
   RECORD ARRAY emailmembers := SELECT attrs.id
                                  FROM wrd.attrs
                                 WHERE attributetype = wrd_attributetype_email;
@@ -143,12 +157,14 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
              , wrd_brokenpasswords
              , wrd_brokenaddresses
              , wrd_brokendates
+             , wrd_brokentimes
              , numissues := Length(fs_maxdatetime_settings)
                             + Length(wrd_brokenemails)
                             + Length(wrd_brokenpasswords)
                             + Length(wrd_brokenaddresses)
                             + Length(wrd_brokendates)
                             + Length(shouldbeondisk)
+                            + Length(wrd_brokentimes)
              ];
 }
 
@@ -175,6 +191,12 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
     ELSE
       Print(`- Good! No WRD attribute values with a MAX_DATETIME value\n`);
   }
+
+  IF(Length(report.wrd_brokentimes) > 0)
+    FOREVERY(RECORD wrd_brokentime FROM report.wrd_brokentimes)
+      Print(`* WRD Attribute #${wrd_brokentime.attribute} (${wrd_brokentime.attributetag}) contains ${wrd_brokentime.num} instance(s) of time out or range (not >= 0 and < 24 hours) - this will not be supported in JavaScript.\n`);
+  ELSE
+    Print(`- Good! No WRD attribute values with a time >= 24 hours\n`);
 
   IF(Length(report.wrd_brokenemails) > 0)
     FOREVERY(RECORD wrd_brokenemail FROM report.wrd_brokenemails)

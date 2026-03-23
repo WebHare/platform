@@ -75,6 +75,14 @@ async function testCryptForServer() {
     test.eq(simpleThing, decryptForThisServer("webhare_testsuite:simple", simple_from_hs));
     test.eq(simpleThing, await loadlib("mod::system/lib/services.whlib").DecryptForThisServer("webhare_testsuite:simple", simple_from_hs));
   }
+
+  //Verify support for custom encryption secrets (technically allowing you to encrypot for another server than 'this')
+  const customSecret = "webhare_testsuite:string2";
+  const roundtripCK = encryptForThisServer("webhare_testsuite:string", "Hello, world!", { secret: customSecret });
+  test.eq(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/, roundtripCK);
+  test.throws(/unable to authenticate/, () => decryptForThisServer("webhare_testsuite:string", roundtripCK), "should not be able to decrypt with default secret");
+  test.throws(/unable to authenticate/, () => decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret + "1" }), "should not be able to decrypt with wrong secret");
+  test.eq("Hello, world!", decryptForThisServer("webhare_testsuite:string", roundtripCK, { secret: customSecret }));
 }
 
 test.runTests(
