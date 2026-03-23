@@ -7,6 +7,8 @@ export function addToMagicMenu(comp: ToddCompBase, submenu: HTMLUListElement): v
   const isbackendapp = "queueEventNoLock" in comp.owner.hostapp;
 
   addactions.push(<li onClick={() => logElement(comp)}>Log {comp.name} to console</li>);
+  if (isbackendapp && comp.componenttype === "rte")
+    addactions.push(<li onClick={() => editValue(comp)}>Edit value</li>);
   if (isbackendapp) {
     addactions.push(<li onClick={() => editElement(comp)}>Edit element {comp.name}</li>);
     addactions.push(<li onClick={() => inspectElement(comp)}>Inspect element {comp.name}</li>);
@@ -37,4 +39,8 @@ function inspectElement(comp: ToddCompBase) {
     componentpath.push(goingup.name);
 
   backendapp.queueEventNoLock("$devhook", { action: "inspectElement", window: comp.owner.screenname, componentpath });
+}
+
+function editValue(comp: ToddCompBase) {
+  comp.queueMessage('magicEditValue', {}, true);
 }

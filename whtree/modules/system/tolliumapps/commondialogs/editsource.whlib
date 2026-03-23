@@ -1,0 +1,76 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::system/lib/validation.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD data;
+  RECORD ARRAY messages;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO Init(RECORD data) {
+    this->data := data;
+    ^source->value := data.text;
+
+    IF(data.validateimmediately)
+      this->ValidateIt();
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  MACRO OnShowMessage(INTEGER line) {
+    RECORD ARRAY line_messages := SELECT * FROM this->messages WHERE COLUMN line = VAR line;
+    IF (Length(line_messages) > 0)
+      this->RunSimpleScreen(line_messages[0].type = "error" ? "error" : "info", Detokenize((SELECT AS STRING ARRAY message FROM line_messages), "\n"));
+  }
+
+  RECORD FUNCTION ValidateIt()
+  {
+    OBJECT work := this->BeginFeedback();
+    this->messages := this->data.onvalidate(^source->value);
+    ^source->markers :=
+        SELECT line
+              , type := "gutter"
+              , color := type = "error" ? "red" : "yellow"
+          FROM this->messages
+         WHERE line >= 1; //TODO warnings too?
+
+    IF (Length(^source->markers) > 0) {
+      // Scroll to first message
+      ^source->GotoLine(^source->markers[0].line);
+    }
+
+    FOREVERY(RECORD msg FROM this->messages)
+      IF(msg.type = "error")
+        work->AddError(msg.message);
+      ELSE
+        work->AddWarning(msg.message);
+
+    RETURN work->Finish() ? CELL[text := ^source->value] : DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION Submit() {
+    RETURN this->ValidateIt();
+  }
+>;

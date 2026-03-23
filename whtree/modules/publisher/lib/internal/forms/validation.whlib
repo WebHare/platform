@@ -1,4 +1,8 @@
 <?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
@@ -37,4 +41,26 @@ PUBLIC MACRO RepairFormIfNeeded(OBJECT formdef)
         fixgroup->SetAttribute("guid", formdef->formdefinitions->__CreateGUID("formpage"));
       FixGUIDs(formdef, fixgroup);
     }
+}
+
+PUBLIC RECORD ARRAY FUNCTION ValidateFormSource(RECORD formdata, STRING text) {
+  OBJECT formdefsfile := CreateNewFormdefinitionsFile();
+
+  RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(text) ]);
+  RECORD ARRAY messages := validation.messages;
+  UPDATE messages SET line := 0 WHERE NOT (line >= 1 AND resourcename = "whfs::dummy.formdef.xml");
+
+  TRY {
+    formdefsfile->ImportFromRecord(CELL[...formdata, text := StringToBlob(text) ]);
+    OBJECT mainform := formdefsfile->OpenFormDefinition("webtoolform");
+    IF(NOT ObjectExists(mainform))
+      THROW NEW Exception(`Unable to find the 'webtoolform' in this form`);
+
+    RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefsfile);
+    IF (NOT RecordExists(parseresult))
+      THROW NEW Exception(`Could not parse the form`);
+  } CATCH (OBJECT e) {
+    INSERT [ line := 0, message := e->what ] INTO messages AT END;
+  }
+  RETURN messages;
 }

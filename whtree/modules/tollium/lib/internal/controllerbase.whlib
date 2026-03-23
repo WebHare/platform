@@ -3107,6 +3107,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
 
       CASE "$devhook"
       {
+        IF((NOT ObjectExists(this->contexts->user) OR NOT this->contexts->user->HasRight("system:sysop")) AND GetDtapStage() != "development")
+          THROW NEW Exception("Devhooks are only allowed for sysops or in development environment");
+
         SWITCH (todd_request.param.action) {
           CASE "openineditor" {
             RECORD resolved := ResolveComponentPath(todd_request.param.screen, todd_request.param.componentpath);
@@ -3121,6 +3124,20 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
                 win->tolliumscreenmanager->frame->QueueInboundMessage("inspectelement", CELL [ path := todd_request.param.componentpath ]);
                 RETURN DEFAULT RECORD;
               }
+          }
+          CASE "magicAction" {
+            FOREVERY(OBJECT win FROM this->windowstack)
+              IF (win->tolliumscreenmanager->frame->instancename = todd_request.param.window) {
+                //Find the hit component by walking its path until we recognize it
+                FOREVERY(STRING pathentry FROM ReverseArray(todd_request.param.componentpath)) {
+                  FOREVERY(OBJECT comp FROM win->tolliumscreenmanager->frame->GetTopDownAllComponents())
+                    IF(comp->toddname = pathentry) {
+                      comp->QueueInboundMessage("magicaction", CELL [ params := todd_request.param.params ]);
+                      RETURN DEFAULT RECORD;
+                    }
+                }
+              }
+            RETURN DEFAULT RECORD;
           }
           DEFAULT {
           }

@@ -788,6 +788,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
                                   , mirrored
                                   , refpoint := DEFAULT RECORD
                                   , source_fsobject
+                                  , hash
                                   , __blobsource
                                FROM this->embedded
                               WHERE seen;
