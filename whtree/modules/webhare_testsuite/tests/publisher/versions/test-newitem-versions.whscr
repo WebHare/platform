@@ -71,8 +71,43 @@ ASYNC MACRO TestCreateRTD() {
   AWAIT RestartEditorAndVerify();
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
-  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
 
+  //////////////////
+  //STORY: Collide against the previously generated file
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TTFillByTitle("types", "Rich text document");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp()); //opens the RTD
+
+  //Initially the name follows the document's title
+  TestEq("", TT(":File name")->value);
+  TT(":Title")->value := "This name please"; //will attempt to save as this-name-please too!
+  TT(":Title")->SetDirty();
+
+  TTClick(":Save");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
+  TestEq("this-name-please-2", TT(":File name")->value, "Since the previous name is taken, we should get a numbered suffix");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
+
+  ////////////////////
+  //STORY: Collide against the previously generated file but skip the 'save-as-draft', go straight to publish
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
+  TTFillByTitle("types", "Rich text document");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchStartedApp()); //opens the RTD
+
+  //Initially the name follows the document's title
+  TestEq("", TT(":File name")->value);
+  TT(":Title")->value := "This name please"; //will attempt to save as this-name-please too!
+  TT(":Title")->SetDirty();
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TT("publish")->TolliumClick(), [ messagemask := "*save and publish*" ]);
+  TestEq("this-name-please-3", TT(":File name")->value, "Since the previous name is taken, we should get a numbered suffix");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit editor
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit filemanager
   //FIXME check if pinned files can't be asynchronously overwritten
 }
 

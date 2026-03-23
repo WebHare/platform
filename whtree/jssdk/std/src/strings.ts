@@ -164,6 +164,7 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
         case "bigint":
         case "Instant":
         case "PlainDate":
+        case "PlainTime":
         case "PlainDateTime":
         case "ZonedDateTime":
           value = { "$stdType": type, [type.toLowerCase()]: (origvalue as { toString: () => string }).toString() };
@@ -203,6 +204,7 @@ export function parseTyped(input: string) {
         return BigInt(value.bigint as string);
       case "Instant":
       case "PlainDate":
+      case "PlainTime":
       case "PlainDateTime":
       case "ZonedDateTime":
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we just assume/require you to have Temporal installed if you expect to receive/decode Temporal types. browsers should catch up eventually

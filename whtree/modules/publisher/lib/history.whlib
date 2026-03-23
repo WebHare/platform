@@ -379,7 +379,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       IF(RecordExists(meta) AND meta.title != "")
         this->baseobject->UpdateMetadata(CELL[
           title := meta.title,
-          name := this->currentautosave_version.currentname ?? SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject ])
+          name := this->currentautosave_version.currentname ?? SuggestSeoNameFromTitle(meta.title, CELL[ fsobject := this->baseobject, parentfolder := this->baseobject->parent ])
         ]);
     }
 
@@ -411,7 +411,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       IF(this->IsNameExplicit()) {
         setname := this->baseobject->name;
       } ELSE IF(sourcedata.title != "") {
-        setname := SuggestSeoNameFromTitle(sourcedata.title, CELL[ fsobject := this->baseobject ]);
+        setname := SuggestSeoNameFromTitle(sourcedata.title, CELL[ fsobject := this->baseobject, parentfolder := this->baseobject->parent ]);
       } ELSE {
         setname := this->baseobject->name;
       }

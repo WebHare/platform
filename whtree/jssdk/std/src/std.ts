@@ -19,7 +19,7 @@ export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money"
 export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, isValidDate, isValidTime, convertFlexibleInstantToDate, formatDateTime } from "./datetime";
 export type { Duration, WaitPeriod, FlexibleInstant } from "./datetime";
 
-export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "./quacks";
+export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime, isTemporalPlainTime } from "./quacks";
 
 export { combineAbortSignals, getScopeSignal, whenAborted } from "./utils";
 
