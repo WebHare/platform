@@ -560,7 +560,7 @@ export function isWorkOpen() {
 /** Is the specified mutex locked by the current work?
     @returns `true` if the mutex is locked
 */
-export function hasMutex(mutex: string) {
+export function workHasMutex(mutex: string) {
   return getConnection().hasMutex(mutex);
 }
 

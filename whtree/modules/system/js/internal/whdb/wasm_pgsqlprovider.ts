@@ -1,4 +1,4 @@
-import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen, overrideQueryArgType, hasMutex, tryLockMutex } from "@webhare/whdb";
+import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen, overrideQueryArgType, workHasMutex, tryLockMutex } from "@webhare/whdb";
 import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
@@ -541,7 +541,7 @@ function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
 }
 
 function cbHasMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVMVar) {
-  id_set.setBoolean(hasMutex(mutexname.getString()));
+  id_set.setBoolean(workHasMutex(mutexname.getString()));
 }
 
 async function cbTryLockMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVMVar, wait_until: HSVMVar) {
