@@ -640,17 +640,6 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
   }
 }
 
-export type LegacyWRDSchemaDefinition<SchemaDef extends SchemaTypeDefinition> = {
-  [TypeTag in keyof SchemaDef]: {
-    [FieldTag in keyof SchemaDef[TypeTag]]:
-    FieldTag extends "wrdCreated" ? never : SchemaDef[TypeTag][FieldTag];
-  } & {
-    wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
-    wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
-    wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_ModificationDate>;
-  };
-};
-
 export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaType> extends WRDSchemaType<S> {
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
     return new WRDType<S, T>(this, type, true);
