@@ -63,6 +63,16 @@ ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 # Delete old docker config to avoid confusion
 [ -f /opt/whdata/webhare-config.xml ] && rm /opt/whdata/webhare-config.xml
 
+# Set up a RedHat-like .bashrc if not present
+[ -f /opt/whdata/root/.bashrc ] || cat > /opt/whdata/root/.bashrc <<'EOF'
+# .bashrc
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+EOF
+
 # Control core sizes with ulimit... so that we can still raise them later!
 ulimit -Sc 0
 
