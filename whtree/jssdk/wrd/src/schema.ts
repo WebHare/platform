@@ -283,7 +283,7 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
 
   /** Open a WRD schema by tag */
   constructor(tag: string) {
-    // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll sepaye if the tag is OK once we eventually start to open schemas
+    // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll see if the tag is OK once we eventually start to open schemas
     if (!isValidWRDSchemaTag(tag)) //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
       throw new Error(`Invalid schema tag '${tag}'`);
 
@@ -882,7 +882,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   private async __closeEntities(ids: number[], closeAt: Date): Promise<void> {
     for (const id of ids) {
-      //@ts-ignore WRD doesn't recgonize wrdLimitDate as existing everywhere
+      //@ts-ignore WRD doesn't recognize wrdClosed/wrdLimitDate as existing everywhere
       await this.updateEntity(id, this.legacySchema ? { wrdLimitDate: closeAt } : { wrdClosed: closeAt });
     }
   }
