@@ -3128,7 +3128,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
           CASE "magicAction" {
             FOREVERY(OBJECT win FROM this->windowstack)
               IF (win->tolliumscreenmanager->frame->instancename = todd_request.param.window) {
-                //Find the hit component by walknig its path until we recognize it
+                //Find the hit component by walking its path until we recognize it
                 FOREVERY(STRING pathentry FROM ReverseArray(todd_request.param.componentpath)) {
                   FOREVERY(OBJECT comp FROM win->tolliumscreenmanager->frame->GetTopDownAllComponents())
                     IF(comp->toddname = pathentry) {
