@@ -3,7 +3,7 @@ import { type WebHareRouter, type WebRequest, type WebResponse, createJSONRespon
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL } from "@webhare/std";
 import { decompressUUID, hashClientSecret, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
@@ -12,7 +12,7 @@ import type { AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import type { NavigateInstruction } from "@webhare/env";
 import { runInWork } from "@webhare/whdb";
-import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
+import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { ResponseModesScopes } from "@webhare/auth/src/types";
 import type { OAuth2PromptFlag } from "@webhare/auth/src/oauth2-client";
 
@@ -97,7 +97,7 @@ async function findLoginPageForSchema(schema: string) {
   return { loginPage, metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration", wrdauth: candidates[0].wrdauth };
 }
 
-function getOpenIdBase(wrdschema: WRDSchema<WRD_IdpSchemaType>) {
+function getOpenIdBase(wrdschema: WRDSchemaType<WRD_IdpSchemaType>) {
   const schemaparts = wrdschema.tag.split(":");
   return "/.wh/openid/" + encodeURIComponent(schemaparts[0]) + "/" + encodeURIComponent(schemaparts[1]) + "/";
 }
@@ -191,7 +191,7 @@ export async function returnAuthorizeFlow<T extends SchemaTypeDefinition>(provid
   //TODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
   if (customizer?.onOpenIdReturn) {
     const redirect = await customizer.onOpenIdReturn({
-      wrdSchema: provider.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      wrdSchema: provider.wrdschema as unknown as WRDSchema<AnySchemaType>,
       client: returnInfo.clientid,
       scopes: returnInfo.scopes,
       user

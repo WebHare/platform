@@ -1,8 +1,9 @@
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@webhare/wrd/src/types";
+import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
@@ -10,12 +11,11 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { generateRandomId, throwError } from "@webhare/std";
 import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
 
 const keepHistoryDays = 1;
 
 async function testChanges() { //  tests
-  const wrdschema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
+  const wrdschema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("wrdPerson"));
   test.eqPartial({ keepHistoryDays }, await wrdschema.describeType("personattachment"));
 
@@ -100,7 +100,7 @@ async function testChanges() { //  tests
 
   //whitebox test - get raw setting ids. these shouldn't change either
   const initialSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
-  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModified", "wrdGuid", "wrdCreated", "wrdClosed", "wrdauthAccountStatus"]);
+  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate", "wrdGuid", "wrdCreationDate", "wrdLimitDate", "wrdauthAccountStatus"]);
 
   await whdb.commitWork();
 
@@ -114,7 +114,7 @@ async function testChanges() { //  tests
 
   const afterUpdateSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
   test.eq([...initialSettingIds].toSorted(), [...afterUpdateSettingIds].toSorted());
-  test.eq(prefields.wrdModified, (await wrdschema.getFields("wrdPerson", testPersonId, ["wrdModified"])).wrdModified);
+  test.eq(prefields.wrdModificationDate, (await wrdschema.getFields("wrdPerson", testPersonId, ["wrdModificationDate"])).wrdModificationDate);
 
   await whdb.commitWork();
 
@@ -136,13 +136,13 @@ async function testChanges() { //  tests
         id: change0[0].id,
         entity: testPersonId,
         changetype: "new",
-        when: new Date(prefields.wrdModified.epochMilliseconds), //as we're invoking HS APIs .. we'll be getting dates for now
+        when: prefields.wrdModificationDate,
         oldsettings: null,
         modifications: {
           ...change0[0].modifications,
           wrd_id: testPersonId,
           wrd_guid: UUIDToWrdGuid(prefields.wrdGuid),
-          wrd_creationdate: new Date(prefields.wrdCreated!.epochMilliseconds),
+          wrd_creationdate: prefields.wrdCreationDate,
           wrd_limitdate: defaultDateTime
         }
       }
@@ -151,7 +151,7 @@ async function testChanges() { //  tests
 
   await whdb.beginWork(); //change 1 - only modtime update
   const modtimeOnlyUpdate = new Date;
-  await wrdschema.update("wrdPerson", testPersonId, { wrdModified: modtimeOnlyUpdate });
+  await wrdschema.update("wrdPerson", testPersonId, { wrdModificationDate: modtimeOnlyUpdate });
   await whdb.commitWork();
 
   {
@@ -170,10 +170,10 @@ async function testChanges() { //  tests
         id: change1[0].id,
         entity: testPersonId,
         changetype: "edit",
-        oldsettings: { wrd_modificationdate: new Date(prefields.wrdModified.epochMilliseconds) },
+        oldsettings: { wrd_modificationdate: prefields.wrdModificationDate },
       }
     ], change1);
-    test.assert(modtimeOnlyUpdate <= change1[0].when && change1[0].when <= new Date, "Changeset moddate is not exactly the set wrdModified! they can't be overridden");
+    test.assert(modtimeOnlyUpdate <= change1[0].when && change1[0].when <= new Date, "Changeset moddate is not exactly the set wrdModificationDate! they can't be overridden");
   }
 
   const oldSettings = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFile", "testImage"]);
@@ -203,10 +203,10 @@ async function testChanges() { //  tests
 
     await whdb.beginWork(); //change 3 - updates testFile, testJson
     const longdata = generateRandomId("base64url", 4096);
-    const intfields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModified"]);
+    const intfields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate"]);
     test.eq("goudvis.png", intfields.testFile?.fileName);
     await wrdschema.update("wrdPerson", testPersonId, { testFile: null, testJson: { mixedCase: [longdata] } });
-    const postfields = await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "wrdModified"]);
+    const postfields = await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "wrdModificationDate"]);
     test.eq(null, postfields.testFile);
     await whdb.commitWork();
 
@@ -231,7 +231,7 @@ async function testChanges() { //  tests
         id: change0[0].id,
         entity: testPersonId,
         changetype: "new",
-        when: new Date(prefields.wrdModified.epochMilliseconds),
+        when: prefields.wrdModificationDate,
         oldsettings: null,
       }
     ], change0);
@@ -252,7 +252,7 @@ async function testChanges() { //  tests
           wrd_firstname: 'John'
         },
         modifications: {
-          wrd_modificationdate: new Date(intfields.wrdModified.epochMilliseconds),
+          wrd_modificationdate: intfields.wrdModificationDate,
           test_array: [{ test_int: 1 }],
           test_file: {
             filename: 'goudvis.png',
@@ -272,7 +272,7 @@ async function testChanges() { //  tests
           test_file: {
             filename: 'goudvis.png',
           },
-          wrd_modificationdate: new Date(intfields.wrdModified.epochMilliseconds),
+          wrd_modificationdate: intfields.wrdModificationDate,
           test_json: null
         }
       }
@@ -612,8 +612,8 @@ async function testChanges() { //  tests
     await wrdschema.update("wrdPerson", tempperson, { wrdContactEmail: "temporary+2@beta.webhare.net" });
     test.eq([], await hsPersontype.ListChangesets(tempperson));
 
-    await wrdschema.update("wrdPerson", tempperson, { wrdCreated: new Date, wrdClosed: null, whuserUnit: testunit, });
-    const postfields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdContactEmail", "wrdId", "wrdCreated", "wrdGuid", "wrdClosed", "wrdModified", "whuserUnit"]);
+    await wrdschema.update("wrdPerson", tempperson, { wrdCreationDate: new Date, wrdLimitDate: null, whuserUnit: testunit, });
+    const postfields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdContactEmail", "wrdId", "wrdCreationDate", "wrdGuid", "wrdLimitDate", "wrdModificationDate", "whuserUnit"]);
 
     await whdb.commitWork();
 
@@ -624,16 +624,16 @@ async function testChanges() { //  tests
         id: changes[0].id,
         changetype: 'new',
         entity: tempperson,
-        when: new Date(postfields.wrdModified.epochMilliseconds),
+        when: postfields.wrdModificationDate,
         oldsettings: null,
         modifications: {
           wrd_contact_email: postfields.wrdContactEmail,
           whuser_unit: testunit,
-          wrd_modificationdate: new Date(postfields.wrdModified.epochMilliseconds),
+          wrd_modificationdate: postfields.wrdModificationDate,
 
           wrd_id: tempperson, //FIXME why is this is the changeset? due to it being a tempBecomingAlive?
           wrd_guid: UUIDToWrdGuid(postfields.wrdGuid), //TODO and guid? although this sounds a bit more reasonable..
-          wrd_creationdate: new Date(postfields.wrdCreated!.epochMilliseconds),
+          wrd_creationdate: postfields.wrdCreationDate,
           wrd_limitdate: defaultDateTime,
           wrdauth_account_status: { status: "active" }
         }
@@ -646,19 +646,19 @@ async function testChanges() { //  tests
 
     const changesets2 = await hsPersontype.ListChangesets(tempperson);
     test.eq(2, changesets2.length);
-    const postclosefields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdClosed", "wrdModified"], { historyMode: "all" });
+    const postclosefields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdLimitDate", "wrdModificationDate"], { historyMode: "all" });
     const changes2 = await hsPersontype.GetChanges(changesets2[1].id);
     test.eqPartial([
       {
         changetype: 'close',
         entity: tempperson,
-        when: new Date(postclosefields.wrdModified.epochMilliseconds),
+        when: postclosefields.wrdModificationDate,
         oldsettings: {
           wrd_limitdate: defaultDateTime,
         },
         modifications: {
-          wrd_limitdate: new Date(postclosefields.wrdClosed!.epochMilliseconds),
-          wrd_modificationdate: new Date(postclosefields.wrdModified.epochMilliseconds)
+          wrd_limitdate: postclosefields.wrdLimitDate,
+          wrd_modificationdate: postclosefields.wrdModificationDate
         }
       }
     ], changes2);

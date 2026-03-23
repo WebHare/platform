@@ -1,8 +1,8 @@
-import { WRDSchema } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaDefinitions, type WRDSchemaType } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
-import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
+import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, WRDTypeBaseSettingsModern } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 
 export const testSchemaTag = "wrd:testschema";
@@ -91,14 +91,120 @@ export type CustomExtensions = {
   } & WRDTypeBaseSettings;
 };
 
-export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTypeDefinition>(): Promise<WRDSchema<T>> {
+export type CustomExtensionsModern = {
+  wrdPerson: {
+    testSingleDomain: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
+    testSingleDomain2: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testSingleDomain3: WRDAttributeTypeId.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testFree: WRDAttributeTypeId.String;//", { title: "Free attribute" });
+    testAddress: WRDAttributeTypeId.Address;//", { title: "Address attribute" });
+    testEmail: WRDAttributeTypeId.Email;//", { title: "E-mail attribute" });
+    testPhone: WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
+    testDate: WRDBaseAttributeTypeId.Modern_Date;
+    testPassword: WRDAttributeTypeId.Password;//", { title: "Password attribute" });
+    testMultipleDomain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
+    testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
+    testTime: WRDBaseAttributeTypeId.Modern_Time;//", { title: "Time attribute" });
+    testDatetime: WRDBaseAttributeTypeId.Modern_DateTime;
+    testArray: WRDAttr<WRDAttributeTypeId.Array, {
+      members: {
+        testInt: WRDAttributeTypeId.Integer;
+        testFree: WRDAttributeTypeId.String;
+        testArray2: WRDAttr<WRDAttributeTypeId.Array, {
+          members: {
+            testInt2: WRDAttributeTypeId.Integer;
+          };
+        }>;
+        testSingle: WRDAttributeTypeId.Domain;
+        testImage: WRDAttributeTypeId.Image;
+        testSingleOther: WRDAttributeTypeId.Domain;
+        testMultiple: WRDAttributeTypeId.DomainArray;
+        testEmail: WRDAttributeTypeId.Email;
+        testRTD: WRDAttributeTypeId.RichTextDocument;
+      };
+    }>;
+    testMoney: WRDAttributeTypeId.Money;//", { title: "Money attribute" });
+    testInteger: WRDAttributeTypeId.Integer;//", { title: "Integer attribute" });
+    testBoolean: WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
+    testEnum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
+    testEnumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
+    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
+    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
+    testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
+    testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
+    richie: WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
+    linkie: WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
+    testinstance: WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
+    testlink: WRDAttributeTypeId.WHFSRef;//", { title: "testlink" });
+  } & WRDTypeBaseSettingsModern;
+  testDomain_1: {
+    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
+    wrdTitle: WRDAttributeTypeId.String;
+  } & WRDTypeBaseSettingsModern;
+  testDomain_2: {
+    wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
+    wrdOrder: WRDBaseAttributeTypeId.Base_Integer;
+  } & WRDTypeBaseSettingsModern;
+  personattachment: {
+    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+    attachfree: WRDAttributeTypeId.String;
+  } & WRDTypeBaseSettingsModern;
+  personorglink: {
+    wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+    wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
+    text: WRDAttributeTypeId.String;
+  } & WRDTypeBaseSettingsModern;
+  payprov: {
+    method: IsRequired<WRDAttributeTypeId.PaymentProvider>;
+  } & WRDTypeBaseSettingsModern;
+  paydata: {
+    data: WRDAttributeTypeId.Payment;
+    log: WRDAttributeTypeId.HSON;
+  } & WRDTypeBaseSettingsModern;
+  paydata2: {
+    wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Integer>;
+    data: WRDAttributeTypeId.Payment;
+    log: WRDAttributeTypeId.HSON;
+  } & WRDTypeBaseSettingsModern;
+};
+
+export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaType>(): Promise<WRDSchemaType<T>> {
+  const wrdschema = wrd<AnySchemaType>(testSchemaTag);
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  return wrdschema as unknown as WRDSchemaType<T>;
+}
+
+export async function getExtendedWRDSchema() {
+  //FIXME ModernizeWRDSchemaDefinition shouldn't be an API. WE need it now because CustomExtensions uses WRDTypeBaseSettings and that one isn't modernized
+  type Combined = Combine<[WRDSchemaDefinitions["wrd:testschema"], CustomExtensionsModern]>;
+
+  const wrdschema = wrd<AnySchemaType>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
+  if (!await wrdschema.exists())
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
+  await whdb.beginWork();
+  if (!await wrdschema.hasType("testDomain_2"))
+    throw new Error(`${testSchemaTag} has not been extended. use setupTheWRDTestSchema`);
+  await whdb.commitWork();
+
+  return wrdschema as unknown as WRDSchemaType<Combined>;
+}
+
+export async function getLegacyWRDSchema<T extends SchemaTypeDefinition = AnySchemaType>(): Promise<WRDSchema<T>> {
   const wrdschema = new WRDSchema<T>(testSchemaTag);
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   return wrdschema;
 }
 
-export async function getExtendedWRDSchema() {
+export async function getLegacyExtendedWRDSchema() {
   type Combined = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
   const wrdschema = new WRDSchema<Combined>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
   if (!await wrdschema.exists())
@@ -110,7 +216,7 @@ export async function getExtendedWRDSchema() {
   return wrdschema;
 }
 
-async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
+async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
   options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
   const persontype = schemaobj.getType("wrdPerson");
 
@@ -294,7 +400,7 @@ export async function createWRDTestSchema(options?: {
   await test.reset();
 
   // FIXME here we're assuming whdb work to be global but that's just asking for conflicts in real code. See webharedev_jsbridges#4
-  const schemaobj = await getWRDSchema();
+  const schemaobj = await getLegacyWRDSchema();
   test.assert(schemaobj);
   await whdb.beginWork();
   await setupTheWRDTestSchema(schemaobj, { withRichDoc: options.withRichDoc, deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
@@ -311,5 +417,5 @@ export async function createWRDTestSchema(options?: {
   */
   await whdb.commitWork();
 
-  return await getExtendedWRDSchema();
+  return await getLegacyExtendedWRDSchema();
 }

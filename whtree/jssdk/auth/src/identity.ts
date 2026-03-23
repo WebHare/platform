@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
-import { type AnyWRDSchema, type SchemaTypeDefinition, WRDSchema } from "@webhare/wrd/src/schema";
+import type { AnyWRDSchema, SchemaTypeDefinition, WRDSchemaType } from "@webhare/wrd/src/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { compareProperties, convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
@@ -9,7 +9,7 @@ import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, decryptForThisServer, encryptForThisServer, importJSObject, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { AnySchemaTypeDefinition, AttrRef } from "@webhare/wrd/src/types";
+import type { AttrRef } from "@webhare/wrd/src/types";
 import { defaultDateTime } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
@@ -20,7 +20,7 @@ import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheck, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
-import { AuthenticationSettings, describeEntity } from "@webhare/wrd";
+import { AuthenticationSettings, describeEntity, wrd, type AnySchemaType } from "@webhare/wrd";
 import { getGuidForEntity } from "@webhare/wrd/src/accessors";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
@@ -95,7 +95,7 @@ export type SetAuthCookies = {
 
   // The value below are needed for prepareLoginCookies
   /** WRD Schema used */
-  wrdSchema: WRDSchema<AnySchemaTypeDefinition>;
+  wrdSchema: WRDSchemaType<AnySchemaType>;
   /** User id logging in */
   userId: number;
   /** Customizer used */
@@ -365,12 +365,12 @@ type SigningKey = {
  * @param wrdschema - The schema to create the token for
 */
 export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
-  readonly wrdschema: WRDSchema<WRD_IdpSchemaType>;
+  readonly wrdschema: WRDSchemaType<WRD_IdpSchemaType>;
   private authsettings?: WRDAuthSettings | null;
 
-  constructor(wrdschema: WRDSchema<SchemaType>) {
+  constructor(wrdschema: WRDSchemaType<SchemaType>) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
-    this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
+    this.wrdschema = wrdschema as unknown as WRDSchemaType<WRD_IdpSchemaType>;
   }
 
   getAuthSettings(required: true): Promise<WRDAuthSettings & { loginAttribute: string; passwordAttribute: string; passwordIsAuthSettings: true }>;
@@ -528,7 +528,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
         await options?.customizer.onOpenIdToken({
-          wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+          wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
           user: subject,
           scopes: requestedScopes,
           client
@@ -556,7 +556,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       Object.assign(atPayload, options.claims);
     if (options?.customizer?.onFrontendIdToken)
       await options.customizer.onFrontendIdToken({
-        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         user: subject,
         entityId: subject
       }, atPayload as JWTPayload);
@@ -633,7 +633,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (customizer?.onOpenIdUserInfo)
       await customizer?.onOpenIdUserInfo({
-        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         client: tokeninfo.client,
         scopes: tokeninfo.scopes,
         user: tokeninfo.entity
@@ -725,7 +725,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (customizer?.lookupUsername)
       return await customizer.lookupUsername({
-        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         username: loginname,
         ...pick(options || {}, ["site"])
       });
@@ -835,7 +835,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     if (request.customizer?.isAllowedToLogin) {
       const awaitableResult = request.customizer.isAllowedToLogin({
-        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        wrdSchema: this.wrdschema as unknown as WRDSchemaType<AnySchemaType>,
         user: userid,
         ipAddress: request.tokenOptions.authAuditContext.clientIp,
       });
@@ -995,10 +995,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
  * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
  * @param userid - Entity associated with this token
  */
-export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
-export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
 
-export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
   if (options?.scopes?.includes("openid"))
     throw new Error("Only third party tokens can request an openid scope");
 
@@ -1012,7 +1012,7 @@ export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdS
   };
 }
 
-async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number | null, entityId: number | null): Promise<ListedToken[]> {
+async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, tokenId: number | null, entityId: number | null): Promise<ListedToken[]> {
   const tokens =
     await db<PlatformDB>().selectFrom("wrd.tokens").
       where(qb => tokenId !== null ? qb("wrd.tokens.id", "=", tokenId) : qb("wrd.tokens.entity", "=", entityId)).
@@ -1039,7 +1039,7 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
   })).toSorted(compareProperties(["created", "id"]));
 }
 
-export async function getToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<ListedToken | null> {
+export async function getToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, tokenId: number): Promise<ListedToken | null> {
   return (await getDBTokens(wrdSchema, tokenId, null))[0] || null;
 }
 
@@ -1048,11 +1048,11 @@ export async function getToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSch
  * @param entityId - The entity id to list tokens for
  * @returns A list of tokens
 */
-export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, entityId: number): Promise<ListedToken[]> {
+export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, entityId: number): Promise<ListedToken[]> {
   return await getDBTokens(wrdSchema, null, entityId);
 }
 
-async function verifyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+async function verifyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, tokenId: number): Promise<void> {
   const token =
     await db<PlatformDB>().selectFrom("wrd.tokens").
       where("wrd.tokens.id", "=", tokenId).
@@ -1071,7 +1071,7 @@ async function verifyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
 * @param tokenId - The token id to delete
 * @returns A list of tokens
 */
-export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number, update: {
+export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, tokenId: number, update: {
   title?: string;
   expires?: Temporal.Instant | null;
   scopes?: string[];
@@ -1095,7 +1095,7 @@ export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
 * @param tokenId - The token id to delete
 * @returns A list of tokens
 */
-export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, tokenId: number): Promise<void> {
   await verifyToken(wrdSchema, tokenId);
 
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
@@ -1106,7 +1106,7 @@ export async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped
     throw new Error(prepped.error);
 
   customizer ||= prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined;
-  const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
+  const wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
   let userInfo: object | null = null;
 
   if (prepped.settings.cacheFields?.length) { //HS field getter, contains fieldnames such as WRD_FULLNAME
@@ -1119,7 +1119,7 @@ export async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped
 
   if (customizer?.onFrontendUserInfo) {
     const addUserInfo = await customizer.onFrontendUserInfo({
-      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaType>,
       user: userId,
       entityId: userId
     });
@@ -1136,7 +1136,7 @@ export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAu
     throw new Error(prepped.error);
 
   const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined);
-  const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
+  const wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
 
   //Create the token
   const idToken = await createFirstPartyToken(wrdSchema, "id", userId, {
@@ -1181,7 +1181,7 @@ export async function prepareLogin(prepped: PrepAuthResult, userId: number, opti
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
-  const authsettings = await getAuthSettings(new WRDSchema(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?");
+  const authsettings = await getAuthSettings(wrd<AnySchemaType>(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?");
   return await prepCookies(authsettings, prepped, userId, options);
 }
 
@@ -1213,7 +1213,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   return wrapAuthCookiesIntoForm(targetUrl, setAuthCookies);
 }
 
-export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, ipAddress: string, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+export async function verifyAllowedToLogin(wrdSchema: WRDSchemaType<AnySchemaType>, userId: number, ipAddress: string, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
@@ -1227,7 +1227,7 @@ export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDef
   if (customizer?.isAllowedToLogin) {
     //It's a bit ugly to repeat the isAllowedToLogin call here and have to throw ... but prepareLoginCookies will go away once all HS Login calls go through handleFrontendLogin
     const awaitableResult = customizer.isAllowedToLogin({
-      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      wrdSchema: wrdSchema as unknown as WRDSchemaType<AnySchemaType>,
       user: userId,
       ipAddress
     });

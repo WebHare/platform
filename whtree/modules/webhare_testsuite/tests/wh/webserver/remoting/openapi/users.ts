@@ -1,4 +1,4 @@
-import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { HTTPErrorCode, HTTPSuccessCode, type OpenAPIAuthorization, type OpenAPIRequest, type OpenAPIResponse } from "@webhare/openapi-service";
 import * as services from "@webhare/services";
 import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
@@ -60,7 +60,7 @@ export async function createUser(req: MyRestRequest): Promise<OpenAPIResponse> {
   test.assert("email" in addperson);
   test.assert("firstName" in addperson);
 
-  const wrdschema = await getWRDSchema();
+  const wrdschema = await getLegacyWRDSchema();
 
   await whdb.beginWork(); //we need to get the transaction *before* we lock the mutex for testOverlappingCalls to make sense
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");

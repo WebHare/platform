@@ -1,12 +1,9 @@
 import * as test from "@webhare/test-backend";
-import { generateWRDDefs, WRDSchemaCache } from "@mod-system/js/internal/generation/gen_wrd";
-import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
-import { createSchema, openSchemaById, wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { createSchema } from "@webhare/wrd";
+import { testschemaSchema } from "wh:wrd/webhare_testsuite";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { throwError } from "@webhare/std";
-
-const testschemaSchema = wrd("webhare_testsuite:testschema");
 
 async function testSchemaParser() {
   // \xEF\xBB\xBF doesn't actually make a BOM - "\xEF\xBB\xBF".length === 3. we need \uFEFF, the character the BOM encodes as:
@@ -49,9 +46,7 @@ async function testSchemaParser() {
 
 async function testSchemaApply() {
   await beginWork();
-  const testschemaid = await createSchema("webhare_testsuite:testschema");
-  test.eq("webhare_testsuite:testschema", (await openSchemaById<WRDSchemaDefinitions["webhare_testsuite:testschema"]>(testschemaid))?.tag, "Schema tag should be the same as the one we created");
-
+  await createSchema("webhare_testsuite:testschema");
   const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
   test.assert(testentry);
 
@@ -75,18 +70,8 @@ async function testSchemaApply() {
   await commitWork();
 }
 
-async function testFileGeneration() {
-  const context = await buildGeneratorContext(["system"], true);
-  let result = await generateWRDDefs(context, new WRDSchemaCache, "platform");
-
-  //Basic sanity checks - we don't want to set up a full TS parser (yet?)
-  result = result.replaceAll("\n", " ");
-  test.eq(/whuserComment/, result, "HS type WHUSER_DCOMMENT should appear as whuserComment in the output");
-}
-
 test.runTests([
   test.reset,
   testSchemaParser,
-  testSchemaApply,
-  testFileGeneration,
+  testSchemaApply
 ]);

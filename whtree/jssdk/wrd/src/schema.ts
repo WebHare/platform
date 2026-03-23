@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, nextVal, type Updateable } from "@webhare/whdb";
-import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
+import { type AnySchemaType, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -101,6 +101,56 @@ function validateCloseMode(closeMode: string) {
     throw new Error(`Illegal delete mode '${closeMode}' - must be one of: ${WRDCloseModes.join(", ")}`);
 }
 
+const legacyTranslations = {
+  "wrdCreated": "wrdCreationDate",
+  "wrdClosed": "wrdLimitDate",
+  "wrdModified": "wrdModificationDate",
+  "wrdOrder": "wrdOrdering"
+} as const;
+const invalidLegacyFields = Object.values(legacyTranslations);
+
+function translateToLegacyUpdate<T>(toUpdate: T): T {
+  const translated: Record<string, unknown> = { ...toUpdate } as Record<string, unknown>;
+  for (const [field, legacyField] of Object.entries(legacyTranslations)) {
+    if (legacyField in translated) {
+      throw new Error(`Cannot use field '${legacyField}' in update object, as it's translated to '${field}' for legacy schemas. Please use '${field}' instead.`);
+    }
+    if (field in translated) {
+      translated[legacyField] = translated[field];
+      delete translated[field];
+    }
+  }
+  return translated as T;
+}
+
+function validateLegacyOutputMap(toUpdate: OutputMap<any>) {
+  if (typeof toUpdate !== "object")
+    toUpdate = [toUpdate];
+  else if (!Array.isArray(toUpdate)) { //it's a record selection, ie a field sith subfields. validate the deeper fields instead
+    for (const field of Object.values(toUpdate))
+      validateLegacyOutputMap(field);
+    return;
+  }
+
+  const badCell = toUpdate.find(field => field in legacyTranslations);
+  if (badCell)
+    throw new Error(`Cannot use field '${badCell}' in output map for legacy schemas, use '${legacyTranslations[badCell as keyof typeof legacyTranslations]}' instead.`);
+}
+
+function validateModernOutputMap(toUpdate: OutputMap<any>) {
+  if (typeof toUpdate !== "object")
+    toUpdate = [toUpdate];
+  else if (!Array.isArray(toUpdate)) { //it's a record selection, ie a field sith subfields. validate the deeper fields instead
+    for (const field of Object.values(toUpdate))
+      validateModernOutputMap(field);
+    return;
+  }
+
+  const badCell = toUpdate.find(field => invalidLegacyFields.includes(field as typeof invalidLegacyFields[number]));
+  if (badCell)
+    throw new Error(`Cannot use legacy field '${badCell}' in output map for modern schemas, use '${Object.entries(legacyTranslations).find(([_, v]) => v === badCell)?.[0]}' instead.`);
+}
+
 export function isChange(curval: any, setval: any) {
   if (curval === setval)
     return false; //not a change
@@ -152,9 +202,9 @@ class SchemaUpdateListener {
   /** WeakMap to keep track of the schemas and their invalidation callbacks. Also the weakRef key used for the schemaDataMap, so that key is stable
    * Keep the invalidation callback here, instead as reachable property
    */
-  schemaWeakMap = new WeakMap<WRDSchema<any>, { weakRef: WeakRef<WRDSchema<any>>; invalidationCallback: () => void }>();
+  schemaWeakMap = new WeakMap<WRDSchemaType<any>, { weakRef: WeakRef<WRDSchemaType<any>>; invalidationCallback: () => void }>();
   /// WeakMaps are not iterable, so we need to keep a separate map to be able to iterate over the schemas
-  schemaDataMap = new Map<WeakRef<WRDSchema<any>>, SchemaData>();
+  schemaDataMap = new Map<WeakRef<WRDSchemaType<any>>, SchemaData>();
 
   constructor() {
     whbridge.on("event", (event) => {
@@ -184,7 +234,7 @@ class SchemaUpdateListener {
   }
 
   /** Register the cached data for a schema */
-  addSchema(schema: WRDSchema<any>, schemaData: SchemaData, invalidations: Invalidation[], invalidationCallback: () => void) {
+  addSchema(schema: WRDSchemaType<any>, schemaData: SchemaData, invalidations: Invalidation[], invalidationCallback: () => void) {
     // check if the schema was invalidated during loading
     const invalidated = invalidations.some(invalidation => isSchemaDataInvalidatedBy(schemaData, invalidation));
     let weakData = this.schemaWeakMap.get(schema);
@@ -223,11 +273,11 @@ let schemaUpdateListener: SchemaUpdateListener | null = null;
 type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
 type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
-export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T extends WRDSchema<infer S> ? S : never;
+export type WRDSchemaTypeOf<T extends WRDSchemaType<any>> = T extends WRDSchemaType<infer S> ? S : never;
 
-export type AnyWRDSchema = WRDSchema<any>;
+export type AnyWRDSchema = WRDSchemaType<any> | WRDLegacySchema<any>;
 
-export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
   private schemaData: Promise<SchemaData> | undefined;
@@ -356,7 +406,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
-    return new WRDType<S, T>(this, type);
+    return new WRDType<S, T>(this, type, false);
   }
 
   async __getTypeTag(type: number): Promise<string | null> {
@@ -420,12 +470,6 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       else
         throw new Error(`No such type ${JSON.stringify(type)}`);
     return typeobj;
-  }
-
-  /** @deprecated use query() in WebHare 5.4.1+ */
-  selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
-    const wrdtype = this.getType(type);
-    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
   query<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
@@ -556,8 +600,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getType(type).close(ids, { mode: "delete" });
   }
 
-  extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
-    return this as unknown as WRDSchema<CombineSchemas<S, T>>;
+  extendWith<T extends SchemaTypeDefinition>(): WRDLegacySchema<CombineSchemas<S, T>> {
+    return this as unknown as WRDLegacySchema<CombineSchemas<S, T>>;
   }
 
   async getEventMasks(type: keyof S & string | Array<keyof S & string>): Promise<string[]> {
@@ -596,14 +640,24 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 }
 
+export class WRDLegacySchema<S extends SchemaTypeDefinition = AnySchemaType> extends WRDSchemaType<S> {
+  getType<T extends keyof S & string>(type: T): WRDType<S, T> {
+    return new WRDType<S, T>(this, type, true);
+  }
+  /** @deprecated use query() in WebHare 5.4.1+ */
+  selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
+    const wrdtype = this.getType(type);
+    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
+  }
+}
 
 export type AnyWRDType = WRDType<any, any>;
 
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
-  schema: WRDSchema<S>;
+  schema: WRDSchemaType<S>;
   tag: T;
 
-  constructor(schema: WRDSchema<S>, tag: T) {
+  constructor(schema: WRDSchemaType<S>, tag: T, public readonly legacySchema: boolean) {
     this.schema = schema;
     this.tag = tag;
   }
@@ -644,7 +698,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       typeRec?.parentAttrMap.get(parent) ?? [] :
       typeRec?.rootAttrMap.values().toArray() ?? [];
 
-    return attrRecs.map((attrRec): WRDAttributeConfiguration => ({
+    const removeAttributes = this.legacySchema ? Object.keys(legacyTranslations) : Object.values(legacyTranslations);
+    return attrRecs.filter(_ => !removeAttributes.includes(_.fullTag)).map((attrRec): WRDAttributeConfiguration => ({
       id: attrRec.id || null,
       tag: attrRec.fullTag,
       attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
@@ -664,11 +719,17 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async createEntity(value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
+    if (!this.legacySchema)
+      value = translateToLegacyUpdate(value);
+
     const res = await __internalUpdEntity(this, value, 0, options || {});
     return res.entityId;
   }
 
   async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
+    if (!this.legacySchema)
+      value = translateToLegacyUpdate(value);
+
     if (typeof entity === "object") {
       const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
       if (matches.length !== 1)
@@ -695,6 +756,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     if ("wrdLimitDate" in value && value.wrdLimitDate === null && options[0]?.historyMode !== "all")
       throw new Error(`Resetting wrdLimitDate requires historyMode: all`);
+    if ("wrdClosed" in value && value.wrdClosed === null && options[0]?.historyMode !== "all")
+      throw new Error(`Resetting wrdClosed requires historyMode: all`);
 
     if (result.length === 1) {
       await this.updateEntity(result[0], value);
@@ -809,8 +872,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   private async __closeEntities(ids: number[], closeAt: Date): Promise<void> {
     for (const id of ids) {
-      //@ts-ignore WRD doesn't recgonize wrdLimitDate as existing everywhere
-      await this.updateEntity(id, { wrdLimitDate: closeAt });
+      //@ts-ignore WRD doesn't recognize wrdClosed/wrdLimitDate as existing everywhere
+      await this.updateEntity(id, this.legacySchema ? { wrdLimitDate: closeAt } : { wrdClosed: closeAt });
     }
   }
 
@@ -878,6 +941,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       throw new Error(`No such type ${JSON.stringify(this.tag)}`);
     const attrRec = typeRec.attrByFullTagMap.get(tag);
     if (!attrRec)
+      return null;
+
+    const removeAttributes = this.legacySchema ? Object.keys(legacyTranslations) : Object.values(legacyTranslations);
+    if (removeAttributes.includes(attrRec.fullTag))
       return null;
 
     return {
@@ -1077,7 +1144,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     const outputColumns = {
       wrdId: "wrdId",
-      wrdLimitDate: "wrdLimitDate",
+      wrdClosed: this.type.legacySchema ? "wrdLimitDate" : "wrdClosed",
       joinField: joinAttribute,
       current: [...currentCells]
     };
@@ -1116,12 +1183,15 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
       const currentRow: any = currentRowMap.get(inrowkey);
 
       if (!currentRow) { //it's a new entity
-        const newid = await this.type.createEntity({ wrdCreationDate: now, wrdModificationDate: now, ...inrow });
+        const newid = await this.type.createEntity(
+          this.type.legacySchema ? { wrdCreationDate: now, wrdModificationDate: now, ...inrow }
+            : { wrdCreated: now, wrdModified: now, ...inrow });
         retval.created.push(newid);
       } else { //we may have to update the existing entity
         const changes: any = {};
-        if (currentRow.wrdLimitDate)
-          changes.wrdLimitDate = null;
+        //re-open entity if it was closed
+        if (currentRow["wrdClosed"]) //we renamed it on selection but need to use right name when setting
+          changes[this.type.legacySchema ? "wrdLimitDate" : "wrdClosed"] = null;
 
         for (const key of currentCells)
           if (key in inrow && isChange(currentRow.current[key], inrow[key]))
@@ -1166,6 +1236,11 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   }
 
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
+    if (this.type.legacySchema)
+      validateLegacyOutputMap(mapping);
+    else
+      validateModernOutputMap(mapping);
+
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
     return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this._historyMode, this._limit);
   }
@@ -1306,7 +1381,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
 }
 
 export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O extends object> {
-  private schema: WRDSchema<S>;
+  private schema: WRDSchemaType<S>;
   private baseQuery: WRDSingleQueryBuilder<S, any, any>;
   private enriches: Array<{
     type: string;
@@ -1315,7 +1390,7 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     options: any;
   }>;
 
-  constructor(schema: WRDSchema<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
+  constructor(schema: WRDSchemaType<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
     type: string;
     field: string;
     mapping: any;

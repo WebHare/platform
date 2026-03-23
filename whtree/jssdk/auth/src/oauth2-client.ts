@@ -1,7 +1,7 @@
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
-import type { WRDSchema } from "@webhare/wrd";
+import type { WRDSchema, WRDSchemaType } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
@@ -230,7 +230,7 @@ export class OAuth2Client {
   }
 }
 
-export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, provider: number | string) {
+export async function createOAuth2Client<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, provider: number | string) {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<System_UsermgmtSchemaType>; //TODO better schema type but at least this one has the OIDC Client
   const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthOidcClient", { wrdTag: provider }) ?? throwError(`No OIDC provider with tag ${provider} found`);
   const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl", "clientid", "clientsecret", "additionalscopes", "redirectUri", "clientSigning", "extraParams"]) ?? throwError(`No OIDC service provider #${providerId} found`);
@@ -396,7 +396,7 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
   return createRedirectResponse(gotoUrl.toString());
 }
 
-export async function fetchUserInfo(wrdSchema: WRDSchema, client: number, accessToken: string) {
+export async function fetchUserInfo(wrdSchema: WRDSchemaType, client: number, accessToken: string) {
   const spData = await wrdSchema.getFields("wrdauthOidcClient", client, ["metadataurl"]);
   const providerInfo = await getOpenIDConnectMetadata(spData.metadataurl);
   if (!providerInfo.config.userinfo_endpoint)

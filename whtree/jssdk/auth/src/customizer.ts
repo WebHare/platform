@@ -1,6 +1,6 @@
-import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
+import type { AnySchemaType, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { NavigateInstruction } from "@webhare/env";
-import type { WRDSchema } from "@webhare/wrd";
+import type { WRDSchemaType } from "@webhare/wrd";
 import type { LoginErrorCode } from "./shared";
 import type { MaybePromise } from "@webhare/std";
 
@@ -65,9 +65,9 @@ export interface LoginUsernameLookupOptions {
   site?: string;
 }
 
-export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition = AnySchemaType> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** Provider id (references wrdauthOidcClient) */
   provider: number;
   /** JWT payload */
@@ -78,25 +78,25 @@ export interface OpenIdAuthenticationParameters<S extends SchemaTypeDefinition =
   accessToken: string | null;
 }
 
-export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends LoginUsernameLookupOptions {
+export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaType> extends LoginUsernameLookupOptions {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** Username to look up */
   username: string;
 }
 
-export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> { //Could imagine adding IP/GEO and browser info to these parameters
+export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaType> { //Could imagine adding IP/GEO and browser info to these parameters
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** User id to check */
   user: number;
   /** IP Address */
   ipAddress: string;
 }
 
-export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnySchemaType> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /** User id to check (available since WH 5.8) */
   user: number;
 
@@ -106,11 +106,11 @@ export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnyS
 }
 
 /** @deprecated Use FrontendRequestParameters instead */
-export type FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> = FrontendRequestParameters<S>;
+export type FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchemaType> = FrontendRequestParameters<S>;
 
-export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySchemaType> {
   /** Current WRD schema */
-  wrdSchema: WRDSchema<S>;
+  wrdSchema: WRDSchemaType<S>;
   /// ID of the client requesting the token
   client: number;
   /// Requested scopes
@@ -126,7 +126,7 @@ export type LoginDeniedInfo = {
   code: LoginErrorCode;
 };
 
-export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaType> {
   /** Invoked to look up a login name. Override to modify how accounts are mapped to IDs or to do just-in-time account creation */
   lookupUsername?: (params: LookupUsernameParameters<S>) => MaybePromise<number | null>;
   /** Invoked to handle incoming OIDC authentication. Override to modify how OIDC accounts are mapped or to do just-in-time account creation. Invoked before the loginfield is checked and before lookupUsername is invoked

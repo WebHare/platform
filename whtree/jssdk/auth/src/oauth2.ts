@@ -1,6 +1,6 @@
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { compressUUID, hashClientSecret, IdentityProvider } from "./identity";
-import type { WRDSchema } from "@webhare/wrd";
+import type { WRDSchema, WRDSchemaType } from "@webhare/wrd";
 import { updateSchemaSettings } from "@webhare/wrd/src/settings";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { generateRandomId } from "@webhare/std";
@@ -18,14 +18,14 @@ export interface RelyingProviderInit {
   subjectField?: string;
 }
 
-export async function initializeIssuer<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, issuer: string): Promise<void> {
+export async function initializeIssuer<S extends SchemaTypeDefinition>(wrdSchema: WRDSchemaType<S>, issuer: string): Promise<void> {
   await new IdentityProvider(wrdSchema).ensureSigningKeys();
 
   //We'd prefer to just have wrdSchema: WRDschema<WRD_IdpSchemaType> and have WRD figure out its inheritance...
   await updateSchemaSettings(wrdSchema as unknown as WRDSchema<WRD_IdpSchemaType>, { issuer });
 }
 
-export async function registerRelyingParty<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, spSettings: RelyingProviderInit): Promise<RelyingPartyConfig> {
+export async function registerRelyingParty<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchemaType<S>, spSettings: RelyingProviderInit): Promise<RelyingPartyConfig> {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<WRD_IdpSchemaType>;
 
   const clientId = generateRandomId("uuidv4");

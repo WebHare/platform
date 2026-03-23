@@ -4,7 +4,7 @@ import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } 
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openFile, openType, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
-import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 
@@ -763,7 +763,7 @@ async function testWRDRoundTrips() {
   await createWRDTestSchema();
   await beginWork();
 
-  const wrdschema = await getWRDSchema();
+  const wrdschema = await getLegacyWRDSchema();
   const testuser = await wrdschema.insert("wrdPerson", { wrdContactEmail: "test_rtd@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
 
   const hsWRDSchema = await loadlib("mod::wrd/lib/api.whlib").openWRDSchema(wrdschema.tag);

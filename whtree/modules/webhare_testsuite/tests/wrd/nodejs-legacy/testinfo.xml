@@ -1,0 +1,16 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="tsapi_support.whlib" tags="wrd-legacy">
+  <test script="test_legacy_wrd_api.ts" />
+  <test script="test_legacy_wrd_types.ts" />
+  <test script="test_legacy_wrd_tsapi.ts" />
+  <test script="test_legacy_wrd_tsapi_2.ts" />
+  <test script="test_legacy_wrd_events.ts" />
+  <test script="test_legacy_wrd_metadata.ts" />
+  <test script="test_legacy_wrd_errors.ts" />
+  <test script="test_legacy_wrd_history.ts" />
+  <test script="test_legacy_wrd_eximport.ts" />
+  <test script="test_legacy_password_policy.ts" />
+  <test script="test_legacy_wrd_auth.ts" />
+  <test script="test_legacy_openid.ts" />
+  <test script="test_legacy_whapi_wrd.ts" />
+  <test script="test_legacy_wrd_cli.ts" />
+</group>

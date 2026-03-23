@@ -1,6 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { ResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 
@@ -8,7 +8,7 @@ async function testSettingReuse() {
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
   }
 
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
 
@@ -31,8 +31,8 @@ async function testSettingReuse() {
     }
   ];
   await schema.update("wrdPerson", newPerson, {
-    wrdCreated: new Date,
-    wrdClosed: null,
+    wrdCreationDate: new Date,
+    wrdLimitDate: null,
     testArray: orgArray
   });
   const writtenArray = await schema.getFields("wrdPerson", newPerson, "testArray");

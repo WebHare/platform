@@ -10,7 +10,7 @@ import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder, type WHFSObject } from "@webhare/whfs";
 import { convertWaitPeriodToDate, isDate, throwError, type WaitPeriod } from "@webhare/std";
-import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
+import { createSchema, deleteSchema, listSchemas, WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
@@ -143,7 +143,7 @@ export function getUser(name: string): TestUserDetails {
 
 /** Get the last audit event generated in a WRD Schema */
 export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(
-  w: WRDSchema<S>,
+  w: WRDSchemaType<S>,
   filter?: {
     type?: Type;
     since?: Date | Temporal.Instant;

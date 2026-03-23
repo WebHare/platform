@@ -1,25 +1,24 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@webhare/wrd/src/types";
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
+import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { subscribeToEventStream, toResourcePath, type BackendEvent } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
-
 async function testEventMasks() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   const selectMasks = await schema.query("wrdPerson").getEventMasks();
-  const selectExpect = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
+  const selectExpect = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "WRD_PERSON");
   test.eq(selectExpect.sort(), selectMasks);
 
   test.eq(selectMasks, await schema.getType("wrdPerson").getEventMasks());
   test.eq(selectMasks, await schema.getEventMasks("wrdPerson"));
 
   const enrichMasks = await schema.query("wrdPerson").select(["wrdId"]).enrich("testDomain_1", "wrd_id", ["wrdLeftEntity"]).getEventMasks();
-  const enrichExpect = [...selectExpect, ...await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "TEST_DOMAIN_1")];
+  const enrichExpect = [...selectExpect, ...await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDTypeEventMasks(testSchemaTag, "TEST_DOMAIN_1")];
   test.eq([...new Set(enrichExpect)].sort(), enrichMasks);
   test.eq(enrichMasks, await schema.getEventMasks(["wrdPerson", "testDomain_1"]));
 }
@@ -48,7 +47,7 @@ async function expectEvent(itr: AsyncIterator<BackendEvent>, options?: { check?:
 }
 
 async function testEvents() {
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
   const wrdPersonTypeId = await schema.__toWRDTypeId("wrdPerson");
   const testDomain_1TypeId = await schema.__toWRDTypeId("testDomain_1");
 

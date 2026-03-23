@@ -1,15 +1,14 @@
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type AllowedFilterConditions, type WRDAttrBase, WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType, baseAttrCells } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
-import { Money, omit, isValidEmail, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy, stdTypeOf } from "@webhare/std";
+import { Money, omit, isValidEmail, isValidUrl, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf } from "@webhare/std";
 import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
-import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
-import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD, type ResourceSource, isResourceDescriptor } from "@webhare/services";
@@ -25,17 +24,11 @@ import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySe
 import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
-
-/** Response type for addToQuery. Null to signal the added condition is always false
- * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
- */
-type AddToQueryResponse<O> = {
-  needaftercheck: boolean;
-  query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>;
-} | null;
+import { cmp, getAttrBaseCells, WRDAttributeValueBase, type AddToQueryResponse } from "./accessors-support";
+import { WRDDBBaseCreationLimitDateValue, WRDDBBaseDateValue, WRDDBBaseModificationDateValue, WRDDBDateTimeValue, WRDDBDateValue, WRDDBTimeValue } from "./accessors-datetimes";
 
 /// Returns `null` if Required might be false
-type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
+export type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -183,164 +176,8 @@ async function lookupDomainValues(type: AnyWRDType, attr: AttrRec, vals: Array<s
 }
 
 
-/** Base for an attribute accessor
- * @typeParam In - Type for allowed values for insert and update
- * @typeParam Out - Type returned by queries
- * @typeParam Default - Output type plus default type (output may not include the default value for eg required domains, where `null` is the default)
- */
-export abstract class WRDAttributeValueBase<In, Default, Out extends Default, ExportOut, C extends { condition: AllowedFilterConditions; value: unknown }> {
-  attr: AttrRec;
-  type: AnyWRDType;
-
-  constructor(type: AnyWRDType, attr: AttrRec) {
-    this.type = type;
-    this.attr = attr;
-  }
-
-  /** Returns the default value for a value with no settings
-   *  @returns Default value for this type
-   */
-  abstract getDefaultValue(): Default;
-
-  /** Returns true if the value is not the default value
-   * @param value - Value to check
-   * @returns true if the value is not the default value
-   */
-  abstract isSet(value: Default): boolean;
-
-  /** Checks if a filter (condition + value) is allowed for this attribute. Throws if not.
-   * @param condition - Condition type
-   * @param value - Condition value
-   */
-  abstract checkFilter({ condition, value }: C): void;
-
-  /** Checks if a value matches a filter
-   * @param value - Value to check
-   * @param cv - Condition and value
-   * @returns true if the value matches
-   */
-  abstract matchesValue(value: Default, cv: C): boolean;
-
-  /** Try to add wheres to the database query on wrd.entities to filter out non-matches for this filter
-   * @typeParam O - Output map for the database query
-   * @param query - Database query
-   * @param cv - Condition and value to compare with
-   * @returns Whether after-filtering is necessary and updated query
-   */
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O> {
-    return { needaftercheck: true, query };
-  }
-
-  /** Returns true all the values in a filter match the default value
-   * @param cv - Condition+value to check
-   * @returns true if all values match the default value
-   */
-  containsOnlyDefaultValues<CE extends C>(cv: CE): boolean {
-    const defaultvalue = this.getDefaultValue();
-    if (Array.isArray(cv.value)) {
-      for (const value of cv.value) {
-        const newcv = { condition: "=", value };
-        if (!this.matchesValue(defaultvalue, newcv as C))
-          return false;
-      }
-      return true;
-    } else if (cv.condition === "=")
-      return this.matchesValue(defaultvalue, cv);
-    else
-      throw new Error(`Cannot handle condition ${cv.condition} in containsOnlyDefaultValues`);
-  }
-
-  /** Given a list of entity settings, extract the return value for a field
-   * @param entity_settings - List of entity settings
-   * @param settings_start - Position where settings for this attribute start
-   * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
-   * @param links - Entity settings whfs links, sorted on id
-   * @param cc - Creationdate unified cache validator
-   */
-  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): Out | Promise<Out>;
-
-  /** Given a list of entity settings, extract the return value for a field
-   * @param entity_settings - List of entity settings
-   * @param settings_start - Position where settings for this attribute start
-   * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start
-   * @param row - Entity record
-   * @param links - Entity settings whfs links, sorted on id
-   * @param cc - Creationdate unified cache validator
-   * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
-   */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Out | Promise<Out> {
-    if (settings_limit <= settings_start)
-      return this.getDefaultValue() as Out; // Cast is needed because for required fields, Out may not extend Default.
-    else
-      return this.getFromRecord(entity_settings, settings_start, settings_limit, links, cc);
-  }
-
-  /** Preprocess (load) exportable values to be importable
-   */
-  importValue(value: ExportOut | In): MaybePromise<In> {
-    return value as unknown as In;
-  }
-
-  /** Convert the returned value to its exportable version
-   */
-  exportValue(value: Out, exportOptions?: ExportOptions): ExportOut | Promise<ExportOut> {
-    return value as unknown as ExportOut;
-  }
-
-  /** Check the contents of a value used to insert or update a value
-   * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
-   */
-  abstract validateInput(value: In, checker: ValueQueryChecker, attrPath: string): void;
-
-  /** Returns the list of attributes that need to be fetched */
-  getAttrIds(): number | number[] {
-    return this.attr.id || [];
-  }
-
-  getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
-    return null;
-  }
-
-  abstract encodeValue(value: In | null): AwaitableEncodedValue; //explicitly add | null so derived classes have to handle it
-
-  protected decodeAsStringWithOverlow(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
-    if (entity_settings[settings_start].rawdata)
-      return entity_settings[settings_start].rawdata;
-    const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
-    return buf ? Buffer.from(buf).toString() : "";
-  }
-
-  protected encodeAsStringWithOverlow(rawdata: string): AwaitableEncodedValue {
-    if (!rawdata)
-      return {};
-    if (Buffer.byteLength(rawdata) <= 4096)
-      return { settings: { rawdata, attribute: this.attr.id } };
-
-    return {
-      settings: (async (): Promise<EncodedSetting[]> => {
-        const blobdata = WebHareBlob.from(rawdata);
-        await uploadBlob(blobdata);
-        return [{ blobdata, attribute: this.attr.id }];
-      })()
-    };
-  }
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyWRDAccessor = WRDAttributeValueBase<any, any, any, any, any>;
-
-/** Compare values */
-function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" | "<" | "<=", b: T) {
-  const cmpres = compare(a, b);
-  switch (condition) {
-    case "=": return cmpres === 0;
-    case ">=": return cmpres >= 0;
-    case "<=": return cmpres <= 0;
-    case "<": return cmpres < 0;
-    case ">": return cmpres > 0;
-    case "!=": return cmpres !== 0;
-  }
-}
 
 type SettingsSelectBuilder = SelectQueryBuilder<PlatformDB, "wrd.entities" | "wrd.entity_settings", { id: number }>;
 type SettingsExpressionBuilder = ExpressionBuilder<PlatformDB, "wrd.entities" | "wrd.entity_settings">;
@@ -408,12 +245,6 @@ function addIndexedSelect(builder: SettingsExpressionBuilder, expr: Expression<S
   return expr;
 }
 
-
-function getAttrBaseCells<T extends keyof typeof baseAttrCells>(tag: string, allowedTypes: readonly T[]): typeof baseAttrCells[T] {
-  if (!allowedTypes.includes(tag as T))
-    throw new Error(`Unhandled base attribute ${JSON.stringify(tag)}`);
-  return baseAttrCells[tag as T];
-}
 
 type WRDDBStringConditions = {
   condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string; options?: { matchCase?: boolean };
@@ -921,7 +752,8 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     switch (this.attr.tag) {
       case "wrdId": return entityrec["id"] || 0;
       case "wrdType": return entityrec["type"] || 0;
-      case "wrdOrdering": return entityrec["ordering"] || 0;
+      case "wrdOrdering":
+      case "wrdOrder": return entityrec["ordering"] || 0;
       default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
   }
@@ -938,7 +770,7 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdOrdering"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdOrder", "wrdOrdering"]);
   }
 
   encodeValue(value: number): EncodedValue {
@@ -1584,382 +1416,9 @@ class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: obje
   }
 }
 
-//////////////////////////////////////
-//
-// DATE and DATETIME support
-
-// DATE and DATETIME shared
-type WRDDBDateTimeConditions = {
-  condition: "=" | "!="; value: Date | null;
-} | {
-  condition: ">=" | "<=" | "<" | ">"; value: Date;
-} | {
-  condition: "in"; value: ReadonlyArray<Date | null>;
-};
-
-abstract class WRDDBDateValueBase<Required extends boolean> extends WRDAttributeValueBase<
-  Date | string | NullIfNotRequired<Required>,
-  Date | null,
-  Date | NullIfNotRequired<Required>,
-  string | NullIfNotRequired<Required>,
-  WRDDBDateTimeConditions> {
-  getDefaultValue(): Date | null { return null; }
-  isSet(value: Date | null) { return Boolean(value); }
-}
-
-// Plain DATEs: type Date, field wrdDateOfBirth, wrdDateOfDeath
-
-abstract class WRDDBPlainDateValueBase<Required extends boolean> extends WRDDBDateValueBase<Required> {
-  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
-    if (cv.condition === "in") {
-      for (const v of cv.value)
-        if (v?.getTime() === value?.getTime())
-          return true;
-      return false;
-    }
-    return cmp(value, cv.condition, cv.value);
-  }
-
-  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
-    if (value === null)
-      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
-
-    return value.toISOString().substring(0, 10); //only return the Date part "2004-01-01"
-  }
-
-  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
-    if (typeof value === "string") {
-      try {
-        return new Date(Temporal.PlainDate.from(value).toZonedDateTime("UTC").epochMilliseconds); //Temporal parser actually limits itselfs to dates
-      } catch (e) {
-        throw new Error(`Invalid value ${JSON.stringify(value)} for date attribute ${this.attr.fullTag}`);
-      }
-    }
-    return value;
-  }
-}
-
-class WRDDBDateValue<Required extends boolean> extends WRDDBPlainDateValueBase<Required> {
-  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
-    /* always ok */
-  }
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | NullIfNotRequired<Required> {
-    const parts = entity_settings[settings_start].rawdata.split(",");
-    if (Number(parts[0]) >= 2147483647)
-      return null as Date | NullIfNotRequired<Required>; // invalid date, return null
-    return makeDateFromParts(Number(parts[0]), 0);
-  }
-
-  validateInput(value: Date | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
-    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
-      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
-      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-  }
-
-  encodeValue(value: Date | NullIfNotRequired<Required>): EncodedValue {
-    if (!value)
-      return {};
-
-    const parts = dateToParts(value);
-    return { settings: { rawdata: parts.days.toString(), attribute: this.attr.id } };
-  }
-}
-
-class WRDDBBaseDateValue extends WRDDBPlainDateValueBase<false> {
-  validateFilterInput(value: Date | null) {
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null`);
-  }
-  checkFilter(cv: WRDDBDateTimeConditions) {
-    if (cv.condition === "in")
-      cv.value.forEach(v => this.validateFilterInput(v));
-    else
-      this.validateFilterInput(cv.value);
-  }
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    let fieldname: "dateofbirth" | "dateofdeath";
-    if (this.attr.tag === "wrdDateOfBirth")
-      fieldname = "dateofbirth";
-    else if (this.attr.tag === "wrdDateOfDeath")
-      fieldname = "dateofdeath";
-    else
-      throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
-
-    if (cv.condition === "in")
-      cv.value = cv.value.map(v => v ?? defaultDateTime);
-    else
-      cv.value ??= defaultDateTime;
-
-    if (cv.condition === "in" && !cv.value.length)
-      return null; // no results!
-
-    query = query.where(fieldname, cv.condition, cv.value);
-    return { needaftercheck: false, query };
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | null {
-    throw new Error(`not used`);
-  }
-
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
-    let val: Date | undefined;
-    if (this.attr.tag === "wrdDateOfBirth")
-      val = entityrec.dateofbirth;
-    else if (this.attr.tag === "wrdDateOfDeath")
-      val = entityrec.dateofdeath;
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
-    if (!val || val.getTime() <= defaultDateTime.getTime() || val.getTime() >= maxDateTimeTotalMsecs)
-      return null;
-    return val;
-  }
-
-  validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
-    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
-      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
-      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value && this.attr.tag === "wrdDateOfDeath" && value.getTime() > Date.now() && !checker.importMode)
-      throw new Error(`Provided date of death in the future for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-  }
-
-  getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdDateOfBirth", "wrdDateOfDeath"]);
-  }
-
-  encodeValue(value: Date | null): EncodedValue {
-    return { entity: { [this.getAttrBaseCells()]: value || defaultDateTime } };
-  }
-}
-
-// DATETIMEs: type DateTime, field wrdCreationDate, wrdLimitDate, wrdModificationDate
-
-abstract class WRDDBDateTimeValueBase<Required extends boolean> extends WRDDBDateValueBase<Required> {
-  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
-    if (value === null)
-      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
-
-    let retval = value.toISOString();
-    if (value.getMilliseconds() === 0)  // remove milliseconds if they are 0
-      retval = retval.substring(0, 19) + "Z";
-
-    return retval;
-  }
-
-  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
-    if (typeof value === "string") {
-      try {
-        return new Date(Temporal.Instant.from(value).epochMilliseconds); //Temporal parser is much stricter (and thus safer) than new Date
-      } catch (e) {
-        throw new Error(`Invalid value ${JSON.stringify(value)} for datetime attribute ${this.attr.fullTag}`);
-      }
-    }
-    return value;
-  }
-}
-
-
-class WRDDBDateTimeValue<Required extends boolean> extends WRDDBDateTimeValueBase<Required> {
-  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
-    /* always ok */
-  }
-  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
-    if (cv.condition === "in") {
-      for (const v of cv.value)
-        if (v?.getTime() === value?.getTime())
-          return true;
-      return false;
-    }
-    return cmp(value, cv.condition, cv.value);
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | NullIfNotRequired<Required> {
-    const parts = entity_settings[settings_start].rawdata.split(",");
-    if (Number(parts[0]) >= 2147483647)
-      return null as Date | NullIfNotRequired<Required>;
-    return makeDateFromParts(Number(parts[0]), Number(parts[1]));
-  }
-
-  validateInput(value: Date | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
-    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
-      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
-      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-  }
-
-  encodeValue(value: Date | NullIfNotRequired<Required>): EncodedValue {
-    if (!value)
-      return {};
-
-    const parts = dateToParts(value);
-    return { settings: { rawdata: `${parts.days.toString()},${parts.msecs.toString()}`, attribute: this.attr.id } };
-  }
-}
-
 type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>, Export extends boolean> = {
   [K in keyof Members]: GetResultType<Members[K], Export>;
 };
-
-class WRDDBBaseCreationLimitDateValue extends WRDDBDateTimeValueBase<false> {
-  validateFilterInput(value: Date | null) {
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
-  }
-
-  checkFilter(cv: WRDDBDateTimeConditions) {
-    if (cv.condition === "in")
-      cv.value.forEach(v => this.validateFilterInput(v));
-    else
-      this.validateFilterInput(cv.value);
-  }
-  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
-    if (cv.condition === "in") {
-      return cv.value.includes(value);
-    }
-    return cmp(value, cv.condition, cv.value);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    const defaultMatches = this.matchesValue(this.getDefaultValue(), cv);
-
-    let fieldname: "creationdate" | "limitdate";
-    if (this.attr.tag === "wrdCreationDate")
-      fieldname = "creationdate";
-    else if (this.attr.tag === "wrdLimitDate")
-      fieldname = "limitdate";
-    else
-      throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
-
-    if (cv.condition === "in")
-      cv.value = cv.value.map(v => v ?? defaultDateTime);
-    else
-      cv.value ??= defaultDateTime;
-
-    if (cv.condition === "in" && !cv.value.length)
-      return null; // no results!
-
-    const maxDateTimeMatches = this.matchesValue(maxDateTime, cv);
-    if (defaultMatches && !maxDateTimeMatches) {
-      query = query.where(qb => qb.or([
-        qb(fieldname, cv.condition, cv.value),
-        qb(fieldname, "=", maxDateTime)
-      ]));
-    } else {
-      query = query.where(fieldname, cv.condition, cv.value);
-      if (maxDateTimeMatches && !defaultMatches)
-        query = query.where(fieldname, "!=", maxDateTime);
-    }
-    return { needaftercheck: false, query };
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | null {
-    throw new Error(`not used`);
-  }
-
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
-    let val: Date | number | undefined;
-    if (this.attr.tag === "wrdCreationDate")
-      val = entityrec.creationdate as Date | number;
-    else if (this.attr.tag === "wrdLimitDate")
-      val = entityrec.limitdate as Date | number;
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
-    if (typeof val === "number") // -Infinity and Infinity
-      return null;
-    if (!val || val.getTime() <= defaultDateTime.getTime() || val.getTime() >= maxDateTimeTotalMsecs)
-      return null;
-    return val;
-  }
-
-  validateInput(value: Date | null, checker: ValueQueryChecker, attrPath: string) {
-    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
-      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    // FIXME: check temp mode
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
-    if (!value && this.attr.tag === "wrdCreationDate" && !checker.temp && !checker.importMode)
-      throw new Error(`Not allowed to use \`null\` for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} for non-temp entities`);
-  }
-
-  getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdCreationDate", "wrdLimitDate"]);
-  }
-
-  encodeValue(value: Date | null): EncodedValue {
-    return { entity: { [this.getAttrBaseCells()]: value ?? maxDateTime } };
-  }
-}
-
-class WRDDBBaseModificationDateValue extends WRDDBDateTimeValueBase<true> {
-  validateFilterInput(value: Date) {
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
-  }
-
-  checkFilter(cv: WRDDBDateTimeConditions) {
-    if (cv.condition === "in") {
-      for (const value of cv.value)
-        if (!value)
-          throw new Error(`Not allowed to use null in comparisions`);
-        else
-          this.validateFilterInput(value);
-    } else if (!cv.value)
-      throw new Error(`Not allowed to use null in comparisions`);
-    else
-      this.validateFilterInput(cv.value);
-  }
-  matchesValue(value: Date, cv: WRDDBDateTimeConditions): boolean {
-    if (cv.condition === "in") {
-      return cv.value.includes(value);
-    }
-    return cmp(value, cv.condition, cv.value);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    if (cv.condition === "in")
-      cv.value = cv.value.map(v => v ?? defaultDateTime);
-    else
-      cv.value ??= defaultDateTime;
-
-    if (cv.condition === "in" && !cv.value.length)
-      return null; // no results!
-
-    query = query.where("modificationdate", cv.condition, cv.value);
-    return { needaftercheck: false, query };
-  }
-
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date {
-    throw new Error(`not used`);
-  }
-
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date {
-    if (!entityrec.modificationdate || entityrec.modificationdate.getTime() <= defaultDateTime.getTime() || entityrec.modificationdate.getTime() >= maxDateTimeTotalMsecs)
-      return defaultDateTime;
-    return entityrec.modificationdate;
-  }
-
-  validateInput(value: Date, checker: ValueQueryChecker, attrPath: string) {
-    if (value !== null && (!isDate(value) || isNaN(value.getTime())))
-      throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (!value)
-      throw new Error(`Not allowed to use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs)
-      throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-  }
-
-  getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdModificationDate"]);
-  }
-
-  encodeValue(value: Date | null): EncodedValue {
-    return { entity: { [this.getAttrBaseCells()]: value } };
-  }
-}
 
 class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
   Array<WRDInsertable<Members>>,
@@ -2804,15 +2263,22 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue<true>;
   [WRDBaseAttributeTypeId.Base_Guid]: WRDDBBaseGuidValue;
   [WRDBaseAttributeTypeId.Base_Tag]: WRDDBBaseStringValue;
-  [WRDBaseAttributeTypeId.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
-  [WRDBaseAttributeTypeId.Base_ModificationDate]: WRDDBBaseModificationDateValue;
-  [WRDBaseAttributeTypeId.Base_Date]: WRDDBDateValue<false>;
+  [WRDBaseAttributeTypeId.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue<true>;
+  [WRDBaseAttributeTypeId.Base_ModificationDate]: WRDDBBaseModificationDateValue<true>;
+  [WRDBaseAttributeTypeId.Base_Date]: WRDDBDateValue<false, true>;
   [WRDBaseAttributeTypeId.Base_GeneratedString]: WRDDBStringValue;
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required, string>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
   [WRDBaseAttributeTypeId.Base_Id]: WRDDBBaseDomainValue<true, number>;
   [WRDBaseAttributeTypeId.Base_Type]: WRDDBBaseTypeValue;
+  [WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate]: WRDDBBaseCreationLimitDateValue<false>;
+  [WRDBaseAttributeTypeId.Base_Legacy_ModificationDate]: WRDDBBaseModificationDateValue<false>;
+  [WRDBaseAttributeTypeId.Base_Legacy_Date]: WRDDBDateValue<false, false>;
+
+  [WRDBaseAttributeTypeId.Modern_Date]: WRDDBDateValue<Required, true>;
+  [WRDBaseAttributeTypeId.Modern_DateTime]: WRDDBDateTimeValue<Required, true>;
+  [WRDBaseAttributeTypeId.Modern_Time]: WRDDBTimeValue<Required, true>;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2820,8 +2286,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.URL]: WRDDBUrlValue;
   [WRDAttributeTypeId.Boolean]: WRDDBBooleanValue;
   [WRDAttributeTypeId.Integer]: WRDDBIntegerValue;
-  [WRDAttributeTypeId.Date]: WRDDBDateValue<Required>;
-  [WRDAttributeTypeId.DateTime]: WRDDBDateTimeValue<Required>;
+  [WRDAttributeTypeId.Date]: WRDDBDateValue<Required, false>;
+  [WRDAttributeTypeId.DateTime]: WRDDBDateTimeValue<Required, false>;
   [WRDAttributeTypeId.Domain]: WRDDBDomainValue<Required>;
   [WRDAttributeTypeId.DomainArray]: WRDDBDomainArrayValue;
   [WRDAttributeTypeId.Address]: WRDDBAddressValue<Required>;
@@ -2838,7 +2304,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.Payment]: WRDDBPaymentValue;
   [WRDAttributeTypeId.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
   [WRDAttributeTypeId.WHFSRef]: WRDDBWHFSLinkValue;
-  [WRDAttributeTypeId.Time]: WRDDBIntegerValue;
+  [WRDAttributeTypeId.Time]: WRDDBTimeValue<Required, false>;
 };
 
 /** Returns the accessor for a WRDAttr record
@@ -2865,13 +2331,14 @@ export function getAccessor<T extends WRDAttrBase>(
   attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
   parentAttrMap: Map<number | null, AttrRec[]>,
 ): AccessorType<T> {
+  //hmm.. if we're going to 'as AccessorType<T>' everything we don't need to pass as much type parameters (eg T["__required]) as we're doing now
   switch (attrinfo.attributetype) {
     case WRDBaseAttributeTypeId.Base_Integer: return new WRDDBBaseIntegerValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Guid: return new WRDDBBaseGuidValue(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Tag: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue<true>(type, attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(type, attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue<true>(type, attrinfo) as AccessorType<T>;
     //'as unknown' was needed after implementing the last missing type due to insufficient overlap
     case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as unknown as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
@@ -2880,16 +2347,19 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_Id: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Type: return new WRDDBBaseTypeValue(type, attrinfo, true) as AccessorType<T>;
 
+    case WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue<false>(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Legacy_ModificationDate: return new WRDDBBaseModificationDateValue<false>(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Legacy_Date: return new WRDDBBaseDateValue<false>(type, attrinfo) as AccessorType<T>;
+
     case WRDAttributeTypeId.String: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.URL: return new WRDDBUrlValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Integer:
-    case WRDAttributeTypeId.Time:
-      return new WRDDBIntegerValue(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Integer: return new WRDDBIntegerValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Time: return new WRDDBTimeValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"], false>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"], false>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Domain: return new WRDDBDomainValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.DomainArray: return new WRDDBDomainArrayValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Address: return new WRDDBAddressValue(type, attrinfo) as AccessorType<T>;

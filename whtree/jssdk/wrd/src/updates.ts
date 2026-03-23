@@ -944,7 +944,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     }
 
     for (const [tag, cells] of Object.entries(baseAttrCells)) {
-      if (tag === "wrdId" || tag === "wrdType" || tag === "wrdModificationDate" || Array.isArray(cells))
+      if (["wrdId", "wrdType", "wrdCreationDate", "wrdLimitDate", "wrdModificationDate", "wrdModified"].includes(tag) || Array.isArray(cells))
         continue;
       if (typeof cells === 'string' && cells in splitData.entity)
         changed_attrs.add(tag);

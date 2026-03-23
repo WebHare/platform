@@ -1,10 +1,10 @@
 import { describeEntity } from "@webhare/wrd";
-import type { WRDSchema } from "./schema";
+import type { WRDSchemaType } from "./schema";
 
 export class ValueQueryChecker {
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for generics
-    private schema: WRDSchema<any>,
+    private schema: WRDSchemaType<any>,
     public readonly typeTag: string,
     public readonly entityId: number | null,
     public readonly temp: boolean,

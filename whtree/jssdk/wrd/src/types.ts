@@ -28,8 +28,8 @@ export enum WRDBaseAttributeTypeId {
   Base_Integer = -1, // wrd_ordering
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
-  Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
-  Base_ModificationDate = -10, // wrdModificationDate
+  Base_CreationLimitDate = -4, // wrdCreated, wrdClosed
+  Base_ModificationDate = -10, // wrdModified
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
   Base_GeneratedString = -6, // wrdFullName, wrdTitle
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
@@ -37,6 +37,12 @@ export enum WRDBaseAttributeTypeId {
   Base_Gender = -9, // wrd_gender
   Base_Id = -11, // wrd_id
   Base_Type = -12, // wrd_type
+  Base_Legacy_CreationLimitDate = -13, //Legacy wrdCreationDate and wrdLimitDate, will be replaced by wrdCreated and wrdClosed
+  Base_Legacy_ModificationDate = -14, //Legacy wrdModificationDate, will be replaced by wrdModified
+  Base_Legacy_Date = -15, //Legacy wrdDateOfBirth and wrdDateOfDeath
+  Modern_Date = -16, //modern version of normal attribute Date
+  Modern_DateTime = -17, //modern version of normal attribute DateTime
+  Modern_Time = -18, //modern version of normal attribute Time
 }
 
 export enum WRDAttributeTypeId {
@@ -112,6 +118,12 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeTypeId.Base_Gender |
   WRDBaseAttributeTypeId.Base_Id |
   WRDBaseAttributeTypeId.Base_Type |
+  WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate |
+  WRDBaseAttributeTypeId.Base_Legacy_ModificationDate |
+  WRDBaseAttributeTypeId.Base_Legacy_Date |
+  WRDBaseAttributeTypeId.Modern_Date |
+  WRDBaseAttributeTypeId.Modern_DateTime |
+  WRDBaseAttributeTypeId.Modern_Time |
   WRDAttributeTypeId.Domain |
   WRDAttributeTypeId.String |
   WRDAttributeTypeId.Address |
@@ -162,6 +174,10 @@ export const baseAttrCells = {
   "wrdCreationDate": "creationdate",
   "wrdLimitDate": "limitdate",
   "wrdModificationDate": "modificationdate",
+  "wrdCreated": "creationdate",
+  "wrdClosed": "limitdate",
+  "wrdModified": "modificationdate",
+  "wrdOrder": "ordering",
 } as const;
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties
@@ -228,23 +244,42 @@ export type IsNonUpdatable<T extends WRDAttrBase | SimpleWRDAttributeType> = T e
 export type TypeDefinition = Record<string, SimpleWRDAttributeType | WRDAttrBase>;
 
 /** Base type for the type definition of a WRD type */
-export type RootTypeDefinition = TypeDefinition & WRDTypeBaseSettings;
+export type RootTypeDefinition = TypeDefinition & WRDTypeCoreSettings;
+
+/** Base type for the type definition of a WRD type */
+// export type RootTypeDefinitionModern = TypeDefinition & WRDTypeBaseSettingsModern;
 
 /** Base type for the type definition of a WRD schema */
-export type SchemaTypeDefinition = Record<string, RootTypeDefinition>;
+export type SchemaTypeDefinition = {
+  [key: string]: RootTypeDefinition;
+};
+
+/** Base type for the type definition of a modern WRD schema (ensuring selected schemas are compatible with modernSchema: true)  */
+export type SchemaTypeDefinitionModern = {
+  [key: string]: RootTypeDefinition & WRDTypeBaseSettingsModern;
+};
 
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
 
-/** Base WRD type */
-export type WRDTypeBaseSettings = {
+export type WRDTypeCoreSettings = {
   wrdId: IsNonUpdatable<WRDBaseAttributeTypeId.Base_Id>;
   wrdGuid: ToWRDAttr<WRDBaseAttributeTypeId.Base_Guid>;
   wrdType: IsGenerated<WRDBaseAttributeTypeId.Base_Type>;
   wrdTag: ToWRDAttr<WRDBaseAttributeTypeId.Base_Tag>;
-  wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
-  wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
+};
+
+/** Base WRD type */
+export type WRDTypeBaseSettings = WRDTypeCoreSettings & {
+  wrdCreationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
+  wrdLimitDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_CreationLimitDate>;
+  wrdModificationDate: ToWRDAttr<WRDBaseAttributeTypeId.Base_Legacy_ModificationDate>;
+};
+
+export type WRDTypeBaseSettingsModern = WRDTypeCoreSettings & {
+  wrdCreated: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdClosed: ToWRDAttr<WRDBaseAttributeTypeId.Base_CreationLimitDate>;
+  wrdModified: ToWRDAttr<WRDBaseAttributeTypeId.Base_ModificationDate>;
 };
 
 /** Extracts the select result type for an attribute type */
@@ -489,6 +524,7 @@ export type WRDInsertable<T extends TypeDefinition> = Simplify<{
   [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
 }>;
 
+
 /** Returns the type for updating a WRD entity */
 export type WRDUpdatable<T extends TypeDefinition> = {
   // Exclude all non-updatable keys by remapping the key value to 'never'
@@ -505,7 +541,7 @@ export type CombineAttrs<A extends WRDAttrBase, B extends WRDAttrBase> = A exten
 /** Combines two types. Two incompatible attributes resolve to never */
 export type CombineTypes<A extends RootTypeDefinition, B extends RootTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
   [K in keyof A & keyof B]: CombineAttrs<ToWRDAttr<A[K]>, ToWRDAttr<B[K]>>;
-} & WRDTypeBaseSettings;
+} & WRDTypeCoreSettings;
 
 /** Combines two schemas. Two incompatible attributes resolve to never */
 export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeDefinition> = Omit<A, keyof B> & Omit<B, keyof A> & {
@@ -516,9 +552,11 @@ export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeD
 /** Combines an array with multiple schema types. Also accepts a simple schema, passes it through directly */
 export type Combine<S extends SchemaTypeDefinition | SchemaTypeDefinition[]> = S extends [infer A extends SchemaTypeDefinition, infer B extends SchemaTypeDefinition, ...infer C extends SchemaTypeDefinition[]] ? CombineSchemas<A, Combine<[B, ...C]>> : S extends [SchemaTypeDefinition] ? S[0] : S extends SchemaTypeDefinition ? S : never;
 
-export type AnyType = WRDTypeBaseSettings & {
+export type AnyType = WRDTypeCoreSettings & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 'unknown' might be closer but is not accepted by the rest of the WRD definitions
   [key: string]: any;
 };
 
-export type AnySchemaTypeDefinition = Record<string, AnyType>;
+export type AnySchemaType = Record<string, AnyType>;
+/** @deprecated Old name for AnySchemaType, deprecated as of WH6.0 */
+export type AnySchemaTypeDefinition = AnySchemaType;

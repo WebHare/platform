@@ -17,7 +17,6 @@ import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { parseTyped, toSnakeCase } from "@webhare/std";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { runInWork } from "@webhare/whdb";
-import type { AnySchemaTypeDefinition } from "@webhare/wrd/src/types";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -220,7 +219,7 @@ export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, tokens
 
   if (customizer?.processOpenIdAuth) {
     const result = await customizer.processOpenIdAuth({
-      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      wrdSchema: wrdSchema,
       provider: client,
       jwtPayload,
       finalUrl,

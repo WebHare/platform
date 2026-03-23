@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerRelyingParty, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
-import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow, type CodeChallengeMethod } from "@mod-platform/js/auth/openid.ts";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
@@ -9,6 +9,8 @@ import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { rpc } from "@webhare/rpc";
+import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
+import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, prepAuthForURL } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -19,8 +21,7 @@ let robotClient: ClientConfig | undefined;
 let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
 
-const systemUsermgmtSchema = wrd("system:usermgmt");
-const oidcAuthSchema = wrd<WRDSchemaDefinitions["webhare_testsuite:oidcschema"]>("webhare_testsuite:testschema");
+const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
 declare module "@webhare/auth" {
   interface AuthEventData {
@@ -248,7 +249,7 @@ async function setupOpenID() {
     }
   });
   await whdb.beginWork();
-  await createSchema(oidcAuthSchema.tag, { schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml") });
+  await createSchema(oidcAuthSchema.tag, { schemaDefinitionResource: toResourcePath(__dirname + "/../nodejs/data/usermgmt_oidc.wrdschema.xml") });
   await whdb.commitWork();
 
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
@@ -463,7 +464,7 @@ async function testAuthAPI() {
   test.eqPartial({ entity: testuser, accountStatus: { status: "blocked" } }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true, requireScopes: ["cooltoken"] }));
   await whdb.runInWork(() => oidcAuthSchema.close("wrdPerson", testuser));
   test.eqPartial({ error: "Token owner does not exist anymore" }, await provider.verifyAccessToken("id", login1.accessToken));
-  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdClosed: null, wrdauthAccountStatus: { status: "active" } }));
+  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdLimitDate: null, wrdauthAccountStatus: { status: "active" } }));
 
   // STORY: test expired token
   const login3 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { expires: "PT0.001S" });
@@ -494,7 +495,7 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, password: "secret123" }));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin })));
 
-  test.eq({ whuserLastlogin: (d: Temporal.Instant | null) => Boolean(d && d.epochMilliseconds <= Date.now() && d.epochMilliseconds >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
+  test.eq({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ user }) {
@@ -663,7 +664,7 @@ async function testAuthAPI() {
   //Now do a 'normal' frontend login, should update whuserLastLogin
   await prepareFrontendLogin(url, testuser);
   const { whuserLastlogin: lastLoginAfterPrepLogin } = await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]);
-  test.assert(lastLoginAfterPrepLogin && lastLoginAfterPrepLogin.epochMilliseconds > lastLoginAfterImpersonation.epochMilliseconds, "whuserLastlogin should be updated when not impersonated");
+  test.assert(lastLoginAfterPrepLogin && lastLoginAfterPrepLogin.getTime() > lastLoginAfterImpersonation.getTime(), "whuserLastlogin should be updated when not impersonated");
 }
 
 async function testAuthStatus() {

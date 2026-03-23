@@ -1,19 +1,19 @@
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
+import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, IntExtLink, ResourceDescriptor } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 import { buildInstance } from "@webhare/services/src/richdocument";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
 
 async function testExport() { //  tests
   type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
-  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
+  const wrdschema = new WRDSchema<TestSchemaType>(testSchemaTag);
   await createWRDTestSchema();
 
   await whdb.beginWork(); //change 0 - initial insert

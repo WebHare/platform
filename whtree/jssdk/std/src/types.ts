@@ -159,10 +159,16 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
               return Money.cmp(left, right);
           }
         }
-      } else if (isDate(left) && isDate(right)) {
-        const left_value = Number(left);
-        const right_value = Number(right);
-        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+      } else if (isDate(left)) {
+        if (isTemporalInstant(right)) {
+          const left_value = Number(left);
+          const right_value = right.epochMilliseconds;
+          return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+        } else if (isDate(right)) {
+          const left_value = Number(left);
+          const right_value = Number(right);
+          return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+        }
       } else if (isUInt8Array(left) && isUInt8Array(right)) {
         const compareLength = Math.min(left.length, right.length);
         for (let i = 0; i < compareLength; i++) {
@@ -170,10 +176,16 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
             return left[i] < right[i] ? -1 : 1;
         }
         return left.length !== right.length ? left.length < right.length ? -1 : 1 : 0;
-      } else if (isTemporalInstant(left) && isTemporalInstant(right)) {
-        const left_value = left.epochMilliseconds;
-        const right_value = right.epochMilliseconds;
-        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+      } else if (isTemporalInstant(left)) {
+        if (isDate(right)) {
+          const left_value = left.epochMilliseconds;
+          const right_value = Number(right);
+          return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+        } else if (isTemporalInstant(right)) {
+          const left_value = left.epochMilliseconds;
+          const right_value = right.epochMilliseconds;
+          return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+        }
       } else if (isTemporalPlainDate(left) && isTemporalPlainDate(right)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we're not loading Temporal types when packaging @webhare/std separately
         return (globalThis as any).Temporal.PlainDate.compare(left, right);

@@ -1,28 +1,26 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettingsModern, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
+import { createWRDTestSchema, getLegacyExtendedWRDSchema, getLegacyWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
+import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
+import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
-import { isChange, type WRDSchemaType, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
+import { isChange, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import type { AddressValue } from "@webhare/address";
-import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType, isTemporalInstant } from "@webhare/std";
+import { generateRandomId, isValidUUID, compare, Money, throwError, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
+import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { buildInstance } from "@webhare/services/src/richdocument";
 import type { HSVMObject } from "@webhare/harescript";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
-const wrdTestschemaSchema = wrd("wrd:testschema");
-type TestschemaSchemaType = WRDSchemaDefinitions["webhare_testsuite:testschema"];
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
-type Platform_BasewrdschemaSchemaType = WRDSchemaDefinitions["platform:basewrdschema"];
 
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
@@ -63,9 +61,9 @@ async function testSupportAPI() {
   test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
 
   //exceptions for standard wrd fields
-  // testTag("WRD_CREATIONDATE", "wrdCreated");
-  // testTag("WRD_LIMITDATE", "wrdClosed");
-  // testTag("WRD_MODIFICATIONDATE", "wrdModified");
+  testTag("WRD_CREATIONDATE", "wrdCreationDate");
+  testTag("WRD_LIMITDATE", "wrdLimitDate");
+  testTag("WRD_MODIFICATIONDATE", "wrdModificationDate");
   testTag("WRD_DATEOFBIRTH", "wrdDateOfBirth");
   testTag("WRD_DATEOFDEATH", "wrdDateOfDeath");
   testTag("WRD_FIRSTNAME", "wrdFirstName");
@@ -239,25 +237,11 @@ interface TestRecordDataInterface {
 type Extensions = {
   wrdPerson: {
     testJsonRequired: IsRequired<WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>>;
-  } & WRDTypeBaseSettingsModern;
+  } & WRDTypeBaseSettings;
 };
 
 async function testNewAPI() {
-  //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
-  wrd("webhare_testsuite:unknownschema");
-
-  //this should be fine:
-  wrd<AnySchemaType>("webhare_testsuite:unknownschema");
-
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
-  const schemaById = await openSchemaById<AnySchemaType>(await schema.getId());
-
-  //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
-  await openSchemaById(await schema.getId());
-
-  test.assert(schemaById);
-  test.eq(schema.tag, schemaById.tag);
-  test.eq(null, await openSchemaById<AnySchemaType>(999999999));
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
   test.eqPartial([{ tag: "wrd:testschema", userManagement: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
@@ -272,9 +256,6 @@ async function testNewAPI() {
   test.eq(false, await schema.hasType("WRD_PERSON"));
   test.eq(false, await schema.hasType("noSuchType"));
 
-  // Ensure schemaById loads its schema data before testJsonRequired is added
-  test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
-
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
 
   //Verify WRD type helpers
@@ -284,7 +265,6 @@ async function testNewAPI() {
 
   //Verify there's a route from a schema object back to its type
   ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["wrdPerson"]>;
-  ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRDSchemaTypeOf<typeof schema>["wrdPerson"]>;
 
   //@ts-expect-error Cannot update a wrdId
   ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["whuserUnit"]>;
@@ -349,7 +329,7 @@ async function testNewAPI() {
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
-  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdClosed: new Date(), wrdGender: WRDGender.Other });
+  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   //prevent creating WRD style guids
   await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "badbadvalue" }));
@@ -362,26 +342,26 @@ async function testNewAPI() {
   // find should throw when finding multiple matches
   await test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
 
-  //Verify blocking of legacy field names
-  for (const datefield of ["wrdCreationDate", "wrdLimitDate", "wrdModificationDate"] as const)
-    //@ts-expect-error should prevent using legacy names too
+  //Verify blocking of modern field names
+  for (const datefield of ["wrdCreated", "wrdClosed", "wrdModified"] as const)
+    //@ts-expect-error TS should prevent using new field names in legacy schemas
     await test.throws(new RegExp(`Cannot use.*${datefield}.*use 'wrd.*'`), () => schema.query("wrdPerson").select(["wrdId", datefield]).execute());
 
   //Verify hscompat-protection of new TS API
-  for (const datefield of ["wrdCreated", "wrdClosed", "wrdModified"] as const) {
+  for (const datefield of ["wrdCreationDate", "wrdLimitDate", "wrdModificationDate"] as const) {
     await test.throws(/Not allowed to use.*defaultDateTime /, () => schema.query("wrdPerson").select("wrdId").where(datefield, "=", defaultDateTime).execute());
     await test.throws(/Not allowed to use.*maxDateTime/, () => schema.query("wrdPerson").select("wrdId").where(datefield, "=", maxDateTime).execute());
   }
 
   //Verify whether moddate filtering actually works, it was broken pre WH5.8
-  const personModDate = (await schema.getFields("wrdPerson", firstperson, "wrdModified"));
+  const personModDate = (await schema.getFields("wrdPerson", firstperson, "wrdModificationDate"));
   test.eq([firstperson], await schema.query("wrdPerson").select("wrdId").
     where("wrdId", "=", firstperson).
-    where("wrdModified", "=", personModDate).execute());
+    where("wrdModificationDate", "=", personModDate).execute());
   test.eq([firstperson], await schema.query("wrdPerson").select("wrdId").
     where("wrdId", "=", firstperson).
-    where("wrdModified", ">", new Date(personModDate.epochMilliseconds - 2)).
-    where("wrdModified", "<", new Date(personModDate.epochMilliseconds + 2)).
+    where("wrdModificationDate", ">", new Date(personModDate.getTime() - 2)).
+    where("wrdModificationDate", "<", new Date(personModDate.getTime() + 2)).
     execute());
 
   await whdb.commitWork();
@@ -426,14 +406,6 @@ async function testNewAPI() {
   await hsPersonType.UpdateEntity(firstperson, { test_json: { mixed_case: ["AAA", 42] } });
   test.eq({ testJson: { mixedCase: ["AAA", 42] } }, await schema.getFields("wrdPerson", firstperson, ["testJson"]));
   await whdb.rollbackWork();
-
-  // wait until schemaById also knows testJsonRequired
-  await test.wait(async () => {
-    try {
-      await schemaById.query("wrdPerson").select(["testJsonRequired"]).where("wrdFirstName", "=", "first").execute();
-      return true;
-    } catch (e) { return false; }
-  });
 
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "active" }));
@@ -568,12 +540,12 @@ async function testNewAPI() {
   await test.throws(/cannot be closed/, schema.close("whuserUnit", unit_id, { mode: "close-denyreferred" }));
 
   await schema.close("whuserUnit", unit_id, { mode: "delete-closereferred" });
-  test.assert((await schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }, { historyMode: 'all' })).wrdClosed);
+  test.assert((await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }, { historyMode: 'all' })).wrdLimitDate);
   await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'active' }));
   test.eqPartial({ wrdId: unit_id }, await schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
   await schema.close("whuserUnit", unit_id, { mode: "delete" });
-  await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }));
-  test.eq(null, await schema.getFields("whuserUnit", unit_id, { wrdClosed: "wrdClosed" }, { allowMissing: true }));
+  await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }));
+  test.eq(null, await schema.getFields("whuserUnit", unit_id, { wrdLimitDate: "wrdLimitDate" }, { allowMissing: true }));
   await test.throws(/No such whuserUnit #[0-9]* in schema wrd:testschema/, schema.getFields("whuserUnit", unit_id, { wrdId: "wrdId" }, { historyMode: 'all' }));
 
   await whdb.rollbackWork();
@@ -586,12 +558,12 @@ async function testNewAPI() {
 
   const now = new Date();
   {
-    const moddateBefore = (await schema.getFields("wrdPerson", secondperson, ["wrdModified"])).wrdModified;
+    const moddateBefore = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"])).wrdModificationDate;
     await whdb.beginWork();
-    await schema.update("wrdPerson", secondperson, { wrdClosed: now });
+    await schema.update("wrdPerson", secondperson, { wrdLimitDate: now });
     await whdb.commitWork();
-    const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModified"], { historyMode: "all" })).wrdModified;
-    test.assert(Temporal.Instant.compare(moddateBefore, moddateAfter) < 0, "Modification date should be updated after the change");
+    const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"], { historyMode: "all" })).wrdModificationDate;
+    test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "Modification date should be updated after the change");
   }
 
   // wait 1 millisecond
@@ -618,7 +590,7 @@ async function testNewAPI() {
 
   test.assert(domain1value1);
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "=", "TEST_DOMAINVALUE_1_1").execute());
-  test.eq([{ wrdId: domain1value1, wrdOrder: 3 }], await schema.query("testDomain_1").select(["wrdId", "wrdOrder"]).where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
+  test.eq([{ wrdId: domain1value1, wrdOrdering: 3 }], await schema.query("testDomain_1").select(["wrdId", "wrdOrdering"]).where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
   await test.throws(/not.*0/, schema.insert("wrdPerson", { ...basePerson, testSingleDomain: 0, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "notzero@beta.webhare.net" }));
   const newperson = await schema.insert("wrdPerson", { ...basePerson, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net", testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "testWrdTsapi@beta.webhare.net", testInteger: 1 });
 
@@ -634,10 +606,10 @@ async function testNewAPI() {
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", null));
   test.eq([{ wrdId: newperson, testSingleDomain: null }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
 
-  const moddateBefore = (await schema.getFields("wrdPerson", newperson, ["wrdModified"])).wrdModified;
+  const moddateBefore = (await schema.getFields("wrdPerson", newperson, ["wrdModificationDate"])).wrdModificationDate;
   await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: domain1value1 });
-  const moddateAfter = (await schema.getFields("wrdPerson", newperson, ["wrdModified"])).wrdModified;
-  test.assert(Temporal.Instant.compare(moddateBefore, moddateAfter) < 0, "Modification date should be updated after the change");
+  const moddateAfter = (await schema.getFields("wrdPerson", newperson, ["wrdModificationDate"])).wrdModificationDate;
+  test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "changing a non-base field should modify wrdModificationDate too");
 
   test.eq([], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", null).execute());
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value1).execute());
@@ -649,10 +621,10 @@ async function testNewAPI() {
   await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: "TEST_DOMAINVALUE_1_2" }); //verify wrdTag is supported on input
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value2 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value2).execute());
 
-  await schema.update("testDomain_1", domain1value1, { wrdOrder: 444 });
-  test.eq({ wrdId: domain1value1, wrdOrder: 444 }, await schema.getFields("testDomain_1", domain1value1, ["wrdId", "wrdOrder"]));
+  await schema.update("testDomain_1", domain1value1, { wrdOrdering: 444 });
+  test.eq({ wrdId: domain1value1, wrdOrdering: 444 }, await schema.getFields("testDomain_1", domain1value1, ["wrdId", "wrdOrdering"]));
   //@ts-expect-error TS knows there should be no wrdOrder
-  await test.throws(/use 'wrdOrder' instead./, () => schema.getFields("testDomain_1", domain1value1, ["wrdOrdering"]));
+  await test.throws(/use 'wrdOrdering' instead./, () => schema.getFields("testDomain_1", domain1value1, ["wrdOrder"]));
 
   // verify File/Image fields (blob)
   //@ts-expect-error data:Buffer is no longer valid to avoid confusion between the 5.3 compat option and the 5.8 ExportedResource
@@ -735,7 +707,7 @@ async function testNewAPI() {
 
   // Set the 'richie' rich document document through HareScript
   let testHTML = `<html><body><p class="normal">blabla</p></body></html>`;
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
   // Read the rich document in TypeScript
   let richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
@@ -744,14 +716,14 @@ async function testNewAPI() {
   testHTML = `<html><body><p class="normal">test</p></body></html>`;
   await schema.update("wrdPerson", newperson, { richie: await buildRTD([{ p: "test" }]) });
   // Read the rich document in HareScript
-  richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
+  richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
   // Read the rich document in TypeScript
   richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
   test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
 
   // Set the 'linkie' intextlink field through HareScript to an internal link
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
   // Read the intextlink in TypeScript
   let linkInfo = (await schema.getFields("wrdPerson", newperson, ["linkie", "testlink"]));
   test.assert(linkInfo.linkie);
@@ -764,7 +736,7 @@ async function testNewAPI() {
   let testLink = new IntExtLink(whconstant_whfsid_webharebackend, { append: "?app=publisher" });
   await schema.update("wrdPerson", newperson, { linkie: testLink, testlink: whconstant_whfsid_webharebackend });
   // Read the intextlink in HareScript
-  let hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  let hsLink = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
   test.assert(hsLink);
   test.eq(whconstant_whfsid_webharebackend, hsLink.internallink);
   test.eq("", hsLink.externallink);
@@ -778,7 +750,7 @@ async function testNewAPI() {
   test.eq(whconstant_whfsid_webharebackend, linkInfo.testlink);
 
   // Set the 'linkie' intextlink field through HareScript to an external link
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
   // Read the intextlink in TypeScript
   let tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
   test.eq(null, tsLink!.internalLink);
@@ -789,7 +761,7 @@ async function testNewAPI() {
   testLink = new IntExtLink("https://webhare.dev/");
   await schema.update("wrdPerson", newperson, { linkie: testLink });
   // Read the intextlink in HareScript
-  hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  hsLink = await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
   test.assert(hsLink);
   test.eq(0, hsLink.internallink);
   test.eq("https://webhare.dev/", hsLink.externallink);
@@ -801,7 +773,7 @@ async function testNewAPI() {
   test.eq(null, tsLink!.append);
 
   // Set instance data through HS
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestInstanceField(testSchemaTag, newperson, {
+  await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").SetTestInstanceField(testSchemaTag, newperson, {
     whfstype: "http://www.webhare.net/xmlns/beta/embedblock1",
     id: "TestInstance-1",
     fsref: 16
@@ -831,7 +803,7 @@ async function testNewAPI() {
     id: "TestInstance-2",
     fsref: 1,
     styletitle: "Test style"
-  }, (await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestInstanceField(testSchemaTag, newperson)));
+  }, (await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetTestInstanceField(testSchemaTag, newperson)));
 
   // test array & nested record selectors
   {
@@ -905,6 +877,14 @@ async function testNewAPI() {
     }, fields);
   }
 
+  //test other attribute types
+  const toset = {
+    testTime: 15 * 60 * 60_000 + 24 * 60_000 + (34 * 1_000)
+  };
+  await schema.update("wrdPerson", newperson, toset);
+  const retval = await schema.getFields("wrdPerson", newperson, Object.keys(toset) as Array<keyof typeof toset>);
+  test.eq(toset, retval);
+
   const nottrue = false;
   if (nottrue) {
     // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers
@@ -944,7 +924,7 @@ async function testNewAPI() {
     // @ts-expect-error -- TS cannot know about the type change (TODO this would be a good place to give an example on how to rebuild the schema type to match the new reality - we'd need a helper to build the Enum allowedValues?)
     await schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value", testEnumarray: ["enumarray2", "wrong-enum-value"] });
 
-    const anyschema: WRDSchemaType<AnySchemaType> = schema as unknown as WRDSchemaType<AnySchemaType>; //Wonder why can't we cast directly anyway ?
+    const anyschema: WRDSchema = schema as unknown as WRDSchema; //Wonder why can't we cast directly anyway ?
     test.eq("wrong-enum-value", await anyschema.getFields("wrdPerson", newperson, "testEnum"));
     test.eq(["enumarray2", "wrong-enum-value"], await anyschema.getFields("wrdPerson", newperson, "testEnumarray"));
 
@@ -987,8 +967,8 @@ async function testNewAPI() {
     await test.throws(/2/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "TOOLONG" } }));
     await test.throws(/uppercase/, schema.update("wrdPerson", newperson, { testAddress: { street: "street", city: "city", houseNumber: "14", zip: "zip", country: "nl" } }));
 
-    test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
-    await await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
+    test.eq({ test_address: { street: "street", city: "city", nr_detail: "14", zip: "zip", country: "NL", locationdetail: "", state: "state" } }, await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").GetWRDEntityFields(testSchemaTag, "WRD_PERSON", newperson, ["test_address"]));
+    await await loadlib(toResourcePath(__dirname) + "/../nodejs/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
     test.eq({ street: "street", city: "city", houseNumber: "15", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
   }
 
@@ -1005,7 +985,7 @@ async function testNewAPI() {
 }
 
 async function testBaseTypes() {
-  const schema = wrd<Platform_BasewrdschemaSchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schema = new WRDSchema<Platform_BasewrdschemaSchemaType>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
   const wrdSettingsEntity = await schema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
   test.assert(wrdSettingsEntity);
   test.eq({ "wrdGuid": "07004000-0000-4000-a000-00bea61ef00d" }, await schema.getFields("wrdSettings", wrdSettingsEntity, ["wrdGuid"]));
@@ -1022,7 +1002,7 @@ async function testBaseTypes() {
 
 async function testMetaData() {
   await whdb.beginWork();
-  const wrdschema = wrd(testSchemaTag);
+  const wrdschema = new WRDSchema(testSchemaTag);
   const newType = await wrdschema.createType("newType", { metaType: "object" });
   test.eq("newType", newType.tag);
   await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
@@ -1033,44 +1013,32 @@ async function testMetaData() {
 }
 
 async function testDates() {
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
   //Verify Date/DateTime support
   await whdb.beginWork();
   const newperson = await schema.find("wrdPerson", { wrdContactEmail: "testWrdTsapi@beta.webhare.net" }) ?? throwError("Lost newperson");
   await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDatetime: "2024" }));
   await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDate: "2024" }));
-  await schema.update("wrdPerson", newperson, { testDate: Temporal.PlainDate.from("2024-02-01"), testDatetime: Temporal.Instant.from("2024-02-01T12:12:12Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-02-06") });
-  test.eq({ testDate: Temporal.PlainDate.from("2024-02-01"), testDatetime: Temporal.Instant.from("2024-02-01T12:12:12Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-02-06") }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
+  await schema.update("wrdPerson", newperson, { testDate: new Date("2024-02-01"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06") });
+  test.eq({ testDate: new Date("2024-02-01T00:00:00Z"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06T00:00:00Z") }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
   test.eq({ testDate: "2024-02-01", testDatetime: "2024-02-01T12:12:12Z", wrdDateOfBirth: "2024-02-06" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"], { export: true }));
 
-  await schema.update("wrdPerson", newperson, { testDate: Temporal.PlainDate.from("2024-03-01"), testDatetime: Temporal.Instant.from("2024-03-01T12:12:12.001Z"), wrdDateOfBirth: Temporal.PlainDate.from("2024-03-06") });
+  await schema.update("wrdPerson", newperson, { testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z", wrdDateOfBirth: "2024-03-06" });
   test.eq({ testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime"], { export: true }));
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [Temporal.PlainDate.from("2024-01-01"), Temporal.PlainDate.from("2024-03-01")]).select(["wrdId"]).execute());
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [Temporal.PlainDate.from("2024-03-04"), Temporal.PlainDate.from("2024-03-06")]).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [new Date("2024-01-01"), new Date("2024-03-01")]).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [new Date("2024-03-04"), new Date("2024-03-06")]).select(["wrdId"]).execute());
 
-  await schema.update("wrdPerson", newperson, { testDate: null, testDatetime: null, wrdDateOfBirth: null });
-  test.eq({ testDate: null, testDatetime: null, wrdDateOfBirth: null }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
-  test.eq({ testDate: null, testDatetime: null, wrdDateOfBirth: null }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"], { export: true }));
-
-  await schema.update("wrdPerson", newperson, { testTime: Temporal.PlainTime.from("12:45:18") });
-  test.eq({ testTime: Temporal.PlainTime.from("12:45:18") }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "=", Temporal.PlainTime.from("12:45:18")).select(["wrdId"]).execute());
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "in", [Temporal.PlainTime.from("12:45:18"), Temporal.PlainTime.from("12:34:56")]).select(["wrdId"]).execute());
-  test.eq([], await schema.query("wrdPerson").where("testTime", "in", [Temporal.PlainTime.from("12:34:56")]).select(["wrdId"]).execute());
+  await schema.update("wrdPerson", newperson, { testTime: 12 * 3600_000 + 45 * 60_000 + 18 * 1_000 });
+  test.eq({ testTime: 12 * 3600_000 + 45 * 60_000 + 18 * 1_000 }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
   await schema.update("wrdPerson", newperson, { testTime: "12:34:56" });
-  test.eq({ testTime: Temporal.PlainTime.from("12:34:56") }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
+  test.eq({ testTime: 12 * 3600_000 + 34 * 60_000 + 56 * 1_000 }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
   test.eq({ testTime: "12:34:56" }, await schema.getFields("wrdPerson", newperson, ["testTime"], { export: true }));
-  await schema.update("wrdPerson", newperson, { testTime: null });
-  test.eq({ testTime: null }, await schema.getFields("wrdPerson", newperson, ["testTime"]));
-  test.eq({ testTime: null }, await schema.getFields("wrdPerson", newperson, ["testTime"], { export: true }));
-  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testTime", "in", [null]).select(["wrdId"]).execute());
-
   await whdb.commitWork();
 }
 
 async function testBadValues() {
-  const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
   await whdb.beginWork();
 
@@ -1099,7 +1067,7 @@ async function testBadValues() {
 
 
 async function testTSTypes() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
   const unit_id = 0;
   const testrecorddata = null as any;
 
@@ -1178,21 +1146,21 @@ async function testUpsert() {
 
   await test.throws(/at most one is allowed/, wrdTestschemaSchema.upsert("whuserUnit", {}, { wrdTitle: "Unit without key" }));
 
-  await wrdTestschemaSchema.update("whuserUnit", firstUnitId, { wrdClosed: new Date() });
+  await wrdTestschemaSchema.update("whuserUnit", firstUnitId, { wrdLimitDate: new Date() });
 
-  await test.throws(/requires.*historyMode/i, wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { wrdClosed: null }, { ifNew: { wrdTitle: "Unit #1b" } }));
+  await test.throws(/requires.*historyMode/i, wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT" }, { wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" } }));
 
-  let [recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdClosed: null }, { ifNew: { wrdTitle: "Unit #1b" }, historyMode: "all" });
+  let [recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: { wrdTitle: "Unit #1b" }, historyMode: "all" });
   test.eq(firstUnitId, recreateId);
   test.assert(!recreateIsNew);
 
   await wrdTestschemaSchema.delete("whuserUnit", recreateId);
-  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdClosed: null }, { ifNew: () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
+  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
   test.assert(recreateIsNew);
   test.eq("Unit #1b", await wrdTestschemaSchema.getFields("whuserUnit", recreateId, "wrdTitle"));
 
   await wrdTestschemaSchema.delete("whuserUnit", recreateId);
-  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdClosed: null }, { ifNew: async () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
+  ([recreateId, recreateIsNew] = await wrdTestschemaSchema.upsert("whuserUnit", { wrdLeftEntity: null, wrdTag: "FIRSTUNIT", }, { wrdLimitDate: null }, { ifNew: async () => ({ wrdTitle: "Unit #1b" }), historyMode: "all" }));
   test.assert(recreateIsNew);
   test.eq("Unit #1b", await wrdTestschemaSchema.getFields("whuserUnit", recreateId, "wrdTitle"));
 
@@ -1200,11 +1168,11 @@ async function testUpsert() {
 }
 
 async function testTypeSync() { //this is WRDType::ImportEntities
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   async function getDomain1({ withClosed = false } = {}) {
     return (await schema.query("testDomain_1")
-      .select(["wrdTag", "wrdTitle", "wrdCreated", "wrdModified", "wrdClosed"])
+      .select(["wrdTag", "wrdTitle", "wrdCreationDate", "wrdModificationDate", "wrdLimitDate"])
       .historyMode(withClosed ? "all" : "now")
       .execute())
       .sort((a, b) => a.wrdTag.localeCompare(b.wrdTag));
@@ -1218,9 +1186,8 @@ async function testTypeSync() { //this is WRDType::ImportEntities
     { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" }
   ], await getDomain1({ withClosed: true }));
 
-  const oneinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1"))!, ["wrdId", "wrdCreated"]);
-  const twoinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_2"))!, ["wrdId", "wrdCreated"]);
-  test.assert(isTemporalInstant(oneinfo.wrdCreated));
+  const oneinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1"))!, ["wrdId", "wrdCreationDate"]);
+  const twoinfo = await schema.getFields("testDomain_1", (await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_2"))!, ["wrdId", "wrdCreationDate"]);
 
   const persons = (await schema.query("wrdPerson").select(["wrdId", "wrdContactEmail"]).historyMode("all").execute()).sort((a, b) => a.wrdContactEmail.localeCompare(b.wrdContactEmail));
   test.eq(3, persons.length);
@@ -1285,12 +1252,12 @@ async function testTypeSync() { //this is WRDType::ImportEntities
   test.eq([], result.matched);
 
   //should be same entity still
-  test.eqPartial({ ...twoinfo, wrdTitle: "Zwei", wrdClosed: null }, await schema.getFields("testDomain_1", twoinfo.wrdId, ["wrdCreated", "wrdClosed", "wrdTitle", "wrdId"]));
+  test.eqPartial({ ...twoinfo, wrdTitle: "Zwei", wrdLimitDate: null }, await schema.getFields("testDomain_1", twoinfo.wrdId, ["wrdCreationDate", "wrdLimitDate", "wrdTitle", "wrdId"]));
 
   //restore ONE to live. don't do any other change to make sure a 'no change' optimization doesn't skip us
   result = await schema.modify("testDomain_1").historyMode("all").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_1" }]);
   test.eq([oneinfo.wrdId], result.updated);
-  test.eqPartial({ ...oneinfo, wrdTitle: "Domain value 1.1", wrdClosed: null }, await schema.getFields("testDomain_1", oneinfo.wrdId, ["wrdCreated", "wrdClosed", "wrdTitle", "wrdId"]));
+  test.eqPartial({ ...oneinfo, wrdTitle: "Domain value 1.1", wrdLimitDate: null }, await schema.getFields("testDomain_1", oneinfo.wrdId, ["wrdCreationDate", "wrdLimitDate", "wrdTitle", "wrdId"]));
 
   //verify we still have three entries
   test.eqPartial([
@@ -1382,20 +1349,20 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 }
 
 async function testComparisons() {
-  const schema = await getExtendedWRDSchema();
+  const schema = await getLegacyExtendedWRDSchema();
 
   const newperson = await schema.search("wrdPerson", "testEmail", "testWrdTsapi@beta.webhare.net");
   test.assert(newperson);
   await whdb.beginWork();
 
-  await schema.update("wrdPerson", newperson, { wrdCreated: null, wrdClosed: null }, { importMode: true });
-  test.eq([], await schema.query("wrdPerson").select(["wrdCreated", "wrdClosed"]).where("wrdId", "=", newperson).execute());
-  test.eq([{ wrdCreated: null, wrdClosed: null }], await schema.query("wrdPerson").select(["wrdCreated", "wrdClosed"]).where("wrdId", "=", newperson).historyMode("active").execute());
-  test.eq([], await schema.query("wrdPerson").select(["wrdCreated", "wrdClosed"]).where("wrdId", "=", newperson).historyMode("all").execute());
+  await schema.update("wrdPerson", newperson, { wrdCreationDate: null, wrdLimitDate: null }, { importMode: true });
+  test.eq([], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).execute());
+  test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("active").execute());
+  test.eq([], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("all").execute());
 
-  test.eq([{ wrdCreated: null, wrdClosed: null }], await schema
+  test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema
     .query("wrdPerson")
-    .$call(qb => qb.select(["wrdCreated", "wrdClosed"]))
+    .$call(qb => qb.select(["wrdCreationDate", "wrdLimitDate"]))
     .$call(qb => qb.where("wrdId", "=", newperson))
     .$call(qb => qb.historyMode("active"))
     .execute());
@@ -1406,28 +1373,28 @@ async function testComparisons() {
   await test.throws(/No such wrdPerson/, schema.getFields("wrdPerson", newperson, { email: "testEmail" }, { historyMode: 'all' }));
 
   await schema.update("wrdPerson", newperson, {
-    wrdCreated: null,
-    wrdClosed: null,
+    wrdCreationDate: null,
+    wrdLimitDate: null,
     wrdDateOfBirth: null,
     wrdDateOfDeath: null
   }, { importMode: true });
   test.eq([
     {
-      wrdCreated: null,
-      wrdClosed: null,
+      wrdCreationDate: null,
+      wrdLimitDate: null,
       wrdDateOfBirth: null,
       wrdDateOfDeath: null
     }
-  ], await schema.query("wrdPerson").select(["wrdCreated", "wrdClosed", "wrdDateOfBirth", "wrdDateOfDeath"]).where("wrdId", "=", newperson).historyMode("active").execute());
+  ], await schema.query("wrdPerson").select(["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "wrdDateOfDeath"]).where("wrdId", "=", newperson).historyMode("active").execute());
 
 
   const maxMoneyIntValue = (Number.MAX_SAFE_INTEGER / 100000).toString();
 
   const tests = {
-    wrdCreated: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
-    wrdClosed: { values: [null, new Date(-1), new Date(0), new Date(1)] },
-    wrdDateOfBirth: { values: [null, Temporal.PlainDate.from("2024-01-01"), null] }, // need to end with null otherwise one of the tests will set death <= birth
-    testDate: { values: [null, Temporal.PlainDate.from("2024-01-01")] },
+    wrdCreationDate: { values: [null, new Date(1), new Date(0), new Date(-1)] }, //we need to end with creationdate at -1 otherwise one of the tests will set limit < creation
+    wrdLimitDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000), null] }, // need to end with null otherwise one of the tests will set death <= birth
+    testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
     testEnum: { values: [null, "enum1", "enum2"] },
     testInteger64: { values: [-(2n ** 63n), -10n, 0n, 12n, 2n ** 63n - 1n] },
@@ -1439,7 +1406,7 @@ async function testComparisons() {
   await schema.delete("wrdPerson", otherPersons);
 
   const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
-  const currentPersonValue = await schema.getFields("wrdPerson", newperson, ["wrdCreated", "wrdClosed", "wrdDateOfBirth", "testDate", "testDatetime", "testEnum"]);
+  const currentPersonValue = await schema.getFields("wrdPerson", newperson, ["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "testDate", "testDatetime", "testEnum"]);
 
   // Test all comparisons
   for (const [attr, { values }] of Object.entries(tests)) {
@@ -1454,7 +1421,7 @@ async function testComparisons() {
             continue;
           if (comparetype === "in")
             othervalue = [othervalue];
-          const usehistory = currentPersonValue.wrdCreated === null ? "active" : "all";
+          const usehistory = currentPersonValue.wrdCreationDate === null ? "active" : "all";
           const select = await schema.query("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode(usehistory).execute();
           const selectUnfiltered = await schema.query("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("unfiltered").execute();
           const expect = cmp(value, comparetype, othervalue);
@@ -1484,8 +1451,8 @@ async function testComparisons() {
     const domValue2 = (await schema.upsert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }, {}))[0];
 
     await schema.update("wrdPerson", newperson, {
-      wrdCreated: new Date,
-      wrdClosed: null,
+      wrdCreationDate: new Date,
+      wrdLimitDate: null,
       testArray: [
         {
           testArray2: [{ testInt2: 2 }],
@@ -1565,8 +1532,6 @@ async function testComparisons() {
   }
 }
 
-type System_Usermgmt_WRDAuthdomainSamlIdp = WRDSchemaDefinitions["system:usermgmt"]["wrdAuthdomainSamlIdp"];
-
 function testGeneratedWebHareWRDAPI() {
   // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
   test.typeAssert<test.Assignable<{ organizationName: unknown }, System_Usermgmt_WRDAuthdomainSamlIdp>>();
@@ -1606,13 +1571,13 @@ async function testImportMode() {
       integer64: IsRequired<WRDAttributeTypeId.Integer64>;
       money: IsRequired<WRDAttributeTypeId.Money>;
       address: IsRequired<WRDAttributeTypeId.Address>;
-    } & WRDTypeBaseSettingsModern;
+    } & WRDTypeBaseSettings;
     testImportModeDom: {
       wrdTitle: WRDAttributeTypeId.String;
-    } & WRDTypeBaseSettingsModern;
+    } & WRDTypeBaseSettings;
   };
 
-  const wrdschema = await getWRDSchema<MySchema>();
+  const wrdschema = await getLegacyWRDSchema<MySchema>();
   await wrdschema.createType("testImportModeDom", { metaType: "domain" });
   const link = await wrdschema.createType("testImportModeLink", { metaType: "link", left: "testImportModeDom", right: "testImportModeDom" } satisfies Partial<WRDTypeMetadata>);
   await link.createAttribute("enum", { attributeType: "enum", allowedValues: ["a", "b"], isRequired: true });
@@ -1646,15 +1611,15 @@ async function testImportMode() {
   test.eq(null, await wrdschema.getFields("testImportModeLink", imp, "wrdLeftEntity", { historyMode: "unfiltered" }) as number | null);
 
   // bringing a temp to live should fail as not all required fields are initialized
-  await test.throws(/Required attribute "address" is missing/, wrdschema.update("testImportModeLink", temp, { wrdCreated: new Date, wrdClosed: null }));
+  await test.throws(/Required attribute "address" is missing/, wrdschema.update("testImportModeLink", temp, { wrdCreationDate: new Date, wrdLimitDate: null }));
   // Init a field, and make sure another field is mentioned as missing
   const temp2 = await wrdschema.insert("testImportModeLink", { address: { country: "NL" } }, { temp: true });
-  await test.throws(/Required attribute "array" is missing/, wrdschema.update("testImportModeLink", temp2, { wrdCreated: new Date, wrdClosed: null }));
+  await test.throws(/Required attribute "array" is missing/, wrdschema.update("testImportModeLink", temp2, { wrdCreationDate: new Date, wrdLimitDate: null }));
 
   await wrdschema.update("testImportModeLink", temp,
     {
-      wrdCreated: null,
-      wrdClosed: null,
+      wrdCreationDate: null,
+      wrdLimitDate: null,
       enum: null,
       enumArray: [],
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode

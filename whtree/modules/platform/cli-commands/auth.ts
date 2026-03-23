@@ -1,13 +1,12 @@
 // @webhare/cli: Control WebHare users and rights
 
 import jwt from "jsonwebtoken";
-import { WRDSchema, type AnyWRDSchema } from '@webhare/wrd/src/schema';
+import { type AnyWRDSchema, type WRDSchemaType, getSchemaSettings, isValidWRDTag, wrd, type AnySchemaType } from '@webhare/wrd';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig, importJSObject, type SessionScopes } from '@webhare/services';
 import { beginWork, commitWork, db } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
-import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
@@ -24,7 +23,7 @@ async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> 
   return await (await primaryPlugin.$get<HSVMObject>("wrdschema")).$get<string>("tag");
 }
 
-async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
+async function describeIdp(schema: WRDSchemaType<WRD_IdpSchemaType>) {
   const settings = await getSchemaSettings(schema, ["issuer", "signingKeys"]);
   return {
     issuer: settings.issuer,
@@ -40,7 +39,7 @@ async function lookupLogin(wrdSchema: AnyWRDSchema | null, username: string, url
     if ("error" in prepped)
       throw new Error(prepped.error);
     if (!wrdSchema)
-      wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
+      wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
     else if (prepped.settings.wrdSchema !== wrdSchema.tag)
       throw new Error(`WRD schema mismatch: expected ${wrdSchema.tag}, got ${prepped.settings.wrdSchema} from URL`);
 
@@ -68,7 +67,7 @@ run({
       shortDescription: "Describe current authentication settings",
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const schema = wrd<WRD_IdpSchemaType>(wrdSchema);
         const idp = await describeIdp(schema);
 
         if (opts.json) {
@@ -111,7 +110,7 @@ run({
       options: { "issuer": { description: "Issuer name. Defaults to " + backendConfig.backendURL } },
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const schema = wrd<WRD_IdpSchemaType>(wrdSchema);
         const settings = await getSchemaSettings(schema, ["issuer"]);
 
         if (settings.issuer)
@@ -149,7 +148,7 @@ run({
       },
       arguments: [{ name: "<username>", description: "User name" }],
       main: async ({ opts, args }) => {
-        const { entityId } = await lookupLogin(new WRDSchema(await getUserApiSchemaName(opts)), args.username, opts.url || null);
+        const { entityId } = await lookupLogin(wrd<AnySchemaType>(await getUserApiSchemaName(opts)), args.username, opts.url || null);
         console.log(entityId);
         return entityId ? 0 : 1;
       }
@@ -189,7 +188,7 @@ run({
       },
       arguments: [{ name: "<entity>", description: "Entity login or ID" }],
       async main({ opts, args }) {
-        const wrdSchema = new WRDSchema(await getUserApiSchemaName(opts));
+        const wrdSchema = wrd<AnySchemaType>(await getUserApiSchemaName(opts));
         const { entityId } = await lookupLogin(wrdSchema, args.entity, null);
         if (!entityId)
           throw new Error(`User '${args.entity}' not found`);
@@ -225,7 +224,7 @@ run({
           throw new Error(`Invalid wrdTag '${args.tag}'`);
 
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
+        const schema = wrd<System_UsermgmtSchemaType>(wrdSchema);
         if (await schema.find("wrdauthOidcClient", { wrdTag: args.tag }))
           throw new Error(`OIDC Service provider with tag '${args.tag}' already exists`);
 
@@ -254,7 +253,7 @@ run({
       arguments: [{ name: "<tag>", description: "Identity provider wrdTag" }],
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
+        const schema = wrd<System_UsermgmtSchemaType>(wrdSchema);
         const wrdId = await schema.find("wrdauthOidcClient", { wrdTag: args.tag });
         if (!wrdId)
           throw new Error(`OIDC Service provider with tag '${args.tag}' not found`);
@@ -274,7 +273,7 @@ run({
       ],
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const schema = wrd<WRD_IdpSchemaType>(wrdSchema);
 
         if (await schema.search("wrdauthServiceProvider", "wrdTitle", args.name, { matchCase: false }))
           throw new CLIRuntimeError(`An relying party named '${args.name}' already exists`);
@@ -302,7 +301,7 @@ run({
       shortDescription: "List relying parties and service providers",
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
-        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const schema = wrd<WRD_IdpSchemaType>(wrdSchema);
         const sps = (await schema.query("wrdauthServiceProvider").
           select(["wrdId", "wrdTitle", "wrdCreationDate", "wrdGuid"]).
           execute()).map((sp) => ({
