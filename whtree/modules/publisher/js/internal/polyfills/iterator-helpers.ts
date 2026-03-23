@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/array-type */
 /* eslint-disable @typescript-eslint/no-loop-func */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-this-alias */
