@@ -100,7 +100,7 @@ function isUInt8Array(value: unknown): value is Uint8Array {
  * @param right - Second value
  * @returns -1 if left \< right, 0 if equal, 1 if left \> right
  */
-export function compare(left: ComparableType, right: ComparableType, opts?: { flexibleTimeTypes?: boolean }): -1 | 0 | 1 {
+export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
   if (left === null)
     return right === null ? 0 : -1;
   else if (right === null)
@@ -160,7 +160,7 @@ export function compare(left: ComparableType, right: ComparableType, opts?: { fl
           }
         }
       } else if (isDate(left)) {
-        if (opts?.flexibleTimeTypes && isTemporalInstant(right)) {
+        if (isTemporalInstant(right)) {
           const left_value = Number(left);
           const right_value = right.epochMilliseconds;
           return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
@@ -177,7 +177,7 @@ export function compare(left: ComparableType, right: ComparableType, opts?: { fl
         }
         return left.length !== right.length ? left.length < right.length ? -1 : 1 : 0;
       } else if (isTemporalInstant(left)) {
-        if (opts?.flexibleTimeTypes && isDate(right)) {
+        if (isDate(right)) {
           const left_value = left.epochMilliseconds;
           const right_value = Number(right);
           return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;

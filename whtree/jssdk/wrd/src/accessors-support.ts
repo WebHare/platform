@@ -21,7 +21,7 @@ export type AddToQueryResponse<O> = {
 
 /** Compare values */
 export function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" | "<" | "<=", b: T) {
-  const cmpres = compare(a, b, { flexibleTimeTypes: true });
+  const cmpres = compare(a, b);
   switch (condition) {
     case "=": return cmpres === 0;
     case ">=": return cmpres >= 0;
