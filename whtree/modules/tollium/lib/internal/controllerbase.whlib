@@ -3107,6 +3107,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
 
       CASE "$devhook"
       {
+        IF((NOT ObjectExists(this->contexts->user) OR NOT this->contexts->user->HasRight("system:sysop")) AND GetDtapStage() != "development")
+          THROW NEW Exception("Devhooks are only allowed for sysops or in development environment");
+
         SWITCH (todd_request.param.action) {
           CASE "openineditor" {
             RECORD resolved := ResolveComponentPath(todd_request.param.screen, todd_request.param.componentpath);

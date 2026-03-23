@@ -2,6 +2,9 @@
 /** @topic tollium/dialogs */
 
 LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 /** Show a column file (eg CSV, XLSX) export dialog.
@@ -90,5 +93,9 @@ PUBLIC MACRO RunIframeDialog(OBJECT parent, STRING url, RECORD options DEFAULTST
 }
 
 PUBLIC MACRO RunTolliumInspector(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  //Block for non-sysops in case someone manually manages to send an 'inspectelement' message
+  IF(NOT parent->contexts->user->HasRight("system:sysop") AND GetDtapStage() != "development")
+    RETURN;
+
   parent->contexts->opener->RunScreen("mod::tollium/tolliumapps/inspector/inspector.xml", [ target := parent->frame, ...options ]);
 }
