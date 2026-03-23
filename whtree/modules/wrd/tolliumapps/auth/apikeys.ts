@@ -6,7 +6,9 @@ import { defaultDateTime } from "@webhare/hscompat";
 
 
 export async function getAPIKeys(wrdschema: string, entity: number) {
-  return toSnakeCase(await listTokens(new WRDSchema(wrdschema), entity));
+  const tokens = await listTokens(new WRDSchema(wrdschema), entity);
+  const apiKeys = tokens.filter(_ => _.type === "api");
+  return toSnakeCase(apiKeys);
 }
 
 export async function createAPIkey(wrdschema: string, entity: number, expires: Date, title: string, scopes: string[]): Promise<{
