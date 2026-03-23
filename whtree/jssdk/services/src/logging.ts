@@ -10,7 +10,7 @@ import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 import { listDirectory } from "@webhare/system-tools";
 import path from "node:path";
 import { runInSeparateWork } from "@webhare/whdb";
-import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime.ts";
 import { getRegistryKeyEventMasks, readRegistryKey, writeRegistryKey } from "./registry.ts";
 import { LocalCache } from "./localcache.ts";
 

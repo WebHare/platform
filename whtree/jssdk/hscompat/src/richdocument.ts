@@ -1,7 +1,7 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
 import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase } from "@webhare/std";
-import { describeWHFSType } from "@webhare/whfs";
+import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";

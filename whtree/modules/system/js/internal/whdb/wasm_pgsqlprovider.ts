@@ -9,6 +9,7 @@ import type { HareScriptVM, HSVM_VariableId, HSVM_VariableType } from "@webhare/
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import type { Money } from "@webhare/std";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import { hsvmFinishHandler } from "./hsvm_finishdb";
 
 enum Fases {
   None = 0,
@@ -533,7 +534,10 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 }
 
 function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
-  id_set.setBoolean(isWorkOpen());
+  const isopen = isWorkOpen();
+  if (isopen) //we'll see this as a signal that you might want to setup commit/rollback handler. let's just hook a finishhandler up
+    hsvmFinishHandler().addVM(vm);
+  id_set.setBoolean(isopen);
 }
 
 function cbHasMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVMVar) {
@@ -546,6 +550,7 @@ async function cbTryLockMutex(vm: HareScriptVM, id_set: HSVMVar, mutexname: HSVM
 
 async function cbDoBeginWork(vm: HareScriptVM, locks: HSVMVar) {
   await beginWork({ mutex: locks.getJSValue() as string[], __skipNameCheck: true });
+  hsvmFinishHandler().addVM(vm);
 }
 
 //this needs to go through a syscall so we can WaitForPromise the commit. otherwise whdb.ts cannot invoke finish handlers in this VM
