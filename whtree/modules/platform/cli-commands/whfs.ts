@@ -13,6 +13,7 @@ import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArr
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
+import { exportFileAsFetch } from '@webhare/services';
 
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
@@ -187,7 +188,7 @@ run({
       options: { ...commonOptions.resources },
       main: async ({ opts, args }) => {
         const base = await resolveWHFSPathArgument(args.source);
-        const result = await exportWHSFObject(base, "*", opts.resources);
+        const result = await exportWHSFObject(base, "*", opts.resources === "fetch" ? { export: true, exportFile: exportFileAsFetch } : { export: true });
         console.log(opts.json ? JSON.stringify(result, null, 2) : YAML.stringify(result));
       }
     },
@@ -206,13 +207,18 @@ run({
     },
     "export": {
       description: "Export files or folders from WHFS",
+      options: {
+        "link-resources-from": { description: "Additional paths to search for resources (for export)", multiple: true },
+      },
       arguments: [
         { name: "<source...>", description: "Path or ID to export" },
         { name: "<target>", description: "Target file or folder" },
       ],
       main: async ({ opts, args }) => {
         const bases = await resolveWHFSPathArrayArgument(args.source);
-        const options: ExportWHFSOptions = {};
+        const options: ExportWHFSOptions = {
+          linkResourcesFrom: opts.linkResourcesFrom
+        };
         if (args.target.endsWith("/")) {
           await storeWHFSExport(args.target, bases, options);
         } else if (args.target.endsWith(".whexport.zip")) {

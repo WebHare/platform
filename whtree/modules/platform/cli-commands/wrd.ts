@@ -10,6 +10,7 @@ import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import { readFileSync } from 'node:fs';
 import YAML from 'yaml';
 import { commonFlags, commonOptions } from '@mod-platform/js/cli/cli-tools';
+import { exportFileAsFetch } from '@webhare/services/src/descriptor';
 
 run({
   description: "Manage WRD",
@@ -69,7 +70,11 @@ run({
         const entityinfo = await describeEntity(entityid) ?? throwError(`Entity #${entityid} not found`);
         const wrdschema = new WRDSchema(entityinfo.schema);
         const attrs = await wrdschema.getType(entityinfo.type).listAttributes();
-        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered", exportResources: opts.resources });
+        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), {
+          export: true,
+          exportFile: opts.resources === "fetch" ? exportFileAsFetch : undefined,
+          historyMode: "unfiltered",
+        });
         console.log(opts.json ? JSON.stringify(entity, null, 2) : YAML.stringify(entity));
       }
     },

@@ -21,6 +21,10 @@ export type ImportWHFSProgress = {
 export type ImportWHFSOptions = {
   onProgress?: ((progress: ImportWHFSProgress) => void);
   ifExists?: "overwrite" | "skip";
+  rename?: Array<{
+    from: string;
+    to: string;
+  }>;
 } & Pick<ImportOptions, "allowResourceImports">;
 
 export interface ImportWHFSResult {
@@ -273,7 +277,14 @@ function collapseMetadata(items: ImportItem[]): CombinedImportItem[] {
 
   //first add all items that have metadata
   for (const [subpath, item] of itemMap) {
-    if (subpath.endsWith(".whfs.yml")) {
+    if (subpath.endsWith("/^folder.whfs.yml")) {
+      outItems.push({
+        name: dirname(subpath).split('/').pop()!, //get the folder name from the path
+        subPath: dirname(subpath),
+        metadata: item.blob
+      });
+      itemMap.delete(subpath); //mark metadata as processed
+    } else if (subpath.endsWith(".whfs.yml")) {
       const actualData = itemMap.get(subpath.slice(0, -9)); //remove .whfs.yml from filename
       if (actualData)
         itemMap.delete(subpath.slice(0, -9)); //mark data as processed
@@ -313,7 +324,22 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
     blob: () => openAsBlob(entry.fullPath)
   })).filter(filterItems);
 
-  const importer = new ImportSession(collapseMetadata(items), targetFolder, options);
+  if (options?.rename) {
+    itemLoop: for (const item of items) {
+      for (const rename of options.rename) {
+        if (toCLocaleLowercase(item.subPath).startsWith(toCLocaleLowercase(rename.from))) {
+          item.subPath = rename.to + item.subPath.slice(rename.from.length);
+          item.name = item.subPath.split('/').pop()!;
+          continue itemLoop; //break out of the rename loop, go to next item
+        }
+      }
+    }
+  }
+
+  const collapsedItems = collapseMetadata(items);
+
+  const importer = new ImportSession(collapsedItems, targetFolder, options);
+
   //TODO when replacing we should figure out all existing IDs
   for (const item of importer.items.values()) {
     importer.options?.onProgress?.({ subPath: item.subPath });
@@ -329,6 +355,10 @@ export async function importIntoWHFS_HS(target: number, options: {
   managework: boolean;
   ifexists: "overwrite" | "skip";
   allowresourceimports: boolean;
+  rename: Array<{
+    from: string;
+    to: string;
+  }>;
 }): Promise<{
   messages: Array<{
     subpath: string;
@@ -341,7 +371,8 @@ export async function importIntoWHFS_HS(target: number, options: {
   const result = await importIntoWHFS(options.sourcepath, await openFolder(target), {
     onProgress: options.printprogress ? (progress) => console.log(`Importing ${progress.subPath}...`) : undefined,
     ifExists: options.ifexists,
-    allowResourceImports: options.allowresourceimports
+    allowResourceImports: options.allowresourceimports,
+    rename: options.rename
   });
   if (options.managework)
     await commitWork();

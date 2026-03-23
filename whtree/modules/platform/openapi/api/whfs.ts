@@ -5,7 +5,7 @@ import { listInstances, openFileOrFolder, whfsType, type WHFSObject } from "@web
 import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
-import type { ExportResourcesOptions, ImportOptions } from "@webhare/services/src/descriptor";
+import { exportFileAsFetch, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
 import { dirname } from "path";
 
@@ -24,7 +24,7 @@ export async function resolvePath(req: { params: { path?: string }; authorizatio
   return target;
 }
 
-async function getInstances(obj: WHFSObject, exportResources: ExportResourcesOptions) {
+async function getInstances(obj: WHFSObject, exportOptions: ExportOptions) {
   const instanceList: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>["instances"] = [
     {
       whfsType: 'platform:virtual.objectdata',
@@ -38,7 +38,7 @@ async function getInstances(obj: WHFSObject, exportResources: ExportResourcesOpt
     if (instance.orphan)
       continue;
 
-    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, { export: true, exportResources });
+    const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, exportOptions);
     instanceList.push({
       whfsType: instance.scopedType || instance.namespace,
       clone: instance.clone,
@@ -49,7 +49,7 @@ async function getInstances(obj: WHFSObject, exportResources: ExportResourcesOpt
   return instanceList;
 }
 
-export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportResources: ExportResourcesOptions): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
+export async function exportWHSFObject(targetObj: WHFSObject, instances: string, exportOptions: ExportOptions & { export: true }): Promise<OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok>> {
   const result: OpenAPIResponseType<TypedRestRequest<AuthorizedWRDAPIUser, "get /whfs/object">, HTTPSuccessCode.Ok> = {
     name: targetObj.name,
     whfsPath: targetObj.whfsPath,
@@ -60,7 +60,7 @@ export async function exportWHSFObject(targetObj: WHFSObject, instances: string,
   };
 
   if (instances) {
-    result.instances = await getInstances(targetObj, exportResources);
+    result.instances = await getInstances(targetObj, exportOptions);
   }
   return result;
 }
@@ -71,7 +71,7 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
       return req.createErrorResponse(400, { error: "instances parameter must be '*' if set" });
 
     const targetObj = await resolvePath(req);
-    const result = await exportWHSFObject(targetObj, req.params.instances || '', "fetch");
+    const result = await exportWHSFObject(targetObj, req.params.instances || '', { export: true, exportFile: exportFileAsFetch });
     if (targetObj.isFolder && req.params.children === true) {
       result.children = (await targetObj.list(["modified", "type", "link"])).map(item => ({
         name: item.name,

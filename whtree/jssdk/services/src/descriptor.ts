@@ -54,7 +54,6 @@ const metadataFields = ["extension", "mediaType", "width", "height", "rotation",
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
-export type ExportResourcesOptions = "fetch" | "base64";
 export type ExportMapWhfsLinkInfo = {
   id: number;
   whfsPath: string;
@@ -66,7 +65,8 @@ export type ExportMapWhfsLinkInfo = {
 };
 export type ExportOptions = {
   export?: boolean;
-  exportResources?: ExportResourcesOptions;
+  /** Callback that should attempt to store/refer blobs outside the export structure */
+  exportFile?: (file: WebHareBlob) => MaybePromise<ExportedBlobReference | undefined>;
   mapWhfsLink?: (data: ExportMapWhfsLinkInfo) => string | null | Promise<string | null>;
 };
 
@@ -170,6 +170,9 @@ export type ExportedBlobReference = {
   fetch: string;
   /** Size of the resource */
   size: number;
+} | {
+  /** Reference to a resource shipped with a module */
+  resource: string;
 };
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { file: ExportedBlobReference };
@@ -195,10 +198,7 @@ export interface ResourceSourceMetaData extends ResourceBaseMetaData {
   sourceFile: string | number | null;
 }
 
-export type SourceBlobReference = ExportedBlobReference | {
-  /** Reference to a resource shipped with a module */
-  resource: string;
-} | WebHareBlob;
+export type SourceBlobReference = ExportedBlobReference | WebHareBlob;
 
 export type ResourceSource = Partial<ResourceSourceMetaData> & {
   file: SourceBlobReference;
@@ -282,6 +282,15 @@ const mimeToExt: Record<string, string> = {
 
 export function isResourceDescriptor(value: unknown): value is ResourceDescriptor {
   return Boolean(value && getWHType(value) === "ResourceDescriptor");
+}
+
+export function exportFileAsFetch(file: WebHareBlob): ExportedBlobReference | undefined {
+  const dbid = __getBlobDatabaseId(file);
+  if (dbid)
+    return {
+      fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })}`,
+      size: file.size
+    };
 }
 
 /** Get the proper or usual extension for the file's mimetype
@@ -1047,7 +1056,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     return new ResourceDescriptor(blob, importData);
   }
 
-  /// @deprecated Use .file instead
+  /** @deprecated Use .file instead */
   get resource() {
     return this._resource;
   }
@@ -1125,18 +1134,17 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 
   async export(options?: ExportOptions): Promise<ExportedResource> {
-    let data: ExportedBlobReference | undefined;
-    if (options?.exportResources === "fetch" && this.resource.size > 0) {
-      const dbid = __getBlobDatabaseId(this.resource);
-      if (dbid)
-        data = {
-          fetch: backendConfig.backendURL + `.wh/common/download/blob.shtml?ref=${encryptForThisServer("platform:blob", { db: dbid, until: new Date(Date.now() + BlobLinkValidity) })}`,
-          size: this.resource.size
-        };
+    let file: ExportedBlobReference | undefined;
+    if (this.file.size > 0) {
+      if (options?.exportFile)
+        file = await options.exportFile(this.file);
     }
 
+    if (file === undefined) //no out-of-line storage? base64 it...
+      file = { base64: Buffer.from(await this.file.arrayBuffer()).toString("base64") };
+
     return {
-      file: data || { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
+      file,
       ...(this.sourceFile ? { sourceFile: await mapExternalWHFSRef(this.sourceFile, options) } : {}),
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };

@@ -6,7 +6,7 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob, buildInstance, type Instance, type TypedInstance } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob, buildInstance, type Instance, type TypedInstance, exportFileAsFetch } from "@webhare/services";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
@@ -762,7 +762,7 @@ async function testExportImport() {
       ]
     });
 
-  const aboutAFishDataFetch = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true, exportResources: "fetch" });
+  const aboutAFishDataFetch = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true, exportFile: exportFileAsFetch });
 
   //Verify the expected data: { fetch:, size: } is there and works!
   test.assert(aboutAFishDataFetch.data);

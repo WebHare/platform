@@ -3,25 +3,26 @@ import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
 import { dirname, join, relative } from "node:path";
-import { storeDiskFile } from "@webhare/system-tools";
+import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, toFSPath, toResourcePath } from "@webhare/services";
 import type { FileTypeInfo } from '@webhare/whfs/src/contenttypes';
-import type { ExportOptions, ResourceDescriptor } from '@webhare/services';
+import type { ExportOptions, ResourceDescriptor, WebHareBlob } from '@webhare/services';
 import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
 import { whconstant_linktypes } from '@mod-system/js/internal/webhareconstants';
-import { exportIntExtLink, type ExportMapWhfsLinkInfo } from '@webhare/services/src/descriptor';
+import { exportIntExtLink, hashStream, type ExportedBlobReference, type ExportMapWhfsLinkInfo } from '@webhare/services/src/descriptor';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 
 /* The WHFS Tree Export (Zip) format is defined as follows:
    - Folders and the data for files (if they have a non-zero data member) are stored under their own name
-   - Metadata for folders and files is stored in an accompanying `<name>.whfs.yml` file
-     - A folder's metadata will be stored next to its folder, not inside the folder
-     - This makes it purposefully impossible to store metadata about the 'root' of an archive (unlike HS wharchive)
+   - Metadata for files is stored in an accompanying `<name>.whfs.yml` file
+   - Metadata for folders is stored in a `^folder.whfs.yml` file inside the folder
 
   Eg a folder 'my-folder' with one image 'my-image' and one RTD 'index' would be stored as:
 
   /my-folder/
-  /my-folder.whfs.yml
+  /my-folder/^folder.whfs.yml
   /my-folder/my-image.jpg
   /my-folder/my-image.jpg.whfs.yml
   /my-folder/index.whfs.yml
@@ -32,6 +33,8 @@ import { exportIntExtLink, type ExportMapWhfsLinkInfo } from '@webhare/services/
 
 
 export interface ExportWHFSOptions {
+  /** A list of resource paths that may contain resources to be linked to. */
+  linkResourcesFrom?: string[];
 }
 
 type VirtualObjectData = {
@@ -113,17 +116,36 @@ function mapWhfsLink(start: WHFSFolder, sourcePath: string, link: ExportMapWhfsL
   return link.defaultMapping;
 }
 
+
+async function makeExportFileAsResource(linkResourcesFrom: string[]) {
+  const availableResources = new Map<string, string>;
+  for (const sourcePath of linkResourcesFrom) {
+    const items = await listDirectory(toFSPath(sourcePath), { recursive: true });
+    for (const res of items)
+      if (res.type === "file")
+        availableResources.set(await hashStream(Readable.toWeb(createReadStream(res.fullPath))), res.fullPath);
+  }
+
+  return async function exportFileAsResource(file: WebHareBlob): Promise<ExportedBlobReference | undefined> {
+    const match = availableResources.get(await hashStream(file.stream()));
+    if (match)
+      return { resource: toResourcePath(match) };
+  };
+}
+
 async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
   const exportOptions: ExportOptions & { export: true } = {
     export: true,
-    exportResources: "base64",
     mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
   };
+  if (options?.linkResourcesFrom)
+    exportOptions.exportFile = await makeExportFileAsResource(options.linkResourcesFrom);
 
   const entryPath = `${basePath}/${item.name}`;
   const meta = await buildExportMetadata(item, exportOptions);
   const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
-  await target.addFile(entryPath + ".whfs.yml", header + YAML.stringify(meta), item.modified);
+  const metadataPath = item.isFolder ? `${entryPath}/^folder.whfs.yml` : `${entryPath}.whfs.yml`;
+  await target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
 
   if (item.isFolder) {
     await target.addFolder(entryPath, item.modified);
@@ -158,5 +180,5 @@ export async function storeWHFSExport(target: string, source: WHFSObject | WHFSO
     }, addFolder: async (path) => {
       await mkdir(join(target, path), { recursive: true });
     }
-  });
+  }, options);
 }
