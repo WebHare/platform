@@ -368,7 +368,7 @@ PUBLIC STATIC OBJECTTYPE __JSWidget EXTEND WidgetBase <
       this->__pvt_widgetsettings.widgetbuilder,
       targetobject := this->context->targetobject->id,
       targetfolder := this->context->targetfolder->id,
-      targetsite := this->context->targetsite->id,
+      targetsite := ObjectExists(this->context->targetsite) ? this->context->targetsite->id : 0,
       sitelanguage := this->context->languagecode
     ]);
 
