@@ -1,0 +1,9 @@
+
+    <body>
+      [if iscancel]
+        Too bad you've cancelled [field.firstname.text]!
+      [else]
+        Hello [field.firstname.text]! <a id="editlink" href="[pagedata.editlink]">Edit!</a>
+      [/if]
+    </body>"
+  

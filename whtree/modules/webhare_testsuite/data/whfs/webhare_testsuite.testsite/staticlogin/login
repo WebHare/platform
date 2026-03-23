@@ -1,0 +1,5 @@
+ <form id="form" class="wh-wrdauth__loginform" method="post">
+                                login: <input id="login" name="login" value="" /><br/>
+                                password: <input id="password" name="password" type="password" /><br/> <input type="submit" />
+                              </form>
+                              Login result: <span id="loginresult" style="display: none">failed</span>

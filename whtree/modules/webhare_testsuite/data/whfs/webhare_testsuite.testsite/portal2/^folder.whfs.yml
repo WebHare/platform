@@ -1,0 +1,11 @@
+# Export of folder "/portal2/" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:04.232Z
+type: platform:foldertypes.default
+created: 2026-03-20T20:42:29.712Z
+modified: 2026-03-20T20:42:29.724Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      indexDoc: portal

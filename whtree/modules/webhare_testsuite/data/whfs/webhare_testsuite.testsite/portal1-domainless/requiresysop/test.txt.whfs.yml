@@ -1,0 +1,12 @@
+# Export of file "/portal1-domainless/requiresysop/test.txt" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:06:59.540Z
+type: platform:filetypes.plaintext
+created: 2026-03-20T20:42:29.609Z
+modified: 2026-03-20T20:42:29.609Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

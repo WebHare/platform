@@ -1,0 +1,10 @@
+# Export of folder "/testsuiteportal/empty folder/" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:05.103Z
+type: platform:foldertypes.default
+created: 2026-03-20T20:42:29.752Z
+modified: 2026-03-20T20:42:29.752Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: test siteprofile resolution in empty folders
+      order: 0

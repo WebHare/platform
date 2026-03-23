@@ -1,0 +1,12 @@
+# Export of file "/TestPages/wrdauthtest-domainless-static" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:18.040Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static
+created: 2026-03-20T20:42:31.102Z
+modified: 2026-03-20T20:42:31.102Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

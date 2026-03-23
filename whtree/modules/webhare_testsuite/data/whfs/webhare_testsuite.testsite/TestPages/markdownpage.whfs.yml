@@ -1,0 +1,32 @@
+# Export of file "/TestPages/markdownpage" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:20.880Z
+type: platform:filetypes.markdown
+created: 2026-03-20T20:42:31.144Z
+modified: 2026-03-20T20:42:33.484Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Markdown page
+      description: ""
+      order: 0
+      isUnlisted: true
+      keywords: ""
+      publish: true
+  - whfsType: platform:filetypes.markdown
+    data:
+      data:
+        type: platform:markdown
+        text: >-
+          
+          # Markdown file
+
+          This is a `commonmark` marked down file with a [JS
+          link](javascript:alert("HI")).
+
+          | foo | bar |
+
+          | --- | --- |
+
+          | baz | bim |
+
+
+          Test http://example.net/linkify.

@@ -1,0 +1,13 @@
+# Export of file "/photoalbum/snowbeagle.avif" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:39.080Z
+type: platform:filetypes.image
+created: 2026-03-20T20:42:30.569Z
+modified: 2026-03-20T20:42:30.569Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Snowy-nose as avif
+      description: A picture of a young male beagle with a snow powdered nose on a
+        snowy roof
+      order: 5
+      keywords: ""
+      publish: true

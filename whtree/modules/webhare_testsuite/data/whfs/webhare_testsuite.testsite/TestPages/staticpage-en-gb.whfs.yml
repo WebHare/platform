@@ -1,0 +1,12 @@
+# Export of file "/TestPages/staticpage-en-gb" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:18.760Z
+type: platform:filetypes.richdocument
+created: 2026-03-20T20:42:31.136Z
+modified: 2026-03-20T20:42:31.136Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

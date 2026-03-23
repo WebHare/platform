@@ -1,0 +1,12 @@
+# Export of file "/TestPages/formtest" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:16.189Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/formtest
+created: 2026-03-20T20:42:30.689Z
+modified: 2026-03-20T20:42:30.689Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Various formdefinition testforms
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

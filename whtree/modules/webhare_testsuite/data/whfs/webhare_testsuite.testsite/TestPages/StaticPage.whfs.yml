@@ -1,0 +1,18 @@
+# Export of file "/TestPages/StaticPage" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:21.268Z
+type: platform:filetypes.richdocument
+created: 2026-03-20T20:42:31.108Z
+modified: 2026-03-20T20:42:33.484Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - text: This is StaticPage in TestPages

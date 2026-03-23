@@ -1,0 +1,32 @@
+# Export of folder "/" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:06:55.167Z
+type: platform:foldertypes.default
+created: 2018-09-13T17:00:36.833Z
+modified: 2026-03-20T20:42:33.472Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 10
+      indexDoc: index.rtd
+  - whfsType: http://www.webhare.net/xmlns/beta/test
+    data:
+      arraytest:
+        - blobcell:
+            file:
+              resource: mod::webhare_testsuite/tests/system/testdata/cmyk_kikkertje.jpg
+            extension: .jpg
+            mediaType: image/jpeg
+            width: 122
+            height: 148
+            dominantColor: "#282828"
+            hash: u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q
+            fileName: kikker.jpg
+  - whfsType: platform:web.sitesettings
+    data:
+      sitedesign: webhare_testsuite:basetest
+  - whfsType: webhare_testsuite:base_test.site_settings
+    data:
+      mode: blue
+      setting: red
+      when: 2024-01-01T00:00:00Z

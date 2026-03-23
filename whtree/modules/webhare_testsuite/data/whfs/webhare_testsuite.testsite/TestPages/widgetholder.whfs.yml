@@ -1,0 +1,74 @@
+# Export of file "/TestPages/widgetholder" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:35.863Z
+type: platform:filetypes.richdocument
+created: 2026-03-20T20:42:30.143Z
+modified: 2026-03-20T20:42:33.48Z
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - text: "indirect html widget:"
+        - widget:
+            whfsType: http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock
+            data:
+              widgets:
+                - htmlwidget
+        - tag: p
+          items:
+            - text: "indirect jswidget:"
+        - widget:
+            whfsType: http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock
+            data:
+              widgets:
+                - jswidget
+        - tag: p
+          items:
+            - text: "direct html widget:"
+        - widget:
+            whfsType: platform:widgets.html
+            data:
+              html: <b>direct html</b>
+        - tag: p
+          items:
+            - text: "direct jswidget:"
+        - widget:
+            whfsType: webhare_testsuite:base_test.jswidget1
+            data:
+              field1: jswidget-direct2
+        - tag: p
+          items:
+            - text: "Een afbeelding: "
+            - alt: I&G
+              width: 160
+              height: 120
+              image:
+                file:
+                  resource: mod::webhare_testsuite/data/whfs/webhare_testsuite.testsite/photoalbum/snowbeagle.jpg
+                sourceFile: imgeditfile.jpeg
+                extension: .jpg
+                mediaType: image/jpeg
+                width: 428
+                height: 284
+                dominantColor: "#F8F8F8"
+                hash: eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw
+                fileName: imagecid-81400
+        - tag: p
+          items:
+            - text: "Een "
+            - text: externe
+              link:
+                externalLink: https://beta.webhare.net/
+            - text: " en een "
+            - text: interne
+              link:
+                internalLink: rangetestfile.jpeg
+                append: "#dieper"
+            - text: " link."

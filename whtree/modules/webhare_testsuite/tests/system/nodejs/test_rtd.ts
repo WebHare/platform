@@ -21,7 +21,6 @@ function compareRDIgnoreFilename(expect: unknown, actual: unknown) {
 }
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
-
   const exported = await doc.export();
   const docFromExported = await buildRTD(exported);
   test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDIgnoreFilename });
@@ -150,8 +149,8 @@ async function testReader() {
             width: 428,
             height: 284,
             hash: test.wellKnownHashes.snowbeagleJPG,
-            dominantColor: /^#.*$/,
-            fileName: "imagecid-81400"
+            dominantColor: /^#[0-9A-F]{6}$/,
+            fileName: /^.+$/ //This stores a cid:<id> currently and we have no control over the cid in the TS RTD APIs - so we can't import it to a fixed value
           },
           alt: 'I&G',
           width: 160,

@@ -35,6 +35,7 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
   test.eq("platform:widgets.video", rootfileRTDWidget1.widget.whfsType);
   test.eq(45081, rootfileRTDWidget1.widget.as("platform:widgets.video").data.thumbnail?.resource.size);
   test.eq(test.wellKnownHashes.snowbeagleJPG, rootfileRTDWidget1.widget.as("platform:widgets.video").data.thumbnail?.hash);
+  test.eq("preview-baf7lcyexag.jpg", rootfileRTDWidget1.widget.as("platform:widgets.video").data.thumbnail?.fileName);
 
   //Verify directory with metadata
   const subdir = await importTree.openFolder("subdir");
