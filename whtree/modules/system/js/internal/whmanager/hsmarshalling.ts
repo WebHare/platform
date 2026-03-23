@@ -2,8 +2,9 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
 import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/src/datetime";
 import { Money } from "../../../../../jssdk/std/src/money";
-import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
+import { WebHareBlob, WebHareDiskBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
 import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
+import { getWHType } from "@webhare/std/src/quacks";
 
 export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
 export type { HSType };
@@ -20,11 +21,13 @@ export function getTypedArray<V extends ArrayHareScriptType, T extends HSType<V>
 
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;
+const MarshalPacketHeaderType = 6;
 
-export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
+
+export function readMarshalData(buffer: Buffer | ArrayBuffer, options?: { diskblobsByReference: true }): SimpleMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU8();
-  if (version !== MarshalFormatType) // FIXME: support largeblobs mode
+  if (version !== MarshalFormatType)
     throw new Error(`Unsupported marshal format type #${version}`);
 
   const columns: string[] = [];
@@ -36,16 +39,16 @@ export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallabl
   }
 
   const type = buf.readU8() as HareScriptType;
-  const retval = marshalReadInternal(buf, type, columns, null);
+  const retval = marshalReadInternal(buf, type, columns, null, options?.diskblobsByReference || false);
   if (buf.readpos !== buf.length)
     throw new Error(`Garbage at end of marshalling packet`);
   return retval as SimpleMarshallableData;
 }
 
-export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallableData {
+export function readMarshalPacket(buffer: Buffer | ArrayBuffer, options?: { diskblobsByReference: true }): IPCMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU32();
-  if (version !== MarshalFormatType) // FIXME: support largeblobs mode
+  if (version !== MarshalPacketHeaderType)
     throw new Error(`Unsupported marshal format type #${version}`);
 
   const columnsize = buf.readU32();
@@ -87,24 +90,24 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
   if (dataformat !== MarshalPacketFormatType)
     throw new Error(`Error in marshalling packet: Invalid data format`);
   const type = buf.readU8() as HareScriptType;
-  const retval = marshalReadInternal(buf, type, columns, blobs);
+  const retval = marshalReadInternal(buf, type, columns, blobs, options?.diskblobsByReference || false);
   if (buf.readpos !== 20 + columnsize + datasize)
     throw new Error(`Error in marshalling packet: incorrect data section size`);
   return retval;
 }
 
-function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
+function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, columns: string[], blobs: Buffer[] | null, diskblobsByReference: boolean): IPCMarshallableData {
   if (type & 0x80) {
     const eltcount = buf.readU32();
     const retval: IPCMarshallableData[] = getDefaultValue(type) as IPCMarshallableData[];
     if (type === HareScriptType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
         const subtype = buf.readU8() as HareScriptType;
-        retval.push(marshalReadInternal(buf, subtype, columns, blobs));
+        retval.push(marshalReadInternal(buf, subtype, columns, blobs, diskblobsByReference));
       }
     } else {
       for (let i = 0; i < eltcount; ++i) {
-        retval.push(marshalReadInternal(buf, type & ~0x80, columns, blobs));
+        retval.push(marshalReadInternal(buf, type & ~0x80, columns, blobs, diskblobsByReference));
       }
     }
     return retval;
@@ -138,15 +141,25 @@ function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, colu
     case HareScriptType.String: {
       return buf.readString();
     }
-    case HareScriptType.Blob: {
+    case HareScriptType.Blob: { //see /doc/marshalling.md for the exact format used
+      const size = buf.readBigU64();
+      if (size >= 2 ** 31 - 1)
+        throw new Error(`Blob size exceeds maximum supported size`);
+      if (size === 0n)
+        return WebHareBlob.from("");
+
+      const embedType = buf.readU8();
+      if (embedType === 1) { //embedded blob
+        if (!diskblobsByReference)
+          throw new Error(`Unexpected embedded blob when diskblobsByReference is false`);
+        return new WebHareDiskBlob(Number(size), buf.readString());
+      }
       if (blobs) {
         const blobid = buf.readU32();
-        if (!blobid)
-          return WebHareBlob.from("");
-        else
-          return WebHareBlob.from(blobs[blobid - 1]);
-      } else
-        return WebHareBlob.from(buf.readBinary());
+        return WebHareBlob.from(blobs[blobid - 1]);
+      }
+      //raw embedded
+      return WebHareBlob.from(buf.readRaw(Number(size)));
     }
     case HareScriptType.FunctionPtr: {
       throw new Error(`Cannot decode FUNCTIONPTR yet`); // FIXME?
@@ -161,7 +174,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, colu
         if (namenr >= columns.length)
           throw new Error(`Corrupt marshal packet: column name nr out of range`);
         const subtype = buf.readU8() as HareScriptType;
-        retval[columns[namenr]] = marshalReadInternal(buf, subtype, columns, blobs);
+        retval[columns[namenr]] = marshalReadInternal(buf, subtype, columns, blobs, diskblobsByReference);
       }
       return retval;
     }
@@ -177,18 +190,18 @@ function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, colu
   }
 }
 
-export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: boolean } = {}): Buffer {
+export function writeMarshalData(value: unknown, { onlySimple, diskblobsByReference }: { onlySimple?: boolean; diskblobsByReference?: boolean } = {}): Buffer {
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
   const path: object[] = [];
   const blobs = onlySimple ? [] : null;
-  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path);
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path, diskblobsByReference || false);
   if (blobs && blobs.length)
     throw new Error(`Cannot include Buffers or types arrays in in this mode`);
 
   const startwriter = new LinearBufferWriter();
-  startwriter.writeU8(2);
+  startwriter.writeU8(MarshalFormatType);
   const len = columns.size;
   startwriter.writeU32(len);
   for (const [key] of [...columns.entries()].sort((a, b) => a[1] - b[1])) {
@@ -202,15 +215,15 @@ export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: 
   return Buffer.concat([startwriter.finish(), datawriter.finish()]);
 }
 
-export function writeMarshalPacket(value: unknown): Buffer {
+export function writeMarshalPacket(value: unknown, options?: { diskblobsByReference?: boolean }): Buffer {
 
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
   const path: object[] = [];
-  const blobs: Buffer[] = [];
+  const blobs: Uint8Array[] = [];
   datawriter.writeU8(MarshalPacketFormatType);
-  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path);
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path, options?.diskblobsByReference || false);
 
   const columnwriter = new LinearBufferWriter();
   columnwriter.writeU32(columns.size);
@@ -226,12 +239,10 @@ export function writeMarshalPacket(value: unknown): Buffer {
   if (blobs.length) {
 
     blobwriter.writeU32(blobs.length);
-    for (const blob of blobs) {
+    for (const blob of blobs)
       blobwriter.writeU64(BigInt(blob.byteLength));
-    }
-    for (const blob of blobs) {
+    for (const blob of blobs)
       blobwriter.writeRaw(blob);
-    }
   }
 
   const data_column = columnwriter.finish();
@@ -239,7 +250,7 @@ export function writeMarshalPacket(value: unknown): Buffer {
   const data_blob = blobwriter.finish();
 
   const startwriter = new LinearBufferWriter();
-  startwriter.writeU32(MarshalFormatType);
+  startwriter.writeU32(MarshalPacketHeaderType);
   startwriter.writeU32(data_column.byteLength);
   startwriter.writeU32(data_data.byteLength);
   startwriter.writeU64(BigInt(data_blob.byteLength));
@@ -247,7 +258,7 @@ export function writeMarshalPacket(value: unknown): Buffer {
   return Buffer.concat([startwriter.finish(), data_column, data_data, data_blob]);
 }
 
-function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: HareScriptType | null, path: object[]) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: HareScriptType | null, path: object[], diskblobsByReference: boolean) {
   const determinedtype = determineType(value);
   if (type === null) {
     type = determinedtype;
@@ -266,7 +277,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
     writer.writeU32(len);
     const subtype = type === HareScriptType.VariantArray ? null : type & ~HareScriptType.Array;
     for (let i = 0; i < len; ++i) {
-      writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path);
+      writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path, diskblobsByReference);
     }
 
     path.pop();
@@ -334,22 +345,28 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
           columns.set(key.toUpperCase(), columnid);
         }
         writer.writeU32(columnid);
-        writeMarshalDataInternal(subvalue, writer, columns, blobs, null, path);
+        writeMarshalDataInternal(subvalue, writer, columns, blobs, null, path, diskblobsByReference);
       }
       path.pop();
     } break;
-    case HareScriptType.Blob: {
-      if (!(value as WebHareBlob).size) { //empty blob
-        writer.writeU32(0); //either we write blobid 0 or size 0
-        break;
+    case HareScriptType.Blob: { //see /doc/marshalling.md for the exact format used
+      writer.writeU64((value as WebHareBlob).size);
+      if (!(value as WebHareBlob).size)  //empty blob
+        return;
+
+      if (diskblobsByReference && getWHType(value) === "WebHareDiskBlob" && (value as WebHareDiskBlob).path) {
+        writer.writeU8(1); //path marker
+        writer.writeString((value as WebHareDiskBlob).path);
+        return;
       }
 
+      writer.writeU8(0); //embed marker
       const data = (value as WebHareBlob).__getAsSyncUInt8Array();
       if (blobs) {
         blobs.push(data);
         writer.writeU32(blobs.length);
       } else {
-        writer.writeBinary(data);
+        writer.writeRaw(data);
       }
     } break;
     default: {

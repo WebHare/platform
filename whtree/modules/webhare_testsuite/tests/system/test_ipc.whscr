@@ -2,7 +2,9 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 MACRO GlobalCommTest()
@@ -29,6 +31,14 @@ MACRO GlobalCommTest()
     TestEQ("ok", rec.status);
     TestEQ([ data := data ], rec.msg);
   }
+
+  BLOB snowbeagle_hs := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg");
+  TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/snowbeagle.jpg"), GetBlobDiskPath(snowbeagle_hs));
+  link_a->SendMessage(CELL[snowbeagle_hs]);
+
+  RECORD rec := link_b->ReceiveMessage(MAX_DATETIME);
+  TestEq(snowbeagle_hs, rec.msg.snowbeagle_hs);
+  TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/snowbeagle.jpg"), GetBlobDiskPath(rec.msg.snowbeagle_hs));
 }
 
 RunTestframework([ PTR GlobalCommTest ]);

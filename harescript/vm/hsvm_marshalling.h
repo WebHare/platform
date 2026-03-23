@@ -64,11 +64,6 @@ struct ObjectMarshalData
         ObjectMarshalData& operator=(ObjectMarshalData const &) = delete;
 };
 
-enum class BlobDataType {
-    Blob,
-    DiskPath,
-};
-
 class Marshaller;
 
 /** Class for extended marshalling (marshalling with blobs and objects)
@@ -76,6 +71,7 @@ class Marshaller;
 class BLEXLIB_PUBLIC MarshalPacket
 {
     public:
+        MarshalPacket();
         ~MarshalPacket();
 
         /// Returns whether any objects are present
@@ -129,11 +125,13 @@ class BLEXLIB_PUBLIC MarshalPacket
 
             public:
                 BlobData() = default;
-                BlobDataType type = BlobDataType::Blob;
                 std::shared_ptr< GlobalBlob > blob;
                 std::string diskpath;
                 Blex::FileOffset length;
         };
+
+        /// Size of all disk blobs
+        uint64_t diskblobsize;
 
         /** List of blobs referenced in the data
         */
@@ -182,8 +180,6 @@ class BLEXLIB_PUBLIC Marshaller
         bool diskblobs_by_reference;
 
         Blex::FileOffset data_size;
-        unsigned blobcount;
-        bool largeblobs;
         Blex::PodVector< ColumnNameId > columns;
         Blex::PodVector< Blex::StringPair > strings;
         std::unique_ptr< std::unordered_map< ColumnNameId, unsigned > > columnmap;

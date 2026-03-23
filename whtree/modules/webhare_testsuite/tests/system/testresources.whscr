@@ -73,6 +73,7 @@ MACRO ResolveAbsoluteLibrary()
   TestThrowsLike('*may not escape*',PTR __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::../../../c.whlib"));
   TestEq("wh::c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::/c.whlib"));
   TestEq("wh::a/b/c.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "relative::./c.whlib"));
+  TestEq("direct::/tmp/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("wh::a/b/test.whscr", "direct::/tmp/"));
 
   STRING systempath := GetModuleInstallationRoot("system");
 

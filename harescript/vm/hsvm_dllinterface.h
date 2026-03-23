@@ -899,6 +899,13 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
     @return Length of the blob in bytes */
  HSVM_PUBLIC long long int HSVM_BlobLength (struct HSVM *vm, HSVM_VariableId id) ;
 
+/** Write the path of the blob into a variable
+    @param vm Virtual machine
+    @param blobhandle Handle of the blob to read from
+    @returns 0 or a heap-allocated variable (which you'll have to free yourself) containing the path
+*/
+HSVM_PUBLIC HSVM_VariableId HSVM_BlobGetPath(struct HSVM *vm, HSVM_VariableId id) ;
+
 /** Get the length of an opened blob in bytes
     @param vm Virtual machine
     @param blobhandle Handle of the blob to query the length from
@@ -941,7 +948,7 @@ HSVM_PUBLIC void HSVM_BlobSetTag(struct HSVM *vm, HSVM_VariableId id, char const
     @param buffer Number of characters written to the buffer
     @param maxlength Length of the buffer
 */
- HSVM_PUBLIC unsigned HSVM_BlobDescription (struct HSVM *vm, int blobhandle, char *buffer, unsigned maxlength);
+HSVM_PUBLIC unsigned HSVM_BlobDescription (struct HSVM *vm, int blobhandle, char *buffer, unsigned maxlength);
 
 /** Read data from an opened blob from a specified position
     @param vm Virtual machine

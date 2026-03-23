@@ -171,6 +171,9 @@ class BLEXLIB_PUBLIC BlobRefPtr
         std::string GetDescription()
         { return ptr ? ptr->GetDescription() : "empty"; }
 
+        std::string GetDiskPath()
+        { return ptr ? ptr->GetDiskPath() : ""; }
+
         void *GetContext(unsigned id, bool autocreate)
         { return ptr ? ptr->keeper.GetContext(id, autocreate) : NULL; }
 
