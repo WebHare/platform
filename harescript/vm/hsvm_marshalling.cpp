@@ -1092,7 +1092,7 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
 
                                 if (!vm)
                                 {
-                                        stackm.InitVariable(var, VariableTypes::Blob);
+                                        ThrowInternalError("Cannot marshal non-empty blobs without a running virtual machine");
                                 }
                                 else
                                 {
