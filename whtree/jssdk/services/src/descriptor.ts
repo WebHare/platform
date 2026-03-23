@@ -65,7 +65,7 @@ export type ExportMapWhfsLinkInfo = {
 };
 export type ExportOptions = {
   export?: boolean;
-  /** Callback that should attempt to store/refer blobs outside th export structure */
+  /** Callback that should attempt to store/refer blobs outside the export structure */
   exportFile?: (file: WebHareBlob) => MaybePromise<ExportedBlobReference | undefined>;
   mapWhfsLink?: (data: ExportMapWhfsLinkInfo) => string | null | Promise<string | null>;
 };
