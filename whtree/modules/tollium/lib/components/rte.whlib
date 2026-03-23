@@ -3,6 +3,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -10,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
@@ -95,8 +97,8 @@ RECORD FUNCTION GetCacheableCSSFile(STRING path, BLOB data)
          ];
 }
 
-PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -753,6 +755,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     this->QueueOutboundMessage("InsertImage", imageinfo);
   }
 
+  PUBLIC MACRO RunEditSource() {
+    Reflect(this->value);
+  }
+
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
   {
     /*  properties2 is an attempt to switch to a JSON protocol from the RichEditor straight into Tollium for setting properties
@@ -790,6 +796,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
       }
       // Queue a response, so the test framework knows this message has been processed
       this->QueueOutboundMessage("AckDirty", DEFAULT RECORD);
+      RETURN;
+    }
+    IF(type = "magicEditValue") {
+      this->RunEditSource();
       RETURN;
     }
     TolliumComponentBase::ProcessInboundMessage(type, msgdata);
@@ -1049,8 +1059,7 @@ PUBLIC OBJECTTYPE TolliumRichArea EXTEND RTEBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
-<
+PUBLIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase < //Cannot use STATIC as SetDirty becomes inacessible
   PUBLIC BOOLEAN __this_is_tolliumrichdocument; //our widget editor currently needs this
   PUBLIC RECORD ARRAY allowwidgettypes;
   STRING ARRAY __editableinstanceids;
@@ -1091,9 +1100,6 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     }
 
     this->pvt_internallinkshandler := this->owner->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "internallinks");
-
-//    IF(ObjectExists(this->fsapplytester) AND NOT RecordExists(this->rtdtypeinfo))
-  //    this->rtdtypeinfo := GetRTDSettingsForApplyTester(this->fsapplytester);
   }
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
@@ -1233,5 +1239,23 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
           // Check if this widget is still editable
         , canwrite := preview.instanceid IN this->editableinstanceids
         ];
+  }
+
+  RECORD ARRAY FUNCTION ValidateSource(RECORD value, STRING newtext) {
+    RETURN CallJS("./rte.ts#validateRTDYaml", newtext);
+  }
+
+  UPDATE PUBLIC MACRO RunEditSource() {
+    RECORD value := this->value;
+    STRING source := CallJS("./rte.ts#convertRTDValueToYaml", value);
+
+    RECORD updateresult := RunEditSourceDialog(this, CELL[
+      text := source,
+      onvalidate := PTR this->ValidateSource(value, #1)
+    ]);
+    IF(RecordExists(updateresult)) {
+      this->value := CallJS("./rte.ts#convertYamlToRTDValue", updateresult.text);
+      this->SetDirty();
+    }
   }
 >;
