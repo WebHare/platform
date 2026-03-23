@@ -97,7 +97,7 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
     if (this.type.legacySchema) {
       if (!isDate(value) || isNaN(value.getTime()))
         throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      if (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs)
+      if (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs)
         throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     } else {
       if (!isTemporalPlainDate(value))
@@ -116,7 +116,7 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
 
 export class WRDDBBaseDateValue<ModernSchema extends boolean> extends WRDDBPlainDateValueBase<false, ModernSchema> {
   validateFilterInput(value: (ModernSchema extends true ? Temporal.PlainDate : Date) | null) {
-    if (value && isDate(value) && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+    if (value && isDate(value) && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null`);
   }
   checkFilter(cv: WRDDBDateConditions<ModernSchema>) {
@@ -180,7 +180,7 @@ export class WRDDBBaseDateValue<ModernSchema extends boolean> extends WRDDBPlain
     if (this.type.legacySchema) {
       if (!isDate(value) || isNaN(value.getTime()))
         throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      if (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs)
+      if (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs)
         throw new Error(`Not allowed use defaultDateTime of maxDateTime, use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
       if (["wrdDateOfDeath", "wrdDateOfBirth"].includes(this.attr.tag) && value.getTime() > Date.now() && !checker.importMode)
         throw new Error(`Provided '${this.attr.tag}' in the future for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
