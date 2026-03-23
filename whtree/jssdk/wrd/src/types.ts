@@ -558,3 +558,5 @@ export type AnyType = WRDTypeCoreSettings & {
 };
 
 export type AnySchemaType = Record<string, AnyType>;
+/** @deprecated Old name for AnySchemaType, deprecated as of WH6.0 */
+export type AnySchemaTypeDefinition = AnySchemaType;
