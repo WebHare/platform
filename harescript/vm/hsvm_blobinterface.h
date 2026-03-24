@@ -61,6 +61,7 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
 
     private:
         Blex::FileOffset cachedlength;
+        std::string id;
 
         class MyOpenedBlob: public OpenedBlobBase< BlobBase >
         {
@@ -87,6 +88,9 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
 
         /** Returns the blob modtime */
         virtual Blex::DateTime GetModTime();
+
+        /** Returns an ID for this blob, unique to this instance */
+        std::string const &GetId() const { return id; }
 
         /** Returns a description for this blob */
         virtual std::string GetDescription();
@@ -163,6 +167,9 @@ class BLEXLIB_PUBLIC BlobRefPtr
 
         std::string GetDescription()
         { return ptr ? ptr->GetDescription() : "empty"; }
+
+        std::string GetId()
+        { return ptr ? ptr->GetId() : ""; }
 
         std::string GetDiskPath()
         { return ptr ? ptr->GetDiskPath() : ""; }
