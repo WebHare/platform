@@ -74,11 +74,7 @@ logWithTime "Downloading puppeteer"
 export PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD=1 # we don't use chrome-headless-shell
 (cd node_modules/puppeteer && npm run postinstall)
 
-
-## get dependencies for the postgresql-client
-logWithTime "Setup postgresql-client"
-( cd jssdk/whdb/vendor/postgrejs && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
-
+# build resolveplugin, the wrapper used by `wh node` (and `wh run` for TS files)
 logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
 

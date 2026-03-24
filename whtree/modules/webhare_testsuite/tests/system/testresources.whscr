@@ -158,9 +158,6 @@ MACRO TestBase()
   TestEq("", GetModuleResourceURL("mod::webhare_testsuite/data/webdesigns/basetest/web/"));
   TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesign/basetest/web/"));
 
-  //TODO drop support for test:: - just use mod::webhare_testsuite/tests/baselibs/hsengine/
-  //Testeq(TRUE, Length(GetWebhareResource("test::runtests.sh"))>0);
-  //TestEq(TRUE, Length(GetWebhareResource("direct::" || GetWebHareResourceDiskPath("test::runtests.sh")))>0);
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("mod::webhare_testsuite/lib/database.whlib"));

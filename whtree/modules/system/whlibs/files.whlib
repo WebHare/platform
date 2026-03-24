@@ -258,7 +258,7 @@ PUBLIC BLOB FUNCTION GetDiskResource(STRING path, RECORD options DEFAULTSTO DEFA
 {
   options := ValidateOptions([ allowmissing := FALSE ], options);
   path := ResolveToAbsolutePath(path);
-  RECORD res := __GetHSResource("direct::" || path);
+  RECORD res := __GetDiskResource(path);
   IF(res.error = 0)
     RETURN res.data;
   IF(options.allowmissing)
@@ -272,23 +272,12 @@ PUBLIC BLOB FUNCTION GetDiskResource(STRING path, RECORD options DEFAULTSTO DEFA
 */
 PUBLIC BLOB FUNCTION GetHarescriptResource(STRING path)
 {
-  STRING namespace := ToLowercase(Left(path, SearchSubstring(path, '::')));
-  IF(namespace IN ["wh","direct","test"])
-  {
-    RECORD res := __GetHSResource(path);
+  IF(ToLowercase(path) LIKE "direct::*")
+    RETURN GetDiskResource(Substring(path, 8));
 
-    IF(res.error=1)
-      THROW NEW Exception("Illegal path '" || path || "' for HareScript resource");
-    ELSE IF(res.error=2)
-    {
-      // the resource/file does not exist or we aren't allowed access to it
-      THROW NEW Exception("No such HareScript resource " || path);
-    }
-    ELSE
-      RETURN res.data;
-  }
-  IF(__GetHSResourceCall != DEFAULT FUNCTION PTR)
+  IF(__GetHSResourceCall != DEFAULT FUNCTION PTR) //this just brings us to GetWebhareResource
     RETURN __GetHSResourceCall(path);
+
   THROW NEW Exception("Illegal path '" || path || "' for HareScript resource");
 }
 

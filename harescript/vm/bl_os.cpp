@@ -1726,7 +1726,7 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMNUMPROCESSORS::I:",HS_GetSystemNumProcessors));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMNUMVIRTUALPROCESSORS::I:",HS_GetSystemNumVirtualProcessors));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMOSNAME::S:",HS_GetSystemOsName));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__GETHSRESOURCE::R:S",HS_GetHSResource));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__GETDISKRESOURCE::R:S",HS_GetHSResource));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MERGEPATH::S:SS",HS_MergePath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MOVEDISKPATH::B:SS",HS_MoveDiskFile));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("OPENBLOBASFILE::I:X",HS_OpenBlobAsFile));

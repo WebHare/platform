@@ -1113,98 +1113,6 @@ int TempFileWriter(void *opaque_ptr, int numbytes, void const *data, int /*allow
         return 0;
 }
 
-/* WebHare filesystem blob */
-class FileSystemBlob : public BlobBase
-{
-    private:
-        HareScript::FilePtr file;
-
-        class MyOpenedBlob: public OpenedBlobBase< FileSystemBlob >
-        {
-            private:
-                std::unique_ptr< Blex::RandomStream > stream;
-                Blex::DateTime modtime;
-
-            public:
-                MyOpenedBlob(FileSystemBlob &blob);
-                ~MyOpenedBlob();
-
-                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
-                Blex::FileOffset GetCacheableLength();
-        };
-
-    public:
-        /** Constructor */
-        FileSystemBlob(VirtualMachine *vm, HareScript::FilePtr &&file);
-        ~FileSystemBlob();
-
-        bool HasFile() { return file.get(); }
-
-        std::unique_ptr< OpenedBlob > OpenBlob();
-        Blex::FileOffset GetCacheableLength();
-        Blex::DateTime GetModTime();
-        std::string GetDescription();
-        std::string GetDiskPath();
-};
-
-FileSystemBlob::FileSystemBlob(VirtualMachine *vm, HareScript::FilePtr &&_file)
-: BlobBase(vm)
-, file(_file)
-{
-}
-
-FileSystemBlob::~FileSystemBlob()
-{
-}
-
-FileSystemBlob::MyOpenedBlob::MyOpenedBlob(FileSystemBlob &blob)
-: OpenedBlobBase< FileSystemBlob >(blob)
-{
-        blob.file->GetSourceData(&stream, &modtime);
-}
-
-FileSystemBlob::MyOpenedBlob::~MyOpenedBlob()
-{
-}
-
-std::size_t FileSystemBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
-{
-        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
-}
-
-Blex::FileOffset FileSystemBlob::MyOpenedBlob::GetCacheableLength()
-{
-        return stream ? stream->GetFileLength() : 0;
-}
-
-std::unique_ptr< OpenedBlob > FileSystemBlob::OpenBlob()
-{
-        return std::make_unique< MyOpenedBlob >(*this);
-}
-
-Blex::FileOffset FileSystemBlob::GetCacheableLength()
-{
-        return MyOpenedBlob(*this).GetCacheableLength();
-}
-
-Blex::DateTime FileSystemBlob::GetModTime()
-{
-        return file->GetSourceModTime();
-}
-
-std::string FileSystemBlob::GetDescription()
-{
-        return file->GetDescription();
-}
-
-std::string FileSystemBlob::GetDiskPath()
-{
-        auto path = file->GetSourceResourcePath();
-        if (path.substr(0, 8) == "direct::")
-            return path.substr(8);
-        return path;
-}
-
 int HSVM_CreateStream (HSVM *vm)
 {
         /* Readd to catch blob creations
@@ -1395,22 +1303,14 @@ int HSVM_MakeBlobFromFilesystem(HSVM *vm, HSVM_VariableId storeid, const char *f
 {
         START_CATCH_VMEXCEPTIONS
         std::string path = filepath;
-
-        if (!IsValidFilesystemPath(path))
+        Blex::PathStatus status(path);
+        if(!status.Exists() || status.IsDir())
         {
                 //Return an empty blob
                 HSVM_MakeBlobFromMemory(vm, storeid, 0, NULL);
                 return 1; //invalid path
         }
-
-        VM.GetFileSystem().ResolveAbsoluteLibrary(VM.GetContextKeeper(), VM.GetExecuteLibrary(), &path);
-        HareScript::FilePtr file = VM.GetFileSystem().OpenLibrary(VM.GetContextKeeper(), path);
-        if (!file || file->GetSourceModTime() == Blex::DateTime::Invalid())
-        {
-                HSVM_MakeBlobFromMemory(vm, storeid, 0, NULL);
-                return 2; //failed..
-        }
-        STACKMACHINE.SetBlob(storeid, BlobRefPtr(new FileSystemBlob(&VM, std::move(file))));
+        STACKMACHINE.SetBlob(storeid, BlobRefPtr(new DiskBlob(&VM, path, status.FileLength())));
         return 0;
 
         END_CATCH_VMEXCEPTIONS

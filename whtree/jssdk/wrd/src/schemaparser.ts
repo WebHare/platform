@@ -461,7 +461,8 @@ const wrdattributes: Record<string, {
   },
   "time": {
     image: "dummy.gif",
-    options: ["isunique"]
+    options: ["isunique"],
+    canchangeto: ["INTEGER"] //escape for out-of-range TIME types
   },
   "datetime": {
     image: "dummy.gif",

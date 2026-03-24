@@ -22,15 +22,12 @@ import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
-import * as PostgreJSConnectionLib from './connection-postgrejs';
 import * as PostgreaseConnectionLib from './connection-postgrease';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
 import { isError, isPromise, sleep, type WaitPeriod } from '@webhare/std';
 import type { WHDBClientInterface } from './connectionbase';
-
-const connectionLib = debugFlags["usepostgrejs"] ? PostgreJSConnectionLib : PostgreaseConnectionLib;
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -296,7 +293,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
   private getPoolClient(): PostgresPoolClient | undefined | Promise<PostgresPoolClient | undefined> {
     if (!this.connected) {
       this.clientPromise ??= (async () => {
-        const client = await connectionLib.createConnection();
+        const client = await PostgreaseConnectionLib.createConnection();
         this.connected = true;
         this.client = client;
         return client;
@@ -651,11 +648,11 @@ export function __getNewConnection(): WHDBConnection {
 /** Get a new raw database connection (without codecs for dynamically created types like blobs)
  */
 export function __createRawConnection(): Promise<WHDBClientInterface> {
-  return connectionLib.createConnection({ raw: true });
+  return PostgreaseConnectionLib.createConnection({ raw: true });
 }
 
-export function isDatabaseError(e: unknown): e is InstanceType<typeof connectionLib["DatabaseError"]> {
-  return isError(e) && e instanceof connectionLib.DatabaseError;
+export function isDatabaseError(e: unknown): e is InstanceType<typeof PostgreaseConnectionLib["DatabaseError"]> {
+  return isError(e) && e instanceof PostgreaseConnectionLib.DatabaseError;
 }
 
 interface NoTable {
@@ -737,7 +734,7 @@ type Bindables = {
  * @returns An expression that can be used in SQL queries
 */
 export function overrideValueType<T extends keyof Bindables>(value: Bindables[T][0], type: T): Expression<Bindables[T][1]> {
-  return sql`${connectionLib.pgBindParam(value, type)}`;
+  return sql`${PostgreaseConnectionLib.pgBindParam(value, type)}`;
 }
 
 /** Overrides the type of a value for arguments of query() (not all types are auto-detected, like UUID's or (+/-)Infinity for timestamps)
@@ -746,5 +743,5 @@ export function overrideValueType<T extends keyof Bindables>(value: Bindables[T]
  * @returns The value wrapped in an objects that forces the encoding of that value to the specified type when used as argument to  query().
 */
 export function overrideQueryArgType<T extends keyof Bindables>(value: Bindables[T][0], type: T): unknown {
-  return connectionLib.pgBindParam(value, type);
+  return PostgreaseConnectionLib.pgBindParam(value, type);
 }

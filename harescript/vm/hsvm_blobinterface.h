@@ -54,11 +54,26 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
     protected:
         VirtualMachine *vm;
 
+        std::string path;
+
         template< class A >
          using OpenedBlobBase = InternalOpenedBlobBase< A >;
 
     private:
         Blex::FileOffset cachedlength;
+        std::string id;
+
+        class MyOpenedBlob: public OpenedBlobBase< BlobBase >
+        {
+            private:
+                std::unique_ptr< Blex::FileStream > stream;
+
+            public:
+                MyOpenedBlob(BlobBase &blob);
+                ~MyOpenedBlob();
+
+                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
+        };
 
     public:
         /** Constructor */
@@ -67,15 +82,18 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         virtual ~BlobBase();
 
         /** Open the blob for reading */
-        virtual std::unique_ptr< OpenedBlob > OpenBlob() = 0;
+        virtual std::unique_ptr< OpenedBlob > OpenBlob();
 
-        virtual Blex::FileOffset GetCacheableLength() = 0;
+        virtual Blex::FileOffset GetCacheableLength();
 
         /** Returns the blob modtime */
-        virtual Blex::DateTime GetModTime() = 0;
+        virtual Blex::DateTime GetModTime();
+
+        /** Returns an ID for this blob, unique to this instance */
+        std::string const &GetId() const { return id; }
 
         /** Returns a description for this blob */
-        virtual std::string GetDescription() = 0;
+        virtual std::string GetDescription();
 
         /** Returns the blob length, and caches it */
         Blex::FileOffset GetLength();
@@ -84,7 +102,7 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         Blex::ContextKeeper keeper;
 
         // Returns the disk path for this blob (empty if not applicable)
-        virtual std::string GetDiskPath();
+        const std::string& GetDiskPath();
 
 #ifdef __EMSCRIPTEN__
         std::string jstag; //only available in esmcripten so we don't need to worry about thread safety
@@ -100,31 +118,10 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
 /* WebHare disk blob */
 class DiskBlob : public BlobBase
 {
-    private:
-        std::string path;
-
-        class MyOpenedBlob: public OpenedBlobBase< DiskBlob >
-        {
-            private:
-                std::unique_ptr< Blex::FileStream > stream;
-
-            public:
-                MyOpenedBlob(DiskBlob &blob);
-                ~MyOpenedBlob();
-
-                std::size_t DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer);
-        };
-
     public:
         /** Constructor */
         DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength);
         ~DiskBlob();
-
-        std::unique_ptr< OpenedBlob > OpenBlob();
-        Blex::FileOffset GetCacheableLength();
-        Blex::DateTime GetModTime();
-        std::string GetDescription();
-        std::string GetDiskPath();
 };
 
 /** Reference counting pointer for blob objects. A BlobRefPtr is only
@@ -170,6 +167,9 @@ class BLEXLIB_PUBLIC BlobRefPtr
 
         std::string GetDescription()
         { return ptr ? ptr->GetDescription() : "empty"; }
+
+        std::string GetId()
+        { return ptr ? ptr->GetId() : ""; }
 
         std::string GetDiskPath()
         { return ptr ? ptr->GetDiskPath() : ""; }

@@ -177,10 +177,6 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
   IF(resourcename LIKE "mod::*") //TS errors currently inconsistently come in as full paths or resource paths (also because /jssdk/ isn't a module)
     resourcename := GetWebHareResourceDiskPath(resourcename);
 
-  //TS doesn't let us configure different settings for the postgresql-client dir so just discard the errors
-  IF(resourcename LIKE "*/jssdk/whdb/vendor/postgrejs/*")
-    RETURN TRUE;
-
   /* If modules (indirectly) include their own copy of @types/node they may not match the node WebHare is shipping with.
      This will lead to CI errors such as
      ERR!: whtree/.../webhareblob.ts:47:23 error TS2345: Argument of type 'ReadableStream<Uint8Array>' is not assignable to parameter of type 'Readable | ReadableStream | AsyncIterator<any, any, undefined>'.

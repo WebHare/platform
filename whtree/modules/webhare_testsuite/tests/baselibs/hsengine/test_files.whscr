@@ -138,6 +138,12 @@ MACRO LoopbackReaders()
   BLOB testdata := StringToBlob(testsrcdata);
   INTEGER testfile;
 
+  //Test blob ids, used to track a blob inside a VM
+  TestEqLike("??????????????????????", GetBlobId(testdata));
+  TestAssert(GetBlobId(testdata) = CELL[ x := GetBlobId(testdata)].x);
+  TestAssert(GetBlobId(testdata) != GetBlobId(StringToBlob(testsrcdata)));
+  TestEq("", GetBlobId(DEFAULT BLOB), "Not assigning IDs to the default blob (as it isn't actually created as a BlobBase)");
+
   testfile := OpenBlobAsFile(testdata);
   TestEq( "Dit is een test", ReadLineFrom(testfile,1024,TRUE));
   TestEq( "Dit is er nog een", ReadLineFrom(testfile,1024,TRUE));
