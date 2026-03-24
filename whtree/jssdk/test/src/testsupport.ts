@@ -138,6 +138,8 @@ export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject>
 
 interface ProcessUndocumented {
   getActiveResourcesInfo(): string[];
+  _getActiveHandles(): unknown;
+  _getActiveRequests(): unknown;
 }
 
 function dumpHandlesAndRequests() {
@@ -146,6 +148,9 @@ function dumpHandlesAndRequests() {
   console.error('\nTest process is not shutting down after tests, there are probably still active handles or requests');
   console.error('Active resource types:', p.getActiveResourcesInfo());
   dumpActiveIPCMessagePorts();
+  console.log(p._getActiveHandles());
+  console.log(p._getActiveRequests());
+
   process.exit(1);
 }
 
