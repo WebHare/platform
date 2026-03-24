@@ -127,6 +127,7 @@ RECORD wrdattributes :=
  , "time" :=                    [ attributetype := wrd_attributetype_time
                                 , image := "dummy.gif"
                                 , options := [ "isunique" ]
+                                , canchangeto := [ "INTEGER" ]
                                 ]
  , "datetime" :=                [ attributetype := wrd_attributetype_datetime
                                 , image := "dummy.gif"
