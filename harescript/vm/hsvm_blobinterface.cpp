@@ -63,7 +63,6 @@ BlobBase::BlobBase(VirtualMachine *_vm, Blex::FileOffset _cachedlength)
 : vm(_vm)
 , cachedlength(_cachedlength)
 , id(Blex::GenerateUFS128BitId())
-, keeper(vm->GetEnvironment().GetContextReg())
 {
         BLOB_PRINT("Create blob " << this);
 }

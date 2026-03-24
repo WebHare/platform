@@ -72,13 +72,6 @@ void GetBlobModTime(VarId id_set, VirtualMachine *vm)
         StackMachine &stackm = vm->GetStackMachine();
         stackm.SetDateTime(id_set, stackm.GetBlob(HSVM_Arg(0)).GetModTime());
 }
-
-void GetBlobDescription(VarId id_set, VirtualMachine *vm)
-{
-        StackMachine &stackm = vm->GetStackMachine();
-        stackm.SetSTLString(id_set, stackm.GetBlob(HSVM_Arg(0)).GetDescription());
-}
-
 void GetBlobId(VarId id_set, VirtualMachine *vm)
 {
         StackMachine &stackm = vm->GetStackMachine();
@@ -552,7 +545,6 @@ void InitBlob(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MAKECOMPOSEDBLOB::X:RA",MakeComposedBlob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBLOBMODTIME::D:X",GetBlobModTime));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBLOBID::S:X",GetBlobId));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBLOBDESCRIPTION::S:X",GetBlobDescription));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETBLOBDISKPATH::S:X",GetBlobDiskPath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETBLOBDISKPATH:::XS",SetBlobDiskPath));
 }

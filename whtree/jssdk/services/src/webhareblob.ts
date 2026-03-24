@@ -109,11 +109,6 @@ export abstract class WebHareBlob implements Blob {
     throw new Error(`This blob does not support synchronous access`);
   }
 
-  ///Annouce that this blob has been uploaded to the PG database. Used to prevent reuploading the same blob.
-  __registerPGUpload(databaseid: string): void {
-    //Only overridden by HSVM
-  }
-
   abstract stream(): ReadableStream<Uint8Array>;
 
   /** @deprecated Use stream() instead */

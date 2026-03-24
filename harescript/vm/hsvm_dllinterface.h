@@ -940,29 +940,7 @@ HSVM_PUBLIC HSVM_VariableId HSVM_BlobSetPath(struct HSVM *vm, HSVM_VariableId id
     @return The blob's ID, NULL terminated. c_str() livetime considerations apply - just inspect/copy it before invoking/returning more WASM
 */
 HSVM_PUBLIC char const* HSVM_BlobGetId(struct HSVM *vm, HSVM_VariableId id);
-
-/** Get the blob's JSTag. JS tags are only available in WASM builds as they are not thread safe
-    @param vm Virtual machine
-    @param id ID of blob to query the tag from
-    @return The blob's tag, NULL terminated. c_str() livetime considerations apply - just inspect/copy it before invoking/returning more WASM
-*/
-HSVM_PUBLIC char const* HSVM_BlobGetTag(struct HSVM *vm, HSVM_VariableId id);
-
-/** Set the blob's JSTag. JS tags are only available in WASM builds as they are not thread safe
-    @param vm Virtual machine
-    @param id ID of blob to query the tag from
-    @param settag The new tag, null terminated
-*/
-HSVM_PUBLIC void HSVM_BlobSetTag(struct HSVM *vm, HSVM_VariableId id, char const *settag);
 #endif
-
-/** Write a description of the blob into the a buffer
-    @param vm Virtual machine
-    @param blobhandle Handle of the blob to read from
-    @param buffer Number of characters written to the buffer
-    @param maxlength Length of the buffer
-*/
-HSVM_PUBLIC unsigned HSVM_BlobDescription (struct HSVM *vm, int blobhandle, char *buffer, unsigned maxlength);
 
 /** Read data from an opened blob from a specified position
     @param vm Virtual machine
@@ -983,16 +961,6 @@ HSVM_PUBLIC unsigned HSVM_BlobDescription (struct HSVM *vm, int blobhandle, char
     @param newoutput New output receiver
     @return Previous output receiver */
  HSVM_PUBLIC int HSVM_RedirectJobOutputTo(struct HSVM *vm, int newoutput) ;
-
-/** Retrieve a context associated with a blob (BETA, may change!)
-    @long Get a pointer to the VM-specific context for this module. Construct the context if it didn't exist yet
-    @param vm Virtual machine
-    @param blobid Blob id
-    @param context_id Context id as passed to HSVM_RegisterContext
-    @param autoconstruct Set to true if you want the context to be automatically constructed if it doesn't exist
-    @return The context pointer, as returned by the 'constructor' function. Returns NULL if the context doesn't exist and autoconstruct was not specified, or if the blob was a default blob
-*/
-HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, unsigned int context_id, unsigned int autoconstruct) ;
 
 /*****************************************************************************
 

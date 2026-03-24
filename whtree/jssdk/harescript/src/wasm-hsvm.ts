@@ -85,8 +85,6 @@ function throwFirstError(message: string, parsederrors: MessageList): never {
 ///Pool of unused engines.
 const enginePool = new Array<WASMModule>;
 
-export type JSBlobTag = { pg: string } | null;
-
 const hsvmlistsymbol = Symbol("HSVMList");
 type HSVMList = Set<WeakRef<HareScriptVM>>;
 
@@ -485,22 +483,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
   }
 
-  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
-  getBlobJSTag(variable: HSVM_VariableId): JSBlobTag {
-    this.checkType(variable, VariableType.Blob);
-    const as_cstr = this.wasmmodule._HSVM_BlobGetTag(this.hsvm, variable);
-    if (!as_cstr)
-      return null;
-
-    const tag = this.wasmmodule.UTF8ToString(as_cstr);
-    return tag ? JSON.parse(tag) : null;
-  }
-  setBlobJSTag(variable: HSVM_VariableId, tag: JSBlobTag) {
-    this.checkType(variable, VariableType.Blob);
-    const as_cstr = this.wasmmodule.stringToNewUTF8(tag ? JSON.stringify(tag) : '');
-    this.wasmmodule._HSVM_BlobSetTag(this.hsvm, variable, as_cstr);
-    this.wasmmodule._free(as_cstr);
-  }
   setBlobPath(variable: HSVM_VariableId, blobpath: string) {
     this.checkType(variable, VariableType.Blob);
     const as_cstr = this.wasmmodule.stringToNewUTF8(blobpath);

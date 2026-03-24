@@ -1,6 +1,6 @@
 import { Marshaller, type IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/src/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
+import type { HareScriptVM } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webhare/hscompat/src/datetime.ts";
 import { Money } from "@webhare/std";
 import { resurrect } from "./wasm-resurrection";
@@ -67,27 +67,6 @@ class HSVMBlob extends WebHareBlob {
       this.blob.dispose();
       this.blob = null;
     }
-  }
-
-  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
-  getJSTag(): JSBlobTag {
-    if (!this.blob)
-      throw new Error(`This blob has already been closed`);
-    if (this.sliced)
-      return null;
-
-    return this.blob.vm.getBlobJSTag(this.blob.id);
-  }
-  setJSTag(tag: JSBlobTag) {
-    if (!this.blob)
-      throw new Error(`This blob has already been closed`);
-    if (!this.sliced)
-      this.blob.vm.setBlobJSTag(this.blob.id, tag);
-  }
-
-  __registerPGUpload(databaseid: string) {
-    if (this.blob && !this.sliced) //not closed yet
-      this.setJSTag({ pg: databaseid });
   }
 
   setBlobPath(path: string): void {
