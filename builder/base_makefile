@@ -566,13 +566,6 @@ endif
 all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
 .PHONY: wasm wasm-test list-targets list-raw-targets
 
-#################################################
-##
-## Other dependencies
-##
-$(PREFIX)/jssdk/whdb/vendor/postgrejs/package.json:
-	git -C $(SRCDIR) submodule update --init --recursive  #update triggered for $@
-
 
 #################################################
 ##
@@ -941,7 +934,6 @@ success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platf
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
 			$(wildcard $(SRCDIR)/whtree/jssdk/*/package.json) \
-			$(PREFIX)/jssdk/whdb/vendor/postgrejs/package.json \
 			$(PREFIX)/modules/devkit/package.json \
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/etc/platform.conf \
