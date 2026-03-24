@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { throwError } from "@webhare/std";
 import type { RequestBuilder } from "./request-builder";
-import type { Codec } from "./types/codec-types";
+import type { Codec, CodecContext } from "./types/codec-types";
 import type { UndocumentedBuffer } from "./types/node-types";
 
 export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<ElementIn, ElementOut>, oid: number, name: string): Codec<ElementIn[], ElementOut[]> {
@@ -87,7 +87,7 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
       }
       builder.dataview.setInt32(start + 4, anyNullHolder.anyNull);
     },
-    decodeBinary: (buffer, dataview, offset, len) => {
+    decodeBinary: (buffer, dataview, offset, len, context) => {
       if (len < 12)
         throw new Error(`Array binary data too short: ${len} bytes`);
       const ndims = dataview.getInt32(offset);
@@ -120,7 +120,7 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
             expectLen += elementLen;
             if (len < expectLen)
               throw Error(`Array binary data too short for element ${i} with length ${elementLen}: ${len} bytes`);
-            result[i] = eltCodec.decodeBinary(buffer, dataview, offset, elementLen);
+            result[i] = eltCodec.decodeBinary(buffer, dataview, offset, elementLen, context);
             offset += elementLen;
           }
         }
@@ -153,7 +153,7 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
               expectLen += elementLen;
               if (len < expectLen)
                 throw Error(`Array binary data too short for element ${i} with length ${elementLen}: ${len} bytes`);
-              result.push(eltCodec.decodeBinary(buffer, dataview, offset, elementLen));
+              result.push(eltCodec.decodeBinary(buffer, dataview, offset, elementLen, context));
               offset += elementLen;
             }
           }
@@ -176,8 +176,8 @@ export function buildArrayCodec<ElementIn, ElementOut>(arrayEltCodec: Codec<Elem
   };
 }
 
-type DecoderFunction = (context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, datalen: number) => object;
-type DecoderContext = Record<`v${number}`, Codec<any, any>> & {
+type DecoderFunction = (context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, datalen: number, codecContext: CodecContext) => object;
+export type DecoderContext = Record<`v${number}`, Codec<any, any>> & {
   cols: { fieldName: string; codec: Codec<any, any> }[];
   throwError(message: string): void;
 };
@@ -207,21 +207,21 @@ export function compileJITRowDecoder(context: DecoderContext): DecoderFunction |
       fnBody += `let v${idx};{const len=dataview.getInt32(offset);offset+=4;if(len===-1)v${idx}=null;else{${col.codec.jitDecoder(`v${idx}`, `context.cols[${idx}].codec`)};offset+=len;}}`;
     else {
       context[`v${idx}`] = col.codec;
-      fnBody += `let v${idx};{const len=dataview.getInt32(offset);offset+=4;if(len===-1)v${idx}=null;else{v${idx}=context[${JSON.stringify(`v${idx}`)}].decodeBinary(buffer,dataview,offset,len);offset+=len;}}`;
+      fnBody += `let v${idx};{const len=dataview.getInt32(offset);offset+=4;if(len===-1)v${idx}=null;else{v${idx}=context[${JSON.stringify(`v${idx}`)}].decodeBinary(buffer,dataview,offset,len,codecContext);offset+=len;}}`;
     }
   }
   fnBody += `return{${context.cols.entries().toArray().map(([idx, col]) => `${JSON.stringify(col.fieldName)}:v${idx}`).join(",")}};`;
 
   try {
     // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
-    return Function("context", "buffer", "dataview", "offset", "datalen", fnBody) as (context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, dataLen: number) => object;
+    return Function("context", "buffer", "dataview", "offset", "datalen", "codecContext", fnBody) as (context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, dataLen: number, codecContext: CodecContext) => object;
   } catch (e) {
     funcConstructorEnabled = false;
     return null;
   }
 }
 
-export function genericRowDecoder(context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, datalen: number): object {
+export function genericRowDecoder(context: DecoderContext, buffer: UndocumentedBuffer, dataview: DataView, offset: number, datalen: number, codecContext: CodecContext): object {
   const fieldCount = dataview.getInt16(offset);
   if (fieldCount !== context.cols.length)
     return throwError(`Unexpected number of fields (expected ${context.cols.length}, got ${fieldCount})`);
@@ -235,9 +235,9 @@ export function genericRowDecoder(context: DecoderContext, buffer: UndocumentedB
     else {
       if (!col.codec.decodeBinary) {
         // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
-        col.codec.decodeBinary = new Function("buffer", "dataview", "offset", "len", col.codec.jitDecoder!("return", "this")) as (buffer: UndocumentedBuffer, dataview: DataView, offset: number, len: number) => any;
+        col.codec.decodeBinary = new Function("buffer", "dataview", "offset", "len", "context", col.codec.jitDecoder!("return", "this")) as (buffer: UndocumentedBuffer, dataview: DataView, offset: number, len: number, context: CodecContext) => any;
       }
-      row[col.fieldName] = col.codec.decodeBinary(buffer, dataview, offset, len);
+      row[col.fieldName] = col.codec.decodeBinary(buffer, dataview, offset, len, codecContext);
       offset += len;
     }
   }

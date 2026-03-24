@@ -6,7 +6,7 @@ import type * as Code from "./types/protocol-codes";
 import { parseAuthentication, parseBackendKeyData, parseCommandComplete, parseErrorResponse, parseNegotiateProtocolVersion, parseNoticeResponse, parseParameterDescription, parseParameterStatus, type BackendKeyData, type ErrorResponse } from "./response-parser";
 import { DataTypeFallbackDecoder, defaultCodecs } from "./codecs";
 import { getRowDecoder, type RowDecoderData } from "./codec-support";
-import type { AnyCodec, Codec } from "./types/codec-types";
+import type { AnyCodec, Codec, CodecContext } from "./types/codec-types";
 import { CodecRegistry } from "./codec-registry";
 
 
@@ -17,6 +17,7 @@ export type PGConnectionOptions = {
   database?: string;
   ssl?: tls.ConnectionOptions;
   codecRegistry?: CodecRegistry;
+  codecContext?: CodecContext;
 };
 
 export type PGExecuteOptions = {
@@ -147,7 +148,7 @@ export async function connect(connectionOptions: PGConnectionOptions = {}) {
     }
 
     // Current packet is ReadyForQuery
-    return new PGConnection(socket, backendKeyData, parameters, connectionOptions.codecRegistry);
+    return new PGConnection(socket, backendKeyData, parameters, connectionOptions.codecRegistry, connectionOptions.codecContext);
   } catch (err) {
     socket.close();
     throw err;
@@ -181,6 +182,7 @@ export class PGConnection {
   private descriptionMap: Map<string, CachedDescription> = new Map();
   private waitWriteQuery: Promise<undefined> | undefined;
   private parameters: Record<string, string>;
+  private codecContext: CodecContext;
   private closeError: Error | undefined;
 
   private queries: {
@@ -197,11 +199,12 @@ export class PGConnection {
   }[] = [];
   private querySignal = Promise.withResolvers<void>();
 
-  constructor(socket: PGPacketSocket, backendKeyData: BackendKeyData | null, parameters: Record<string, string>, codecRegistry: CodecRegistry) {
+  constructor(socket: PGPacketSocket, backendKeyData: BackendKeyData | null, parameters: Record<string, string>, codecRegistry: CodecRegistry, codecContext: CodecContext) {
     this.socket = socket;
     this.backendKeyData = backendKeyData;
     this.parameters = parameters;
     this.defaultCodecRegistry = codecRegistry;
+    this.codecContext = codecContext;
     void this.commandLoop();
   }
 
@@ -305,7 +308,7 @@ export class PGConnection {
           // TODO: test if remobing the first Sync in two-stage queries and adding a CodeBindComplete handler here speeds things up
           while (packet.code === 68 satisfies Code.CodeDataRow) {
             processedAny = true;
-            rows.push(decoder(decoderContext, packet.buffer, packet.dataview, packet.dataStart, packet.dataLen));
+            rows.push(decoder(decoderContext, packet.buffer, packet.dataview, packet.dataStart, packet.dataLen, this.codecContext));
             { const res = this.socket.readPacket(); if (res) await res; }
           }
           if (packet.code === 67 satisfies Code.CodeCommandComplete) {
