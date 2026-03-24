@@ -438,11 +438,13 @@ void FatalAbort()
         pthread_kill_other_threads_np();
 #endif
 
-        SafeErrorPrint("Abnormal program termination, trace:\n");
 #if !defined(__EMSCRIPTEN__)
+        SafeErrorPrint("Abnormal program termination, trace:\n");
         void *buffer[30];
         int cnt = backtrace (buffer, 30);
         backtrace_symbols_fd(buffer, cnt, 2/*stderr*/);
+#else
+        EM_ASM((console.error("Abnormal program termination, trace:\n" + (new Error()).stack.split("\n").slice(4).join("\n"));));
 #endif
         _exit(13);
 }

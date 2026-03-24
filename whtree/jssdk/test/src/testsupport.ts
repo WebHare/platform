@@ -56,13 +56,14 @@ export function getTypeExportsForSourceFile(sourceFile: ts.SourceFile) {
   return allExports;
 }
 
-export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: string[]; ignoreErrors?: boolean; tsBuildInfoFile?: string }) {
+export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: string[]; ignoreErrors?: boolean; tsBuildInfoFile?: string; checkCircularImports?: boolean }) {
   // Read and parse the configuration file
   const { config } = ts.readConfigFile(tsConfigFile, ts.sys.readFile);
   const { options: tsOptions, errors, fileNames } = ts.parseJsonConfigFileContent(config, ts.sys, dirname(tsConfigFile));
   tsOptions.configFilePath = tsConfigFile; //needed to make @types/... lookups independent of cwd
   tsOptions.noEmit = true;
   tsOptions.incremental = true;
+  tsOptions.allowJs = true;
   if (options?.tsBuildInfoFile)
     tsOptions.tsBuildInfoFile = options.tsBuildInfoFile;
 
@@ -70,9 +71,10 @@ export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: st
   const rootNames = [...(options?.setFiles || fileNames)];
   rootNames.push(...getTSPolyfills()); //ensure any polyfills activated by whnode-preload are visible to the compilers
 
-  const host = ts.createCompilerHost(tsOptions);
-  const program = ts.createProgram({ options: tsOptions, host, rootNames, configFileParsingDiagnostics: errors });
-  let diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
+  const host = ts.createIncrementalCompilerHost(tsOptions);
+  const builderProgram = ts.createIncrementalProgram({ options: tsOptions, host, rootNames, configFileParsingDiagnostics: errors });
+  let diagnostics = ts.getPreEmitDiagnostics(builderProgram as unknown as ts.Program).slice();
+  const program = builderProgram.getProgram();
 
   // We can't exclude files from validation, so like checkmodules has to, we'll just discard errors about files we don't care about. TODO shouldn't be hardcoded if we pretend to be generic
   diagnostics = diagnostics.filter(_ => !_.file?.fileName.includes("/vendor/"));
@@ -82,7 +84,7 @@ export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: st
     throw new Error(`TypeScript error: ${message}`);
   }
 
-  return { program, diagnostics };
+  return { host, tsOptions, builderProgram, program, diagnostics };
 }
 
 
@@ -136,6 +138,8 @@ export async function getJSONSchemaFromFile(file: string): Promise<SchemaObject>
 
 interface ProcessUndocumented {
   getActiveResourcesInfo(): string[];
+  _getActiveHandles(): unknown;
+  _getActiveRequests(): unknown;
 }
 
 function dumpHandlesAndRequests() {
@@ -144,6 +148,9 @@ function dumpHandlesAndRequests() {
   console.error('\nTest process is not shutting down after tests, there are probably still active handles or requests');
   console.error('Active resource types:', p.getActiveResourcesInfo());
   dumpActiveIPCMessagePorts();
+  console.log(p._getActiveHandles());
+  console.log(p._getActiveRequests());
+
   process.exit(1);
 }
 

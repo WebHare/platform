@@ -170,13 +170,18 @@ export type RTDSource = RTDSourceBlock[];
 // copy for the export types
 //
 
-type RTDExportList = {
+export type RTDExportParagraph = RTDBaseParagraph<"export">;
+export type RTDExportAnonymousParagraph = RTDBaseAnonymousParagraph<"export">;
+export type RTDExportInlineItem = RTDBaseInlineItem<"export">;
+export type RTDExportInlineItems = RTDBaseParagraphItems<"export">;
+
+export type RTDExportList = {
   tag: RTDListType;
   className?: string;
   listItems: RTDExportListItems;
 };
 
-type RTDExportListItem = {
+export type RTDExportListItem = {
   li: RTDExportListItemItems;
 };
 
@@ -192,7 +197,6 @@ export type RTDExportListItems = RTDExportListItem[];
 type RTDExportListItemItems = [RTDBaseAnonymousParagraph<"export">, ...RTDExportList[]] | Array<RTDBaseParagraph<"export"> | RTDExportList>;
 
 export type RTDExport = RTDExportBlock[];
-
 
 
 export function isValidRTDClassName(className: string): boolean {

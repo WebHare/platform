@@ -1,12 +1,12 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { whconstant_webserver_indexpages, whconstant_webservertype_interface, whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_webservertype_interface, whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 import { decryptForThisServer } from "@webhare/services";
 import { db, sql } from "@webhare/whdb";
 import { enumerateAllWebServers, getActualPort, lookupWebserver } from "@mod-platform/js/webserver/config";
-import { selectFSHighestParent, selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { selectFSHighestParent, selectFSLink, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { isPublish, PublishedFlag_StripExtension, testFlagFromPublished } from "./support";
-import { basename, parse } from "path";
-import { openType } from "./contenttypes";
+import { parse } from "path";
+import { whfsType } from "./contenttypes";
 import { getUCPacketHash } from "@webhare/services/src/descriptor";
 
 declare module "@webhare/services" {
@@ -39,6 +39,8 @@ export type LookupURLResult = {
   file: number | null;
   /** Webserver hosting the URL */
   webServer: number | null;
+  /** Any additional path, query string and/or hash appended to the URL */
+  append: string | null;
 };
 
 function getUnifiedURLTokenParts(token: string) {
@@ -81,7 +83,6 @@ function getUnifiedURLTokenParts(token: string) {
   return { datatoken, datatype, extension, filename, urlpart };
 }
 
-
 function analyzeUnifiedURLToken(token: string) {
   const data = getUnifiedURLTokenParts(token);
   if (!data.datatoken)
@@ -104,6 +105,45 @@ function decodeUnifiedData(imgtok: Uint8Array) {
   return { type: view.getUint8(1), id: view.getUint32(2, true) }; //type + id
 }
 
+export function getLongestValidDecodedString(url: string): string | null {
+  let decoded: string | null = null;
+  while (url) {
+    try {
+      decoded = decodeURIComponent(url);
+      break;
+    } catch (e) {
+      // try peeling of percent-encodings until we get a valid string
+      const lastPercent = url.lastIndexOf('%');
+      if (lastPercent < 0)
+        return null; // giving up
+      url = url.substring(0, lastPercent);
+    }
+  }
+  return decoded;
+}
+
+export function getPostfixAfterDecodedPrefix(url: string, prefix: string) {
+  // Split the url in to normal, split by percent encoded characters (keeping them in the parts array). Remove empty parts.
+  const parts = url.split(/(%[0-9a-fA-F]{2})/).filter(_ => _);
+
+  // The prefix is already in url-decoded form
+  let curEncoded = "";
+  for (let part = 0; part < parts.length; part++) {
+    curEncoded += parts[part];
+    try {
+      const decoded = decodeURIComponent(curEncoded);
+      if (decoded.length >= prefix.length) {
+        if (!decoded.startsWith(prefix))
+          return null;
+        return decoded.substring(prefix.length) + parts.slice(part + 1).join("");
+      }
+    } catch (e) {
+      // partial utf-8 character, continue accumulating
+    }
+  }
+  return null;
+}
+
 /** LookupPublisherURL finds the associated URL and is the implementation between the Publisher's "Goto URL" function.
     Preview and imagecache URLs are resolved back to the original file or folder.
 
@@ -119,7 +159,8 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
       site: null,
       folder: null,
       file: null,
-      webServer: null
+      webServer: null,
+      append: "",
     };
 
   //Find the matching webserver
@@ -131,7 +172,8 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
     site: null,
     folder: null,
     file: null,
-    webServer: webserver?.id ?? null
+    webServer: webserver?.id ?? null,
+    append: url.pathname.slice(1) + url.search + url.hash,
   };
 
   if (!webserver) { //probably not even hosted here
@@ -195,12 +237,9 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
     }
   }
 
-  let lookup;
-  try {
-    lookup = decodeURIComponent(url.pathname);
-  } catch { //malformed path component
-    return result; //giving up
-  }
+  const lookup = getLongestValidDecodedString(url.pathname);
+  if (!lookup)
+    return result;
 
   let findwebservers: number[];
   if (webserver.isinterface)  //all interface webservers share the same output
@@ -219,7 +258,10 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
   let pathname = url.pathname;
   if (best_match) {
     // Ignore host parts, they may differ (ports, http vs https)
-    pathname = decodeURIComponent(pathname.substring(new URL(best_match.webroot).pathname.length));
+    const res = getPostfixAfterDecodedPrefix(url.pathname, new URL(best_match.webroot).pathname);
+    if (res === null)
+      return result; //giving up, the url doesn't even start with the webroot once decoded
+    pathname = res;
     result.site = best_match.id;
   } else {
     if (!webserver.isinterface)
@@ -229,34 +271,43 @@ export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<L
     result.site = whconstant_whfsid_webharebackend;
   }
 
-  return { ...result, ...await lookupPublisherURLByPath(result.site, pathname, url.pathname, options?.ifPublished ?? false) };
+  const retval = { ...result, ...await lookupPublisherURLByPath(result.site, pathname, url.pathname, options?.ifPublished ?? false) };
+  retval.append += url.search + url.hash;
+  return retval;
 }
 
 async function tryProductionURLLookup(url: URL, ifPublished?: boolean) {
   //Looking up by productionurl. Get best match:
   const siteIds = await db<PlatformDB>().selectFrom("system.sites").select("id").execute();
-  const prodSites = await openType("http://www.webhare.net/xmlns/publisher/sitesettings").enrich(siteIds, "id", ["productionurl"]) as Array<{ productionurl: string; id: number }>;
-  const bestMatch = prodSites.filter(site => site.productionurl && url.toString().toUpperCase().startsWith(site.productionurl.toUpperCase())).sort((a, b) => b.productionurl.length - a.productionurl.length)[0];
+  const bestMatches = (await whfsType("platform:web.sitesettings").enrich(siteIds, "id", ["productionurl"]) as Array<{ productionurl: string; id: number }>)
+    .map(s => { const path = getPostfixAfterDecodedPrefix(url.toString(), s.productionurl); return !s.productionurl || path === null ? null : { ...s, path }; })
+    .filter(s => s !== null)
+    .sort((a, b) => b.productionurl.length - a.productionurl.length); //longest production url that matches the start of the path is most likely the correct one
+  const bestMatch = bestMatches[0];
   if (!bestMatch)
     return null;
 
   //we have a match!
   const site = bestMatch.id;
-  const path = decodeURIComponent(url.toString().substring(bestMatch.productionurl.length));
-  return { site, ...await lookupPublisherURLByPath(site, path, url.pathname, ifPublished ?? false) };
+  return { site, ...await lookupPublisherURLByPath(site, bestMatch.path, url.pathname, ifPublished ?? false) };
 }
 
 async function lookupPublisherURLByPath(startroot: number, url: string, origurlpath: string, ifpublished: boolean) {
-  // Remove all double slashes from the URL
-  while (url.includes('//'))
-    url = url.replace('//', '/');
-
-  const urlparts = url.split('/');
+  const urlparts = url.split(/(\/|%2[fF])/);
   let cur = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "indexdoc"]).where("id", "=", startroot).executeTakeFirstOrThrow();
   let folder: number | null = null, file: number | null = null, __directfile: number | null = null;
-  for (const part of urlparts) {
+  let partNr = 0;
+  for (; partNr < urlparts.length; partNr += 2) {
+    let part: string;
+    try {
+      part = decodeURIComponent(urlparts[partNr]);
+    } catch (e) {
+      // malformed URI encoding
+      return null;
+    }
     if (part === "!")
       break;
+    // Ignore double slashes in the URL
     if (part === "" || part.startsWith("!"))
       continue;
 
@@ -264,7 +315,7 @@ async function lookupPublisherURLByPath(startroot: number, url: string, origurlp
     const searchpart = iscaretpart ? part.substring(1) : part;
 
     let candidates = await db<PlatformDB>().selectFrom("system.fs_objects").
-      select(["id", "name", "published", "isfolder", "indexdoc"]).
+      select(["id", "name", "published", "isfolder", "indexdoc", "type"]).
       where("parent", "=", cur.id).
       where(sql`upper(${sql`name`})`, "like", sql`upper(${sql`${part}`} || '%')`).
       orderBy(sql`length(${sql`name`})`).
@@ -281,17 +332,37 @@ async function lookupPublisherURLByPath(startroot: number, url: string, origurlp
         cur = candidates[0];
         continue;
       }
-      if (!candidates[0].isfolder)
+      if (!candidates[0].isfolder) {
         __directfile = candidates[0].id;
+        // If the file link ends with a '/', remove a slash from the append part
+        const fileRec = await db<PlatformDB>().selectFrom("system.fs_objects")
+          .select(selectFSLink().as("link"))
+          .where("id", "=", __directfile)
+          .executeTakeFirst();
+        if (fileRec?.link.endsWith("/"))
+          partNr += 2;
+        else
+          urlparts[partNr] = "";
+      }
       break;
     }
 
     //not an exact match. second chance, match after extension stripping?
     const match = candidates.find(c => testFlagFromPublished(c.published, PublishedFlag_StripExtension) && parse(c.name).name.toUpperCase() === searchpart.toUpperCase());
-    if (match)
+    if (match) {
       __directfile = match.id;
+      const fileRec = await db<PlatformDB>().selectFrom("system.fs_objects")
+        .select(selectFSLink().as("link"))
+        .where("id", "=", __directfile)
+        .executeTakeFirst();
+      if (fileRec?.link.endsWith("/"))
+        partNr += 2;
+      else
+        urlparts[partNr] = "";
+    }
     break;
   }
+  const append = urlparts.slice(partNr).join('');
   folder = cur.id;
   let indexdocfallback: number | null = null;
   if (!__directfile
@@ -299,14 +370,8 @@ async function lookupPublisherURLByPath(startroot: number, url: string, origurlp
     && (ifpublished === false
       || isPublish((await db<PlatformDB>().selectFrom("system.fs_objects").select("published").where("id", "=", cur.indexdoc).executeTakeFirst())?.published || 0))) {
     indexdocfallback = cur.indexdoc;
-
-    // If no exact file match was found, check if the folder's index url was requested and return the index
-    if (!origurlpath || origurlpath.endsWith('/') || whconstant_webserver_indexpages.includes(basename(origurlpath))) {
-      //no candidate, select index doc for folder's index url\n");
-      __directfile = indexdocfallback;
-    }
   }
 
   file = __directfile ?? indexdocfallback;
-  return { folder, file };
+  return { folder, file, append };
 }

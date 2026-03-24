@@ -12,6 +12,7 @@ import { whconstant_whfsid_private, whconstant_whfsid_webharebackend, whwebserve
 import { getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { getBasePort } from "@webhare/services/src/config";
 import { isTemporalInstant } from "@webhare/std";
+import { getPostfixAfterDecodedPrefix } from "@webhare/whfs/src/lookupurl";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -462,6 +463,13 @@ async function testRescuePort() {
   }, await whfs.lookupURL(new URL(`http://127.0.0.1:${getBasePort()}/`), { clientWebServer: whwebserverconfig_rescuewebserverid }));
 }
 
+function testGetPostfixAfterDecodedPrefix() {
+  test.eq("hello", getPostfixAfterDecodedPrefix("/%F0%9F%98%80/hello", "/😀/"));
+  test.eq(null, getPostfixAfterDecodedPrefix("/%F0%9F%98%81/hello", "/😀/"));
+  test.eq("hello%F0", getPostfixAfterDecodedPrefix("/%F0%9F%98%80/hello%F0", "/😀/"));
+  test.eq("%E6%97%A5%E6%9C%AC/test", getPostfixAfterDecodedPrefix("/prefix/%E6%97%A5%E6%9C%AC/test", "/prefix/"));
+}
+
 async function testLookupWithoutConfig() { //mirrors TestRescueWithoutWebservers
   await whdb.beginWork();
   await whdb.db<PlatformDB>().deleteFrom("system.webservers").execute();
@@ -489,6 +497,7 @@ async function testLookup() {
   test.eq(root.id, lookupresult.site);
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   const rootfolder = await root.openFolder("/");
   let testfolder = await rootfolder.createFolder("testfolder");
@@ -506,16 +515,19 @@ async function testLookup() {
   test.eq(root.id, lookupresult.site, root.webRoot + " did not return the proper site");
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/"));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
   await whfs.whfsType("platform:web.config").set(root.id, { comments: "comment" });
@@ -541,16 +553,25 @@ async function testLookup() {
   test.eq(null, lookupresult.site);
   test.eq(null, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("subsite/testfolder/", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/testfolder/"), { matchProduction: true });
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/"), { matchProduction: true });
   test.eq(root.id, lookupresult.site);
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
+
+  lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsit%65/t%65stfolder/"), { matchProduction: true });
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   for (const shouldwork of ["test-alias.example.net", "test-alias.example.net", "test-lookup.example.net", "www.trampolineplein.example.net", "www.plein.example.net", "plein.example.net"]) {
     const testurl = root.webRoot.replace("test-lookup.example.net", shouldwork);
@@ -578,13 +599,15 @@ async function testLookup() {
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html%C1%AC"));
-  test.eq({ folder: null, file: null, site: null, webServer: root.outputWeb }, lookupresult);
+  test.eq({ folder: null, file: null, site: lookupresult.site, webServer: root.outputWeb, append: "testfolder/test.html%C1%AC" }, lookupresult);
 
   // test with ignored extension extension
   const testfile2 = await testfolder.createFile('test-ignoreext.rtd', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
@@ -592,29 +615,35 @@ async function testLookup() {
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext.rtd"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   // test with umlauts
   const testfileUmlaut = await testfolder.createFile('täst-ümlaut.html', { publish: true });
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/t%C3%A4st-%C3%BCmlaut.html"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfileUmlaut.id, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   // file of folder should be the indexdoc, 0 if not no indexdoc
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("", lookupresult.append);
 
   const testfile3 = await testfolder.createFile('index.html', { publish: false }); // auto indexdoc
   testfolder = await whfs.openFolder(testfolder.id);
   test.eq(testfile3.id, testfolder.indexDoc);
+  test.eq("", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
@@ -632,23 +661,28 @@ async function testLookup() {
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html#jo"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("#jo", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html#jo"), { ifPublished: true });
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("#jo", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test_unpublished.html#jo"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile_unpublished.id, lookupresult.file);
+  test.eq("#jo", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test_unpublished.html#jo"), { ifPublished: true });
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
+  test.eq("test_unpublished.html#jo", lookupresult.append);
 
   // parameters ignored?
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html?param"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("?param", lookupresult.append);
 
   // NOTE: ignoring HS edge case where params start with '&' - URL() doesn't recognize that either
 
@@ -656,15 +690,24 @@ async function testLookup() {
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/!ignored/test.html?param"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("?param", lookupresult.append);
 
   // ! terminates
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/!/test.html/"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile3.id, lookupresult.file); // should go to indexdoc of testfolder, 'test.html' must be ignored.
+  test.eq("!/test.html/", lookupresult.append);
 
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html/!/ignored"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
+  test.eq("/!/ignored", lookupresult.append);
+
+  // invalid encoding in the append
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html/!/ignored%C0"));
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+  test.eq("/!/ignored%C0", lookupresult.append);
 
   //Test through preview link
   const previewlink = await loadlib("mod::publisher/lib/internal/tollium-helpers.whlib").createPreviewLink(maxDateTime, "", lookupresult.file, lookupresult.file);
@@ -738,6 +781,7 @@ test.runTests([
   testWHFS,
   testLinkTypes,
   testGenerateUniqueName,
+  testGetPostfixAfterDecodedPrefix,
   testLookupWithoutConfig,
-  testLookup
+  testLookup,
 ]);
