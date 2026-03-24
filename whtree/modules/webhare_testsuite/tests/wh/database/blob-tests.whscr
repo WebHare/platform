@@ -2,8 +2,8 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
-
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/db/test_client.whlib";
@@ -16,11 +16,6 @@ OBJECT test_fp_trans;
 STRING testblob;
 FOR(INTEGER i := 0; i < 5000; i := i + 1)
   testblob := testblob || "Dit is de beroemde testblob!";
-
-STRING FUNCTION GetBlobId(BLOB storedblob)
-{
-  RETURN __GetPostgreSQLBlobRegistrationId(test_fp_trans->id, storedblob);
-}
 
 //--------------------------------------------------------------------------------
 // Test 1; normal record-update chase
@@ -47,7 +42,7 @@ IF (clientid = 0)
   DELETE FROM beta_blobtests;
   BLOB tostore := StringToBlob(testblob);
 
-  IF(GetBlobId(tostore) != "")
+  IF(IsBlobRegisteredInDatabase(tostore))
     ABORT("Blob id function doesn't return empty string for unregistered blobs");
 
   INSERT INTO beta_blobtests(id, data) VALUES(1,tostore);
@@ -55,7 +50,7 @@ IF (clientid = 0)
 
   test_fp_trans->CommitWork();
 
-  IF(GetBlobId(tostore) = "")
+  IF(NOT IsBlobRegisteredInDatabase(tostore))
     ABORT("Blob was not registered as database stored blob");
 
   SectionEnd(1);
@@ -75,7 +70,7 @@ IF(clientid = 1)
   test_fp_trans->CommitWork();
 
   BLOB thirdblob := SELECT AS BLOB data FROM beta_blobtests WHERE id=3;
-  IF(GetBlobId(thirdblob) != "")
+  IF(IsBlobRegisteredInDatabase(thirdblob))
     ABORT("Default blob was improperly stored as an allocated blob");
 
   SectionEnd(2);
@@ -95,7 +90,7 @@ IF (clientid = 0)
 
   test_fp_trans->CommitWork();
 
-  IF(GetBlobId(firstblob) != GetBlobId(secondblob))
+  IF(NOT IsSameBlobInDatabase(firstblob, secondblob))
     ABORT("Blob wasn't properly reused");
   IF(BlobToString(firstblob,200000) != testblob)
     ABORT("Blob corrupted");

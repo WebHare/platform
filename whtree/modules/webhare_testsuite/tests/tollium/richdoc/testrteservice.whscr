@@ -28,10 +28,10 @@ MACRO RegisterBlobInWebhareDB(BLOB data)
 
   // Cause an upload to the database
   testfw->BeginWork();
-  OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile(CELL[ name := "__webhare_testsuite_blobregistering", data ]);
-  testfw->RollbackWork();
+  OpenWHFSObject(whconstant_whfsid_private_system)->CreateFile(CELL[ name := "__webhare_testsuite_blobregistering", data ])->RecycleSelf();
+  testfw->CommitWork();
 
-  TestEQ(TRUE, __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data) != "");
+  TestEQ(TRUE, IsBlobRegisteredInDatabase(data));
 }
 
 MACRO RTECreation()

@@ -93,6 +93,11 @@ const std::string& BlobBase::GetDiskPath()
         return path;
 }
 
+void BlobBase::SetDiskPath(std::string const &_path)
+{
+        path = _path;
+}
+
 BlobBase::MyOpenedBlob::MyOpenedBlob(BlobBase &blob)
 : OpenedBlobBase< BlobBase >(blob)
 {
@@ -343,6 +348,15 @@ BlobRefPtr::BlobRefPtr(BlobRefPtr const &rhs)
         if (ptr)
             ptr->InternalAddReference();
 }
+
+void BlobRefPtr::SetDiskPath(std::string const &newpath)
+{
+        if (ptr)
+            ptr->SetDiskPath(newpath);
+        else
+            throw new std::runtime_error("Cannot set disk path on empty blob");
+}
+
 BlobRefPtr::~BlobRefPtr()
 {
         if (ptr)

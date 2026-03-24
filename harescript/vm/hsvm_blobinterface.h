@@ -104,6 +104,8 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         // Returns the disk path for this blob (empty if not applicable)
         const std::string& GetDiskPath();
 
+        void SetDiskPath(std::string const &_path);
+
 #ifdef __EMSCRIPTEN__
         std::string jstag; //only available in esmcripten so we don't need to worry about thread safety
 #endif
@@ -173,6 +175,8 @@ class BLEXLIB_PUBLIC BlobRefPtr
 
         std::string GetDiskPath()
         { return ptr ? ptr->GetDiskPath() : ""; }
+
+        void SetDiskPath(std::string const &newpath);
 
         void *GetContext(unsigned id, bool autocreate)
         { return ptr ? ptr->keeper.GetContext(id, autocreate) : NULL; }

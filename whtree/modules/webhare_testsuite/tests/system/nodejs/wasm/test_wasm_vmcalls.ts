@@ -3,7 +3,7 @@ import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { type HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
-import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
+import { beginWork, commitWork, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 import { determineType } from "@webhare/hscompat/src/hson";
@@ -75,6 +75,7 @@ async function testVarMemory() {
   const blob2 = WebHareBlob.from("This is blob 2");
   await uploadBlob(blob1);
   await uploadBlob(blob2);
+  await commitWork();
 
   blobvar1.setBlob(blob1);
   blobvar2.setJSValue(blob2);
@@ -82,11 +83,13 @@ async function testVarMemory() {
 
   const returnedblob1 = blobvar1.getBlob();
   test.eq(returnedblob1.size, blob1.size, "first a superficial check...");
-  test.assert(isSameUploadedBlob(blob1, returnedblob1));
+  test.assert(blob1.path);
+  test.eq(blob1.path, returnedblob1.path, "confirm we're getting the same blob back");
 
   const returnedblob2 = blobvar2.getBlob();
   test.eq(returnedblob2.size, blob2.size, "first a superficial check...");
-  test.assert(isSameUploadedBlob(blob2, returnedblob2));
+  test.assert(blob2.path);
+  test.eq(blob2.path, returnedblob2.path, "confirm we're getting the same blob back");
 
   const __wasmmodule = vm.wasmmodule;
   await vmwrapper.dispose(); //let next test reuse it

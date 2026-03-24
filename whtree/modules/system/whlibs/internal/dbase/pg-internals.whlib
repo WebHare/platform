@@ -1,6 +1,8 @@
 <?wh
 
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 
 /** Escapes a literal string for direct insertion into a query string
     @param toencode String to encode
@@ -1087,6 +1089,27 @@ PUBLIC STRING FUNCTION MapAction(STRING indata)
     CASE "d"  { RETURN "SET DEFAULT"; }
   }
   RETURN "";
+}
+
+PUBLIC STRING FUNCTION GetPGBlobStoragepath() {
+  STRING dataroot := GetEnvironmentVariable("WEBHARE_DATAROOT");
+  IF(dataroot = "")
+    THROW NEW Exception(`WEBHARE_DATAROOT not set`);
+
+  RETURN MergePath(dataroot, "postgresql/blob");
+}
+
+PUBLIC STRING FUNCTION GetPGBlobDiskPath(STRING blobid) {
+  IF(blobid NOT LIKE "AAAB*")
+    THROW NEW Exception(`Invalid blob id ${blobid}`);
+  RETURN GetPGBlobStoragepath() || "/" || ToLowercase(Substring(blobid, 4,2) || "/" || Substring(blobid,4));
+}
+
+PUBLIC STRING FUNCTION ExtractPGBlobIdFromDiskPath(STRING path) {
+  STRING storagepath := GetPGBlobStoragepath();
+  IF(path NOT LIKE storagepath || "/??/?*")
+    RETURN "";
+  RETURN "AAAB" || Substring(path, Length(storagepath)+4);
 }
 
 /** @short Bind the PostgreSQL database metadata tables

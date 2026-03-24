@@ -7,7 +7,7 @@ import { isTruthy } from "@webhare/std";
 import createModule from "../../../lib/harescript";
 import { HareScriptJob, registerBaseFunctions } from "./wasm-hsfunctions";
 import { getCachedWebAssemblyModule, setCachedWebAssemblyModule, WASMModule } from "./wasm-modulesupport";
-import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar, HSVMVar, type HSVMBlob } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { type Mutex, JSLibraryImporter } from "@webhare/services";
@@ -207,7 +207,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
   /** Unresolved resurrected promises we still expect the VM to syscall fulfillResurrectedPromise for */
   unresolvedPromises = new Map<number, PromiseWithResolvers<unknown>>;
   /** Promises that still appear to be alive and may be requested to resolve by JavaScript users of this VM*/
-  resolveablePromises = new Map<number, WeakRef<Promise<unknown>>>;
+  resolveablePromises = new Map<number, WeakRef<Promise<unknown>>>();
+  /** A cache of HSVMBlobs we retrieved earlier. We need to avoid reconstructing HSVMBlobs so the database can track them during work */
+  blobCache = new Map<string, WeakRef<HSVMBlob>>();
 
   constructor(module: WASMModule, startupoptions: StartupOptions) {
     if (process.env.WEBHARE_HARESCRIPT_OFF)
@@ -497,6 +499,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.checkType(variable, VariableType.Blob);
     const as_cstr = this.wasmmodule.stringToNewUTF8(tag ? JSON.stringify(tag) : '');
     this.wasmmodule._HSVM_BlobSetTag(this.hsvm, variable, as_cstr);
+    this.wasmmodule._free(as_cstr);
+  }
+  setBlobPath(variable: HSVM_VariableId, blobpath: string) {
+    this.checkType(variable, VariableType.Blob);
+    const as_cstr = this.wasmmodule.stringToNewUTF8(blobpath);
+    this.wasmmodule._HSVM_BlobSetPath(this.hsvm, variable, as_cstr);
     this.wasmmodule._free(as_cstr);
   }
 

@@ -1,13 +1,20 @@
-import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import type { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { DataTypeOids, type Codec } from "@webhare/postgrease";
-import { uploadedblobs } from "./blobbase";
 import { pgTypeOid_int8, pgTypeOid_text } from "./oids";
 import { createPGBlobByBlobRec } from "./blobs";
-import { isDate } from "@webhare/std/src/quacks";
+import { getWHType, isDate } from "@webhare/std/src/quacks";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import { buildArrayCodec } from "@webhare/postgrease/src/codec-support";
 import { Money } from "@webhare/std";
+import type { CodecContext } from "@webhare/postgrease/src/types/codec-types";
+import type { WHDBCodecContext } from "./connectionbase";
 
+
+export class PreparedWebHareBlob {
+  private static "__ $whTypeSymbol" = "PreparedWebHareBlob";
+
+  constructor(public databaseid: string, public size: number) { }
+}
 
 const timeShiftMs = 946_684_800_000n;
 const minInt64 = -9223372036854775808n;
@@ -47,7 +54,7 @@ export const DataTypeWHTimeStamp: Codec<Date, Date> = {
 
 export const DataTypeWHTimeStampArray = buildArrayCodec(DataTypeWHTimeStamp, DataTypeOids._timestamp, "_timestamp");
 
-export const BlobType: Codec<WebHareBlob, WebHareBlob> = {
+export const BlobType: Codec<PreparedWebHareBlob, WebHareBlob> = {
   name: "webhare_internal.webhare_blob",
   oid: 0, // we'll lookup after connecting
   encodeBinary: (builder, value) => {
@@ -55,22 +62,17 @@ export const BlobType: Codec<WebHareBlob, WebHareBlob> = {
     if (!value.size)
       return null;
 
-    const databaseid = uploadedblobs.get(value);
-    if (!databaseid) {
-      console.error(`Blob inserted to database without uploading it first:`, value);
-      throw new Error(`Attempting to insert a blob without uploading it first`);
-    }
-    const databaseIdLen = Buffer.byteLength(databaseid, 'utf8');
+    const databaseIdLen = Buffer.byteLength(value.databaseid, 'utf8');
     builder.alloc(28 + databaseIdLen);
     builder.idx = builder.buffer.writeUInt32BE(2, builder.idx);// 2 columns
     builder.idx = builder.buffer.writeUInt32BE(pgTypeOid_text, builder.idx);
     builder.idx = builder.buffer.writeUInt32BE(databaseIdLen, builder.idx);
-    builder.idx += builder.buffer.utf8Write(databaseid, builder.idx);
+    builder.idx += builder.buffer.utf8Write(value.databaseid, builder.idx);
     builder.idx = builder.buffer.writeUInt32BE(pgTypeOid_int8, builder.idx);
     builder.idx = builder.buffer.writeUInt32BE(8, builder.idx); // col 2, 8 bytes length
     builder.idx = builder.buffer.writeBigInt64BE(BigInt(value.size), builder.idx);
   },
-  decodeBinary: (buffer, dataview, offset, len) => {
+  decodeBinary: (buffer, dataview, offset, len, context: CodecContext) => {
     if (len < 28)
       throw new Error(`WHDBBlob binary data too short: ${len} bytes`);
     if (dataview.getUint32(offset) !== 2)
@@ -85,10 +87,22 @@ export const BlobType: Codec<WebHareBlob, WebHareBlob> = {
       throw new Error(`Expected OID.INT8 in WHDBBlob, got ${dataview.getUint32(offset + 12 + databaseIdLen)}`);
     if (dataview.getUint32(offset + 16 + databaseIdLen) !== 8)
       throw new Error(`Expected 8 bytes in WHDBBlob, got ${dataview.getUint32(offset + 16 + databaseIdLen)}`);
+
+    const whdbContext = context as WHDBCodecContext;
+    if (!whdbContext.uploadTracker)
+      throw new Error(`Missing uploadTracker context when decoding WHDBBlob`);
+
+    const existingBlobById = whdbContext.uploadTracker.byId.get(databaseId);
+    if (existingBlobById) {
+      /* This blob was inserted in this transaction. we must return that exact blob as
+      the insert code knows about it (and avoid double inserts) AND will still be able to delay
+      setting the blob's path until the transaction actually commits */
+      return existingBlobById;
+    }
     const size = dataview.getBigUint64(offset + 20 + databaseIdLen);
     return createPGBlobByBlobRec(databaseId, Number(size));
   },
-  test: { type: "object", priority: 0, test: WebHareBlob.isWebHareBlob },
+  test: { type: "object", priority: 0, test: x => getWHType(x) === "PreparedWebHareBlob" },
 };
 
 const NUMERIC_NEG = 0x4000;

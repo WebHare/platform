@@ -14,10 +14,16 @@ import { getWHType } from "@webhare/std/src/quacks.ts";
 export abstract class WebHareBlob implements Blob {
   private readonly _size: number;
   private readonly _type: string;
+  /** Path if blob is on disk. Any WebHare blob can be serialized by a database upload and its path will then be updated to reflect this */
+  protected _path = '';
 
   constructor(size: number, type: string) {
     this._size = size;
     this._type = type;
+  }
+
+  get path() {
+    return this._path;
   }
 
   static isWebHareBlob(thingy: unknown): thingy is WebHareBlob {
@@ -69,6 +75,10 @@ export abstract class WebHareBlob implements Blob {
   ///Get the MIME type of this blob. empty if unknown
   get type(): string {
     return this._type;
+  }
+
+  setBlobPath(path: string) {
+    this._path = path;
   }
 
   ///Get the blob contents as a utf8 encoded string
@@ -147,13 +157,12 @@ export class WebHareMemoryBlob extends WebHareBlob {
 
 export class WebHareDiskBlob extends WebHareBlob {
   private static "__ $whTypeSymbol" = "WebHareDiskBlob";
-  readonly path: string;
   readonly offset: number;
 
   constructor(size: number, path: string, { type, offset }: { type: string; offset?: number } = { type: "" }) {
     super(size, type);
     this.offset = offset ?? 0;
-    this.path = path;
+    this._path = path;
   }
 
   stream(): ReadableStream<Uint8Array> {

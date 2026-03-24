@@ -1386,6 +1386,16 @@ long long int HSVM_BlobLength (HSVM *vm, HSVM_VariableId id)
 }
 
 #ifdef __EMSCRIPTEN__
+char const* HSVM_BlobGetId(struct HSVM *vm, HSVM_VariableId id)
+{
+        START_CATCH_VMEXCEPTIONS
+        BlobRefPtr blob = STACKMACHINE.GetBlob(id);
+        BlobBase *ptr = blob.GetPtr();
+        return ptr ? ptr->GetId().c_str() : NULL;
+
+        END_CATCH_VMEXCEPTIONS
+        return NULL;
+}
 char const* HSVM_BlobGetTag(struct HSVM *vm, HSVM_VariableId id)
 {
         START_CATCH_VMEXCEPTIONS
@@ -1538,6 +1548,20 @@ HSVM_PUBLIC HSVM_VariableId HSVM_BlobGetPath(struct HSVM *vm, HSVM_VariableId id
                         return pathvar;
                 }
         }
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
+HSVM_PUBLIC HSVM_VariableId HSVM_BlobSetPath(struct HSVM *vm, HSVM_VariableId id, const char *path)
+{
+        START_CATCH_VMEXCEPTIONS
+        BlobRefPtr blob = STACKMACHINE.GetBlob(id);
+        BlobBase *ptr = blob.GetPtr();
+        if(!ptr)
+            throw std::runtime_error("Invalid blob in HSVM_BlobSetPath call");
+
+        ptr->SetDiskPath(path);
+
         END_CATCH_VMEXCEPTIONS
         return 0;
 }

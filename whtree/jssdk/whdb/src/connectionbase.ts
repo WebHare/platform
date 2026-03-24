@@ -1,13 +1,24 @@
+import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import type {
   PostgresPoolClient,
 } from 'kysely';
 
 export type ExtraFieldsInfo = { fields: { fieldName: string; dataTypeId: number }[] };
 
+export class BlobUploadTracker {
+  byBlob = new Map<WebHareBlob, string>();
+  byId = new Map<string, WebHareBlob>();
+}
+
+export type WHDBCodecContext = {
+  uploadTracker?: BlobUploadTracker;
+};
+
 export interface WHDBClientInterface extends PostgresPoolClient {
   close(): Promise<void>;
   getRefObject(): { ref(): void; unref(): void };
   getBackendProcessId(): number | undefined;
+  uploadTracker: BlobUploadTracker;
 }
 
 export type WHDBPgClientOptions = {

@@ -9,7 +9,6 @@ import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, recompileHarescriptLibrary } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, isPromise, sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
-import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
 import * as geoip from "@webhare/geoip";
@@ -626,11 +625,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (have_backslashes)
       result = " E" + result;
     id_set.setString(result);
-  });
-
-  wasmmodule.registerExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", (vm, id_set, transaction, var_blob) => {
-    const blob = var_blob.getBlob();
-    id_set.setString(__getBlobDatabaseId(blob) ?? "");
   });
 
   wasmmodule.registerExternalFunction("__HS_GETCURRENTGROUPID::S:", (vm, id_set) => {

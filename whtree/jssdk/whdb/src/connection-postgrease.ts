@@ -10,10 +10,12 @@ import type {
 } from 'kysely';
 
 import bridge from '@mod-system/js/internal/whmanager/bridge';
-import type { WHDBClientInterface, WHDBPgClientOptions } from './connectionbase';
-import { BlobType, DataTypeWHTimeStamp, DataTypeWHTimeStampArray, MoneyType, MoneyTypeArray } from './types-postgrease';
+import { BlobUploadTracker, type WHDBClientInterface, type WHDBPgClientOptions } from './connectionbase';
+import { BlobType, DataTypeWHTimeStamp, DataTypeWHTimeStampArray, MoneyType, MoneyTypeArray, PreparedWebHareBlob } from './types-postgrease';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { RefTracker } from '@mod-system/js/internal/whmanager/refs';
+import { WebHareBlob } from '@webhare/services/src/webhareblob';
+import { __getBlobDatabaseId } from './blobs';
 export { DatabaseError } from "@webhare/postgrease";
 
 let configurationPromise: Promise<void> | undefined;
@@ -110,12 +112,13 @@ export interface FullPostgresQueryResult<R> extends PostgresQueryResult<R> {
 //  console.log(`[${performance.now().toFixed(3).padStart(10)}] ${evt.location}: ${evt.message}`);
 //}
 
-export async function getPGConnection() {
+export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
   const pgclient = await connect({
     port: parseInt(process.env.PGPORT!) || 5432,
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST ?? ""),
     database: process.env.WEBHARE_DBASENAME ?? "",
     user: "postgres",
+    codecContext: { uploadTracker }
     //applicationName: process.pid + ':' + bridge.getGroupId() //FIXME https://github.com/panates/postgrejs/issues/51
   });
 
@@ -131,9 +134,11 @@ export class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
   pgclient: PGConnection;
   options?: WHDBPgClientOptions;
   reftracker: RefTracker;
+  uploadTracker: BlobUploadTracker;
 
-  constructor(client: PGConnection, options?: WHDBPgClientOptions) {
+  constructor(client: PGConnection, uploadTracker: BlobUploadTracker, options?: WHDBPgClientOptions) {
     this.pgclient = client;
+    this.uploadTracker = uploadTracker;
     this.options = options;
     this.reftracker = new RefTracker(client.getRefObject(), { initialref: true });
     this.reftracker.dropInitialReference();
@@ -155,7 +160,18 @@ export class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
           params.push(bindParam([], DataTypeOids._int2)); //workaround for postgresql-client not detecting a type for this.
         else if (typeof param === "string")
           params.push(bindParam(param, DataTypeOids.text));
-        else
+        else if (WebHareBlob.isWebHareBlob(param)) {
+          if (param.size === 0) //nothing to upload
+            params.push(null);
+          else {
+            const databaseid = __getBlobDatabaseId(param) || this.uploadTracker.byBlob.get(param);
+            if (!databaseid) {
+              console.error(`Blob inserted to database without uploading it first:`, param);
+              throw new Error(`Attempting to insert a blob without uploading it first`);
+            }
+            params.push(new PreparedWebHareBlob(databaseid, param.size));
+          }
+        } else
           params.push(param);
       }
 
@@ -208,10 +224,11 @@ export class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
 }
 
 export async function createConnection(options?: WHDBPgClientOptions): Promise<WHDBPgClient> {
-  const client = await getPGConnection();
+  const uploadTracker = new BlobUploadTracker;
+  const client = await getPGConnection(uploadTracker);
   if (!options?.raw)
     await configureWHDBClient(client);
-  return new WHDBPgClient(client, options);
+  return new WHDBPgClient(client, uploadTracker, options);
 }
 
 export function pgBindParam(value: unknown, type: "uuid" | "timestamptz" | "float8"): PGBoundParam {

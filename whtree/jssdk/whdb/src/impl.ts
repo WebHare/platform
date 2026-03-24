@@ -20,7 +20,7 @@ import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/se
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
-import { uploadBlobToConnection } from './blobs';
+import { __getBlobDatabaseId, __getBlobDiskFilePath, uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import * as PostgreaseConnectionLib from './connection-postgrease';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
@@ -110,6 +110,11 @@ class Work implements WorkObject {
     return result;
   }
 
+  /** low level debug API to verify   */
+  private getUploadedBlobId(data: WebHareBlob): string | undefined {
+    return __getBlobDatabaseId(data) || this.conn.client?.uploadTracker.byBlob.get(data);
+  }
+
   async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
     if (!this.open)
       throw new Error(`Work is already closed`);
@@ -117,8 +122,15 @@ class Work implements WorkObject {
       throw new Error(`Connection was already closed`);
     if (debugFlags["db-readonly"])
       throw new DBReadonlyError();
+    if ("size" in data && (data.size === 0 || this.getUploadedBlobId(data))) //never need to upload a 0-byter or a blob we've already uploaded
+      return data;
 
-    return await uploadBlobToConnection(this.conn.client, data);
+    const res = await uploadBlobToConnection(this.conn.client, data);
+    if (res.pgBlobId) {
+      this.conn.client.uploadTracker.byBlob.set(res.blob, res.pgBlobId);
+      this.conn.client.uploadTracker.byId.set(res.pgBlobId, res.blob);
+    }
+    return res.blob;
   }
 
   async commit() {
@@ -149,11 +161,21 @@ class Work implements WorkObject {
 
       this.commituniqueevents.forEach(event => broadcast(event));
       this.commitdataevents.forEach(event => broadcast(event.name, event.data));
+      for (const [databaseid, blob] of this.conn.client.uploadTracker.byId.entries()) {
+        blob.setBlobPath(__getBlobDiskFilePath(databaseid));
+      }
       await this.invokeFinishHandlers("onCommit");
     } finally {
-      //TODO if (pre)commit fails we should
-      this.__releaseMutexes();
-      this.conn.openwork = undefined;
+      this.clearWork();
+    }
+  }
+
+  private clearWork() {
+    this.__releaseMutexes();
+    this.conn.openwork = undefined;
+    if (this.conn.client) {
+      this.conn.client.uploadTracker.byBlob = new Map;
+      this.conn.client.uploadTracker.byId = new Map;
     }
   }
 
@@ -191,8 +213,7 @@ class Work implements WorkObject {
       await sql`ROLLBACK`.execute(this.conn._db);
       await this.invokeFinishHandlers("onRollback");
     } finally {
-      this.__releaseMutexes();
-      this.conn.openwork = undefined;
+      this.clearWork();
     }
   }
 

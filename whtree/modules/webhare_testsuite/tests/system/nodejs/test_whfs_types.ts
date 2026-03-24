@@ -761,6 +761,7 @@ async function testExportImport() {
         }
       ]
     });
+  await commitWork(); //must commit, otherwise we won't see fetch: references as they can't officially work yet!
 
   const aboutAFishDataFetch = await whfs.whfsType("platform:filetypes.richdocument").get(aboutAFish.id, { export: true, exportFile: exportFileAsFetch });
 
@@ -773,6 +774,7 @@ async function testExportImport() {
   const fetchFish = await fetch(aboutAFishDataFetch.data[0].items[1].image.file.fetch);
   test.eq(theActualFish.hash, (await ResourceDescriptor.fromBlob(await fetchFish.blob(), { getHash: true })).hash);
 
+  await beginWork();
   const clonedFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "platform:filetypes.richdocument" });
   await whfs.whfsType("platform:filetypes.richdocument").set(clonedFish.id, aboutAFishDataFetch);
 

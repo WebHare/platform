@@ -99,17 +99,18 @@ MACRO TestBlobCleanup()
   INSERT CELL[ id := id1, data := data1 ] INTO beta_blobtests;
   INSERT CELL[ id := id2, data := data2 ] INTO beta_blobtests;
   INSERT CELL[ id := id3, data := data3 ] INTO beta_blobtests;
+  testfw->CommitWork();
+
   STRING blob_deleted := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data1);
   STRING blob_deleted_storageid := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ blob_deleted ])[0];
   STRING blob_deletedreinserted := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data2);
   STRING blob_kept := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data3);
-  testfw->CommitWork();
 
   // Failed upload
   testfw->BeginWork();
   INTEGER id4 := MakeAutonumber(beta_blobtests, "id");
   INSERT CELL[ id := id4, data := data4 ] INTO beta_blobtests;
-  STRING blob_failedupload := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, data4);
+  STRING blob_failedupload := __GetUnsafeUploadedPostgreSQLBlobRegistrationId(GetPrimary()->id, data4);
   STRING blob_failedupload_storageid := GetPrimary()->blobhandler->GetBlobPartIdsFromBlobIds([ blob_failedupload ])[0];
   testfw->RollbackWork();
 

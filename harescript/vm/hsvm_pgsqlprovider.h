@@ -126,6 +126,8 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
 
         bool assumeblobsexist;
         bool isworkopen;
+        /// Hold uploaded blobs by PGID until transaction ends so we can return the original blobs when they get selected again
+        std::map< std::string, BlobRefPtr > uploaded_blob_cache;
         int32_t webhare_blob_oid;
         int32_t webhare_blobarray_oid;
         std::string blobfolder;

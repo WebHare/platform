@@ -906,6 +906,13 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
 */
 HSVM_PUBLIC HSVM_VariableId HSVM_BlobGetPath(struct HSVM *vm, HSVM_VariableId id) ;
 
+/** Set the path of for a blob (after database upload)
+    @param vm Virtual machine
+    @param blobhandle Handle of the blob to read from
+    @returns 0 or a heap-allocated variable (which you'll have to free yourself) containing the path
+*/
+HSVM_PUBLIC HSVM_VariableId HSVM_BlobSetPath(struct HSVM *vm, HSVM_VariableId id, const char *path);
+
 /** Get the length of an opened blob in bytes
     @param vm Virtual machine
     @param blobhandle Handle of the blob to query the length from
@@ -927,6 +934,13 @@ HSVM_PUBLIC HSVM_VariableId HSVM_BlobGetPath(struct HSVM *vm, HSVM_VariableId id
  HSVM_PUBLIC void HSVM_BlobClose (struct HSVM *vm, int blobhandle) ;
 
 #ifdef __EMSCRIPTEN__
+/** Get the blob's ID. This API is only available in WASM builds as it's not thread safe
+    @param vm Virtual machine
+    @param id ID of blob to query the ID from
+    @return The blob's ID, NULL terminated. c_str() livetime considerations apply - just inspect/copy it before invoking/returning more WASM
+*/
+HSVM_PUBLIC char const* HSVM_BlobGetId(struct HSVM *vm, HSVM_VariableId id);
+
 /** Get the blob's JSTag. JS tags are only available in WASM builds as they are not thread safe
     @param vm Virtual machine
     @param id ID of blob to query the tag from

@@ -1,14 +1,19 @@
 ﻿<?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
-
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 
 OBJECT trans;
 STRING ARRAY handlerresult;
@@ -109,11 +114,94 @@ MACRO TestAutoTransaction()
       trans->CommitWork();
     CATCH;
     TestEQ([ "h-precommit", "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
+  } ELSE {
+    trans->RollbackWork();
   }
 
   UnregisterCallback(cb);
 }
 
+MACRO TestInsertBlobAfterRollback() {
+  //cleanup first
+  trans->BeginWork();
+  DELETE FROM webhare_testsuite.exporttest;
+  trans->CommitWork();
 
-RunTestFramework( [ PTR TestAutoTransaction
+  //make it long to avoid any future inline db insertions for small blobs ?
+  BLOB testdata := StringToBlob("Dit is een testblob om te inserten\n" || GenerateRandomText(65536, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"));
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(3, testdata);
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(4, testdata);
+  TestEq("", GetBlobDiskPath(testdata), "Blob should not immediately have a disk path");
+
+  //select that blob right away!
+  BLOB insertedblob := SELECT AS BLOB datablob FROM webhare_testsuite.exporttest WHERE id = 3;
+  TestEQ("", GetBlobDiskPath(insertedblob), "Selected blob should also not have a disk path - we're not sure we inserted it yet!");
+
+  trans->RollbackWork();
+  TestEq("", GetBlobDiskPath(testdata), "Blob should not have a disk path after rollback");
+
+  TestEq(FALSE, IsBlobRegisteredInDatabase(testdata), "Blob should not be registered in the database yet");
+
+  // insert, select and re-insert the blob, and make sure it's all the same blob
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(3, testdata);
+  BLOB insertedblob2 := SELECT AS BLOB datablob FROM webhare_testsuite.exporttest WHERE id = 3;
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(4, insertedblob2);
+
+  TestEq("", (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 3));
+  TestEq("", (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 4));
+
+  trans->CommitWork();
+
+  TestEq([[ id := 3, datablob := testdata]], SELECT id, datablob FROM webhare_testsuite.exporttest WHERE id = 3);
+  TestEq([[ id := 4, datablob := testdata]], SELECT id, datablob FROM webhare_testsuite.exporttest WHERE id = 4);
+  TestEqLike(GetWebHareConfiguration().basedataroot || "postgresql/blob/??/*", GetBlobDiskPath(testdata), "Blob should now have a disk path after commit");
+  TestEq(GetBlobDiskPath(testdata), (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 3));
+  TestEq(GetBlobDiskPath(testdata), (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 4));
+
+  TestEq(TRUE, IsBlobRegisteredInDatabase(testdata), "Blob should be registered in the database after commit");
+  TestAssert(IsSameBlobInDatabase(testdata, SELECT AS BLOB datablob FROM webhare_testsuite.exporttest WHERE id = 3));
+
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(5, testdata);
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(6, testdata);
+  trans->CommitWork();
+
+  TestEq([[ id := 6, datablob := testdata]], SELECT id, datablob FROM webhare_testsuite.exporttest WHERE id=6);
+  TestEq(GetBlobDiskPath(testdata), (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 5));
+  TestEq(GetBlobDiskPath(testdata), (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 6));
+
+  //And now test with disk paths
+  BLOB snowbeagle_hs := GetWebHareResource("mod::system/web/tests/snowbeagle.jpg");
+  TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/snowbeagle.jpg"), GetBlobDiskPath(snowbeagle_hs));
+
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(7, snowbeagle_hs);
+  trans->CommitWork();
+
+  TestEqLike(GetWebHareConfiguration().basedataroot || "postgresql/blob/??/*", GetBlobDiskPath(snowbeagle_hs), "Bob (snowbeagle) should now have a disk path after commit");
+  TestAssert(IsSameBlobInDatabase(snowbeagle_hs, SELECT AS BLOB datablob FROM webhare_testsuite.exporttest WHERE id = 7));
+
+  //Verify proper rollback after failed commit
+  BLOB testblob2 := StringToBlob("Test blob for failed commit");
+
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(10, testblob2); //this will work ...
+  INSERT INTO webhare_testsuite.rights_tree(name,parent) VALUES("invalid", -100); //this will fail deferred and cause a rollback at commit
+  TestThrowsLike("*violates foreign key constraint*", PTR testfw->CommitWork());
+  TestEq("", GetBlobDiskPath(testblob2), "should not have been uploaded");
+
+  trans->BeginWork();
+  INSERT INTO webhare_testsuite.exporttest(id, datablob) VALUES(11, testblob2); //testblob2 was uploaded earlier but this shouldn't break
+  trans->CommitWork();
+
+  TestEqLike(GetWebHareConfiguration().basedataroot || "postgresql/blob/??/*", GetBlobDiskPath(testblob2), "should have been uploaded on the second attempt");
+  TestEq(GetBlobDiskPath(testblob2), (SELECT AS STRING GetBlobDiskPath(datablob) FROM webhare_testsuite.exporttest WHERE id = 11));
+}
+
+
+RunTestFramework( [
+  PTR TestAutoTransaction,
+  PTR TestInsertBlobAfterRollback
                   ], [ usedatabase := FALSE ]);
