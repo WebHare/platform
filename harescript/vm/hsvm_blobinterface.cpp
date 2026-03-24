@@ -123,7 +123,7 @@ std::unique_ptr< OpenedBlob > DiskBlob::OpenBlob()
 
 Blex::DateTime DiskBlob::GetModTime()
 {
-        return Blex::DateTime::Invalid();
+        return Blex::PathStatus(path).ModTime();
 }
 
 Blex::FileOffset DiskBlob::GetCacheableLength()

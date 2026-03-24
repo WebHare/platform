@@ -843,16 +843,6 @@ void ParseBlob(HSVM *hsvm, HSVM_VariableId id_set)
         HSVM_IntegerSet(hsvm, id_set, context.ParseXmlTemplate(&content[0], content.size(), encoding, gettidmodule));
 }
 
-void GetWittyLibraryBlob(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        HSVM_ColumnId col_success = HSVM_GetColumnId(hsvm,"SUCCESS");
-        HSVM_ColumnId col_data = HSVM_GetColumnId(hsvm,"DATA");
-
-        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
-        bool success = HSVM_MakeBlobFromFilesystem(hsvm, HSVM_RecordCreate(hsvm, id_set, col_data), HSVM_StringGetSTD(hsvm,HSVM_Arg(0)).c_str()) == 0;
-        HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, id_set, col_success), success);
-}
-
 void GetWittyMessage(Error const &in, std::string *error)
 {
         std::string msg;
@@ -1952,7 +1942,6 @@ BLEXLIB_PUBLIC int WittyEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterFunction(regdata, "__PARSEWITTYBLOB::I:XSS", HareScript::Witty::ParseBlob);
         HSVM_RegisterFunction(regdata, "__GETWITTYPARSEERRORS::RA:", HareScript::Witty::GetWittyParseErrors);
         HSVM_RegisterFunction(regdata, "__HASWITTYCOMPONENT::B:IS", HareScript::Witty::HasWittyComponent);
-        HSVM_RegisterFunction(regdata, "GETWITTYLIBRARYBLOB::R:S", HareScript::Witty::GetWittyLibraryBlob);
         HSVM_RegisterFunction(regdata, "GETWITTYVARIABLE::V:S", HareScript::Witty::GetWittyVariable);
         HSVM_RegisterFunction(regdata, "__CALLWITHWITTYCONTEXT::V:IPR", HareScript::Witty::CallWithWittyContext);
         HSVM_RegisterFunction(regdata, "__GETWITTYTIDSRAWDATA::RA:I", HareScript::Witty::GetWittyTidRawData);

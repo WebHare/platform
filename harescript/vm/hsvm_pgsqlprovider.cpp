@@ -1397,38 +1397,19 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
 
                                         bool have_blob = false;
 
-                                        // If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
+                                        /* WAS: If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
+                                           BUT: As long as we don't support paging in blobs (and will we ever for native HS PG?) just assume the file exists
+                                           It's not like it can't disappear after we check anyway */
                                         if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
                                                 std::string blobpath = driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
-                                                if(driver.assumeblobsexist)
-                                                {
-                                                        HSVM_MakeBlobFromDiskPath(*vm, id_set, blobpath.c_str(), bloblength);
-                                                        have_blob = true;
-                                                        PQ_PRINT(" assume blob " << blobid << " at " << blobpath);
-                                                }
-                                                else
-                                                {
-                                                        std::string resourcepath = "direct::" + blobpath;
-                                                        have_blob = HSVM_MakeBlobFromFilesystem(*vm, id_set, resourcepath.c_str()) == 0;
-                                                        if(have_blob)
-                                                                PQ_PRINT(" found blob " << blobid << " at " << resourcepath);
-                                                }
+                                                HSVM_MakeBlobFromDiskPath(*vm, id_set, blobpath.c_str(), bloblength);
+                                                auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
+                                                context->driver = &driver;
+                                                context->blobid = blobid;
+                                                context->bloblength = bloblength;
 
-                                                if(have_blob)
-                                                {
-
-                                                        auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
-                                                        context->driver = &driver;
-                                                        context->blobid = blobid;
-                                                        context->bloblength = bloblength;
-
-                                                        have_blob = true;
-                                                }
-                                                else
-                                                {
-                                                        PQ_PRINT(" blob " << blobid << " not found at " << blobpath);
-                                                }
+                                                have_blob = true;
                                         }
 
                                         if (!have_blob)
