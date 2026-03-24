@@ -80,9 +80,53 @@ Blex::FileOffset BlobBase::GetLength()
         return cachedlength;
 }
 
-std::string BlobBase::GetDiskPath()
+Blex::FileOffset BlobBase::GetCacheableLength()
 {
-        return std::string();
+        if(path.empty())
+            throw std::runtime_error("Blob has no path, cannot cache length");
+        return Blex::PathStatus(path).FileLength();
+}
+
+const std::string& BlobBase::GetDiskPath()
+{
+        return path;
+}
+
+BlobBase::MyOpenedBlob::MyOpenedBlob(BlobBase &blob)
+: OpenedBlobBase< BlobBase >(blob)
+{
+        stream.reset(Blex::FileStream::OpenRead(blob.path));
+}
+
+BlobBase::MyOpenedBlob::~MyOpenedBlob()
+{
+}
+
+std::size_t BlobBase::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
+{
+        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
+}
+
+std::unique_ptr< OpenedBlob > BlobBase::OpenBlob()
+{
+        if(path.empty())
+            throw std::runtime_error("Blob has no path, cannot open");
+        return std::make_unique< MyOpenedBlob >(*this);
+}
+
+Blex::DateTime BlobBase::GetModTime()
+{
+        if(path.empty())
+            return Blex::DateTime::Invalid();
+
+        return Blex::PathStatus(path).ModTime();
+}
+
+std::string BlobBase::GetDescription()
+{
+        if(path.empty())
+            return "Blob with no path";
+        return "Blob (" + path + ")";
 }
 
 //---------------------------------------------------------------------------
@@ -93,52 +137,12 @@ std::string BlobBase::GetDiskPath()
 
 DiskBlob::DiskBlob(VirtualMachine *vm, std::string const &_path, Blex::FileOffset filelength)
 : BlobBase(vm, filelength)
-, path(_path)
 {
+        path = _path;
 }
 
 DiskBlob::~DiskBlob()
 {
-}
-
-DiskBlob::MyOpenedBlob::MyOpenedBlob(DiskBlob &blob)
-: OpenedBlobBase< DiskBlob >(blob)
-{
-        stream.reset(Blex::FileStream::OpenRead(blob.path));
-}
-
-DiskBlob::MyOpenedBlob::~MyOpenedBlob()
-{
-}
-
-std::size_t DiskBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset, std::size_t numbytes, void *buffer)
-{
-        return stream ? stream->DirectRead(startoffset, buffer, numbytes) : 0;
-}
-
-std::unique_ptr< OpenedBlob > DiskBlob::OpenBlob()
-{
-        return std::make_unique< MyOpenedBlob >(*this);
-}
-
-Blex::DateTime DiskBlob::GetModTime()
-{
-        return Blex::PathStatus(path).ModTime();
-}
-
-Blex::FileOffset DiskBlob::GetCacheableLength()
-{
-        throw std::runtime_error("DiskBlob::GetCacheableLength should never be invoked");
-}
-
-std::string DiskBlob::GetDescription()
-{
-        return "DiskBlob (" + path + ")";
-}
-
-std::string DiskBlob::GetDiskPath()
-{
-        return path;
 }
 
 //---------------------------------------------------------------------------
@@ -412,6 +416,8 @@ ReferencedGlobalBlob::~ReferencedGlobalBlob()
 
 std::unique_ptr< OpenedBlob > ReferencedGlobalBlob::OpenBlob()
 {
+        if(!path.empty()) //Open the serialized version instead
+            return BlobBase::OpenBlob();
         return std::unique_ptr< OpenedBlob >(new MyOpenedBlob(*this));
 }
 

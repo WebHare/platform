@@ -249,6 +249,9 @@ std::size_t ComposedBlob::MyOpenedBlob::DirectRead(Blex::FileOffset startoffset,
 
 std::unique_ptr< OpenedBlob > ComposedBlob::OpenBlob()
 {
+        if(!path.empty()) //Open the serialized version instead
+            return BlobBase::OpenBlob();
+
         std::vector< std::unique_ptr< OpenedBlob > > openedblobs;
         for (auto &blob: blobs)
         {

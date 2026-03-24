@@ -87,6 +87,8 @@ Blex::FileOffset VariableBlob::MyOpenedBlob::GetCacheableLength()
 
 std::unique_ptr< HareScript::OpenedBlob > VariableBlob::OpenBlob()
 {
+        if(!path.empty()) //Open the serialized version instead
+            return BlobBase::OpenBlob();
         return std::unique_ptr< HareScript::OpenedBlob >(new MyOpenedBlob(*this));
 }
 
