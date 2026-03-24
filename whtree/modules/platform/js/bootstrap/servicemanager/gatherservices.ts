@@ -3,7 +3,7 @@ import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduled
 import { type ServiceDefinition, Stage, type WebHareVersionFile } from './smtypes';
 import type { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
-import { isLikeRandomId, pick } from "@webhare/std";
+import { isLikeRandomId, isTruthy, pick } from "@webhare/std";
 import { readFileSync } from "node:fs";
 import { getVersionFile } from "@mod-system/js/internal/configuration";
 import { spawnSync } from "node:child_process";
@@ -158,8 +158,7 @@ export async function getServiceManagerChildPids(): Promise<number[]> {
       return [];
 
     //The empty group () is there to prevent us from matching ourselves in the process list
-    const output = spawnSync(`ps ewwax|grep -E ' WEBHARE_SERVICEMANAGERID()=${versioninfo.servicemanagerid}' | cut -d' ' -f1`, { shell: true }).output.toString().split('\n');
-    const pids = output.map((line) => parseInt(line.trim())).filter((pid) => !isNaN(pid));
+    const pids = spawnSync("/bin/ps", ["ewwax"]).output.toString().split('\n').filter(line => line.includes(` WEBHARE_SERVICEMANAGERID=${versioninfo.servicemanagerid}`)).map(line => parseInt(line.trim().split(' ')[0])).filter(isTruthy);
     return pids.filter(_ => _ !== process.pid);
   } catch (e) {
     return [];

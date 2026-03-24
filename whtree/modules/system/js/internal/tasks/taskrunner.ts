@@ -16,7 +16,7 @@ interface TaskInfo {
 }
 
 
-async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Managedtasks>, { skipCancelled }: { skipCancelled?: boolean } = {}) {
+async function finalizeTaskResult(taskinfo: TaskInfo, updates: Omit<Partial<System_Managedtasks>, "id">, { skipCancelled }: { skipCancelled?: boolean } = {}) {
   if (!isWorkOpen())
     throw new Error("Task did not open work");
 
