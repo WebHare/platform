@@ -430,6 +430,20 @@ ASYNC MACRO TestTolliumFieldsAPI()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  // Regression: addressfield crashed in StaticInit when part of an entity composition without explicit WRD type
+  screenfile := `
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+  <screen name="testaddressfield" implementation="none">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+    <body>
+      <wrd:addressfield composition="entity" cellname="addressfield" />
+    </body>
+  </screen>
+</screens>`;
+
+  testscreen := GetTestController()->LoadScreen(`inline-base64::${EncodeBase64(screenfile)}#testaddressfield`, DEFAULT RECORD);
 }
 
 MACRO TestSiteprofileAddressVerify()
