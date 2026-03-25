@@ -139,7 +139,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local b
   if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh" "$WHBUILD_ASSETROOT" 2.0.32 ; then
     echo "setup-pdfbox failed"
   fi
-  if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 2.9.2; then
+  if ! /bin/bash "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-tika.sh" "$WHBUILD_ASSETROOT" 3.3.0; then
     echo "setup-tika failed"
   fi
   rm -rf "$WEBHARE_CHECKEDOUT_TO/whtree/modules/system/data/engines"

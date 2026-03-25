@@ -100,7 +100,7 @@ RUN --mount=type=bind,source=addons/docker-build/setup-pdfbox.sh,target=/setup-p
 RUN --mount=type=bind,source=addons/docker-build/setup-tika.sh,target=/setup-tika.sh \
     --mount=type=cache,id=tika,target=/tmp/downloads \
     WEBHARE_CHECKEDOUT_TO=/opt/wh \
-    /bin/bash /setup-tika.sh "$WHBUILD_ASSETROOT" 2.9.2
+    /bin/bash /setup-tika.sh "$WHBUILD_ASSETROOT" 3.3.0
 
 # Install OpenSearch
 RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/setup-opensearch.sh \
