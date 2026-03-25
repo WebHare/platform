@@ -1,6 +1,8 @@
 import type { RequestBuilder } from "../request-builder";
 import type { UndocumentedBuffer } from "./node-types";
 
+export type CodecContext = unknown;
+
 export type CodecTest =
   | { type: "number"; integer: true; signed: boolean; bits: 16 | 32 | 64 }
   | { type: "number"; integer: false }
@@ -28,7 +30,7 @@ export type Codec<In, Out> = {
   encodeBinary: ((builder: RequestBuilder, value: In) => null | void);
   /** Function to decode the binary representation of this type. The data is in the buffer at buffer[offset] and dataview[offset] with length len.
    */
-  decodeBinary: (buffer: UndocumentedBuffer, dataview: DataView, offset: number, len: number) => Out;
+  decodeBinary: (buffer: UndocumentedBuffer, dataview: DataView, offset: number, len: number, context: CodecContext) => Out;
   /** Optional JIT decoder function for this type.
    * @param retval The variable name that must be filled with the decoded value
    * @param codecExpr An expression that evaluates to this codec object (to access jitDecoderContext)

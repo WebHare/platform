@@ -7,6 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/graphics.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -92,12 +93,15 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
         mimetype := GetImageMimetype(analyzed.extension);
         IF(IsWasm() OR mimetype IN ["image/webp","image/avif"])
         {
+          STRING diskpath := GetBlobDiskPath(info.data);
+          IF(diskpath = "")
+            THROW NEW Exception("Blob data is not yet stored on disk, cannot process image");
           STRING jsresulttxt :=
                   CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
                   CELL[ ...info
                       , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
                       , analyzed.item
-                      , pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, info.data)
+                      , path := diskpath
                       ]);
           content := StringToBlob(DecodeBase64(jsresulttxt));
         }

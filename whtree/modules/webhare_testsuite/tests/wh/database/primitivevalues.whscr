@@ -7,8 +7,8 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::javascript.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -150,22 +150,8 @@ MACRO TestPrimitiveValues()
       IF (rec.name LIKE "*BLOB")
       {
         IF (LENGTH(val) != 0)
-        {
-          STRING insertid := __GetPostgreSQLBlobRegistrationId(trans->id, GetCell(toinsert, rec.name));
-          STRING readid := __GetPostgreSQLBlobRegistrationId(trans->id, GetCell(readvalue, rec.name));
-          TestEQ(FALSE, insertid = "", "Original blob should have a registration");
-          TestEQ(insertid, readid);
+          TestAssert(IsSameBlobInDatabase(GetCell(toinsert, rec.name), GetCell(readvalue, rec.name)));
 
-          STRING diskpath_read := GetBlobDiskPath(GetCell(readvalue, rec.name));
-          TestEqLike(GetWebHareConfiguration().basedataroot || "postgresql/blob/??/*", diskpath_read, "Check if the path is sane");
-
-          /* TODO Do we also want inserted blobs to have a path? It may simplify PG blob handling
-             in general (use path instead of ID, remove custom blob context support in C++)
-             but requires blobs to have a mutable disk path
-          STRING diskpath_insert := GetBlobDiskPath(GetCell(toinsert, rec.name));
-          TestEq(diskpath_read, diskpath_insert);
-          */
-        }
         CONTINUE;
       }
 

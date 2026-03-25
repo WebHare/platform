@@ -63,7 +63,6 @@ BlobBase::BlobBase(VirtualMachine *_vm, Blex::FileOffset _cachedlength)
 : vm(_vm)
 , cachedlength(_cachedlength)
 , id(Blex::GenerateUFS128BitId())
-, keeper(vm->GetEnvironment().GetContextReg())
 {
         BLOB_PRINT("Create blob " << this);
 }
@@ -91,6 +90,11 @@ Blex::FileOffset BlobBase::GetCacheableLength()
 const std::string& BlobBase::GetDiskPath()
 {
         return path;
+}
+
+void BlobBase::SetDiskPath(std::string const &_path)
+{
+        path = _path;
 }
 
 BlobBase::MyOpenedBlob::MyOpenedBlob(BlobBase &blob)
@@ -343,6 +347,15 @@ BlobRefPtr::BlobRefPtr(BlobRefPtr const &rhs)
         if (ptr)
             ptr->InternalAddReference();
 }
+
+void BlobRefPtr::SetDiskPath(std::string const &newpath)
+{
+        if (ptr)
+            ptr->SetDiskPath(newpath);
+        else
+            throw new std::runtime_error("Cannot set disk path on empty blob");
+}
+
 BlobRefPtr::~BlobRefPtr()
 {
         if (ptr)

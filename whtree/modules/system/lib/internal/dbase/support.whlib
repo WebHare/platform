@@ -1,8 +1,9 @@
 <?wh
 
 LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/transservices.whlib";
-
+LOADLIB "wh::internal/dbase/pg-internals.whlib";
 
 /** Find the first gap range in a list of strictly increasing integers
     @param ids Strictly increasing list of integers (sorted and no duplicates)
@@ -41,18 +42,11 @@ PUBLIC RECORD FUNCTION __FindFirstGapInSet(INTEGER ARRAY ids, INTEGER expectfirs
 /** Are two blobs the same in the database */
 PUBLIC BOOLEAN FUNCTION IsSameBlobInDatabase(BLOB a, BLOB b)
 {
-  IF(GetPrimaryWebhareTransaction() = 0)
-    RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
-
-  STRING orgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), a);
-  RETURN orgblobid = __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), b);
+  RETURN IsBlobRegisteredInDatabase(a) AND GetBlobDiskPath(a) = GetBlobDiskPath(b);
 }
 
 /** Is this blob in the database ? (zero-copy to reupload) */
 PUBLIC BOOLEAN FUNCTION IsBlobRegisteredInDatabase(BLOB inblob)
 {
-  IF(GetPrimaryWebhareTransaction() = 0)
-    RETURN FALSE; //cant check without a transaction,  __GetPostgreSQLBlobRegistrationId wants an id..
-
-  RETURN __GetPostgreSQLBlobRegistrationId(GetPrimaryWebhareTransaction(), inblob) != "";
+  RETURN GetBlobDiskPath(inblob) LIKE GetPGBlobStoragepath() || "/*";
 }

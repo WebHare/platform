@@ -123,66 +123,6 @@ struct PostgresqlTid
 
 inline bool operator==(PostgresqlTid const &lhs, PostgresqlTid const &rhs) { return lhs.blocknumber == rhs.blocknumber && lhs.tupleindex == rhs.tupleindex; }
 
-/** Blob in wh blob storage, stored in type 'webhare_blob'
-*/
-class PostgreSQLWHBlobData
-{
-    public:
-        PostgreSQLWHBlobData();
-        ~PostgreSQLWHBlobData();
-
-        void Register(PGSQLTransactionDriver *driver, std::string blobid, Blex::FileOffset bloblength, bool forinsert);
-
-        PGSQLTransactionDriver *driver;
-        std::string blobid;
-        Blex::FileOffset bloblength;
-
-        static PostgreSQLWHBlobData * GetFromVariable(VirtualMachine *vm, VarId var, bool create);
-
-    private:
-        void Unregister();
-};
-
-static const unsigned PostgreSQLWHBlobContextId = 24;
-
-PostgreSQLWHBlobData::PostgreSQLWHBlobData()
-: driver(0)
-, bloblength(0)
-{
-}
-
-PostgreSQLWHBlobData::~PostgreSQLWHBlobData()
-{
-        if (driver)
-            Unregister();
-}
-
-PostgreSQLWHBlobData * PostgreSQLWHBlobData::GetFromVariable(VirtualMachine *vm, VarId var, bool create)
-{
-        return static_cast<PostgreSQLWHBlobData * >(HSVM_BlobContext(*vm, var, PostgreSQLWHBlobContextId, create));
-}
-
-void PostgreSQLWHBlobData::Register(PGSQLTransactionDriver *_driver, std::string _blobid, Blex::FileOffset _bloblength, bool /*forinsert*/)
-{
-        if (driver)
-           Unregister();
-
-        // Only register valid data
-        if (!_blobid.empty() && _bloblength != 0)
-        {
-                driver = _driver;
-                blobid = _blobid;
-                bloblength = _bloblength;
-        }
-}
-
-void PostgreSQLWHBlobData::Unregister()
-{
-        driver = nullptr;
-        blobid.clear();
-        bloblength = 0;
-}
-
 void AddEscapedName(std::string *str, std::string_view append)
 {
         bool is_simple = true;
@@ -738,61 +678,41 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
                 } break;
                 case VariableTypes::Blob:
                 {
-                        auto context = PostgreSQLWHBlobData::GetFromVariable(vm, var, true);
-                        if (!context)
+                        // Inserting a blob into the PG. Handle empty ones immediately
+                        BlobRefPtr blobref = stackm.GetBlob(var);
+                        Blex::FileOffset len = blobref.GetLength();
+                        if(!len)
                             return "NULL";
 
-                        PQ_PRINT("Encoding blob, current driver: " << context->driver << ", id: " << context->blobid);
-                        if (context->driver != &driver) // blob needs to be placed into storage first
+                        if (!driver.webhare_blob_oid)
                         {
-                                BlobRefPtr blobref = stackm.GetBlob(var);
-                                Blex::FileOffset len = blobref.GetLength();
-
-                                PQ_PRINT(" length: " << len);
-
-                                if (!len)
-                                    return "NULL";
-
-                                if (!driver.webhare_blob_oid)
-                                {
-                                        HSVM_ThrowException(*vm, "Webhare blob compositetype hasn't been registered yet");
-                                        return "";
-                                }
-
-                                PQ_PRINT(" starting harescript registration");
-                                HSVM_OpenFunctionCall(*vm, 2);
-                                HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), var);
-                                const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Blob };
-                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", 0, 2, args);
-                                if (!retval || HSVM_TestMustAbort(*vm))
-                                    return "";
-                                HSVM_CloseFunctionCall(*vm);
-
-                                // context doesn't need to be reloaded, we're still talking to the same blob
-                                if (context->driver != &driver || context->blobid.empty() || !context->bloblength)
-                                    throw VMRuntimeError (Error::DatabaseException, "Database error: WebHare database blob wasn't uploaded correctly");
-
-                                Query blobinsertquery(driver);
-                                std::string blobparam = blobinsertquery.params.AddParameter(vm, context->blobid);
-                                blobinsertquery.querystr = "INSERT INTO webhare_internal.blob(id) VALUES(ROW(" + blobparam + "," + Blex::AnyToString(context->bloblength) + "))";
-                                driver.ExecQuery(blobinsertquery, driver.allowwriteerrordelay);
+                                HSVM_ThrowException(*vm, "Webhare blob compositetype hasn't been registered yet");
+                                return "";
                         }
 
-                        PQ_PRINT(" sending, driver: " << context->driver << ", id: " << context->blobid << " len: " << context->bloblength);
+                        PQ_PRINT(" starting harescript registration");
+                        HSVM_OpenFunctionCall(*vm, 2);
+                        HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
+                        HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), var);
+                        const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Blob };
+                        VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__StoreNewWebharePostgreSQLBlob", HSVM_VAR_String, 2, args);
+                        if (!retval || HSVM_TestMustAbort(*vm))
+                                return "";
 
-                        if (!context->bloblength)
-                            return "NULL";
+                        std::string blobid = stackm.GetSTLString(retval);
+                        HSVM_CloseFunctionCall(*vm);
+
+                        driver.uploaded_blob_cache.insert(std::make_pair(blobid, std::move(blobref)));
 
                         // encode record
-                        char *data = RegisterParameter(static_cast< OID >(driver.webhare_blob_oid), 28 + context->blobid.size());
+                        char *data = RegisterParameter(static_cast< OID >(driver.webhare_blob_oid), 28 + blobid.size());
                         Blex::putu32msb(data, 2); // 2 columns
                         Blex::puts32msb(data + 4, static_cast< int32_t >(OID::TEXT)); // col 1, OID
-                        Blex::puts32msb(data + 8, context->blobid.size()); // col 1, length of blobid
-                        std::copy(context->blobid.begin(), context->blobid.end(), data + 12);
-                        Blex::puts32msb(data + 12 + context->blobid.size(), static_cast< int32_t >(OID::INT8)); // col 2, OID
-                        Blex::puts32msb(data + 16 + context->blobid.size(), 8); // col 2, 8 bytes length
-                        Blex::puts64msb(data + 20 + context->blobid.size(), context->bloblength); // col 2, 8 bytes of length
+                        Blex::puts32msb(data + 8, blobid.size()); // col 1, length of blobid
+                        std::copy(blobid.begin(), blobid.end(), data + 12);
+                        Blex::puts32msb(data + 12 + blobid.size(), static_cast< int32_t >(OID::INT8)); // col 2, OID
+                        Blex::puts32msb(data + 16 + blobid.size(), 8); // col 2, 8 bytes length
+                        Blex::puts64msb(data + 20 + blobid.size(), len); // col 2, 8 bytes of length
                 } break;
                 default:
                 {
@@ -1393,48 +1313,28 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                         && Blex::getu32msb(data + 16 + col1len) == 8)
                                 {
                                         std::string blobid = std::string(data + 12, data + 12 + col1len);
+                                        bool have_blob = false;
+                                        auto cachedblob = driver.uploaded_blob_cache.find(blobid);
+                                        if(cachedblob != driver.uploaded_blob_cache.end())
+                                        {
+                                                /* This blob was inserted in this transaction. we must return that exact blob as
+                                                   the insert code knows about it (and avoid double inserts) AND will still be able to delay
+                                                   setting the blob's path until the transaction actually commits */
+                                                vm->GetStackMachine().SetBlob(id_set, cachedblob->second);
+                                                have_blob = true;
+                                        }
+
                                         Blex::FileOffset bloblength = Blex::gets64msb(data + 20 + col1len);
 
-                                        bool have_blob = false;
-
-                                        /* WAS: If we have a disk-folder, lookup blobs with strategy AAAB (=1) on disk first
-                                           BUT: As long as we don't support paging in blobs (and will we ever for native HS PG?) just assume the file exists
-                                           It's not like it can't disappear after we check anyway */
-                                        if (blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
+                                        if (!have_blob && blobid.size() >= 6 && std::equal(blobid.begin(), blobid.begin() + 4, "AAAB"))
                                         {
                                                 std::string blobpath = driver.blobfolder + "/blob/" + blobid.substr(4, 2) + "/" + blobid.substr(4);
                                                 HSVM_MakeBlobFromDiskPath(*vm, id_set, blobpath.c_str(), bloblength);
-                                                auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, true);
-                                                context->driver = &driver;
-                                                context->blobid = blobid;
-                                                context->bloblength = bloblength;
-
                                                 have_blob = true;
                                         }
 
                                         if (!have_blob)
-                                        {
-                                                PQ_PRINT(" starting harescript lookup for blob " << blobid);
-                                                HSVM_OpenFunctionCall(*vm, 3);
-                                                HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), driver.sqllib_transid);
-                                                HSVM_StringSetSTD(*vm, HSVM_CallParam(*vm, 1), blobid);
-                                                HSVM_Integer64Set(*vm, HSVM_CallParam(*vm, 2), bloblength);
-                                                const HSVM_VariableType args[3] = { HSVM_VAR_Integer, HSVM_VAR_String, HSVM_VAR_Integer64 };
-                                                VarId retval = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__LookupWebharePostgreSQLBlob", HSVM_VAR_Blob, 3, args);
-                                                if (retval && !HSVM_TestMustAbort(*vm))
-                                                    HSVM_CopyFrom(*vm, id_set, retval);
-                                                HSVM_CloseFunctionCall(*vm);
-
-                                                if (!retval || HSVM_TestMustAbort(*vm))
-                                                    return ReadResult::Exception;
-
-                                                // Check and throw fatal errors when the function itself returns incorrect data
-                                                auto context = PostgreSQLWHBlobData::GetFromVariable(vm, id_set, false);
-                                                if (!context || context->driver != &driver || context->blobid != blobid)
-                                                    throw VMRuntimeError (Error::DatabaseException, "Blob returned by __LookupWebharePostgreSQLBlob for '" + blobid + "' hasn't been registered properly");
-                                                if (context->bloblength != bloblength)
-                                                    throw VMRuntimeError (Error::DatabaseException, "Blob returned by __LookupWebharePostgreSQLBlob for '" + blobid + "' has the wrong length, expected " + Blex::AnyToString(bloblength) + ", got " + Blex::AnyToString(context->bloblength));
-                                        }
+                                            throw VMRuntimeError (Error::DatabaseException, "Cannot find blob with id '" + blobid + "'");
                                 }
                                 else
                                 {
@@ -3008,6 +2908,8 @@ void PGSQL_SetWorkOpen(HSVM *hsvm)
         }
 
         driver->isworkopen = HSVM_BooleanGet(hsvm, HSVM_Arg(1));
+        if(!driver->isworkopen)
+            driver->uploaded_blob_cache.clear();
 }
 
 void PGSQL_SetAllowWriteErrorDelay(HSVM *hsvm)
@@ -3021,44 +2923,6 @@ void PGSQL_SetAllowWriteErrorDelay(HSVM *hsvm)
         }
 
         driver->allowwriteerrordelay = HSVM_BooleanGet(hsvm, HSVM_Arg(1));
-}
-
-void PGSQL_SetUploadedBlobId(HSVM *hsvm)
-{
-        VirtualMachine *vm = GetVirtualMachine(hsvm);
-        StackMachine &stackm = vm->GetStackMachine();
-
-        int32_t transid = stackm.GetInteger(HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(vm->GetSQLSupport().GetTransaction(transid));
-        if (!driver)
-        {
-                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
-                return;
-        }
-
-        auto blobid = stackm.GetSTLString(HSVM_Arg(2));
-        auto context = PostgreSQLWHBlobData::GetFromVariable(vm, HSVM_Arg(1), true);
-        context->Register(driver, blobid, stackm.GetBlob(HSVM_Arg(1)).GetLength(), true);
-}
-
-void PGSQL_GetUploadedBlobId(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        VirtualMachine *vm = GetVirtualMachine(hsvm);
-        StackMachine &stackm = vm->GetStackMachine();
-
-        int32_t transid = stackm.GetInteger(HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(vm->GetSQLSupport().GetTransaction(transid));
-        if (!driver)
-        {
-                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
-                return;
-        }
-
-        auto context = PostgreSQLWHBlobData::GetFromVariable(vm, HSVM_Arg(1), false);
-        if (!context || context->driver != driver || context->blobid.empty())
-            stackm.SetSTLString(id_set, ""sv);
-        else
-            stackm.SetSTLString(id_set, context->blobid);
 }
 
 void PGSQL_GetDebugSettings(HSVM *hsvm, HSVM_VariableId id_set)
@@ -3164,15 +3028,6 @@ void PGSQL_EscapeLiteral(HSVM *hsvm, HSVM_VariableId id_set)
 extern "C"
 {
 
-static void* CreateBlobContext(void *)
-{
-        return new HareScript::SQLLib::PGSQL::PostgreSQLWHBlobData;
-}
-static void DestroyBlobContext(void*, void *context_ptr)
-{
-        delete static_cast< HareScript::SQLLib::PGSQL::PostgreSQLWHBlobData * >(context_ptr);
-}
-
 BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
 {
         using namespace HareScript::SQLLib::PGSQL;
@@ -3184,15 +3039,10 @@ BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterMacro(regdata, "__PGSQL_SETWORKOPEN:::IB", PGSQL_SetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETALLOWWRITEERRRORDELAY:::IB", PGSQL_SetAllowWriteErrorDelay);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN::B:I", PGSQL_GetWorkOpen);
-        HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:::IXS", PGSQL_SetUploadedBlobId);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID::S:IX", PGSQL_GetUploadedBlobId);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETDEBUGSETTINGS::R:I", PGSQL_GetDebugSettings);
         HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:::IIII", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL::S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER::S:S", PGSQL_EscapeIdentifier);
-
-
-        HSVM_RegisterContext(regdata, PostgreSQLWHBlobContextId, NULL, &CreateBlobContext, &DestroyBlobContext);
 
         return 1;
 }

@@ -58,7 +58,7 @@ ASYNC MACRO TestWRDBrowser()
   TT("changes")->selection := TT("changes")->rows[3]; //select the 2nd most recent change
   TT("changedvalues")->selection := SELECT * FROM TT("changedvalues")->rows WHERE prop="richie";
   TestEq(TRUE, RecordExists(TT("changedvalues")->selection));
-  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("restorenewvalue"));
+  RECORD res := AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("restorenewvalue"), [awaitcall := true]);
   TestEq(wrdtest_withembedded.htmltext, testfw->GetWRDSchema()->^wrd_person->GetEntityField(appbrowse, "RICHIE").htmltext);
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("restoreoldvalue"));
   TestEq(DEFAULT RECORD, testfw->GetWRDSchema()->^wrd_person->GetEntityFielD(appbrowse, "RICHIE"));

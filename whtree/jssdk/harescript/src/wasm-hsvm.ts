@@ -7,7 +7,7 @@ import { isTruthy } from "@webhare/std";
 import createModule from "../../../lib/harescript";
 import { HareScriptJob, registerBaseFunctions } from "./wasm-hsfunctions";
 import { getCachedWebAssemblyModule, setCachedWebAssemblyModule, WASMModule } from "./wasm-modulesupport";
-import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar, HSVMVar, type HSVMBlob } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { type Mutex, JSLibraryImporter } from "@webhare/services";
@@ -84,8 +84,6 @@ function throwFirstError(message: string, parsederrors: MessageList): never {
 
 ///Pool of unused engines.
 const enginePool = new Array<WASMModule>;
-
-export type JSBlobTag = { pg: string } | null;
 
 const hsvmlistsymbol = Symbol("HSVMList");
 type HSVMList = Set<WeakRef<HareScriptVM>>;
@@ -207,7 +205,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
   /** Unresolved resurrected promises we still expect the VM to syscall fulfillResurrectedPromise for */
   unresolvedPromises = new Map<number, PromiseWithResolvers<unknown>>;
   /** Promises that still appear to be alive and may be requested to resolve by JavaScript users of this VM*/
-  resolveablePromises = new Map<number, WeakRef<Promise<unknown>>>;
+  resolveablePromises = new Map<number, WeakRef<Promise<unknown>>>();
+  /** A cache of HSVMBlobs we retrieved earlier. We need to avoid reconstructing HSVMBlobs so the database can track them during work */
+  blobCache = new Map<string, WeakRef<HSVMBlob>>();
 
   constructor(module: WASMModule, startupoptions: StartupOptions) {
     if (process.env.WEBHARE_HARESCRIPT_OFF)
@@ -483,20 +483,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
   }
 
-  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
-  getBlobJSTag(variable: HSVM_VariableId): JSBlobTag {
+  setBlobPath(variable: HSVM_VariableId, blobpath: string) {
     this.checkType(variable, VariableType.Blob);
-    const as_cstr = this.wasmmodule._HSVM_BlobGetTag(this.hsvm, variable);
-    if (!as_cstr)
-      return null;
-
-    const tag = this.wasmmodule.UTF8ToString(as_cstr);
-    return tag ? JSON.parse(tag) : null;
-  }
-  setBlobJSTag(variable: HSVM_VariableId, tag: JSBlobTag) {
-    this.checkType(variable, VariableType.Blob);
-    const as_cstr = this.wasmmodule.stringToNewUTF8(tag ? JSON.stringify(tag) : '');
-    this.wasmmodule._HSVM_BlobSetTag(this.hsvm, variable, as_cstr);
+    const as_cstr = this.wasmmodule.stringToNewUTF8(blobpath);
+    this.wasmmodule._HSVM_BlobSetPath(this.hsvm, variable, as_cstr);
     this.wasmmodule._free(as_cstr);
   }
 

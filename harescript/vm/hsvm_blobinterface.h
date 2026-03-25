@@ -98,15 +98,10 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         /** Returns the blob length, and caches it */
         Blex::FileOffset GetLength();
 
-        /// Context keeper
-        Blex::ContextKeeper keeper;
-
         // Returns the disk path for this blob (empty if not applicable)
         const std::string& GetDiskPath();
 
-#ifdef __EMSCRIPTEN__
-        std::string jstag; //only available in esmcripten so we don't need to worry about thread safety
-#endif
+        void SetDiskPath(std::string const &_path);
 
         friend class BlobRefPtr;
         template< class A > friend class InternalOpenedBlobBase;
@@ -174,8 +169,7 @@ class BLEXLIB_PUBLIC BlobRefPtr
         std::string GetDiskPath()
         { return ptr ? ptr->GetDiskPath() : ""; }
 
-        void *GetContext(unsigned id, bool autocreate)
-        { return ptr ? ptr->keeper.GetContext(id, autocreate) : NULL; }
+        void SetDiskPath(std::string const &newpath);
 
         // Get the pointer to the blob
         BlobBase *GetPtr() { return ptr; }

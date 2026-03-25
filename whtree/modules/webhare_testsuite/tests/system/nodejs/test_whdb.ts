@@ -12,7 +12,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
-import { workHasMutex, isDatabaseError, overrideValueType } from "@webhare/whdb/src/impl";
+import { workHasMutex, isDatabaseError, overrideValueType, getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 
 async function cleanup() {
@@ -67,10 +67,10 @@ async function testQueries() {
   await uploadBlob(goudvis.resource);
   await uploadBlob(thisisastreamblob);
 
-  const thisisablob_id = __getBlobDatabaseId(thisisablob);
+  const thisisablob_id = (getConnection() as WHDBConnectionImpl).openwork!["getUploadedBlobId"](thisisablob);
   test.assert(thisisablob_id);
   await uploadBlob(thisisablob);
-  test.eq(thisisablob_id, __getBlobDatabaseId(thisisablob), "Reupload should have no effect - we verify that by ensuring the databaseid is unchanged");
+  test.eq(thisisablob_id, (getConnection() as WHDBConnectionImpl).openwork!["getUploadedBlobId"](thisisablob), "Reupload should have no effect - we verify that by ensuring the databaseid is unchanged");
 
   const blobFromStream = await uploadBlob(new ReadableStream({ start(controller) { controller.enqueue(Buffer.from("this is a blob uploaded from a stream")); controller.close(); } }));
   test.eq("this is a blob uploaded from a stream", await blobFromStream.text());

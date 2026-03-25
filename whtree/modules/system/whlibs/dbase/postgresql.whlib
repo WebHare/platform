@@ -10,6 +10,8 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/map.whlib";
 LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
@@ -29,8 +31,6 @@ RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY ar
 MACRO __PGSQL_SETWORKOPEN(INTEGER trans, BOOLEAN workopen) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-STRING FUNCTION __PGSQL_GETBLOBINTERNALID(INTEGER trans, BLOB blb)  __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-MACRO __PGSQL_SETUPLOADEDBLOBINTERNALID(INTEGER transaction, BLOB blb, STRING blobid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETDEBUGSETTINGS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands, INTEGER commandtimeout) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
@@ -61,6 +61,9 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   /// Current command log
   RECORD ARRAY pvt_commandlog;
+
+  /// Blobs uploaded in this transactiopn
+  PUBLIC OBJECT __uploadedblobs;
 
   /// Whether to allow delaying errors (enables a speed win due to asynchronous processing)
   PUBLIC PROPERTY allowerrordelay(pvt_delayerrors, SetAllowErrorDelay);
@@ -130,11 +133,23 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   UPDATE PUBLIC MACRO DoRollbackWork()
   {
     SendPostgreSQLCommand(this->id, "ROLLBACK");
+    this->__uploadedblobs := DEFAULT OBJECT;
   }
 
   UPDATE RECORD ARRAY FUNCTION DoCommitWork()
   {
-    RETURN SendPostgreSQLCommand(this->id, "COMMIT");
+    RECORD ARRAY result := SendPostgreSQLCommand(this->id, "COMMIT");
+    IF(Length(result) = 0) { //no commit errors
+      IF(ObjectExists(this->__uploadedblobs)) { //give all uploaded blobs their disk path so they can be shared and directly accessed
+        STRING pgstoragepath := GetPGBlobStoragepath(); //will not end in a slash
+        FOR(OBJECT itr := this->__uploadedblobs->GetDangerousIteratorRange().range_begin; NOT itr->atend; itr->next()) {
+          IF(GetBlobDiskPath(itr->value.data) NOT LIKE pgstoragepath || "/*") //not in the database yet?
+            SetBlobDiskPath(itr->value.data, GetPGBlobDiskPath(itr->value.pgblobid));
+        }
+      }
+    }
+    this->__uploadedblobs := DEFAULT OBJECT;
+    RETURN result;
   }
 
   UPDATE PUBLIC MACRO Rollback()
@@ -854,33 +869,49 @@ PUBLIC MACRO __HandleRunCommand(INTEGER transid, RECORD command) __ATTRIBUTES__(
     @param data Blob to store
     @private This function is only called by C++ code, should not be used by user code
 */
-PUBLIC MACRO __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB data)
-{
-  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
+PUBLIC STRING FUNCTION __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB data) {
+  IF(Length(data) = 0)
+    THROW NEW Exception(`Cannot store empty blob`);
+
+  OBJECT trans := GetTransactionObjectByIdInternal(transaction);
+  OBJECT blobhandler := trans->pvt_blobhandler;
   IF (NOT ObjectExists(blobhandler))
     THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
 
-  STRING blobid := blobhandler->StoreBlob(data);
-  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
+  STRING hsblobid := GetBlobId(data);
+  IF(NOT ObjectExists(trans->__uploadedblobs))
+    trans->__uploadedblobs := NEW __Experimental_map(["hsblobid"], DEFAULT RECORD);
+
+  RECORD currentblob := trans->__uploadedblobs->GetVal(CELL[hsblobid]);
+  IF(RecordExists(currentblob)) //we've already uploaded it ?
+    RETURN currentblob.pgblobid;
+
+  STRING diskpath := GetBlobDiskPath(data);
+  IF(diskpath != "") {
+    STRING blobid := ExtractPGBlobIdFromDiskPath(diskpath);
+    IF(blobid != "")
+      RETURN blobid;
+  }
+
+  STRING pgblobid := blobhandler->StoreBlob(data);
+  trans->__uploadedblobs->SetVal(CELL [ hsblobid ], CELL [ pgblobid, data ]);
+  __PGSQL_EXEC(transaction, `INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))`, VARIANT[ pgblobid, Length64(data) ], INTEGER[], FALSE);
+
+  RETURN pgblobid;
 }
 
-/** Called when a blob isn't found by the builtin folder resolution, must return a registered blob
-    @param transaction Transaction id
-    @param blobid Blob ID
-    @param bloblength Length of the blob
-    @return Looked up blob
-*/
-PUBLIC BLOB FUNCTION __LookupWebharePostgreSQLBlob(INTEGER transaction, STRING blobid, INTEGER64 bloblength)
-{
-  OBJECT blobhandler := GetTransactionObjectByIdInternal(transaction)->pvt_blobhandler;
-  IF (NOT ObjectExists(blobhandler))
-    THROW NEW Exception(`No blob handler set in PostgreSQL transaction, cannot work with blobs`);
-  BLOB data := blobhandler->LookupBlob(blobid, bloblength);
-  __PGSQL_SETUPLOADEDBLOBINTERNALID(transaction, data, blobid);
-  RETURN data;
+PUBLIC STRING FUNCTION __GetPostgreSQLBlobRegistrationId(INTEGER trans, BLOB blb) {
+  RETURN ExtractPGBlobIdFromDiskPath(GetBlobDiskPath(blb));
 }
 
-PUBLIC STRING FUNCTION __GetPostgreSQLBlobRegistrationId(INTEGER trans, BLOB blb)
-{
-  RETURN __PGSQL_GETBLOBINTERNALID(trans, blb);
+// get id from uploadedblobs from current work - which may still be rolled back!
+PUBLIC STRING FUNCTION __GetUnsafeUploadedPostgreSQLBlobRegistrationId(INTEGER transaction, BLOB blb) {
+  OBJECT trans := GetTransactionObjectByIdInternal(transaction);
+  STRING hsblobid := GetBlobId(blb);
+  IF(ObjectExists(trans->__uploadedblobs)) {
+    RECORD currentblob := trans->__uploadedblobs->GetVal(CELL[hsblobid]);
+    IF(RecordExists(currentblob)) //we've already uploaded it ?
+      RETURN currentblob.pgblobid;
+  }
+  RETURN "";
 }

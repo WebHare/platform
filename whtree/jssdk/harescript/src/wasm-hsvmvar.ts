@@ -1,13 +1,11 @@
 import { Marshaller, type IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/src/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
+import type { HareScriptVM } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webhare/hscompat/src/datetime.ts";
 import { Money } from "@webhare/std";
-import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";
-import { WebHareBlob, WebHareDiskBlob } from "@webhare/services/src/webhareblob";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { ReadableStream } from "node:stream/web";
-import { getWHType } from "@webhare/std/src/quacks";
 
 function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
   if (from === to)
@@ -23,12 +21,14 @@ class HSVMBlob extends WebHareBlob {
   blob: HSVMHeapVar | null;
   offset: number;
   sliced: boolean;
+  hsBlobId: string;
 
-  constructor(blob: HSVMHeapVar, size: number, { type = "", offset }: { type: string; offset?: number } = { type: "" }) {
+  constructor(blob: HSVMHeapVar, size: number, { type = "", offset, hsBlobId }: { type?: string; offset?: number; hsBlobId?: string } = { type: "" }) {
     super(size, type);
     this.blob = blob;
     this.sliced = offset !== undefined;
     this.offset = offset ?? 0;
+    this.hsBlobId = hsBlobId || "";
   }
 
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
@@ -69,25 +69,12 @@ class HSVMBlob extends WebHareBlob {
     }
   }
 
-  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
-  getJSTag(): JSBlobTag {
+  setBlobPath(path: string): void {
     if (!this.blob)
       throw new Error(`This blob has already been closed`);
-    if (this.sliced)
-      return null;
 
-    return this.blob.vm.getBlobJSTag(this.blob.id);
-  }
-  setJSTag(tag: JSBlobTag) {
-    if (!this.blob)
-      throw new Error(`This blob has already been closed`);
-    if (!this.sliced)
-      this.blob.vm.setBlobJSTag(this.blob.id, tag);
-  }
-
-  __registerPGUpload(databaseid: string) {
-    if (this.blob && !this.sliced) //not closed yet
-      this.setJSTag({ pg: databaseid });
+    super.setBlobPath(path);
+    this.blob.vm.setBlobPath(this.blob.id, path);
   }
 
   slice(start?: number, end?: number, contentType?: string): HSVMBlob {
@@ -211,21 +198,30 @@ export class HSVMVar {
     if (size === 0)
       return WebHareBlob.from("");
 
-    const tag = this.vm.getBlobJSTag(this.id);
-    if (tag?.pg)
-      return createPGBlobByBlobRec(tag.pg, size);
+    const blobid_cstr = this.vm.wasmmodule._HSVM_BlobGetId(this.vm.hsvm, this.id);
+    if (!blobid_cstr)
+      throw new Error(`Should have gotten a blobid for any blob sized > 0`);
 
-    const diskpathVar = this.vm.wasmmodule._HSVM_BlobGetPath(this.vm.hsvm, this.id);
-    if (diskpathVar) {
-      const diskpath = new HSVMVar(this.vm, diskpathVar).getString();
-      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, diskpathVar);
-      return new WebHareDiskBlob(size, diskpath);
+    const blobid = this.vm.wasmmodule.UTF8ToString(blobid_cstr);
+    const existingBlob = this.vm.blobCache.get(blobid)?.deref();
+    if (existingBlob) {
+      // console.log("getBlob() Reusing cached blob object for id", this.id, "blobid", blobid, "size", size, existingBlob.size);
+      return existingBlob;
     }
 
     //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
     const cloneblob = this.vm.allocateVariable();
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
-    return new HSVMBlob(cloneblob, size);
+    const blob = new HSVMBlob(cloneblob, size, { hsBlobId: blobid });
+    this.vm.blobCache.set(blobid, new WeakRef(blob));
+    // console.log("Adding blob to cache with id", this.id, "blobid", blobid, "size", size);
+
+    //Copy any diskpath - but we should still return a HSVMBlob and not make a WebHareDiskBlob out of this to allow SetPath to be reflected back to the HSVM Blob
+    const diskpathVar = this.vm.wasmmodule._HSVM_BlobGetPath(this.vm.hsvm, this.id);
+    if (diskpathVar)
+      blob.setBlobPath(new HSVMVar(this.vm, diskpathVar).getString());
+
+    return blob;
   }
   setBlob(blob: WebHareBlob | null) {
     if (!blob || !blob.size) {
@@ -233,19 +229,14 @@ export class HSVMVar {
       return;
     }
 
-    const dbid = __getBlobDatabaseId(blob);
-    if (dbid) {
-      const fullpath = __getBlobDiskFilePath(dbid);
-      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
-      this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
-      this.vm.wasmmodule._free(fullpath_cstr);
-      this.vm.setBlobJSTag(this.id, { pg: dbid });
-      this.type = HareScriptType.Blob;
+    //Don't reconstruct HSVM Blobs, send the one we already have
+    if (blob instanceof HSVMBlob && blob.blob) {
+      this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, this.id, blob.blob.id);
       return;
     }
 
-    if (getWHType(blob) === "WebHareDiskBlob") { //TODO if postgres driver will also set path on an existing blob after uploading the above special case is unneeded
-      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8((blob as WebHareDiskBlob).path);
+    if (WebHareBlob.isWebHareBlob(blob) && blob.path) {
+      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(blob.path);
       this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
       this.vm.wasmmodule._free(fullpath_cstr);
       this.type = HareScriptType.Blob;
@@ -614,3 +605,5 @@ export class HSVMHeapVar extends HSVMVar {
     this.dispose();
   }
 }
+
+export type { HSVMBlob };
