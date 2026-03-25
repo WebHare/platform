@@ -63,7 +63,6 @@ export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: st
   tsOptions.configFilePath = tsConfigFile; //needed to make @types/... lookups independent of cwd
   tsOptions.noEmit = true;
   tsOptions.incremental = true;
-  tsOptions.allowJs = true;
   if (options?.tsBuildInfoFile)
     tsOptions.tsBuildInfoFile = options.tsBuildInfoFile;
 
