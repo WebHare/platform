@@ -1358,10 +1358,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
       }
     }
 
-    IF (RecordExists(webdesign))
-      webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
-
-    webdesign.js := webdesign.pagebuilder != "" OR webdesign.siteresponsefactory != "";
+    webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
+    webdesign.js := webdesign.pagebuilder != ""
+                    OR webdesign.siteresponsefactory != ""  //legacy 'pagebuilder'
+                    OR (webdesign.renderinfo.contentbuilder != "" AND webdesign.renderinfo.objectname = ""); //page only offers JS renderer, not HS
     RETURN webdesign;
   }
 

@@ -15,8 +15,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-MACRO TestWHFSType()
-{
+MACRO TestWHFSType() {
   RECORD htmlfile := DescribeContentTypeById(5);
   TestEq(TRUE, htmlfile.needstemplate);
   TestEq(TRUE, htmlfile.ispublishable);
@@ -102,8 +101,7 @@ MACRO TestWHFSType()
   TestEq(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops")->id, OpenWHFSType("webhare_testsuite:base_test.base_test_props")->id);
 }
 
-MACRO TestApplyRuleTester()
-{
+MACRO TestApplyRuleTester() {
   testfw->BeginWork();
 
   OBJECT tester := GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, TRUE, 20); //contentlink
@@ -156,6 +154,18 @@ MACRO TestApplyRuleTester()
   tester := GetApplyTesterForObject(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id);
   //yaml baseProps is allowed to reset most settings
   TestEqMembers([ description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
+
+  { //Check HS site
+    //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
+    RECORD redirinfo_js := GetSystemRedirectInfo(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage-override-js")->id);
+    TestEqMembers(CELL[ js := TRUE, success := TRUE ], redirinfo_js, "*");
+  }
+
+  { //Check JS site
+    //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
+    RECORD redirinfo := GetSystemRedirectInfo(OpenTestsuiteJSSite()->OpenByPath("testpages/dynamicpage-override-js")->id);
+    TestEqMembers(CELL[ js := TRUE, success := TRUE ], redirinfo, "*");
+  }
 }
 
 MACRO SiteSettingsTester()

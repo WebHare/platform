@@ -59,6 +59,16 @@ async function testBeforeSite() { //port of HS TestBeforeSite
   test.eq("applytest-megaglobal,in-system-folder,is-slots-folder", await getMyCustomNodesThroughYaml(aSlotsFolder));
   test.eq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", await getMyCustomNodesThroughYaml(aBeaconFolder));
   test.eq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", await getMyCustomNodesThroughYaml(subFile));
+
+  const dynamicOverrideJsTester = await getApplyTesterForObject(await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-override-js"));
+  test.eqPartial({
+    contentBuilder: "mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage",
+    dynamicExecution: { //verify all HS info is reset so we can't accidentally use it anywhere once a contentBuilder is discovered
+      routerfunction: "",
+      startmacro: "",
+      webpageobjectname: ""
+    }
+  }, await dynamicOverrideJsTester.getObjRenderInfo());
 }
 
 async function testSiteProfiles() {

@@ -155,13 +155,6 @@ STATIC OBJECTTYPE PublicationRun
     RECORD webdesign := applytester->GetWebDesignObjinfo();
     retval.webdesign := webdesign;
 
-    IF(RecordExists(webdesign.renderinfo) AND webdesign.renderinfo.contentbuilder != "" AND webdesign.renderinfo.objectname = "") { //If we're in HS but have no choice, we'll have TS run the page for us
-      retval.has_webdesign := TRUE;
-      retval.templatescript := "mod::publisher/scripts/internal/publishjsrenderer.whscr";
-      RETURN retval;
-    }
-
-    RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
     IF(ObjectExists(this->contentfiletype)
       AND (this->contentfiletype->isdynamicexecution
            OR this->contentfiletype->namespace = "http://www.webhare.net/xmlns/publisher/dynamicfoldercontents"
@@ -172,6 +165,13 @@ STATIC OBJECTTYPE PublicationRun
       RETURN retval;
     }
 
+    IF(RecordExists(webdesign.renderinfo) AND webdesign.renderinfo.contentbuilder != "" AND webdesign.renderinfo.objectname = "") { //If we're in HS but have no choice, we'll have TS run the page for us
+      retval.has_webdesign := TRUE;
+      retval.templatescript := "mod::publisher/scripts/internal/publishjsrenderer.whscr";
+      RETURN retval;
+    }
+
+    RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
     IF(NOT RecordExists(usetempl) OR usetempl.isdefault) //no explicit template, so try the old ways of determining templates
     {
       IF(ObjectExists(this->contentfiletype) AND this->contentfiletype->needstemplate)
