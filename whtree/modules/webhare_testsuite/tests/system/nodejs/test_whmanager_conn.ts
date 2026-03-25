@@ -1,50 +1,8 @@
 import * as test from "@webhare/test";
 import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, type WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
-import { readMarshalData, readMarshalPacket, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { readMarshalData, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getScriptName } from "@webhare/system-tools";
-import { toFSPath, WebHareBlob } from "@webhare/services";
-import { getWHType } from "@webhare/std/src/quacks";
-import { wellKnownHashes } from "@mod-webhare_testsuite/js/wts-backend";
-import { hashStream } from "@webhare/services/src/descriptor";
-import type { WebHareDiskBlob, WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 
-const snowBeaglePath = toFSPath("mod::system/web/tests/snowbeagle.jpg");
-
-async function checkBits(bits: unknown[], expectDisk: boolean) {
-  test.eq(123212, bits[0]);
-  test.eq(expectDisk ? "WebHareDiskBlob" : "WebHareMemoryBlob", getWHType(bits[1]));
-  test.eq(888, bits[2]);
-  test.eq("WebHareMemoryBlob", getWHType(bits[3]));
-  test.eq(777, bits[4]);
-  test.eq("WebHareMemoryBlob", getWHType(bits[5]));
-  test.eq(4567, bits[6]);
-
-  test.eq(wellKnownHashes.snowbeagleJPG, await hashStream((bits[1] as WebHareMemoryBlob).stream()));
-  test.eq(wellKnownHashes.emptyFile, await hashStream((bits[3] as WebHareMemoryBlob).stream()));
-  test.eq("x74e2QL7jdTUiZfGRS9dflCfvNvigIsWvPTtzkwH0U4", await hashStream((bits[5] as WebHareMemoryBlob).stream()));
-
-  if (expectDisk)
-    test.eq(snowBeaglePath, (bits[1] as WebHareDiskBlob).path);
-}
-
-async function testMarshalling() {
-  //sending an array to ensure the blob is in the middle of packets and we can verify trailing data properly encoding
-  const sendRec = { bits: [123212, await WebHareBlob.fromDisk(snowBeaglePath), 888, WebHareBlob.from(""), 777, WebHareBlob.from("This is a test"), 4567] };
-  const sendSimpleRec = { bits: [123212, 4567] };
-
-  const receivedData = readMarshalData(writeMarshalData(sendRec)) as any;
-  await checkBits(receivedData.bits, false);
-  test.eq(sendSimpleRec, readMarshalData(writeMarshalData(sendSimpleRec, { onlySimple: true })) as any);
-
-  const receivedPacket = readMarshalPacket(writeMarshalPacket(sendRec)) as any;
-  await checkBits(receivedPacket.bits, false);
-
-  const receivedDataWithBlobRef = readMarshalData(writeMarshalData(sendRec, { diskblobsByReference: true }), { diskblobsByReference: true }) as any;
-  await checkBits(receivedDataWithBlobRef.bits, true);
-
-  const receivedPacketWithBlobRef = readMarshalPacket(writeMarshalPacket(sendRec, { diskblobsByReference: true }), { diskblobsByReference: true }) as any;
-  await checkBits(receivedPacketWithBlobRef.bits, true);
-}
 
 async function testRPCs() {
   const conn = new WHManagerConnection;
@@ -261,7 +219,4 @@ async function testRPCs() {
   ref.release();
 }
 
-test.runTests([
-  testMarshalling,
-  testRPCs
-]);
+test.runTests([testRPCs]);

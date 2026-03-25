@@ -47,8 +47,17 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
           }
           case "WebHareDiskBlob": {
             //IPC can 't do diskblob:
+            //value = { "$ipcType": "WebHareDiskBlob", type: orgValue.type, path: orgValue.path, size: orgValue.size };
+
+            //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
             const blob = orgValue as WebHareDiskBlob;
-            return { "$ipcType": "WebHareDiskBlob", type: blob.type, path: blob.path, size: blob.size };
+            const value = { "$ipcType": "WebHareMemoryBlob", type: blob.type, data: undefined as ArrayBuffer | undefined }; //we'll modify this value when completing the promise
+            const promiseBuffer = blob.arrayBuffer().then((buffer) => {
+              value.data = buffer;
+              transferList.push(buffer);
+            });
+            promises.push(promiseBuffer);
+            return value;
           }
           default:
             throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);

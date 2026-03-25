@@ -181,7 +181,7 @@ void CodeLibraryWriter::AddGlobal(HareScript::WrappedLibrary &wrapper, HareScrip
 
                 unsigned len = marshaller.Analyze(c->var);
                 std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
-                marshaller.Write(c->var, constant.second, constant.second + len, nullptr);
+                marshaller.Write(c->var, constant.second, constant.second + len);
                 vardef.constantexprid = constant.first;
         }
         else
@@ -317,7 +317,7 @@ void CodeLibraryWriter::AddCodedFunctions(HareScript::WrappedLibrary &wrapper, H
                                 {
                                         unsigned len = marshaller.Analyze(it->constant.var);
                                         std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
-                                        marshaller.Write(it->constant.var, constant.second, constant.second + len, nullptr);
+                                        marshaller.Write(it->constant.var, constant.second, constant.second + len);
                                         pushdword(code, constant.first);
                                         CODEEMITPRINT("Pushed con " << constant.first);
                                 }
@@ -572,7 +572,7 @@ void CodeLibraryWriter::AddCodedFunctions(HareScript::WrappedLibrary &wrapper, H
 
                                                                 unsigned len = marshaller.Analyze(c->var);
                                                                 std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
-                                                                marshaller.Write(c->var, constant.second, constant.second + len, nullptr);
+                                                                marshaller.Write(c->var, constant.second, constant.second + len);
 
 //                                                                unsigned len = context.stackm.MarshalCalculateLength(c->var);
 //                                                                std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
@@ -654,7 +654,7 @@ void CodeLibraryWriter::AddCodedFunctions(HareScript::WrappedLibrary &wrapper, H
 
                                 unsigned len = marshaller.Analyze(c->var);
                                 std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
-                                marshaller.Write(c->var, constant.second, constant.second + len, nullptr);
+                                marshaller.Write(c->var, constant.second, constant.second + len);
 //                                unsigned len = context.stackm.MarshalCalculateLength(c->var);
 //                                std::pair<int32_t, uint8_t*> constant = wrapper.SetConstantBuffer(len);
 //                                context.stackm.MarshalWrite(c->var, constant.second);

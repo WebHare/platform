@@ -64,6 +64,11 @@ struct ObjectMarshalData
         ObjectMarshalData& operator=(ObjectMarshalData const &) = delete;
 };
 
+enum class BlobDataType {
+    Blob,
+    DiskPath,
+};
+
 class Marshaller;
 
 /** Class for extended marshalling (marshalling with blobs and objects)
@@ -71,7 +76,6 @@ class Marshaller;
 class BLEXLIB_PUBLIC MarshalPacket
 {
     public:
-        MarshalPacket();
         ~MarshalPacket();
 
         /// Returns whether any objects are present
@@ -101,8 +105,6 @@ class BLEXLIB_PUBLIC MarshalPacket
 
         struct SizeData
         {
-                SizeData(): datasize(0), blobsize(0), diskblobsize(0), objects(0) {}
-
                 uint64_t datasize;
                 uint64_t blobsize;
                 uint64_t diskblobsize;
@@ -125,13 +127,11 @@ class BLEXLIB_PUBLIC MarshalPacket
 
             public:
                 BlobData() = default;
+                BlobDataType type = BlobDataType::Blob;
                 std::shared_ptr< GlobalBlob > blob;
                 std::string diskpath;
                 Blex::FileOffset length;
         };
-
-        /// Size of all disk blobs
-        uint64_t diskblobsize;
 
         /** List of blobs referenced in the data
         */
@@ -162,7 +162,6 @@ class MarshallerLibraryColumnEncoderItf
         virtual uint32_t EncodeColumn(ColumnNameId nameid) = 0;
 };
 
-typedef MarshalPacket::SizeData MarshalStats;
 
 class BLEXLIB_PUBLIC Marshaller
 {
@@ -180,6 +179,8 @@ class BLEXLIB_PUBLIC Marshaller
         bool diskblobs_by_reference;
 
         Blex::FileOffset data_size;
+        unsigned blobcount;
+        bool largeblobs;
         Blex::PodVector< ColumnNameId > columns;
         Blex::PodVector< Blex::StringPair > strings;
         std::unique_ptr< std::unordered_map< ColumnNameId, unsigned > > columnmap;
@@ -207,7 +208,7 @@ class BLEXLIB_PUBLIC Marshaller
         /** Write out the raw marshalling data to a datastore
             Calculate the size needed with Analyze
         */
-        void Write(VarId var, uint8_t *begin, uint8_t *limit, MarshalStats *stats);
+        void Write(VarId var, uint8_t *begin, uint8_t *limit);
 
         /** Writes the marshalling data to a vector (equivalent to an Analyze,
             vector resize and a Write
@@ -257,10 +258,10 @@ class BLEXLIB_PUBLIC Marshaller
 
         Blex::FileOffset CalculateVarLength(VarId var, bool to_packet, VariableTypes::Type type);
 
-        void WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, MarshalPacket *packet, MarshalStats *stats);
+        void WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, MarshalPacket *packet);
 
         VariableTypes::Type DetermineType(VarId var);
-        uint8_t* MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type, MarshalStats *stats);
+        uint8_t* MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type);
         uint8_t const * MarshalReadInternal(VarId var, VariableTypes::Type type, uint8_t const *ptr, size_t remainingsize, Blex::PodVector< ColumnNameId > const &nameids, MarshalPacket *packet);
         void ReadInternal(VarId var, uint8_t const *begin, uint8_t const *limit, MarshalPacket *packet);
         void ReadColumnData(uint8_t const **ptr, size_t *size, Blex::PodVector< ColumnNameId > *nameids);

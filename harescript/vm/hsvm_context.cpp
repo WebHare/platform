@@ -119,12 +119,8 @@ VirtualMachine::VirtualMachine(VMGroup *group, Environment &librarian, Blex::Con
 , environment(librarian)
 , var_marshaller(this, MarshalMode::DataOnly)
 , param_marshaller(this, MarshalMode::DataOnly)
-, ipc_marshaller(this, MarshalMode::All, true)
-#ifdef __EMSCRIPTEN__
-, cache_marshaller(this, MarshalMode::DataOnly, true) //not going to store Objects
-#else
+, ipc_marshaller(this, MarshalMode::All)
 , cache_marshaller(this, MarshalMode::AllClonable, true)
-#endif
 , authrec_marshaller(this, MarshalMode::DataOnly)
 , event_marshaller(this, MarshalMode::SimpleOnly)
 , sqlsupport(this)
