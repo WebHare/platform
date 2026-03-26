@@ -159,12 +159,16 @@ MACRO TestApplyRuleTester() {
     //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
     RECORD redirinfo_js := GetSystemRedirectInfo(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage-override-js")->id);
     TestEqMembers(CELL[ js := TRUE, success := TRUE ], redirinfo_js, "*");
+
+    //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
+    RECORD redirinfo_hs := GetSystemRedirectInfo(OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage-override-hs")->id);
+    TestEqMembers(CELL[ js := FALSE, success := TRUE, webpageobjectname := "mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#DynamicPageOverride" ], redirinfo_hs, "*");
   }
 
   { //Check JS site
     //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine
-    RECORD redirinfo := GetSystemRedirectInfo(OpenTestsuiteJSSite()->OpenByPath("testpages/dynamicpage-override-js")->id);
-    TestEqMembers(CELL[ js := TRUE, success := TRUE ], redirinfo, "*");
+    RECORD redirinfo_js := GetSystemRedirectInfo(OpenTestsuiteJSSite()->OpenByPath("testpages/dynamicpage-override-js")->id);
+    TestEqMembers(CELL[ js := TRUE, success := TRUE ], redirinfo_js, "*");
   }
 }
 

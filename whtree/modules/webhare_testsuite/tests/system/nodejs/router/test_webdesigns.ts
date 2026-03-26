@@ -154,6 +154,22 @@ async function testDynamicPage() {
       test.eq([`<p>renderDynamicPage(echo = 12378)</p>`], response.contentElements, dynamicPage.link + "?echo=12378");
     }
   }
+
+  //Verify TestPages/dynamicpage-override-hs/ is indeed being handled by its new handler (but still a HS one)
+  {
+    { //HS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-hs");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+    { //JS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-hs");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+  }
 }
 
 async function testPageResponseApplies() {

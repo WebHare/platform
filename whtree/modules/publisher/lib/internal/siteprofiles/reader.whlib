@@ -635,6 +635,13 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
         RETURN CELL[ js, success := FALSE, error := "Unable to retrieve dynamic execution settings for #" || executiontester->__Deprecated_GetObjInfo().obj.id || " - no apply rule with <dynamicexecution> matched" ];
     }
 
+    IF(webdesign.renderinfo.overridden) {
+      //override only alows to set the webpageobjectname (throug <bodyrenderer)
+      result.dyn.webpageobjectname := webdesign.renderinfo.objectname;
+      result.dyn.routerfunction := "";
+      result.dyn.startmacro := "";
+    }
+
     settings := result.dyn;
     //both webdesign and a dynamicpage setting contentBuilder trigger JS rendering
     js := js OR result.js;
@@ -1319,8 +1326,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN rtddoc.rtdtype != "" ? rtddoc : DEFAULT RECORD;
   }
 
-  PUBLIC RECORD FUNCTION GetWebDesignObjinfo()
-  {
+  PUBLIC RECORD FUNCTION GetWebDesignObjinfo() {
     RECORD webdesign := GetDefaultWebDesignInfo();
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("WEBDESIGN"))
@@ -1365,19 +1371,20 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN webdesign;
   }
 
-  PUBLIC RECORD FUNCTION GetObjRenderInfo()
-  {
+  PUBLIC RECORD FUNCTION GetObjRenderInfo() {
     RECORD typerec := this->GetTypeRecordData();
     RECORD bodyrenderer := CELL[  //default rendering settings from publisher.siteprl.xml
       objectname := "mod::publisher/lib/webdesign.whlib#StaticPageBase",
       capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths,
-      contentbuilder := ""
+      contentbuilder := "",
+      overridden := FALSE
     ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
       IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.contentbuilder != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
         bodyrenderer.contentbuilder := apply.bodyrenderer.contentbuilder;
+        bodyrenderer.overridden := TRUE;
       }
 
     RETURN bodyrenderer;

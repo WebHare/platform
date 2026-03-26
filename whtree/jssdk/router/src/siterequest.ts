@@ -228,13 +228,23 @@ export class CPageRequest {
       return renderer;
     }
 
+    if (renderinfo.dynamicExecution) {
+      let dynexec = renderinfo.dynamicExecution;
+      if (renderinfo.hsPageObjectType) { // looks like a <bodyrenderer override over a <dynamicexecution
+        dynexec = {
+          ...dynexec,
+          webpageobjectname: renderinfo.hsPageObjectType, // in this case we want to run the dynamic execution but with the HS page object specified in the bodyrenderer
+          startmacro: "",
+          routerfunction: "",
+        };
+      }
+      return (request: ContentPageRequest) => runHareScriptPage(request, { dynamicExecution: dynexec });
+    }
+
     if (renderinfo.hsPageObjectType) {
       return (request: ContentPageRequest) => runHareScriptPage(request, { hsPageObjectType: renderinfo.hsPageObjectType });
     }
 
-    if (renderinfo.dynamicExecution) {
-      return (request: ContentPageRequest) => runHareScriptPage(request, { dynamicExecution: renderinfo.dynamicExecution! });
-    }
 
     const typeInfo = await describeWHFSType(this._contentApplyTester.type);
     if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
