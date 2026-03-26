@@ -8,9 +8,16 @@
 #include <blex/logfile.h>
 #include <harescript/vm/hsvm_events.h>
 
+#ifdef __clang__
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wnontrivial-memcall"
+#endif
 #include <rapidjson/document.h>
 #include <rapidjson/pointer.h>
 #include <rapidjson/error/en.h>
+#ifdef __clang__
+  #pragma clang diagnostic pop
+#endif
 
 #include <iostream>
 
