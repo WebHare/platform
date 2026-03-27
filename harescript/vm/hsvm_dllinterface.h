@@ -1489,28 +1489,6 @@ template < class ContextData, unsigned contextid > class HSVM_RegisteredContext
         };
 };
 
-
-
-///** Writes the marshal-representation to a vector. The vector is automatically
-//    resize to the size of the representation.
-//    @param vm Virtual Machine in which the variable exists
-//    @param var Variable to calculate the marshal-representation of
-//    @param dest Pointer of vector to write to */
-//inline void HSVM_MarshalToVector(struct HSVM *vm, HSVM_VariableId var, std::vector< uint8_t > *dest)
-//{
-//        dest->resize(HSVM_MarshalCalculateLength(vm, var));
-//        HSVM_MarshalWrite(vm, var, &(*dest)[0]);
-//}
-
-///** Reads the marshal-representation from a vector.
-//    @param vm Virtual Machine in which the variable exists
-//    @param var Variable to read in
-//    @param dest Pointer of vector to read from */
-//inline void HSVM_MarshalFromVector(struct HSVM *vm, HSVM_VariableId var, std::vector< uint8_t > const &src)
-//{
-//        HSVM_MarshalRead(vm, var, &src[0]);
-//}
-
 #endif  /* __cplusplus */
 
 #endif /* Sentry */

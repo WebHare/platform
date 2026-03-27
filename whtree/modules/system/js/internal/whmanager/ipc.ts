@@ -313,7 +313,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     if (this.closed)
       return BigInt(0);
     const msgid = ++this.msgidcounter;
-    const packet = writeMarshalPacket(message);
+    const packet = writeMarshalPacket(message, { withDiskPaths: true });
     // Copy the packet data into a new ArrayBuffer we can transfer over the MessagePort
     const buffer = bufferToArrayBuffer(packet);
     this.sendPortMessage({

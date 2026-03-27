@@ -1287,7 +1287,7 @@ export function getHareScriptResourceDescriptor(value: ResourceDescriptor) {
     refpoint: value.refPoint || null,
     dominantcolor: value.dominantColor || 'transparent',
     filename: value.fileName,
-    data: value.resource,
+    data: value.file,
     source_fsobject: value.sourceFile || 0,
     __blobsource: value.dbLoc?.source === 3 ? "w" + value.dbLoc?.id
       : value.dbLoc?.source === 2 ? "s" + value.dbLoc?.id

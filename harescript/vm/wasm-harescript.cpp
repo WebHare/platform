@@ -452,6 +452,35 @@ bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library,
         return true;
 }
 
+const void * EMSCRIPTEN_KEEPALIVE WriteMarshalPacket(HSVM *vm, HSVM_VariableId var, bool allow_disk_paths, emscripten::EM_VAL stats_handle) {
+        auto hsvm = HareScript::GetVirtualMachine(vm);
+
+        std::unique_ptr<HareScript::MarshalPacket> packet(hsvm->cache_marshaller.WriteToNewPacket(var));
+        HareScript::MarshalPacket::PacketSizeData stats;
+        const void *ptr = packet->WriteToNewBuffer(&hsvm->GetBlobManager(), allow_disk_paths, &stats).first;
+
+        auto statsvar = emscripten::val::take_ownership(stats_handle);
+
+        statsvar.set("totalsize", stats.totalsize);
+        statsvar.set("datasize", stats.datasize);
+        statsvar.set("blobsectionsize", stats.blobsectionsize);
+        statsvar.set("blobsize", stats.blobsize);
+        statsvar.set("diskblobsize", stats.diskblobsize);
+        statsvar.set("diskblobcount", stats.diskblobcount);
+        statsvar.set("objects", stats.objects);
+        statsvar.set("with_diskpaths", stats.with_diskpaths);
+        return ptr;
+}
+
+void EMSCRIPTEN_KEEPALIVE ReadMarshalPacket(HSVM *vm, HSVM_VariableId var, uint8_t *start, uint8_t *end) {
+        auto hsvm = HareScript::GetVirtualMachine(vm);
+        std::unique_ptr<HareScript::MarshalPacket> packet(new HareScript::MarshalPacket);
+        packet->Read(start, end, &hsvm->GetBlobManager());
+
+        hsvm->cache_marshaller.ReadMarshalPacket(var, &packet);
+}
+
+
 bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector)
 {
         HareScript::OutputObject *collector = eventcollector != 0 ? HareScript::GetVirtualMachine(hsvm)->GetOutputObject(eventcollector, false) : nullptr;

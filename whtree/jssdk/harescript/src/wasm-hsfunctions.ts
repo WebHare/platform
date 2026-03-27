@@ -1304,7 +1304,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
           const dataView = vm.wasmmodule.HEAPU8.subarray(dataPtr, dataPtr + sharedBufferView.length);
           dataView.set(sharedBufferView);
           const var_value = id_set.ensureCell("value");
-          vm.wasmmodule._HSVM_MarshalRead(vm.hsvm, var_value.id, dataPtr, dataPtr + sharedBufferView.length);
+          vm.wasmmodule._ReadMarshalPacket(vm.hsvm, var_value.id, dataPtr, dataPtr + sharedBufferView.length);
         } finally {
           vm.wasmmodule._free(dataPtr);
         }
@@ -1336,19 +1336,40 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       const hash = Buffer.from(vm.wasmmodule.HEAPU8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
 
       try {
-        const len = vm.wasmmodule._HSVM_MarshalCalculateLength(vm.hsvm, var_data.id);
-        if (!len)
+        const stats = {
+          totalsize: 0n,
+          datasize: 0n,
+          blobsectionsize: 0n,
+          blobsize: 0n,
+          diskblobsize: 0n,
+          diskblobcount: 0n,
+          objects: 0n,
+          with_diskpaths: false,
+        };
+
+        dataPtr = vm.wasmmodule._WriteMarshalPacket(vm.hsvm, var_data.id, 1, vm.wasmmodule.Emval.toHandle(stats));
+        if (!dataPtr)
           throw new Error(`Data is not marshallable`);
 
-        dataPtr = vm.wasmmodule._malloc(len);
-        vm.wasmmodule._HSVM_MarshalWrite(vm.hsvm, var_data.id, dataPtr, dataPtr + len);
+        const len = Number(stats.totalsize);
         const dataView = vm.wasmmodule.HEAPU8.slice(dataPtr, dataPtr + len);
 
         const sharedBuffer = new SharedArrayBuffer(len);
         const sharedBufferView = new Uint8Array(sharedBuffer);
         sharedBufferView.set(dataView);
 
-        await service.setItem(libraryUri, libraryModDate, hash, var_expires.getDateTime(), var_eventmasks.getJSValue() as string[], sharedBuffer);
+        let expires = var_expires.getDateTime();
+        if (stats.with_diskpaths) { //clamp to 1 hour if we reference files on disk, safer given eg. DB blob cleanups
+          const maxExpires = new Date(Date.now() + 60 * 60 * 1000);
+          if (expires > maxExpires)
+            expires = maxExpires;
+        }
+
+        await service.setItem(libraryUri, libraryModDate, hash, expires, var_eventmasks.getJSValue() as string[], sharedBuffer, {
+          blobSize: Number(stats.blobsize),
+          dataSize: Number(stats.datasize),
+          diskBlobSize: Number(stats.diskblobsize),
+        });
       } catch (e) {
         if (debugFlags.ahc)
           console.error(`Setting adhoccache item from ${JSON.stringify(libraryUri ?? "unknown library")} failed:`, (e as Error).message);
@@ -1371,6 +1392,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
 
     id_set.setJSValue(await service.getStats());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__SYSTEM_GETADHOCCACHEITEMMETADATA::R:", async (vm, id_set) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+    id_set.setJSValue({ items: await service.getItems() });
   });
 
   wasmmodule.registerAsyncExternalFunction("__GETGEOIPCITYBYIP:SYSTEM_GEOIP:R:S", async (vm, id_set, var_ip) => {

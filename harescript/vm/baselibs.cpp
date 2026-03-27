@@ -2129,7 +2129,7 @@ void MarshalPacketWriteTo(VirtualMachine *vm)
 
         Marshaller marshaller(vm, MarshalMode::All);
         std::unique_ptr< MarshalPacket > packet(marshaller.WriteToNewPacket(HSVM_Arg(1)));
-        packet->WriteToPodVector(&data, &vm->blobmanager);
+        packet->WriteToPodVector(&data, &vm->blobmanager, false, nullptr);
 
         size_t size = data.size();
         if (size)

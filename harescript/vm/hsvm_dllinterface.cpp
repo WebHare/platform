@@ -2367,7 +2367,7 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         START_CATCH_VMEXCEPTIONS
         try
         {
-                size = VM.var_marshaller.Analyze(var);
+                size = VM.cache_marshaller.Analyze(var);
         }
         catch (HareScript::VMRuntimeError &e)
         {
@@ -2380,14 +2380,14 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
 void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Write(var, ptr, limit);
+        VM.cache_marshaller.Write(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 
 void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr, uint8_t const *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        VM.var_marshaller.Read(var, ptr, limit);
+        VM.cache_marshaller.Read(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 

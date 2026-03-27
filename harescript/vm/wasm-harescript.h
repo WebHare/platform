@@ -42,6 +42,10 @@ emscripten::EM_VAL EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, bool 
 
 bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library, uint64_t *modtime, HSVM_VariableId cachetag, const char **store_hash);
 
+const void * EMSCRIPTEN_KEEPALIVE WriteMarshalPacket(HSVM *vm, HSVM_VariableId var, bool allow_disk_paths, emscripten::EM_VAL stats_handle);
+
+void EMSCRIPTEN_KEEPALIVE ReadMarshalPacket(HSVM *vm, HSVM_VariableId var, uint8_t *start, uint8_t *end);
+
 bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector);
 
 const char * EMSCRIPTEN_KEEPALIVE GetVMStackTrace(HSVM *hsvm);

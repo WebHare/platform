@@ -67,6 +67,13 @@ export abstract class WebHareBlob implements Blob {
     }
   }
 
+  /** Create a WebHare blob from a file on disk, given path and length, without checking if the file exists */
+  static fromDiskUnchecked(path: string, len: number): WebHareBlob {
+    if (!isAbsolute(path))
+      throw new Error(`Not an absolute path: '${path}'`);
+    return new WebHareDiskBlob(len, path);
+  }
+
   ///Get the size of this blob in bytes
   get size(): number {
     return this._size;

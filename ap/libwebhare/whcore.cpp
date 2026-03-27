@@ -840,7 +840,7 @@ bool ManagerConnection::HandleExtLinkMessage(Blex::PipeWaiter &waiter, ExtLinkDa
                             blobmgr = &lock->jobmgr->GetBlobManager();
                 }
 
-                msg.data->WriteToPodVector(&msgdata, blobmgr);
+                msg.data->WriteToPodVector(&msgdata, blobmgr, true, nullptr);
         }
         catch (HareScript::VMRuntimeError &e)
         {
@@ -1427,7 +1427,7 @@ void ManagerConnection::CreateException(std::string const &what, Blex::PodVector
             }
 
             std::unique_ptr< MarshalPacket > packet(marshaller.WriteToNewPacket(composevar));
-            packet->WriteToPodVector(msgdata, blobmgr);
+            packet->WriteToPodVector(msgdata, blobmgr, false, nullptr);
 }
 
 void ManagerConnection::SendRegisterPortRPC(ControlLinkData &linkdata, uint64_t msgid, std::string const &port, bool isregister, bool need_unregister_response)

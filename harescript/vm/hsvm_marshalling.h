@@ -93,10 +93,27 @@ class BLEXLIB_PUBLIC MarshalPacket
         */
         bool TryClone(std::unique_ptr< MarshalPacket > *copy) const;
 
+        struct PacketSizeData
+        {
+                uint64_t datasize;
+                uint64_t blobsectionsize;
+                uint64_t objects;
+                uint64_t blobsize;
+                uint64_t diskblobsize;
+                uint64_t diskblobcount;
+                uint64_t totalsize;
+                bool with_diskpaths;
+        };
+
         /** Stores raw data (throws if objects or blobs are present)
             @param target
         */
-        void WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr) const;
+        void WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr, bool allow_diskpaths, PacketSizeData *stats) const;
+
+        /** Stores raw data (throws if objects or blobs are present)
+            @param target
+        */
+        std::pair<uint8_t*, uint64_t> WriteToNewBuffer(GlobalBlobManager *blobmgr, bool allow_diskpaths, PacketSizeData *stats) const;
 
         /** Reads raw data
             @param target
@@ -149,6 +166,15 @@ class BLEXLIB_PUBLIC MarshalPacket
         */
         Blex::PodVector< uint8_t > data;
 
+        PacketSizeData CalculateSize(GlobalBlobManager *blobmgr, bool allow_diskpaths) const;
+
+        /** Stores raw data (throws if objects or blobs are present)
+            @param blobmgr Global blob manager
+            @param allow_diskpaths Whether to allow disk paths
+            @return Number of bytes written
+        */
+        std::pair<uint8_t*, uint64_t> Write(GlobalBlobManager *blobmgr, bool allow_diskpaths, std::function<uint8_t * (uint64_t)> get_buffer, PacketSizeData *stats) const;
+
         friend class Marshaller;
 };
 
@@ -175,9 +201,6 @@ class BLEXLIB_PUBLIC Marshaller
         /// Marshalling mode
         MarshalMode::Type mode;
 
-        /// Send diskblobs by reference (filepath) instead of copying data
-        bool diskblobs_by_reference;
-
         Blex::FileOffset data_size;
         unsigned blobcount;
         bool largeblobs;
@@ -198,7 +221,7 @@ class BLEXLIB_PUBLIC Marshaller
         std::map<VarId, VarId> objectmarshaldata;
 
     public:
-        Marshaller(VirtualMachine *vm, MarshalMode::Type mode, bool diskblobs_by_reference = false);
+        Marshaller(VirtualMachine *vm, MarshalMode::Type mode);
         Marshaller(StackMachine &stackm, MarshalMode::Type mode);
         ~Marshaller();
 
