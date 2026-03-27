@@ -24,7 +24,7 @@ instances:
               network: youtube
               playratio: 1.7777777777777777
               thumbnail:
-                data:
+                file:
                   resource: mod::system/web/tests/snowbeagle.jpg
                 extension: .jpg
                 mediaType: image/jpeg

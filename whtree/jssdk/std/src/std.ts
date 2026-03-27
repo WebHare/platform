@@ -30,7 +30,7 @@ export { LocalMutex, type LocalLock } from "./localmutex";
  * @returns This function never returns
  * @throws An error with the specified message
  */
-export function throwError(err: string): never {
+export function throwError(err: Error | string): never {
   //TODO remove ourselves from the stack ?
-  throw new Error(err);
+  throw err instanceof Error ? err : new Error(err);
 }

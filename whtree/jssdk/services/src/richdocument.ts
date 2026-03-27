@@ -9,6 +9,7 @@ import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescr
 import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
 import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools/src/utility-types";
 import { dbLoc } from "./symbols";
+import { SetDataError } from "./codec-support";
 
 /* Due to the recursive nature of the RTD types, the recursive parts of exportable and buildable RTD types
     are defined separately, so TypeScript can verify that the export type is assignable to the build type,
@@ -649,7 +650,15 @@ export async function buildInstance<
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
 
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true }), data[dbLoc] ?? null) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
+  let imported;
+  try {
+    imported = await importData(typeinfo.members, data.data || {}, { ...options, addMissingMembers: true });
+  } catch (err) {
+    if (err instanceof SetDataError)
+      err.prependToPath("data");
+    throw err;
+  }
+  return new Instance(typeinfo, imported, data[dbLoc] ?? null) as [Type] extends [WHFSTypeName] ? TypedInstance<NoInfer<Type>> : Instance;
 }
 
 /** @deprecated use buildInstance */

@@ -147,6 +147,20 @@ async function testWHFSAPI() {
   );
   test.assert(newFolderCreated.status === 201, `Expected 201 on folder creation, got ${newFolderCreated.status}`);
 
+  // Send invalid metadata (replace 'file' with 'data', the 5.9 style to send a resource)
+  const breakSimpleTestDoc = structuredClone(simpleTestDoc);
+  const breakWidget = (breakSimpleTestDoc as any).instances.find((_: any) => _.whfsType === "platform:filetypes.richdocument")?.data.data[1].widget.data;
+  test.assert("file" in breakWidget.thumbnail);
+  breakWidget.thumbnail.data = breakWidget.thumbnail.file;
+  delete breakWidget.thumbnail.file;
+  const brokenFilePathCreated = await api.post("/whfs/object",
+    {
+      ...breakSimpleTestDoc,
+      name: "newfile"
+    }, { params: { path: tempPath + "/newfolder" } },
+  );
+  test.assert(brokenFilePathCreated.status === 400, `Expected 400 on badfile creation, got ${brokenFilePathCreated.status}`);
+
   // Create a new file using simpledoc
   const newFilePathCreated = await api.post("/whfs/object",
     {
@@ -160,6 +174,25 @@ async function testWHFSAPI() {
 
   // Update file content
   const fish = readFileSync(toFSPath("mod::system/web/tests/goudvis.png"));
+  const badUpdateResult = await api.patch("/whfs/object", {
+    instances: [
+      {
+        whfsType: 'platform:virtual.objectdata',
+        data: { title: "An updated title" }
+      }, {
+        whfsType: "webhare_testsuite:global.generic_test_type",
+        data: {
+          blubImg: { data: { base64: fish.toString('base64') }, fileName: "goudvis.png" } //'data' is incorrect here
+        }
+      }
+    ]
+  }, { params: { path: newFilePath } });
+  test.assert(badUpdateResult.status === 400, `Expected 400 on enabling publish, got ${badUpdateResult.status}`);
+  test.eq({
+    status: 400,
+    error: /must have a 'file' property.*at instances\[1\].data.blubImg/
+  }, badUpdateResult.body);
+
   const publishNewFileResult = await api.patch("/whfs/object", {
     instances: [
       {
@@ -169,7 +202,7 @@ async function testWHFSAPI() {
         whfsType: "webhare_testsuite:global.generic_test_type",
         data: {
           myWhfsRefArray: [`whfs::${tempPath}`],
-          blubImg: { data: { base64: fish.toString('base64') }, fileName: "goudvis.png" }
+          blubImg: { file: { base64: fish.toString('base64') }, fileName: "goudvis.png" }
         }
       }
     ]

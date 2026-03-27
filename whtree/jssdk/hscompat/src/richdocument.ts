@@ -107,7 +107,7 @@ export function importHSResourceDescriptor(resource: HareScriptResourceDescripto
 function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: string): HareScriptRTD["embedded"][number] {
   return {
     dominantcolor: resource.dominantColor || '',
-    data: resource.resource,
+    data: resource.file,
     filename: contentid,
     mimetype: resource.mediaType,
     extension: resource.extension ?? throwError("ResourceDescriptor must have an extension set"),
@@ -324,7 +324,7 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
       continue;
 
     const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, inst.data);
-    const widget = await buildInstance({ whfsType: inst.data.whfstype, data: setdata });
+    const widget = await buildInstance({ whfsType: inst.data.whfstype, data: setdata }, { sourceIsHareScript: true });
     cdoc.instances.set(inst.instanceid, widget);
   }
 
