@@ -639,15 +639,23 @@ export class WHFSApplyTester {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
       if (baseinfo.dynamicExecution.contentbuilder)
         baseinfo.contentBuilder = baseinfo.dynamicExecution.contentbuilder;
-
-      //TODO how to find the TS Page Renderer? are there overrides?
-      return baseinfo;
     }
 
     for (const apply of await this.getMatchingRules('bodyrenderer')) {
       baseinfo.contentBuilder = apply.bodyrenderer.contentbuilder || "";
       baseinfo.hsPageObjectType = apply.bodyrenderer.objectname || "";
     }
+
+    if (baseinfo.contentBuilder && baseinfo.dynamicExecution) {
+      //Clear HS run info - just to be sure
+      baseinfo.dynamicExecution = {
+        ...baseinfo.dynamicExecution,
+        webpageobjectname: "",
+        routerfunction: "",
+        startmacro: ""
+      };
+    }
+
     return baseinfo;
   }
 

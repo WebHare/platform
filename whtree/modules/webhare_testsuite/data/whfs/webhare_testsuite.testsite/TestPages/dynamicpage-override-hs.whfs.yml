@@ -1,0 +1,10 @@
+# We override the dynamicexecution for this page in mod::webhare_testsuite/data/wts-filetypes.siteprl.yml to use mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#DynamicPageOverride
+type: http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: ""
+      description: ""
+      order: 0
+      keywords: ""
+      publish: true

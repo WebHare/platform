@@ -27,3 +27,13 @@ apply:
     setWidget:
       "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
         widgetBuilder: mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderWidgetBlock
+  - to:
+      type: http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage
+      whfsPath: "*/dynamicpage-override-js"
+    bodyRenderer:
+      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
+  - to:
+      type: http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage
+      whfsPath: "*/dynamicpage-override-hs"
+    bodyRenderer:
+      objectName: mod::webhare_testsuite/webdesigns/basetest/pages/basetestpages.whlib#DynamicPageOverride

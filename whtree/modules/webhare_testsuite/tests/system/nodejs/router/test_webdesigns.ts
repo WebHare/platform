@@ -132,10 +132,44 @@ async function testPageResponse() {
 }
 
 async function testDynamicPage() {
-  const dynamicpage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-js");
-  const fetchResult = await fetch(dynamicpage.link + "?echo=1234");
-  const response = parseResponse(await fetchResult.text());
-  test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+  {
+    const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-js");
+    const fetchResult = await fetch(dynamicPage.link + "?echo=1234");
+    const response = parseResponse(await fetchResult.text());
+    test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+  }
+
+  //Verify TestPages/dynamicpage-override-js/ is indeed being handled by JS (it's a SHTML page but being overridden using siteprofiles)
+  {
+    { //HS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-js");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<p>renderDynamicPage(echo = 12378)</p>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+    { //JS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<p>renderDynamicPage(echo = 12378)</p>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+  }
+
+  //Verify TestPages/dynamicpage-override-hs/ is indeed being handled by its new handler (but still a HS one)
+  {
+    { //HS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-hs");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+    { //JS site
+      const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-hs");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const response = parseResponse(await fetchResult.text());
+      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+    }
+  }
 }
 
 async function testPageResponseApplies() {
@@ -284,8 +318,6 @@ async function testRouter_JSWebDesign() {
   const result = await coreWebHareRouter(port, new IncomingWebRequest(markdowndoc.link!, { clientIp }), localAddress);
 
   await verifyMarkdownResponse(markdowndoc, result);
-
-
 }
 
 test.runTests([
