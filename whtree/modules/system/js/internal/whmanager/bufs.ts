@@ -116,14 +116,14 @@ export class LinearBufferWriter {
       throw new Error(`Attempted to write a non-integer or out-of-range number to a 64bit integer buffer: ${value}`);
     this.writeS64(BigInt(value));
   }
-  writeU64(value: bigint | number): void {
+  writeU64(value: bigint): void {
     this.ensureRoom(8);
-    this.buffer.writeBigUInt64LE(BigInt(value), this.writepos);
+    this.buffer.writeBigUInt64LE(value, this.writepos);
     this.writepos += 8;
   }
-  writeS64(value: bigint | number): void {
+  writeS64(value: bigint): void {
     this.ensureRoom(8);
-    this.buffer.writeBigInt64LE(BigInt(value), this.writepos);
+    this.buffer.writeBigInt64LE(value, this.writepos);
     this.writepos += 8;
   }
   writeDouble(value: number): void {

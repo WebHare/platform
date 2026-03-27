@@ -16,7 +16,8 @@ namespace HareScript
 static uint32_t const MarshalFormatType = 2;
 static uint32_t const MarshalPacketFormatType = 3;
 static uint32_t const MarshalLibraryFormatType = 4;
-static uint32_t const MarshalPacketHeaderType = 6;
+static uint32_t const MarshalFormatType_largeblobs = 5;
+static uint32_t const MarshalFormatType_diskpaths = 6;
 
 // --------------------------------------------------------------------------
 //
@@ -33,10 +34,6 @@ ObjectMarshalData::~ObjectMarshalData()
         }
 }
 
-MarshalPacket::MarshalPacket()
-{
-        diskblobsize = 0;
-}
 
 MarshalPacket::~MarshalPacket()
 {
@@ -49,12 +46,16 @@ void MarshalPacket::Reset()
         objects.clear();
         columndata.clear();
         data.clear();
-        diskblobsize = 0;
 }
 
 bool MarshalPacket::AnyDiskPathBlobs() const
 {
-        return diskblobsize > 0;
+        for (auto &itr: blobs)
+        {
+                if (itr->type == BlobDataType::DiskPath)
+                    return true;
+        }
+        return false;
 }
 
 bool MarshalPacket::TryClone(std::unique_ptr< MarshalPacket > *_copy) const
@@ -86,71 +87,168 @@ bool MarshalPacket::TryClone(std::unique_ptr< MarshalPacket > *_copy) const
         return true;
 }
 
-
-void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr) const
-{
+MarshalPacket::PacketSizeData MarshalPacket::CalculateSize(GlobalBlobManager *blobmgr, bool allow_diskpaths) const {
         if (!objects.empty())
             ThrowInternalError("Cannot do a raw store for marshal packets with objects");
 
         std::size_t totalsize = 20 + columndata.size() + data.size();
 
-        Blex::FileOffset blobsize = 0;
+        Blex::FileOffset blobsectionsize = 0;
+        bool with_diskpaths = false;
+        uint64_t blobsize = 0;
+        uint64_t diskblobsize = 0;
+        uint64_t diskblobcount = 0;
         if (!blobs.empty())
         {
                 if (!blobmgr)
                     ThrowInternalError("Cannot do a raw store for marshal packets with blobs");
 
-                blobsize = 4; // nr of blobs
+                blobsectionsize = 4; // nr of blobs
                 for (auto it = blobs.begin(); it != blobs.end(); ++it)
-                    blobsize += 8 + (*it)->length;
+                {
+                        if (allow_diskpaths && (*it)->type == BlobDataType::DiskPath && !(*it)->diskpath.empty())
+                        {
+                                blobsectionsize += 8 + (*it)->diskpath.size();
+                                with_diskpaths = true;
+                                ++diskblobcount;
+                                diskblobsize += (*it)->length;
+                        }
+                        else
+                        {
+                                blobsectionsize += 8 + (*it)->length;
+                                blobsize += (*it)->length;
+                        }
+                }
 
-                if (blobsize > (1ull << 30)) // Max 1 GB
+                if (with_diskpaths)
+                        blobsectionsize += 4 * blobs.size();
+
+                if (blobsectionsize > (1ull << 30)) // Max 1 GB
                     ThrowInternalError("Trying to send more than 1 GB of blobs through an inter-process IPC link");
 
-                totalsize += blobsize;
+                totalsize += blobsectionsize;
         }
 
-        target->resize(totalsize);
-        memset(&(*target)[0], 0, 20);
+        return {
+                .datasize = data.size() + columndata.size(),
+                .blobsectionsize = blobsectionsize,
+                .objects = objects.size(),
+                .blobsize = blobsize,
+                .diskblobsize = diskblobsize,
+                .diskblobcount = diskblobcount,
+                .totalsize = totalsize,
+                .with_diskpaths = with_diskpaths,
+        };
+}
 
-        Blex::putu32lsb(&(*target)[0], MarshalPacketHeaderType); // Version number
-        Blex::putu32lsb(&(*target)[4], columndata.size());
-        Blex::putu32lsb(&(*target)[8], data.size());
-        Blex::putu64lsb(&(*target)[12], blobsize);
 
-        std::copy(columndata.begin(), columndata.end(), target->begin() + 20);
-        std::copy(data.begin(), data.end(), target->begin() + (20 + columndata.size()));
+void MarshalPacket::WriteToPodVector(Blex::PodVector< uint8_t > *target, GlobalBlobManager *blobmgr, bool allow_diskpaths, PacketSizeData *stats) const
+{
+        Write(blobmgr, allow_diskpaths, [&target](uint64_t size) -> uint8_t * {
+                target->resize(size);
+                return &(*target)[0];
+        }, stats);
+}
+
+std::pair<uint8_t*, uint64_t> MarshalPacket::WriteToNewBuffer(GlobalBlobManager *blobmgr, bool allow_diskpaths, PacketSizeData *stats) const {
+        uint8_t *buffer = nullptr;
+        try {
+                return Write(blobmgr, allow_diskpaths, [&buffer](uint64_t size) -> uint8_t * {
+                        buffer = new uint8_t[size];
+                        return buffer;
+                }, stats);
+        } catch (...) {
+                delete[] buffer;
+                throw;
+        };
+}
+
+std::pair<uint8_t*, uint64_t> MarshalPacket::Write(GlobalBlobManager *blobmgr, bool allow_diskpaths, std::function<uint8_t * (uint64_t)> get_buffer, PacketSizeData *stats) const
+{
+        auto size_data = CalculateSize(blobmgr, allow_diskpaths);
+        if (stats)
+            *stats = size_data;
+
+        auto target = get_buffer(size_data.totalsize);
+
+        Blex::putu32lsb(&target[0], size_data.with_diskpaths ? MarshalFormatType_diskpaths : MarshalFormatType); // Version number
+        Blex::putu32lsb(&target[4], columndata.size());
+        Blex::putu32lsb(&target[8], data.size());
+        Blex::putu64lsb(&target[12], size_data.blobsectionsize);
+
+        std::copy(columndata.begin(), columndata.end(), target + 20);
+        std::copy(data.begin(), data.end(), target + (20 + columndata.size()));
 
         if (!blobs.empty())
         {
                 std::size_t blobpos = 20 + columndata.size() + data.size();
 
-                Blex::putu32lsb(&(*target)[blobpos], blobs.size());
+                Blex::putu32lsb(&target[blobpos], blobs.size());
                 blobpos += 4;
 
-                std::size_t blobdatapos = blobpos + 8 * blobs.size();
+                std::size_t blobdatapos = blobpos + (size_data.with_diskpaths ? 12 : 8) * blobs.size();
                 for (auto it = blobs.begin(); it != blobs.end(); ++it)
                 {
-                        Blex::putu64lsb(&(*target)[blobpos], (*it)->length);
+                        Blex::putu64lsb(&target[blobpos], (*it)->length);
                         blobpos += 8;
-
-                        Blex::FileOffset length = (*it)->length;
-                        Blex::FileOffset offset = 0;
-                        while (offset != length)
+                        if (size_data.with_diskpaths)
                         {
-                                Blex::FileOffset toread = length - offset;
-                                if (toread > 32768)
-                                    toread = 32768;
-
-                                std::size_t read = (*it)->blob->DirectRead(offset, toread, &(*target)[blobdatapos]);
-                                if (read == 0)
-                                    ThrowInternalError("Error reading blob for marshalling");
-
-                                offset += read;
-                                blobdatapos += read;
+                                if ((*it)->type == BlobDataType::DiskPath && !(*it)->diskpath.empty())
+                                {
+                                        Blex::putu32lsb(&target[blobpos], (*it)->diskpath.size());
+                                        blobpos += 4;
+                                        std::copy((*it)->diskpath.begin(), (*it)->diskpath.end(), &target[blobdatapos]);
+                                        blobdatapos += (*it)->diskpath.size();
+                                        continue;
+                                }
+                                else
+                                {
+                                        Blex::putu32lsb(&target[blobpos], 0);
+                                        blobpos += 4;
+                                }
                         }
+
+                        if ((*it)->type == BlobDataType::DiskPath)
+                        {
+                                // Not allowed to send disk paths, so read the data from disk
+                                std::unique_ptr< Blex::FileStream > filestream(Blex::FileStream::OpenRead((*it)->diskpath));
+                                if (!filestream)
+                                    ThrowInternalError("Cannot open disk path blob for reading: " + (*it)->diskpath);
+
+                                Blex::FileOffset offset = 0, length = (*it)->length;
+                                while (offset != length)
+                                {
+                                        std::size_t read = filestream->DirectRead(offset, &target[blobdatapos], length - offset > 32768 ? 32768 : length - offset);
+                                        if (read == 0)
+                                            ThrowInternalError("Error reading disk path blob for marshalling");
+
+                                        offset += read;
+                                        blobdatapos += read;
+                                }
+                        }
+                        else
+                        {
+                                Blex::FileOffset length = (*it)->length;
+                                Blex::FileOffset offset = 0;
+                                while (offset != length)
+                                {
+                                        Blex::FileOffset toread = length - offset;
+                                        if (toread > 32768)
+                                            toread = 32768;
+
+                                        std::size_t read = (*it)->blob->DirectRead(offset, toread, &target[blobdatapos]);
+                                        if (read == 0)
+                                            ThrowInternalError("Error reading blob for marshalling");
+
+                                        offset += read;
+                                        blobdatapos += read;
+                                }
+                        }
+
                 }
         }
+
+        return std::make_pair(target, size_data.totalsize);
 }
 
 void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobManager *blobmgr)
@@ -158,14 +256,17 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
         if (end - start < 20)
             ThrowInternalError("Illegal packet format, must be at lease 20 bytes long");
 
-        if (Blex::getu32lsb(start) != MarshalPacketHeaderType)
+        uint32_t format_type = Blex::getu32lsb(start);
+        if (format_type != MarshalFormatType && format_type != MarshalFormatType_diskpaths)
             ThrowInternalError("Unsupported marshal format type: connect with the same Webhare version");
+
+        bool with_diskpaths = format_type == MarshalFormatType_diskpaths;
 
         uint32_t columnsize = Blex::getu32lsb(start + 4);
         uint32_t datasize = Blex::getu32lsb(start + 8);
-        uint64_t blobsize = Blex::getu64lsb(start + 12);
+        uint64_t blobsectionsize = Blex::getu64lsb(start + 12);
 
-        if (static_cast< size_t >(end - start) != 20 + columnsize + datasize + blobsize)
+        if (static_cast< size_t >(end - start) != 20 + columnsize + datasize + blobsectionsize)
             ThrowInternalError("Marshal packet misformed: size does not match");
 
         objects.clear();
@@ -177,7 +278,7 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
             std::copy(start + 20, start + 20 + columnsize, &columndata[0]);
         if (datasize)
             std::copy(start + 20 + columnsize, start + 20 + columnsize + datasize, &data[0]);
-        if (blobsize)
+        if (blobsectionsize)
         {
                 if (!blobmgr)
                     ThrowInternalError("Require blobmanager to decode blobs");
@@ -186,7 +287,7 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
                 uint32_t blobcount = Blex::getu32lsb(start + blobpos);
                 blobpos += 4;
 
-                std::size_t blobdatapos = blobpos + 8 * blobcount;
+                std::size_t blobdatapos = blobpos + (with_diskpaths ? 12 : 8) * blobcount;
 
                 Blex::FileOffset blobdataremainlen = (end - start) - blobdatapos;
 
@@ -195,30 +296,51 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
                         std::size_t length = Blex::getu64lsb(start + blobpos);
                         blobpos += 8;
 
-                        if (blobdataremainlen < length)
-                            ThrowInternalError("Not enough blob data available");
-                        blobdataremainlen -= length;
-
-                        std::string blobfilename;
-
-                        std::string blobsource = "m-read";
-                        auto file = blobmgr->CreateTempStream(&blobfilename, blobsource);
-
-                        Blex::FileOffset towrite = length;
-                        while (towrite != 0)
+                        unsigned pathlen = 0;
+                        if (with_diskpaths)
                         {
-                                std::size_t written = file->Write(start + blobdatapos, towrite > 32768 ? 32768 : towrite);
-                                if (!written)
-                                    ThrowInternalError("Cannot write blob to blob storage");
-                                towrite -= written;
-                                blobdatapos += written;
+                                pathlen = Blex::getu32lsb(start + blobpos);
+                                blobpos += 4;
                         }
 
-
                         std::shared_ptr< BlobData > blobdata(new BlobData);
-                        blobdata->blob = blobmgr->BuildBlobFromTempStream(std::move(file), blobfilename);
-                        blobdata->length = length;
+                        if (pathlen)
+                        {
+                                if (blobdataremainlen < pathlen)
+                                    ThrowInternalError("Not enough blob data available for disk path");
 
+                                blobdata->type = BlobDataType::DiskPath;
+                                blobdata->diskpath = std::string(reinterpret_cast< char const * >(start + blobdatapos), pathlen);
+                                blobdatapos += pathlen;
+                                blobdataremainlen -= pathlen;
+
+                                blobdata->length = length;
+                        }
+                        else
+                        {
+                                if (blobdataremainlen < length)
+                                    ThrowInternalError("Not enough blob data available");
+                                blobdataremainlen -= length;
+
+                                std::string blobfilename;
+
+                                std::string blobsource = "m-read";
+                                auto file = blobmgr->CreateTempStream(&blobfilename, blobsource);
+
+                                Blex::FileOffset towrite = length;
+                                while (towrite != 0)
+                                {
+                                        std::size_t written = file->Write(start + blobdatapos, towrite > 32768 ? 32768 : towrite);
+                                        if (!written)
+                                        ThrowInternalError("Cannot write blob to blob storage");
+                                        towrite -= written;
+                                        blobdatapos += written;
+                                }
+
+
+                                blobdata->blob = blobmgr->BuildBlobFromTempStream(std::move(file), blobfilename);
+                                blobdata->length = length;
+                        }
                         blobs.push_back(blobdata);
                 }
         }
@@ -229,9 +351,12 @@ MarshalPacket::SizeData MarshalPacket::GetSize() const
         SizeData retval;
         retval.datasize = data.size() + columndata.size();
         retval.blobsize = 0;
-        retval.diskblobsize = diskblobsize;
+        retval.diskblobsize = 0;
         for (auto &itr: blobs)
-            retval.blobsize += itr->length;
+            if (itr->type == BlobDataType::Blob)
+                retval.blobsize += itr->length;
+            else if (itr->type == BlobDataType::DiskPath)
+                retval.diskblobsize += itr->length;
         retval.objects = objects.size();
         return retval;
 }
@@ -241,11 +366,10 @@ MarshalPacket::SizeData MarshalPacket::GetSize() const
 // Marshaller
 //
 
-Marshaller::Marshaller(VirtualMachine *_vm, MarshalMode::Type _mode, bool _diskblobs_by_reference)
+Marshaller::Marshaller(VirtualMachine *_vm, MarshalMode::Type _mode)
 : vm(_vm)
 , stackm(vm->GetStackMachine())
 , mode(_mode)
-, diskblobs_by_reference(_diskblobs_by_reference)
 , data_size(0)
 , use_library_column_list(false)
 , col_marshaldata(0)
@@ -260,8 +384,9 @@ Marshaller::Marshaller(StackMachine &_stackm, MarshalMode::Type _mode)
 : vm(0)
 , stackm(_stackm)
 , mode(_mode)
-, diskblobs_by_reference(false)
 , data_size(0)
+, blobcount(0)
+, largeblobs(false)
 , use_library_column_list(false)
 , col_marshaldata(0)
 , marshalencoder_fptr(0)
@@ -309,7 +434,13 @@ Blex::FileOffset Marshaller::AnalyzeInternal(VarId var, bool to_packet)
         if (columnmap.get())
             columnmap->clear();
 
+        largeblobs = false;
+        blobcount = 0;
         data_size = CalculateVarLength(var, to_packet, DetermineType(var));
+
+        if (!to_packet && largeblobs)
+            data_size += 4ull * blobcount;
+
         if (to_packet)
         {
                 data_size += 2; // Format byte, one type byte
@@ -393,25 +524,23 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet, Varia
                         size += stackm.GetString(var).size();
                         return size;
                 }
-        case VariableTypes::Blob: // See /doc/marshalling.md for the exact format used
+        case VariableTypes::Blob:
                 {
                         BlobRefPtr blob = stackm.GetBlob(var);
+
                         Blex::FileOffset size = blob.GetLength();
-                        if(!size)
-                            return 8; //only need to store the length of the blob, no data
 
                         if (size != 0 && mode == MarshalMode::SimpleOnly)
                             ThrowInternalError("Cannot marshal non-default blobs in SimpleOnly mode");
 
-                        if (diskblobs_by_reference) {
-                                std::string diskpath;
-                                auto blobptr = stackm.GetBlob(var).GetPtr();
-                                if(blobptr)
-                                    diskpath = blobptr->GetDiskPath();
-                                if(!diskpath.empty())
-                                   return 8 + 1 + 4 + diskpath.size(); // Id of blob in list + size-of-filename + filename
-                        }
-                        return 8 + 1 + (to_packet ? 4 : size);
+                        ++blobcount;
+                        if (size >= (1ull<<32))
+                            largeblobs = true;
+
+                        if (to_packet)
+                            return 4; // Id of blob in list
+                        else
+                            return size + 4; // 4 bytes default size (small blobs)
                 }
         case VariableTypes::FunctionRecord:
                 {
@@ -530,7 +659,7 @@ VariableTypes::Type Marshaller::DetermineType(VarId var)
         return type;
 }
 
-uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type, MarshalStats *stats)
+uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type)
 {
         if (type & VariableTypes::Array)
         {
@@ -545,13 +674,13 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                 VarId elt = stackm.ArrayElementGet(var, idx);
                                 VariableTypes::Type elttype = DetermineType(elt);
                                 Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(elttype));
-                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype, stats);
+                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype);
                         }
                 }
                 else
                 {
                         for (unsigned idx = 0; idx < eltcount; ++idx)
-                            ptr = MarshalWriteInternal(stackm.ArrayElementGet(var, idx), ptr, packet, ToNonArray(type), stats);
+                            ptr = MarshalWriteInternal(stackm.ArrayElementGet(var, idx), ptr, packet, ToNonArray(type));
                 }
                 return ptr;
         }
@@ -613,49 +742,23 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                 VarId elt = stackm.RecordCellGetByName(var, nameid);
                                 VariableTypes::Type elttype = DetermineType(elt);
                                 Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(elttype));
-                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype, stats);
+                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype);
                         }
                         return ptr;
                 }
-        case VariableTypes::Blob: //see /doc/marshalling.md for the exact format used
+        case VariableTypes::Blob:
                 {
                         BlobRefPtr the_blob = stackm.GetBlob(var);
                         Blex::FileOffset length = the_blob.GetLength();
 
-                        //Write the size first
-                        Blex::PutLsb< uint64_t >(ptr, length);
-                        ptr += 8;
-                        if(!length) //no size? then we're done immediately
-                            return ptr;
-
-                        std::string diskpath;
-                        if (diskblobs_by_reference) {
-                                auto blobptr = stackm.GetBlob(var).GetPtr();
-                                if(blobptr)
-                                        diskpath = blobptr->GetDiskPath();
-                        }
-
-                        if(!diskpath.empty())
+                        if (packet)
                         {
-                                if(stats)
-                                    stats->diskblobsize += length;
-                                *ptr++ = 1; //indicate we have a disk path
-                                Blex::PutLsb< uint32_t >(ptr, diskpath.size());
-                                ptr += 4;
-                                std::copy(diskpath.begin(), diskpath.end(), ptr);
-                                ptr += diskpath.size();
-                                packet->diskblobsize += diskpath.size();
-                                return ptr;
-                        }
+                                if (length == 0)
+                                {
+                                        Blex::PutLsb< uint32_t >(ptr, 0);
+                                        return ptr + 4;
+                                }
 
-                        //We'll be embedding
-                        *ptr++ = 0;
-
-                        if(stats)
-                            stats->blobsize += length;
-
-                        if (packet) //blobs are written separately
-                        {
                                 std::string blobsource = "m-write";
 #ifndef __EMSCRIPTEN__
                                 VMGroup *group = vm->GetVMGroup();
@@ -664,31 +767,66 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
 #endif
                                 std::shared_ptr< MarshalPacket::BlobData > clone;
                                 clone.reset(new MarshalPacket::BlobData);
+                                auto blob = stackm.GetBlob(var);
+                                auto blobptr = blob.GetPtr();
+                                std::string diskpath;
+                                if (blobptr)
+                                    diskpath = blobptr->GetDiskPath();
                                 clone->length = length;
-                                clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
+                                if (diskpath.empty())
+                                {
+                                        clone->type = BlobDataType::Blob;
+                                        clone->blob = vm->GetBlobManager().ConvertToGlobalBlob(stackm.GetBlob(var), blobsource);
+                                }
+                                else
+                                {
+                                        clone->type = BlobDataType::DiskPath;
+                                        clone->diskpath = diskpath;
+                                }
 
                                 packet->blobs.push_back(clone);
                                 Blex::PutLsb< int32_t >(ptr, packet->blobs.size());
                                 return ptr + 4;
                         }
-
-                        std::unique_ptr< OpenedBlob > openblob(the_blob.OpenBlob());
-                        if (!openblob)
-                                ThrowInternalError("I/O error - cannot open blob");
-
-                        Blex::FileOffset curpos = 0;
-                        while (length > 0)
+                        else
                         {
-                                unsigned toread = std::min< Blex::FileOffset >(length, 16384);
-                                std::size_t bytesread = openblob->DirectRead(curpos, toread, ptr);
-                                if(bytesread<=0)
-                                        ThrowInternalError("I/O error - cannot read from blob for serializing");
+                                // Raw data based, copy the blob to the raw data stream
+                                Blex::FileOffset size = the_blob.GetLength();
+                                if (largeblobs)
+                                {
+                                        Blex::PutLsb< uint64_t >(ptr,size);
+                                        ptr+=8;
+                                }
+                                else
+                                {
+                                      if (size > (1ull << 32))
+                                          ThrowInternalError("Cannot marshal blobs bigger than 4GB in small blob mode");
+                                        Blex::PutLsb< uint32_t >(ptr,size);
+                                        ptr+=4;
+                                }
 
-                                length -= bytesread;
-                                ptr += bytesread;
-                                curpos += bytesread;
+                                if (size>0)
+                                {
+                                        std::unique_ptr< OpenedBlob > openblob(the_blob.OpenBlob());
+                                        if (!openblob)
+                                            ThrowInternalError("I/O error - cannot open blob");
+
+                                        Blex::FileOffset curpos = 0;
+                                        while (size > 0)
+                                        {
+                                                unsigned toread = std::min< Blex::FileOffset >(size, 16384);
+                                                std::size_t bytesread = openblob->DirectRead(curpos, toread, ptr);
+                                                if(bytesread<=0)
+                                                    ThrowInternalError("I/O error - cannot read from blob for serializing");
+
+                                                size -= bytesread;
+                                                ptr += bytesread;
+                                                curpos += bytesread;
+                                        }
+                                }
+
+                                return ptr + size;
                         }
-                        return ptr;
                 }
 
         case VariableTypes::Object:
@@ -764,7 +902,7 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                         ptr += 4;
                                         VariableTypes::Type marshaldatatype = DetermineType(itr->second);
                                         Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(marshaldatatype));
-                                        return MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype, stats);
+                                        return MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype);
                                 }
 
                                 if (mode != MarshalMode::All && mode != MarshalMode::AllClonable)
@@ -804,7 +942,7 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         {
                                 VariableTypes::Type marshaldatatype = DetermineType(itr->second);
                                 Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(marshaldatatype));
-                                ptr = MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype, stats);
+                                ptr = MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype);
                         }
                         return ptr;
                 }
@@ -849,7 +987,7 @@ void Marshaller::WritePacketColumns(MarshalPacket *packet)
         }
 }
 
-void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, MarshalPacket *packet, MarshalStats *stats)
+void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, MarshalPacket *packet)
 {
         if (data_size == 0)
             ThrowInternalError("Marshalling: no Analyze called before Write!");
@@ -864,10 +1002,15 @@ void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, Marsha
 
 //        DEBUGPRINT("Writing to normal space by " << this << ", have encoder: " << bool(library_column_encoder));
 
+        if (!packet && library_column_encoder && largeblobs)
+            ThrowInternalError("Cannot write blobs >4GB to libraries");
+
         uint8_t *ptr = begin;
         Blex::PutLsb<uint8_t>(ptr++, packet
             ? MarshalPacketFormatType
-            : (library_column_encoder ? MarshalLibraryFormatType : MarshalFormatType));
+            : (library_column_encoder
+                    ? MarshalLibraryFormatType
+                    : (largeblobs ? MarshalFormatType_largeblobs : MarshalFormatType)));
 
         if (!packet)
         {
@@ -899,7 +1042,7 @@ void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, Marsha
 
         VariableTypes::Type type = DetermineType(var);
         Blex::PutLsb<uint8_t>(ptr++, type);
-        ptr = MarshalWriteInternal(var, ptr, packet, type, stats);
+        ptr = MarshalWriteInternal(var, ptr, packet, type);
         if (ptr != limit)
         {
                 if (ptr > limit)
@@ -912,14 +1055,9 @@ void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, Marsha
             WritePacketColumns(packet);
 }
 
-void Marshaller::Write(VarId var, uint8_t *begin, uint8_t *limit, MarshalStats *stats)
+void Marshaller::Write(VarId var, uint8_t *begin, uint8_t *limit)
 {
-        WriteInternal(var, begin, limit, 0, stats);
-        if(stats)
-        {
-                //As blobs are contained within the databuffer we can just substract them
-                stats->datasize = (limit - begin) - stats->blobsize;
-        }
+        WriteInternal(var, begin, limit, 0);
 }
 
 
@@ -937,7 +1075,7 @@ MarshalPacket * Marshaller::WriteToNewPacket(VarId var)
         AnalyzeInternal(var, true);
         packet->data.resize(data_size);
         uint8_t *begin = data_size == 0 ? (uint8_t*)0 : &packet->data[0];
-        WriteInternal(var, begin, begin + data_size, packet.get(), nullptr);
+        WriteInternal(var, begin, begin + data_size, packet.get());
 
         return packet.release();
 }
@@ -948,7 +1086,7 @@ void Marshaller::WriteToVector(VarId var, std::vector< uint8_t > *data)
         data->resize(data_size);
         assert(data_size > 0);
         uint8_t *begin = &(*data)[0];
-        Write(var, begin, begin + data_size, nullptr);
+        Write(var, begin, begin + data_size);
 }
 
 void Marshaller::WriteToPodVector(VarId var, Blex::PodVector< uint8_t > *data)
@@ -957,7 +1095,7 @@ void Marshaller::WriteToPodVector(VarId var, Blex::PodVector< uint8_t > *data)
         data->resize(data_size);
         assert(data_size > 0);
         uint8_t *begin = &(*data)[0];
-        Write(var, begin, begin + data_size, nullptr);
+        Write(var, begin, begin + data_size);
 }
 
 
@@ -1049,69 +1187,65 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                         stackm.SetString(var, reinterpret_cast<const char*>(ptr), reinterpret_cast<const char*>(ptr) + size);
                         return ptr + size;
                 }
-        case VariableTypes::Blob: //see /doc/marshalling.md for the exact format used
+        case VariableTypes::Blob:
                 {
-                        EatBytes(remainingsize, 8);
-                        Blex::FileOffset size = Blex::GetLsb< uint64_t >(ptr);
-                        ptr += 8;
-
-                        if(size == 0)
-                        {
-                                stackm.InitVariable(var, VariableTypes::Blob);
-                                return ptr;
-                        }
-
-                        //Get the embed type
-                        EatBytes(remainingsize, 1);
-                        uint8_t embedtype = *ptr++;
-
-                        if(embedtype == 1) //It's a disk path
-                        {
-                                if(!diskblobs_by_reference)
-                                    ThrowInternalError("Corrupt marshal packet: found disk blob reference but disk blob by reference mode is not enabled");
-
-                                EatBytes(remainingsize, 4);
-                                uint32_t pathsize = Blex::GetLsb< uint32_t >(ptr);
-                                ptr += 4;
-
-                                EatBytes(remainingsize, pathsize);
-                                std::string path = std::string(reinterpret_cast<const char*>(ptr), pathsize);
-                                ptr += pathsize;
-
-                                stackm.SetBlob(var, BlobRefPtr(new DiskBlob(vm, path, size)));
-                                return ptr;
-                        }
-
-                        if (packet) //It's a blob reference
+                        if (packet)
                         {
                                 EatBytes(remainingsize, 4);
                                 unsigned blobnr = Blex::GetLsb<uint32_t>(ptr);
+
                                 if (blobnr > packet->blobs.size())
                                     ThrowInternalError("Malformed marshal-packet, illegal blob id");
-                                ptr += 4;
 
-                                if (!vm)
+                                if (blobnr == 0 || !vm)
                                 {
-                                        ThrowInternalError("Cannot marshal non-empty blobs without a running virtual machine");
+                                        stackm.InitVariable(var, VariableTypes::Blob);
                                 }
                                 else
                                 {
                                         auto const &blobdata = packet->blobs[blobnr - 1];
-                                        stackm.SetBlob(var, vm->GetBlobManager().BuildBlobFromGlobalBlob(vm, blobdata->blob));
+                                        if (blobdata->type == BlobDataType::DiskPath)
+                                        {
+                                                stackm.SetBlob(var, BlobRefPtr(new DiskBlob(vm, blobdata->diskpath, blobdata->length)));
+                                        }
+                                        else
+                                        {
+                                                stackm.SetBlob(var, vm->GetBlobManager().BuildBlobFromGlobalBlob(vm, blobdata->blob));
+                                        }
+
                                 }
 
+                                return ptr + 4;
+                        }
+                        else
+                        {
+                                Blex::FileOffset size;
+                                if (largeblobs)
+                                {
+                                        EatBytes(remainingsize, 8);
+                                        size = Blex::GetLsb< uint64_t >(ptr);
+                                        ptr += 8;
+                                }
+                                else
+                                {
+                                        EatBytes(remainingsize, 4);
+                                        size = Blex::GetLsb< uint32_t >(ptr);
+                                        ptr += 4;
+                                }
+
+                                if (size==0 || (!vm && mode == MarshalMode::SimpleOnly)) //empty blob
+                                    stackm.InitVariable(var, VariableTypes::Blob);
+                                else if (!vm)
+                                    ThrowInternalError("Cannot marshall non-empty blobs without a running virtual machine");
+                                else
+                                {
+                                        EatBytes(remainingsize, size);
+                                        HSVM_MakeBlobFromMemory(*vm, var, size, ptr);
+                                }
+
+                                ptr += size;
                                 return ptr;
                         }
-
-                        EatBytes(remainingsize, size);
-                        if (!vm && mode == MarshalMode::SimpleOnly) //empty blob
-                            stackm.InitVariable(var, VariableTypes::Blob);
-                        else if (!vm)
-                            ThrowInternalError("Cannot marshall non-empty blobs without a running virtual machine");
-                        else
-                            HSVM_MakeBlobFromMemory(*vm, var, size, ptr);
-                        ptr += size;
-                        return ptr;
                 }
 
         case VariableTypes::FunctionRecord:
@@ -1323,6 +1457,8 @@ void Marshaller::ReadInternal(VarId var, uint8_t const *begin, uint8_t const *li
         if (size < (packet ? 2 : 6)) // Packet: (uint8_t version, uint8_t type) other: (uint8_t version, uint8_t type, uint32_t columncount)
             ThrowInternalError("Malformed marshalling packet!");
 
+        largeblobs = false;
+
         uint8_t const *ptr = begin;
         uint8_t version = Blex::GetLsb<uint8_t>(ptr++);
         if (packet)
@@ -1332,9 +1468,11 @@ void Marshaller::ReadInternal(VarId var, uint8_t const *begin, uint8_t const *li
         }
         else
         {
-                if (version == MarshalFormatType)
+                if (version == MarshalFormatType || version == MarshalFormatType_largeblobs)
                 {
                         use_library_column_list = false;
+                        if (version == MarshalFormatType_largeblobs)
+                            largeblobs = true;
                 }
                 else if (version == MarshalLibraryFormatType)
                 {

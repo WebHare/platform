@@ -1184,7 +1184,7 @@ HSVM_PUBLIC unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableI
     @param vm Virtual Machine in which the variable exists
     @param var Variable to calculate the marshal-representation of
     @param ptr Buffer to write to */
- HSVM_PUBLIC void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit, uint8_t *stats) ;
+ HSVM_PUBLIC void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit) ;
 
 /** Reads a marshal-representation back into a variable.
     @param vm Virtual Machine in which the variable exists
@@ -1488,9 +1488,6 @@ template < class ContextData, unsigned contextid > class HSVM_RegisteredContext
                 }
         };
 };
-
-
-
 
 #endif  /* __cplusplus */
 

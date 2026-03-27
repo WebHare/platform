@@ -39,12 +39,10 @@ async function testMarshalling() {
   const receivedPacket = readMarshalPacket(writeMarshalPacket(sendRec)) as any;
   await checkBits(receivedPacket.bits, false);
 
-  const receivedDataWithBlobRef = readMarshalData(writeMarshalData(sendRec, { diskblobsByReference: true }), { diskblobsByReference: true }) as any;
-  await checkBits(receivedDataWithBlobRef.bits, true);
-
-  const receivedPacketWithBlobRef = readMarshalPacket(writeMarshalPacket(sendRec, { diskblobsByReference: true }), { diskblobsByReference: true }) as any;
+  const receivedPacketWithBlobRef = readMarshalPacket(writeMarshalPacket(sendRec, { withDiskPaths: true })) as any;
   await checkBits(receivedPacketWithBlobRef.bits, true);
 }
+
 
 async function testRPCs() {
   const conn = new WHManagerConnection;

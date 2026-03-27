@@ -96,7 +96,7 @@ class AdhocCacheData {
       expires,
       eventMasks,
       eventMaskRegExp: eventMasks.length === 0 ? null : regExpFromWildcards(eventMasks),
-      stats
+      stats,
     };
     //Get the library to add the item to
     const items = emplace(this.libraries, libraryUri, { insert: () => new LibraryData }).items;
@@ -239,6 +239,7 @@ export class AdhocCacheService extends LocalService {
   getStats(): { cachesize: number; hits: number; requests: number } {
     return this.adhocCacheData.getStats();
   }
+
   getItems() {
     return this.adhocCacheData.getItems();
   }

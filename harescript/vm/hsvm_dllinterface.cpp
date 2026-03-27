@@ -2377,17 +2377,10 @@ unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
         return size;
 }
 
-void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit, uint8_t *statsbuffer)
+void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        MarshalStats stats;
-        VM.cache_marshaller.Write(var, ptr, limit, &stats);
-        if(statsbuffer)
-        {
-                Blex::PutLsb<uint64_t>(statsbuffer + 0, stats.diskblobsize);
-                Blex::PutLsb<uint64_t>(statsbuffer + 8, stats.blobsize);
-                Blex::PutLsb<uint64_t>(statsbuffer + 16, stats.datasize);
-        }
+        VM.cache_marshaller.Write(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 

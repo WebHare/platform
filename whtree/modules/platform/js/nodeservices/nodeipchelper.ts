@@ -46,7 +46,6 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
             };
           }
           case "WebHareDiskBlob": {
-            //IPC can 't do diskblob:
             const blob = orgValue as WebHareDiskBlob;
             return { "$ipcType": "WebHareDiskBlob", type: blob.type, path: blob.path, size: blob.size };
           }
@@ -60,6 +59,12 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
 
         if (isResourceDescriptor(orgValue)) { //TODO if we want to use encodeforMessageTransfer more generally than just for CallJS we need to return $ipcType: ResourceDescriptor and properly restore it, and have IPC's writeMarshalDataInternal do the getHareScriptResourceDescriptor call
           const forhs = getHareScriptResourceDescriptor(orgValue);
+          if (getWHType(orgValue.file) === "WebHareDiskBlob") {
+            const blob = orgValue.file as WebHareDiskBlob;
+            return {
+              ...forhs, data: { "$ipcType": "WebHareDiskBlob", type: blob.type, path: blob.path, size: blob.size }
+            };
+          }
           const value = { ...forhs, data: { "$ipcType": "WebHareMemoryBlob", type: forhs.data.type, data: undefined as ArrayBuffer | undefined } }; //we'll modify this value when completing the promise
           const promiseBuffer = forhs.data.arrayBuffer().then((buffer) => {
             value.data.data = buffer;
@@ -105,7 +110,7 @@ export function decodeFromMessageTransfer(toDecode: unknown): unknown {
         return (globalThis as any).Temporal[value["$ipcType"]].from(value[value["$ipcType"].toLowerCase()]);
       case "WebHareMemoryBlob":
         return new WebHareMemoryBlob(new Uint8Array(value.data), value.type);
-      case "WebHareDiskBlob": //NOTE not yet generated as IPC can't deal with it
+      case "WebHareDiskBlob":
         return new WebHareDiskBlob(value.size as number, value.path as string, { type: value.type as string });
       case "Blob":
         return new Blob([value.data]);
