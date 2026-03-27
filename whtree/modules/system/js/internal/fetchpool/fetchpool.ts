@@ -1,5 +1,5 @@
 import { BackendServiceConnection, WebHareBlob } from "@webhare/services";
-import { Agent, type RequestInit as undiciRequestInit } from 'undici';
+import { fetch, Agent, type RequestInit as undiciRequestInit } from 'undici';
 
 let insecureagent: Agent | undefined;
 
@@ -25,7 +25,7 @@ export class Fetcher extends BackendServiceConnection {
       if (pooloptions?.debug)
         console.log(url, options, pooloptions);
 
-      const transmitoptions: RequestInit = {
+      const transmitoptions: undiciRequestInit = {
         ...options,
         body: options.body ? await options.body.arrayBuffer() : null
       };
@@ -41,7 +41,7 @@ export class Fetcher extends BackendServiceConnection {
             }
           });
 
-        (transmitoptions as undiciRequestInit).dispatcher = insecureagent;
+        transmitoptions.dispatcher = insecureagent;
       }
 
       const response = await fetch(url, transmitoptions);
