@@ -29,7 +29,11 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
   }
 
   async function buildBlocks(blocks: Array<RTDBlock | RTDAnonymousParagraph>): Promise<Litty> {
-    return litty`${await Promise.all(blocks.map(buildBlock))}`;
+    const rendered: Litty[] = [];
+    // Use a for loop to prevent multiple buildBlock processes from running simultaneously
+    for (const block of blocks)
+      rendered.push(await buildBlock(block));
+    return litty`${rendered}`;
   }
 
   async function buildBlock(block: RTDBlock | RTDAnonymousParagraph): Promise<Litty> {
