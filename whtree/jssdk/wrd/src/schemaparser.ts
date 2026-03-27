@@ -649,8 +649,7 @@ function getXMLAttributes(parent: Node, currentFile: string): ParsedAttr[] {
       }
 
       let typedeclaration = getAttr(attrnode, "typedeclaration", '');
-      if (typedeclaration.startsWith("./") || typedeclaration.startsWith("../"))
-        typedeclaration = resolveResource(currentFile, typedeclaration);
+      typedeclaration = resolveResource(currentFile, typedeclaration);
       attr.typedeclaration = typedeclaration;
 
       attr.checklinks = getAttr(attrnode, "checklinks", descr.defaults.includes("checklinks"));
