@@ -243,7 +243,7 @@ endif
 
 WHLDFLAGS+=$(GLOBALLDFLAGS)
 
-WASM_EXPORTED_RUNTIME_METHODS = stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction,Emval,HEAP8,HEAP16,HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32,HEAPF64,HEAP64,HEAPU64
+WASM_EXPORTED_RUNTIME_METHODS = stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction,Emval,HEAP8,HEAP16,HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32,HEAPF64,HEAP64,HEAPU64,getExceptionMessage,decrementExceptionRefcount
 
 WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
 WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
@@ -267,6 +267,7 @@ WHLDFLAGS_WASM += --pre-js $(SRCDIR)/harescript/vm/wasm-pre.js
 
 CPPFLAGS_WASM += -s USE_ZLIB=1
 WHLDFLAGS_WASM += -s USE_ZLIB=1
+WHLDFLAGS_WASM += -s EXCEPTION_STACK_TRACES
 
 ifeq ($(WEBHARE_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
@@ -910,6 +911,12 @@ install: $(ALLINSTALLDIRS) postinstall | \
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumpcomplexfslog,dumprawtable} 2>/dev/null || true #cleanup old bins
 
 ifeq ($(WEBHARE_IN_DOCKER),1)
+
+postuninstall:
+
+postinstall:
+
+else ifeq ($(WHBUILD_SKIPFINALIZE),1)
 
 postuninstall:
 

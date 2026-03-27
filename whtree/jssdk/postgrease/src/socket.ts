@@ -20,91 +20,45 @@ export type SocketResponse = InstanceType<typeof PGPacketSocket>["curPacket"];
 
 type DefaultPostgreSQLPort = 5432;
 
-/** Connects to a PostgreSQL server over a socket, and provides methods to read and write packets.
- * Use curPacket to access the last read packet.
- */
-export class PGPacketSocket {
-  /// Scratch buffer for assembling packets that need an await
-  private scratchBuffer = Buffer.allocUnsafe(16384) as UndocumentedBuffer;
-  /// DataView for scratch buffer
-  private scratchDataView = new DataView(this.scratchBuffer.buffer, this.scratchBuffer.byteOffset, this.scratchBuffer.byteLength);
+export type SocketQueryInterface = {
+  curPacket: { buffer: UndocumentedBuffer; dataview: DataView; code: number; dataStart: number; dataLen: number };
 
-  /// Underlying network socket
-  private orgSocket: net.Socket;
-  private socket: net.Socket | tls.TLSSocket;
+  write(cb: (builder: RequestBuilder) => void): number;
+  writeTrustedBuffer(buffer: Buffer): void;
+  finishedQuery(): void;
+  ackWrite(idx: number): void;
+  readPacket(): Promise<void> | void;
+};
+
+export abstract class PGSocketPacketizer {
+  /// Scratch buffer for assembling packets that need an await
+  protected scratchBuffer = Buffer.allocUnsafe(16384) as UndocumentedBuffer;
+  /// DataView for scratch buffer
+  protected scratchDataView = new DataView(this.scratchBuffer.buffer, this.scratchBuffer.byteOffset, this.scratchBuffer.byteLength);
 
   /// Current read buffer
-  private buffer: UndocumentedBuffer;
+  protected buffer: UndocumentedBuffer;
   /// Current read buffer index
-  private dataView: DataView;
-  private bufferIdx = 0;
-  private bufferEnd = 0;
+  protected dataView: DataView;
 
-  private closed = false;
+  protected bufferIdx = 0;
+  protected bufferEnd = 0;
 
-  private requestBuilder = new RequestBuilder();
-
-  private wait: PromiseWithResolvers<void> = Promise.withResolvers();
+  protected requestBuilder = new RequestBuilder();
 
   curPacket: { buffer: UndocumentedBuffer; dataview: DataView; code: number; dataStart: number; dataLen: number } = { buffer: this.scratchBuffer, dataview: this.scratchDataView, code: 0, dataStart: 0, dataLen: 0 };
 
-  constructor(socket: net.Socket) {
-    this.orgSocket = socket;
-    this.socket = socket;
+  constructor() {
     this.buffer = Buffer.from("") as UndocumentedBuffer;
     this.dataView = new DataView(this.buffer.buffer, this.buffer.byteOffset, 0);
-
-    this.socket.addListener("readable", () => this.wait?.resolve());
-    this.socket.addListener("close", () => {
-      this.closed = true;
-      // ensure that rejecting wait doesn't cause unhandled rejection
-      this.wait.promise.catch(() => 0);
-      this.wait.reject(new Error("PostgreSQL socket closed"));
-    });
-    this.socket.addListener("error", (err) => {
-      // ensure that rejecting wait doesn't cause unhandled rejection
-      this.wait.promise.catch(() => 0);
-      this.wait?.reject(err);
-    });
   }
 
-  /** Ensures the next buffer is available for reading. Only called when the current buffer is exhausted. Returns null
-   *  if a packet is immediately available, or a promise that resolves when data is available.
-   */
-  private readBuffer() {
-    const buf = this.socket.read() as UndocumentedBuffer | null;
-    if (buf?.length) {
-      // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
-      this.buffer = buf;
-      this.bufferIdx = 0;
-      this.bufferEnd = buf.length;
-      return null;
-    }
-    return this.asyncReadBuffer();
-  }
-
-  private async asyncReadBuffer() {
-    while (true) {
-      this.wait = Promise.withResolvers<void>();
-      await this.wait?.promise;
-
-      if (this.closed)
-        throw new Error("PostgreSQL socket closed");
-      const buf = this.socket.read() as UndocumentedBuffer | null;
-      if (buf?.length) {
-        // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
-        this.buffer = buf;
-        this.bufferIdx = 0;
-        this.bufferEnd = buf.length;
-        return;
-      }
-    }
-  }
+  protected abstract readBuffer(): Promise<void> | null;
 
   /** Read the rest of a packet asynchronously
    * @param gotLen - Number of bytes already read into the scratch buffer
    */
-  private async readPacketAsync(gotLen: number): Promise<void> {
+  protected async readPacketAsync(gotLen: number): Promise<void> {
     while (true) {
       const wantLen = (gotLen < 5) ? 5 : 1 + this.scratchDataView.getUint32(1);
       if (gotLen === wantLen)
@@ -146,26 +100,6 @@ export class PGPacketSocket {
     //console.log(`readPacket: code: ${String.fromCharCode(this.curPacket.code)}: ${getCodeName(this.curPacket.code, true)} (waited)`);
   }
 
-  /** Switches the current connection to use TLS with the given options. */
-  async switchToTLS(tlsOptions: tls.ConnectionOptions) {
-    this.wait = Promise.withResolvers<void>();
-
-    this.socket.removeAllListeners("readable");
-    this.socket.removeAllListeners("error");
-    this.socket.removeAllListeners("close");
-
-    const tlsSocket = tls.connect({ ...tlsOptions, socket: this.orgSocket });
-    tlsSocket.once('error', this.wait.reject);
-    tlsSocket.once('secureConnect', this.wait.resolve);
-
-    await this.wait.promise;
-    this.socket = tlsSocket;
-
-    this.socket.addListener("readable", () => this.wait?.resolve());
-    this.socket.addListener("close", () => this.wait?.reject(new Error("PostgreSQL socket closed")));
-    this.socket.addListener("error", (err) => this.wait?.reject(err));
-  }
-
   /** Calls a callback with a requestbuilder to build a request synchronously, and sends it immediately.
    * Returns the new index in the request builder after writing. WHen a response is received, call signalAnswered
    * with that index.
@@ -176,9 +110,11 @@ export class PGPacketSocket {
     // Write the built request to the socket
     const buf = this.requestBuilder.buffer.subarray(startIdx, this.requestBuilder.idx);
     // Just write the buffer directly, don't expect too many writes at the same time
-    this.socket.write(buf);
+    this.writeTrustedBuffer(buf);
     return this.requestBuilder.idx;
   }
+
+  abstract writeTrustedBuffer(buffer: Buffer): void;
 
   /** Call when an answer has been received for a query, so the requestbuilder knows its buffer can be reused. */
   ackWrite(idx: number) {
@@ -186,18 +122,7 @@ export class PGPacketSocket {
       this.requestBuilder.reset();
   }
 
-  /** Reads a single byte from the buffer. Should only be used in startup phase before
-   * reading packets.
-   */
-  async readSingleByte(): Promise<number> {
-    // Only used in startup. Will usually wait, so no need for sync version
-    while (true) {
-      if (this.bufferIdx !== this.bufferEnd) {
-        return this.buffer[this.bufferIdx++];
-      }
-      await this.readBuffer();
-      this.dataView = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
-    }
+  finishedQuery() {
   }
 
   /** Reads a packet. Returns immediately when the next packet is available in curPacket, or
@@ -229,6 +154,109 @@ export class PGPacketSocket {
     this.buffer.copy(this.scratchBuffer, 0, this.bufferIdx, this.bufferEnd);
     this.bufferIdx = this.bufferEnd;
     return this.readPacketAsync(gotLen);
+  }
+}
+
+/** Connects to a PostgreSQL server over a socket, and provides methods to read and write packets.
+ * Use curPacket to access the last read packet.
+ */
+export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInterface {
+  /// Underlying network socket
+  private orgSocket: net.Socket;
+  private socket: net.Socket | tls.TLSSocket;
+
+  private closed = false;
+
+  private wait: PromiseWithResolvers<void> = Promise.withResolvers();
+
+  constructor(socket: net.Socket) {
+    super();
+    this.orgSocket = socket;
+    this.socket = socket;
+
+    this.socket.addListener("readable", () => this.wait?.resolve());
+    this.socket.addListener("close", () => {
+      this.closed = true;
+      // ensure that rejecting wait doesn't cause unhandled rejection
+      this.wait.promise.catch(() => 0);
+      this.wait.reject(new Error("PostgreSQL socket closed"));
+    });
+    this.socket.addListener("error", (err) => {
+      // ensure that rejecting wait doesn't cause unhandled rejection
+      this.wait.promise.catch(() => 0);
+      this.wait?.reject(err);
+    });
+  }
+
+  /** Ensures the next buffer is available for reading. Only called when the current buffer is exhausted. Returns null
+   *  if a packet is immediately available, or a promise that resolves when data is available.
+   */
+  protected readBuffer() {
+    const buf = this.socket.read() as UndocumentedBuffer | null;
+    if (buf?.length) {
+      // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
+      this.buffer = buf;
+      this.bufferIdx = 0;
+      this.bufferEnd = buf.length;
+      return null;
+    }
+    return this.asyncReadBuffer();
+  }
+
+  private async asyncReadBuffer() {
+    while (true) {
+      this.wait = Promise.withResolvers<void>();
+      await this.wait?.promise;
+
+      if (this.closed)
+        throw new Error("PostgreSQL socket closed");
+      const buf = this.socket.read() as UndocumentedBuffer | null;
+      if (buf?.length) {
+        // not updating the dataview, it will be updated when the packet in the scratchbuffer is complete
+        this.buffer = buf;
+        this.bufferIdx = 0;
+        this.bufferEnd = buf.length;
+        return;
+      }
+    }
+  }
+
+  /** Switches the current connection to use TLS with the given options. */
+  async switchToTLS(tlsOptions: tls.ConnectionOptions) {
+    this.wait = Promise.withResolvers<void>();
+
+    this.socket.removeAllListeners("readable");
+    this.socket.removeAllListeners("error");
+    this.socket.removeAllListeners("close");
+
+    const tlsSocket = tls.connect({ ...tlsOptions, socket: this.orgSocket });
+    tlsSocket.once('error', this.wait.reject);
+    tlsSocket.once('secureConnect', this.wait.resolve);
+
+    await this.wait.promise;
+    this.socket = tlsSocket;
+
+    this.socket.addListener("readable", () => this.wait?.resolve());
+    this.socket.addListener("close", () => this.wait?.reject(new Error("PostgreSQL socket closed")));
+    this.socket.addListener("error", (err) => this.wait?.reject(err));
+  }
+
+  writeTrustedBuffer(buffer: Buffer) {
+    this.socket.write(buffer);
+  }
+
+  /** Reads a single byte from the buffer. Should only be used in startup phase before
+   * reading packets.
+   */
+  async readSingleByte(): Promise<number> {
+    // Only used in startup. Will usually wait, so no need for sync version
+    while (true) {
+      if (this.bufferIdx !== this.bufferEnd) {
+        return this.buffer[this.bufferIdx++];
+      }
+      await this.readBuffer();
+      this.dataView = new DataView(this.buffer.buffer, this.buffer.byteOffset, this.buffer.byteLength);
+    }
   }
 
   close() {

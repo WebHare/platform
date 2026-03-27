@@ -107,8 +107,11 @@ export function parseResourcePath(resourcepath: string): ParsedResourcePath | nu
 */
 export function isAbsoluteResource(resourcepath: string): boolean {
   const getns = resourcepath.match(/^([^/]*)::.+/);
-  if (!getns)
+  if (!getns) {
+    if (resourcepath.match(/^(@mod-|@webhare\/|node:)/))
+      return true;
     return false; //definitely not an absolute path
+  }
   if (['mod', 'storage', 'inline', 'inline-base64', 'site', 'whfs'].includes(getns[1]))
     return true; //absolute path, valid namespae
   if (['module', 'moduleroot', 'moduledata', 'wh', 'whres', 'direct'].includes(getns[1])) //on the fence about enabling direct:: ?

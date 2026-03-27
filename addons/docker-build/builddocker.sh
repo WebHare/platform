@@ -12,6 +12,7 @@ NOPULL=""
 DEBUG=""
 ARCH=""
 
+# shellcheck source=../../whtree/lib/wh-functions.sh
 source "$WEBHARE_DIR/lib/wh-functions.sh"
 cd "$WEBHARE_CHECKEDOUT_TO" || exit 1
 if [ ! -f builder/base_makefile ]; then

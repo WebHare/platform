@@ -2,21 +2,21 @@
    to bootstrap the WebHare configuration without relying on services' backendConfig. When
    adding imports, make sure this separate invocation still works
 */
-import { bindParam, nonDateCodecs, CodecRegistry, DataTypeOids, type PGBoundParam, connect, type PGConnection, type PGQueryOptions, type PGQueryResult, DataTypeTimeStampTzTemporal, DataTypeTimeStampTzTemporalArray } from '@webhare/postgrease';
+import { bindParam, nonDateCodecs, CodecRegistry, DataTypeOids, type PGBoundParam, connect, type PGConnection, type PGQueryOptions, type PGQueryResult, DataTypeTimeStampTzTemporal, DataTypeTimeStampTzTemporalArray, type PGPassthroughQueryCallback } from '@webhare/postgrease';
 import type {
   PostgresCursor,
-  PostgresPoolClient,
   PostgresQueryResult,
 } from 'kysely';
 
 import bridge from '@mod-system/js/internal/whmanager/bridge';
-import { BlobUploadTracker, type WHDBClientInterface, type WHDBPgClientOptions } from './connectionbase';
+import { BlobUploadTracker, type PoolClient, type WHDBClientInterface, type WHDBPgClientOptions } from './connectionbase';
 import { BlobType, DataTypeWHTimeStamp, DataTypeWHTimeStampArray, MoneyType, MoneyTypeArray, PreparedWebHareBlob } from './types-postgrease';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { RefTracker } from '@mod-system/js/internal/whmanager/refs';
 import { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { __getBlobDatabaseId } from './blobs';
-export { DatabaseError } from "@webhare/postgrease";
+import { isError } from '@webhare/std';
+export { DatabaseError, type PGPassthroughQueryCallback } from "@webhare/postgrease";
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
@@ -130,7 +130,7 @@ export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
   return pgclient;
 }
 
-export class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
+export class WHDBPgClient implements WHDBClientInterface, PoolClient {
   pgclient: PGConnection;
   options?: WHDBPgClientOptions;
   reftracker: RefTracker;
@@ -203,15 +203,28 @@ export class WHDBPgClient implements WHDBClientInterface, PostgresPoolClient {
     return sqlquery;
   }
 
+  passthroughQuery(query: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void {
+    const lock = this.reftracker.getLock("postgresql passthrough query");
+    this.pgclient.passthroughQuery(query, (data: Buffer | Error | null) => {
+      callback(data);
+      if (!data || isError(data))
+        lock.release();
+    });
+  }
+
   release() {
     this.options?.onRelease?.(this);
   }
 
   async close() {
-    using lock = this.reftracker.getLock("postgresql close connection");
-    void lock;
-
-    await this.pgclient?.close();
+    const lock = this.reftracker.getLock("postgresql close connection");
+    try {
+      await this.pgclient?.close();
+      lock.release();
+    } catch (e) {
+      lock.release();
+      throw e;
+    }
   }
 
   getRefObject() {

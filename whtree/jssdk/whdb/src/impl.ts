@@ -12,7 +12,6 @@ import {
   type Selectable as KSelectable,
   type Insertable as KInsertable,
   type Updateable as KUpdateable,
-  type PostgresPoolClient,
 } from 'kysely';
 
 import type { ReadableStream } from "node:stream/web";
@@ -27,7 +26,8 @@ import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
 import { isError, isPromise, sleep, type WaitPeriod } from '@webhare/std';
-import type { WHDBClientInterface } from './connectionbase';
+import type { PoolClient, WHDBClientInterface } from './connectionbase';
+import type { PGPassthroughQueryCallback } from '@webhare/postgrease';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -253,7 +253,7 @@ class WHDBPostgresPool implements PostgresPool {
     this.conn = conn;
   }
 
-  async connect(): Promise<PostgresPoolClient> {
+  async connect(): Promise<PoolClient> {
     return this.conn.waitConnected();
   }
 
@@ -261,16 +261,11 @@ class WHDBPostgresPool implements PostgresPool {
   }
 }
 
-
-
-
-/* Every WHDBConnection uses one pgclient, and runs all the queries over that transaction, so
-   no pooling is used within one connection.
-*/
-
-/** The WHDBConnectionImpl implements the kysely PostgresPool and PostgresPoolClient interfaces,
-    so we can take over connection handling. pg-pool has a timeout of a few seconds when the
-    script ends, don't want that.
+/** The WHDBConnectionImpl contains its own kysely PostgresPool, so we can take over connection handling.
+ *  pg-pool has a timeout of a few seconds when the script ends, don't want that.
+ *
+ * Every WHDBConnection uses one pgclient, and runs all the queries over that transaction, so
+ * no pooling is used within one connection.
     @typeParam T - Kysely database definition interface
 */
 export class WHDBConnectionImpl implements WHDBConnection {
@@ -298,7 +293,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     });
   }
 
-  waitConnected(): PostgresPoolClient | Promise<PostgresPoolClient> {
+  waitConnected(): PoolClient | Promise<PoolClient> {
     const client = this.client ?? this.getPoolClient();
     if (isPromise(client))
       return client.then(promisedClient => {
@@ -311,7 +306,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     return client;
   }
 
-  private getPoolClient(): PostgresPoolClient | undefined | Promise<PostgresPoolClient | undefined> {
+  private getPoolClient(): PoolClient | undefined | Promise<PoolClient | undefined> {
     if (!this.connected) {
       this.clientPromise ??= (async () => {
         const client = await PostgreaseConnectionLib.createConnection();
@@ -455,6 +450,17 @@ export class WHDBConnectionImpl implements WHDBConnection {
     this.checkState(true).broadcastOnCommit(event, data);
   }
 
+  passthroughQuery(query: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void {
+    if (debugFlags["usepostgrejs"])
+      throw new Error(`passthroughQuery is not supported with postgrejs driver`);
+    const client = this.waitConnected();
+    if (!isPromise(client))
+      client.passthroughQuery(query, callback);
+    else void client.then(c => {
+      c.passthroughQuery(query, callback);
+    }, e => callback(e));
+  }
+
   async close() {
     if (this.client)
       await this.client.close();
@@ -472,15 +478,15 @@ export class WHDBConnectionImpl implements WHDBConnection {
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
 
 export function getConnection(): WHDBConnection {
   return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
-    if (isWorkOpen())
-      await rollbackWork();
+    if (conn.isWorkOpen())
+      await conn.rollbackWork();
 
     return await conn.close();
   });
@@ -664,6 +670,10 @@ export function finishHandlerFactory<T extends FinishHandler>(obj: new () => T):
 */
 export function __getNewConnection(): WHDBConnection {
   return new WHDBConnectionImpl();
+}
+
+export function __passthroughQuery(queryPackets: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void {
+  getConnection().passthroughQuery(queryPackets, callback);
 }
 
 /** Get a new raw database connection (without codecs for dynamically created types like blobs)
