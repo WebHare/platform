@@ -636,7 +636,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
     }
 
     IF(webdesign.renderinfo.overridden) {
-      //override only alows to set the webpageobjectname (throug <bodyrenderer)
+      //override only allows to set the webpageobjectname (through <bodyrenderer)
       result.dyn.webpageobjectname := webdesign.renderinfo.objectname;
       result.dyn.routerfunction := "";
       result.dyn.startmacro := "";
