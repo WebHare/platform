@@ -20,6 +20,7 @@ compilerOptions:
   # our configuration
   baseUrl: .
   allowImportingTsExtensions: true # TS 5.7 is starting a move back towards extensions, also to support stripping types. Enabling this now may help us to switch in the future
+  allowJs: true #was needed to get incremental compiling to work in typescript check and add checks for circular loadlibs.
   jsx: react
   jsxFactory: dompack.jsxcreate
   jsxFragmentFactory: dompack.jsxfragment

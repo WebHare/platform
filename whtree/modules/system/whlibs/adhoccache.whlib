@@ -1,9 +1,13 @@
 ﻿<?wh
 /** @topic sitedev/webdesign */
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/map.whlib";
+
+OBJECT isolatedcache;
 
 //FIXME these should be in libvm, but are in libwebhare at this moment...
 RECORD FUNCTION GetAdhocCacheData(RECORD cachetag) __ATTRIBUTES__(EXTERNAL);
@@ -21,8 +25,17 @@ MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING 
     @cell options.exclusive Use a lock to ensure only one call to the cachecatter is run in parallel for his cachetag. Defaults to TRUE
     @return Returns the value in cache (or the value cell from the cachegetter call if not in cache)
 */
-PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  IF(ObjectExists(isolatedcache)) {
+    RECORD cachekey := CELL[ lib := GetCallingLibrary(TRUE), hash := GetSHA1Hash(EncodeJSON(cachetag)) ];
+    RECORD cacheentry := isolatedcache->GetVal(cachekey);
+    IF(NOT RecordExists(cacheentry)) {
+      cacheentry := CELL[value := cachegetter().value];
+      isolatedcache->SetVal(cachekey, cacheentry);
+    }
+    RETURN cacheentry.value;
+  }
+
   BOOLEAN exclusive := NOT CellExists(options, "EXCLUSIVE") OR options.exclusive;
 
   RECORD result := GetAdhocCacheData(cachetag);
@@ -214,4 +227,11 @@ PUBLIC MACRO StoreAdhocCached(RECORD cachetag, RECORD storevalue)
   }
 
   SetAdhocCacheData(cachetag, storevalue.value, expires, eventmasks, 0);
+}
+
+/* Set up the adhoc cache in a VM isolated mode. This may be useful for speeding up existing code relying heavily on the adhoc
+   cache if you won't be sharing anyway (eg it's running in a separate 'wh run' process) as it eliminates the marshalling overhead.
+   However it also disables any cache invalidation, including event-based invalidations, so it's not suitable for long running scripts */
+PUBLIC MACRO __IsolateAdhocCache() {
+  isolatedcache := NEW __Experimental_Map(["lib","hash"], DEFAULT RECORD);
 }

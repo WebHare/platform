@@ -14,7 +14,7 @@ export async function runJavaServiceApp(jar_and_args: string[]): Promise<{ cmdli
   const args = ["-jar", ...jar_and_args];
   const output = spawnSync(app, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
   return {
-    cmdline: args.join(" "),
+    cmdline: [app, ...args].join(" "),
     output: output.stdout,
     exitcode: output.status ?? 0,
   };
