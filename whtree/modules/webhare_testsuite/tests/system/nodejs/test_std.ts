@@ -911,6 +911,19 @@ async function testPromises() {
 
   test.eq([3, 3, 3, 5, 5], await Promise.all(coalesce));
   test.eq(2, tester.coalesceCalls);
+
+  //test attempt
+  test.eq(undefined, std.attempt(() => new URL('invalid')));
+  test.eq(null, std.attempt(() => new URL('invalid'), null));
+  test.eq(123, std.attempt(() => 123, null));
+
+  test.eq(undefined, await std.attempt(Promise.reject(new Error("this is rejected"))));
+  test.eq(null, await std.attempt(Promise.reject(new Error("this is rejected")), null));
+  test.eq(42, await std.attempt(Promise.resolve(42), null));
+
+  test.eq(undefined, await std.attempt(() => Promise.reject(new Error("this is rejected"))));
+  test.eq(null, await std.attempt(() => Promise.reject(new Error("this is rejected")), null));
+  test.eq(42, await std.attempt(() => Promise.resolve(42), null));
 }
 
 async function testMutex() {

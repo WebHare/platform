@@ -1,4 +1,5 @@
 import { type WaitPeriod, convertWaitPeriodToDate } from "./datetime";
+import { isPromise } from "./quacks";
 
 //TODO Deprecate once everyone is WH5.5+
 export type DeferredPromise<T> = PromiseWithResolvers<T>;
@@ -121,4 +122,37 @@ export function wrapSerialized<Fn extends (...args: any[]) => Promise<any>>(fn: 
 /** @deprecated Use wrapSerialized instead */
 export function serialize<RetVal>(fn: (...args: unknown[]) => Promise<RetVal>, context: unknown) {
   return wrapSerialized(fn, undefined);
+}
+
+/** Attempt to run code that may throw. If it thrwos anything, the fallback is returned
+
+   This allows you to replace:
+   ```
+   let url;
+     try {
+    url = new URL(inurl);
+  } catch (e) {
+    return null;
+  }```
+
+  with
+
+  ```
+  const url = attempt(() => new URL(inurl));
+  ```
+*/
+export function attempt<T>(toTry: Promise<T> | (() => Promise<T>)): Promise<T | undefined>;
+export function attempt<T, F>(toTry: Promise<T> | (() => Promise<T>), fallback: F): Promise<T | F>;
+export function attempt<T>(toTry: () => T): T | undefined;
+export function attempt<T, F>(toTry: () => T, fallback: F): T | F;
+
+export function attempt<T, F>(toTry: (() => T) | Promise<T> | (() => Promise<T>), fallback?: F): T | F | Promise<T | F> {
+  try {
+    const retval = typeof toTry === "function" ? toTry() : toTry;
+    if (isPromise(retval))
+      return (retval as Promise<T>).catch(() => fallback as F);
+    return retval as T;
+  } catch (e) {
+    return fallback as F;
+  }
 }
