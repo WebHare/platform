@@ -109,12 +109,11 @@ interface ServiceConnection {
 }
 
 class LinkState {
-  handler: BackendServiceConnection | null;
+  handler: BackendServiceConnection | null = null;
   link: WebHareServiceIPCLinkType["AcceptEndPoint"];
   initdefer = Promise.withResolvers<boolean>();
 
-  constructor(handler: BackendServiceConnection | null, link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
-    this.handler = handler;
+  constructor(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     this.link = link;
   }
 }
@@ -135,7 +134,7 @@ class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
 
   async addLink(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     try {
-      const state = new LinkState(null, link);
+      const state = new LinkState(link);
       link.on("close", () => this._onClose(state));
       link.on("message", _ => void this._onMessage(state, _));
       link.on("exception", () => false);
