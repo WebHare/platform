@@ -119,13 +119,18 @@ class LinkState {
   }
 }
 
-export class ServiceHandlerBase {
+class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
   private _factory: ConnectionFactory;
   private _options: WebHareServiceOptions;
+  private _port: WebHareServiceIPCLinkType["Port"];
+  #onClose;
 
-  constructor(servicename: string, factory: ConnectionFactory, options: WebHareServiceOptions) {
+  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, factory: ConnectionFactory, options: WebHareServiceOptions) {
     this._factory = factory;
     this._options = options;
+    this._port = port;
+    this._port.on("accept", link => void this.addLink(link));
+    this.#onClose = options.onClose;
   }
 
   async addLink(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
@@ -197,27 +202,8 @@ export class ServiceHandlerBase {
   }
 
   close() {
-  }
-
-  emit(name: string, detail: unknown) {
-  }
-}
-
-class WebHareService extends ServiceHandlerBase implements Disposable { //EXTEND IPCPortHandlerBase
-  private _port: WebHareServiceIPCLinkType["Port"];
-  #onClose;
-
-  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionFactory, options: WebHareServiceOptions) {
-    super(servicename, constructor, options);
-    this._port = port;
-    this._port.on("accept", link => void this.addLink(link));
-    this.#onClose = options.onClose;
-  }
-
-  close() {
     this.#onClose?.();
     this._port.close();
-    super.close();
   }
 
   [Symbol.dispose]() {
