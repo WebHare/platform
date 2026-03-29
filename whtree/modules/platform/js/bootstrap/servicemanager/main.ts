@@ -16,7 +16,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
-import { listDirectory, storeDiskFile } from "@webhare/system-tools/src/fs";
+import { deleteRecursive, listDirectory, storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { generateRandomId, regExpFromWildcards, sleep, stringify, throwError } from "@webhare/std";
 import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
@@ -29,6 +29,7 @@ import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartServi
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { kill } from "node:process";
 import { getBuildInfo } from "@mod-system/js/internal/generation/gen_config_nodb";
+import { getSocketsBaseDir } from "@mod-system/js/internal/whmanager/unix-connections";
 
 
 export let currentstage = Stage.Bootup;
@@ -589,7 +590,7 @@ async function verifyStrayProcesses() {
 }
 
 async function setConfigAndVersion() {
-  await updateWebHareConfigFile({ debugSettings: null, nodb: true });
+  await updateWebHareConfigFile({ debugSettings: null, nodb: true, socketDir: getSocketsBaseDir(serviceManagerId)! });
   const fullconfig = getFullConfigFile();
   const versionInfo: WebHareVersionFile = {
     ...buildinfo,
@@ -717,6 +718,15 @@ run({
     if (!opts.secondary) { //verify we're allowed to run
       await verifyStrayProcesses();
       await verifyUpgrade();
+    }
+
+    //we expect to run!
+    if (!process.env.WEBHARE_SERVICEMANAGERID) { //we initiated this servicemanager tree
+      const socketdir = getSocketsBaseDir(serviceManagerId)!;
+      await fs.mkdir(socketdir, { recursive: true });
+      process.once("beforeExit", () =>
+        void deleteRecursive(socketdir).catch(e => console.error("Failed to remove socket directory", e))
+      );
     }
 
     metaMgr = new ServiceManagerManager(opts.name, opts.secondary, opts.include, opts.exclude);
