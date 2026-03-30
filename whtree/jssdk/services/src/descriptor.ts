@@ -18,6 +18,7 @@ import { getWHType } from "@webhare/std/src/quacks";
 import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
 import { __getBlobDatabaseId, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { decryptForThisServer, encryptForThisServer } from "./secrets";
+import { SetDataError } from "./codec-support";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -74,6 +75,8 @@ export type ImportOptions = {
   unmapWhfsLink?: (mappedPath: string) => number | null | undefined | Promise<number | null | undefined>;
   /** Set to allow resource: references to be imported where a blob is expected */
   allowResourceImports?: boolean;
+  /** We're receiving data from HareScript? This allows us to accept 'data' in resource members */
+  sourceIsHareScript?: boolean;
 };
 
 export type LinkMethod = {
@@ -1011,13 +1014,16 @@ export class ResourceDescriptor implements ResourceMetaData {
   static async import(resource: ResourceSource, options?: ImportOptions): Promise<ResourceDescriptor> {
     if (isResourceDescriptor(resource))
       return resource;
-    const file = resource.file ?? ("data" in resource ? resource.data as ResourceSource["file"] ?? throwError("Resource source must have a file property or data property containing a file reference") : undefined);
+
+    const file = resource.file ??
+      (options?.sourceIsHareScript && (resource as unknown as { data: ResourceSource["file"] }).data) ??
+      throwError(new SetDataError("Resource must have a 'file' property containing a file reference"));
     let blob;
     if ("base64" in file && file.base64 !== undefined) {
       blob = WebHareBlob.from(Buffer.from(file.base64, 'base64'));
     } else if ("resource" in file && file.resource) {
       if (!options?.allowResourceImports)
-        throw new Error(`Cannot import resource '${file.resource}' without allowResourceImports enabled`);
+        throw new SetDataError(`Cannot import resource '${file.resource}' without allowResourceImports enabled`, { path: ["file", "resource"] });
 
       blob = await WebHareBlob.fromDisk(toFSPath(file.resource));
     } else if ("fetch" in file && file.fetch !== undefined) {
@@ -1027,7 +1033,7 @@ export class ResourceDescriptor implements ResourceMetaData {
         const decoded = decryptForThisServer("platform:blob", ref || "");
         blob = createPGBlobByBlobRec(decoded.db, null);
       } else {
-        throw new Error("External fetching of resources is not enabled");
+        throw new SetDataError("External fetching of resources is not enabled", { path: ["file", "fetch"] });
       }
       /* TODO once we allow external fetching through an importOption:
       const response = await fetch(file.fetch);
@@ -1039,7 +1045,7 @@ export class ResourceDescriptor implements ResourceMetaData {
       //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
       blob = file;
     } else {
-      throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`);
+      throw new SetDataError(`Not sure how to import file from exportedresource, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
     }
 
     const importData: ResourceMetaDataInit = {

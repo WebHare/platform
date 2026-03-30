@@ -3,7 +3,7 @@ declare module "@webhare/std" {
 }
 
 // Adding APIs may also require an update to https://www.webhare.dev/manuals/typescript/harescript-conversion-guide/
-export { sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type DeferredPromise, type SerializeOptions } from "./promises";
+export { attempt, sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type DeferredPromise, type SerializeOptions } from "./promises";
 
 export { compare, compareProperties, nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase } from "./types";
 export type { ToSnakeCase, ToCamelCase, ComparableType, MaybePromise } from "./types";
@@ -30,7 +30,7 @@ export { LocalMutex, type LocalLock } from "./localmutex";
  * @returns This function never returns
  * @throws An error with the specified message
  */
-export function throwError(err: string): never {
+export function throwError(err: Error | string): never {
   //TODO remove ourselves from the stack ?
-  throw new Error(err);
+  throw err instanceof Error ? err : new Error(err);
 }

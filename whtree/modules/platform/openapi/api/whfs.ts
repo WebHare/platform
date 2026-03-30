@@ -8,6 +8,7 @@ import { getType } from "@webhare/whfs/src/describe";
 import { exportFileAsFetch, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
 import { dirname } from "path";
+import { SetDataError } from "@webhare/services/src/codec-support";
 
 class WHFSAPIError extends Error {
   constructor(message: string, public statusCode: 400 | 403 | 404) {
@@ -100,11 +101,17 @@ async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string
 }
 
 async function applyInstanceUpdates(obj: WHFSObject, instances: TypedRestRequest<AuthorizedWRDAPIUser, "post /whfs/object">["body"]["instances"], importOptions?: ImportOptions) {
-  for (const instance of instances || []) {
+  for (const [idx, instance] of (instances || []).entries()) {
     if (instance.whfsType === "platform:virtual.objectdata")
       continue;
     const typeHandler = whfsType(instance.whfsType);
-    await typeHandler.set(obj.id, instance.data as object || {}, importOptions);
+    try {
+      await typeHandler.set(obj.id, instance.data as object || {}, importOptions);
+    } catch (e) {
+      if (e instanceof SetDataError)
+        e.prependToPath("instances", idx, "data");
+      throw e;
+    }
   }
 }
 
@@ -131,6 +138,9 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
       return req.createJSONResponse(201, {});
     });
   } catch (e) {
+    if (e instanceof SetDataError) {
+      return req.createErrorResponse(400, { error: e.message + e.getPathErrorSuffix() });
+    }
     if (e instanceof WHFSAPIError) {
       return req.createErrorResponse(e.statusCode, { error: e.message });
     }
@@ -175,6 +185,9 @@ export async function updateWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
       return req.createJSONResponse(200, {});
     });
   } catch (e) {
+    if (e instanceof SetDataError) {
+      return req.createErrorResponse(400, { error: e.message + e.getPathErrorSuffix() });
+    }
     if (e instanceof WHFSAPIError) {
       return req.createErrorResponse(e.statusCode, { error: e.message });
     }

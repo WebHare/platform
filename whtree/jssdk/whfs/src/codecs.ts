@@ -17,6 +17,7 @@ import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/se
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { buildComposedDocument, ComposedDocument, isComposedDocument, type ComposedDocumentType, type ExportedComposedDocument } from "@webhare/services/src/composeddocument";
 import { dbLoc } from "@webhare/services/src/symbols";
+import { SetDataError } from "@webhare/services/src/codec-support";
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -783,7 +784,9 @@ export async function setData(members: WHFSTypeMember[], data: object, options: 
         toInsert.push({ fs_member: matchmember.id, ...mynewsettings[i] });
       }
     } catch (e) {
-      if (e instanceof Error)
+      if (e instanceof SetDataError)
+        e.prependToPath(matchmember.name);
+      else if (e instanceof Error)
         e.message += ` (while setting '${matchmember.name}')`;
       throw e;
     }
@@ -878,7 +881,9 @@ export async function importData(members: WHFSTypeMember[], data: object, option
       if (isPromise(setval))
         setval = await setval;
     } catch (e) {
-      if (e instanceof Error)
+      if (e instanceof SetDataError)
+        e.prependToPath(member.name);
+      else if (e instanceof Error)
         e.message += ` (while importing '${member.name}')`;
       throw e;
     }
