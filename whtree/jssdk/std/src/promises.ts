@@ -124,7 +124,7 @@ export function serialize<RetVal>(fn: (...args: unknown[]) => Promise<RetVal>, c
   return wrapSerialized(fn, undefined);
 }
 
-/** Attempt to run code that may throw. If it thrwos anything, the fallback is returned
+/** Attempt to run code that may throw. If it throws anything, the fallback is returned
 
    This allows you to replace:
    ```
