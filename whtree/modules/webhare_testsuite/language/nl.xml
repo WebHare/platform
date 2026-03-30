@@ -62,6 +62,11 @@
     <text tid="mainedit">Mainedit</text>
     <text tid="testencoding">dutch a&amp;b&lt;c</text>
     <text tid="yattab">Yet Another Tab</text>
+    <textgroup gid="testgroup">   <!-- test.testgroup -->
+      <text tid="node"/>
+      <textgroup gid="node">   <!-- test.testgroup.node -->
+      </textgroup>
+    </textgroup>
   </textgroup>
   <textgroup gid="testfallback">   <!-- testfallback -->
     <text tid="anothertext">This text should be ignored</text>
@@ -80,6 +85,10 @@
   <textgroup gid="testtids">   <!-- testtids -->
     <textgroup gid="fragment">   <!-- testtids.fragment -->
     </textgroup>
+    <textgroup gid="gid1">   <!-- testtids.gid1 -->
+      <textgroup gid="gid2">   <!-- testtids.gid1.gid2 -->
+      </textgroup>
+    </textgroup>
     <textgroup gid="screen">   <!-- testtids.screen -->
     </textgroup>
     <textgroup gid="tabsextension">   <!-- testtids.tabsextension -->
@@ -90,9 +99,13 @@
       <textgroup gid="wrd">   <!-- tolliumapps.demo.wrd -->
       </textgroup>
     </textgroup>
-    <textgroup gid="iconviewer">   <!-- tolliumapps.iconviewer -->
-    </textgroup>
     <textgroup gid="mapdemo">   <!-- tolliumapps.mapdemo -->
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webdesigns">   <!-- webdesigns -->
+    <textgroup gid="basetestjs">   <!-- webdesigns.basetestjs -->
+      <textgroup gid="jswidget1">   <!-- webdesigns.basetestjs.jswidget1 -->
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="webtools">   <!-- webtools -->
