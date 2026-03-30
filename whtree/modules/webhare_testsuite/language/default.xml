@@ -145,6 +145,14 @@
       <text tid="waypoints">Waypoints</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="webdesigns">   <!-- webdesigns -->
+    <textgroup gid="basetestjs">   <!-- webdesigns.basetestjs -->
+      <textgroup gid="jswidget1">   <!-- webdesigns.basetestjs.jswidget1 -->
+        <text tid="field1">JS Widget field</text>
+        <text tid="jswidget1">JS Widget 1</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
   <textgroup gid="webtools">   <!-- webtools -->
     <text tid="testsuitehandlerdesc">TestSuiteHandler description</text>
   </textgroup>

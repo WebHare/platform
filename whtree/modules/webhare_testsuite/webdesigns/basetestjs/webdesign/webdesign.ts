@@ -6,6 +6,9 @@ import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
 import type { SchemaOrg } from "@webhare/deps";
 
 export async function renderJSWidget1(partReq: PagePartRequest, data: TypedInstanceData<"webhare_testsuite:base_test.jswidget1">) {
+  if (partReq.isEditorPreview)
+    return litty`<div class="editorpreview">Preview: ${data.field1}</div>`;
+
   return litty`<div>${data.field1}</div>`;
 }
 

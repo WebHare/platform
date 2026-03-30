@@ -97,13 +97,30 @@ ASYNC MACRO TestVideoWidget()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestJSBasedWidget() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
+
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
+  TTFillByTitle("contenttypes", "JS Widget 1");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
+  TT(":Field 1")->value:="first field";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  RECORD insert_instruction := SELECT * FROM GetTestController()->GrabInstructions() WHERE type = "messages" AND instr = "update" AND messages[0].type = "InsertEmbeddedObject";
+  TestEq(`<div class="editorpreview">Preview: first field</div>`, insert_instruction.messages[0].data.widget.htmltext);
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 ASYNC MACRO TestAnchorWidget()
 {
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := [ ToString(testrtd->id) ], target := DEFAULT RECORD ]));
 
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-insert" ]));
   TT("contenttypes")->selection := SELECT * FROM TT("contenttypes")->rows WHERE title = "Anchor";
-  TestEq(TRUE, RecordExists(TT("contenttypes")->selection));
+  TTFillByTitle("contenttypes", "Anchor");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
@@ -119,6 +136,7 @@ ASYNC MACRO TestAnchorWidget()
 
 RunTestframework([ PTR TestEmptyWidget
                  , PTR TestVideoWidget
+                 , PTR TestJSBasedWidget
                  , PTR TestAnchorWidget
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]

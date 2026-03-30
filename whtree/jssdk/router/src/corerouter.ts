@@ -148,6 +148,7 @@ export async function renderTSWidgetHS(context: {
   targetfolder: number;
   targetsite: number;
   sitelanguage: string;
+  iseditorpreview: boolean;
 }) {
   const type = whfsType(context.whfstype);
   //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
@@ -171,7 +172,8 @@ export async function renderTSWidgetHS(context: {
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
     targetPath: await buildTargetPath(targetObject),
-    siteLanguage: context.sitelanguage
+    siteLanguage: context.sitelanguage,
+    isEditorPreview: context.iseditorpreview
   };
 
   const result = await renderFunction(pagePartRequest, instance);

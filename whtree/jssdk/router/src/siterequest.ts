@@ -43,6 +43,7 @@ export type PagePluginFunction<PluginDataType = Record<string, unknown>> = (req:
 type ContentPageRequestOptions = {
   statusCode?: number;
   contentObject?: WHFSObject;
+  isEditorPreview?: boolean;
 };
 
 /** Convert a camelCaseName to corresponding kebab-case-name
@@ -98,20 +99,13 @@ export class CPageRequest {
   protected _siteLanguage!: string;
   protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
   private _statusCode: number;
+  private _isEditorPreview: boolean;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
 
   /** JS configuration data */
   private frontendConfig: WHConfigScriptData;
-
-  /** @deprecated use getInstance instead */
-  get contentObject() {
-    return this._contentObject;
-  }
-  get statusCode() {
-    return this._statusCode;
-  }
 
   constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
     this.webRequest = webRequest;
@@ -120,6 +114,7 @@ export class CPageRequest {
     this.targetObject = targetObject;
     this._contentObject = options?.contentObject || targetObject;
     this._statusCode = options?.statusCode || 200;
+    this._isEditorPreview = options?.isEditorPreview || false;
 
     this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
@@ -194,6 +189,17 @@ export class CPageRequest {
         name: pathEntry.title || pathEntry.name || undefined,
       });
     }
+  }
+
+  /** @deprecated use getInstance instead */
+  get contentObject() {
+    return this._contentObject;
+  }
+  get statusCode() {
+    return this._statusCode;
+  }
+  get isEditorPreview(): boolean {
+    return this._isEditorPreview;
   }
 
   get siteLanguage() {
@@ -527,7 +533,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect

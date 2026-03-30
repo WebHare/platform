@@ -428,7 +428,7 @@
   </xs:simpleType>
 
   <xs:complexType name="AllowWidgetType">
-    <xs:attribute name="type" type="xs:anyURI"/>
+    <xs:attribute name="type" />
     <xs:attribute name="inherit" type="xs:boolean"/>
   </xs:complexType>
 
