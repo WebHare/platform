@@ -87,6 +87,30 @@ types:
       extControlledField:
         type: string
         title: extControlledField
+  jsfolder1:
+    metaType: folder
+    title: "JS Folder 1"
+    members:
+      field1:
+        title: Field 1
+        type: string
+    apply:
+      editProps:
+        - type: jsfolder1
+          layout: [field1]
+  jsfolder2:
+    metaType: folder
+    namespace: http://www.webhare.net/xmlns/webhare_testsuite/jsfolder2 # register under a namespace to find scopedtype/namespace confusion
+    title: "JS Folder 2"
+    members:
+      field2:
+        title: Field 2
+        type: string
+    apply:
+      editProps:
+        - type: jsfolder2
+          layout: [field2]
+
   jswidget1:
     comment: Our first TypeScript widget
     metaType: blockWidget
@@ -106,6 +130,9 @@ apply:
       pageBuilder: webdesign/webdesign.ts#baseTestJSPageBuilder
     fileTypes:
       - allowType: http://www.webhare.net/xmlns/webhare_testsuite/pagelist
+    folderTypes:
+      - allowType: base_test.jsfolder1
+      - allowType: base_test.jsfolder2
   - to:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]

@@ -369,6 +369,25 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
   /////////////////////////////////////////////////////////
   // Extend props (legacy tabs)
 
+  PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname) {
+    FOREVERY(RECORD controller FROM this->renderer->metacontrollers) {
+      IF(controller.type->scopedtype = whfstype OR controller.type->namespace = whfstype) {
+        OBJECT cellobj := controller.fsinstance->GetComponent(cellname);
+        IF(ObjectExists(cellobj))
+          RETURN cellobj;
+      }
+    }
+
+    FOREVERY(RECORD extendprop FROM this->extendprops)
+      IF(extendprop.whfs_type = whfstype) {
+        OBJECT cellobj := extendprop.whfsinstance->GetComponent(cellname);
+        IF(ObjectExists(cellobj))
+          RETURN cellobj;
+      }
+
+    RETURN DEFAULT OBJECT;
+  }
+
   /// Marks all siteprofile extension components as readonly
   MACRO MarkSiteProfileExtensionsReadonly() {
     FOREVERY(RECORD propeditor FROM this->extendprops)

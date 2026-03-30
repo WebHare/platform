@@ -10,9 +10,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-ASYNC MACRO DynFolderIndex() //test issues with dynamic folders not getting the proper index file
-{
-  //Create a dynfodler
+ASYNC MACRO DynFolderIndex() { //test issues with dynamic folders not getting the proper index file
+  //Create a dynfolder
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteTempFolder()->whfspath ]]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "webdesign-dynfolder (webhare_testsuite)";
@@ -69,7 +68,6 @@ ASYNC MACRO TestCreateObjectDialog() {
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), no_pagelisttest_folder->id, [ isfolder := FALSE ] ));
-  //dumpvalue(TT("types")->rows,'boxed');
   TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "pagelisttest"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "External Link"));
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
@@ -80,6 +78,21 @@ ASYNC MACRO TestCreateObjectDialog() {
   TestEq(TRUE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "consenttest.rtd"));
   TestEq(FALSE, RecordExists(SELECT * FROM TT("types")->rows WHERE title = "Rich text document"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ GetTestsuiteJSTempFolder()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TTFillByTitle("types", "JS Folder 1");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TestEq("Field 1", topscreen->GetExtendedComponent("webhare_testsuite:base_test.jsfolder1", "field1")->title);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newfolder"));
+  TTFillByTitle("types", "JS Folder 2");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
+  TestEq("Field 2", topscreen->GetExtendedComponent("webhare_testsuite:base_test.jsfolder2", "field2")->title);
+  TestEq("Field 2", topscreen->GetExtendedComponent("http://www.webhare.net/xmlns/webhare_testsuite/jsfolder2", "field2")->title);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close app
 
   RECORD res := AWAIT ExpectScreenChange(+1, PTR RunSelectNewFSObjectTypeDialog(GetTestController(), GetTestsuiteTempFolder()->id,
     [ isfolder := FALSE

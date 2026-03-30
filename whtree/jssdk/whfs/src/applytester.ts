@@ -381,7 +381,7 @@ export class WHFSApplyTester {
     return features.some(_ => webfeatures?.includes(_));
   }
 
-  matchType(folderType: string | number | null, matchwith: string, isfolder: boolean) {
+  matchType(folderType: string | number | null, matchwith: string, isfolder: boolean): boolean {
     folderType = folderType ?? 0; // emulate HareScript behaviour for typeless files/folders
     if (folderType && typeof folderType === 'number' && folderType < 1000 && matchwith === String(folderType)) //only match by ID for well-knowns
       return true;
@@ -392,15 +392,14 @@ export class WHFSApplyTester {
       :
       types.find(_ => (isfolder ? _.foldertype : _.filetype) && (_.id === folderType));
 
-    return matchtype && (isLike(matchtype.namespace, matchwith) || isLike(matchtype.scopedtype, matchwith));
+    return Boolean(matchtype && (isLike(matchtype.namespace, matchwith) || isLike(matchtype.scopedtype, matchwith)));
   }
 
   private async applyIsMatch(apply: CSPApplyRule): Promise<boolean> {
     if (!isResourceMatch(apply.siteprofileids, this.objinfo.siteprofileids))
       return false;
-    if (apply.whfstype) {
-      return this.objinfo.type === apply.whfstype;
-    }
+    if (apply.whfstype)
+      return this.matchType(this.objinfo.type, apply.whfstype, !this.objinfo.isfile);
 
     try {
       for (const appl of apply.tos)

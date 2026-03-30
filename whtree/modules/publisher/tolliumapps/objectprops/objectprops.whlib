@@ -1286,17 +1286,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
     INSERT tabinfo INTO this->addtabs AT END;
   }
 
-  PUBLIC OBJECT FUNCTION GetExtendedComponent(STRING whfstype, STRING cellname) {
-    FOREVERY(RECORD extendprop FROM this->extendprops)
-      IF(extendprop.whfs_type = whfstype) {
-        OBJECT cellobj := extendprop.whfsinstance->GetComponent(cellname);
-        IF(ObjectExists(cellobj))
-          RETURN cellobj;
-      }
-
-    RETURN DEFAULT OBJECT;
-  }
-
   // ---------------------------------------------------------------------------
   //
   // SEO Tab
