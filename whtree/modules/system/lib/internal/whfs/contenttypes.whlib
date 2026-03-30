@@ -165,6 +165,7 @@ STATIC OBJECTTYPE WHFSType <
   /// Namespace of this type
   PUBLIC PROPERTY namespace(this->typedef.namespace, -);
 
+  PUBLIC PROPERTY scopedtype(this->typedef.scopedtype, -);
 
   /** List of members of this type
       @includecelldef #WHFSType.pvt_members
@@ -1918,6 +1919,8 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
   {
     RETURN FinalizeWHFSType([ id := 0
                             , namespace := getnamespace
+                            , scopedtype := isnormalfolder ? "platform:foldertypes.normalfolder"
+                                         : "platform:filetypes.unknownfile"
                             , isfoldertype := isnormalfolder
                             , isfiletype := isunknownfile
                             , orphan := FALSE
