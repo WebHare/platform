@@ -360,7 +360,7 @@ PUBLIC STATIC OBJECTTYPE __JSWidget EXTEND WidgetBase <
     }
   }
 
-  UPDATE PUBLIC MACRO Render() {
+  MACRO DoJSRender(BOOLEAN iseditorpreview) {
     RECORD result := CallJS("@webhare/router/src/corerouter.ts#renderTSWidgetHS", CELL[
       this->data.whfstype,
       this->data.whfssettingid,
@@ -369,11 +369,22 @@ PUBLIC STATIC OBJECTTYPE __JSWidget EXTEND WidgetBase <
       targetobject := this->context->targetobject->id,
       targetfolder := this->context->targetfolder->id,
       targetsite := ObjectExists(this->context->targetsite) ? this->context->targetsite->id : 0,
-      sitelanguage := this->context->languagecode
+      sitelanguage := this->context->languagecode,
+      iseditorpreview := iseditorpreview
     ]);
 
     Print(result.content);
   }
+
+  UPDATE PUBLIC MACRO Render() {
+    this->DoJSRender(this->context->isRTDPreview());
+  }
+
+  UPDATE PUBLIC MACRO RenderSearchPreview() {
+    //RenderSearchPreview was little used im HS, except when the preview would contain sensitive information. Defaulting to just live version when indexing might remove the need for a separate API
+    this->DoJSRender(FALSE);
+  }
+
 >;
 
 /** Render a widget

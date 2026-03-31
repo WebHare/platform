@@ -115,6 +115,7 @@ export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl
   return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, funcarg } })).asWebResponseInfo();
 }
 
+/** Invoked by HareScript's whfsexecute (dynamic) or publishwebdesign (static) to render a page */
 export async function executeContentPageRequestHS(targetId: number, options?: {
   contentfile?: number;
   errorcode?: number;
@@ -148,6 +149,7 @@ export async function renderTSWidgetHS(context: {
   targetfolder: number;
   targetsite: number;
   sitelanguage: string;
+  iseditorpreview: boolean;
 }) {
   const type = whfsType(context.whfstype);
   //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
@@ -171,7 +173,8 @@ export async function renderTSWidgetHS(context: {
     targetFolder: targetObject.isFolder ? targetObject : await whfs.openFolder(context.targetfolder),
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
     targetPath: await buildTargetPath(targetObject),
-    siteLanguage: context.sitelanguage
+    siteLanguage: context.sitelanguage,
+    isEditorPreview: context.iseditorpreview
   };
 
   const result = await renderFunction(pagePartRequest, instance);

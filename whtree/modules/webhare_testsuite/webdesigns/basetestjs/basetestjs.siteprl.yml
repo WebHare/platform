@@ -118,11 +118,9 @@ types:
     members:
       field1:
         type: string
-    apply:
-      setObjectEditor:
-        separateApp: true
-        name: publisher:webtoolform
-
+    editor:
+      # TODO shouldn't we be able to use editProps: here too?
+      tabsExtension: ./basetestjs.screens.xml#editjswidget1
 
 apply:
   - to: all

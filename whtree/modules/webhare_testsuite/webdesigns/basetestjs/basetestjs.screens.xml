@@ -1,0 +1,9 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="basetestjs.screens.whlib">
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="editjswidget1">
+    <newtab>
+      <textedit cellname="field1" composition="contentdata" title="Field 1" />
+    </newtab>
+  </tabsextension>
+
+
+</screens>

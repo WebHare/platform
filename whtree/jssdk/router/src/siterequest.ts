@@ -8,7 +8,7 @@ import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type RichTextDocument } from "@webhare/services";
-import { createWebResponse, getAssetPackIntegrationCode, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
+import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
@@ -43,6 +43,7 @@ export type PagePluginFunction<PluginDataType = Record<string, unknown>> = (req:
 type ContentPageRequestOptions = {
   statusCode?: number;
   contentObject?: WHFSObject;
+  isEditorPreview?: boolean;
 };
 
 /** Convert a camelCaseName to corresponding kebab-case-name
@@ -98,6 +99,7 @@ export class CPageRequest {
   protected _siteLanguage!: string;
   protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
   private _statusCode: number;
+  private _isEditorPreview: boolean;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
@@ -105,13 +107,8 @@ export class CPageRequest {
   /** JS configuration data */
   private frontendConfig: WHConfigScriptData;
 
-  /** @deprecated use getInstance instead */
-  get contentObject() {
-    return this._contentObject;
-  }
-  get statusCode() {
-    return this._statusCode;
-  }
+  /** Page builder data */
+  private pageBuilderData: Record<string, unknown> = {};
 
   constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
     this.webRequest = webRequest;
@@ -120,6 +117,7 @@ export class CPageRequest {
     this.targetObject = targetObject;
     this._contentObject = options?.contentObject || targetObject;
     this._statusCode = options?.statusCode || 200;
+    this._isEditorPreview = options?.isEditorPreview || false;
 
     this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
@@ -196,6 +194,17 @@ export class CPageRequest {
     }
   }
 
+  /** @deprecated use getInstance instead */
+  get contentObject() {
+    return this._contentObject;
+  }
+  get statusCode() {
+    return this._statusCode;
+  }
+  get isEditorPreview(): boolean {
+    return this._isEditorPreview;
+  }
+
   get siteLanguage() {
     return this._siteLanguage;
   }
@@ -208,10 +217,22 @@ export class CPageRequest {
     this.__insertions[where].push(what); //ensured above
   }
 
-  /** Set data associated with a plugin */
+  /** Set data to be sent to the client's browser */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
     checkModuleScopedName(dataObject);
     this.frontendConfig[dataObject] = data;
+  }
+
+  /** Get data sent to the pagebuilder */
+  getPageBuilderData<Type extends keyof PageBuilderDataTypes>(dataObject: Type): PageBuilderDataTypes[Type] | undefined {
+    checkModuleScopedName(dataObject);
+    return this.pageBuilderData[dataObject] as PageBuilderDataTypes[Type] | undefined;
+  }
+
+  /** Set data to be sent to the pagebuilder for processing/tweaking the final page */
+  setPageBuilderData<Type extends keyof PageBuilderDataTypes>(dataObject: Type, data: PageBuilderDataTypes[Type]) {
+    checkModuleScopedName(dataObject);
+    this.pageBuilderData[dataObject] = data;
   }
 
   //TODO do we like this name? or getInstanceData? or.. we don't have a TS name for it yet?
@@ -527,11 +548,11 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 }
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
-export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage">;
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
+export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
-export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content">;
+export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content" | "getPageBuilderData">;
 
 export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "getPlugin" | "addPlugin">;
 

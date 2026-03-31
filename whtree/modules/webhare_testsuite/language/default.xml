@@ -11,13 +11,13 @@
   <textgroup gid="basetest">   <!-- basetest -->
     <text tid="title">Basetest title</text>
   </textgroup>
-  <textgroup gid="editors">
-    <text tid="betatest">Beta test tab</text>
-    <text tid="stringtest">stringtest</text>
+  <textgroup gid="editors">   <!-- editors -->
     <text tid="array">array</text>
+    <text tid="betatest">Beta test tab</text>
+    <text tid="editrow">Edit row</text>
+    <text tid="stringtest">stringtest</text>
     <text tid="textcell">textcell</text>
     <text tid="whfscell">whfscell</text>
-    <text tid="editrow">Edit row</text>
   </textgroup>
   <textgroup gid="localtests">   <!-- localtests -->
     <text tid="apptitle">Run local tests</text>
@@ -58,20 +58,20 @@
     </textgroup>
   </textgroup>
   <textgroup gid="test">   <!-- test -->
-    <text tid="ifparam">Ifparam: <ifparam p="1" value="a">p1=a<else/>p1!=a</ifparam> <ifparam p="2" value="b">p2=b<else/>p2!=b</ifparam></text>
-    <text tid="hrefparam">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
-    <text tid="hrefparam2">Use <html:a data-href-param="1" href="x-fallback:">this link</html:a> to choose a new password</text>
-    <text tid="richtext">Dit is <html:b>bold</html:b><br/>volgende<html:br/>regel</text>
-    <text tid="richtext_params">param:<html:i><param p="1"/></html:i></text>
-    <text tid="unicode_2028"> unicode line separator, another separator</text>
     <text tid="addedgroup_k2">Added group K2</text>
     <text tid="beschikbaarheid">Beschikbaarheid</text>
     <text tid="beschikbaarheid-beschikbaar">Beschikbaar</text>
     <text tid="beschikbaarheid-binnenkort">Binnenkort</text>
     <text tid="beschikbaarheid-verkocht">Verkocht</text>
+    <text tid="hrefparam">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
+    <text tid="hrefparam2">Use <html:a data-href-param="1" href="x-fallback:">this link</html:a> to choose a new password</text>
+    <text tid="ifparam">Ifparam: <ifparam p="1" value="a">p1=a<else/>p1!=a</ifparam> <ifparam p="2" value="b">p2=b<else/>p2!=b</ifparam></text>
     <text tid="mainedit">Mainedit</text>
     <text tid="maxextras">Please note: max <param p="1"/> <ifparam p="1" value="1">person<else/>persons</ifparam></text>
+    <text tid="richtext">Dit is <html:b>bold</html:b><br/>volgende<html:br/>regel</text>
+    <text tid="richtext_params">param:<html:i><param p="1"/></html:i></text>
     <text tid="testencoding">english a&amp;b&lt;c</text>
+    <text tid="unicode_2028"> unicode line separator, another separator</text>
     <text tid="yattab">Yet Another Tab</text>
     <textgroup gid="testgroup" keepemptyreason="Used for tid system tests">   <!-- test.testgroup -->
       <text tid="node">Node text</text>
@@ -143,6 +143,14 @@
       <text tid="tracks">Tracks</text>
       <text tid="type">Type</text>
       <text tid="waypoints">Waypoints</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="webdesigns">   <!-- webdesigns -->
+    <textgroup gid="basetestjs">   <!-- webdesigns.basetestjs -->
+      <textgroup gid="jswidget1">   <!-- webdesigns.basetestjs.jswidget1 -->
+        <text tid="field1">JS Widget field</text>
+        <text tid="jswidget1">JS Widget 1</text>
+      </textgroup>
     </textgroup>
   </textgroup>
   <textgroup gid="webtools">   <!-- webtools -->

@@ -87,6 +87,7 @@
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon" />
+    <allowwidgettype type="webhare_testsuite:base_test.jswidget1" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/insertsnippet" />
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
                renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />

@@ -2,11 +2,13 @@ import { littyToString, rawLitty, type Litty } from "@webhare/litty";
 import { type WebResponse, createWebResponse } from "./response";
 import type { ContentPageRequest, CPageRequest, PageBuildRequest } from "./siterequest";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, parseTyped, toCamelCase } from "@webhare/std";
 import type { CSPDynamicExecution } from "@webhare/whfs/src/siteprofiles";
 import type { WebHareBlob } from "@webhare/services";
 import type { WebRequest } from "./request";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
+import type { PageBuilderDataTypes } from "@webhare/router";
+import type { FrontendDataTypes } from "@webhare/frontend";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
@@ -14,6 +16,8 @@ type RunPageResult = {
   headers: Array<{ header: string; data: string; always_add: boolean }>;
 } & ({
   content: string;
+  pagebuilderdata: Array<{ tag: string; data: string }>;
+  frontendconfig: Array<{ tag: string; data: string }>;
 } | {
   sendfile?: WebHareBlob;
 });
@@ -74,6 +78,10 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
   let response: WebResponse;
   if ("content" in result) {
     const content = hshostComments ? `\n<!-- HS Page Host: ${contReq.targetObject.id}, content=${contentTime} -->\n${result.content}\n<!-- /HS Page Host -->` : result.content;
+    for (const { tag, data } of result.pagebuilderdata)
+      contReq.setPageBuilderData(tag.toLowerCase() as keyof PageBuilderDataTypes, toCamelCase(parseTyped(data)) as PageBuilderDataTypes[keyof PageBuilderDataTypes]);
+    for (const { tag, data } of result.frontendconfig)
+      contReq.setFrontendData(tag.toLowerCase() as keyof FrontendDataTypes, toCamelCase(parseTyped(data)) as FrontendDataTypes[keyof FrontendDataTypes]);
     response = await contReq.buildWebPage(rawLitty(content)); //FIXME statuscode
   } else {
     response = createWebResponse(result.sendfile, { status: statusCode });

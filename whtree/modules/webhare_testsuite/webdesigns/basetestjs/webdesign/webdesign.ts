@@ -5,7 +5,18 @@ import type { PageBuilderFunction, WidgetBuilderFunction } from "@webhare/router
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
 import type { SchemaOrg } from "@webhare/deps";
 
+declare module "@webhare/router" {
+  interface PageBuilderDataTypes {
+    "webhare_testsuite:dynamicpageinfo": {
+      myEchoVar: string;
+    };
+  }
+}
+
 export async function renderJSWidget1(partReq: PagePartRequest, data: TypedInstanceData<"webhare_testsuite:base_test.jswidget1">) {
+  if (partReq.isEditorPreview)
+    return litty`<div class="editorpreview">Preview: ${data.field1}</div>`;
+
   return litty`<div>${data.field1}</div>`;
 }
 
@@ -69,7 +80,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   const comments = null; // TODO ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sharedblocks: any[] = []; // TODO sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
-
   return req.render({
     body: litty`
       <div id="basetitle">${getTid("webhare_testsuite:basetest.title")}</div>
@@ -82,6 +92,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
                         ${getTidLanguage() === 'ps' ? 'data-sitelanguage-ps' : ''}
                         >
     ${req.content}
+    ${req.getPageBuilderData("webhare_testsuite:dynamicpageinfo") ? litty`<div id="dynamicpageinfo">${JSON.stringify(req.getPageBuilderData("webhare_testsuite:dynamicpageinfo"))}</div>` : ''}
     </div>
    ${widget ? litty`<div id="widget">${widget}</div>` : ''}
    ${bobimagelink ? litty`<div id="bobimagelink">${bobimagelink.link}</div>` : ''}

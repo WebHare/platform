@@ -11,6 +11,10 @@ export interface WebdesignPluginAPIs {
   "platform:wrdauth": WRDAuthPluginAPI;
 }
 
+/** Registry for data we sent to the pagebuilder */
+export interface PageBuilderDataTypes {
+}
+
 export { HTTPMethod, getOriginURL, expandCookies, type WebRequest, type RPCContext, type RPCAPI, type RPCFilter } from './request';
 export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,

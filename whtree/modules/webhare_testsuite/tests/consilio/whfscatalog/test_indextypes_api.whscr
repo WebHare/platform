@@ -98,6 +98,7 @@ MACRO TestIndexTypeAPIs()
   //Verify widgetholder preview generation
   OBJECT widgetholder := OpenWHFSObjectByPath("site::webhare_testsuite.testsite/TestPages/widgetholder");
   RECORD ARRAY objs_widgetholder := provider->ListObjects3(DEFAULT DATETIME, "fsobj_" || widgetholder->id);
+  //NOTE: we've dropped search preview support for JS widgets - we hardly found real use for it in practice in HS
   TestEq(`indirect html widget: WidgetBlockWidget indirect jswidget: WidgetBlockWidget direct html widget: <b>direct html<\/b> direct jswidget: jswidget-direct2 Een afbeelding: Een externe en een interne link.`, objs_widgetholder[0].data.document_body);
 }
 
