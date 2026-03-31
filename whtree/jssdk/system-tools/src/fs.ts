@@ -94,11 +94,13 @@ export async function storeDiskFile(path: string, data: string | ArrayBuffer | U
   return { skipped: false };
 }
 
-async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined): Promise<ListDirectoryEntry[]> {
+async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined, skip: RegExp | undefined): Promise<ListDirectoryEntry[]> {
   const direntries: ListDirectoryEntry[] = [];
   const subdirs: string[] = [];
   try {
     for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
+      if (skip && skip.test(entry.name))
+        continue; //we don't even recurse into these
       if (!mask || mask.test(entry.name))
         direntries.push(new ListDirectoryEntry(entry, join(subpath, entry.name)));
       if (recursive && entry.isDirectory())
@@ -112,19 +114,30 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
   }
 
   for (const subdir of subdirs) //they were only gathered if recursive === true
-    appendToArray(direntries, await doReadDir(basepath, join(subpath, subdir), false, true, mask));
+    appendToArray(direntries, await doReadDir(basepath, join(subpath, subdir), false, true, mask, skip));
   return direntries;
 }
 
-/** List a directory, recursive */
-export async function listDirectory(basepath: string, { allowMissing, recursive, mask }: { allowMissing?: boolean; recursive?: boolean; mask?: string | RegExp } = {}): Promise<ListDirectoryEntry[]> {
-  if (typeof mask === "string")
-    mask = regExpFromWildcards(mask);
-
+/** List a directory, recursive
+ * @param basepath - Starting path. Can be absolute or relative to the current working directory. The returned fullPaths will be absolute, and the subPaths will be relative to this basepath
+ * @param options.allowMissing - If true, a missing directory will be treated as an empty directory instead of throwing an error
+ * @param options.recursive - If true, subdirectories will be listed as well. The returned entries will have their subPath relative to the basepath
+ * @param options.mask - If set, only entries with a name matching the mask (string with wildcards or RegExp) will be returned
+ * @param options.skip - If set, entries with a name matching the skip mask (string with wildcards or RegExp) will be ignored, and directories masking the name will not be recursed into
+ * @returns An array of directory entries. Each entry has a name, type, fullPath, and subPath (relative to the basepath)
+ */
+export async function listDirectory(basepath: string, options?: {
+  allowMissing?: boolean;
+  recursive?: boolean;
+  mask?: string | RegExp;
+  skip?: string | RegExp;
+}): Promise<ListDirectoryEntry[]> {
+  const mask = typeof options?.mask === "string" ? regExpFromWildcards(options?.mask) : options?.mask;
+  const skip = typeof options?.skip === "string" ? regExpFromWildcards(options?.skip) : options?.skip;
   if (!isAbsolute(basepath))
     basepath = join(process.cwd(), basepath); //ensure stable fullPaths
 
-  return await doReadDir(basepath, "", allowMissing || false, recursive || false, mask);
+  return await doReadDir(basepath, "", options?.allowMissing || false, options?.recursive || false, mask, skip);
 }
 
 interface DeleteRecursiveOptions {
