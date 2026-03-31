@@ -4,12 +4,17 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { importJSFunction, resolveResource, ResourceDescriptor, type WebHareBlob } from "@webhare/services";
+import { importJSFunction, resolveResource, ResourceDescriptor, toFSPath, type WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { validateCompiledSiteProfile } from "./siteprofiles";
+import { readFileSync } from "node:fs";
+import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
+import { elements, getAttr } from "@mod-system/js/internal/generation/xmlhelpers";
+import { or } from "ajv/dist/compile/codegen";
+import { getApplicabilityError, getMyApplicabilityInfo, isNodeApplicableToThisWebHare, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
 
 export interface ResourcePosition {
   /** Line number, 1-based. 0 if unknown or file missing*/
@@ -271,4 +276,107 @@ export async function runJSBasedGlobalValidators(mode: "siteprofiles" | "all", m
   const result = new ValidationState({});
   await validateCompiledSiteProfile(result, modules);
   return result.finalize();
+}
+
+export type ModuleValidationConfig = {
+  /** List of masks for files to exclude from validation */
+  excludemasks: Array<{ mask: string; why: string; permanent: boolean }>;
+  /** List of messages to ignore during validation */
+  ignoremessages: Array<{ mask: string; regex?: string }>;
+  /** 'true' if this module isn't allowed to run on this webhare installation */
+  futuremodule: boolean;
+  /** Explains why the module isn't allowed to run on this webhare installation */
+  futuremodulewhy: string;
+  /** 'true' if validation should fail when any harescript file has a warning */
+  perfectcompile: boolean;
+  /** 'true' if validation should fail when any tids are missing */
+  nomissingtids: boolean;
+  /** 'true' if validation should fail when any warnings are found (does not necessarily include warnings added since 2024) */
+  nowarnings: boolean;
+  /** List of masks for files to validate with eslint */
+  eslintmasks: string[];
+  /** List of masks for files to format */
+  formatmasks: string[];
+  /** List of masks for files to exclude from formatting */
+  formatexcludemasks: string[];
+};
+
+/** Returns the validation configuration for a module
+    @param modulename - Name of the module
+    @returns Validation configuration for the specified module
+*/
+export async function getModuleValidationConfig(modulename: string): Promise<ModuleValidationConfig> {
+  const config: ModuleValidationConfig = {
+    excludemasks: [{ mask: "localtests/*", why: "Non-validated tests", permanent: true }],
+    ignoremessages: [],
+    futuremodule: false,
+    futuremodulewhy: "",
+    perfectcompile: false,
+    nomissingtids: false,
+    nowarnings: false,
+    eslintmasks: ["*.ts", "*.tsx"],
+    formatmasks: [],
+    formatexcludemasks: []
+  };
+  if (!modulename) //TODO who needs this? copied from HS code
+    return config;
+
+  //parse the moduledef and get any exclusions
+  const context = await buildGeneratorContext([modulename], false);
+  const moddefXML = context.moduledefs.find(m => m.name === modulename)?.modXml;
+  if (!moddefXML) {
+    throw new Error(`Module definition XML not found for module ${modulename}`);
+  }
+
+  const validation = moddefXML.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "validation")[0];
+  if (validation) {
+    //ADDME warn or fail about unknown options to prevent typos? but only if we know we are 'develop' and have perfect knowledge of acceptable options
+    //Document options here in moduledefinition.xsd
+    const options = getAttr(validation, "options", []);
+    config.perfectcompile = options.includes("perfectcompile");
+    config.nomissingtids = options.includes("nomissingtids");
+    config.nowarnings = options.includes("nowarnings");
+
+    for (const ignoremessage of elements(validation.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ignoremessage")))
+      config.ignoremessages.push({
+        mask: `${modulename}::${getAttr(ignoremessage, "mask", "")}`,
+        regex: getAttr(ignoremessage, "regex", "")
+      });
+
+    for (const excl of elements(validation.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "exclude"))) {
+      if (!isNodeApplicableToThisWebHare(excl, "", { unsafeEnv: true }))
+        continue;
+
+      config.excludemasks.push({
+        mask: getAttr(excl, "mask", ""),
+        why: getAttr(excl, "why", ""),
+        permanent: getAttr(excl, "permanent", false)
+      });
+    }
+
+    for (const excl of elements(validation.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "eslint"))) {
+      if (!isNodeApplicableToThisWebHare(excl, "", { unsafeEnv: true }))
+        continue;
+
+      config.eslintmasks.push(...getAttr(excl, "mask", []));
+      config.eslintmasks.push(...getAttr(excl, "masks", []));
+    }
+
+    for (const excl of elements(validation.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "format"))) {
+      if (!isNodeApplicableToThisWebHare(excl, "", { unsafeEnv: true }))
+        continue;
+
+      config.formatmasks.push(...getAttr(excl, "masks", []));
+      config.formatexcludemasks.push(...getAttr(excl, "excludemasks", []));
+    }
+  }
+
+  const packaging = moddefXML.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "packaging")[0];
+  if (packaging) {
+    config.futuremodulewhy = getApplicabilityError(getMyApplicabilityInfo({ unsafeEnv: true }), readApplicableToWebHareNode(packaging, "")) || '';
+    config.futuremodule = config.futuremodulewhy !== "";
+
+  }
+
+  return config;
 }
