@@ -7,6 +7,7 @@ import { beginWork, commitWork, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 import { determineType } from "@webhare/hscompat/src/hson";
+import { startNestingHandler } from "./testwasmlib";
 
 function testTypeAPIs() {
   test.eq(VariableType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));
@@ -169,6 +170,23 @@ async function testCalls() {
   }, await loadlib("mod::system/whlibs/internal/filetypes.whlib").ValidateWrappedData(goldfish));
 }
 
+async function testNestedCalls() {
+  /* If we invoke HS code, and HS code calls back to us...
+     and we invoke HS code again, and HS code calls back to us...
+
+     this will build a OurTSCall -> CallJS -> WaitForPromise -> WaitUntil -> OurTSCall -> CallJS -> WaitForPromise -> WaitUntil stack
+
+     if the lowest promise completes first, execution won't resume beacuse the higher WaitUntil was not waiting for that promise
+     but if then the highest promise completes, execution will resume and the stack will unwind until the lower WaitUntil
+     but that WaitUntil needs to actually exit its __HS_WAITFORMULTIPLEUNTIL or it won't see the resolved promise
+     */
+  await using vm1 = await createVM();
+  startNestingHandler(vm1);
+  await test.sleep(50);
+  const call = vm1.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").NestedCallTest();
+  await test.wait(call, { timeout: 15_000, annotation: "Nested calls didn't complete in time, looks like the inner promise resolution isn't properly waking up the outer WaitUntil" });
+}
+
 async function testVMAbort() {
   const vm1 = await createVM();
   await test.throws(/We're aborting it/, vm1.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").AbortIt());
@@ -247,6 +265,7 @@ test.runTests([
   testTypeAPIs,
   testVarMemory,
   testCalls,
+  testNestedCalls,
   testVMAbort,
   testMethodCalls,
   testMutex,

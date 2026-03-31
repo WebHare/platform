@@ -488,8 +488,8 @@ RECORD afg_iteratorretval := [ yieldvalue := TRUE, value := [ done := FALSE, val
     functions resumes. These function expect a [ done := ..., value := ... ] record returned.
 */
 
-PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED) <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -627,8 +627,8 @@ PUBLIC OBJECTTYPE __HS_INTERNAL_AsyncFunctionGenerator EXTEND __HS_INTERNAL_Susp
        up control values in the translated AWAITs/YIELDs and handling those in ResumeWithXXX/HandleYieldInstruction.
        Can't do that for async normal functions, because the function has no initial yield.
 */
-PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED)
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTERNAL_SuspendableFunctionController __ATTRIBUTES__(INTERNALPROTECTED) <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -637,7 +637,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
   OBJECT asynccontext;
 
   /// Are we at the implicit first yield?
-//  BOOLEAN atfirstinstruction;
+  //  BOOLEAN atfirstinstruction;
 
   /** Queued calls to the iterator from the user
       @cell type
@@ -920,8 +920,8 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
 
 /** Handles promise resolved for WaitUntil
 */
-OBJECTTYPE PromisesResultKeeper
-< // ---------------------------------------------------------------------------
+OBJECTTYPE PromisesResultKeeper <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1090,8 +1090,9 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
     {
       BOOLEAN have_callback := __INTERNAL_RunAsyncJSCode();
       DATETIME event_timeout := __INTERNAL_GetEventCallBackTimeout();
+      BOOLEAN promise_resolved := ObjectExists(promisekeeper) AND RecordExists(promisekeeper->GetResult());
 
-      DATETIME timeout := until < event_timeout ? until : event_timeout;
+      DATETIME timeout := promise_resolved ? DEFAULT DATETIME : until < event_timeout ? until : event_timeout;
       IF (next_gc < timeout)
         timeout := next_gc;
 
@@ -1309,8 +1310,8 @@ PUBLIC VARIANT FUNCTION GeneratorSpawnTrySync(OBJECT generator)
   RETURN NEW SpawnHelper(generator)->Start(TRUE);
 }
 
-STATIC OBJECTTYPE SpawnHelper
-< RECORD defer;
+STATIC OBJECTTYPE SpawnHelper <
+  RECORD defer;
   OBJECT generator;
   INTEGER waitgen;
   OBJECT asynccontext;
