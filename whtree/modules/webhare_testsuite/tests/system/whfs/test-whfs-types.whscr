@@ -40,6 +40,7 @@ MACRO MockedTypes()
 {
   OBJECT normalfoldertype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/normalfolder");
   TestEq("http://www.webhare.net/xmlns/publisher/normalfolder", normalfoldertype->namespace);
+  TestEq("platform:foldertypes.normalfolder", normalfoldertype->scopedtype);
   TestEq(TRUE, normalfoldertype->foldertype);
   TestEq(FALSE, normalfoldertype->filetype);
   TestEq(FALSE, normalfoldertype->orphan);
@@ -48,16 +49,23 @@ MACRO MockedTypes()
 
   OBJECT unknownfiletype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/unknownfile");
   TestEq("http://www.webhare.net/xmlns/publisher/unknownfile", unknownfiletype->namespace);
+  TestEq("platform:filetypes.unknownfile", unknownfiletype->scopedtype);
   TestEq(FALSE, unknownfiletype->foldertype);
   TestEq(TRUE, unknownfiletype->filetype);
   TestEq(FALSE, unknownfiletype->isacceptableindex);
   TestEq(FALSE, unknownfiletype->ispublishedassubdir);
+
+  //not mocked, but still need to test scopedtype
+  OBJECT richdoctype := OpenWHFSType("platform:filetypes.richdocument");
+  TestEq("platform:filetypes.richdocument", richdoctype->scopedtype);
+  TestEq("http://www.webhare.net/xmlns/publisher/richdocumentfile", richdoctype->namespace);
 }
 
 MACRO MergeTypeInto()
 {
   OBJECT srctype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfolder", [ openorphans := TRUE ]);
   TestEq(TRUE, srctype->foldertype);
+  TestEq("", srctype->scopedtype);
 
   OBJECT desttype := OpenWHFSType("http://www.webhare.net/xmlns/beta/dynfile", [ openorphans := TRUE ]);
   TestEq(FALSE, desttype->foldertype);
