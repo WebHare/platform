@@ -644,6 +644,7 @@ export async function wait<T>(waitfor: Promise<T>, options?: WaitOptions<T>): Pr
 */
 export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, options?: WaitOptions<T>): PositiveWaitRetVal<T> {
   using waitState = flagWait("wait");
+  const waitStack = new Error().stack;
 
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
@@ -654,7 +655,11 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
 
   let cb;
   const timeoutPromise = new Promise<T>((_, reject) => { //note that it will never actually resolve to a <T> but it makes TS happy
-    cb = setTimeout(() => reject(new TestError(`test.wait timed out after ${timeout} ms`, options)), timeout);
+    cb = setTimeout(() => {
+      const err = new TestError(`test.wait timed out after ${timeout} ms`, options);
+      err.stack = waitStack; //replace the stack with the one from when wait() was called, to make it easier to find the source of the timeout
+      reject(err);
+    }, timeout);
   });
 
   const isFunction = typeof waitfor === "function";
