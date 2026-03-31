@@ -64,6 +64,8 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
 
 PUBLIC OBJECTTYPE DynamicPageOverride EXTEND WebPageBase <
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody() {
+    this->webdesign->SetPageBuilderData("webhare_testsuite:dynamicpageinfo", CELL[ echo_web_var := GetWebVariable("echo") ]);
+    this->webdesign->SetFrontendData("webhare_testsuite:dynamicpagefrontend", CELL[ echo_web_var := GetWebVariable("echo") ]);
     RETURN PTR Print(`<div id="dynamicpage_override">This is DynamicPageOverride with echo=${EncodeHTML(GetWebVariable("echo"))}</div>`);
   }
 >;

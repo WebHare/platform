@@ -13,8 +13,22 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 INTEGER capturing_stream;
 
+RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD ARRAY headers) {
+  RETURN CELL[
+    content := BlobToString(content),
+    headers,
+    pagebuilderdata := (SELECT tag := ToLowercase(name)
+                             , data := EncodeJSON(value, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
+                          FROM UnpackRecord(webdesign->__pagebuilderdata)),
+    frontendconfig := (SELECT tag := ToLowercase(name)
+                            , data := EncodeJSON(value, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
+                         FROM UnpackRecord(webdesign->__jsconfig))
+  ];
+}
+
 PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
   OBJECT webdesign := GetWebDesign(fileid);
+  webdesign->__pagebuilderdata := CELL[]; //allow setting data for the page builder
 
   capturing_stream := CreateStream();
   RedirectOutputTo(capturing_stream);
@@ -26,9 +40,7 @@ PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER 
   webdesign->CallWithScope(PTR pageobject->RunBody(webdesign));
 
   RedirectOutputTo(0);
-  STRING content := BlobToString(MakeBlobFromStream(capturing_stream));
-
-  RETURN CELL[ content, headers := RECORD[] ];
+  RETURN EncodeWebdesignResponse(webdesign, MakeBlobFromStream(capturing_stream), RECORD[]);
 }
 
 MACRO MockUsingClientInfo(RECORD clientinfo) {
@@ -62,6 +74,7 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
   MockUsingClientInfo(webclientinfo);
 
   OBJECT webdesign := GetWebDesign(fileid);
+  webdesign->__pagebuilderdata := CELL[]; //allow setting data for the page builder
 
   RECORD dynamicexecution := CellExists(how, 'dynamicexecution') ? how.dynamicexecution : DEFAULT RECORD;
   RECORD pagerouter := CellExists(how, 'pagerouter') ? how.pagerouter : DEFAULT RECORD;
@@ -107,11 +120,10 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     webdesign->CallWithScope(renderfunc);
 
     RedirectOutputTo(0);
-    content := BlobToString(MakeBlobFromStream(capture));
 
     RECORD ARRAY headers := sendhttpheaders;
     sendhttpheaders := RECORD[];
-    RETURN CELL[ content, headers ];
+    RETURN EncodeWebdesignResponse(webdesign, MakeBlobFromStream(capture), headers);
   } CATCH(OBJECT <SendWebFileAbortException> e) {
     RedirectOutputTo(0);
     MakeBlobFromStream(capture); //discard captured output

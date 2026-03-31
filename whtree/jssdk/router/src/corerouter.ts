@@ -115,6 +115,7 @@ export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl
   return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, funcarg } })).asWebResponseInfo();
 }
 
+/** Invoked by HareScript's whfsexecute (dynamic) or publishwebdesign (static) to render a page */
 export async function executeContentPageRequestHS(targetId: number, options?: {
   contentfile?: number;
   errorcode?: number;

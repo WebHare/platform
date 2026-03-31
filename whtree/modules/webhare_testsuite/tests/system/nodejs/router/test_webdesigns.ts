@@ -45,6 +45,7 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
 
 function parseResponse(responsetext: string) {
   const doc = parseDocAsXML(responsetext, 'text/html');
+  const config = getWHConfig(doc);
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];
   const contentdiv = doc.getElementById("content");
@@ -55,7 +56,7 @@ function parseResponse(responsetext: string) {
     map(e => new XMLSerializer().serializeToString(e)).
     map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses };
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config };
 }
 
 async function getAsDoc(whfspath: string) {
@@ -167,7 +168,11 @@ async function testDynamicPage() {
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-hs");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
       const response = parseResponse(await fetchResult.text());
-      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+      test.eq([
+        `<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`,
+        `<div id="dynamicpageinfo">{"echoWebVar":"12378"}</div>`
+      ], response.contentElements, dynamicPage.link + "?echo=12378");
+      test.eq({ echoWebVar: "12378" }, response.config["webhare_testsuite:dynamicpagefrontend"]);
     }
   }
 }

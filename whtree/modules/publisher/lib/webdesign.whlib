@@ -81,7 +81,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   //Link mode. FIXME: make private or add public property to access
   PUBLIC STRING pvt_linkmode;
   //JavaScript config, global
-  RECORD __jsconfig;
+  PUBLIC RECORD __jsconfig;
+  //Data from SetPageBuilderData
+  PUBLIC RECORD __pagebuilderdata;
   //Site specific JS settings
   RECORD __jssiteconfig;
   //Obj(ect) specific JS settings
@@ -979,13 +981,22 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       this->__jsconfig := CellInsert(this->__jsconfig, pluginname, data);
   }
 
-  PUBLIC MACRO SetFrontendData(STRING dataobject, RECORD data)
-  {
+  /** Data sent to the browser */
+  PUBLIC MACRO SetFrontendData(STRING dataobject, RECORD data) {
     IF(dataobject NOT LIKE "?*:?*") //unfortunately we don't seem to have a checkModuleScopedName ready in HS.
       THROW NEW Exception(`Frontend data object types should be proper 'module:name' references`);
     this->__jsconfig := CellDelete(this->__jsconfig, dataobject);
     IF(RecordExists(data))
       this->__jsconfig := CellInsert(this->__jsconfig, dataobject, data);
+  }
+
+  /** Data shared with the pagebuilder (TypeScript web designs) */
+  PUBLIC MACRO SetPageBuilderData(STRING tag, RECORD data) {
+    IF(tag NOT LIKE "?*:?*") //unfortunately we don't seem to have a checkModuleScopedName ready in HS.
+      THROW NEW Exception(`Page builder data tag should be proper 'module:name' references`);
+    this->__pagebuilderdata := CellDelete(this->__pagebuilderdata, tag);
+    IF(RecordExists(data))
+      this->__pagebuilderdata := CellInsert(this->__pagebuilderdata, tag, data);
   }
 
   PUBLIC STRING FUNCTION GetRelURL(STRING inurl)
