@@ -175,61 +175,8 @@ PUBLIC RECORD FUNCTION ScanModuleTids(RECORD validationconfig, STRING module)
   RETURN scanresult;
 }
 
-STRING ARRAY FUNCTION RecurseGetValidatableFiles(STRING basepath, RECORD validateconfig, MACRO PTR onskippedfile, STRING filemask)
-{
-  RECORD ARRAY dir_contents := ReadWebHareResourceFolder(basepath);
-  STRING ARRAY files;
-
-  FOREVERY(RECORD entry FROM dir_contents)
-  {
-    IF(entry.name LIKE ".*" OR entry.name="node_modules" OR entry.name="vendor")
-      CONTINUE;
-
-    STRING resname := basepath || "/" || entry.name;
-    IF(entry.isfolder)
-    {
-      files := files CONCAT RecurseGetValidatableFiles(resname, validateconfig, onskippedfile, filemask);
-      CONTINUE;
-    }
-
-    IF(ToUppercase(entry.name) NOT LIKE ToUppercase(filemask))
-      CONTINUE;
-
-    BOOLEAN skip;
-    STRING resnameformasks := Substring(resname,SearchSubString(resname,'/')+1);
-
-    FOREVERY(RECORD exclusion FROM validateconfig.excludemasks)
-      IF(ToUppercase(resnameformasks) LIKE ToUppercase(exclusion.mask))
-      {
-        IF(exclusion.permanent = FALSE AND onskippedfile != DEFAULT MACRO PTR)
-          onskippedfile(resname, exclusion.why);
-        skip := TRUE;
-        BREAK;
-      }
-
-    IF(NOT skip)
-      INSERT resname INTO files AT END;
-  }
-  RETURN files;
-}
-
-/** Gathers the list of files that must be validated
-    @param validateconfig @includecelldef #GetModuleValidationConfig.return
-    @param modulename Name of the module to scan
-    @cell(macro ptr) options.onskippedfile Called for all skipped files. Signature: MACRO onskippedfile(STRING resourcename, STRING reason)
-    @return List of validatable files
-*/
-PUBLIC STRING ARRAY FUNCTION GetValidatableFiles(RECORD validateconfig, STRING modulename, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ onskippedfile := DEFAULT MACRO PTR
-                             , filemask := "*"
-                             ], options);
-
-  STRING root := modulename = "jssdk"
-      ? "direct::" || GetWebhareConfiguration().installationroot || "jssdk"
-      : "mod::" || modulename;
-
-  RETURN RecurseGetValidatableFiles(root, validateconfig, options.onskippedfile, options.filemask);
+STRING ARRAY FUNCTION GetValidatableFiles(RECORD validateconfig, STRING modulename) {
+  RETURN CallJS("mod::platform/js/devsupport/validation.ts#getValidatableFilesHS", validateconfig, modulename);
 }
 
 BOOLEAN FUNCTION IsSVGIconFile(STRING resourcename)

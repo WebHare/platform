@@ -1,7 +1,7 @@
 import ts from "typescript";
 import * as path from "node:path";
 import { backendConfig, toResourcePath } from "@webhare/services";
-import type { ValidationMessageWithType } from "./validation";
+import { getModuleValidationConfig, getValidatableFiles, type ValidationMessageWithType } from "./validation";
 import { mkdir } from "node:fs/promises";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -171,6 +171,11 @@ function getCircularImports(compiler: ts.CompilerHost, tsOptions: ts.CompilerOpt
   return analysisResult;
 }
 
+async function getTSCFiles(modulename: string) {
+  const config = await getModuleValidationConfig(modulename === "jssdk" ? "platform" : modulename);
+  return await getValidatableFiles(config, modulename, { fileMask: /\.(ts|tsx)$/ });
+}
+
 export async function checkUsingTSC(modulename: string, options?: { files: string[] }): Promise<ValidationMessageWithType[]> {
   const isPlatform = modulename === "jssdk" || whconstant_builtinmodules.includes(modulename);
   const projectRoot = isPlatform ? backendConfig.installationRoot : backendConfig.module[modulename].root;
@@ -181,7 +186,8 @@ export async function checkUsingTSC(modulename: string, options?: { files: strin
   const tsbuildinfodir = backendConfig.dataRoot + "caches/platform/typescript";
   await mkdir(tsbuildinfodir, { recursive: true });
 
-  let { host, tsOptions, program, diagnostics, builderProgram } = await prepTSHost(projectFile, { setFiles: options?.files, ignoreErrors: true, tsBuildInfoFile: path.join(tsbuildinfodir, modulename + ".tsbuildinfo") });
+  const files = options?.files ?? await getTSCFiles(modulename);
+  let { host, tsOptions, program, diagnostics, builderProgram } = await prepTSHost(projectFile, { setFiles: files, ignoreErrors: true, tsBuildInfoFile: path.join(tsbuildinfodir, modulename + ".tsbuildinfo") });
 
   const emitResult = builderProgram.emit();
   diagnostics = diagnostics.concat(emitResult.diagnostics);

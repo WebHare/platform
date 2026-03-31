@@ -4,17 +4,16 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { importJSFunction, resolveResource, ResourceDescriptor, toFSPath, type WebHareBlob } from "@webhare/services";
-import { pick } from "@webhare/std";
+import { backendConfig, importJSFunction, resolveResource, ResourceDescriptor, toResourcePath, type WebHareBlob } from "@webhare/services";
+import { pick, regExpFromWildcards, throwError } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 import { validateCompiledSiteProfile } from "./siteprofiles";
-import { readFileSync } from "node:fs";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { elements, getAttr } from "@mod-system/js/internal/generation/xmlhelpers";
-import { or } from "ajv/dist/compile/codegen";
 import { getApplicabilityError, getMyApplicabilityInfo, isNodeApplicableToThisWebHare, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
+import { listDirectory } from "@webhare/system-tools";
 
 export interface ResourcePosition {
   /** Line number, 1-based. 0 if unknown or file missing*/
@@ -339,7 +338,7 @@ export async function getModuleValidationConfig(modulename: string): Promise<Mod
 
     for (const ignoremessage of elements(validation.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ignoremessage")))
       config.ignoremessages.push({
-        mask: `${modulename}::${getAttr(ignoremessage, "mask", "")}`,
+        mask: `mod::${modulename}/${getAttr(ignoremessage, "mask", "")}`,
         regex: getAttr(ignoremessage, "regex", "")
       });
 
@@ -379,4 +378,46 @@ export async function getModuleValidationConfig(modulename: string): Promise<Mod
   }
 
   return config;
+}
+
+export async function getValidatableFiles(validateconfig: ModuleValidationConfig, modulename: string, options?: {
+  onSkippedFile?: ((resname: string, reason: string) => void) | null;
+  fileMask?: string | RegExp;
+}): Promise<string[]> {
+  const root = modulename === "jssdk" ?
+    `${backendConfig.installationRoot}jssdk`
+    : (backendConfig.module[modulename] ?? throwError(`Module ${modulename} not found`)).root;
+  const excludeMasks = validateconfig.excludemasks.map(e => ({ ...e, regex: regExpFromWildcards(e.mask, { caseInsensitive: true }) }));
+
+  const validatableFiles: string[] = [];
+  //We skip any dot files/dirs (includes .git), node_modules and vendor
+  fileLoop: for (const entry of await listDirectory(root, { recursive: true, mask: options?.fileMask, skip: /(^\.)|(^node_modules$)|(^vendor$)/ })) {
+    if (entry.type !== "file")
+      continue;
+
+    for (const mask of excludeMasks) {
+      if (mask.regex.test(entry.subPath)) {
+        if (!mask.permanent && options?.onSkippedFile)
+          options.onSkippedFile(entry.subPath, mask.why);
+        continue fileLoop;
+      }
+    }
+
+    validatableFiles.push(entry.fullPath);
+  }
+  return validatableFiles;
+}
+
+export async function getValidatableFilesHS(validateconfig: ModuleValidationConfig, modulename: string, options?: {
+  printskippedfile?: boolean;
+  filemask?: string;
+}): Promise<string[]> {
+  const jssdkroot = `${backendConfig.installationRoot}jssdk/`;
+  const files = await getValidatableFiles(validateconfig, modulename, {
+    onSkippedFile: options?.printskippedfile ? (resname, reason) => console.log(`Info: Skipping ${resname} because: ${reason}`) : undefined,
+    fileMask: options?.filemask
+  });
+
+  //HS validation works on resource paths, so we have to use direct:// for the JSSDK
+  return files.map(f => f.startsWith(jssdkroot) ? `direct::${f}` : toResourcePath(f));
 }
