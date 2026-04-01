@@ -431,6 +431,13 @@ PUBLIC MACRO CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   }
 }
 
+BOOLEAN FUNCTION HasContentSources(INTEGER indexmgrid) {
+  RETURN RecordExists(SELECT FROM consilio.contentsources,
+                                  consilio.catalog_indexmanagers
+                            WHERE catalog_indexmanagers.indexmanager = indexmgrid
+                                  AND catalog_indexmanagers.catalogid = contentsources.catalogid);
+}
+
 PUBLIC MACRO DeactivateGroup(STRING groupid)
 {
   BOOLEAN is_publisher_document := ToInteger(groupid, 0) > 0;
@@ -447,7 +454,8 @@ PUBLIC MACRO DeactivateGroup(STRING groupid)
      in that case, we'll just hope that a later recheck will pick it up until we better sort out publisher queues.
      see also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/814 */
   FOREVERY (RECORD indexmanager FROM ListIndexManagers())
-    SendRawJSONToOpenSearch(indexmanager.id, "POST", "/_all/_delete_by_query?conflicts=proceed", query);
+    IF(HasContentSources(indexmanager.id))
+      SendRawJSONToOpenSearch(indexmanager.id, "POST", "/_all/_delete_by_query?conflicts=proceed", query);
 }
 
 // Delete an entire group from the index
