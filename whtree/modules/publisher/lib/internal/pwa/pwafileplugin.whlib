@@ -29,14 +29,18 @@ PUBLIC STATIC OBJECTTYPE PWAFilePlugin EXTEND WebDesignPluginBase
     IF(NOT ObjectExists(this->webdesign))
       RETURN;//not yet
 
+    //must match interface PublishedPWASSettings
+    RECORD pwasettings := [ appname := this->webdesign->assetpack    //we'll assume the webdesignname is the appname. allow user to specify it?
+                          , apptoken := this->apptoken
+                          , addurls := this->addurls
+                          , excludeurls := this->excludeurls
+                          ];
+
     this->webdesign->jsobjconfig :=
       CELL[ ...this->webdesign->jsobjconfig
-          //must match interface PublishedPWASSettings
-          , pwasettings := [ apptoken := this->apptoken
-                           , addurls := this->addurls
-                           , excludeurls := this->excludeurls
-                           ]
+          , pwasettings
           ];
+    this->webdesign->SetFrontendData("platform:pwasettings", pwasettings);
   }
 
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webcontext, RECORD config)
