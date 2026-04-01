@@ -842,38 +842,6 @@ void Conn::DoBlocksSent(StateMutex::ScopedLock *mylock) //locks: ~scopedlock > t
         mylock->Lock();
 }
 
-//FIXME Just expose socket.cpp's version to us
-void DumpPacket(unsigned len,void  const *buf)
-{
-        for (unsigned i=0;i<len;i+=16)
-        {
-                std::ostringstream line;
-                line << std::hex << std::setw(4) << i << " ";
-
-                for (unsigned j=0;j<16;++j)
-                {
-                        if (i+j<len)
-                            line << std::hex << std::setw(2) << (int)static_cast<const uint8_t*>(buf)[i+j];
-                        else
-                            line << "  ";
-
-                        if (j==7)
-                            line << " ";
-                }
-                line << " ";
-
-                for (unsigned j=0;j<16;++j)
-                {
-                        if (i+j<len)
-                            line << char( static_cast<const uint8_t*>(buf)[i+j]>=32 && static_cast<const uint8_t*>(buf)[i+j]<=127 ? static_cast<const uint8_t*>(buf)[i+j] : '.');
-
-                        if (j==7)
-                            line << " ";
-                }
-                DEBUGPRINT(line.str());
-            }
-}
-
 void Conn::ParseSSLInboundData(StateMutex::ScopedLock *mylock)
 {
         if (in_idle_grace) //disable the grace period

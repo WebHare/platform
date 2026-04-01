@@ -5,7 +5,7 @@
 
 //---------------------------------------------------------------------------
 
-#include "hsvm_pgsqlprovider.h"
+#include "hsvm_pgsql_base.h"
 #include <harescript/vm/hsvm_context.h>
 #include <harescript/vm/hsvm_sqlinterface.h>
 #include <harescript/vm/errors.h>
@@ -20,12 +20,8 @@
 #include <variant>
 #include <poll.h>
 
-#define SHOW_PGSQL
 
-//#define DUMP_BINARY_ENCODING
-
-
-#ifdef SHOW_PGSQL
+#if defined(SHOW_PGSQL) && defined(WHBUILD_DEBUG)
  #define PQ_PRINT(x) DEBUGPRINT("PSQL: " << x)
  #define PQ_ONLY(x) DEBUGONLY(x)
  #define PQ_ONLYRAW(x) DEBUGONLYARG(x)
@@ -62,66 +58,53 @@ using namespace std::literals::string_view_literals;
 */
 std::string_view max_indexed_size("264"sv); // Keep in sync with constant in dbase/postgresql.whlib!!
 
-// Maximum block size
-const unsigned fase1_max_blocksize = 8;
-
 // Command timeout (15 minutes)
 const unsigned default_command_timeout_secs = 15 * 60;
 
+#define PqMsg_Bind 'B'
+#define PqMsg_Close 'C'
+#define PqMsg_Describe 'D'
+#define PqMsg_Execute 'E'
+#define PqMsg_FunctionCall 'F'
+#define PqMsg_Flush 'H'
+#define PqMsg_Parse 'P'
+#define PqMsg_Query 'Q'
+#define PqMsg_Sync 'S'
+#define PqMsg_Terminate 'X'
+#define PqMsg_CopyFail 'f'
+#define PqMsg_GSSResponse 'p'
+#define PqMsg_PasswordMessage 'p'
+#define PqMsg_SASLInitialResponse 'p'
+#define PqMsg_SASLResponse 'p'
 
-// Copied from /usr/include/pgsql/server/catalog/pg_type.h (can't be included due to path issues)
-enum class OID : int32_t
-{
-        unknown = 0,
-        BOOL = 16,
-        BYTEA = 17,
-        CHAR = 18,
-        NAME = 19,
-        INT2VECTOR = 22,
-        TEXT = 25,
-        OIDVECTOR = 30,
-        VARCHAR = 1043,
-        INT8 = 20,
-        INT2 = 21,
-        INT4 = 23,
-        REGPROC = 24,
-        OID = 26,
-        TID = 27,
-        XID = 28,
-        CID = 29,
-        CIDR = 650,
-        FLOAT4 = 700,
-        FLOAT8 = 701,
-        INET = 869,
-        BOOLARRAY = 1000,
-        BYTEAARRAY = 1001,
-        CHARARRAY = 1002,
-        INT2ARRAY = 1005,
-        INT4ARRAY = 1007,
-        INT8ARRAY = 1016,
-        TEXTARRAY = 1009,
-        FLOAT8ARRAY = 1022,
-        TIMESTAMPARRAY = 1115,
-        OIDARRAY = 1028,
-        TIDARRAY = 1010,
-        TIMESTAMP = 1114,
-        TIMESTAMPTZ = 1184,
-        NUMERICARRAY = 1231,
-        NUMERIC = 1700,
-        ANY = 2276,
-        ANYARRAY = 2277,
-        RECORD = 2249,
-        RECORDARRAY = 2287,
-        UUID = 2950,
-};
+#define PqMsg_ParseComplete '1'
+#define PqMsg_BindComplete '2'
+#define PqMsg_CloseComplete '3'
+#define PqMsg_NotificationResponse 'A'
+#define PqMsg_CommandComplete 'C'
+#define PqMsg_DataRow 'D'
+#define PqMsg_ErrorResponse 'E'
+#define PqMsg_CopyInResponse 'G'
+#define PqMsg_CopyOutResponse 'H'
+#define PqMsg_EmptyQueryResponse 'I'
+#define PqMsg_BackendKeyData 'K'
+#define PqMsg_NoticeResponse 'N'
+#define PqMsg_AuthenticationRequest 'R'
+#define PqMsg_ParameterStatus 'S'
+#define PqMsg_RowDescription 'T'
+#define PqMsg_FunctionCallResponse 'V'
+#define PqMsg_CopyBothResponse 'W'
+#define PqMsg_ReadyForQuery 'Z'
+#define PqMsg_NoData 'n'
+#define PqMsg_PortalSuspended 's'
+#define PqMsg_ParameterDescription 't'
+#define PqMsg_NegotiateProtocolVersion 'v'
 
-struct PostgresqlTid
-{
-        unsigned blocknumber;
-        unsigned tupleindex;
-};
 
-inline bool operator==(PostgresqlTid const &lhs, PostgresqlTid const &rhs) { return lhs.blocknumber == rhs.blocknumber && lhs.tupleindex == rhs.tupleindex; }
+/* These are the codes sent by both the frontend and backend. */
+
+#define PqMsg_CopyDone				'c'
+#define PqMsg_CopyData				'd'
 
 void AddEscapedName(std::string *str, std::string_view append)
 {
@@ -362,165 +345,10 @@ void AddTableAndColumnName(DatabaseQuery const &query, unsigned tableid, unsigne
         AddEscapedName(str, colname);
 }
 
-// No enum class because that isn't very handy for bitfields
-namespace ParamEncoding
+QueryResult::~QueryResult()
 {
-enum Flags
-{
-        None =    0,
-        Binary =  1,
-        Pattern = 2,
-};
-} // end of namespace
+}
 
-struct ParamsEncoder
-{
-    public:
-        enum BuildMode
-        {
-                Top,
-                Array,
-                Record
-        };
-
-        ParamsEncoder(PGSQLTransactionDriver &_driver) : driver(_driver), buildmode(Top) {}
-
-        PGSQLTransactionDriver &driver;
-
-        /** Controls how parameters are added
-            - Top: as top-level parameter
-            - Array: as array element
-            - Record: as record element
-        */
-        BuildMode buildmode;
-
-        static const int staticparams = 16;
-        Blex::SemiStaticPodVector< Oid, staticparams > types;
-        Blex::SemiStaticPodVector< const char *, staticparams > dataptrs;
-        Blex::SemiStaticPodVector< int, staticparams > lengths;
-        Blex::SemiStaticPodVector< int, staticparams > formats;
-
-        Blex::SemiStaticPodVector< char, 32768 > alldata;
-
-        /// Register a new (sub-)parameter. Use -1 as len for NULL
-        char *RegisterParameter(OID type, signed len);
-        std::string AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags flags = ParamEncoding::None);
-        std::string AddParameter(VirtualMachine *vm, std::string_view str, ParamEncoding::Flags flags = ParamEncoding::None);
-
-        struct FinalizeData
-        {
-                BuildMode orgbuildmode;
-                unsigned datastart;
-                bool hasnull;
-        };
-
-        FinalizeData AddArrayParameter(OID type, OID elttype, unsigned eltcount);
-        FinalizeData AddRecordParameter(OID type, unsigned eltcount);
-        void FinalizeParameter(FinalizeData const &finalizedata);
-
-        /// Finalize all added parameters, prepare dataptrs and formats arrays
-        void Finalize();
-};
-
-struct TuplesReader
-{
-        VirtualMachine *vm;
-        PGSQLTransactionDriver &driver;
-        PGresult *res;
-        TuplesReader(VirtualMachine *_vm, PGSQLTransactionDriver &_driver, PGresult *_res, QueryData *querydata) : vm(_vm), driver(_driver), res(_res) { ReadColumns(querydata); }
-
-        enum class ReadResult
-        {
-                Value,
-                Null,
-                Exception
-        };
-
-        struct Field
-        {
-                ColumnNameId nameid;
-                OID type;
-                int sizemodifier;
-                bool isbinary;
-                VariableTypes::Type vartype;
-        };
-
-        std::vector< Field > fields;
-
-        typedef std::variant< std::nullptr_t, int, std::string, PostgresqlTid > Value;
-
-        void ReadColumns(QueryData *querydata);
-        ReadResult ReadValue(VarId id_set, int row, int col);
-        ReadResult ReadBinaryValue(VarId id_set, OID oid, int len, const char *data, VariableTypes::Type wanttype, ColumnNameId colname);
-        ReadResult ReadSimpleTuple(VarId id_set, int row);
-        void AddAsParameter(ParamsEncoder *encoder, int row, int col);
-        Value ReadValue(int row, int col);
-};
-
-/** Describes a query (query string, parameters, requested return value) needed to send a query to PostgreSQL
-*/
-class Query
-{
-    public:
-        Query(PGSQLTransactionDriver &driver) : params(driver), astext(false) { querystr.reserve(16384); }
-
-        std::string querystr;
-        ParamsEncoder params;
-        bool astext;
-};
-
-class QueryData
-{
-    public:
-        QueryData(PGSQLTransactionDriver &driver)
-        : query(driver)
-        , usefase2(false)
-        , tablecount(0)
-        , blockstartrow(0)
-        , currow(0)
-        {
-        }
-
-        Query query;
-
-        struct ResultColumn
-        {
-                int tableidx;
-                ColumnNameId nameid;
-                VariableTypes::Type vartype;
-        };
-
-        std::vector< ResultColumn > resultcolumns;
-
-        std::string querystrfase2;
-        std::vector< ResultColumn > resultcolumnsfase2;
-
-        struct KeyColumn
-        {
-                unsigned resultcolumn;
-        };
-        std::optional< KeyColumn > keycolumn;
-
-        struct UpdateColumn
-        {
-                ColumnNameId nameid;
-                std::string colname;
-                ParamEncoding::Flags encodingflags;
-        };
-
-        std::vector< UpdateColumn > updatecolumns;
-
-        std::string updatedtable;
-        bool usefase2;
-        unsigned tablecount;
-        unsigned blockstartrow;
-        unsigned currow;
-
-        Blex::SemiStaticPodVector< PostgresqlTid, fase1_max_blocksize > ctids;
-
-        PGPtr< PGresult > resultset;
-        std::unique_ptr< TuplesReader > reader;
-};
 
 char *ParamsEncoder::RegisterParameter(OID type, signed len)
 {
@@ -552,40 +380,6 @@ char *ParamsEncoder::RegisterParameter(OID type, signed len)
         }
         throw std::logic_error("Unknown buildmode");
 }
-
-#ifdef DUMP_BINARY_ENCODING
-//FIXME Just expose socket.cpp's version to us
-void DumpPacket(unsigned len,void  const *buf)
-{
-        for (unsigned i=0;i<len;i+=16)
-        {
-                std::ostringstream line;
-                line << std::hex << std::setw(4) << i << " ";
-
-                for (unsigned j=0;j<16;++j)
-                {
-                        if (i+j<len)
-                            line << std::hex << std::setfill('0') << std::setw(2) << (int)static_cast<const uint8_t*>(buf)[i+j] << " ";
-                        else
-                            line << "   ";
-
-                        if (j==7)
-                            line << " ";
-                }
-                line << " ";
-
-                for (unsigned j=0;j<16;++j)
-                {
-                        if (i+j<len)
-                            line << char( static_cast<const uint8_t*>(buf)[i+j]>=32 && static_cast<const uint8_t*>(buf)[i+j]<=127 ? static_cast<const uint8_t*>(buf)[i+j] : '.');
-
-                        if (j==7)
-                            line << " ";
-                }
-                DEBUGPRINT(line.str());
-            }
-}
-#endif
 
 std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, ParamEncoding::Flags encodingflags)
 {
@@ -774,7 +568,7 @@ std::string ParamsEncoder::AddVariableParameter(VirtualMachine *vm, VarId var, P
 
 #ifdef DUMP_BINARY_ENCODING
         PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a " << GetTypeName(stackm.GetType(var)));
-        PQ_ONLY(DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
 #endif
 
         return "$" + Blex::AnyToString(lengths.size());
@@ -789,7 +583,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, 
         if (encodingflags & ParamEncoding::Pattern)
         {
                 std::string pattern;
-                for (const char *it = str.begin(); it != str.end(); ++it)
+                for (auto it = str.begin(); it != str.end(); ++it)
                 {
                         if (*it == '_' || *it == '%' || *it == '\\')
                             pattern.push_back('\\');
@@ -809,7 +603,7 @@ std::string ParamsEncoder::AddParameter(VirtualMachine *, std::string_view str, 
 
 #ifdef DUMP_BINARY_ENCODING
         PQ_PRINT("Encoded $" + Blex::AnyToString(lengths.size()) << " from a string parameter");
-        PQ_ONLY(DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
+        PQ_ONLY(Blex::DumpPacket(alldata.size() - startdatalen, &alldata[startdatalen]));
 #endif
 
         return "$" + Blex::AnyToString(lengths.size());
@@ -888,39 +682,39 @@ void TuplesReader::ReadColumns(QueryData *querydata)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
-        int fieldcount = PQnfields(res);
+        auto result_fields = res->GetResultFields();
+        int fieldcount = result_fields.size();
         fields.reserve(fieldcount);
-        for (int idx = 0; idx < fieldcount; ++idx)
-        {
+        unsigned idx = 0;
+        for (auto &resfield: result_fields) {
                 Field field;
-                field.nameid = querydata ? querydata->resultcolumns[idx].nameid : stackm.columnnamemapper.GetMapping(PQfname(res, idx));
-                field.type = static_cast< OID >(PQftype(res, idx));
-                field.sizemodifier = PQfmod(res, idx);
-                field.isbinary = PQfformat(res, idx);
+                field.nameid = querydata ? querydata->resultcolumns[idx].nameid : stackm.columnnamemapper.GetMapping(resfield.name);
+                field.type = resfield.typeoid;
+                field.sizemodifier = resfield.typemodifier;
+                field.isbinary = resfield.formatcode == 1;
                 field.vartype = querydata ? querydata->resultcolumns[idx].vartype : VariableTypes::Variant;
                 fields.push_back(field);
+                ++idx;
         }
 
-        PQ_PRINT("Results: " << PQntuples(res) << ", fieldcount: " << fieldcount);
+        PQ_PRINT("Results: " << res->GetRowCount() << ", fieldcount: " << fieldcount);
 }
 
 TuplesReader::ReadResult TuplesReader::ReadValue(VarId id_set, int row, int col)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
-        int len = PQgetlength(res, row, col);
-        char const *data = PQgetvalue(res, row, col);
-        bool isnull = PQgetisnull(res, row, col);
+        auto colres = res->GetValue(row, col);
 
-        //PQ_PRINT("Read row: " << row << ", col: " << col << ", len: " << len << ", isnull: " << isnull << " type " << static_cast< int >(fields[col].type));
+        PQ_PRINT("Read row: " << row << ", col: " << col << ", len: " << colres.length << ", isnull: " << colres.isnull << " type " << static_cast< int >(fields[col].type));
 
         if (!fields[col].isbinary)
         {
-                stackm.SetSTLString(id_set, std::string_view(data, len));
-                return isnull ? ReadResult::Null : ReadResult::Value;
+                stackm.SetSTLString(id_set, std::string_view(colres.data, colres.length));
+                return colres.isnull ? ReadResult::Null : ReadResult::Value;
         }
 
-        TuplesReader::ReadResult retval = ReadBinaryValue(id_set, fields[col].type, isnull ? -1 : len, data, fields[col].vartype, fields[col].nameid);
+        TuplesReader::ReadResult retval = ReadBinaryValue(id_set, fields[col].type, colres.isnull ? -1 : colres.length, colres.data, fields[col].vartype, fields[col].nameid);
         if (retval == ReadResult::Exception)
             return retval;
 
@@ -929,13 +723,11 @@ TuplesReader::ReadResult TuplesReader::ReadValue(VarId id_set, int row, int col)
 
 void TuplesReader::AddAsParameter(ParamsEncoder *encoder, int row, int col)
 {
-        int len = PQgetlength(res, row, col);
-        char const *data = PQgetvalue(res, row, col);
-        bool isnull = PQgetisnull(res, row, col);
+        auto colres = res->GetValue(row, col);
 
-        char *writepos = encoder->RegisterParameter(fields[col].type, isnull ? -1 : len);
-        if (!isnull && len)
-            std::copy(data, data + len, writepos);
+        char *writepos = encoder->RegisterParameter(fields[col].type, colres.isnull ? -1 : colres.length);
+        if (!colres.isnull && colres.length)
+            std::copy(colres.data, colres.data + colres.length, writepos);
 }
 
 TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, int len, const char *data, VariableTypes::Type wanttype, ColumnNameId colname)
@@ -944,7 +736,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
         PQ_ONLY(
                 PQ_PRINT("Decoding " << int(type) << " of len " << len);
                 if (len >= 0)
-                    DumpPacket(len, data);
+                    Blex::DumpPacket(len, data);
         );
 #endif
 
@@ -1114,7 +906,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                 if (len >= 0)
                                 {
                                         PQ_PRINT("Decode INET/CIDR");
-                                        DumpPacket(len, data);
+                                        Blex::DumpPacket(len, data);
                                 }
                                 else
                                     PQ_PRINT("Decode INET/CIDR: NULL");
@@ -1301,7 +1093,7 @@ TuplesReader::ReadResult TuplesReader::ReadBinaryValue(VarId id_set, OID type, i
                                     return ReadResult::Null;
                                 if (len < 28)
                                 {
-                                        HSVM_ThrowException(*vm, ("Cannot decode variables of type " + Blex::AnyToString(static_cast< unsigned >(type))).c_str());
+                                        HSVM_ThrowException(*vm, ("Cannot decode variables of type " + Blex::AnyToString(static_cast< unsigned >(type)) + " of len " + Blex::AnyToString(len)).c_str());
                                         return ReadResult::Exception;
                                 }
 
@@ -1385,23 +1177,24 @@ TuplesReader::ReadResult TuplesReader::ReadSimpleTuple(VarId id_set, int row)
 
 TuplesReader::Value TuplesReader::ReadValue(int row, int col)
 {
-        int len = PQgetlength(res, row, col);
-        char const *data = PQgetvalue(res, row, col);
-        bool isnull = PQgetisnull(res, row, col);
+        auto colres = res->GetValue(row, col);
+        //int len = PQgetlength(res, row, col);
+        //char const *data = PQgetvalue(res, row, col);
+        //bool isnull = PQgetisnull(res, row, col);
 
-        if (isnull)
+        if (colres.isnull)
             return Value(nullptr);
 
         //PQ_PRINT("Read row: " << row << ", col: " << col << ", len: " << len << ", isnull: " << isnull << " type " << static_cast< int >(fields[col].type));
 
         if (!fields[col].isbinary)
-            return Value(std::string(data, len));
+            return Value(std::string(colres.data, colres.data + colres.length));
 
         switch (fields[col].type)
         {
                 case OID::BOOL:
                 {
-                        return Value(len == 1 ? *data != 0 : false);
+                        return Value(colres.length == 1 ? *colres.data != 0 : false);
                 } break;
                 case OID::BYTEA:
                 case OID::CHAR:
@@ -1409,31 +1202,31 @@ TuplesReader::Value TuplesReader::ReadValue(int row, int col)
                 case OID::TEXT:
                 case OID::VARCHAR:
                 {
-                        if (len > 0)
-                            return Value(std::string(data, len));
+                        if (colres.length > 0)
+                            return Value(std::string(colres.data, colres.data + colres.length));
                         else
                             return Value(std::string());
                 } break;
                 case OID::INT2:
                 {
-                        return Value(int32_t(len == 2 ? Blex::gets16msb(data) : 0));
+                        return Value(int32_t(colres.length == 2 ? Blex::gets16msb(colres.data) : 0));
                 } break;
                 case OID::CID:
                 case OID::OID:
                 case OID::REGPROC:
                 case OID::XID:
                 {
-                        return Value(int32_t(len == 4 ? Blex::gets32msb(data) : 0));
+                        return Value(int32_t(colres.length == 4 ? Blex::gets32msb(colres.data) : 0));
                 } break;
                 case OID::INT4:
                 {
-                        return Value(int32_t(len == 4 ? Blex::gets32msb(data) : 0));
+                        return Value(int32_t(colres.length == 4 ? Blex::gets32msb(colres.data) : 0));
                 } break;
                 case OID::TID:
                 {
-                        if (len != 6)
+                        if (colres.length != 6)
                             return Value(nullptr);
-                        return Value(PostgresqlTid{ Blex::getu32msb(data), Blex::getu16msb(data + 4) });
+                        return Value(PostgresqlTid{ Blex::getu32msb(colres.data), Blex::getu16msb(colres.data + 4) });
                 }
                 default:
                 {
@@ -1456,13 +1249,6 @@ inline void HSVM_SetStringCell(HSVM *hsvm, HSVM_VariableId id_set, HSVM_ColumnId
         HSVM_VariableId var = HSVM_RecordCreate(hsvm, id_set, colid);
         HSVM_StringSetSTD(hsvm, var, value);
 }
-
-inline void HSVM_SetIntegerCell(HSVM *hsvm, HSVM_VariableId id_set, HSVM_ColumnId colid, int value)
-{
-        HSVM_VariableId var = HSVM_RecordCreate(hsvm, id_set, colid);
-        HSVM_IntegerSet(hsvm, var, value);
-}
-
 
 DBConditionCode::_type SwappedCondition(DBConditionCode::_type cond)
 {
@@ -1503,11 +1289,10 @@ const char* GetOperator(DBConditionCode::_type condition)
 
 
 
-PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTransactionDriver::Options const &options)
+PGSQLTransactionDriverBase::PGSQLTransactionDriverBase(HSVM *_vm, /*PGconn *_conn, */PGSQLTransactionDriverBase::Options const &options)
 : DatabaseTransactionDriverInterface(GetVirtualMachine(_vm))
-, conn(_conn)
-, prepared_statements_counter(0)
-, isworkopen(false)
+//, conn(_conn)
+//, prepared_statements_counter(0)
 , webhare_blob_oid(0)
 , webhare_blobarray_oid(0)
 , blobfolder(options.blobfolder)
@@ -1528,42 +1313,27 @@ PGSQLTransactionDriver::PGSQLTransactionDriver(HSVM *_vm, PGconn *_conn, PGSQLTr
         description.max_joined_tables = 0;
         description.max_multiinsertrows = 64;
 
-        PQsetNoticeReceiver(conn, &NoticeReceiverCallback, this);
-
-        this->ScanTypes();
-        cancel.reset(PQgetCancel(conn));
+        // Must be called in deriving classes!
+        //this->ScanTypes();
 }
 
-PGSQLTransactionDriver::~PGSQLTransactionDriver()
+PGSQLTransactionDriverBase::~PGSQLTransactionDriverBase()
 {
-        cancel.reset();
-        PQfinish(conn);
 }
 
-std::pair< ConnStatusType, PGTransactionStatusType > PGSQLTransactionDriver::GetStatus()
+std::string_view PGSQLTransactionDriverBase::ReadResultCell(std::unique_ptr< QueryResult > &resultset, unsigned row, unsigned col)
 {
-        return std::make_pair(PQstatus(conn), PQtransactionStatus(conn));
+        auto colres = resultset->GetValue(row, col);
+        return std::string_view(colres.data, colres.length);
 }
 
-int PGSQLTransactionDriver::GetBackendPid()
-{
-        return PQbackendPID(conn);
-}
-
-std::string_view PGSQLTransactionDriver::ReadResultCell(PGPtr< PGresult > &resultset, unsigned row, unsigned col)
-{
-        int len = PQgetlength(resultset.get(), row, col);
-        char const *data = PQgetvalue(resultset.get(), row, col);
-        return std::string_view(data, len);
-}
-
-int32_t PGSQLTransactionDriver::ReadResultCellInt(PGPtr< PGresult > &resultset, unsigned row, unsigned col)
+int32_t PGSQLTransactionDriverBase::ReadResultCellInt(std::unique_ptr< QueryResult > &resultset, unsigned row, unsigned col)
 {
         std::string_view data = ReadResultCell(resultset, row, col);
         return Blex::DecodeUnsignedNumber< int32_t, std::string_view::iterator >(data.begin(), data.end()).first;
 }
 
-void PGSQLTransactionDriver::ScanTypes()
+void PGSQLTransactionDriverBase::ScanTypes()
 {
         // Scan all declared RECORD types in the database
         Query query(*this);
@@ -1582,7 +1352,7 @@ void PGSQLTransactionDriver::ScanTypes()
                 webhare_blob_oid = 0;
                 webhare_blobarray_oid = 0;
 
-                for (unsigned row = 0, rowcount = PQntuples(resultset.get()); row != rowcount; ++row)
+                for (unsigned row = 0, rowcount = resultset->GetRowCount(); row != rowcount; ++row)
                 {
                         if (ReadResultCell(resultset, row, 1) == "webhare_blob")
                         {
@@ -1593,7 +1363,7 @@ void PGSQLTransactionDriver::ScanTypes()
         }
 }
 
-bool PGSQLTransactionDriver::BuildQueryString(
+bool PGSQLTransactionDriverBase::BuildQueryString(
         QueryData &querydata,
         DatabaseQuery &query,
         DatabaseTransactionDriverInterface::CursorType cursortype)
@@ -1981,14 +1751,14 @@ bool PGSQLTransactionDriver::BuildQueryString(
         return true;
 }
 
-std::string PGSQLTransactionDriver::GetBlobDiskpath(int64_t blobid)
+std::string PGSQLTransactionDriverBase::GetBlobDiskpath(int64_t blobid)
 {
         //ADDME: Cut back on unecessary CreateDirs and ostringstream
         std::ostringstream path;
 
         //Basically we store a 0x12345678 blob in blob-12/345/678
         path << blobfolder;
-        if (blobid >= 0x1000000ll) //more than 6 digits
+        if (blobid >= 0x1000000L) //more than 6 digits
         {
                 path << "/blob-" << (blobid>>(6*4)); //remove right 24/4=6 digits
         }
@@ -2004,7 +1774,7 @@ std::string PGSQLTransactionDriver::GetBlobDiskpath(int64_t blobid)
         return path.str();
 }
 
-OID PGSQLTransactionDriver::GetTypeArrayOID(OID elt)
+OID PGSQLTransactionDriverBase::GetTypeArrayOID(OID elt)
 {
         switch (elt)
         {
@@ -2027,20 +1797,21 @@ OID PGSQLTransactionDriver::GetTypeArrayOID(OID elt)
         }
 }
 
-void PGSQLTransactionDriver::ExecuteInsert(DatabaseQuery const &query, VarId newrecord)
+void PGSQLTransactionDriverBase::ExecuteInsert(DatabaseQuery const &query, VarId newrecord)
 {
         ExecuteInsertInternal(query, newrecord, false);
 }
 
-void PGSQLTransactionDriver::ExecuteInserts(DatabaseQuery const &query, VarId newrecord)
+void PGSQLTransactionDriverBase::ExecuteInserts(DatabaseQuery const &query, VarId newrecord)
 {
         ExecuteInsertInternal(query, newrecord, true);
 }
 
-void PGSQLTransactionDriver::ExecuteInsertInternal(DatabaseQuery const &query, VarId data, bool is_array)
+void PGSQLTransactionDriverBase::ExecuteInsertInternal(DatabaseQuery const &query, VarId data, bool is_array)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
+        int isworkopen = this->IsWorkOpen();
         if (!isworkopen)
         {
                 HSVM_ThrowException(*vm, "BeginWork must be called before modifying the database");
@@ -2114,12 +1885,12 @@ void PGSQLTransactionDriver::ExecuteInsertInternal(DatabaseQuery const &query, V
         ExecQuery(querydata.query, allowwriteerrordelay);
 }
 
-DatabaseTransactionDriverInterface::CursorId PGSQLTransactionDriver::OpenCursor(DatabaseQuery &query, CursorType cursortype)
+DatabaseTransactionDriverInterface::CursorId PGSQLTransactionDriverBase::OpenCursor(DatabaseQuery &query, CursorType cursortype)
 {
         CursorId id = queries.Set(QueryData(*this));
         QueryData &querydata = *queries.Get(id);
 
-        if (cursortype != DatabaseTransactionDriverInterface::Select && !isworkopen)
+        if (cursortype != DatabaseTransactionDriverInterface::Select && !this->IsWorkOpen())
         {
                 HSVM_ThrowException(*vm, "BeginWork must be called before modifying the database");
                 return 0;
@@ -2143,14 +1914,14 @@ DatabaseTransactionDriverInterface::CursorId PGSQLTransactionDriver::OpenCursor(
         return id;
 }
 
-unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
+unsigned PGSQLTransactionDriverBase::RetrieveNextBlock(CursorId id, VarId recarr)
 {
         StackMachine &stackm = vm->GetStackMachine();
         QueryData &querydata = *queries.Get(id);
 
         querydata.blockstartrow = querydata.currow;
 
-        int totaltuples = PQntuples(querydata.resultset.get());
+        int totaltuples = querydata.resultset->GetRowCount();
 
         unsigned rowcount = totaltuples - querydata.currow;
         if (rowcount > fase1_max_blocksize)
@@ -2160,6 +1931,8 @@ unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         stackm.ArrayInitialize(recarr, elt_count, VariableTypes::RecordArray);
         for (unsigned idx = 0; idx < elt_count; ++idx)
             stackm.RecordInitializeEmpty(stackm.ArrayElementRef(recarr, idx));
+
+        // FIXME: read per row instead of per column - works better with datarow cell position caching
 
         // Read ctids for non-select
         if (!querydata.updatedtable.empty())
@@ -2192,7 +1965,7 @@ unsigned PGSQLTransactionDriver::RetrieveNextBlock(CursorId id, VarId recarr)
         return rowcount;
 }
 
-void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool /*is_last_fase2_req_for_block*/)
+void PGSQLTransactionDriverBase::RetrieveFase2Records(CursorId id, VarId recarr, Blex::PodVector< Fase2RetrieveRow > &rowlist, bool /*is_last_fase2_req_for_block*/)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
@@ -2238,7 +2011,7 @@ void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Ble
 
         f2query.reader.reset(new TuplesReader(vm, *this, f2query.resultset.get(), &f2query));
 
-        int numresults = PQntuples(f2query.resultset.get());
+        int numresults = f2query.resultset->GetRowCount();
         for (int f2row = 0; f2row < numresults; ++f2row)
         {
                 int arraypos = std::get< int32_t >(f2query.reader->ReadValue(f2row, 1));
@@ -2275,19 +2048,19 @@ void PGSQLTransactionDriver::RetrieveFase2Records(CursorId id, VarId recarr, Ble
             rowlist[i].lockresult = lockresults[i];
 }
 
-LockResult PGSQLTransactionDriver::LockRow(CursorId, VarId, unsigned)
+LockResult PGSQLTransactionDriverBase::LockRow(CursorId, VarId, unsigned)
 {
         // No locking in this driver
         throw std::logic_error("locking not needed in PostgreSQL driver");
 }
 
-void PGSQLTransactionDriver::UnlockRow(CursorId, unsigned)
+void PGSQLTransactionDriverBase::UnlockRow(CursorId, unsigned)
 {
         // No locking in this driver
         throw std::logic_error("locking not needed in PostgreSQL driver");
 }
 
-void PGSQLTransactionDriver::DeleteRecord(CursorId id, unsigned row)
+void PGSQLTransactionDriverBase::DeleteRecord(CursorId id, unsigned row)
 {
         QueryData &querydata = *queries.Get(id);
 
@@ -2301,7 +2074,7 @@ void PGSQLTransactionDriver::DeleteRecord(CursorId id, unsigned row)
         ExecQuery(delquery.query, allowwriteerrordelay);
 }
 
-void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfields)
+void PGSQLTransactionDriverBase::UpdateRecord(CursorId id, unsigned row, VarId newfields)
 {
         StackMachine &stackm = vm->GetStackMachine();
         QueryData &querydata = *queries.Get(id);
@@ -2339,295 +2112,12 @@ void PGSQLTransactionDriver::UpdateRecord(CursorId id, unsigned row, VarId newfi
         }
 }
 
-void PGSQLTransactionDriver::CloseCursor(CursorId id)
+void PGSQLTransactionDriverBase::CloseCursor(CursorId id)
 {
         queries.Erase(id);
 }
 
-PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresult)
-{
-        query.params.Finalize();
-
-#ifdef DUMP_BINARY_ENCODING
-        PQ_ONLY(
-                for (unsigned i = 0; i < query.params.types.size(); ++i)
-                {
-                        PQ_PRINT(" param " << i << ": type: " << query.params.types[i] << " len " << query.params.lengths[i] << " format " << query.params.formats[i] << " data: " << (query.params.dataptrs[i] ? "" : "nullptr"));
-                        if (query.params.dataptrs[i] && query.params.lengths[i] > 0)
-                                DumpPacket(query.params.lengths[i], query.params.dataptrs[i]);
-                }
-        );
-#endif
-
-        /* We can't send a query if the previous one is still in flight, so we need to
-           retrieve the results first. Return immediately if an error was returned by
-           that query
-        */
-        if (PGSQLTransactionDriver::GetLastResult().second)
-            return PGPtr< PGresult >();
-
-        const bool fullstacktrace = false;
-        std::vector< StackTraceElement > elements;
-
-        std::string logprefix;
-        if (logstacktraces > 0 || logcommands > 0)
-        {
-                logprefix = "/*whlog:t[";
-
-                vm->GetStackTrace(&elements, true, fullstacktrace);
-
-                int32_t eltcount = 0;
-                for (auto itr: elements)
-                {
-                        if (eltcount == logstacktraces)
-                             break;
-                        if (eltcount++)
-                            logprefix += ",";
-                        logprefix += itr.filename + "#" + Blex::AnyToString(itr.position.line) + "#" + Blex::AnyToString(itr.position.column) + "(" + itr.func + ")";
-                }
-                logprefix += "]*/";
-        }
-
-        Blex::SHA1 sha1;
-        sha1.Process(query.querystr.c_str(), query.querystr.size() + 1);
-        if (query.params.types.size())
-            sha1.Process(&query.params.types[0], query.params.types.size() * sizeof(query.params.types[0]));
-        std::string hash = sha1.FinalizeHash().stl_str();
-
-        PreparedStatement &prep = prepared_statements[hash];
-        if (prep.use < 16 && (query.querystr.compare(0, 7, "SELECT "sv) == 0 || query.querystr.compare(0, 7, "INSERT "sv) == 0) && logprefix.empty())
-        {
-                if (++prep.use == 16)
-                {
-                        std::string name = "prep_" + Blex::AnyToString(++prepared_statements_counter);
-                        PQ_PRINT("Preparing statement '" << name << "' for query " << query.querystr);
-                        PGPtr< PGresult > res(PQprepare(
-                                conn,
-                                name.c_str(),
-                                query.querystr.c_str(),
-                                query.params.types.size(),
-                                query.params.types.begin()));
-
-                        if (res)
-                        {
-                                auto result = PQresultStatus(res.get());
-                                if (result == PGRES_COMMAND_OK)
-                                {
-                                        PQ_PRINT("Prepare ok");
-                                        prep.name = name;
-                                        prep.querystr = query.querystr;
-                                }
-                                else
-                                {
-                                        PQ_PRINT("Prepare failed");
-                                }
-                        }
-                }
-        }
-
-        if (logcommands != 0)
-        {
-                HSVM_OpenFunctionCall(*vm, 2);
-                HSVM_IntegerSet(*vm, HSVM_CallParam(*vm, 0), sqllib_transid);
-
-                VarId lastcommand = HSVM_CallParam(*vm, 1);
-                HSVM_SetDefault(*vm, lastcommand, HSVM_VAR_Record);
-                HSVM_VariableId var_query = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "QUERY"));
-                HSVM_StringSetSTD(*vm, var_query, query.querystr);
-                HSVM_VariableId var_stacktrace = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "STACKTRACE"));
-                GetVMStackTraceFromElements(vm, var_stacktrace, elements, fullstacktrace);
-
-                const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Record };
-                int obj = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__HandleRunCommand", 0, 2, args);
-                if (obj)
-                    HSVM_CloseFunctionCall(*vm);
-                else
-                    return PGPtr< PGresult >();
-        }
-
-        int res = 0;
-        if (!prep.name.empty() && logprefix.empty())
-        {
-                PQ_PRINT("Execute"<<(asyncresult?" async":"") << " prepared statement " << prep.name << ": " << prep.querystr);
-                res = PQsendQueryPrepared(
-                    conn,
-                    prep.name.c_str(),
-                    query.params.types.size(),
-                    query.params.dataptrs.begin(),
-                    query.params.lengths.begin(),
-                    query.params.formats.begin(),
-                    !query.astext);
-        }
-        else
-        {
-                PQ_PRINT("Execute"<<(asyncresult?" async":"") << " query: " << query.querystr);
-                res = PQsendQueryParams(
-                    conn,
-                    logprefix.empty() ? query.querystr.c_str() : (logprefix + query.querystr).c_str(),
-                    query.params.types.size(),
-                    query.params.types.begin(),
-                    query.params.dataptrs.begin(),
-                    query.params.lengths.begin(),
-                    query.params.formats.begin(),
-                    !query.astext);
-        }
-
-
-        if (!res)
-        {
-                HSVM_ThrowException(*vm, ("Fatal error returned: " + std::string(PQerrorMessage(conn))).c_str());
-                return PGPtr< PGresult >();
-        }
-
-        PGPtr< PGresult > retval;
-        if (!asyncresult)
-            retval = GetLastResult().first;
-
-        return retval;
-}
-
-bool PGSQLTransactionDriver::CheckResultStatus(PGPtr< PGresult > const &res)
-{
-        if (!res)
-        {
-                HSVM_ThrowException(*vm, ("Fatal error returned: " + std::string(PQerrorMessage(conn))).c_str());
-                return false;
-        }
-
-        // Clear the result when exiting this function
-        auto result = PQresultStatus(res.get());
-
-        switch (result)
-        {
-                case PGRES_EMPTY_QUERY:
-                {
-                        HSVM_ThrowException(*vm, "Empty query string");
-                        return false;
-                } break;
-                case PGRES_COPY_OUT:
-                case PGRES_COPY_IN:
-                case PGRES_COPY_BOTH:
-                {
-                        HSVM_ThrowException(*vm, "COPY streaming is not supported");
-                        return false;
-                }
-                case PGRES_BAD_RESPONSE:
-                {
-                        HSVM_ThrowException(*vm, "Bad response from the server");
-                        return false;
-                } break;
-                case PGRES_FATAL_ERROR:
-                {
-                        PQ_PRINT("Got fatal error: " << PQresultErrorMessage(res.get()));
-                        if (HandleMessage(res.get()) && !vm->is_unwinding)
-                            HSVM_ThrowException(*vm, ("Fatal error returned: " + std::string(PQresultErrorMessage(res.get()))).c_str());
-                        return !vm->is_unwinding;
-                } break;
-                case PGRES_NONFATAL_ERROR:
-                {
-                        PQ_PRINT("Got non-fatal error: " << PQresultErrorMessage(res.get()));
-                        if (HandleMessage(res.get()) && !vm->is_unwinding)
-                            HSVM_ThrowException(*vm, ("Non-fatal error returned: " + std::string(PQresultErrorMessage(res.get()))).c_str());
-                        return !vm->is_unwinding;
-                } break;
-                case PGRES_COMMAND_OK:
-                case PGRES_SINGLE_TUPLE:
-                case PGRES_TUPLES_OK:
-                {
-                        if (PQstatus(conn) == CONNECTION_BAD)
-                        {
-                                HSVM_ThrowException(*vm, "The connection to the database isn't healthy anymore");
-                                return false;
-                        }
-                } break;
-                default:
-                {
-                        HSVM_ThrowException(*vm, "Unknown response code received");
-                        return false;
-                } break;
-        }
-
-        return true;
-}
-
-bool PGSQLTransactionDriver::WaitForResult()
-{
-        if (HSVM_TestMustAbort(*vm))
-            return false;
-
-        int sock = PQsocket(conn);
-        if (sock < 0)
-            return true;
-
-        // check shouldabort every 100ms
-        int32_t counter = 0;
-        while (true)
-        {
-                PQconsumeInput(conn);
-                if (!PQisBusy(conn))
-                    return true;
-
-                pollfd input_fd;
-                input_fd.fd = sock;
-                input_fd.events = POLLERR | POLLIN;
-                input_fd.revents = 0;
-
-                // wait max 100ms
-                int res = poll(&input_fd, 1, 100);
-                if (res != 0)
-                    return true;
-
-                if (HSVM_TestMustAbort(*vm))
-                {
-                        char errbuf[256];
-                        PQcancel(cancel.get(), errbuf, sizeof(errbuf));
-                        return false;
-                }
-
-                if (counter >= command_timeout_secs * 10)
-                {
-                        char errbuf[256];
-                        PQcancel(cancel.get(), errbuf, sizeof(errbuf));
-                        HSVM_ThrowException(*vm, std::string("PostgreSQL command timeout after " + Blex::AnyToString(command_timeout_secs) + " seconds").c_str());
-                        return false;
-                }
-
-                ++counter;
-        }
-}
-
-std::pair< PGPtr< PGresult >, bool > PGSQLTransactionDriver::GetLastResult()
-{
-        PGPtr< PGresult > lastres;
-        bool goterror = false;
-
-        // Read results until the PQgetResult returns nullptr, return the last one
-        while (true)
-        {
-                if (!WaitForResult())
-                    return std::make_pair(PGPtr< PGresult >(), true);
-
-                PGPtr< PGresult > res(PQgetResult(conn));
-                if (!res)
-                    break;
-
-                if (goterror)
-                    continue;
-
-                if (!CheckResultStatus(res))
-                {
-                        goterror = true;
-                        lastres.reset();
-                }
-                else
-                    lastres = std::move(res);
-        }
-
-        return std::make_pair(std::move(lastres), goterror);
-}
-
-
-void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext)
+void PGSQLTransactionDriverBase::ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
@@ -2638,13 +2128,13 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
                     this->ScanTypes();
                 if (query == "__internal:lastresult")
                 {
-                        PGPtr< PGresult > res = GetLastResult().first;
+                        auto res = GetLastResult().first;
                         if (!res)
                             return;
 
                         TuplesReader reader(vm, *this, res.get(), nullptr);
 
-                        for (unsigned i = 0, e = PQntuples(res.get()); i < e; ++i)
+                        for (unsigned i = 0, e = res->GetRowCount(); i < e; ++i)
                         {
                                 VarId elt = stackm.ArrayElementAppend(id_set);
                                 if (reader.ReadSimpleTuple(elt, i) == TuplesReader::ReadResult::Exception)
@@ -2674,13 +2164,13 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
 
         stackm.InitVariable(id_set, VariableTypes::RecordArray);
 
-        PGPtr< PGresult > res = ExecQuery(querydata.query, false);
+        auto res = ExecQuery(querydata.query, false);
         if (!res)
             return;
 
         TuplesReader reader(vm, *this, res.get(), nullptr);
 
-        for (unsigned i = 0, e = PQntuples(res.get()); i < e; ++i)
+        for (unsigned i = 0, e = res->GetRowCount(); i < e; ++i)
         {
                 VarId elt = stackm.ArrayElementAppend(id_set);
                 if (reader.ReadSimpleTuple(elt, i) == TuplesReader::ReadResult::Exception)
@@ -2688,31 +2178,19 @@ void PGSQLTransactionDriver::ExecuteSimpleQuery(VarId id_set, std::string const 
         }
 }
 
-void PGSQLTransactionDriver::GetErrorField(VarId id_set, ColumnNameId col, const PGresult *res, int fieldcode)
+void PGSQLTransactionDriverBase::GetErrorField(VarId id_set, ColumnNameId col, QueryResult const &res, PG_DIAG_CODE fieldcode)
 {
         StackMachine &stackm = vm->GetStackMachine();
-
-        const char *fielddata = PQresultErrorField(res, fieldcode);
-        VarId field = stackm.RecordCellCreate(id_set, col);
-        if (fielddata)
-            stackm.SetSTLString(field, fielddata);
-        else
-            stackm.InitVariable(field, VariableTypes::String);
+        stackm.SetSTLString(stackm.RecordCellCreate(id_set, col), res.GetErrorField(fieldcode));
 }
 
-void PGSQLTransactionDriver::NoticeReceiverCallback(void *arg, const PGresult *res)
-{
-        static_cast< PGSQLTransactionDriver * >(arg)->HandleMessage(res);
-}
-
-
-bool PGSQLTransactionDriver::HandleMessage(const PGresult *res)
+bool PGSQLTransactionDriverBase::HandleMessage(QueryResult const &res)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
         PQ_ONLY(
-            const char *errormsg = PQresultErrorMessage(res);
-            if (errormsg)
+            std::string errormsg = res.GetErrorMessage();
+            if (!errormsg.empty())
                PQ_PRINT("PostgreSQL NOTICE: " << errormsg);
         );
 
@@ -2721,29 +2199,26 @@ bool PGSQLTransactionDriver::HandleMessage(const PGresult *res)
 
         VarId lastnotice = HSVM_CallParam(*vm, 1);
         stackm.InitVariable(lastnotice, VariableTypes::Record);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SEVERITY"sv), res, PG_DIAG_SEVERITY_NONLOCALIZED);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SQLSTATE"sv), res, PG_DIAG_SQLSTATE);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_PRIMARY"sv), res, PG_DIAG_MESSAGE_PRIMARY);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_DETAIL"sv), res, PG_DIAG_MESSAGE_DETAIL);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_HINT"sv), res, PG_DIAG_MESSAGE_HINT);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("STATEMENT_POSITION"sv), res, PG_DIAG_STATEMENT_POSITION);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("INTERNAL_POSITION"sv), res, PG_DIAG_INTERNAL_POSITION);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("INTERNAL_QUERY"sv), res, PG_DIAG_INTERNAL_QUERY);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("CONTEXT"sv), res, PG_DIAG_CONTEXT);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SCHEMA_NAME"sv), res, PG_DIAG_SCHEMA_NAME);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("TABLE_NAME"sv), res, PG_DIAG_TABLE_NAME);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("COLUMN_NAME"sv), res, PG_DIAG_COLUMN_NAME);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("DATATYPE_NAME"sv), res, PG_DIAG_DATATYPE_NAME);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("CONSTRAINT_NAME"sv), res, PG_DIAG_CONSTRAINT_NAME);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_FILE"sv), res, PG_DIAG_SOURCE_FILE);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_LINE"sv), res, PG_DIAG_SOURCE_LINE);
-        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_FUNCTION"sv), res, PG_DIAG_SOURCE_FUNCTION);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SEVERITY"sv), res, PG_DIAG_CODE::SEVERITY_NONLOCALIZED);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SQLSTATE"sv), res, PG_DIAG_CODE::SQLSTATE);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_PRIMARY"sv), res, PG_DIAG_CODE::MESSAGE_PRIMARY);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_DETAIL"sv), res, PG_DIAG_CODE::MESSAGE_DETAIL);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("MESSAGE_HINT"sv), res, PG_DIAG_CODE::MESSAGE_HINT);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("STATEMENT_POSITION"sv), res, PG_DIAG_CODE::STATEMENT_POSITION);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("INTERNAL_POSITION"sv), res, PG_DIAG_CODE::INTERNAL_POSITION);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("INTERNAL_QUERY"sv), res, PG_DIAG_CODE::INTERNAL_QUERY);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("CONTEXT"sv), res, PG_DIAG_CODE::CONTEXT);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SCHEMA_NAME"sv), res, PG_DIAG_CODE::SCHEMA_NAME);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("TABLE_NAME"sv), res, PG_DIAG_CODE::TABLE_NAME);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("COLUMN_NAME"sv), res, PG_DIAG_CODE::COLUMN_NAME);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("DATATYPE_NAME"sv), res, PG_DIAG_CODE::DATATYPE_NAME);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("CONSTRAINT_NAME"sv), res, PG_DIAG_CODE::CONSTRAINT_NAME);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_FILE"sv), res, PG_DIAG_CODE::SOURCE_FILE);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_LINE"sv), res, PG_DIAG_CODE::SOURCE_LINE);
+        GetErrorField(lastnotice, stackm.columnnamemapper.GetMapping("SOURCE_FUNCTION"sv), res, PG_DIAG_CODE::SOURCE_FUNCTION);
 
-        stackm.SetSTLString(stackm.RecordCellCreate(lastnotice, stackm.columnnamemapper.GetMapping("ERROR_MESSAGE"sv)), PQresultErrorMessage(res));
-
-        char *verbosemessage = PQresultVerboseErrorMessage(res, PQERRORS_VERBOSE, PQSHOW_CONTEXT_ALWAYS);
-        stackm.SetSTLString(stackm.RecordCellCreate(lastnotice, stackm.columnnamemapper.GetMapping("VERBOSE_ERROR_MESSAGE"sv)), verbosemessage);
-        PQfreemem(verbosemessage);
+        stackm.SetSTLString(stackm.RecordCellCreate(lastnotice, stackm.columnnamemapper.GetMapping("ERROR_MESSAGE"sv)), res.GetErrorMessage());
+        stackm.SetSTLString(stackm.RecordCellCreate(lastnotice, stackm.columnnamemapper.GetMapping("VERBOSE_ERROR_MESSAGE"sv)), res.GetVerboseErrorMessage());
 
         bool retval = true;
         const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Record };
@@ -2756,93 +2231,10 @@ bool PGSQLTransactionDriver::HandleMessage(const PGresult *res)
         return retval;
 }
 
-void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        HSVM_ColumnId col_name = HSVM_GetColumnId(hsvm, "NAME");
-        HSVM_ColumnId col_value = HSVM_GetColumnId(hsvm, "VALUE");
-
-        std::vector< std::string > strings;
-
-        std::string blobfolder;
-        int32_t logstacktraces = 0;
-
-        PQ_PRINT("PGSQL_Connect");
-
-        unsigned len = HSVM_ArrayLength(hsvm, HSVM_Arg(0));
-        for (unsigned idx = 0; idx < len; ++idx)
-        {
-                HSVM_VariableId elt = HSVM_ArrayGetRef(hsvm, HSVM_Arg(0), idx);
-
-                std::string name = HSVM_GetStringCell(hsvm, elt, col_name);
-                std::string value = HSVM_GetStringCell(hsvm, elt, col_value);
-
-                if (name.compare(0, 8, "webhare:"sv) == 0)
-                {
-                        PQ_PRINT(" wh-specific: " << name);
-                        if (name == "webhare:blobfolder")
-                            blobfolder = value;
-                        else if (name == "webhare:logstacktraces")
-                            logstacktraces = Blex::DecodeSignedNumber< int32_t >(value, 10);
-                        else
-                        {
-                                HSVM_ThrowException(hsvm, ("Unknown webhare-specific parameter '" + name + "'").c_str());
-                                return;
-                        }
-                        continue;
-                }
-
-                strings.push_back(name);
-                strings.push_back(value);
-        }
-
-        if (len == 0)
-        {
-                HSVM_ThrowException(hsvm, "No parameters specified");
-                return;
-        }
-
-        std::vector< const char * > params;
-        std::vector< const char * > values;
-
-        for (unsigned idx = 0; idx < strings.size() / 2; ++idx)
-        {
-                params.push_back(strings[idx * 2].c_str());
-                values.push_back(strings[idx * 2 + 1].c_str());
-        }
-
-        params.push_back(nullptr);
-        values.push_back(nullptr);
-
-        PGconn *conn = PQconnectdbParams(&params[0], &values[0], true);
-
-        if (PQstatus(conn) != CONNECTION_OK)
-        {
-                PGPtr< PGconn > connptr(conn);
-
-                std::string errormessage = PQerrorMessage(conn);
-                PQ_PRINT("Connection failed: " << errormessage);
-
-                HSVM_ThrowException(hsvm, ("Connection failed: " + errormessage).c_str());
-                return;
-        }
-
-        auto options = PGSQLTransactionDriver::Options(); // value-initialize the options
-        options.blobfolder = blobfolder;
-        options.logstacktraces = logstacktraces;
-
-        std::unique_ptr< PGSQLTransactionDriver > driver(new PGSQLTransactionDriver(hsvm, conn, options));
-        int pid = driver->GetBackendPid();
-        int32_t trans_id = GetVirtualMachine(hsvm)->GetSQLSupport().RegisterTransaction(std::move(driver));
-
-        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
-        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ID")), trans_id);
-        HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "PID")), pid);
-}
-
 void PGSQL_Close(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
@@ -2852,27 +2244,10 @@ void PGSQL_Close(HSVM *hsvm)
         GetVirtualMachine(hsvm)->GetSQLSupport().DeleteTransaction(driver->sqllib_transid);
 }
 
-void PGSQL_GetStatus(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
-        if (!driver)
-        {
-                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
-                return;
-        }
-
-        auto status = driver->GetStatus();
-
-        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
-        HSVM_SetIntegerCell(hsvm, id_set, HSVM_GetColumnId(hsvm, "STATUS"), status.first);
-        HSVM_SetIntegerCell(hsvm, id_set, HSVM_GetColumnId(hsvm, "TRANSACTIONSTATUS"), status.second);
-}
-
 void PGSQL_Exec(HSVM *hsvm, HSVM_VariableId id_set)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
@@ -2887,35 +2262,33 @@ void PGSQL_Exec(HSVM *hsvm, HSVM_VariableId id_set)
 void PGSQL_GetWorkOpen(HSVM *hsvm, HSVM_VariableId id_set)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
                 return;
         }
 
-        HSVM_BooleanSet(hsvm, id_set, driver->isworkopen);
+        HSVM_BooleanSet(hsvm, id_set, driver->IsWorkOpen());
 }
 
 void PGSQL_SetWorkOpen(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
                 return;
         }
 
-        driver->isworkopen = HSVM_BooleanGet(hsvm, HSVM_Arg(1));
-        if(!driver->isworkopen)
-            driver->uploaded_blob_cache.clear();
+        driver->SetWorkOpen(HSVM_BooleanGet(hsvm, HSVM_Arg(1)));
 }
 
 void PGSQL_SetAllowWriteErrorDelay(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
@@ -2929,7 +2302,7 @@ void PGSQL_GetDebugSettings(HSVM *hsvm, HSVM_VariableId id_set)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
 
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
@@ -2946,7 +2319,7 @@ void PGSQL_UpdateDebugSettings(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
 
-        auto driver = dynamic_cast< PGSQLTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
         if (!driver)
         {
                 HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
@@ -3018,23 +2391,10 @@ void PGSQL_EscapeLiteral(HSVM *hsvm, HSVM_VariableId id_set)
         stackm.SetSTLString(id_set, result);
 }
 
-
-} // End of namespace PGSQL
-} // End of namespace SQLLib
-} // End of namespace HareScript
-
-
-//---------------------------------------------------------------------------
-extern "C"
-{
-
-BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
-{
+void PGSQLRegisterSharedFunctions(HSVM_RegData *regdata) {
         using namespace HareScript::SQLLib::PGSQL;
 
-        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT::R:RA", PGSQL_Connect);
         HSVM_RegisterMacro(regdata, "__PGSQL_CLOSE:::I", PGSQL_Close);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETSTATUS::R:I", PGSQL_GetStatus);
         HSVM_RegisterFunction(regdata, "__PGSQL_EXEC::RA:ISVAIAB", PGSQL_Exec);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETWORKOPEN:::IB", PGSQL_SetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETALLOWWRITEERRRORDELAY:::IB", PGSQL_SetAllowWriteErrorDelay);
@@ -3043,8 +2403,8 @@ BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
         HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:::IIII", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL::S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER::S:S", PGSQL_EscapeIdentifier);
-
-        return 1;
 }
 
-} //end extern "C"
+} // End of namespace PGSQL
+} // End of namespace SQLLib
+} // End of namespace HareScript

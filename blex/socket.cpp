@@ -2089,38 +2089,6 @@ Socket::SocketFd DebugSocket::ShutdownAndReleaseFd()
         return retval;
 }
 
-void DebugSocket::DumpPacket(unsigned len,void  const *buf) const
-{
-        for (unsigned i=0;i<len;i+=16)
-        {
-                std::string line;
-                for (unsigned j=0;j<16;++j)
-                {
-                        uint8_t inbyte = static_cast<const uint8_t*>(buf)[i+j];
-                        if (i+j<len)
-                        {
-                                Blex::EncodeBase16(&inbyte, &inbyte+1, std::back_inserter(line));
-                                line+=' ';
-                        }
-                        else
-                            line += "   ";
-
-                        if (j==7)
-                            line += "  ";
-                }
-                line += " ";
-
-                for (unsigned j=0;j<16;++j)
-                {
-                        if (i+j<len)
-                            line += char( static_cast<const uint8_t*>(buf)[i+j]>=32 && static_cast<const uint8_t*>(buf)[i+j]<=127 ? static_cast<const uint8_t*>(buf)[i+j] : '.');
-                        if (j==7)
-                            line += "  ";
-                }
-                SOCKETPRINT(line);
-            }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Socket sets
@@ -2464,6 +2432,38 @@ void AddSocketBinderPath(std::string const &socketbinder)
         LockedSockedData::WriteRef lock(socketdata);
         if(std::find(lock->socketbinders.begin(), lock->socketbinders.end(), socketbinder) == lock->socketbinders.end())
                 lock->socketbinders.push_back(socketbinder);
+}
+
+void DumpPacket(unsigned len,void const *buf)
+{
+        auto offsetwidth = std::max<unsigned>(4, Blex::AnyToString(len -1).size());
+        for (unsigned i=0;i<len;i+=16)
+        {
+                std::ostringstream line;
+                line << std::hex << std::setw(offsetwidth) << i << " ";
+
+                for (unsigned j=0;j<16;++j)
+                {
+                        if (i+j<len)
+                            line << std::hex << std::setfill('0') << std::setw(2) << (int)static_cast<const uint8_t*>(buf)[i+j] << " ";
+                        else
+                            line << "   ";
+
+                        if (j==7)
+                            line << " ";
+                }
+                line << " ";
+
+                for (unsigned j=0;j<16;++j)
+                {
+                        if (i+j<len)
+                            line << char( static_cast<const uint8_t*>(buf)[i+j]>=32 && static_cast<const uint8_t*>(buf)[i+j]<=127 ? static_cast<const uint8_t*>(buf)[i+j] : '.');
+
+                        if (j==7)
+                            line << " ";
+                }
+                Blex::ErrStream() << line.str() << std::endl;
+            }
 }
 
 } //namespace Blex
