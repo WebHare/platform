@@ -175,15 +175,13 @@ export function getUserInfo<T extends object = object>(): T | null {
 }
 
 function getLoginTweaks(): LoginTweaks {
-  const tweaks: LoginTweaks = {};
+  const tweaks: LoginTweaks = {
+    lang: dompack.getLang().tag
+  };
 
   const urlvars = new URL(location.href);
   if (urlvars.searchParams.has("wrdauth_limit_expiry"))
     tweaks.limitExpiry = parseInt(urlvars.searchParams.get("wrdauth_limit_expiry") || '0') || undefined;
-
-  const lang = document.documentElement.getAttribute("lang");
-  if (lang)
-    tweaks.lang = lang;
 
   return tweaks;
 }

@@ -7,6 +7,7 @@ import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
 
 import { __setUnderlyingValue, setupMyValueProperty } from "../internal/datetime-valueprops";
 import { getTid } from "@webhare/gettid";
+import { getLang } from "@webhare/dompack";
 export { __setUnderlyingValue } from "../internal/datetime-valueprops";
 
 /*
@@ -101,7 +102,7 @@ abstract class MultiInputSubstition {
     return false;
   }
   protected getLanguageCode() {
-    return this._replacednode.closest('[lang]')?.lang || document.documentElement.lang || null;
+    return getLang(this._replacednode).language;
   }
 
   _finalize() {
@@ -558,7 +559,7 @@ export class TimeField extends MultiInputSubstition {
     if (!this._replacednode)
       return;
 
-    this.placeholders = this.options.placeholders ?? (this.getLanguageCode()?.startsWith('nl') ? { hour: "hh", minute: "mm", second: "ss", msec: "mmm" } : { hour: "uu", minute: "mm", second: "ss", msec: "mmm" });
+    this.placeholders = this.options.placeholders ?? (this.getLanguageCode() === 'nl' ? { hour: "hh", minute: "mm", second: "ss", msec: "mmm" } : { hour: "uu", minute: "mm", second: "ss", msec: "mmm" });
     const step = parseFloat(this._replacednode.getAttribute("step") || '0');
     this.previous = { value: '' };
     this._showmsec = step !== Math.floor(step); //fraction

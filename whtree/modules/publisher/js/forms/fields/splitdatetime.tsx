@@ -9,6 +9,7 @@ import { isLive } from "@webhare/env";
 import { isValidDate } from '@webhare/std';
 
 import "./splitdatetime.scss";
+import { getLang } from "@webhare/dompack/src/tree";
 
 
 if (!isLive)
@@ -173,7 +174,7 @@ export class SplitDateField extends MultiInputSubstition {
       day: "dd"
     };
 
-    if (whintegration.config.locale.indexOf("nl") > -1)
+    if (getLang().language === "nl")
       this.placeholder = {
         year: "jjjj",
         month: "mm",
@@ -407,7 +408,7 @@ export class SplitTimeField extends MultiInputSubstition {
       seconds: "ss"
     };
 
-    if (whintegration.config.locale.indexOf("nl") > -1)
+    if (getLang().language === "nl")
       this.placeholder = {
         hours: "uu",
         minutes: "mm",

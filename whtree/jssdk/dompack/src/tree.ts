@@ -125,3 +125,61 @@ export function getRelativeBounds(node: Element, relativeto?: Element): Rect {
     height: nodecoords.height
   };
 }
+
+export type ParsedLanguageTag = {
+  /** The full tag, eg en-US */
+  tag: string;
+  /** The language code, eg 'en' */
+  language: string;
+  region?: string;
+  /** The script, eg 'Hant' */
+  script?: string;
+};
+
+/** Parse a BCP47 language tag */
+export function parseLanguageTag(languageTag: string): ParsedLanguageTag {
+  /* https://datatracker.ietf.org/doc/html/rfc5646#section-2.1
+     langtag       = language
+                 ["-" script]
+                 ["-" region]
+                 *("-" variant)
+                 *("-" extension)
+                 ["-" privateuse]
+     BUT: we're limiting ourselves to language, script an region for now
+
+     language      = 2*3ALPHA           ; shortest ISO 639 code
+                    ["-" extlang]       ; sometimes followed by
+                                          extended language subtags
+
+                                           extlang       = 3ALPHA              ; selected ISO 639 codes
+                 *2("-" 3ALPHA)      ; permanently reserved
+
+      script        = 4ALPHA              ; ISO 15924 code
+
+      region        = 2ALPHA              ; ISO 3166-1 code
+                    / 3DIGIT              ; UN M.49 code
+
+     Note that we're not yet fully implementing the spec, just the parts we expect to encounter in practice
+  */
+  const match = languageTag.match(/^([a-z]{2,}(-[a-z]{3})?)(-[A-Za-z]{4,})?(-[A-Z]{2}|-\d{3})?$/);
+  if (!match)
+    throw new Error(`Invalid language tag: ${languageTag}`);
+
+  return {
+    tag: languageTag,
+    language: match[1],
+    ...(match[3] ? { script: match[3].substring(1) } : {}),
+    ...(match[4] ? { region: match[4].substring(1) } : {})
+  };
+}
+
+/** Get the effective language for an element (or the document)
+ * @param node - The element for which to get the effective language. If not specified, the documentElement and finally the browser is used
+ * @returns The language code, eg. "nl" or "en-GB"
+ */
+export function getLang(node?: Element): ParsedLanguageTag {
+  if (!node && typeof document !== "undefined")
+    node = document.documentElement;
+  const tag = (node?.closest('[lang]')?.getAttribute("lang") || navigator.language || "en");
+  return parseLanguageTag(tag);
+}
