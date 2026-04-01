@@ -4,6 +4,7 @@
 import * as dompack from 'dompack';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as datehelpers from "./datehelpers";
+import { getLang } from '@webhare/dompack/src/tree';
 // import "./datestrings.lang.json";
 //import { getTid } from "@webhare/gettid";
 
@@ -370,7 +371,7 @@ class DatePicker extends Calendar2 {
     };
     //TODO limit by supportedlanguages and use gettid("~locale.datetimestrings")
     if (!this.options.language)
-      this.options.language = document.documentElement.lang ? document.documentElement.lang.split('-')[0].toLowerCase() : '';
+      this.options.language = getLang().language;
 
     this._languagetexts = (langcodes[this.options.language] || langcodes.en).split(';');
 
