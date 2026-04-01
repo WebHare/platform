@@ -4,18 +4,21 @@
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import { debugFlags, initEnv } from "@webhare/env/src/envbackend";
 import { getBrowserDebugFlags } from "@webhare/env/src/init-browser";
+import { getLang } from "@webhare/dompack/src/tree";
 import type { FrontendDataTypes } from "@webhare/frontend";
+import { omit } from "@webhare/std";
 
 
 /** The format of the <script id="wh-config"> object  */
-export interface WHConfigScriptData {
-  ///Plugins may add keys at this level
-  [key: string]: unknown;
-
+export type WHConfigScriptData = {
   //NOTE: existing frontend code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing object'
-  /** Page (targetobject) specific settings */
+  /** Page (targetobject) specific settings
+   *  @deprecated Use setFrontendData for type-safe settings
+  */
   obj: { [key: string]: unknown };
-  /** Site specific settings */
+  /** Site specific settings
+   *  @deprecated Use setFrontendData for type-safe settings
+   */
   site: { [key: string]: unknown };
 
   /** Numeric server version number (eg 5.02.24 = 50224)
@@ -24,9 +27,12 @@ export interface WHConfigScriptData {
   server: number;
   /** Root URL of this site */
   siteRoot: string;
-  /** @deprecated Use `document.documentElement.lang` instead */
-  locale: never;
-}
+} & {
+  ///Plugins may add keys at this level
+  [key in keyof FrontendDataTypes]?: FrontendDataTypes[key];
+};
+
+export type WHConfigScriptData_FromServer = WHConfigScriptData & { dtapStage: DTAPStage };
 
 //names fields can still have when not yet republished
 export interface WHConfigScriptData_OldPublishFields {
@@ -45,19 +51,19 @@ export interface WHConfigScriptData_LegacyFields {
   siteroot: string;
 }
 
-type Configured = Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
-let config: Configured | undefined;
+let config: WHConfigScriptData_FromServer | undefined;
 let siteroot;
 let dtapStage: DTAPStage = "production";
 
 //if document is undefined, we're serverside or in a worker
 const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
 if (whconfigel?.textContent) {
-  config = JSON.parse(whconfigel.textContent) as Configured;
+  const parsedConfig: WHConfigScriptData_FromServer & WHConfigScriptData_OldPublishFields = JSON.parse(whconfigel.textContent);
+  config = omit(parsedConfig, ["siteroot", "dtapstage", "islive"]);
 
   //Fallbacks for pages last published with WH5.3 *and* pages published from HareScript which still emit lowercase props
-  siteroot = config.siteRoot ?? config.siteroot;
-  dtapStage = config.dtapstage ?? config.dtapStage ?? dtapStage;
+  siteroot = parsedConfig.siteRoot ?? parsedConfig.siteroot!;
+  dtapStage = parsedConfig.dtapStage ?? parsedConfig.dtapstage;
 }
 
 initEnv(dtapStage, '/');
@@ -69,18 +75,28 @@ if (typeof location !== "undefined")
 
 /** @deprecated frontendConfig has been deprecated. Switch to the getFrontendData system */
 // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
-export const frontendConfig = {
+export const frontendConfig: WHConfigScriptData & WHConfigScriptData_LegacyFields = {
   server: 0,
   ...config,
   obj: config?.obj || {},
   site: config?.site || {},
-  siteRoot: siteroot,
-  //deprecated variables:
+  siteRoot: siteroot || "",
   dtapstage: dtapStage,
-  islive: (["production", "acceptance"]).includes(dtapStage!),
-  siteroot
-} as WHConfigScriptData & WHConfigScriptData_LegacyFields; //in a future version we can either obsolete or even drop '& WHConfigScriptData_LegacyFields' and validation will fail without breaking existing JS code
+  islive: dtapStage === "production" || dtapStage === "acceptance",
+  siteroot: siteroot || "",
+};
 
+if (typeof document !== "undefined") {
+  //@ts-expect-error -- locale isn't supposed to exist - but some old code is still referring to it
+  frontendConfig.locale = getLang().tag;
+}
+
+if (dtapStage === "development") { //WH6.0: it's time to hard phase-out the old fields
+  for (const prop of ["islive", "dtapstage", "siteroot", "locale"] as const)
+    Object.defineProperty(frontendConfig, prop, {
+      get() { throw new Error(`frontendConfig.${prop} will be removed`); }
+    });
+}
 
 //NOTE: These APIs need to live in init.ts so eg gtm.ts can access us without triggering a CSS reset through frontend.ts. When frontend.ts stops auto-resetting we might move it back
 

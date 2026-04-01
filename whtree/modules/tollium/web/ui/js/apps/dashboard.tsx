@@ -1,5 +1,4 @@
 import * as dompack from '@webhare/dompack';
-import * as whintegration from '@mod-system/js/wh/integration';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import { getTid } from "@webhare/gettid";
@@ -10,6 +9,7 @@ import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp, type ApplicationBase } from "../application";
 import type { IndyShell } from '../shell';
 import type { MenuAppGroup, ShellInstruction } from '@mod-platform/js/tollium/types';
+import { dtapStage } from '@webhare/env';
 
 type DashboardHTMLElement = HTMLElement & {
   propSavedOriginalHeight?: number;
@@ -182,7 +182,7 @@ class DashboardApp {
     });
     this.updateShellSettings();
 
-    if (whintegration.config.dtapstage === 'development')
+    if (dtapStage === 'development')
       this.app.appmenu.push({ title: getTid("tollium:shell.dashboard.resetimagecache"), cmd: { type: "shell:resetimagecache" } });
 
     callback();

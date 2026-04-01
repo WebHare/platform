@@ -10,8 +10,10 @@ import { getTidLanguage } from "@webhare/gettid";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
 import { buildInstance, buildRTD } from "@webhare/services";
+import type { WHConfigScriptData } from "@webhare/frontend/src/init";
+import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 
-function getWHConfig(parseddoc: Document) {
+function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
   if (!config)
     throw new Error("No wh-config element found");
