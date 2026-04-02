@@ -14,6 +14,7 @@
   <test script="test_codecontext.ts" />
   <test script="test_crypto.ts" />
   <test script="test_registry.ts" />
+  <test script="test_backend_services.ts" />
   <test script="test_services.ts" />
   <test script="test_services_secrets.ts" />
   <test script="test_tasks.ts" />
