@@ -395,16 +395,19 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks() {
   }
 
   //We want you to snooze disabled tasks so other admins can know why - and you can't easily forget to re-enable them
-  RECORD ARRAY disabledtasks := SELECT tag := Substitute(tag, '.', ':') ?? script, id
-                                 FROM system_internal.tasks
-                                WHERE NOT enabled
-                                      AND inapplicable = "";
-  FOREVERY(RECORD disabledtask FROM disabledtasks)   {
-    INSERT [ msg := `:Task ${disabledtask.tag}' has been manually disabled`
-           , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := disabledtask.id ]
-           , messagetag := [ type := "system:disabledtimedtask", task := disabledtask.tag ]
-           ]
-           INTO messages AT END;
+  IF (GetDTAPStage() != "development")
+  {
+    RECORD ARRAY disabledtasks := SELECT tag := Substitute(tag, '.', ':') ?? script, id
+                                  FROM system_internal.tasks
+                                  WHERE NOT enabled
+                                        AND inapplicable = "";
+    FOREVERY(RECORD disabledtask FROM disabledtasks)   {
+      INSERT [ msg := `:Task ${disabledtask.tag}' has been manually disabled`
+            , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := disabledtask.id ]
+            , messagetag := [ type := "system:disabledtimedtask", task := disabledtask.tag ]
+            ]
+            INTO messages AT END;
+    }
   }
 
   messages := messages CONCAT RunWebserverChecks();
