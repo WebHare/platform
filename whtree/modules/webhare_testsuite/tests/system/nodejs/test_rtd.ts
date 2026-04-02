@@ -807,7 +807,7 @@ async function testRegressions() {
   test.eqPartial([
     {
       tag: "p",
-      items: [{ text: 'The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.' }]
+      items: [{ text: 'The TechMed Centre, formerly the Technohal, houses the institute of the same name and several research groups in the Health area. The building also contains several research labs and the educational programmes Biomedical Technology, Health Sciences and Technical Medicine.' }]
     }
   ], parseResult.blocks);
 }
