@@ -1,5 +1,5 @@
 import { type AuthorizedWRDAPIUser, type OpenAPIResponse, HTTPSuccessCode, type OpenAPIRequest, type OpenAPIAuthorization, failWRDAPIUserAuth, verifyWRDAPIUser, type OpenAPIAuthorizationFunction } from "@webhare/openapi-service";
-import type { TypedRestRequest } from "modules/platform/generated/openapi/platform/api";
+import type { TypedRestRequest } from "../../generated/openapi/platform/api";
 
 import { WRDSchema } from "@webhare/wrd";
 import { getAuthorizationInterface } from "@webhare/auth";
