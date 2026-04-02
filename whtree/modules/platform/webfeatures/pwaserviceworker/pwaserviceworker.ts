@@ -30,7 +30,8 @@ interface ServerVersionInfo {
   pwauid: string;
 }
 
-interface PublishedPWASSettings { //see UpdatePWASettings
+export interface PublishedPWASSettings { //see UpdatePWASettings
+  appname: string;
   apptoken: string;
   addurls: string[];
   excludeurls: string[];

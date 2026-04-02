@@ -49,10 +49,10 @@ export function checkModuleScopedName(name: string): string[] {
   return split;
 }
 
-/** Backend event names must be of format <modulename>:<eventname> - eventnames are alphanumeric and may contain dots */
+/** Backend event names must be of format <modulename>:<eventname> - eventnames are alphanumeric and may contain dots and underscores */
 export function isValidBackendEventName(eventname: string) {
   const split = splitModuleScopedName(eventname);
-  return split && /^[a-z][a-z0-9.]*$/.test(split[1]);
+  return split && /^[a-z][a-z0-9._]*$/.test(split[1]);
 }
 
 /** Splits a reference in the form file#name-within-file */

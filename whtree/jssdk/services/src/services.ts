@@ -57,6 +57,15 @@ export interface BackendEvents {
   "platform:appliedconfig": null;
   "system:managedtasks.any.new": { taskids: number[] };
   "system:modulesupdate": null;
+  "tollium:oauth_response": {
+    responseid: string;
+    responsetype: string;
+    version: number;
+    token: string;
+    scopes: string[];
+    error: string;
+    expires: Date;
+  };
 }
 
 /** Extend this interface to define the format of your own secret scopes */

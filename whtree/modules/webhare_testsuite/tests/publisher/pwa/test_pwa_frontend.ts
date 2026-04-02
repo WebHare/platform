@@ -68,6 +68,7 @@ test.runTests(
       // test.qS("#textfilelink").src = ;
 
       const cachemissses = (await pwatests.getSWLog()).filter(entry => entry.event === 'miss');
+      test.eq([], cachemissses.filter(_ => _.url?.endsWith(".map")), "There should be no .map files loaded. Are JS errors occuring and triggering source map lookups?");
       test.eq([], cachemissses, "Fetches must not have caused miss-es in the log");
     },
 
