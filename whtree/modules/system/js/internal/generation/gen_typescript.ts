@@ -114,7 +114,6 @@ async function buildTSConfig(node_modules: DataRootItem[]) {
     extends: backendConfig.installationRoot + "tsconfig.json",
     compilerOptions: {
       paths: await getTSPaths(node_modules, ""),
-      baseUrl: "."
     },
     exclude: [
       "**/vendor/**",
