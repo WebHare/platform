@@ -42,7 +42,10 @@ let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 //We want to make clear ('assert') that wait will not return falsy values (unless waiting for a promise)
 export type PositiveWaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 export type WaitOptions<T> = Annotation | {
+  /** Maximum time to wait in milliseconds (default: 60 seconds) */
   timeout?: number;
+  /** Time after which to log a warning that we're still waiting, in milliseconds (default: 5 seconds) */
+  warnTimeout?: number;
   /**  An optional test that should return true for the wait to end. By default wait() waits for a truthy value */
   test?: (value: T) => boolean;
   annotation?: Annotation;
@@ -651,7 +654,8 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
   if (options?.test && typeof waitfor !== "function")
     throw new Error("The test option can only be used together with function waits");
 
-  const { timeout = 60000 } = options ?? {};
+  const start = Date.now();
+  const { timeout = 60000, warnTimeout = 5000 } = options ?? {};
 
   let cb;
   const timeoutPromise = new Promise<T>((_, reject) => { //note that it will never actually resolve to a <T> but it makes TS happy
@@ -661,6 +665,13 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
       reject(err);
     }, timeout);
   });
+
+  let didWarnWait = false;
+  const informWaitTimeout = setTimeout(() => {
+    console.warn(`wait() has been waiting for ${warnTimeout / 1000} seconds`);
+    console.warn(waitStack);
+    didWarnWait = true;
+  }, warnTimeout);
 
   const isFunction = typeof waitfor === "function";
   try {
@@ -676,10 +687,13 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
       }
 
       //for promises we just return any result, wait() was just wrapping a promise into a timeout
+      if (didWarnWait)
+        console.log(`wait() finally resolved after ${(Date.now() - start) / 1000} seconds`);
       return resolvedResult as unknown as PositiveWaitRetVal<T>;
     }
   } finally {
     clearTimeout(cb);
+    clearTimeout(informWaitTimeout);
   }
 }
 
