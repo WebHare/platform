@@ -9,6 +9,7 @@ import { originalPositionFor, TraceMap } from "@jridgewell/trace-mapping";
 import { readFileSync } from "node:fs";
 import { getBundleOutputPath } from "../assetpacks/support";
 import { debugFlags } from "@webhare/env";
+import type { ModuleValidationConfig } from "../devsupport/validation";
 
 let puppeteer: Puppeteer.Browser | null = null;
 
@@ -28,18 +29,7 @@ type Test = {
   flaky: boolean;
   xfail: boolean;
   timeout: number;
-  validationconfig: {
-    excludemasks: unknown[];
-    ignoremessages: unknown[];
-    futuremodule: boolean;
-    futuremodulewhy: string;
-    perfectcompile: boolean;
-    nomissingtids: boolean;
-    nowarnings: boolean;
-    eslintmasks: string[];
-    formatmasks: string[];
-    formatexcludemasks: unknown[];
-  };
+  validationconfig: ModuleValidationConfig;
   compatibility: string;
 };
 

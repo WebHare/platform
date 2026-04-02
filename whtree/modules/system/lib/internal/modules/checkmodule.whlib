@@ -4,11 +4,13 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 LOADLIB "mod::publisher/lib/search/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
@@ -59,12 +61,6 @@ OBJECTTYPE CheckerObject <
     INSERT rec INTO this->seenissues AT pos.position;
     IF(this->options.printissues AND NOT (category = "hint" AND this->options.hidehints))
       Print(`${category="error"?`${AnsiCmd("red")}ERR!:`:category="warning"?"Warn:":"Hint:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${UCTruncate(issue.message, 300)}\n`);
-  }
-
-  MACRO OnSkippedFile(STRING resourcename, STRING why)
-  {
-    IF(this->options.printissues AND NOT this->options.hidehints)
-      Print(`Info: Skipping ${resourcename} because: ${why}\n`);
   }
 
   MACRO VerifyModuleDefinition(STRING modname)
@@ -164,17 +160,18 @@ OBJECTTYPE CheckerObject <
     //verify code
     IF(this->options.debug)
       Print(`Checking files matching '${this->options.filemask}' in module '${modname}'\n`);
-    STRING ARRAY scanlist := GetValidatableFiles(this->validateconfig, modname
-                                                 , [ onskippedfile := PTR this->OnSkippedFile
-                                                   , filemask := this->options.filemask
-                                                   ]);
+    STRING ARRAY scanlist := CallJS("mod::platform/js/devsupport/validation.ts#getValidatableFilesHS", this->validateconfig, modname,
+      CELL[ printskippedfile := this->options.printissues AND NOT this->options.hidehints
+          , filemask := this->options.filemask
+          ]);
+
     IF (IsValueSet(this->options.onlypaths))
       scanlist := SELECT AS STRING ARRAY name FROM ToRecordArray(scanlist,'name') WHERE GetWebHareResourceDiskPath(name) IN this->options.onlypaths;
 
     IF(this->options.debug)
       Print(`${modname} - got ${Length(scanlist)} files to scan\n`);
 
-
+    //Integrate this filtering into getValidatableFiles ?
     STRING ARRAY exclusions := SELECT AS STRING ARRAY mask FROM this->validateconfig.excludemasks;
     RECORD ARRAY toscan := SELECT *
                                 , isjs := GetExtensionFromPath(name) IN whconstant_javascript_extensions

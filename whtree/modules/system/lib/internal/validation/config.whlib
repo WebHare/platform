@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -30,72 +31,8 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
     @public
     @loadlib mod::system/lib/validation.whlib
 */
-PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
-{
-  RECORD retval := [ excludemasks := [ [ mask := "localtests/*", why := "Non-validated tests", permanent := TRUE ] ]
-                   , ignoremessages := RECORD[]
-                   , futuremodule := FALSE
-                   , futuremodulewhy := ""
-                   , ...defaultvalidationoptions
-                   ];
-
-  IF (modname = "")
-    RETURN retval;
-
-  //parse the moduledef and get any exclusions
-  OBJECT moduledef := GetModuleDefinitionXML(modname);
-  OBJECT validation := moduledef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "validation")->Item(0);
-  IF(Objectexists(validation))
-  {
-    //ADDME warn or fail about unknown options to prevent typos? but only if we know we are 'develop' and have perfect knowledge of acceptable options
-    //Document options here in moduledefinition.xsd
-    STRING ARRAY options := ParseXSList(validation->GetAttribute("options"));
-    retval.perfectcompile := "perfectcompile" IN options;
-    retval.nomissingtids := "nomissingtids" IN options;
-    retval.nowarnings := "nowarnings" IN options;
-
-    FOREVERY(OBJECT ignoremessage FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "ignoremessage")->GetCurrentElements())
-    {
-      INSERT [ mask := TrimWhitespace("mod::" || modname || "/" || ignoremessage->GetAttribute("mask"))
-             , regex := ignoremessage->GetAttribute("regex")
-             ] INTO retval.ignoremessages AT END;
-    }
-
-    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "exclude")->GetCurrentElements())
-    {
-      IF(NOT IsNodeApplicableToThisWebHare(excl))
-        CONTINUE;
-      INSERT [ mask := TrimWhitespace(excl->GetAttribute("mask"))
-             , why := excl->GetAttribute("why")
-             , permanent := ParseXSBoolean(excl->GetAttribute("permanent"))
-             ] INTO retval.excludemasks AT END;
-    }
-
-    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "eslint")->GetCurrentElements())
-    {
-      IF(NOT IsNodeApplicableToThisWebHare(excl))
-        CONTINUE;
-
-      retval.eslintmasks := retval.eslintmasks CONCAT ParseXSList(excl->GetAttribute("mask")) CONCAT ParseXSList(excl->GetAttribute("masks"));
-    }
-
-    FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "format")->GetCurrentElements())
-    {
-      IF(NOT IsNodeApplicableToThisWebHare(excl))
-        CONTINUE;
-      retval.formatmasks := retval.formatmasks CONCAT ParseXSList(excl->GetAttribute("masks"));
-      retval.formatexcludemasks := retval.formatexcludemasks CONCAT ParseXSList(excl->GetAttribute("excludemasks"));
-    }
-  }
-
-  OBJECT packaging := moduledef->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "packaging")->Item(0);
-  IF(Objectexists(packaging))
-  {
-    retval.futuremodulewhy := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(packaging));
-    retval.futuremodule := retval.futuremodulewhy != "";
-  }
-
-  RETURN retval;
+PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname) {
+  RETURN CallJS("mod::platform/js/devsupport/validation.ts#getModuleValidationConfig", modname);
 }
 
 PUBLIC RECORD FUNCTION GetValidationOptionsFromConfig(RECORD config)

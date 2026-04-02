@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/wasm.whlib";
@@ -150,4 +151,11 @@ PUBLIC MACRO IncreaseCounter() {
 
 PUBLIC VARIANT FUNCTION Echo(VARIANT input) {
   RETURN input;
+}
+
+PUBLIC MACRO NestedCallTest() {
+  CallJS("./testwasmlib.ts#invokeSecondNestedCall");
+}
+PUBLIC MACRO NestedCallTest2() {
+  CallJS("./testwasmlib.ts#resolveNestedCalls");
 }
