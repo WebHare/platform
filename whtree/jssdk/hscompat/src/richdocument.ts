@@ -184,7 +184,8 @@ class HSRTDImporter {
         await this.processInlineItems(child, state, outlist);
       }
     } else if (child.nodeType === Node.TEXT_NODE) {
-      outlist.push({ text: child.textContent || '', ...state });
+      //Replace linefeeds with spaces as a linefeed in a JS string would be converted to a softbreak in Litty, but in HTML a linefeed is generally just whitespace (FIXME we have a little <code> support - might matter there)
+      outlist.push({ text: child.textContent?.replaceAll(/[\n\r]/g, ' ') || '', ...state });
     }
   }
 

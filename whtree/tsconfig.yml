@@ -18,7 +18,6 @@ compilerOptions:
   skipLibCheck: true
   module: commonjs # as internally we're still require() based
   # our configuration
-  baseUrl: .
   allowImportingTsExtensions: true # TS 5.7 is starting a move back towards extensions, also to support stripping types. Enabling this now may help us to switch in the future
   allowJs: true #was needed to get incremental compiling to work in typescript check and add checks for circular loadlibs.
   jsx: react
@@ -29,27 +28,27 @@ compilerOptions:
   target: es2022
   paths:
     dompack:
-      - modules/system/js/dompack
+      - ./modules/system/js/dompack
     dompack/*:
-      - modules/system/js/dompack/*
+      - ./modules/system/js/dompack/*
     "@webhare/*":
-      - jssdk/*
+      - ./jssdk/*
     "@mod-consilio/*":
-      - modules/consilio/*
+      - ./modules/consilio/*
     "@mod-devkit/*":
-      - modules/devkit/*
+      - ./modules/devkit/*
     "@mod-platform/*":
-      - modules/platform/*
+      - ./modules/platform/*
     "@mod-publisher/*":
-      - modules/publisher/*
+      - ./modules/publisher/*
     "@mod-socialite/*":
-      - modules/socialite/*
+      - ./modules/socialite/*
     "@mod-system/*":
-      - modules/system/*
+      - ./modules/system/*
     "@mod-tollium/*":
-      - modules/tollium/*
+      - ./modules/tollium/*
     "@mod-wrd/*":
-      - modules/wrd/*
+      - ./modules/wrd/*
 
 exclude:
   - "**/node_modules/**"
