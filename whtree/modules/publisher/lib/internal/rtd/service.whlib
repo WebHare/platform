@@ -691,7 +691,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
           IF (pos.found)
           {
             instanceid := org_instance_mapping[pos.position].instanceid;
-            DELETE FROM org_instance_mapping AT pos.position;
+            DELETE FROM org_instance_mapping WHERE COLUMN instanceid = VAR instanceid;
           }
           ELSE
           {
@@ -721,6 +721,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
         RECORD pos := RecordLowerBound(this->org_instance_mapping, rec, [ "INSTANCEREF" ]);
         IF (NOT pos.found)
           INSERT rec INTO this->org_instance_mapping AT pos.position;
+        ELSE
+          this->org_instance_mapping[pos.position].instanceid := rec.instanceid;
       }
     }
 
