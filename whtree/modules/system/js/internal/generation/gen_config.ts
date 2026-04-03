@@ -23,13 +23,16 @@ async function rawReadRegistryKey<T>(pgclient: WHDBClientInterface, key: string)
   return decodeHSON(hsondata) as (T | undefined);
 }
 
-async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean, { debugSettings }: { debugSettings?: ConfigFile["debugsettings"] | null } = {}): Promise<ConfigFile> {
+async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean, options?: { debugSettings?: ConfigFile["debugsettings"] | null; socketDir?: string }): Promise<ConfigFile> {
   const finalconfig: ConfigFile = updateWebHareConfigWithoutDB(oldconfig);
 
-  if (debugSettings)
-    finalconfig.debugsettings = debugSettings;
-  else if (debugSettings === null)
+  if (options?.debugSettings)
+    finalconfig.debugsettings = options.debugSettings;
+  else if (options?.debugSettings === null)
     delete finalconfig.debugsettings;
+
+  if (options?.socketDir)
+    finalconfig.socketDir = options.socketDir;
 
   if (!withdb)
     return finalconfig;
@@ -72,8 +75,8 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
   return finalconfig;
 }
 
-export async function updateWebHareConfigFile({ verbose = false, nodb = false, debugSettings }: { verbose?: boolean; nodb?: boolean; debugSettings?: ConfigFile["debugsettings"] | null } = {}) {
-  if (verbose)
+export async function updateWebHareConfigFile(options?: { verbose?: boolean; nodb?: boolean; debugSettings?: ConfigFile["debugsettings"] | null; socketDir?: string }) {
+  if (options?.verbose)
     console.time("Updating WebHare config files");
 
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
@@ -99,7 +102,10 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   }
 
   // process.stderr.write((new Date).toString() + " Starting config update\n");
-  const newconfig = await updateWebHareConfig(oldconfig, !nodb, { debugSettings });
+  const newconfig = await updateWebHareConfig(oldconfig, !options?.nodb, {
+    debugSettings: options?.debugSettings,
+    socketDir: options?.socketDir
+  });
   const newconfigtext = JSON.stringify(newconfig, null, 2);
   const anychanges = newconfigtext !== currenttext;
 
@@ -107,7 +113,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
     await storeDiskFile(file, newconfigtext, { overwrite: true, mkdir: true });
     reloadBackendConfig();
 
-    if (!nodb) {
+    if (!options?.nodb) {
       // Enumerate all modules that have were added, removed or had their root changed. Need the oldconfig for that
       let changedModules: string[] = [];
       if (typeof oldconfig === "object" && typeof oldconfig.public === "object" && typeof oldconfig.public.module === "object") {
@@ -131,6 +137,6 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   }
 
   // process.stderr.write((new Date).toString() + " Done config update, modules: " + Object.keys(newconfig.public.module).join(", ") + "\n");
-  if (verbose)
+  if (options?.verbose)
     console.timeEnd("Updating WebHare config files");
 }

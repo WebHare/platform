@@ -48,6 +48,7 @@ export type ConfigFile = {
     context: string;
     outputsession: string;
   };
+  socketDir?: string;
 };
 
 export type WebHareBackendConfiguration = RecursiveReadonly<BackendConfiguration>;

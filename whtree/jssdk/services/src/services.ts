@@ -11,7 +11,7 @@ import type { RichTextDocument, RTDSource } from "./richdocument";
 export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath, getResourceEventMasks } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
-export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
+export { runBackendService, BackendServiceConnection, type BackendServiceController, type BackendServiceOptions } from "./backendservicerunner";
 export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, subscribeToEventStream, signalOnEvent } from "./backendevents";

@@ -117,7 +117,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
       gcm: String(oldconfig?.secrets?.gcm || ''),
     },
     defaultImageFormat: oldconfig?.defaultImageFormat || "keep",
-    ...pick(oldconfig, ["debugsettings"]),
+    ...pick(oldconfig, ["debugsettings", "socketDir"]),
     ...omit(nodbconfig, ["public"]),
   };
 }
