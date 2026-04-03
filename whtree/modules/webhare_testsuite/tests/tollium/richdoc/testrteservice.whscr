@@ -3,6 +3,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -211,6 +212,26 @@ MACRO RTECreation()
   //The empty link should be stripped by now, the link containing the image should not
   doc := MakeXMLDocumentFromHTML(StringToBlob(editable->GetHTMLForClientRTE()));
   TestEq(6, doc->QuerySelectorAll("a")->length);
+
+  // Create a copy from an existing instance, edit it and add it to the document. Check that instanceid reuse handles this correctly
+  OBJECT tocopy := doc->QuerySelector("div");
+  STRING instanceref := tocopy->GetAttribute("data-instanceref");
+  RECORD instance := editable->GetWidget(instanceref);
+  instance.stringdata := "CopiedWidget";
+
+  RECORD copiedinstance := editable->UpdateWidget(instanceref, instance);
+  OBJECT copieddiv := CreateLiveInstanceBlockNode(doc, copiedinstance.instanceref);
+  TestEqLike("*CopiedWidget*", copiedinstance.htmltext);
+  copieddiv->SetAttribute("data-innerhtml-contents", copiedinstance.htmltext);
+  doc->body->AppendChild(copieddiv);
+  editable->SetHTMLFromClientRTE(doc->outerhtml);
+
+  exportrec := editable->ExportAsRecord();
+  STRING htmltext := BlobToString(exportrec.htmltext);
+  TestEq(2, Length(exportrec.links));
+  TestEq(2, Length(exportrec.embedded));
+  TestEq(4, Length(exportrec.instances)); // should be 4 now, but with one instanceid reused
+  TestEQ(4, LENGTH(GetSortedSet(SELECT AS STRING ARRAY instanceid FROM exportrec.instances))); // and no duplicates!
 
   //Test reset
   editable->SetHTMLFromClientRTE(`<html><body><p class="normal"><br data-wh-rte="bogus"/></p></body>`);
