@@ -1,9 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="filedialogs" library="/lib/screens/fd-archive.whlib">
 
-  <messageboxes gid="dialogs">
-    <messagebox name="warnreplace" buttons="ok cancel" dontshowagain="ok" />
-  </messageboxes>
-
   <screen name="extracthere" footerbuttons="ok cancel" gid=".archive" title="">
     <body layout="left">
       <heading tid=".formtitle" />
