@@ -145,7 +145,7 @@ export function parseLanguageTag(languageTag: string): ParsedLanguageTag {
                  *("-" variant)
                  *("-" extension)
                  ["-" privateuse]
-     BUT: we're limiting ourselves to language, script an region for now
+     BUT: we're limiting ourselves to language, script and region for now
 
      language      = 2*3ALPHA           ; shortest ISO 639 code
                     ["-" extlang]       ; sometimes followed by
