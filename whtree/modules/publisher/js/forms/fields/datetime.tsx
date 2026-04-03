@@ -559,7 +559,7 @@ export class TimeField extends MultiInputSubstition {
     if (!this._replacednode)
       return;
 
-    this.placeholders = this.options.placeholders ?? (this.getLanguageCode() === 'nl' ? { hour: "hh", minute: "mm", second: "ss", msec: "mmm" } : { hour: "uu", minute: "mm", second: "ss", msec: "mmm" });
+    this.placeholders = this.options.placeholders ?? (this.getLanguageCode() === 'nl' ? { hour: "uu", minute: "mm", second: "ss", msec: "mmm" } : { hour: "hh", minute: "mm", second: "ss", msec: "mmm" });
     const step = parseFloat(this._replacednode.getAttribute("step") || '0');
     this.previous = { value: '' };
     this._showmsec = step !== Math.floor(step); //fraction
