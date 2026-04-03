@@ -22,6 +22,7 @@ else
   exit 1
 fi
 
+mkdir -p /tmp/downloads
 DLPATH=/tmp/downloads/$GETFILE
 
 if ! curl -fsS -o "$DLPATH" -z "$DLPATH" "${ASSETROOT}${GETFILE}" ; then
@@ -37,8 +38,23 @@ mkdir /opt/opensearch
 tar zx -C /opt/opensearch --strip-components=1 -f $DLPATH
 chown -R opensearch /opt/opensearch
 
-# Remove the bundled JDK and plugins
-rm -rf /opt/opensearch/jdk /opt/opensearch/plugins/* /opt/opensearch/performance-analyzer-rca
+# Remove the bundled JDK
+rm -rf /opt/opensearch/jdk
+
+# Fix OS shutting down because of:
+# java.lang.IllegalStateException: failed to load plugin class [org.opensearch.security.OpenSearchSecurityPlugin]
+# Likely root cause: OpenSearchException[No SSL configuration found]
+cat >> /opt/opensearch/config/opensearch.yml <<HERE
+plugins.security.disabled: true
+HERE
+
+# Fix this log noise:
+# [0.001s][warning][os,container] Cgroup memory controller path at '/sys/fs/cgroup' seems to have moved to '/../../../user.slice/user-0.slice/session-5250304.scope', detected limits won't be accurate
+# [0.002s][warning][os,container] Cgroup cpu controller path at '/sys/fs/cgroup' seems to have moved to '/../../../user.slice/user-0.slice/session-5250304.scope', detected limits won't be accurate
+# As opensearch resets JAVA_TOOL_OPTIONS in /opt/opensearch/bin/opensearch-env - we'll add it there
+cat >> /opt/opensearch/bin/opensearch-env <<HERE
+export JAVA_TOOL_OPTIONS="-Xlog:os+container=off"
+HERE
 
 runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch --version
 RETVAL="$?"

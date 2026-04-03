@@ -38,8 +38,8 @@ rm -rf -- "$OPENSEARCHROOT/tmp"
 mkdir -p -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   chown opensearch:opensearch -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
-  # It seems the linux version has more plugins than the brew version, and needs these options:
-  #ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
+  # needed for knn search to work
+  export LD_LIBRARY_PATH=/opt/opensearch/plugins/opensearch-knn/lib/:$LD_LIBRARY_PATH
 fi
 
 if [ -x /opt/opensearch/bin/opensearch ]; then  #linux docker build
@@ -57,7 +57,7 @@ if [ -z "$MAXIMUMMEMORY" ]; then
   exit 1
 fi
 
-export OPENSEARCH_JAVA_OPTS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=${OPENSEARCHROOT}/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m -Djava.io.tmpdir=${OPENSEARCHROOT}/tmp -Djava.security.egd=file:/dev/./urandom -Djava.security.properties=${WEBHARE_DIR}/etc/java.security.override"
+export OPENSEARCH_JAVA_OPTS="-Xlog:os+container=off -Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=${OPENSEARCHROOT}/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m -Djava.io.tmpdir=${OPENSEARCHROOT}/tmp -Djava.security.egd=file:/dev/./urandom -Djava.security.properties=${WEBHARE_DIR}/etc/java.security.override"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then

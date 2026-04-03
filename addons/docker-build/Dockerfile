@@ -106,7 +106,7 @@ RUN --mount=type=bind,source=addons/docker-build/setup-tika.sh,target=/setup-tik
 RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     WEBHARE_CHECKEDOUT_TO=/opt/wh \
-    /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 3.2.0
+    /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 3.5.0
 
 ## Install Chrome
 #RUN --mount=type=bind,source=addons/docker-build/setup-puppeteer.sh,target=/setup-puppeteer.sh \
