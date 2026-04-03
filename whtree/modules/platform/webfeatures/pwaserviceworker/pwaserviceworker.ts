@@ -8,11 +8,18 @@ import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 // when developing, to explicitly recompile our package: wh assetpack compile publisher:pwaserviceworker
 import { generateRandomId, throwError } from "@webhare/std";
 import type { IDBPDatabase } from 'idb';
+import type { WHConfigScriptData } from '@webhare/frontend/src/init';
 
 export type PWACheckVersionResponse = {
   needsupdate: boolean;
   forcerefresh: boolean;
 };
+
+declare module "@webhare/frontend" {
+  interface FrontendDataTypes {
+    "platform:pwasettings": PublishedPWASSettings;
+  }
+}
 
 const serviceworkerurl = new URL(location.href);
 const appname: string = serviceworkerurl.searchParams.get('app') ?? throwError("Unknown app name");
@@ -114,20 +121,22 @@ async function setSwStoreValue(key: string, value: unknown) {
   }
 }
 
-function getWHConfig(pagetext: string): {
-  obj: {
-    pwasettings: PublishedPWASSettings;
-  };
-  //FIXME the other whconfig props
-} {
+function getWHConfig(pagetext: string): WHConfigScriptData {
   //extract and parse the wh-config tag
   const scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
   const scriptend = pagetext.indexOf('</script>', scriptpos);
-  const retval = JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47));
-  if (!retval.obj.pwasettings)
-    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?");
-  return retval;
+  return JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47)) as WHConfigScriptData;
 }
+
+function getPWASettings(pagetext: string): PublishedPWASSettings {
+  const whconfig = getWHConfig(pagetext);
+  //Pre 6.0 WebHares might still have published as whconfig.obj.pwasettings
+  const settings = whconfig["platform:pwasettings"] ?? (whconfig.obj as { pwasettings: PublishedPWASSettings }).pwasettings;
+  if (!settings)
+    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?");
+  return settings;
+}
+
 
 async function downloadApplication() {
   const cache = await caches.open("pwacache-" + appname);
@@ -157,8 +166,8 @@ async function downloadApplication() {
   //parse mainpage to extract configuration info (TODO shouldn't we get this or the pwauid from the app pages? *they* might be out of date even though *we* see a newer version!)
   const mainpage = await mainpagefetch;
   const mainpagetext = await mainpage.text();
-  const whconfig = getWHConfig(mainpagetext);
-  const moreassets = whconfig.obj.pwasettings.addurls;
+  const pwasettings = getPWASettings(mainpagetext);
+  const moreassets = pwasettings.addurls;
   await cache.put(`${assetbasedir}apmanifest.json`, (await manifestfetch).clone());
   const manifest = await (await manifestfetch).json() as AssetPackManifest;
 
@@ -180,7 +189,7 @@ async function downloadApplication() {
 
   //get version info
   //FIXME race-safe way needed to ensure the packages and our cache token are in sync
-  const versionresponse = await fetch("/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(whconfig.obj.pwasettings.apptoken));
+  const versionresponse = await fetch("/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(pwasettings.apptoken));
   const versioninfo = await versionresponse.json();
 
   //wait for the cache downloads to settle
@@ -193,7 +202,7 @@ async function downloadApplication() {
   await setSwStoreValue('forcerefresh', new Date(versioninfo.forcerefresh));
 
   await setSwStoreValue('installscope', self.registration.scope);
-  await setSwStoreValue('pwasettings', whconfig.obj.pwasettings);
+  await setSwStoreValue('pwasettings', pwasettings);
 }
 
 async function doInitialAppInstallation() {

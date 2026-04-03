@@ -26,13 +26,7 @@ test.runTests(
 
       test.assert(baseTestApi.env.debugFlags);
       test.eq("development", baseTestApi.env.dtapStage);
-      test.eq(false, baseTestApi.env.isLive);
       test.eq(test.getTestSiteRoot(), baseTestApi.frontendConfig.siteRoot);
-
-      //vertify deprecated fields will work for now - but with WH5.4 we expect users to prefer @webhare/env
-      test.eq(false, baseTestApi.frontendConfig.islive);
-      test.eq("development", baseTestApi.frontendConfig.dtapstage);
-      test.eq(baseTestApi.frontendConfig.siteRoot, baseTestApi.frontendConfig.siteroot);
 
       test.eq({ notOurAlarmCode: 424242 }, baseTestApi.getMyFrontendData());
     }

@@ -4,6 +4,7 @@ import * as dompack from "dompack";
 import * as create from "dompack/src/create";
 import { html } from '@webhare/dompack/src/html';
 import * as webhare_dompack from "@webhare/dompack";
+import { parseLanguageTag } from "@webhare/dompack/src/tree";
 
 let eventcount = 0;
 
@@ -183,5 +184,15 @@ test.runTests(
       test.assert(webhare_dompack.isHTMLElement(test.qR("#div1")));
       test.assert(webhare_dompack.isHTMLElement(test.qR("iframe")));
       test.assert(webhare_dompack.isHTMLElement(test.qR<HTMLIFrameElement>("iframe").contentDocument?.getElementById("div2")));
+
+      // https://datatracker.ietf.org/doc/html/rfc5646#appendix-A
+      test.eq({ tag: "de", language: "de" }, parseLanguageTag("de"));
+      test.eq({ tag: "zh-Hant", language: "zh", script: "Hant" }, parseLanguageTag("zh-Hant"));
+      // test.eq({ language: "zh", script: "Hant" }, parseLanguageTag("zh-cmn-Hans-CN"));
+      test.eq({ tag: "de-DE", language: "de", region: "DE" }, parseLanguageTag("de-DE"), "German for Germany");
+      test.eq({ tag: "en-US", language: "en", region: "US" }, parseLanguageTag("en-US"), "English as used in the United States");
+      test.eq({ tag: "es-419", language: "es", region: "419" }, parseLanguageTag("es-419"), "Spanish appropriate for the Latin America and Caribbean region using the UN region code");
+
+      test.eq({ tag: "en-US", language: "en", region: "US" }, webhare_dompack.getLang());
     }
   ]);

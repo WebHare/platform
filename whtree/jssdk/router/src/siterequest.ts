@@ -9,11 +9,10 @@ import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
-import type { WHConfigScriptData } from "@webhare/frontend/src/init";
+import type { WHConfigScriptData_FromServer } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
-import { dtapStage } from "@webhare/env";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
@@ -23,6 +22,7 @@ import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetaData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
+import { dtapStage } from "@webhare/env";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -105,7 +105,7 @@ export class CPageRequest {
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
 
   /** JS configuration data */
-  private frontendConfig: WHConfigScriptData;
+  private frontendConfig: WHConfigScriptData_FromServer;
 
   /** Page builder data */
   private pageBuilderData: Record<string, unknown> = {};
@@ -124,7 +124,6 @@ export class CPageRequest {
       site: {},
       obj: {},
       dtapStage: dtapStage,
-      locale: "" as never,
       server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
     };
   }
@@ -220,7 +219,12 @@ export class CPageRequest {
   /** Set data to be sent to the client's browser */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
     checkModuleScopedName(dataObject);
-    this.frontendConfig[dataObject] = data;
+    // TODO why isn't typescript accepting this?
+    // this.frontendConfig[dataObject] = data;
+    this.frontendConfig = {
+      ...this.frontendConfig,
+      [dataObject]: data
+    };
   }
 
   /** Get data sent to the pagebuilder */

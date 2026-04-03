@@ -7,9 +7,12 @@ import './internal/debugmenu';
 import * as settings from './internal/settings';
 import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 import { navigateTo } from "@webhare/env";
-import type { PWACheckVersionResponse } from "@mod-platform/webfeatures/pwaserviceworker/pwaserviceworker";
+import type { PublishedPWASSettings, PWACheckVersionResponse } from "@mod-platform/webfeatures/pwaserviceworker/pwaserviceworker";
+import { getFrontendData, getSiteRoot } from "@webhare/frontend";
 
 const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
+//Pre 6.0 WebHares might still have published as whconfig.obj.pwasettings
+const pwasettings = getFrontendData("platform:pwasettings", { allowMissing: true }) ?? (whintegration.config.obj as { pwasettings: PublishedPWASSettings }).pwasettings;
 let didinit = false;
 
 //set up a promise we'll use to signal succesful offline mode
@@ -17,6 +20,9 @@ const offlinedeferred = Promise.withResolvers<void>();
 let swregistration: ServiceWorkerRegistration | undefined;
 
 function getAppName() {
+  if (pwasettings.appname)
+    return pwasettings.appname; //in WH6.0 (and attempting to backport to at least WH5.9.4) the appname should be published directly
+
   //we'll assume the webdesignname is the appname
   //TODO clean this up. designroot is undocumented, appname should be in PWASSettings
   const settings2 = (whintegration.config as unknown as { designroot: string }).designroot.match(/^\/.publisher\/sd\/([^/]*)\/([^/]*)\/$/)!;
@@ -78,7 +84,7 @@ export function onReady(initfunction: () => void, options?: {
   didinit = true;
 
   //figure out the base of the app we have to work with
-  if (!location.href.startsWith(whintegration.config.siteroot)) {
+  if (!location.href.startsWith(getSiteRoot())) {
     alert("You cannot access a PWA app using a URL outside its site.\n\nThe WebHare 'preview' is not supported by a PWA");
     return;
   }
@@ -143,7 +149,7 @@ async function precheckExistingWorkers() {
   for (const sw of registrations)
     if (sw.active && sw.scope === appbase)
       await sendSWRequestTo(sw.active, 'loading', {
-        pwasettings: whintegration.config.obj.pwasettings,
+        pwasettings: pwasettings,
         pwauid: document.documentElement.dataset.whPwaUid,
         pwafileid: document.documentElement.dataset.whPwaFileid
       });
@@ -163,7 +169,7 @@ function onServiceWorkerMessage(event: MessageEvent) {
   console.error("onServiceWorkerMessage", event.data);
 }
 
-if (whintegration.config.obj.pwasettings) { //only activate if pwasettings are present - avoid sideeffects
+if (pwasettings) { //only activate if pwasettings are present - avoid sideeffects
   settings.setAppName(getAppName());
 
   navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);

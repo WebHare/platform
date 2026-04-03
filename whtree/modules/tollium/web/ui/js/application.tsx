@@ -18,7 +18,7 @@ import * as toddImages from "@mod-tollium/js/icons";
 import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import type { IndyShell } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
-import { debugFlags } from "@webhare/env";
+import { debugFlags, dtapStage } from "@webhare/env";
 import type { AppStartResponse } from '@mod-tollium/shell/platform/shell';
 import type { AppMenuItem } from './types';
 import type { ShellInstruction } from '@mod-platform/js/tollium/types';
@@ -1123,7 +1123,7 @@ export class BackendApplication extends ApplicationBase {
       console.warn("Unable to start the application due to an exception", err);
       await runSimpleScreen(this,
         {
-          text: whintegration.config.dtapstage === 'development'
+          text: dtapStage === 'development'
             ? getTid("tollium:shell.errors.appstartfailed-development")
             : getTid("tollium:shell.errors.appstartfailed"),
           buttons: [

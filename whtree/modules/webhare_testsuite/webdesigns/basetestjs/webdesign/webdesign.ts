@@ -5,10 +5,18 @@ import type { PageBuilderFunction, WidgetBuilderFunction } from "@webhare/router
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
 import type { SchemaOrg } from "@webhare/deps";
 
+declare module "@webhare/frontend" {
+  interface FrontendDataTypes {
+    "webhare_testsuite:dynamicpagefrontend": {
+      echoWebVar: string;
+    };
+  }
+}
+
 declare module "@webhare/router" {
   interface PageBuilderDataTypes {
     "webhare_testsuite:dynamicpageinfo": {
-      myEchoVar: string;
+      echoWebVar: string;
     };
   }
 }
