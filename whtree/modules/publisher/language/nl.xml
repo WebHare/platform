@@ -242,10 +242,10 @@
       <text tid="formtitle">Uitpakinstellingen</text>
       <text tid="noextractprivileges">U heeft geen rechten om archiefbestanden uit te pakken.</text>
       <text tid="unknownfileformat">Archief formaat '<param p="1"/>' wordt niet ondersteund</text>
-      <text tid="unpack_options">Uitpakken bestaande bestanden</text>
       <text tid="unpack_options-dont_overwrite">Overschrijf bestaande mappen en bestanden NIET</text>
       <text tid="unpack_options-overwrite">Overschrijf bestaande bestanden</text>
       <text tid="unpack_options-replace">Vervang de inhoud van bestaande mappen</text>
+      <text tid="warnreplace">De optie 'vervang inhoud' overschrijft bestaande bestanden en mappen, en verwijdert bestanden en mappen die zich al in de te vervangen map bevinden, maar niet in het nieuwe archiefbestand staan.<br/><br/>Weet u zeker dat u de inhoud van de bestaande mappen wilt vervangen?</text>
     </textgroup>
   </textgroup>
   <textgroup gid="filemanager">   <!-- filemanager -->

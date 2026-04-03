@@ -242,10 +242,10 @@
       <text tid="formtitle">Archive settings</text>
       <text tid="noextractprivileges">You do not have the required privileges to extract archives.</text>
       <text tid="unknownfileformat">Unsupported archive format '<param p="1"/>'</text>
-      <text tid="unpack_options">Unpack existing files</text>
       <text tid="unpack_options-dont_overwrite">Do NOT overwrite existing folders and files</text>
       <text tid="unpack_options-overwrite">Overwrite existing folders and files</text>
       <text tid="unpack_options-replace">Replace the contents of existing folders</text>
+      <text tid="warnreplace">The 'replace content' option will overwrite any existing files and folders, and delete any files and folders that still existed in the replaced folder, but do not exist in the new archive.Are you sure you want to replace the contents of existing folders?</text>
     </textgroup>
   </textgroup>
   <textgroup gid="filemanager" limitlanguages="en nl">   <!-- filemanager -->
