@@ -1,5 +1,5 @@
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { importJSFunction, runBackendService } from "@webhare/services";
+import { importJSFunction, runBackendService, type BackendServiceOptions } from "@webhare/services";
 import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction, WebHareService } from "@webhare/services/src/backendservicerunner";
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
@@ -8,12 +8,16 @@ async function createServiceClient(service: BackendServiceDescriptor, args: unkn
 }
 
 export async function launchService(service: BackendServiceDescriptor, options?: { debug?: boolean }): Promise<WebHareService | null> {
+  const runnerOptions: BackendServiceOptions = {
+    protocols: ["bridge", "unix-socket"]
+  };
+
   try {
     if (service.controllerFactory) {
       const servicecontroller = await (await importJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))(options);
-      return runBackendService(service.name, (...args) => servicecontroller.createClient(...args), { onClose: () => servicecontroller.close?.() });
+      return runBackendService(service.name, (...args) => servicecontroller.createClient(...args), { onClose: () => servicecontroller.close?.(), ...runnerOptions });
     } else if (service.clientFactory)
-      return runBackendService(service.name, (...args) => createServiceClient(service, args));
+      return runBackendService(service.name, (...args) => createServiceClient(service, args), runnerOptions);
 
     throw new Error(`Don't know how to start service ${service.name}`);
   } catch (e) {

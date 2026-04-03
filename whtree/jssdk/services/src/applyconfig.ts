@@ -12,7 +12,7 @@ export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
   if (!toApply.source)
     throw new Error("applyConfiguration requires a source");
 
-  using service = await openBackendService("platform:configuration");
+  using service = await openBackendService("platform:configuration", [], { protocol: "unix-socket" });
   return await service.applyConfiguration(toApply);
 }
 

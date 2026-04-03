@@ -1,9 +1,16 @@
 import bridge, { type IPCMessagePacket, type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import type { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
+import type { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType, ServiceCallResult, ServiceEventMessage } from '@mod-system/js/internal/types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
 import { setLink } from "./symbols";
-import { parseTyped, stringify } from "@webhare/std";
+import { generateRandomId, isPromise, parseTyped, stringify } from "@webhare/std";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { createServer, type Server, type Socket } from "node:net";
+import { dirname } from "node:path";
+import { rename, rm } from "node:fs/promises";
+import { UnixSocketLineBasedConnection, type USLMethodCall } from "@mod-system/js/internal/whmanager/unix-connections";
+import type { BackendServiceProtocol } from "./backendservice";
+import { debugFlags } from "@webhare/env";
 
 export type ServiceControllerFactoryFunction = (options?: { debug?: boolean }) => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
@@ -14,9 +21,16 @@ export interface BackendServiceController {
   close?: () => void;
 }
 
+interface LinkInterface {
+  handler: BackendServiceConnection | null;
+  // send(message: ServiceEventMessage, replyto?: bigint): bigint;
+  send(message: ServiceEventMessage): void;
+  close(): void;
+}
+
 /** Base class for service connections */
 export class BackendServiceConnection implements Disposable {
-  #link?: LinkState;
+  #link?: LinkInterface;
   #eventQueue?: Array<{ event: string; data: unknown }>;
 
   constructor() {
@@ -28,13 +42,13 @@ export class BackendServiceConnection implements Disposable {
       this.#eventQueue ||= [];
       this.#eventQueue.push({ event, data });
     } else {
-      this.#link.link.send({ event, data });
+      this.#link.send({ event, data });
     }
   }
 
   /** Invoke to close this connection. This will cause onClose to be invoked */
   [Symbol.dispose]() {
-    this.#link?.link.close();
+    this.#link?.close();
   }
 
   /** Invoked when the client explicitly closed the connection */
@@ -42,16 +56,16 @@ export class BackendServiceConnection implements Disposable {
   }
 
   //private api used to associate the connection with a link
-  [setLink](link: LinkState) {
+  [setLink](link: LinkInterface) {
     while (this.#eventQueue?.length)
-      link.link.send(this.#eventQueue.shift()!);
+      link.send(this.#eventQueue.shift()!);
 
     this.#link = link;
     this.#eventQueue = undefined;
   }
 }
 
-export interface WebHareServiceOptions {
+export interface BackendServiceOptions {
   /** Enable automatic restart of the service when the source code changes. Defaults to true */
   autoRestart?: boolean;
   /** Immediately restart the service even if we stil have open connections. */
@@ -60,6 +74,8 @@ export interface WebHareServiceOptions {
   dropListenerReference?: boolean;
   /** Callback to invoke when service is shut down */
   onClose?: () => void;
+  /** Protocols to listen on */
+  protocols?: BackendServiceProtocol[];
 }
 
 
@@ -102,13 +118,14 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
   return { isjs: true, methods };
 }
 
-export type ConnectionFactory = (...args: unknown[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ConnectionFactory = (...args: any[]) => Promise<BackendServiceConnection> | BackendServiceConnection;
 
 interface ServiceConnection {
   [key: string]: (...args: unknown[]) => unknown;
 }
 
-class LinkState {
+class LinkState implements LinkInterface {
   handler: BackendServiceConnection | null = null;
   link: WebHareServiceIPCLinkType["AcceptEndPoint"];
   initdefer = Promise.withResolvers<boolean>();
@@ -116,19 +133,85 @@ class LinkState {
   constructor(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     this.link = link;
   }
+  send(message: WebHareServiceDescription | ServiceCallResult | ServiceEventMessage, replyto?: bigint): bigint {
+    return this.link.send(message, replyto);
+  }
+  close() {
+    this.link.close();
+  }
+}
+
+class UnixLinkState extends UnixSocketLineBasedConnection<false> implements LinkInterface {
+  handler: (BackendServiceConnection & ServiceConnection) | null = null;
+  service: WebHareService;
+  initdefer = Promise.withResolvers<boolean>();
+  invokedConstructor = false;
+
+  constructor(service: WebHareService, link: Socket) {
+    super(link);
+    this.service = service;
+  }
+
+  processDisconnect() {
+    this.handler?.onClose();
+  }
+
+  async processMessage(message: USLMethodCall) {
+    try {
+      if (message.method === "constructor" || (!this.handler && !this.invokedConstructor)) {
+        if (this.handler)
+          throw new Error(`Received unexpected constructor call while handler is already initialized`);
+
+        this.invokedConstructor = true; //allows further queued calls to wait for the constructor (as the factory may be async and we may re-enter processMessage)
+
+        //We need to construct the object.
+        const args = message.method === "constructor" ? message.args || [] : [];
+        const newhandler = await this.service._factory(...args) satisfies BackendServiceConnection as BackendServiceConnection & ServiceConnection;
+
+        this.handler = newhandler;
+        this.handler[setLink](this);
+        this.initdefer.resolve(true);
+
+        if (message.method === "constructor") { //then we need to send an explicit reply
+          this.send({ id: message.id });
+          return;
+        }
+      }
+
+      if (!await this.initdefer.promise || !this.handler)  //this waits for the constructor to complete
+        return; //it failed, just drop the call as the connection will terminate anyway
+
+      const result = this.handler![message.method](...message.args || []);
+      if (isPromise(result)) {
+        result.then(res => this.send({ id: message.id, result: res }), err => this.send({ id: message.id, error: err instanceof Error ? err.message : String(err) }));
+      } else {
+        this.send({ id: message.id, result });
+      }
+    } catch (e) {
+      this.send({ id: message.id, error: e instanceof Error ? e.message : String(e) });
+      if (!this.handler) { //construction was failing
+        this.fail("Construction failed, closing connection");
+        this.initdefer.resolve(false);
+      }
+    }
+  }
 }
 
 class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
-  private _factory: ConnectionFactory;
-  private _options: WebHareServiceOptions;
-  private _port: WebHareServiceIPCLinkType["Port"];
+  _factory: ConnectionFactory;
+  private _options: BackendServiceOptions;
+  private _port: WebHareServiceIPCLinkType["Port"] | null;
+  #unixSockets = new Array<{
+    server: Server;
+    path: string;
+  }>();
   #onClose;
 
-  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, factory: ConnectionFactory, options: WebHareServiceOptions) {
+  constructor(port: WebHareServiceIPCLinkType["Port"] | null, servicename: string, factory: ConnectionFactory, options: BackendServiceOptions) {
     this._factory = factory;
     this._options = options;
     this._port = port;
-    this._port.on("accept", link => void this.addLink(link));
+    this._port?.on("accept", link => void this.addLink(link));
     this.#onClose = options.onClose;
   }
 
@@ -147,7 +230,7 @@ class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
     }
   }
 
-  _onClose(state: LinkState) {
+  _onClose(state: LinkInterface) {
     state.handler?.onClose();
   }
 
@@ -202,11 +285,46 @@ class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
 
   close() {
     this.#onClose?.();
-    this._port.close();
+    this._port?.close();
+    for (const socket of this.#unixSockets) {
+      socket.server.close();
+      rm(socket.path).catch(() => { }); //best effort cleanup, ignore errors
+    }
   }
 
   [Symbol.dispose]() {
     this.close();
+  }
+
+  async addUnixSocket(path: string) {
+    const server = createServer(socket => this.handleUnixSocketConnection(socket));
+    const tempPath = dirname(path) + "/.$" + generateRandomId();
+
+    const defer = Promise.withResolvers<void>();
+    server.on("error", e => {
+      console.log("Unix socket server error on", tempPath, e);
+      defer.reject(e);
+    });
+    server.listen(tempPath, () => {
+      defer.resolve();
+    });
+    await defer.promise;
+    await rename(tempPath, path);
+    this.#unixSockets.push({ server, path });
+  }
+
+  handleUnixSocketConnection(socket: Socket) {
+    try {
+      const state = new UnixLinkState(this, socket);
+      if (debugFlags["ipc-unixsockets"])
+        console.log(`[ipc-unixsockets:${state.id}] Accepted new unix socket connection`);
+
+      socket.on("exception", () => false);
+      if (this._options.dropListenerReference)
+        socket.unref();
+    } catch (e) {
+      socket.end();
+    }
   }
 }
 
@@ -218,20 +336,35 @@ class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
     @param options - Service options
 */
-export async function runBackendService(servicename: string, constructor: ConnectionFactory, options?: WebHareServiceOptions): Promise<WebHareService> {
-  options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, ...options };
+export async function runBackendService<Constructor extends ConnectionFactory>(servicename: string, constructor: Constructor, options?: BackendServiceOptions): Promise<WebHareService> {
+  // Max path length 108, subtract '/tmp/whsock.FYZtwasn8B8cUQ2qIpmv_w/' (35) leaves 73, round down to 70.
+  if (servicename.length > 70)
+    throw new Error(`Service name '${servicename}' is too long, must be up to 70 characters but is ${servicename.length} characters`); //socket paths may become too long
+
+  options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, protocols: ["bridge"], ...options };
   checkModuleScopedName(servicename);
 
-  const hostport = bridge.createPort<WebHareServiceIPCLinkType>("webhareservice:" + servicename, { global: true });
-  const service = new WebHareService(hostport, servicename, constructor, options);
+  let hostport;
+  if (options.protocols?.includes("bridge")) {
+    hostport = bridge.createPort<WebHareServiceIPCLinkType>("webhareservice:" + servicename, { global: true });
+  }
 
-  if (options.dropListenerReference)
-    hostport.dropReference();
+  const service = new WebHareService(hostport || null, servicename, constructor, options);
+  if (hostport) {
+    if (options.dropListenerReference)
+      hostport.dropReference();
 
-  await hostport.activate();
+    await hostport.activate();
+  }
+
+  if (options.protocols?.includes("unix-socket")) {
+    if (!getFullConfigFile().socketDir)
+      throw new Error(`Cannot start service '${servicename}' with unix - socket protocol because no socket directory is configured`);
+    await service.addUnixSocket(getFullConfigFile().socketDir + servicename);
+  }
+
   //HareScript uses this event if waiting for service to come online. FIXME TS should too (it now spins in openBackendService)
-  broadcast(`system:webhareservice.${servicename}.start`);
-
+  broadcast(`system: webhareservice.${servicename}.start`);
   return service;
 }
 

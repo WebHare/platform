@@ -1,8 +1,12 @@
-import type { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
+import type { ServiceCallMessage, ServiceCallResult, ServiceEventMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 import { parseTyped, sleep, stringify } from "@webhare/std";
 import type { BackendServices } from "@webhare/services";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { Socket } from "net";
+import { UnixSocketLineBasedConnection, type USLMethodCall, type USLMethodResponse } from "@mod-system/js/internal/whmanager/unix-connections";
+import { debugFlags } from "@webhare/env";
 
 /** Get the client interface for a given backend service
  *
@@ -24,6 +28,23 @@ export class ServiceBase extends EventTarget {
 
   [Symbol.dispose](): void {
     this.#link.close();
+  }
+}
+
+export class UnixSocketServiceBase extends EventTarget {
+  #socket: Socket;
+
+  constructor(socket: Socket) {
+    super();
+    this.#socket = socket;
+  }
+
+  close(): void {
+    this.#socket.end();
+  }
+
+  [Symbol.dispose](): void {
+    this.#socket.end();
   }
 }
 
@@ -94,12 +115,93 @@ export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceB
   }
 }
 
+export class UnixSocketServiceProxy<T extends object> extends UnixSocketLineBasedConnection<true> implements ProxyHandler<T & ServiceBase> {
+  private openRequests = new Map<number, PromiseWithResolvers<unknown>>;
+  nextMsgId = 0;
+  constructorPromise?: Promise<unknown>;
+  linger: boolean;
+
+  constructor(private sb: UnixSocketServiceBase, socket: Socket, args: unknown[], awaitConstructor: boolean, linger: boolean) {
+    super(socket);
+
+    this.linger = linger;
+    if (args.length || awaitConstructor) {
+      this.constructorPromise = this.remotingFunc("constructor", args);
+      this.constructorPromise.catch(() => { }); //prevent uncaught rejection
+    }
+  }
+
+  processMessage(message: USLMethodResponse | ServiceEventMessage): void {
+    if ("event" in message) {
+      this.sb.dispatchEvent(new CustomEvent(message.event, { detail: message.data }));
+      return;
+    }
+    if (!("id" in message))
+      throw new Error("Invalid message received, missing id");
+
+    const req = this.openRequests.get(message.id);
+    if (!req)
+      throw new Error(`No matching request for response with id ${message.id}`);
+
+    if ("error" in message)
+      req.reject(new Error(String(message.error)));
+    else
+      req.resolve(message.result);
+
+    this.openRequests.delete(message.id);
+    if (!this.linger && this.openRequests.size === 0) { //no more pending requests, allow the connection to close if it was idle before
+      this.unref();
+    }
+  }
+
+  processDisconnect(): void {
+    for (const [, { reject }] of this.openRequests)
+      reject(new Error(`Request is cancelled, link was closed`));
+    this.sb.dispatchEvent(new CustomEvent("close"));
+  }
+
+  get(target: object, prop: string | symbol, receiver: unknown) {
+    if (prop in target) //access to a function
+      return (...params: unknown[]) => (target as Record<string | symbol, (...p: unknown[]) => unknown>)[prop](...params);
+    if (!this.has(target, prop))
+      return undefined;
+
+    return (...args: unknown[]) => this.remotingFunc(prop as string, args);
+  }
+
+  has(target: object, prop: string | symbol): boolean {
+    return prop in target || (typeof prop === "string" && !prop.startsWith("_") && !["then", "emit", "catch", "finally", "onClose"].includes(prop));
+  }
+
+  set(target: object, prop: string | symbol): boolean {
+    throw new Error(`Cannot override service functions, trying to change property ${JSON.stringify(prop)}`);
+  }
+
+  async remotingFunc(method: string, args: unknown[]) {
+    const id = ++this.nextMsgId;
+    const calldata: USLMethodCall = { id, method, ...args ? { args } : null };
+    const defer = Promise.withResolvers<unknown>();
+    this.openRequests.set(id, defer);
+    if (!this.linger && this.openRequests.size === 1) { //starting to wait for requests?
+      this.ref();
+    }
+    this.send(calldata);
+    return defer.promise;
+  }
+}
+
+export type BackendServiceProtocol = "bridge" | "unix-socket";
+
 export interface BackendServiceOptions {
   timeout?: number;
   ///Allow the service to linger, requiring an explicit close() to shut down. Often needed when you'll be listening for events.
   linger?: boolean;
   ///Do not try to autostart an ondemand service
   notOnDemand?: boolean;
+  ///Force a specific protocol
+  protocol?: BackendServiceProtocol;
+  ///Force to wait for constructor completion
+  awaitConstructor?: boolean;
 }
 
 /** Converts the interface of a WebHare service to the interface used by a client.
@@ -119,6 +221,74 @@ async function attemptAutoStart(name: string) {
   await smservice.startService(name);
 }
 
+//this may become openBackendService again if we manage to convert all services to unixsocket
+async function openUnixSocketService<Service extends object>(name: string, args: unknown[], deadline: Promise<unknown>, options?: BackendServiceOptions): Promise<ConvertToClientInterface<Service> | null> {
+  const socketDir = getFullConfigFile().socketDir;
+  if (!socketDir)
+    throw new Error("Socket directory is not configured");
+
+  const targetPath = `${socketDir}${name}`;
+  const socket = new Socket({});
+  const defer = Promise.withResolvers<boolean>();
+  //FIXME belongs in unix-connections
+
+  const onConnectError = (e: Error) => {
+    if (debugFlags["ipc-unixsockets"])
+      console.log(`[ipc-unixsockets] Unix socket connection error on`, targetPath, e);
+
+    defer.resolve(false);
+  };
+
+  socket.on("error", onConnectError);
+  socket.connect(targetPath, () => {
+    if (debugFlags["ipc-unixsockets"])
+      console.log(`[ipc-unixsockets] Unix socket connected on`, targetPath);
+    defer.resolve(true);
+  });
+
+  const connected = await Promise.race([defer.promise, deadline]);
+  if (!connected) {
+    socket.destroy();
+    return null; //timeout!
+  }
+
+  socket.off("error", onConnectError);
+  const sb = new UnixSocketServiceBase(socket);
+  const proxy = new UnixSocketServiceProxy(sb, socket, args, options?.awaitConstructor || false, options?.linger || false);
+  const service = new Proxy(sb, proxy) as ConvertToClientInterface<Service>;
+  if (options?.awaitConstructor)
+    await proxy.constructorPromise!;
+
+  return service;
+}
+
+async function openBridgeIPCService<Service extends object>(name: string, args: unknown[], deadline: Promise<unknown>, options?: BackendServiceOptions): Promise<ConvertToClientInterface<Service> | null> {
+  const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
+  const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
+  result.catch(() => false); // don't want this one to turn into an uncaught rejection
+
+  try {
+    //wrap activate() in a promise returning true, so we can differentiate from the deadline returning false
+    const linkpromise = link.activate().then(() => true);
+
+    const connected = await Promise.race([linkpromise, deadline]);
+    if (!connected) {
+      link.close();
+      return null; //timeout!
+    }
+  } catch (e) {
+    link.close();
+    return null;
+  }
+
+  const description = await result;
+  if (!options?.linger)
+    link.dropReference();
+
+  const sb = new ServiceBase(link);
+  return new Proxy(sb, new ServiceProxy(sb, link, description)) as ConvertToClientInterface<Service>;
+}
+
 //If the backendservice was properly defined in the @webhare/services BackendServices interface, we can return that type
 export function openBackendService<ServiceName extends keyof BackendServices>(name1: ServiceName, args?: unknown[], options?: BackendServiceOptions): Promise<GetBackendServiceInterface<ServiceName>>;
 //Otherwise you'll have to give an explicit type
@@ -133,27 +303,21 @@ export function openBackendService<Service extends object>(name: string, args?: 
  */
 export async function openBackendService<Service extends object>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<ConvertToClientInterface<Service>> {
   const startconnect = Date.now(); //only used for exception reporting
-  const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
+  let deadlineHit = false;
+  const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref()).then(() => { deadlineHit = true; return false; });
   let attemptedstart = false;
   let waitMs = 1;
+  args ||= [];
 
-  for (; ;) { //repeat until we're connected
-    const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
-    const result = link.doRequest({ __new: (args as IPCMarshallableData[]) ?? [] }) as Promise<WebHareServiceDescription>;
-    result.catch(() => false); // don't want this one to turn into an uncaught rejection
+  // eslint-disable-next-line no-unmodified-loop-condition -- it will be changed through the deadline promise
+  while (!deadlineHit) { //repeat until we're connected
+    let uplink;
+    if (options?.protocol === "unix-socket")
+      uplink = await openUnixSocketService<Service>(name, args, deadline, options);
+    else
+      uplink = await openBridgeIPCService<Service>(name, args, deadline, options);
 
-    //Try to setup a link. Loop until deadline if activate() fails
-    try {
-      //wrap activate() in a promise returning true, so we can differentiate from the deadline returning false
-      const linkpromise = link.activate().then(() => true);
-
-      const connected = await Promise.race([linkpromise, deadline]);
-      if (!connected) {
-        link.close();
-        break; //timeout!
-      }
-    } catch (e) {
-      link.close();
+    if (!uplink) {
       if (!attemptedstart && !options?.notOnDemand) {
         attemptAutoStart(name).catch(() => { }); //ignore exceptions, we'll just timeout then
         attemptedstart = true;
@@ -164,18 +328,7 @@ export async function openBackendService<Service extends object>(name: string, a
       }
       continue;
     }
-
-    try {
-      const description = await result;
-      if (!options?.linger)
-        link.dropReference();
-
-      const sb = new ServiceBase(link);
-      return new Proxy(sb, new ServiceProxy(sb, link, description)) as ConvertToClientInterface<Service>;
-    } catch (e) {
-      link.close();
-      throw e; //not relooping if describing fails
-    }
+    return uplink;
   }
   throw new Error(`Service '${name}' is unavailable (tried to connect for ${Date.now() - startconnect} ms)`);
 }
