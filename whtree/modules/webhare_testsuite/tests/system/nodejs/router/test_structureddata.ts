@@ -3,9 +3,22 @@ import { fetchPreviewAsDoc, getAsDoc } from "@mod-webhare_testsuite/js/whfs";
 
 async function testBreadCrumbs() {
   const testSiteRoot: string = (await test.getTestSiteJS()).webRoot!;
-  const parsed = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
-  const breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
 
+  let parsed = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/index.rtd");
+  let breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
+
+  test.eq(1, breadcrumbs.length);
+  // There should be only one entry with the site's url and the index document's title
+  test.eq([
+    {
+      "@type": "ListItem",
+      url: testSiteRoot,
+      name: "webhare_testsuite.testsitejs",
+    },
+  ], breadcrumbs[0].itemListElement);
+
+  parsed = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
+  breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
   test.eq(1, breadcrumbs.length);
   test.eq([
     {

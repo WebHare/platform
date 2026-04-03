@@ -130,9 +130,9 @@ ASYNC MACRO CreateUsingTemplates() {
   TestEq(FALSE, created->publish); //not marked as 'publish' as we explicitly disabled it
   TestEq("ImgEditFile", created->title);
 
-  //Create a file from 'index.rtd'
+  //Create a file from 'WebHare testsuite index' (index.rtd)
   AWAIT ExpectScreenChange(+1, PTR TTClick("newfile"));
-  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "index.rtd";
+  TT("types")->selection := SELECT * FROM TT("types")->rows WHERE title = "WebHare testsuite index";
   AWAIT ExpectScreenChange(0, PTR TTClick(":Ok"));
   TestEq(FALSE, TT("publish")->value);
   TT("publish")->value := TRUE;
