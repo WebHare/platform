@@ -11,9 +11,6 @@ LOADLIB "mod::system/lib/internal/remoting/objremoter.whlib";
 LOADLIB "mod::system/lib/internal/remoting/binary_encoding.whlib";
 
 
-MACRO __HS_MARSHALPACKETWRITETO(INTEGER stream, VARIANT v) __ATTRIBUTES__(EXTERNAL);
-VARIANT FUNCTION __HS_MARSHALPACKETREADFROMBLOB(BLOB data) __ATTRIBUTES__(EXTERNAL);
-
 // supported versions: 1
 PUBLIC INTEGER ARRAY supported_wsversions := [ 1 ]; // reverse order!
 
@@ -63,8 +60,6 @@ PUBLIC STATIC OBJECTTYPE WHWSRemotingTransport EXTEND Transport
 
   RECORD FUNCTION EncodeRecord(RECORD rec, BOOLEAN keeprunning)
   {
-    //INTEGER str := CreateStream();
-    //__HS_MARSHALPACKETWRITETO(str, rec);
     BLOB ARRAY packets := this->codec->EncodePackets(rec);
     RETURN CELL
         [ packets
@@ -252,7 +247,6 @@ PUBLIC STATIC OBJECTTYPE WHWSRemotingTransport EXTEND Transport
 
   PUBLIC RECORD FUNCTION GenericDecode(RECORD rec)
   {
-    //RECORD rec := __HS_MARSHALPACKETREADFROMBLOB(body);
     SWITCH (rec.type)
     {
       CASE "functioncall"
