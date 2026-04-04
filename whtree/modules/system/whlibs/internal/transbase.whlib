@@ -534,14 +534,6 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     RegisterTransaction(PRIVATE this);
   }
 
-  PUBLIC MACRO __ResetTransactionId(INTEGER newid)
-  {
-    UnregisterTransaction(PRIVATE this);
-    this->pvt_sqllib_transid := newid;
-    RegisterTransaction(PRIVATE this);
-  }
-
-
   /** Unregisters the transaction object.
   */
   MACRO UnregisterTransaction()
