@@ -59,7 +59,7 @@ let realpathCache: Map<string, string> | undefined;
 
     Call with `registerAsDynamicLoadingLibrary(module)`
 */
-export function registerAsDynamicLoadingLibrary(mod: NodeModule) {
+export function registerAsDynamicLoadingLibrary(mod: NodeJS.Module) {
   const lib = libdata[mod.id];
   if (lib) {
     lib.dynamicloader = true;
@@ -71,7 +71,7 @@ export function registerAsDynamicLoadingLibrary(mod: NodeModule) {
 /** Register as a module that should not be reloaded by hmr
     Call with `registerAsNonReloadableLibrary(module);`.
 */
-export function registerAsNonReloadableLibrary(mod: NodeModule) {
+export function registerAsNonReloadableLibrary(mod: NodeJS.Module) {
   const lib = libdata[mod.id];
   if (lib)
     lib.fixed = true;
@@ -91,7 +91,7 @@ function resolveResource(path: string) {
     @param mod - The module which will be invalidated when the resource changes. You should use `module` for this parameter
     @param path - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
 */
-export function registerResourceDependency(mod: NodeModule, path: string) {
+export function registerResourceDependency(mod: NodeJS.Module, path: string) {
   path = resolveResource(path);
   const lib = libdata[mod.id];
   if (lib) {
@@ -110,7 +110,7 @@ export function registerResourceDependency(mod: NodeModule, path: string) {
     @param resourcePath - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
     @param callback - The callback that will be invoked once when the resource is modified
  */
-export function addResourceChangeListener(mod: NodeModule, resourcePath: string, callback: () => void) {
+export function addResourceChangeListener(mod: NodeJS.Module, resourcePath: string, callback: () => void) {
   resourcePath = resolveResource(resourcePath);
   let lib = libdata[mod.id];
   if (!lib)
@@ -119,7 +119,8 @@ export function addResourceChangeListener(mod: NodeModule, resourcePath: string,
   let callbacks = lib.resourceCallbacks.get(resourcePath);
   if (!callbacks)
     lib.resourceCallbacks.set(resourcePath, callbacks = []);
-  callbacks.push(callback);
+  if (!callbacks.includes(callback))
+    callbacks.push(callback);
 
   if (debugFlags.hmr)
     console.log(`[hmr] register resource ${resourcePath} by module ${mod.id} with callback`);
