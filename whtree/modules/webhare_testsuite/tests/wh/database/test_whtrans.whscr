@@ -65,10 +65,7 @@ MACRO TestWorkLocks()
 {
   OBJECT trans := OpenPrimary();
   trans->BeginLockedWork("webhare_testsuite:worklock");
-  IF(IsWasm()) //WASM doesn't (yet?) support duplicate lock detection as TS doesn't (and it doesn't bind the mutexes to a codecontext - you still wouldn't want to auto-unlock but tracing issues is useful)
-    TestEq(DEFAULT OBJECT, OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
-  ELSE
-    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
   TestEq(TRUE, trans->HasMutex("webhare_testsuite:worklock"));
   trans->RollbackWork();
   TestEq(FALSE, trans->HasMutex("webhare_testsuite:worklock"));
@@ -77,36 +74,25 @@ MACRO TestWorkLocks()
   TestEq(TRUE, ObjectExists(lock));
   lock->Close();
 
-  iF(NOT IsWasm()) {
-    trans->BeginLockedWork("webhare_testsuite:worklock");
-    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
-    trans->CommitWork();
-  }
+  trans->BeginLockedWork("webhare_testsuite:worklock");
+  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  trans->CommitWork();
 
   lock := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME);
   TestEq(TRUE, ObjectExists(lock));
   lock->Close();
 
   trans->BeginLockedWork("webhare_testsuite:worklock");
-  IF(IsWasm()) //WASM doesn't (yet?) support duplicate lock detection as TS doesn't (and it doesn't bind the mutexes to a codecontext - you still wouldn't want to auto-unlock but tracing issues is useful)
-    TestEq(DEFAULT OBJECT, OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
-  ELSE
-    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
+  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock", DEFAULT DATETIME));
 
   TestEQ(TRUE, trans->TryLockMutex("webhare_testsuite:worklock2", DEFAULT DATETIME));
 
-  IF(IsWasm()) //WASM doesn't (yet?) support duplicate lock detection as TS doesn't (and it doesn't bind the mutexes to a codecontext - you still wouldn't want to auto-unlock but tracing issues is useful)
-    TestEq(DEFAULT OBJECT, OpenLockManager()->TryLockMutex("webhare_testsuite:worklock2", DEFAULT DATETIME));
-  ELSE
-    TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock2", DEFAULT DATETIME));
+  TestThrowsLike('*already*locked*', PTR OpenLockManager()->TryLockMutex("webhare_testsuite:worklock2", DEFAULT DATETIME));
 
   OBJECT lock3 := OpenLockManager()->TryLockMutex("webhare_testsuite:worklock3", DEFAULT DATETIME);
   TestEq(TRUE, ObjectExists(lock3));
 
-  IF(IsWasm()) //WASM doesn't (yet?) support duplicate lock detection as TS doesn't (and it doesn't bind the mutexes to a codecontext - you still wouldn't want to auto-unlock but tracing issues is useful)
-    TestEQ(FALSE, trans->TryLockMutex("webhare_testsuite:worklock3", DEFAULT DATETIME));
-  ELSE
-    TestThrowsLike('*already*locked*', PTR trans->TryLockMutex("webhare_testsuite:worklock3", DEFAULT DATETIME));
+  TestThrowsLike('*already*locked*', PTR trans->TryLockMutex("webhare_testsuite:worklock3", DEFAULT DATETIME));
   lock3->Close();
 
   trans->Close();

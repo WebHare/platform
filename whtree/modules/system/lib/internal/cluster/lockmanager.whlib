@@ -107,17 +107,19 @@ STATIC OBJECTTYPE NativeMutexLock EXTEND MutexLock
 
 >;
 
-STATIC OBJECTTYPE WasmMutexLock EXTEND MutexLock
-<
+STATIC OBJECTTYPE WasmMutexLock EXTEND MutexLock <
   INTEGER mutexid;
 
-  MACRO NEW(STRING name, INTEGER mutexid) : MutexLock(name)
-  {
+  MACRO NEW(STRING name, INTEGER mutexid) : MutexLock(name) {
     this->mutexid := mutexid;
   }
-  UPDATE PUBLIC MACRO Close()
-  {
+
+  UPDATE PUBLIC MACRO Close() {
     EM_SYSCALL("unlockMutex", CELL[this->mutexid]);
+  }
+
+  PUBLIC INTEGER FUNCTION __GetMutexId() {
+    RETURN this->mutexid;
   }
 >;
 

@@ -19,7 +19,7 @@ import { isError } from '@webhare/std';
 export { DatabaseError, type PGPassthroughQueryCallback } from "@webhare/postgrease";
 
 let configurationPromise: Promise<void> | undefined;
-let configuration: { bloboid: number } | null = null;
+let configuration: { bloboid: number; blobarrayoid: number } | null = null;
 
 /*
 interface PGConnectionDebugEvent {
@@ -42,9 +42,9 @@ export const codecRegistry = new CodecRegistry([
 ]);
 
 // Don't have a WHDBPgClient object when calling this function, so use this version instad of the meta.ts one
-async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
+async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Promise<{ oid: number; typname: string; typarray: number } | null> {
   const result = await pg.query(`
-    SELECT t.oid, t.typname
+    SELECT t.oid, t.typname, t.typarray
       FROM pg_catalog.pg_type t
            JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
            JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
@@ -87,7 +87,7 @@ async function configureWHDBClient(pg: PGConnection): Promise<void> {
 
     const bloboidquery = await getPGTypeRaw(pg, "webhare_internal", "webhare_blob");
     if (bloboidquery) {
-      configuration = { bloboid: bloboidquery.oid };
+      configuration = { bloboid: bloboidquery.oid, blobarrayoid: bloboidquery.typarray };
       BlobType.oid = configuration.bloboid;
       configurationPromise = undefined;
     } else
@@ -247,4 +247,10 @@ export async function createConnection(options?: WHDBPgClientOptions): Promise<W
 
 export function pgBindParam(value: unknown, type: "uuid" | "timestamptz" | "float8"): PGBoundParam {
   return bindParam(value, type);
+}
+
+export function __getConfiguration() {
+  if (!configuration)
+    throw new Error(`WH DB configuration not ready yet`);
+  return configuration;
 }

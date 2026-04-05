@@ -313,7 +313,7 @@ class PGSQLTransactionDriverBase : public DatabaseTransactionDriverInterface
         /// List of active queries
         QueryStorage queries;
 
-        void ScanTypes();
+        virtual void PrepareForQuery();
         bool BuildQueryString(QueryData &querydata, DatabaseQuery &query, DatabaseTransactionDriverInterface::CursorType);
 
         std::string_view ReadResultCell(std::unique_ptr< QueryResult > &resultset, unsigned row, unsigned col);
@@ -333,6 +333,8 @@ class PGSQLTransactionDriverBase : public DatabaseTransactionDriverInterface
         /// Initializes PG transaction. Run this->ScanTypes() after the constructor finishes1
         PGSQLTransactionDriverBase(HSVM *vm, Options const &options);
         virtual ~PGSQLTransactionDriverBase();
+
+        void ScanTypes();
 
         OID GetTypeArrayOID(OID elt);
 

@@ -400,7 +400,7 @@ PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
   RECORD transopts :=
       [ auto := TRUE
       , isprimary := TRUE
-      , blobhandler := IsWasm() ? DEFAULT OBJECT : GetDefaultPostgreSQLBlobHandler()
+      , blobhandler := GetDefaultPostgreSQLBlobHandler()
       ];
 
   IF(options.clientname != "")

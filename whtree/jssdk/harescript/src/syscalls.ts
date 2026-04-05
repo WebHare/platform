@@ -23,15 +23,19 @@ export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string;
 
   const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
   if (!mutex)
-    return { status: "timeout" };
+    return { status: "timeout" as const };
 
+  const id = hsvm.mutexes.length + 1;
   hsvm.mutexes.push(mutex);
-  return { status: "ok", mutex: hsvm.mutexes.length };
+  mutex.onRelease = (oldRef) => {
+    if (hsvm.mutexes[id - 1] === oldRef)
+      hsvm.mutexes[id - 1] = null;
+  };
+  return { status: "ok" as const, mutex: hsvm.mutexes.length };
 }
 
 export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number }) {
   hsvm.mutexes[params.mutexid - 1]?.release();
-  hsvm.mutexes[params.mutexid - 1] = null;
   return null;
 }
 

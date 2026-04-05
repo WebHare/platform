@@ -452,17 +452,19 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   INTEGER pvt_numworks;
 
 
+  /** Whether work was opened in this transaction object
+   */
+  BOOLEAN pvt_localworkopened;
+
   /** Lock that has to be released when work iscommitted/rolled back
   */
   OBJECT ARRAY pvt_worklocks;
-
 
   /** Commit handlers.
       @cell tag Commit handler tag
       @cell handler Commit handler. Signature: MACRO handler(BOOLEAN iscommit)
   */
   RECORD ARRAY pvt_commithandlers;
-
 
   /** Commit handler objects
       @cell "0" name
@@ -588,14 +590,14 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   */
   PUBLIC BOOLEAN FUNCTION IsNestedWorkOpen()
   {
-    RETURN this->pvt_numworks > 1;
+    RETURN this->pvt_numworks > (this->pvt_localworkopened ? 1 : 0);
   }
 
   /** Pushes a new work; if no work has been opened, it will be opened.
   */
   PUBLIC MACRO PushWork()
   {
-    IF(this->pvt_numworks >= 1)  //already open work? then just increase refcount
+    IF(this->IsWorkOpen())  //already open work? then just increase refcount
     {
       this->pvt_numworks := this->pvt_numworks + 1;
       RETURN;
@@ -609,7 +611,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   */
   PUBLIC RECORD ARRAY FUNCTION PopWork()
   {
-    IF(this->pvt_numworks>=2) //already multiple open works? then just increase refcount
+    IF(this->pvt_numworks >= (this->pvt_localworkopened ? 2 : 1)) //already multiple open works? then just increase refcount
     {
       this->pvt_numworks := this->pvt_numworks - 1;
       RETURN DEFAULT RECORD ARRAY;
@@ -676,7 +678,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
                                , mutexes := STRING[]
                                , delayreadonlyerror := FALSE
                                ], options);
-    IF (this->pvt_numworks != 0)
+    IF (this->IsWorkOpen())
       THROW NEW Exception("Cannot begin work: work is already open");
 
     IF (NOT options.delayreadonlyerror AND this->pvt_isprimary AND NOT IsDatabaseWritable())
@@ -692,6 +694,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
       this->DoBeginWork();
       this->pvt_numworks := 1;
+      this->pvt_localworkopened := TRUE;
     }
     CATCH(OBJECT e)
     {
@@ -764,6 +767,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW NEW Exception("Cannot commit work: work is not open");
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+    IF (NOT this->pvt_localworkopened)
+      THROW NEW Exception("Cannot commit work: work was not opened locally");
 
     BOOLEAN isreadonlyerror := this->pvt_isprimary AND NOT IsDatabaseWritable();
     RECORD handlers;
@@ -787,6 +792,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       this->DoRollbackWork();
 
     this->pvt_numworks := 0;
+    this->pvt_localworkopened := FALSE;
     this->ReleaseAllLocks();
 
     BOOLEAN have_errors := isreadonlyerror OR Length(errors) != 0;
@@ -812,6 +818,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW NEW Exception("Cannot rollback work: work is not open");
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+    IF (NOT this->pvt_localworkopened)
+      THROW NEW Exception("Cannot rollback work: work was not opened locally");
 
     RECORD handlers;
     TRY {
@@ -821,6 +829,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     {
       this->DoRollbackWork();
       this->pvt_numworks := 0;
+      this->pvt_localworkopened := FALSE;
       this->ReleaseAllLocks();
 
       __CallCommitHandlers(handlers, "onRollback");

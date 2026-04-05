@@ -307,7 +307,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     });
   }
 
-  waitConnected(): PoolClient | Promise<PoolClient> {
+  waitConnected(): WHDBClientInterface | Promise<WHDBClientInterface> {
     const client = this.client ?? this.getPoolClient();
     if (isPromise(client))
       return client.then(promisedClient => {
@@ -320,7 +320,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     return client;
   }
 
-  private getPoolClient(): PoolClient | undefined | Promise<PoolClient | undefined> {
+  private getPoolClient(): WHDBClientInterface | undefined | Promise<WHDBClientInterface | undefined> {
     if (!this.connected) {
       this.clientPromise ??= (async () => {
         const client = await PostgreaseConnectionLib.createConnection();
@@ -494,13 +494,21 @@ export class WHDBConnectionImpl implements WHDBConnection {
     }
     this.client = undefined;
   }
+
+  async __getConfiguration() {
+    const client = await this.waitConnected();
+    return {
+      ...PostgreaseConnectionLib.__getConfiguration(),
+      backendPid: client.getBackendProcessId() ?? 0,
+    };
+  }
 }
 
 /** A database connection
     @typeParam T - Kysely database definition interface
 */
 
-export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery">;
+export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery" | "__getConfiguration">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");

@@ -68,7 +68,6 @@ PGSQLNativeTransactionDriver::PGSQLNativeTransactionDriver(HSVM *_vm, PGconn *_c
 , isworkopen(false)
 {
         PQsetNoticeReceiver(conn, &NoticeReceiverCallback, this);
-        this->ScanTypes();
         cancel.reset(PQgetCancel(conn));
 }
 
@@ -543,6 +542,8 @@ void PGSQL_Connect(HSVM *hsvm, HSVM_VariableId id_set)
         int pid = driver->GetBackendPid();
         int32_t trans_id = GetVirtualMachine(hsvm)->GetSQLSupport().RegisterTransaction(std::move(driver));
 
+        dynamic_cast< PGSQLNativeTransactionDriver *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(trans_id))->ScanTypes();
+
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ID")), trans_id);
         HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "PID")), pid);
@@ -580,7 +581,7 @@ BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
 
         PGSQLRegisterSharedFunctions(regdata);
 
-        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT::R:RA", PGSQL_Connect);
+        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT::R:RAB", PGSQL_Connect);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETSTATUS::R:I", PGSQL_GetStatus);
 
         return 1;

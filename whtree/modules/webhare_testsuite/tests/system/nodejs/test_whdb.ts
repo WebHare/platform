@@ -499,7 +499,7 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.2");
   onFinishWork(() => ({
     onCommit: async () => {
-      handlerresult.push('first');
+      handlerresult.push('second');
       test.eq(false, isWorkOpen());
       await beginWork();
       await commitWork();
@@ -508,7 +508,8 @@ async function testFinishHandlers() {
   onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
 
   await commitWork();
-  test.eq(["beforecommit", "first", "commit"], handlerresult);
+  // Finish handlers are called serially (parallel executing allows opening parallel work in independent HSVMs)
+  test.eq(["beforecommit", "commit", "second"], handlerresult);
   const allevents = [(await eventStream.next()).value, (await eventStream.next()).value];
 
   //ensure both expected events are there

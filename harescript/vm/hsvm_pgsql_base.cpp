@@ -1312,12 +1312,13 @@ PGSQLTransactionDriverBase::PGSQLTransactionDriverBase(HSVM *_vm, /*PGconn *_con
         description.needs_uppercase_names = false;
         description.max_joined_tables = 0;
         description.max_multiinsertrows = 64;
-
-        // Must be called in deriving classes!
-        //this->ScanTypes();
 }
 
 PGSQLTransactionDriverBase::~PGSQLTransactionDriverBase()
+{
+}
+
+void PGSQLTransactionDriverBase::PrepareForQuery()
 {
 }
 
@@ -1890,6 +1891,8 @@ DatabaseTransactionDriverInterface::CursorId PGSQLTransactionDriverBase::OpenCur
         CursorId id = queries.Set(QueryData(*this));
         QueryData &querydata = *queries.Get(id);
 
+        PrepareForQuery();
+
         if (cursortype != DatabaseTransactionDriverInterface::Select && !this->IsWorkOpen())
         {
                 HSVM_ThrowException(*vm, "BeginWork must be called before modifying the database");
@@ -2391,6 +2394,16 @@ void PGSQL_EscapeLiteral(HSVM *hsvm, HSVM_VariableId id_set)
         stackm.SetSTLString(id_set, result);
 }
 
+void PGSQL_WasmOnlyMacro(HSVM *hsvm)
+{
+        HSVM_ThrowException(*GetVirtualMachine(hsvm), "This function cannot be called from native mode, it can only be used in WASM mode");
+}
+
+void PGSQL_WasmOnlyFunction(HSVM *hsvm, HSVM_VariableId)
+{
+        HSVM_ThrowException(*GetVirtualMachine(hsvm), "This function cannot be called from native mode, it can only be used in WASM mode");
+}
+
 void PGSQLRegisterSharedFunctions(HSVM_RegData *regdata) {
         using namespace HareScript::SQLLib::PGSQL;
 
@@ -2403,6 +2416,14 @@ void PGSQLRegisterSharedFunctions(HSVM_RegData *regdata) {
         HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:::IIII", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL::S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER::S:S", PGSQL_EscapeIdentifier);
+
+        HSVM_RegisterMacro(regdata, "__PGSQL_BEGINWORK:::ISIA", PGSQL_WasmOnlyMacro);
+        HSVM_RegisterMacro(regdata, "__PGSQL_ROLLBACKWORK:::I", PGSQL_WasmOnlyMacro);
+        HSVM_RegisterFunction(regdata, "__PGSQL_COMMITWORK::RA:I", PGSQL_WasmOnlyFunction);
+        HSVM_RegisterFunction(regdata, "__PGSQL_HASMUTEX::B:IS", PGSQL_WasmOnlyFunction);
+        HSVM_RegisterFunction(regdata, "__PGSQL_TRYLOCKMUTEX::B:ISD", PGSQL_WasmOnlyFunction);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETBACKENDPID::I:I", PGSQL_WasmOnlyFunction);
+        HSVM_RegisterMacro(regdata, "__PGSQL_REGISTERCOMMITHANDLERS:::I", PGSQL_WasmOnlyMacro);
 }
 
 } // End of namespace PGSQL
