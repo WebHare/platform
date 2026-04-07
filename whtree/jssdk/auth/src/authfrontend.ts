@@ -2,6 +2,8 @@ import type { WebRequest } from "@webhare/router";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import type { AnyWRDSchema } from "@webhare/wrd";
 import { IdentityProvider } from "./identity";
+import jwt from "jsonwebtoken";
+import type { JWTPayload } from "./customizer";
 
 /** Get cookie names to use AND which ones to ignore */
 export function getIdCookieName(wrdauth: WRDAuthPluginSettings, secureRequest: boolean) {
@@ -30,13 +32,13 @@ async function getUserForAccessToken(accessToken: string, wrdSchema: AnyWRDSchem
   const provider = new IdentityProvider(wrdSchema);
   const tokeninfo = await provider.verifyAccessToken("id", accessToken);
   if (!("error" in tokeninfo))
-    return { user: tokeninfo.entity }; // TODO accountStatus: tokeninfo.accountStatus - but only useful if we also accept 'ignoreAccountStatus' and return whether this field was actually present in the schema?
+    return { user: tokeninfo.entity, claims: jwt.decode(accessToken) as JWTPayload }; // TODO accountStatus: tokeninfo.accountStatus - but only useful if we also accept 'ignoreAccountStatus' and return whether this field was actually present in the schema?
 
   return null;
 }
 
 /** Get the user linked to a URL */
-export async function getRequestUser(req: WebRequest, pathname: string, wrdSchema: AnyWRDSchema): Promise<{ user: number /*; accountStatus: WRDAuthAccountStatus | null*/ } | null> {
+export async function getRequestUser(req: WebRequest, pathname: string, wrdSchema: AnyWRDSchema): Promise<{ user: number; claims: JWTPayload /*; accountStatus: WRDAuthAccountStatus | null*/ } | null> {
   if (!wrdSchema)
     throw new Error("No WRDSchema provided");
 

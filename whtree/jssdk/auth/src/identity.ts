@@ -715,7 +715,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       accountStatus,
       scopes,
       client: matchToken.client,
-      expires: matchToken.expirationdate?.toTemporalInstant() ?? null
+      expires: matchToken.expirationdate?.toTemporalInstant() ?? null,
     };
   }
 
