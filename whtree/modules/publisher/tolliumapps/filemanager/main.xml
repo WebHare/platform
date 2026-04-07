@@ -69,7 +69,7 @@
         <enableon source="filelist" min="1" max="1" checkflags="candownload canedit canwrite" requirefocus="true" />
       </uploadaction>
       <action name="duplicate" onexecute="doduplicate">
-        <enableon source="filelist" min="1" max="1" checkflags="isactive canwrite" requirefocus="true" />
+        <enableon source="filelist" min="1" max="1" checkflags="isactive canwrite" requirefocus="true" frameflags="cancreate" />
       </action>
       <action name="newsite" ellipsis="true" frameflags="issysop" onexecute="donewsite" title="">
         <enableon source="foldertreeproxy" min="1" checkflags="isactive !iswithinsite canadd" />
