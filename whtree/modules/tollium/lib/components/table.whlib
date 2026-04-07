@@ -559,7 +559,7 @@ PUBLIC OBJECTTYPE TolliumTable EXTEND TolliumComponentBase
       }
       CASE "magicaction"
       {
-        IF (NOT this->contexts->user->hasRight("system:sysop") AND GetDTAPStage() != "development")
+        IF(NOT this->contexts->controller->IsTrustedToDebug())
           RETURN;
 
         SWITCH (msgdata.type)
