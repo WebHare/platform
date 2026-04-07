@@ -2,6 +2,8 @@
 LOADLIB "mod::publisher/lib/internal/files.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -43,7 +45,10 @@ PUBLIC OBJECTTYPE Editor EXTEND TolliumScreenBase
       this->edittabs->extendcomponents := [[ name := "objectdata", component := this->objectdata ]
                                           ,[ name := "contentdata", component := instance ]
                                           ];
-      RECORD ext := this->edittabs->LoadTabsExtension(toembed.siteprofile->name || "#" || findname);
+      //We originally didn't interpret extension= as a relative path but just assumed it was the same file. If we don't see a #, we assume that old syntax
+      RECORD ext := this->edittabs->LoadTabsExtension(
+          findname LIKE "*#*" ? MakeAbsoluteResourcePath(toembed.siteprofile->name, findname)
+                              : toembed.siteprofile->name || "#" || findname);
 
       // Disable all cells connecting to the composition when user has no write access
       IF (NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", fileobj->id))
