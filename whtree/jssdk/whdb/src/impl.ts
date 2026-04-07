@@ -338,6 +338,11 @@ export class WHDBConnectionImpl implements WHDBConnection {
       client.query<R>(sqlquery, parameters || []);
   }
 
+  async cancelQuery() {
+    // No need to wait for a connection, no connections means no queries issued yet
+    await this.client?.cancelQuery();
+  }
+
   /** kysely query builder */
   db<T>(): Kysely<T> {
     /* Convert the type, the types don't influence the underlying implementation anyway */
@@ -478,7 +483,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery">;
+export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");

@@ -177,15 +177,9 @@ export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInt
     this.socket.addListener("readable", () => this.wait?.resolve());
     this.socket.addListener("close", () => {
       this.closed = true;
-      // ensure that rejecting wait doesn't cause unhandled rejection
-      this.wait.promise.catch(() => 0);
       this.wait.reject(new Error("PostgreSQL socket closed"));
     });
-    this.socket.addListener("error", (err) => {
-      // ensure that rejecting wait doesn't cause unhandled rejection
-      this.wait.promise.catch(() => 0);
-      this.wait?.reject(err);
-    });
+    this.socket.addListener("error", (err) => this.wait?.reject(err));
   }
 
   /** Ensures the next buffer is available for reading. Only called when the current buffer is exhausted. Returns null
@@ -206,6 +200,7 @@ export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInt
   private async asyncReadBuffer() {
     while (true) {
       this.wait = Promise.withResolvers<void>();
+      this.wait.promise.catch(() => 0); // prevent unhandled rejection if wait is rejected
       await this.wait?.promise;
 
       if (this.closed)
@@ -224,6 +219,7 @@ export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInt
   /** Switches the current connection to use TLS with the given options. */
   async switchToTLS(tlsOptions: tls.ConnectionOptions) {
     this.wait = Promise.withResolvers<void>();
+    this.wait.promise.catch(() => 0); // prevent unhandled rejection if wait is rejected before we switch the socket
 
     this.socket.removeAllListeners("readable");
     this.socket.removeAllListeners("error");
@@ -237,7 +233,10 @@ export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInt
     this.socket = tlsSocket;
 
     this.socket.addListener("readable", () => this.wait?.resolve());
-    this.socket.addListener("close", () => this.wait?.reject(new Error("PostgreSQL socket closed")));
+    this.socket.addListener("close", () => {
+      this.closed = true;
+      this.wait?.reject(new Error("PostgreSQL socket closed"));
+    });
     this.socket.addListener("error", (err) => this.wait?.reject(err));
   }
 
@@ -262,6 +261,7 @@ export class PGPacketSocket extends PGSocketPacketizer implements SocketQueryInt
   close() {
     this.socket.end();
     this.socket.destroy();
+    this.wait?.promise.catch(() => 0);
     this.wait?.reject(new Error("PostgreSQL socket closed"));
   }
 }

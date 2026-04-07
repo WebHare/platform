@@ -6,6 +6,7 @@ import type {
 
 export interface PoolClient extends PostgresPoolClient {
   passthroughQuery(query: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void;
+  cancelQuery(): Promise<void>;
 }
 
 export type ExtraFieldsInfo = { fields: { fieldName: string; dataTypeId: number }[] };

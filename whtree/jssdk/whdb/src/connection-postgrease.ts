@@ -234,6 +234,10 @@ export class WHDBPgClient implements WHDBClientInterface, PoolClient {
   getBackendProcessId(): number | undefined {
     return this.pgclient.getBackendProcessId();
   }
+
+  async cancelQuery(): Promise<void> {
+    await this.pgclient.cancelQuery();
+  }
 }
 
 export async function createConnection(options?: WHDBPgClientOptions): Promise<WHDBPgClient> {

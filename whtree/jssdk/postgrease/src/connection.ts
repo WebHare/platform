@@ -37,7 +37,7 @@ export type PGQueryOptions = {
 
 let defaultCodecRegistry: CodecRegistry | undefined;
 
-export async function connect(connectionOptions: PGConnectionOptions = {}) {
+export async function connect(connectionOptions: PGConnectionOptions = {}): Promise<PGConnection> {
   // Connect to the socket
   const socket = await connectSocket(connectionOptions);
 
@@ -114,7 +114,10 @@ export async function connect(connectionOptions: PGConnectionOptions = {}) {
     }
 
     // Current packet is ReadyForQuery
-    return new PGConnection(socket, backendKeyData, parameters, connectionOptions.codecRegistry, connectionOptions.codecContext);
+    return new PGConnection(socket, backendKeyData, parameters, {
+      ...connectionOptions,
+      codecRegistry: connectionOptions.codecRegistry ?? (defaultCodecRegistry ??= new CodecRegistry(defaultCodecs)),
+    });
   } catch (err) {
     socket.close();
     throw err;
@@ -153,6 +156,7 @@ class PGQueryInterface {
 
 export class PGConnection {
   private socket: PGPacketSocket;
+  private connectionOptions: PGConnectionOptions;
   private backendKeyData: BackendKeyData | null = null;
   private waitWriteQuery: Promise<undefined> | undefined;
   private closeError: Error | undefined;
@@ -161,10 +165,11 @@ export class PGConnection {
   private queries: Query[] = [];
   private querySignal = Promise.withResolvers<void>();
 
-  constructor(socket: PGPacketSocket, backendKeyData: BackendKeyData | null, parameters: Record<string, string>, codecRegistry: CodecRegistry, codecContext: CodecContext) {
+  constructor(socket: PGPacketSocket, backendKeyData: BackendKeyData | null, parameters: Record<string, string>, connectionOptions: PGConnectionOptions & { codecRegistry: CodecRegistry }) {
     this.socket = socket;
+    this.connectionOptions = connectionOptions;
     this.backendKeyData = backendKeyData;
-    this.queryInterface = new PGQueryInterface(this, codecRegistry, parameters, codecContext);
+    this.queryInterface = new PGQueryInterface(this, connectionOptions.codecRegistry, parameters, connectionOptions.codecContext);
     void this.commandLoop();
   }
 
@@ -240,6 +245,16 @@ export class PGConnection {
 
   getBackendProcessId(): number | undefined {
     return this.backendKeyData?.processId;
+  }
+
+  async cancelQuery() {
+    if (!this.backendKeyData)
+      throw new Error("Can't cancel query on a connection without backend key data");
+
+    // Connect to the socket
+    const socket = await connectSocket(this.connectionOptions);
+    socket.write(b => b.cancelRequest(this.backendKeyData!.processId, this.backendKeyData!.secretKey));
+    socket.close();
   }
 }
 
