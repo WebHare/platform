@@ -560,6 +560,7 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:varchar name="description" maxlength="1024">
         <d:documentation>Describe this port</d:documentation>
       </d:varchar>
+      <d:obsoletecolumn name="keyname" /> <!-- obsoleted in 6.0 but not sure when it was originally removed -->
     </d:table>
 
     <d:table name="proxies" primarykey="id">

@@ -3107,7 +3107,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
 
       CASE "$devhook"
       {
-        IF((NOT ObjectExists(this->contexts->user) OR NOT this->contexts->user->HasRight("system:sysop")) AND GetDtapStage() != "development")
+        IF(NOT this->contexts->controller->IsTrustedToDebug())
           THROW NEW Exception("Devhooks are only allowed for sysops or in development environment");
 
         SWITCH (todd_request.param.action) {
