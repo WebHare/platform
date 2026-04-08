@@ -866,11 +866,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
       if (node.composerHook || node.objectName || node.hooksFeatures.length) {
         //we still need to add something to 'plugins' for activators to find us otherwise they have to scan though all yml_ and all plugin configs to find us
-        rule.plugins.push({
-          ...toSnakeCase(node),
-          combine: true,
-          data: null
-        });
+        rule.plugins.push(toSnakeCase(node));
       }
     }
 

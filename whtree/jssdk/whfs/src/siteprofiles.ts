@@ -174,39 +174,28 @@ export interface CSPRTDStructure {
   tag_i: string;
 }
 
-export interface CSPPluginDataRow {
-  [key: string]: unknown;
-  __attributes: string[];
-  __location: string;
-}
-export interface CSPPluginSettingsRow {
+export interface RawPluginSettings {
   source: {
     siteProfile: string;
   };
   [key: string]: unknown;
 }
 
-export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
-  addressoptions: string[];
-  addressvalidationkey: string;
-  addressvalidationschema: string;
-  allowsubmittype: boolean;
-  countrylist: string[];
-  enableinfotexts: boolean;
-  enablepagetitles: boolean;
-  infotextrtdtype: string;
-  mailrtdtype: string;
-  usecaptcha: boolean;
-  webtoolformhooks: string;
-}
+// export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
+//   addressoptions: string[];
+//   addressvalidationkey: string;
+//   addressvalidationschema: string;
+//   allowsubmittype: boolean;
+//   countrylist: string[];
+//   enableinfotexts: boolean;
+//   enablepagetitles: boolean;
+//   infotextrtdtype: string;
+//   mailrtdtype: string;
+//   usecaptcha: boolean;
+//   webtoolformhooks: string;
+// }
 
-export type CSPPluginBase = ToSnakeCase<ModulePlugins["spPlugins"][number]>;
-
-export interface CSPPlugin extends CSPPluginBase {
-  combine: boolean;
-  //data stored by the plugin parser, format only known to the plugin itself
-  data: CSPPluginDataRow | null;
-}
+export type CSPPlugin = ToSnakeCase<ModulePlugins["spPlugins"][number]>;
 
 export interface CSPRtddoc {
   rtdtype?: string;
@@ -459,9 +448,10 @@ export type CSPApplyRule = {
   //TODO this is being double parsed (both for us and both into yml_ props) because HS readers haven't switched over to yml_forms
   webtoolsformrules: CSPWebtoolsFormRule[];
   widgetbuilder?: string;
-} & {  /** Custom nodes/plugins */
-  [k in `yml_${string}`]?: Array<Record<string, unknown>>;
-};
+} & CSPYmlNodes;
+
+/** Custom nodes/plugins */
+export type CSPYmlNodes = { [k in `yml_${string}`]?: Array<Record<string, unknown>> };
 
 export type CSPSiteSetting = {
   addtocatalogs: CSPAddToCatalog[];

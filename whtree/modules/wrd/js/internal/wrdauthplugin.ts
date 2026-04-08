@@ -1,6 +1,6 @@
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import { getAuthSettings } from "@webhare/auth/src/support";
-import type { PagePluginRequest, PagePluginFunction } from "@webhare/router";
+import type { PagePluginRequest, PagePluginInit, PagePluginFunction } from "@webhare/router";
 import type { CPageRequest } from "@webhare/router/src/siterequest";
 import { getWRDPlugindata } from "@webhare/whfs/src/applytester";
 import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
@@ -70,8 +70,8 @@ class WRDAuthPluginAPI {
   }
 }
 
-export function hookComposer(response: PagePluginRequest, hookdata: Record<string, unknown>) {
-  const plugindata = getWRDPlugindata(hookdata);
+export function hookComposer(init: PagePluginInit, response: PagePluginRequest) {
+  const plugindata = getWRDPlugindata(init.settings);
   response.setFrontendData("wrd:auth", { cookiename: plugindata.cookieName });
   response.addPlugin("platform:wrdauth", new WRDAuthPluginAPI(response));
 }

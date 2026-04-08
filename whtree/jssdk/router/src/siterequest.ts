@@ -5,7 +5,7 @@
 
 import { describeWHFSType, openFileOrFolder, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
-import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
@@ -23,9 +23,14 @@ import { PageMetaData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
+import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 
 export type PluginInterface<API extends object> = {
   api: API;
+};
+
+export type PagePluginInit = {
+  settings: RawPluginSettings[];
 };
 
 /** @deprecated WH6.0 switches to PageBuilderFunction */
@@ -38,7 +43,7 @@ export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResp
 export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
-export type PagePluginFunction<PluginDataType = Record<string, unknown>> = (req: PagePluginRequest, plugindata: PluginDataType) => Promise<void> | void;
+export type PagePluginFunction = (init: PagePluginInit, req: PagePluginRequest) => Promise<void> | void;
 
 type ContentPageRequestOptions = {
   statusCode?: number;
@@ -296,11 +301,9 @@ export class CPageRequest {
       return;
 
     this.didInitializePlugins = true;
-
     for (const plugin of this._publicationSettings.plugins) {
       if (plugin.composer_hook) {
-        const plugindata = buildPluginData(plugin.datas);
-        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))(this, plugindata);
+        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))({ settings: plugin.datas }, this);
       }
     }
   }

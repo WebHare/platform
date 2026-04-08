@@ -2,42 +2,49 @@
 
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::xml/xsd.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 
 /** for efficiency, combine all loaded parser hooks into one whlib.
     keep LOADLIBS to a minimum, but there's no harm in loading librarys the SPParser would have loaded anyway */
 
-PUBLIC RECORD FUNCTION ParseWRDAuthConfigurationNode(OBJECT siteprofile, OBJECT node)
+PUBLIC RECORD FUNCTION ParseWRDAuthConfigurationNodeAsYaml(OBJECT node)
 {
-  RECORD config :=
-          [ wrdschema := node->GetAttribute("wrdschema")
-          , supportobjectname := node->GetAttribute("supportobjectname")
-          , passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
-          , cachefields := ParseXSList(node->GetAttribute("cachefields"))
-          , servicemailtemplate := siteprofile->ParseFSPath(node, "servicemailtemplate")
-          , loginpage := node->GetAttribute("loginpage")
-          , cookiename := node->GetAttribute("cookiename")
-          , customizer := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, node->GetAttribute("customizer"))
-          , firstloginfield := node->GetAttribute("firstloginfield")
-          , lastloginfield := node->GetAttribute("lastloginfield")
-          , samesitecookie := node->HasAttribute("samesitecookie") ? node->GetAttribute("samesitecookie") : "lax"
-          , routerfeatures := ParseXSList(node->GetAttribute("routerfeatures"))
-          , authpageswitty := siteprofile->ParseFSPath(node, "authpageswitty")
-          , cookiedomain := node->GetAttribute("cookiedomain")
-          ];
+  /* Imagined YAML
+     debugSettings:
+     - userWarning: ....
+       groupTitle: Goodies
+       flags:
+         win:
+           title: "Pxl events"
+           requireRight: xx
+  */
+  RECORD config;
 
-  IF(config.supportobjectname != "" AND config.supportobjectname NOT LIKE "*#*")
-  {
-    STRING supportlib := siteprofile->ParseFSPath(node, "supportlibrary");
-    config.supportobjectname := supportlib || "#" || config.supportobjectname;
-  }
-  ELSE
-  {
-    config.supportobjectname := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, config.supportobjectname);
-  }
-
-  IF (config.cookiename != "" AND config.cookiename NOT LIKE "*webharelogin*")
-    THROW NEW Exception(`Invalid wrdauth cookie name '${config.cookiename}', must contain 'webharelogin'`);
+  IF(node->HasAttribute("wrdschema"))
+    config := [ ...config, wrd_schema := node->GetAttribute("wrdschema") ];
+  IF(node->HasAttribute("supportobjectname"))
+    config := [ ...config, support_object_name := node->GetAttribute("supportobjectname") ];
+  IF(node->HasAttribute("passwordresetlifetime"))
+    config := [ ...config, password_reset_lifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) ]; //in minutes
+  IF(node->HasAttribute("cachefields"))
+    config := [ ...config, cache_fields := ParseXSList(node->GetAttribute("cachefields")) ];
+  IF(node->HasAttribute("loginpage"))
+    config := [ ...config, login_page := node->GetAttribute("loginpage") ];
+  IF(node->HasAttribute("cookiename"))
+    config := [ ...config, cookie_name := node->GetAttribute("cookiename") ];
+  IF(node->HasAttribute("customizer"))
+    config := [ ...config, customizer := node->GetAttribute("customizer") ];
+  IF(node->HasAttribute("firstloginfield"))
+    config := [ ...config, first_login_field := node->GetAttribute("firstloginfield") ];
+  IF(node->HasAttribute("lastloginfield"))
+    config := [ ...config, last_login_field := node->GetAttribute("lastloginfield") ];
+  IF(node->HasAttribute("samesitecookie"))
+    config := [ ...config, same_site := node->GetAttribute("samesitecookie") ];
+  IF(node->HasAttribute("routerfeatures"))
+    config := [ ...config, router_features := ParseXSList(node->GetAttribute("routerfeatures")) ];
+  IF(node->HasAttribute("authpageswitty"))
+    config := [ ...config, auth_pages_witty := node->GetAttribute("authpageswitty") ];
+  IF(node->HasAttribute("cookiedomain"))
+    config := [ ...config, cookie_domain := node->GetAttribute("cookiedomain") ];
 
   RETURN config;
 }
@@ -125,6 +132,22 @@ PUBLIC RECORD FUNCTION GetCaptchaIntegrationAsYaml(OBJECT node) {
   IF(node->HasAttribute("skipfunction"))
     captchaintegration := CELL[ ...captchaintegration, skip_function := node->GetAttribute("skipfunction") ];
   RETURN captchaintegration;
+}
+
+PUBLIC RECORD FUNCTION GetGTMAsYaml(OBJECT node) {
+  RECORD gtm := CELL[];
+  IF(node->HasAttribute("account"))
+    gtm := CELL[ ...gtm, account := node->GetAttribute("account") ];
+  IF(node->HasAttribute("integration"))
+    gtm := CELL[ ...gtm, integration := node->GetAttribute("integration") ];
+  IF(node->HasAttribute("launch"))
+    gtm := CELL[ ...gtm, launch := node->GetAttribute("launch") ];
+  IF(node->HasAttribute("script"))
+    gtm := CELL[ ...gtm, script := node->GetAttribute("script") ];
+  IF(node->HasAttribute("pixel"))
+    gtm := CELL[ ...gtm, pixel := node->GetAttribute("pixel") ];
+
+  RETURN gtm;
 }
 
 PUBLIC RECORD FUNCTION GetVideoWidgetAsYaml(OBJECT node) {

@@ -169,10 +169,16 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
     config.passwordlogin := TRUE; //implicitly enabled (no methods at all)
 
   STRING ARRAY eventmasks := [ "publisher:internal.siteprofiles.recompiled" ];
-  RECORD authplugin := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "wrdauth");
-  IF(RecordExists(authplugin) AND authplugin.wrdschema != "")
+  STRING wrdschema;
+  RECORD wrdauthplugin := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "wrdauth");
+  IF(RecordExists(wrdauthplugin))
+    FOREVERY(RECORD data FROM wrdauthplugin.datas)
+      IF(CellExists(data, 'wrd_schema'))
+        wrdschema := data.wrd_schema;
+
+  IF(wrdschema != "")
   {
-    OBJECT targetschema := OpenWRDSchema(authplugin.wrdschema);
+    OBJECT targetschema := OpenWRDSchema(wrdschema);
     OBJECT oidcclient := targetschema->GetType("WRDAUTH_OIDC_CLIENT");
     IF(ObjectExists(oidcclient))
     {

@@ -1,5 +1,6 @@
 
-import type { PagePluginFunction, PagePluginRequest } from "@webhare/router";
+import type { PagePluginFunction, PagePluginInit, PagePluginRequest } from "@webhare/router";
+import { parseYamlPluginConfig } from "@webhare/whfs/src/applytester";
 
 declare module "@webhare/frontend" {
   interface FrontendDataTypes {
@@ -25,7 +26,8 @@ interface GTMPluginData {
   pixel?: string;
 }
 
-export function hookComposer(response: PagePluginRequest, hookdata: GTMPluginData) {
+export function hookComposer(init: PagePluginInit, response: PagePluginRequest) {
+  const hookdata = parseYamlPluginConfig<GTMPluginData>(init.settings);
   if (!hookdata.account)
     return;
   if (!hookdata.account.match(/^GTM-[A-Z0-9]{5}[A-Z0-9]*/))
@@ -51,4 +53,4 @@ export function hookComposer(response: PagePluginRequest, hookdata: GTMPluginDat
 }
 
 //validate signatures
-hookComposer satisfies PagePluginFunction<GTMPluginData>;
+hookComposer satisfies PagePluginFunction;

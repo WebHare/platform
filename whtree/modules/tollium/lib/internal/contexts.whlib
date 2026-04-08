@@ -191,8 +191,14 @@ PUBLIC OBJECTTYPE TolliumContexts
     IF (NOT ObjectExists(this->pvt_data.wrdschema) AND ObjectExists(this->pvt_data.applytester)) // INV: fixed_wrdschema = FALSE
     {
       RECORD authplugin := this->pvt_data.applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "wrdauth");
+      STRING wrdschema;
       IF (RecordExists(authplugin))
-        this->pvt_data.wrdschema := OpenWRDSchema(authplugin.wrdschema);
+        FOREVERY(RECORD data FROM authplugin.datas)
+          IF(CellExists(data, 'wrd_schema'))
+            wrdschema := data.wrd_schema;
+
+      IF(wrdschema != "")
+        this->pvt_data.wrdschema := OpenWRDSchema(wrdschema);
     }
 
     RETURN this->pvt_data.wrdschema;

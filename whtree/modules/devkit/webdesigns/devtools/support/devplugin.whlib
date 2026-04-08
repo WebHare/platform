@@ -5,10 +5,19 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/wittytracing.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+
+PUBLIC RECORD FUNCTION GetDevSupportDataAsYaml(OBJECT node) {
+  RECORD config;
+  IF(node->HasAttribute("adddebugscript"))
+    config := CELL[...config, adddebugscript := ParseXSBoolean(node->GetAttribute("adddebugscript")) ];
+
+  RETURN config;
+}
 
 PUBLIC STATIC OBJECTTYPE DevSupportPlugin EXTEND WebDesignPluginBase
 <
@@ -20,10 +29,8 @@ PUBLIC STATIC OBJECTTYPE DevSupportPlugin EXTEND WebDesignPluginBase
      EnableWittyTracing();
   }
 
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RETURN [ adddebugscript := ParseXSBoolean(node->GetAttribute("adddebugscript"))
-           ];
+  UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) { //override this to receive configuration from plugins with yaml_property=
+    this->config := ParseYamlPluginConfig(cELL[ adddebugscript := FALSE ], records);
   }
 
   UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)

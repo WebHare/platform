@@ -540,6 +540,8 @@ $defs:
         $ref: "#/$defs/ApplyMailTemplates"
       setWidget:
         $ref: "#/$defs/ApplySetWidget"
+      auth:
+        $ref: "#/$defs/ApplyAuth"
     patternProperties:
       "[a-z][a-zA-Z0-9_]+:[a-zA-Z0-9_]+$": # Custom properties prefixed with a site name are simply parsed and passed through
         tsType: unknown # prevent broken schema, see also https://github.com/bcherny/json-schema-to-typescript/issues/671
@@ -1183,6 +1185,57 @@ $defs:
         widgetBuilder:
           type: string
           description: JS callback to build the widget HTML code
+
+  ApplyAuth:
+    type: object
+    additionalProperties: false
+    properties:
+      wrdSchema:
+        type: string
+      loginPage:
+        type: string
+      cookieName:
+        description: The cookie name. Must contain `webharelogin`
+        type: string
+      customizer:
+        type: string
+      cookieDomain:
+        description: The domain to use for the wrdauth cookies
+        type: string
+      sameSite:
+        description: SameSite setting for the login cookies. Defaults to 'Lax'
+        type: string
+        enum:
+          - Lax
+          - Strict
+          - None
+      supportObjectName:
+        description: The name of the HareScript support object for the wrdauth plugin.
+        type: string
+      cacheFields:
+        type: array
+        items:
+          type: string
+      routerFeatures:
+        type: array
+        items:
+          type: string
+          enum:
+            - emailchange
+            - passwordchange
+            - forgotpassword
+            - login
+      firstLoginField:
+        description: If set, attribute which will be set to the date of the first successful login
+        type: string
+      lastLoginField:
+        description: If set, attribute which will be set to the date of the last successful login
+        type: string
+      authPagesWitty:
+        type: string
+      passwordResetLifetime:
+        description: Lifetime of password reset tokens, in minutes
+        type: integer
 
   Sources:
     type: array
