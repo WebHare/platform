@@ -18,6 +18,7 @@ MACRO PrepIt()
 {
   testfw->BeginWork();
   testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_browse",  OpenTestsuiteSite()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess",  OpenTestsuiteJSSite()->OpenByPath("photoalbum")->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->CommitWork();
 }
 
@@ -254,6 +255,7 @@ ASYNC MACRO WalkTheTree() {
   AWAIT(ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel));
 
   //Rename the file
+  testfw->SetTestUser("sysop"); //TODO don't rely on being able to switch users with atn open app... we should separate app launches
   TT("filelist")->value := SELECT AS INTEGER ARRAY id FROM TT("filelist")->rows WHERE name="crash.rtd";
   pvs := TT("previewbrowser")->GetPreviewState();
   currenturl := pvs.browserurl;
@@ -263,6 +265,7 @@ ASYNC MACRO WalkTheTree() {
 
   //ADDME test the state of the error while republishing
   //Wait for the browser to refresh
+  testfw->SetTestUser("lisa");
   AWAIT testfw->WaitAndProcessEvents(PTR IsBrowserURLChanged(currenturl, TT("previewbrowser"), TT("filelist")->value[0]), "Preview is not refreshing #2");
 
   pvs := TT("previewbrowser")->GetPreviewState();
@@ -335,8 +338,18 @@ MACRO CleanupRootFolder()
   }
 }
 
+ASYNC MACRO DuplicateTopLevelObject() { //Duplicate an object that's seemingly at our toplevel
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app"));
+  TTFillByTitle("foldertree->thelist", "WebHare Publisher");
+  TTFillByTitle("filelist->mylist", "photoalbum");
+  topscreen->frame->focused := TT("filelist->mylist");
+  TestEq(FALSE, TTClick("Duplicate", [ allowfailure := TRUE ]));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close publisher
+}
+
 ASYNC MACRO CreateRootObject()
 {
+  testfw->SetTestUser("sysop"); //Lisa can't create root objects but starting the RunNewFSObjectDialog for her would just throw during submit
   CleanupRootFolder();
 
   RECORD res := AWAIT ExpectScreenChange(+1, PTR RunNewFSObjectDialog(GetTestController(), 0, [ type := 0, isfolder := TRUE ]));
@@ -399,6 +412,7 @@ ASYNC MACRO WalkTheTreeSysop() {
 RunTestframework([ PTR PrepIt
                  , PTR InitialGotoFolder //used by eg Find.
                  , PTR WalkTheTree
+                 , PTR DuplicateTopLevelObject
                  , PTR CreateRootObject
                  , PTR CreatePhotoAlbum
                  , PTR WalkTheTreeSysop

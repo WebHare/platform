@@ -1361,6 +1361,9 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       // Refresh cached data
       this->parentfolder->Refresh();
 
+      IF(NOT this->contexts->user->HasRightOn("system:fs_fullaccess", this->isnew ? this->parentfolder->id : this->sourceitem->id))
+        THROW NEW Exception(`No write access to #${this->isnew ? this->parentfolder->id : this->sourceitem->id}`);
+
       RECORD metadata :=
           [ name := name
           , title := ^title->value
