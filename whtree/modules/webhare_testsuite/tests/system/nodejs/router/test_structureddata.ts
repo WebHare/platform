@@ -1,15 +1,10 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
-import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
-import { openFile } from "@webhare/whfs";
+import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 
 async function testBreadCrumbs() {
   const testSiteRoot: string = (await test.getTestSiteJS()).webRoot!;
-  const staticPageDoc = await openFile("site::webhare_testsuite.testsitejs/testpages/staticpage");
-  const previewLink = await staticPageDoc.getPreviewLink();
-  console.log({ previewLink });
-  const req = await fetch(previewLink);
-  const doc = parseDocAsXML(await req.text(), "text/html");
-  const breadcrumbs = test.extractSchemaOrgData(doc).filter(_ => _["@type"] === "BreadcrumbList");
+  const parsed = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
+  const breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
 
   test.eq(1, breadcrumbs.length);
   test.eq([
@@ -28,7 +23,7 @@ async function testBreadCrumbs() {
     }
   ], breadcrumbs[0].itemListElement);
 
-  const faq = test.extractSchemaOrgData(doc).find(_ => _["@type"] === "FAQPage");
+  const faq = test.extractSchemaOrgData(parsed.doc).find(_ => _["@type"] === "FAQPage");
   test.eqPartial({
     "mainEntity": [
       {
