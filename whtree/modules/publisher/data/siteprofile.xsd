@@ -470,14 +470,6 @@
 
   <xs:complexType name="PWAFile" />
 
-  <xs:complexType name="CustomPlugin">
-    <xs:attribute name="objectname" type="xs:string" use="required">
-      <xs:annotation>
-        <xs:documentation>Path to the plugin object (must derive from %WebdesignPluginBase)</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:complexType>
-
   <xs:complexType name="FormDefinitions">
     <xs:attribute name="path" type="xs:string" use="required" />
     <xs:attribute name="name" type="ModuleNamespacedName" />
@@ -827,7 +819,6 @@
       <xs:element name="intercept" type="sc:Intercept" />
       <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
       <xs:element name="tagsource" type="TagSource" />
-      <xs:element name="customplugin" type="CustomPlugin" />
       <xs:element name="rtddoc" type="RTDDoc" />
       <xs:element name="setlibrary" type="SetLibrary" />
       <xs:element name="mailtemplate" type="MailTemplate" />

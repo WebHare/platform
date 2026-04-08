@@ -613,7 +613,6 @@ export class WHFSApplyTester {
       }*/
     //Parse plugins (combines configuration data for later parsing)
     const namedplugins = new Map<string, PluginData>;
-    const customplugins: PluginData[] = [];
 
     for (const apply of await this.getMatchingRules('plugins')) {
       for (const plugin of apply.plugins)
@@ -623,11 +622,9 @@ export class WHFSApplyTester {
               insert: () => ({ ...plugin, datas: [plugin.data!] }),
               update: cur => ({ ...cur, datas: [...cur.datas, plugin.data!] })
             });
-          else
-            customplugins.push({ ...plugin, datas: [plugin.data] });
     }
 
-    webDesign.plugins = [...namedplugins.values(), ...customplugins];
+    webDesign.plugins = [...namedplugins.values()];
     return webDesign;
   }
 

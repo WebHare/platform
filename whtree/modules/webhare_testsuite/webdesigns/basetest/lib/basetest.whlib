@@ -247,10 +247,6 @@ PUBLIC STATIC OBJECTTYPE Level2Widget_OverrideSearch EXTEND Level2Widget
   }
 >;
 
-PUBLIC OBJECTTYPE CustomPlugin EXTEND WebDesignPluginBase
-<
->;
-
 PUBLIC BOOLEAN FUNCTION SkipCaptcha(OBJECT webcontext)
 {
   RETURN GetFormWebVariable("skipcaptcha") = "1";
