@@ -676,7 +676,18 @@ DateTime FromText_Asctime(char const* begin, char const* end)
         return retval.first;
 }
 
-DateTime DateTime::FromText(char const* begin, char const* end)
+DateTime DateTime::FromText(char const* begin, char const* end) {
+    DateTime parsed = FromTextRaw(begin, end);
+
+    // Convert equal to or larger than JS maxDateTime to MAX_DATETIME
+    if (parsed.GetDays() > 100719162 || (parsed.GetDays() == 100719162 && parsed.GetMsecs() == 86399999)) {
+        return Blex::DateTime::Max();
+    }
+
+    return parsed;
+}
+
+DateTime DateTime::FromTextRaw(char const* begin, char const* end)
 {
 /*
        HTTP-date    = rfc1123-date | rfc850-date | asctime-date
@@ -698,8 +709,13 @@ DateTime DateTime::FromText(char const* begin, char const* end)
             return Blex::DateTime::Invalid();
 
         //Start with a number?
-        if(Blex::IsDigit(*begin))
+        if(Blex::IsDigit(*begin) || *begin == '+' || *begin == '-')
         {
+                // DateTime can't represent a negative year
+                if (*begin == '-')
+                    return Blex::DateTime::Invalid();
+                if (*begin == '+')
+                    ++begin;
                 char const *first_non_digit = begin+1;
                 while(first_non_digit!=end && Blex::IsDigit(*first_non_digit))
                     ++first_non_digit;
@@ -798,4 +814,3 @@ void CreateHttpDate(Blex::DateTime date, std::string *out)
 }
 
 } //end namespace Blex
-

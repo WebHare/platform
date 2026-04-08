@@ -286,6 +286,11 @@ BLEX_TEST_FUNCTION(TestDatetimeDecode)
         BLEX_TEST_CHECKEQUAL(reference8, Blex::DateTime::FromText("15 May 63 13:15:30 GMT"));
         Blex::DateTime reference9 = Blex::DateTime::FromDateTime (1993, 05, 15, 13, 15, 30);
         BLEX_TEST_CHECKEQUAL(reference9, Blex::DateTime::FromText("15 May 93 13:15:30 GMT"));
+
+        // Test that everything equal or greater than JS maxDatetime is returned as max
+        BLEX_TEST_CHECKEQUAL(Blex::DateTime::Max(), Blex::DateTime::FromText("+275760-09-12T23:59:59.999Z"));
+        BLEX_TEST_CHECKEQUAL(Blex::DateTime::Max(), Blex::DateTime::FromText("+275760-09-13T00:00:00.000Z"));
+        BLEX_TEST_CHECKEQUAL(Blex::DateTime::Max(), Blex::DateTime::FromText("+300000-01-01T00:00:00.000Z"));
 }
 
 namespace Test
@@ -761,4 +766,3 @@ BLEX_TEST_FUNCTION(TestPodVector)
 }
 
 //ADDME: Test get8,16,32 functions, with incorrect alignments
-

@@ -136,6 +136,8 @@ MACRO MiscTest()
   TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:01:00Z"));
   TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:00:01Z"));
   TestEq(DEFAULT DATETIME, MakeDateFromText("2000-01-01T24:00:00.001Z"));
+  TestEq(MakeDateTime(10000,1,2,0,0,0), MakeDateFromText("+100000102T000000Z"));
+  TestEq(MakeDateTime(10000,1,2,0,0,0), MakeDateFromText("+10000-01-02T00:00:00Z"));
 
   TestEq(TRUE, MakeDatefromparts(1,0) < MakeDate(1990,1,1));
   TestEq(TRUE, MakeDatefromparts(-1,0) < MakeDate(1990,1,1));

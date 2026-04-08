@@ -9,7 +9,7 @@ import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { generateRandomId, throwError } from "@webhare/std";
-import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
+import { UUIDToWrdGuid, maxDateTime } from "@webhare/hscompat";
 
 
 const keepHistoryDays = 1;
@@ -143,7 +143,7 @@ async function testChanges() { //  tests
           wrd_id: testPersonId,
           wrd_guid: UUIDToWrdGuid(prefields.wrdGuid),
           wrd_creationdate: prefields.wrdCreationDate,
-          wrd_limitdate: defaultDateTime
+          wrd_limitdate: maxDateTime
         }
       }
     ], change0);
@@ -634,7 +634,7 @@ async function testChanges() { //  tests
           wrd_id: tempperson, //FIXME why is this is the changeset? due to it being a tempBecomingAlive?
           wrd_guid: UUIDToWrdGuid(postfields.wrdGuid), //TODO and guid? although this sounds a bit more reasonable..
           wrd_creationdate: postfields.wrdCreationDate,
-          wrd_limitdate: defaultDateTime,
+          wrd_limitdate: maxDateTime,
           wrdauth_account_status: { status: "active" }
         }
       }
@@ -654,7 +654,7 @@ async function testChanges() { //  tests
         entity: tempperson,
         when: postclosefields.wrdModificationDate,
         oldsettings: {
-          wrd_limitdate: defaultDateTime,
+          wrd_limitdate: maxDateTime,
         },
         modifications: {
           wrd_limitdate: postclosefields.wrdLimitDate,

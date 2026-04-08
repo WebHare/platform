@@ -70,6 +70,9 @@ class BLEXLIB_PUBLIC DateTime
         static DateTime FromText(std::string const &date)
         { return FromText(&date[0],&date[date.size()]); }
 
+        /** Construct a datetime from a text string, doesn't take JS date limits into account */
+        static DateTime FromTextRaw(char const* begin, char const* end);
+
         /** Return the current time as a datime structure */
         static DateTime Now();
 
