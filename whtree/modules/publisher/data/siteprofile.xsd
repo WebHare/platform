@@ -62,10 +62,6 @@
       <xs:selector xpath="./s:fragment" />
       <xs:field xpath="@name" />
     </xs:key>
-    <xs:keyref name="embeddededitors" refer="sp:TabExtensions">
-      <xs:selector xpath=".//sp:embeddededitor" />
-      <xs:field xpath="@extension" />
-    </xs:keyref>
   </xs:element>
 
   <xs:complexType name="ContentType">
