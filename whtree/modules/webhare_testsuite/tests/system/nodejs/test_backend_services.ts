@@ -66,6 +66,7 @@ async function testBasicService(protocol: BackendServiceProtocol) {
     whatsMyName() { return "doggie dog"; }
   }
 
+  await test.wait(async () => (await getPortCounts()).ports === 0 && (await getPortCounts()).pipes === 0, `${protocol}: Waiting for earlier ports and pipes to all close`);
   test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), `${protocol}: initially we should have no open ports`);
 
   const customservicename = "webhare_testsuite:test_" + generateRandomId().toLowerCase();
