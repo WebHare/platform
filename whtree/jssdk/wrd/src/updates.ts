@@ -647,15 +647,15 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       // Find other entity with the same GUID (in the same schema)
       const otherEntity = await db<PlatformDB>()
         .selectFrom("wrd.entities")
-        .select("wrd.entities.id")
         .innerJoin("wrd.types", qb => qb.onRef("wrd.entities.type", "=", "wrd.types.id"))
         .where("guid", "=", splitData.entity.guid)
         .where("wrd.types.wrd_schema", "=", schemadata.schema.id)
         .where("wrd.entities.id", "!=", entityId)
+        .select(["wrd.entities.id", "wrd.types.tag"])
         .executeTakeFirst();
 
       if (otherEntity)
-        throw new Error(`The new WRD_GUID value '${entityData.wrdGuid}' is not unique in this schema, it conflicts with entity #${otherEntity.id}`);
+        throw new Error(`The new WRD_GUID value '${entityData.wrdGuid}' is not unique in this schema, it conflicts with entity ${otherEntity.tag}#${otherEntity.id}`);
     }
 
     if (entityData.wrdLimitDate && type.tag === "wrdSettings") {

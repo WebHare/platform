@@ -1048,6 +1048,11 @@ ASYNC MACRO TestLoadScreen()
   TestEqLike("*invalidattr*", tt("errors")->rows[0].message);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
+  // and second attempt it should stil fail
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline::${invalidscreen}#otherscreen`));
+  TestEqLike("*invalidattr*", tt("errors")->rows[0].message);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   // test xml error not crashing the loader
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(`inline::<badxml>#otherscreen`));
   IF(tt("errors")->rows[0].message LIKE "*remature*")

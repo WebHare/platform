@@ -762,6 +762,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (result.length === 1) {
       await this.updateEntity(result[0], value);
       return [result[0], false];
+    } else if (result.length > 1) {
+      throw new Error(`Query matched multiple entities, expected at most one`);
     }
 
     const newValue = typeof options[0]?.ifNew === "function" ? await options[0].ifNew() : options[0]?.ifNew;

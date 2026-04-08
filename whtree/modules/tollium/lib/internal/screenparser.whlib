@@ -2301,7 +2301,10 @@ RECORD FUNCTION RetrieveCachedValidatedScreen(STRING resourcename)
       RECORD ARRAY errors := SELECT message, line, col := 0, resourcename := resourcename
                                FROM SimplifyXMLValidationErrors(screensschema.doc->ValidateDocument(screen.doc), screen.doc->documentelement);
       IF(Length(errors) > 0)
-          THROW NEW RetrieveResourceException(resourcename, "", errors);
+      {
+        alreadyvalidated := ArrayDelete(alreadyvalidated, [resourcename]); //make sure we'll revalidate it next call
+        THROW NEW RetrieveResourceException(resourcename, "", errors);
+      }
     }
   }
   RETURN screen;

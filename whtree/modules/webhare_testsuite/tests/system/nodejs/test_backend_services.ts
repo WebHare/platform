@@ -70,6 +70,7 @@ async function testBasicService(protocol: BackendServiceProtocol) {
 
   const customservicename = "webhare_testsuite:test_" + generateRandomId().toLowerCase();
   await test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100, protocol }));
+  await test.wait(async () => (await getPortCounts()).ports === 0, `${protocol}: Waiting for port that made the attempt to close`);
   test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), `${protocol}: services.openBackendService failed, should be no open ports`);
 
   const customservice = await runBackendService(customservicename, (arg1?: string, arg2?: string) => new MyService(arg1, arg2), { protocols: [protocol] });

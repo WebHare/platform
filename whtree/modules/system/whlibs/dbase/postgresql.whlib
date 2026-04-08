@@ -95,12 +95,6 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     }
   }
 
-  UPDATE PUBLIC MACRO __ResetTransactionId(INTEGER transid)
-  {
-    LockingTransactionBase::__ResetTransactionId(transid);
-    this->pvt_numworks := __PGSQL_GETWORKOPEN(transid) ? 1 : 0;
-  }
-
   UPDATE STRING FUNCTION GetType()
   {
     RETURN "postgresql";
