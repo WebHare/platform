@@ -89,58 +89,19 @@ export type FormatISO8601DateOptions = {
 };
 
 export function formatISO8601Date(date: Date, options?: FormatISO8601DateOptions) {
+  const dateFormat = options?.dateFormat ?? "day";
+  const timeFormat = options?.timeFormat ?? "seconds";
+  const timeZone = options?.timeZone ?? "UTC";
 
-  if (options?.dateFormat === "empty" && options.timeFormat === "empty")
-    return "";
-
-  // Quick-n-dirty timezone conversion, relying on the fact that the Swedish locale uses ISO8601 date/time notation
-  const formatOptions: Intl.DateTimeFormatOptions = { timeZone: options?.timeZone || "UTC" };
-  // If timezone other than UTC, add timezone to formatter
-  if (options?.timeZone !== "UTC" && options?.timeFormat !== "empty")
-    formatOptions.timeZoneName = "longOffset";
-
-  switch (options?.dateFormat || "day") {
-    case "day": {
-      formatOptions.day = "2-digit";
-    } // fallthrough
-    case "month": {
-      formatOptions.month = "2-digit";
-    } // fallthrough
-    case "year": {
-      formatOptions.year = "numeric";
-      break;
-    }
-    case "empty": {
-      break;
-    }
-  }
-  switch (options?.timeFormat ?? "seconds") {
-    case "milliseconds": {
-      formatOptions.fractionalSecondDigits = 3;
-    } // fallthrough
-    case "seconds": {
-      formatOptions.second = "2-digit";
-    } // fallthrough
-    case "minutes": {
-      formatOptions.minute = "2-digit";
-    } // fallthrough
-    case "hours": {
-      formatOptions.hour = "2-digit";
-      break;
-    }
-    case "empty": {
-      break;
-    }
-  }
-
-  let value = Intl.DateTimeFormat("sv-SE", formatOptions).format(date).replace(" ", "T");
-  if (options?.timeFormat !== "empty") {
-    if (options?.timeZone === "UTC")
-      value += "Z"; // Just add "Z"
-    else
-      value = value.replace(" GMT", ""); // Remove the " GMT" part from " GMT+xxxx"
-    if (options?.timeFormat === "milliseconds")
-      value = value.replace(",", "."); // Replace decimal separator
+  // fast path
+  if (dateFormat === "day" && timeZone === "UTC") {
+    let retval = date.toISOString();
+    if (!options?.extended)
+      retval = retval.replaceAll(/([0-9])[-:]/g, "$1"); // don't replace '-' at the start
+    if (timeFormat === "seconds")
+      return retval.replace(/\.\d{3}Z$/, "Z");
+    if (timeFormat === "milliseconds")
+      return retval;
   }
 
   /* For month representation, only the extended format is allowed.
@@ -149,16 +110,31 @@ export function formatISO8601Date(date: Date, options?: FormatISO8601DateOptions
          Although the standard allows both the YYYY-MM-DD and YYYYMMDD formats for complete calendar date representations,
          if the day [DD] is omitted then only the YYYY-MM format is allowed. By disallowing dates of the form YYYYMM, the
          standard avoids confusion with the truncated representation YYMMDD (still often used).
-
-     Also, don't replace the millisecond separator, it's not optional in the non-extended format.
   */
-  if (!options?.extended) {
-    if (options?.dateFormat !== "month")
-      value = value.replaceAll(/[-:]/g, "");
-    else
-      value = value.replaceAll(/[:]/g, "");
+  const dateSep = options?.extended || dateFormat === "month" ? "-" : "";
+  const timeSep = options?.extended ? ":" : "";
+
+  const zonedDateTime = date.toTemporalInstant().toZonedDateTimeISO(timeZone);
+  const pdt = zonedDateTime.toPlainDateTime();
+
+  let dateStr = "";
+  switch (dateFormat) {
+    case "day": dateStr = dateSep + pdt.day.toString().padStart(2, "0"); // fallthrough
+    case "month": dateStr = dateSep + pdt.month.toString().padStart(2, "0") + dateStr; // fallthrough
+    case "year": dateStr = (pdt.year < 0 ?
+      "-" + (-pdt.year).toString().padStart(6, "0") :
+      pdt.year > 9999 ?
+        "+" + pdt.year.toString().padStart(6, "0") :
+        pdt.year.toString().padStart(4, "0")) + dateStr; // fallthrough
   }
-  return value;
+  let timeStr = "";
+  switch (timeFormat) {
+    case "milliseconds": timeStr = "." + pdt.millisecond.toString().padStart(3, "0"); // fallthrough
+    case "seconds": timeStr = timeSep + pdt.second.toString().padStart(2, "0") + timeStr; // fallthrough
+    case "minutes": timeStr = timeSep + pdt.minute.toString().padStart(2, "0") + timeStr; // fallthrough
+    case "hours": timeStr = pdt.hour.toString().padStart(2, "0") + timeStr; // fallthrough
+  }
+  return dateStr + (dateStr && timeStr ? "T" : "") + timeStr + (timeStr && zonedDateTime.offset.replace("+00:00", "Z").replaceAll(":", timeSep));
 }
 
 export function localizeDate(format: string, date: Date, locale: string, timeZone: string = "UTC") {

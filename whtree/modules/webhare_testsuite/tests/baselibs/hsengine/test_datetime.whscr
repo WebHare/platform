@@ -576,6 +576,14 @@ MACRO ISOTimestampTest()
   TestEq("2001-01-01T12:34:56+01:00", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), [ timezone := "CET" ]));
   TestEq("2001-01T123456+0100", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), [ dateformat := "month", timezone := "CET", extended := FALSE ]));
 
+  TestEq("0201-01-01T12:34Z", FormatISO8601DateTime(MakeDateTime(201,1,1,12,34,56), [ timeformat := "minutes" ]));
+  TestEq("0201-01-01T12:34:56Z", FormatISO8601DateTime(MakeDateTime(201,1,1,12,34,56)));
+  TestEq("0201-01-01T12:34:56.000Z", FormatISO8601DateTime(MakeDateTime(201,1,1,12,34,56), [ timeformat := "milliseconds" ]));
+
+  TestEq("9999-01-01T12:34Z", FormatISO8601DateTime(MakeDateTime(9999,1,1,12,34,56), [ timeformat := "minutes" ]));
+  TestEq("9999-01-01T12:34:56Z", FormatISO8601DateTime(MakeDateTime(9999,1,1,12,34,56)));
+  TestEq("9999-01-01T12:34:56.000Z", FormatISO8601DateTime(MakeDateTime(9999,1,1,12,34,56), [ timeformat := "milliseconds" ]));
+
   TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "year", "empty", "", FALSE));
   TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), [ dateformat := "year", timeformat := "empty",extended := FALSE ]));
   TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "year", "empty", "", TRUE));
@@ -583,14 +591,18 @@ MACRO ISOTimestampTest()
   TestEq("2001-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "month", "empty", "", TRUE));
   TestEq("20010101", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "day", "empty", "", FALSE));
   TestEq("2001-01-01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "day", "empty", "", TRUE));
-  IF (NOT IsWASM()) // Does not support 'week', 'weekday' or 'yearday' dateformats
-  {
+  IF (NOT IsWASM()) { // Does not support 'week', 'weekday' or 'yearday' dateformats
     TestEq("2001W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", FALSE));
     TestEq("2001-W01", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "week", "empty", "", TRUE));
     TestEq("2001W011", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", FALSE));
     TestEq("2001-W01-1", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "weekday", "empty", "", TRUE));
     TestEq("2001001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", FALSE));
     TestEq("2001-001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "yearday", "empty", "", TRUE));
+  } ELSE {
+    // WASM encodes years > 9999 with a leading '+' and 6 digits, even if extended = FALSE (following ISO8601 spec)
+    TestEq("+010000-01-01T12:34:56Z", FormatISO8601DateTime(MakeDateTime(10000,1,1,12,34,56)));
+    TestEq("+010000-01-01T12:34:56.000Z", FormatISO8601DateTime(MakeDateTime(10000,1,1,12,34,56), [ timeformat := "milliseconds" ]));
+    TestEq("+010000-01-01T12:34Z", FormatISO8601DateTime(MakeDateTime(10000,1,1,12,34,56), [ timeformat := "minutes" ]));
   }
 
   TestEq("12Z", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "empty", "hours", "", FALSE));
