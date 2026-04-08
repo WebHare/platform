@@ -44,7 +44,7 @@ async function testServiceState(protocol: BackendServiceProtocol) {
   const randomkey = "KEY" + Math.random();
   await instance1.setShared(randomkey);
   test.eq(randomkey, await instance2.getShared());
-  test.eq(["instance1-" + protocol, "instance2-" + protocol, "instance3-" + protocol], await instance2.getConnections());
+  await test.wait(async () => JSON.stringify(["instance1-" + protocol, "instance2-" + protocol, "instance3-" + protocol]) === JSON.stringify(await instance2.getConnections()));
 
   instance1.close();
   await instance1closed;
@@ -123,7 +123,7 @@ async function testDisconnects(protocol: BackendServiceProtocol) {
   await test.wait(() => numClients === 2, `${protocol}: Both clients should be connected and the service should see them`);
 
   //Send a message to instance 1 and immediately disconnect it. then try instance 2 and see if the service got killed because we dropped the outgoing line
-  const promise = instance1.getAsyncLUE(); //the demoservice should delay 50ms before responding, giving us time to kill the link..
+  const promise = instance1.getAsyncLUE(5000); //give us plenty of time to kill the connection
   await sleep(1); //give the command time to be flushed
   instance1.close(); //kill the link from our side
   await test.throws(/Request is cancelled, link was closed/, promise, `Request should throw`);

@@ -55,8 +55,8 @@ class ClusterTestLink extends ClusterTestLinkBase {
   }
   voidReturn() {
   }
-  async getAsyncLUE() {
-    await new Promise(resolve => setTimeout(resolve, 50));
+  async getAsyncLUE(delay = 50) {
+    await new Promise(resolve => setTimeout(resolve, delay));
     return 42;
   }
   crash() {

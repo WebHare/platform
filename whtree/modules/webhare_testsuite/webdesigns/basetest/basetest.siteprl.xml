@@ -65,7 +65,6 @@
 
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
-    <customplugin objectname="lib/basetest.whlib#customplugin" />
     <webhare_testsuite:test />
 
     <!-- Default types -->

@@ -1150,15 +1150,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             {
               CONTINUE;
             }
-            CASE "customplugin"
-            {
-              RECORD plugin := MakePluginRecord(this->ParseFunctionRef(node, "library", "objectname", "4.30.0"));
-              plugin := InstantiatePlugin(plugin);
-              plugin.combine := FALSE;
-
-              INSERT plugin INTO apply.plugins AT END;
-              CONTINUE;
-            }
             CASE "setlibrary"
             {
               INSERT [ name := node->GetAttribute("name")
