@@ -33,25 +33,25 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
     IF(GetWebVariable("form")!="")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
-           , [ anyform  := this->webdesign->GetWittyDataForForm(GetWebVariable("form"))
+           , [ anyform  := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#" || GetWebVariable("form"))
              ]);
     }
     ELSE IF(GetWebVariable("email")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
-           , [ anyform  := this->webdesign->GetWittyDataForForm("emailform")
+           , [ anyform  := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#emailform")
              ]);
     }
     ELSE IF(GetWebVariable("rtd")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:rtdform")
-           , [ rtdform  := this->webdesign->GetWittyDataForForm("rtdtest")
+           , [ rtdform  := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#rtdtest")
              ]);
     }
     ELSE IF(GetWebVariable("dynamic")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:dynamicform")
-           , [ dynamicform := this->webdesign->GetWittyDataForForm("dynamictest")
+           , [ dynamicform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#dynamictest")
              ]);
     }
     ELSE IF(GetWebVariable("multipage")="1")
@@ -63,7 +63,7 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
     ELSE IF(GetWebVariable("address") != "")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:addressform")
-           , [ addressform := this->webdesign->GetWittyDataForForm("addressform")
+           , [ addressform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#addressform")
              ]);
     }
     ELSE IF(GetWebVariable("redirect")="1")
@@ -75,37 +75,39 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
     ELSE IF(GetWebVariable("redirectdelay")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:redirectform")
-           , [ redirectform := this->webdesign->GetWittyDataForForm("redirectdelayform")
+           , [ redirectform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#redirectdelayform")
              ]);
     }
     ELSE IF(GetWebVariable("workhandlingerrors")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:workhandlingerrorsform")
-           , [ workhandlingerrorsform := this->webdesign->GetWittyDataForForm("workhandlingerrorsform")
+           , [ workhandlingerrorsform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#workhandlingerrorsform")
                             ]);
     }
     ELSE IF(GetWebVariable("array")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:arrayform")
-           , [ arrayform := this->webdesign->GetWittyDataForForm("arrayform")
+           , [ arrayform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#arrayform")
              ]);
     }
     ELSE IF(GetWebVariable("datetime")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
-           , [ anyform := this->webdesign->GetWittyDataForForm("datetimeform")
+           , [ anyform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#datetimeform")
              ]);
     }
     ELSE IF(GetWebVariable("visibleconditions")="1")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:anyform")
-           , [ anyform := this->webdesign->GetWittyDataForForm("visibleconditionsform")
+           , [ anyform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#visibleconditionsform")
              ]);
     }
     ELSE
     {
+      //we're leaving ONE old style reference to verify anonymous <formdefinitions> in site profiles still work
+      STRING formname := this->webdesign->targetsite->name = "webhare_testsuite.testsitejs" ? "webhare_testsuite:formdefs#coretest" : "coretest";
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:forms")
-           , [ coreform := this->webdesign->GetWittyDataForForm("coretest", [ formref := "CORE-TEST-FORM"])
+           , [ coreform := this->webdesign->GetWittyDataForForm(formname, [ formref := "CORE-TEST-FORM"])
              , globalform := this->webdesign->GetWittyDataForForm("webhare_testsuite:global#globaltest")
              ]);
     }

@@ -1,7 +1,7 @@
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { verifyJWT, type JWKS } from "./identity";
-import type { WRDSchema, WRDSchemaType } from "@webhare/wrd";
+import type { AnyWRDSchema, WRDSchema, WRDSchemaType } from "@webhare/wrd";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { encodeString, pick, throwError, toCamelCase, toSnakeCase, type ToSnakeCase } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
@@ -43,7 +43,7 @@ export type OAuth2PromptFlag = "" | "login" | "none" | "select_account";
 export interface OAuth2LoginRequestOptions {
   prompt?: OAuth2PromptFlag;
   addScopes?: string[];
-  /** Enable to receive a 'raw' landing on the returnto url (eg the OIDC metadata */
+  /** Enable to receive a 'raw' landing on the returnto url. Handle the landing using handleOAuth2AuthorizeLanding */
   rawLanding?: boolean;
 }
 
@@ -396,8 +396,14 @@ export async function handleOAuth2LandingPage(req: WebRequest): Promise<WebRespo
   return createRedirectResponse(gotoUrl.toString());
 }
 
-export async function fetchUserInfo(wrdSchema: WRDSchemaType, client: number, accessToken: string) {
-  const spData = await wrdSchema.getFields("wrdauthOidcClient", client, ["metadataurl"]);
+/** Get user details from the userinfo endpoint
+ * @param wrdSchema - WRD Schema containing the provider
+ * @param provider - Provider (wrdId or wrdTag)
+ * @param accessToken - Access token to use for the userinfo request
+*/
+export async function fetchUserInfo(wrdSchema: AnyWRDSchema, provider: number | string, accessToken: string) {
+  const providerId = typeof provider === "number" ? provider : await wrdSchema.find("wrdauthOidcClient", { wrdTag: provider }) ?? throwError(`No OIDC provider with tag ${provider} found`);
+  const spData = await wrdSchema.getFields("wrdauthOidcClient", providerId, ["metadataurl"]);
   const providerInfo = await getOpenIDConnectMetadata(spData.metadataurl);
   if (!providerInfo.config.userinfo_endpoint)
     throw new Error(`OIDC provider at ${spData.metadataurl} has no userinfo_endpoint, can't fetch user info`);
