@@ -1,0 +1,6 @@
+# Dynamic page for strutureddata and opengraph tests
+type: webhare_testsuite:base_test.metadata
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      publish: true

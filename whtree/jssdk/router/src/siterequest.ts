@@ -19,7 +19,7 @@ import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
-import { PageMetaData } from "./metadata";
+import { PageMetaData, getOpenGraphData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
@@ -450,6 +450,10 @@ export class CPageRequest {
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${settings.assetpack}' not found`);
 
+    const ogData = getOpenGraphData(this.pageMetaData);
+    if (ogData.length)
+      this.pageMetaData.registerHTMLPrefix("og", "http://ogp.me/ns#");
+
     return litty`<!DOCTYPE html>
 <html lang="${settings.lang}"
       dir="${this.pageMetaData.htmlDirection}"
@@ -461,10 +465,6 @@ export class CPageRequest {
     <meta charset="utf-8">
     <title>${this.pageMetaData.title}</title>
     ${this.pageMetaData.viewport ? litty`<meta name="viewport" content="${this.pageMetaData.viewport}">` : ''}
-    ${this.pageMetaData.description ? litty`<meta name="description" content="${this.pageMetaData.description}">` : ''}
-    ${this.pageMetaData.keywords ? litty`<meta name="keywords" content="${this.pageMetaData.keywords}">` : ''}
-    ${this.pageMetaData.canonicalUrl ? litty`<link rel="canonical" href="${this.pageMetaData.canonicalUrl}">` : ''}
-    ${head ?? ''}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
     ${litty`<script type="application/json" id="wh-config">${rawLitty(stringify(this.frontendConfig, { target: "script", typed: true }))}</script>`}
     ${    /* TODO cachebuster /! support
@@ -474,6 +474,11 @@ export class CPageRequest {
 
       rawLitty(getAssetPackIntegrationCode(settings.assetpack))}
     ${this.__insertions["dependencies-bottom"] ? await this.__renderInserts("dependencies-bottom") : ''}
+    ${this.pageMetaData.description ? litty`<meta name="description" content="${this.pageMetaData.description}">` : ''}
+    ${this.pageMetaData.keywords ? litty`<meta name="keywords" content="${this.pageMetaData.keywords}">` : ''}
+    ${this.pageMetaData.canonicalUrl ? litty`<link rel="canonical" href="${this.pageMetaData.canonicalUrl}">` : ''}
+    ${ogData.map(item => litty`<meta property="${item.property}" content="${item.content}">`)}
+    ${head ?? ''}
     ${this.renderRobotsTag()}
     ${
       //FIXME

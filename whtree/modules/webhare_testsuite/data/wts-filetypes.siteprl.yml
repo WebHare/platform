@@ -20,6 +20,13 @@ types:
     dynamicExecution:
       contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
 
+  base_test.metadata:
+    metaType: page
+    workflow: false
+    title: WTS Page Metadata test page
+    dynamicExecution:
+      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderMetadataTestPage
+
   wrdauth.testpage:
     metaType: page
     workflow: false

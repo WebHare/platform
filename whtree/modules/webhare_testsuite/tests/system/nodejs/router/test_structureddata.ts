@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
-import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { fetchPreviewAsDoc, getAsDoc } from "@mod-webhare_testsuite/js/whfs";
 
 async function testBreadCrumbs() {
   const testSiteRoot: string = (await test.getTestSiteJS()).webRoot!;
@@ -37,4 +37,17 @@ async function testBreadCrumbs() {
   }, faq);
 }
 
-test.runTests([testBreadCrumbs]);
+async function testOpenGraph() {
+  {
+    const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
+    const og = test.extractOpenGraphData(parsed.doc);
+    test.eq({
+      url: /\/TestPages\/StaticPage\/$/
+    }, og);
+  }
+}
+
+test.runTests([
+  testBreadCrumbs,
+  testOpenGraph
+]);

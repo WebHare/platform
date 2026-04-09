@@ -13,6 +13,7 @@ import type { Thing, WithContext } from "schema-dts";
 import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
 import type * as xmldom from "@xmldom/xmldom";
 import { omit } from "@webhare/std";
+import type { OpenGraphMetadata } from "@webhare/router/src/metadata";
 
 export function reportAssertError(stack: string) {
   const badline = stacktrace_parser.parse(stack)[1];
@@ -187,6 +188,35 @@ export function extractSchemaOrgData(doc: Document | xmldom.Document): Exclude<T
   }
 
   return omit(things.filter(_ => _["@context"] === "https://schema.org"), ["@context"]) satisfies Exclude<Thing, string>[];
+}
+
+export function extractOpenGraphData(doc: Document | xmldom.Document): OpenGraphMetadata | null {
+  const htmlElementPrefixes = (doc as Document).documentElement.getAttribute("prefix") || "";
+  if (!htmlElementPrefixes.match(/og: http:\/\/ogp.me\/ns#/))
+    return null; //missing the opengraph declaration
+
+  type KeysWithStringValues<T> = {
+    [K in keyof T]: Extract<T[K], string> extends never ? never : K
+  }[keyof T];
+
+  const ogRootMap: Record<string, KeysWithStringValues<OpenGraphMetadata>> = {
+    "og:title": "title",
+    "og:description": "description",
+    "og:url": "url",
+    "og:type": "type",
+    "og:site_name": "siteName"
+  } as const;
+
+  const ogdata: OpenGraphMetadata = {};
+  for (const meta of elements((doc as Document).getElementsByTagName("meta"))) {
+    const property = meta.getAttribute("property");
+    const content = meta.getAttribute("content");
+    if (property?.startsWith("og:") && ogRootMap[property] && content) {
+      ogdata[ogRootMap[property]] = content;
+    }
+  }
+  //TODO image/video fields
+  return ogdata;
 }
 
 export { getActiveGenerators } from "./inspect-helpers";
