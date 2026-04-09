@@ -21,6 +21,14 @@ async function getPortCounts() {
   };
 }
 
+/** Wait for port counts to reach the expected values. This is often needed when expecting the number of open ports/pipes to drop as garbage collection/async events may delay that */
+async function waitForPortCounts(expected: { pipes: number; ports: number }, annotation?: string) {
+  await test.wait(async () => {
+    const counts = await getPortCounts();
+    return counts.pipes === expected.pipes && counts.ports === expected.ports;
+  }, annotation);
+}
+
 async function prep() {
   //Make sure we don't count ports that are already there before we start testing. Eg under 'runtest' we'll already have 2 PipeWraps
   const initialState = await getPortCounts();
@@ -66,13 +74,11 @@ async function testBasicService(protocol: BackendServiceProtocol) {
     whatsMyName() { return "doggie dog"; }
   }
 
-  await test.wait(async () => (await getPortCounts()).ports === 0 && (await getPortCounts()).pipes === 0, `${protocol}: Waiting for earlier ports and pipes to all close`);
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), `${protocol}: initially we should have no open ports`);
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: Waiting for earlier ports and pipes to all close`);
 
   const customservicename = "webhare_testsuite:test_" + generateRandomId().toLowerCase();
   await test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100, protocol }));
-  await test.wait(async () => (await getPortCounts()).ports === 0, `${protocol}: Waiting for port that made the attempt to close`);
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), `${protocol}: services.openBackendService failed, should be no open ports`);
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: services.openBackendService failed, should be no open ports`);
 
   const customservice = await runBackendService(customservicename, (arg1?: string, arg2?: string) => new MyService(arg1, arg2), { protocols: [protocol] });
   test.eq({ ports: protocol === "bridge" ? 1 : 0, pipes: protocol === "unix-socket" ? 1 : 0 }, await getPortCounts(), `${protocol}: Service opens a port`);
@@ -96,7 +102,7 @@ async function testBasicService(protocol: BackendServiceProtocol) {
     if (protocol !== disabledProtocol)
       await test.throws(/Service.*is unavailable/, services.openBackendService(customservicename, [], { timeout: 100, protocol: disabledProtocol }));
 
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts());
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: After closing, should have no open ports or pipes`);
 }
 
 async function testDisconnects(protocol: BackendServiceProtocol) {
@@ -138,7 +144,7 @@ async function testDisconnects(protocol: BackendServiceProtocol) {
   await test.wait(() => numClients === 0, `${protocol}: Service should see the client has gone away`);
 
   customservice.close();
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts());
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: After closing, should have no open ports or pipes`);
 }
 
 async function testServiceTimeout(protocol: BackendServiceProtocol) {
@@ -155,21 +161,21 @@ async function testServiceTimeout(protocol: BackendServiceProtocol) {
   customservice.close();
   slowserviceconnected.close();
 
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts());
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: After closing, should have no open ports or pipes`);
 }
 
 async function runBackendServiceTest_JS(protocol: BackendServiceProtocol) {
   await test.throws(/Service 'webharedev_jsbridges:nosuchservice' is unavailable.*/, services.openBackendService("webharedev_jsbridges:nosuchservice", ["x"], { timeout: 300, linger: true, protocol }));
   await new Promise(r => setTimeout(r, 5));
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts());
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: Failed attempts above should not have kept a pending reference`);
 
   test.assert(await services.openBackendService("webhare_testsuite:demoservice", [], { protocol, awaitConstructor: true }), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "Failed and closed attempts above should not have kept a pending reference");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: Failed and closed attempts above should not have kept a pending reference`);
 
   dumpActiveIPCMessagePorts();
   //TODO test without awaitConstructor, test constructor without arguments (which doesn't trigger a RPC over unix-socket)
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:demoservice", ["abort"], { protocol, awaitConstructor: true }), `${protocol}: Want to see 'abort' thrown`);
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "Failed and closed attempts above should not have kept a pending reference");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: Failed and closed attempts above should not have kept a pending reference`);
 
   const serverinstance = await services.openBackendService<any>("webhare_testsuite:demoservice", ["x"], { protocol });
   test.eq(42, await serverinstance.getLUE());
@@ -200,39 +206,39 @@ async function runBackendServiceTest_JS(protocol: BackendServiceProtocol) {
 
   test.eq({ arg1: 45, arg2: { contact: { contactNo: "C1" } } }, await serverinstance.ping(45, { contact: { contactNo: "C1" } }));
 
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "Our version of the demoservice wasn't lingering, so no references");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: Our version of the demoservice wasn't lingering, so no references`);
   serverinstance.close();
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "and close() should have no effect");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: and close() should have no effect`);
 
   const secondinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"], { linger: true, protocol });
   if (protocol === "bridge")
-    test.eq({ pipes: 0, ports: 1 }, await getPortCounts(), "With linger, we take a reference");
+    await waitForPortCounts({ pipes: 0, ports: 1 }, `${protocol}: With linger, we take a reference`);
   else
-    test.eq({ pipes: 1, ports: 0 }, await getPortCounts(), "With linger, we take a reference");
+    await waitForPortCounts({ pipes: 1, ports: 0 }, `${protocol}: With linger, we take a reference`);
   secondinstance.close();
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "and close() should drop that reference");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `${protocol}: and close() should drop that reference`);
 }
 
 async function runBackendServiceTest_HS() {
   await test.throws(/Invalid/, services.openBackendService("webhare_testsuite:webhareservicetest"), "HareScript version *requires* a parameter");
   await test.throws(/abort/, services.openBackendService("webhare_testsuite:webhareservicetest", ["abort"]));
 
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "Failed attempts above should not have kept a pending reference");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `HS: Failed attempts above should not have kept a pending reference`);
 
   const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"], { linger: true });
-  test.eq({ pipes: 0, ports: 1 }, await getPortCounts(), "services.openBackendService should immediately keep a reference open");
+  await waitForPortCounts({ pipes: 0, ports: 1 }, `HS: services.openBackendService should immediately keep a reference open`);
   test.eq(42, await serverinstance.GETLUE());
 
   let promise = serverinstance.GETASYNCLUE();
   test.eq(42, await serverinstance.GETLUE());
   test.eq(42, await promise);
 
-  await test.throws(/Crash/, serverinstance.CRASH());
+  test.throws(/Crash/, serverinstance.CRASH());
 
   promise = serverinstance.GETASYNCLUE();
   const promise2 = serverinstance.GETASYNCCRASH();
 
-  await test.throws(/Async crash/, promise2);
+  test.throws(/Async crash/, promise2);
 
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.PING(41, 43));
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ASYNCPING(41, 43));
@@ -241,7 +247,7 @@ async function runBackendServiceTest_HS() {
   test.eq({ arg1: null, arg2: [0, null, null, 2, { a: 3, c: null }] }, await serverinstance.PING(undefined, [0, undefined, null, 2, { a: 3, b: undefined, c: null }]));
 
   serverinstance.close();
-  test.eq({ pipes: 0, ports: 0 }, await getPortCounts(), "And the reference should be cleaned after close");
+  await waitForPortCounts({ pipes: 0, ports: 0 }, `HS: And the reference should be cleaned after close`);
 }
 
 async function runBackendServiceTest_Events(protocol: BackendServiceProtocol) {
