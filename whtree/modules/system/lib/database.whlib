@@ -386,7 +386,7 @@ PUBLIC OBJECT FUNCTION __INTERNAL_GetSystemSchemaBinding()
 
 /** Opens the primary database connection
     @long The primary database connection (or transaction) is used to bind all global database schemas to
-    @return Primary transction object. Throws upon error.
+    @return Primary transaction object. Throws upon error.
 */
 PUBLIC OBJECT FUNCTION OpenPrimary(RECORD options DEFAULTSTO CELL[])
 {
