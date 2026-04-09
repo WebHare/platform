@@ -55,9 +55,6 @@ async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Pro
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: PGConnection): Promise<void> {
-  //manually setting as workaround for https://github.com/panates/postgrejs/issues/51. but once we start pooling and reuse connections we'll need to do this too
-  await pg.query(`SET application_name = '${process.pid}:${bridge.getGroupId()}'`);
-
   // when another connection is already configuring, wait for it
   // eslint-disable-next-line no-unmodified-loop-condition -- the other connection will modify `configuration`
   while (!configuration && configurationPromise) {
@@ -118,8 +115,8 @@ export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST ?? ""),
     database: process.env.WEBHARE_DBASENAME ?? "",
     user: "postgres",
-    codecContext: { uploadTracker }
-    //applicationName: process.pid + ':' + bridge.getGroupId() //FIXME https://github.com/panates/postgrejs/issues/51
+    codecContext: { uploadTracker },
+    applicationName: `${process.pid}:${bridge.getGroupId()}`,
   });
 
   //if (debugFlags["pg-logcommands"])

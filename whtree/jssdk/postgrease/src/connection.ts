@@ -23,6 +23,7 @@ export type PGConnectionOptions = {
   ssl?: tls.ConnectionOptions;
   codecRegistry?: CodecRegistry;
   codecContext?: CodecContext;
+  applicationName?: string;
 };
 
 export type PGExecuteOptions = {
@@ -67,7 +68,7 @@ export async function connect(connectionOptions: PGConnectionOptions = {}): Prom
     let backendKeyData: BackendKeyData | null = null;
 
     // Write the startup message and read the response
-    const startupIdx = socket.write(b => b.startupMessage(connectionOptions.user || process.env.PGUSER || "postgres", connectionOptions.database || process.env.PGDATABASE || "postgres"));
+    const startupIdx = socket.write(b => b.startupMessage(connectionOptions.user || process.env.PGUSER || "postgres", connectionOptions.database || process.env.PGDATABASE || "postgres", connectionOptions));
     while (true) {
       { const res = socket.readPacket(); if (res) await res; }
 

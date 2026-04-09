@@ -77,12 +77,14 @@ export class RequestBuilder {
     this.idx += 4;
   }
 
-  startupMessage(username: string, database: string) {
-    this.initPacket(0, 42 + Buffer.byteLength(username) + Buffer.byteLength(database));
+  startupMessage(username: string, database: string, options?: { applicationName?: string }) {
+    this.initPacket(0, 42 + Buffer.byteLength(username) + Buffer.byteLength(database) + (options?.applicationName ? Buffer.byteLength(options.applicationName) + 18 : 0));
     this.dataview.setUint32(this.idx, 196610); // Protocol version 3.0
     this.idx += 4;
     this.idx += this.buffer.utf8Write(`user\0${username}\0`, this.idx);
     this.idx += this.buffer.utf8Write(`database\0${database}\0`, this.idx);
+    if (options?.applicationName)
+      this.idx += this.buffer.utf8Write(`application_name\0${options.applicationName}\0`, this.idx);
     this.idx += this.buffer.utf8Write(`client_encoding\0UTF8\0\0`, this.idx);
   }
 
