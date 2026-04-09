@@ -161,3 +161,21 @@ PUBLIC MACRO __ValidateWebdesign(OBJECT applytester)
     THROW NEW Exception(`The module for webdesign '${webdesigntoks[0]}' is not installed`);
 
 }
+
+/** resolve_attributes must be an uppercase array */
+PUBLIC RECORD FUNCTION ParseYamlPluginConfig(RECORD basesettings, RECORD ARRAY props, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ resolve_attributes := STRING[] ], options);
+  RECORD setting := basesettings;
+
+  FOREVERY(RECORD p FROM props)
+    FOREVERY(RECORD field FROM UnpackRecord(p)) {
+      IF(field.name IN ["SOURCE"])
+        CONTINUE;
+      ELSE IF(field.name IN options.resolve_attributes)
+        setting := CellUpdate(setting, field.name, MakeAbsoluteResourcePath(p.source.siteprofile, field.value));
+      ELSE
+        setting := CellUpdate(setting, field.name, field.value);
+    }
+
+  RETURN setting;
+}

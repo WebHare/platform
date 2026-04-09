@@ -64,7 +64,7 @@ MACRO SetupTestSite(OBJECT testsite) {
 
   RECORD result := ImportIntoWHFS(testsite->rootobject->parent, [
       sourcepath := GetWebHareResourceDiskPath("mod::webhare_testsuite/data/whfs"),
-      printprogress := TRUE,
+      // printprogress := TRUE,
       allowresourceimports := TRUE,
       rename := [["from" := "webhare_testsuite.testsite/", "to" := testsite->name || "/"]],
       ifexists := "overwrite"

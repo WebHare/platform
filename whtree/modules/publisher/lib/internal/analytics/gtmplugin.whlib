@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 
@@ -18,34 +19,28 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   PUBLIC PROPERTY script(pvt_script, SetScript);
   PUBLIC PROPERTY pixel(pvt_pixel, SetPixel);
 
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RETURN [ account := node->GetAttribute("account")
-           , integration := node->GetAttribute("integration") ?? "script"
-           , launch := node->GetAttribute("launch") ?? "pagerender"
-           , script := node->GetAttribute("script")
-           , pixel := node->GetAttribute("pixel")
-           ];
+  UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) { //override this to receive configuration from plugins with yaml_property=
+    RECORD config := ParseYamlPluginConfig(CELL[
+      account := "",
+      integration := "script",
+      launch := "pagerender",
+      script := "",
+      pixel := ""
+    ], records);
+
+    this->webdesign := webcontext;
+
+    this->pvt_account := config.account;
+    this->pvt_integration := config.integration;
+    this->pvt_launch := config.launch;
+    this->pvt_script := config.script;
+    this->pvt_pixel := config.pixel;
   }
 
   MACRO ValidateCode(STRING code)
   {
     IF(code != "")
       ValidateGTMCode(code);
-  }
-
-  UPDATE PUBLIC MACRO ConfigurePlugin(OBJECT webdesign, RECORD config)
-  {
-    this->webdesign := webdesign;
-
-    this->pvt_account := config.account;
-    this->pvt_integration := config.integration;
-    this->pvt_launch := config.launch;
-    IF(CellExists(config,'script')) //5.5/5.6: in case we *just* upgraded and still need to recompile CSP
-    {
-      this->pvt_script := config.script;
-      this->pvt_pixel := config.pixel;
-    }
   }
 
   UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)

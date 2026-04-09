@@ -514,7 +514,9 @@
     <webdesignplugin name="gtm"
                      composerhook="js/internal/plugins/gtmplugin.ts#hookComposer"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
-                     objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" />
+                     objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin"
+                     toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetGTMAsYaml"
+                     yamlproperty="gtm"/>
     <webdesignplugin name="googleanalytics"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />

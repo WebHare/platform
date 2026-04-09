@@ -99,6 +99,13 @@ async function testSiteProfiles() {
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
   test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#TestAuthCustomizer', wrdauth.customizer);
 
+  const designinfo = await (await getApplyTesterForObject(testsitefile)).getWebDesignInfo();
+  const designAuthPlugin = designinfo.plugins.find(_ => _.namespace === "http://www.webhare.net/xmlns/wrd" && _.name === "wrdauth");
+  test.eqPartial({
+    datas:
+      [{ cookieName: "webharelogin-wrdauthjs", source: { siteProfile: "mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.xml" } }]
+  }, designAuthPlugin);
+
   const wrdauthFromMock = await (await getApplyTesterForMockedObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
   test.eq(wrdauth, wrdauthFromMock);
 

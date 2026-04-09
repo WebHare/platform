@@ -28,3 +28,4 @@ export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookup
 
 export { createWHFSExportZip, storeWHFSExport, type ExportWHFSOptions } from "./export";
 export { importIntoWHFS, type ImportWHFSOptions, type ImportWHFSResult, type ImportWHFSProgress } from "./import";
+export { parseYamlPluginConfig } from "./applytester";

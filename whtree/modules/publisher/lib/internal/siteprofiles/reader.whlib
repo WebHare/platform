@@ -1398,10 +1398,9 @@ STATIC OBJECTTYPE ApplyRuleTester <
       plugins := plugins CONCAT apply.plugins;
 
     RETURN
-        SELECT AS RECORD ARRAY CellInsert(Any(plugins), "DATAS", Any(plugins).yaml_property = "" ? GroupedValues(data) : this->GetYamlPluginSettings(Any(plugins).yaml_property))
+        SELECT AS RECORD ARRAY CellInsert(Any(plugins), "DATAS", Any(plugins).yaml_property = "" ? GroupedValues(CellExists(plugins,'data') ? plugins.data : DEFAULT RECORD) : this->GetYamlPluginSettings(Any(plugins).yaml_property))
           FROM plugins
-      GROUP BY combine ? "name:" || name : "id:" || ToString(#plugins)
-             , combine ? namespace : "";
+      GROUP BY "name:" || name, namespace;
   }
 
   PUBLIC RECORD FUNCTION GetPluginConfiguration(STRING namespace, STRING localname)

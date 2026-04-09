@@ -5,7 +5,7 @@
 
 import { describeWHFSType, openFileOrFolder, openFolder, openSite, whfsType, type Site, type WHFSFolder, type WHFSObject, type WHFSTypeName } from "@webhare/whfs";
 import type { WebRequest } from "./request";
-import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesigndriver";
 import { importJSFunction, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
@@ -23,9 +23,14 @@ import { PageMetaData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
+import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 
 export type PluginInterface<API extends object> = {
   api: API;
+};
+
+export type PagePluginInit = {
+  settings: RawPluginSettings[];
 };
 
 /** @deprecated WH6.0 switches to PageBuilderFunction */
@@ -38,7 +43,7 @@ export type PageBuilderFunction = (request: PageBuildRequest) => Promise<WebResp
 export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceData) => Promise<Litty>;
 
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
-export type PagePluginFunction<PluginDataType = Record<string, unknown>> = (req: PagePluginRequest, plugindata: PluginDataType) => Promise<void> | void;
+export type PagePluginFunction = (init: PagePluginInit, req: PagePluginRequest) => Promise<void> | void;
 
 type ContentPageRequestOptions = {
   statusCode?: number;
@@ -93,13 +98,18 @@ export class CPageRequest {
   readonly pageMetaData = new PageMetaData();
 
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
-  protected _applyTester!: WHFSApplyTester;
+
+  /** Apply tester for the target object. Not exposed through official interfaces as applyteser itself is still an internal object */
+  public _applyTester!: WHFSApplyTester;
   /** If we're publishing a content link, the link's apply tester. Otherwise identical to _applyTester */
   protected _contentApplyTester!: WHFSApplyTester;
   protected _siteLanguage!: string;
   protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
   private _statusCode: number;
   private _isEditorPreview: boolean;
+
+  /** Did we initialize the plugins yet? */
+  private didInitializePlugins = false;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
   __insertions: { [key in InsertPoints]?: Insertable[] } = {};
@@ -285,6 +295,19 @@ export class CPageRequest {
     return (request: ContentPageRequest) => request.buildWebPage(litty``);
   }
 
+  /** Initialize plugins */
+  async initializePlugins() {
+    if (this.didInitializePlugins)
+      return;
+
+    this.didInitializePlugins = true;
+    for (const plugin of this._publicationSettings.plugins) {
+      if (plugin.composer_hook) {
+        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))({ settings: plugin.datas }, this);
+      }
+    }
+  }
+
   /** Render the given HTML using the proper pageBuilder call (aka WebDesign in HareScript)
    * @param page - Generated HTML to embed (generally into the `<main>` container of the page)
   */
@@ -295,12 +318,7 @@ export class CPageRequest {
       return wrapHSWebdesign(this);
 
     // Now that we're pretty sure we'll be generating HTML, initialize plugins
-    for (const plugin of this._publicationSettings.plugins) {
-      if (plugin.composer_hook) {
-        const plugindata = buildPluginData(plugin.datas);
-        await (await importJSFunction<PagePluginFunction>(plugin.composer_hook))(this, plugindata);
-      }
-    }
+    await this.initializePlugins();
 
     if (!this._publicationSettings.pageBuilder) {
       if (this._publicationSettings.siteResponseFactory) {
@@ -499,11 +517,28 @@ export class CPageRequest {
     });
   }
 
+  /** Get a plugin by its API type
+   *
+   * @param api - The API type of the plugin to retrieve
+   * @returns The plugin implementing the specified API, or null if no such plugin exists.
+   * @throws Error if plugins have not been initialized yet (by calling initializePlugins()). A pageBuilder doesn't need to invoke this, but a contentBuilder should (as we delay initialization until we're sure we'll be building HTML)
+   */
   getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
+    if (!this.didInitializePlugins)
+      throw new Error(`A contentBuilder must call initializePlugins() before plugins can be accessed`);
+
     return this.plugins[api]?.api || null;
   }
 
+  /** Add a plugin
+   *
+   * @param api - The API type of the plugin to add
+   * @param plugin - The plugin implementing the specified API
+   */
   addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
+    if (!this.didInitializePlugins)
+      throw new Error(`A contentBuilder must call initializePlugins() before plugins can be accessed`);
+
     this.plugins[api] = { api: plugin };
   }
 
@@ -554,9 +589,9 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
-export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer">;
+export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
-export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "addPlugin" | "content" | "getPageBuilderData">;
+export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;
 
 export type PagePluginRequest = PageRequestBase & Pick<CPageRequest, "getPlugin" | "addPlugin">;
 

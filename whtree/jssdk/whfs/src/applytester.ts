@@ -1,18 +1,21 @@
-import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow, CSPDynamicExecution, CSPBaseProperties } from "./siteprofiles";
-import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions, whfsType } from "./whfs";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, RawPluginSettings, CSPDynamicExecution, CSPBaseProperties, CSPPlugin } from "./siteprofiles";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
-import { emplace, nameToSnakeCase, omit, pick, slugify, toCamelCase } from "@webhare/std";
+import { emplace, nameToSnakeCase, pick, slugify, toCamelCase } from "@webhare/std";
 import { getExtractedConfig, getExtractedHSConfig } from "@mod-system/js/internal/configuration";
-import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
+import { isHistoricWHFSSpace, openFileOrFolder, openFolder, type WHFSFolder, type WHFSObject } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
-import { getType } from "./describe";
+import { describeWHFSType, getType } from "./describe";
+import { resolveResource } from "@webhare/services";
+import type { ApplyAuth } from "@mod-platform/generated/schema/siteprofile";
+import { openType, whfsType } from "@webhare/whfs/src/contenttypes";
+import { lookupURL, type LookupURLOptions } from "./lookupurl";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -32,8 +35,8 @@ export type WRDAuthPluginSettings = {
   lastLoginField: string | null;
 };
 
-interface PluginData extends CSPPluginBase {
-  datas: CSPPluginDataRow[];
+interface PluginData extends CSPPlugin {
+  datas: RawPluginSettings[];
 }
 
 interface SiteApplicabilityInfo {
@@ -74,30 +77,28 @@ function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: num
     || rule_siteprofileids.filter(_ => test_siteprofileids.includes(_)).length > 0; //intersection between sets
 }
 
-export function buildPluginData(datas: CSPPluginDataRow[]): Omit<CSPPluginDataRow, '__attributes' | '__location'> {
-  /* this is the more-or-less equivalent of CombinePartialNodes. it receives one or more records of the format
+export function parseYamlPluginConfig<T = Record<string, unknown>>(rows: RawPluginSettings[], options?: { resolveAttributes?: string[] }): T {
+  const settings: Record<string, unknown> = {};
+  for (const row of rows) {
+    for (const [field, value] of Object.entries(row)) {
+      if (field === "source")
+        continue;
 
-    account: 'GTM-TN7QQM',
-    integration: 'script',
-    launch: 'pagerender',
-    __attributes: [ 'ACCOUNT' ],
-    __location: 'mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.xml:63'
-
-    It should take the first record as returnvalue (without the __ props) and for the following records, merge only the cells mentioned in __attributes.
-    Note that __attributes is uppercase but the cells themselvs are lowercase
-   */
-  const data = omit(datas[0], ['__attributes', '__location']);
-  for (const row of datas.slice(1))
-    for (const key of row.__attributes.map(attr => attr.toLowerCase()))
-      data[key] = row[key];
-
-  return data;
+      if (options?.resolveAttributes?.includes(field))
+        settings[field] = resolveResource(row.source.siteProfile, value as string);
+      else
+        settings[field] = value;
+    }
+  }
+  return settings as T;
 }
 
-export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthPluginSettings {
-  const wrdSchema = data?.wrdschema as string || null;
+export function getWRDPlugindata(rows: RawPluginSettings[]): WRDAuthPluginSettings {
+  const data = parseYamlPluginConfig<ApplyAuth>(rows, { resolveAttributes: ["supportObjectName", "customizer", "authPagesWitty"] });
+
+  const wrdSchema = data?.wrdSchema as string || null;
   // TODO More users should probably rely on automatic cookieName selection!
-  const cookieName = (data?.cookiename as string | null) || (wrdSchema ? "webharelogin-" + slugify(wrdSchema.replaceAll(":", "-")) : "webharelogin");
+  const cookieName = (data?.cookieName as string | null) || (wrdSchema ? "webharelogin-" + slugify(wrdSchema.replaceAll(":", "-")) : "webharelogin");
 
   /* Unparsed so far:
   - passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
@@ -107,15 +108,15 @@ export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthP
 */
   return {
     wrdSchema,
-    loginPage: data?.loginpage as string || null,
+    loginPage: data?.loginPage as string || null,
     cookieName,
-    supportObjectName: data?.supportobjectname as string || null,
+    supportObjectName: data?.supportObjectName as string || null,
     customizer: data?.customizer as string || null,
-    cookieDomain: data?.cookiedomain as string || null,
-    cacheFields: data?.cachefields as string[] || null,
-    sameSite: (data?.samesitecookie || "Lax") as CookieOptions["sameSite"],
-    firstLoginField: data?.firstloginfield ? tagToJS(data?.firstloginfield as string) : null,
-    lastLoginField: data?.lastloginfield ? tagToJS(data?.lastloginfield as string) : null
+    cookieDomain: data?.cookieDomain as string || null,
+    cacheFields: data?.cacheFields as string[] || null,
+    sameSite: (data?.sameSite || "Lax") as CookieOptions["sameSite"],
+    firstLoginField: data?.firstLoginField ? tagToJS(data?.firstLoginField as string) : null,
+    lastLoginField: data?.lastLoginField ? tagToJS(data?.lastLoginField as string) : null
   };
 }
 
@@ -448,16 +449,6 @@ export class WHFSApplyTester {
     return this.getMatchingRules(null, yamlonly);
   }
 
-  async getPluginData(namespace: string, name: string): Promise<Omit<CSPPluginDataRow, '__attributes' | '__location'> | null> {
-    const rows: CSPPluginDataRow[] = [];
-    for (const apply of await this.getMatchingRules('plugins'))
-      for (const plugin of apply.plugins)
-        if (plugin.name === name && plugin.namespace === namespace && plugin.data)
-          rows.push(plugin.data);
-
-    return rows.length ? buildPluginData(rows) : null;
-  }
-
   async getExtendProps() {
     const extendProps: Array<{
       whfsType: string;
@@ -514,25 +505,24 @@ export class WHFSApplyTester {
       @param name The name of the plugin, corresponding to a <module>:<name> property. Snake case if it was mixed case in the YAML
       @return An array of settings records found. Each record includes a 'source' member specifying the source site profile rule. It's up to the caller to merge them as needed
   */
-  async getPluginSettings(name: string): Promise<CSPPluginSettingsRow[]> {
-    //FIXME consider whether we can replace getPluginData/getUserData ?
+  async getPluginSettings(name: string): Promise<RawPluginSettings[]> {
     name = nameToSnakeCase(name);
-    checkModuleScopedName(name);
+    if (!["auth"].includes(name))
+      checkModuleScopedName(name);
+
     const cellname: keyof CSPApplyRule = "yml_" + name as keyof CSPApplyRule;
 
-    const rows: CSPPluginSettingsRow[] = [];
+    const rows: RawPluginSettings[] = [];
     for (const apply of await this.getMatchingRules(cellname))
-      for (const setting of apply[cellname as keyof typeof apply] as CSPPluginDataRow[] || [])
-        rows.push({
-          source: { siteProfile: apply.siteprofile },
-          ...toCamelCase(setting)
-        });
+      for (const setting of apply[cellname as keyof typeof apply] || []) {
+        rows.push({ ...toCamelCase(setting), source: { siteProfile: apply.siteprofile } });
+      }
 
     return rows;
   }
 
   async getWRDAuth() {
-    const data = await this.getPluginData("http://www.webhare.net/xmlns/wrd", "wrdauth");
+    const data = await this.getPluginSettings("auth");
     return getWRDPlugindata(data);
   }
 
@@ -611,17 +601,20 @@ export class WHFSApplyTester {
       {
         webdesign.renderinfo := this->GetObjRenderInfo();
       }*/
-    //Parse plugins (combines configuration data for later parsing)
-    const namedplugins = new Map<string, PluginData>;
+    //Parse plugins
+    const namedplugins = new Map<string, PluginData>();
 
     for (const apply of await this.getMatchingRules('plugins')) {
-      for (const plugin of apply.plugins)
-        if (plugin.data)
-          if (plugin.combine) //this is a normal plugin where we merge configuration
-            emplace(namedplugins, plugin.name, {
-              insert: () => ({ ...plugin, datas: [plugin.data!] }),
-              update: cur => ({ ...cur, datas: [...cur.datas, plugin.data!] })
-            });
+      for (const plugin of apply.plugins) {
+        if (!plugin.yaml_property)
+          continue; //we only support yaml-capable plugins to simplify the TS side. they all need to switch anyway
+
+        const pluginData = emplace(namedplugins, plugin.name, { insert: () => ({ ...plugin, datas: [] }) });
+        const data = apply[`yml_${nameToSnakeCase(plugin.yaml_property)}`] || [];
+        for (const row of data)
+          if (row)
+            pluginData.datas.push({ ...toCamelCase(row), source: { siteProfile: apply.siteprofile } });
+      }
     }
 
     webDesign.plugins = [...namedplugins.values()];

@@ -7,10 +7,12 @@ export async function prepareWRDAuthTest(mailpart: string, options?: {
   multisite?: boolean;
   /** Test JS site */
   js?: boolean;
+  /** Test JS page */
+  jsPage?: boolean;
   /** Set password requirements */
   passwordValidationChecks?: string[];
 }) {
-  const starturl = `${test.getTestSiteRoot()}testpages/wrdauthtest${options?.multisite ? '-multisite' : ''}/`;
+  const starturl = `${test.getTestSiteRoot()}testpages/wrdauthtest${options?.jsPage ? "-jspage" : options?.multisite ? '-multisite' : ''}/`;
   const mailsuffix = `-${mailpart}@beta.webhare.net`;
   const testdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', starturl, mailsuffix, {
     multisite: Boolean(options?.multisite),
