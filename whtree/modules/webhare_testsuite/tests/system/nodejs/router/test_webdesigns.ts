@@ -93,6 +93,7 @@ async function testDynamicPage() {
     const fetchResult = await fetch(dynamicPage.link + "?echo=1234");
     const response = parseResponse(await fetchResult.text());
     test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+    test.eq(/Dynamic request from/, response.doc.getElementById("isdynamicrequest")?.textContent);
   }
 
   //Verify TestPages/dynamicpage-override-js/ is indeed being handled by JS (it's a SHTML page but being overridden using siteprofiles)
@@ -177,8 +178,9 @@ async function testPageResponseJSRTD() {
     ];
     test.eq(expectContent, contentElements);
 
-    const { contentElements: fetchedContentElements } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
+    const { contentElements: fetchedContentElements, doc: fetchedDoc } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
     test.eq(expectContent, fetchedContentElements);
+    test.assert(fetchedDoc.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
   }
 
   {
@@ -195,9 +197,9 @@ async function testPageResponseJSRTD() {
       /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
     ];
 
-    //
-    const { contentElements: contentElementsTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
+    const { contentElements: contentElementsTSTS, doc: docTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
     test.eq(expectContent, contentElementsTSTS);
+    test.assert(docTSTS.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
 
     const { contentElements: contentElementsHSTS } = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/widgetholder-ts");
     test.eq(expectContent, contentElementsHSTS);

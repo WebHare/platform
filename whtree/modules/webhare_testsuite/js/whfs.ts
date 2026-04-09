@@ -31,6 +31,7 @@ export function parseResponse(responsetext: string) {
   return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config };
 }
 
+/** Get the file inline (running its builders in the current script, often easier to debug) */
 export async function getAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
   const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
@@ -43,6 +44,7 @@ export async function getAsDoc(whfspath: string) {
   return { response, ...parseResponse(await response.text()) };
 }
 
+/** Fetch the preview for a file */
 export async function fetchPreviewAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
   const link = await whfsobj.getPreviewLink();

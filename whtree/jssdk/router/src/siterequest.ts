@@ -84,7 +84,8 @@ export async function buildTargetPath(targetObject: WHFSObject) {
 }
 
 export class CPageRequest {
-  readonly webRequest: WebRequest | null;
+  #webRequest: WebRequest | null;
+
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
   /** The source of the content. private because we think users shouldn't be looking at it */
   private readonly _contentObject: WHFSObject;
@@ -102,9 +103,10 @@ export class CPageRequest {
   /** Apply tester for the target object. Not exposed through official interfaces as applyteser itself is still an internal object */
   public _applyTester!: WHFSApplyTester;
   /** If we're publishing a content link, the link's apply tester. Otherwise identical to _applyTester */
-  protected _contentApplyTester!: WHFSApplyTester;
-  protected _siteLanguage!: string;
-  protected _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
+  private _contentApplyTester!: WHFSApplyTester;
+  private _renderinfo!: Awaited<ReturnType<WHFSApplyTester["getObjRenderInfo"]>>;
+  private _siteLanguage!: string;
+  private _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
   private _statusCode: number;
   private _isEditorPreview: boolean;
 
@@ -121,7 +123,7 @@ export class CPageRequest {
   private pageBuilderData: Record<string, unknown> = {};
 
   constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
-    this.webRequest = webRequest;
+    this.#webRequest = webRequest;
     this.targetSite = targetSite as Site & { webRoot: string };
     this.targetFolder = targetFolder;
     this.targetObject = targetObject;
@@ -141,8 +143,12 @@ export class CPageRequest {
   async _preparePageRequestBase() {
     this._applyTester = await getApplyTesterForObject(this.targetObject);
     this._contentApplyTester = this.targetObject.type === "platform:filetypes.contentlink" ? await getApplyTesterForObject(this._contentObject) : this._applyTester; //if we're a contentlink, we want to use the applytester of our target for things like rendering and getting frontend data, but we still want to keep track of the original content object for plugins and such
+    this._renderinfo = await this._contentApplyTester.getObjRenderInfo();
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
+
+    if (!this._renderinfo.dynamicExecution)
+      this.#webRequest = null;
 
     //initialize the page metadata before returning the rendering function
     this.pageMetaData.title = this._contentObject.title || this.targetFolder.title;
@@ -207,6 +213,9 @@ export class CPageRequest {
   get contentObject() {
     return this._contentObject;
   }
+  get webRequest() {
+    return this.#webRequest;
+  }
   get statusCode() {
     return this._statusCode;
   }
@@ -257,18 +266,17 @@ export class CPageRequest {
   /** Load the function that can actually generate pages for us */
   async getPageRenderer(): Promise<ContentBuilderFunction> {
     //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
-    const renderinfo = await this._contentApplyTester.getObjRenderInfo();
-    if (renderinfo?.contentBuilder) { //JS renderer is always preferred
-      const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(renderinfo.contentBuilder);
+    if (this._renderinfo?.contentBuilder) { //JS renderer is always preferred
+      const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(this._renderinfo.contentBuilder);
       return renderer;
     }
 
-    if (renderinfo.dynamicExecution) {
-      let dynexec = renderinfo.dynamicExecution;
-      if (renderinfo.hsPageObjectType) { // looks like a <bodyrenderer override over a <dynamicexecution
+    if (this._renderinfo.dynamicExecution) {
+      let dynexec = this._renderinfo.dynamicExecution;
+      if (this._renderinfo.hsPageObjectType) { // looks like a <bodyrenderer override over a <dynamicexecution
         dynexec = {
           ...dynexec,
-          webpageobjectname: renderinfo.hsPageObjectType, // in this case we want to run the dynamic execution but with the HS page object specified in the bodyrenderer
+          webpageobjectname: this._renderinfo.hsPageObjectType, // in this case we want to run the dynamic execution but with the HS page object specified in the bodyrenderer
           startmacro: "",
           routerfunction: "",
         };
@@ -276,10 +284,9 @@ export class CPageRequest {
       return (request: ContentPageRequest) => runHareScriptPage(request, { dynamicExecution: dynexec });
     }
 
-    if (renderinfo.hsPageObjectType) {
-      return (request: ContentPageRequest) => runHareScriptPage(request, { hsPageObjectType: renderinfo.hsPageObjectType });
+    if (this._renderinfo.hsPageObjectType) {
+      return (request: ContentPageRequest) => runHareScriptPage(request, { hsPageObjectType: this._renderinfo.hsPageObjectType });
     }
-
 
     const typeInfo = await describeWHFSType(this._contentApplyTester.type);
     if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
