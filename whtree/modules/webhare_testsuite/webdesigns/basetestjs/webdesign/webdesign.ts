@@ -99,8 +99,8 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
                         ${getTidLanguage() === 'en' ? 'data-sitelanguage-en' : ''}
                         ${getTidLanguage() === 'ps' ? 'data-sitelanguage-ps' : ''}
                         >
-    ${req.content}
-    ${req.getPageBuilderData("webhare_testsuite:dynamicpageinfo") ? litty`<div id="dynamicpageinfo">${JSON.stringify(req.getPageBuilderData("webhare_testsuite:dynamicpageinfo"))}</div>` : ''}
+      ${req.content}
+      ${req.getPageBuilderData("webhare_testsuite:dynamicpageinfo") ? litty`<div id="dynamicpageinfo">${JSON.stringify(req.getPageBuilderData("webhare_testsuite:dynamicpageinfo"))}</div>` : ''}
     </div>
    ${widget ? litty`<div id="widget">${widget}</div>` : ''}
    ${bobimagelink ? litty`<div id="bobimagelink">${bobimagelink.link}</div>` : ''}
@@ -111,6 +111,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
       </div>` : ''}
   ${comments ? litty`<div id="comments">${comments}</div>` : ''}
   ${sharedblocks ? litty`<div id="sharedblocks">${sharedblocks.map((block: string) => litty`<div class="basetest__sharedblock">${block}</div>`)}</div>` : ''}
+  ${req.webRequest ? litty`<div id="isdynamicrequest">Dynamic request from ${req.webRequest.clientIp}</div>` : ''}
   <img id="smallbob" src="${imgroot}smallbob.jpg">`
   });
 }

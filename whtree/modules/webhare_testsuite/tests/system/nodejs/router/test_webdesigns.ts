@@ -2,23 +2,15 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
 import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
-import { XMLSerializer, type Document } from "@xmldom/xmldom";
 import { captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
-import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
+import { buildContentPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
-import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
 import { buildInstance, buildRTD } from "@webhare/services";
-import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
-
-function getWHConfig(parseddoc: Document): WHConfigScriptData {
-  const config = parseddoc.getElementById("wh-config");
-  if (!config)
-    throw new Error("No wh-config element found");
-  return JSON.parse(config.textContent || "");
-}
+import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseDocAsXML(await response.text(), "text/html");
@@ -43,45 +35,6 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   const nextlink = nextpara.getElementsByTagName("a")[0];
   test.eq('http://example.net/linkify', nextlink.getAttribute("href"));
   test.eq('http://example.net/linkify', nextlink.textContent);
-}
-
-function parseResponse(responsetext: string) {
-  const doc = parseDocAsXML(responsetext, 'text/html');
-  const config = getWHConfig(doc);
-  const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
-  const body = doc.getElementsByTagName("body")[0];
-  const contentdiv = doc.getElementById("content");
-  const contentElements = contentdiv ? elements(contentdiv.childNodes).
-    map(e => new XMLSerializer().serializeToString(e)).
-    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
-  const bodyElements = body ? elements(body.childNodes).
-    map(e => new XMLSerializer().serializeToString(e)).
-    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
-
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config };
-}
-
-async function getAsDoc(whfspath: string) {
-  const whfsobj = await whfs.openFile(whfspath);
-  const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
-  const builder = await (sitereq as CPageRequest).getPageRenderer();
-  if (!builder)
-    throw new Error(`No builder found for this page`);
-
-  const response = await builder(sitereq);
-
-  return { response, ...parseResponse(await response.text()) };
-}
-
-async function fetchPreviewAsDoc(whfspath: string) {
-  const whfsobj = await whfs.openFile(whfspath);
-  const link = await whfsobj.getPreviewLink();
-
-  console.log(`Fetching preview link for ${whfspath}: ${link}`);
-  const fetchResult = await fetch(link);
-  test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
-
-  return parseResponse(await fetchResult.text());
 }
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
@@ -140,6 +93,7 @@ async function testDynamicPage() {
     const fetchResult = await fetch(dynamicPage.link + "?echo=1234");
     const response = parseResponse(await fetchResult.text());
     test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+    test.eq(/Dynamic request from/, response.doc.getElementById("isdynamicrequest")?.textContent);
   }
 
   //Verify TestPages/dynamicpage-override-js/ is indeed being handled by JS (it's a SHTML page but being overridden using siteprofiles)
@@ -224,8 +178,9 @@ async function testPageResponseJSRTD() {
     ];
     test.eq(expectContent, contentElements);
 
-    const { contentElements: fetchedContentElements } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
+    const { contentElements: fetchedContentElements, doc: fetchedDoc } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
     test.eq(expectContent, fetchedContentElements);
+    test.assert(fetchedDoc.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
   }
 
   {
@@ -242,9 +197,9 @@ async function testPageResponseJSRTD() {
       /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
     ];
 
-    //
-    const { contentElements: contentElementsTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
+    const { contentElements: contentElementsTSTS, doc: docTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
     test.eq(expectContent, contentElementsTSTS);
+    test.assert(docTSTS.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
 
     const { contentElements: contentElementsHSTS } = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/widgetholder-ts");
     test.eq(expectContent, contentElementsHSTS);

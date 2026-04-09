@@ -16,6 +16,13 @@ export async function renderDynamicPage(request: ContentPageRequest): Promise<We
   return await request.buildWebPage(litty`<p>renderDynamicPage(echo = ${url.searchParams.get("echo") || ''})</p>`);
 }
 
+export async function renderMetadataTestPage(request: ContentPageRequest): Promise<WebResponse> {
+  if (!request.webRequest)
+    throw new Error(`renderMetadataTestPage didn't see a webRequest object`);
+
+  return await request.buildWebPage(litty`<p>renderMetadataTestPage</p>`);
+}
+
 export async function renderAuthTestPage(request: ContentPageRequest): Promise<WebResponse> {
   await request.initializePlugins();
   const authPlugin = request.getPlugin("platform:wrdauth");

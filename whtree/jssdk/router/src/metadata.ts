@@ -10,6 +10,18 @@ const INITIAL_ROBOTS_TAG = {
   custom: "",
 };
 
+/** OpenGraph metadata format. See also https://ogp.me/ */
+export type OpenGraphMetadata = {
+  title?: string;
+  description?: string;
+  /** Item URL. Should be an absolute URL. If not set it will fall back to the canonical URL which is almost always what you want. Set to 'null' explicitly to supress the field  */
+  url?: string | null;
+  type?: string;
+  siteName?: string;
+  image?: { url: string; type?: string; width?: number; height?: number; alt?: string };
+  video?: { url: string; type?: string; width?: number; height?: number };
+};
+
 /** Manages page level metadata */
 export class PageMetaData {
   viewport: string;
@@ -23,6 +35,9 @@ export class PageMetaData {
 
   /** schema.org metadata for this page */
   structuredData: Array<Exclude<Thing, string>> = [];
+
+  /** OpenGraph metadata; usually preferred by social media sharing */
+  openGraph: OpenGraphMetadata = {};
 
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
   #htmlPrefixes: Map<string, [string, string]> = new Map();
@@ -70,4 +85,42 @@ export class PageMetaData {
 
     this.#htmlPrefixes.set(addPrefix.toLowerCase(), [addPrefix, addNamespace]);
   }
+}
+
+export function getOpenGraphData(pageMetaData: PageMetaData) {
+  const ogData: Array<{ property: string; content: string }> = [];
+  const ogUrl = pageMetaData.openGraph.url === null ? "" : (pageMetaData.openGraph.url ?? pageMetaData.canonicalUrl);
+  if (pageMetaData.openGraph.title)
+    ogData.push({ property: "og:title", content: pageMetaData.openGraph.title });
+  if (pageMetaData.openGraph.description)
+    ogData.push({ property: "og:description", content: pageMetaData.openGraph.description });
+  if (ogUrl)
+    ogData.push({ property: "og:url", content: ogUrl });
+  if (pageMetaData.openGraph.siteName)
+    ogData.push({ property: "og:site_name", content: pageMetaData.openGraph.siteName });
+  if (pageMetaData.openGraph.type)
+    ogData.push({ property: "og:type", content: pageMetaData.openGraph.type });
+
+  if (pageMetaData.openGraph.image?.url) {
+    ogData.push({ property: "og:image", content: pageMetaData.openGraph.image.url });
+    if (pageMetaData.openGraph.image.type)
+      ogData.push({ property: "og:image:type", content: pageMetaData.openGraph.image.type });
+    if (pageMetaData.openGraph.image.width)
+      ogData.push({ property: "og:image:width", content: pageMetaData.openGraph.image.width.toString() });
+    if (pageMetaData.openGraph.image.height)
+      ogData.push({ property: "og:image:height", content: pageMetaData.openGraph.image.height.toString() });
+    if (pageMetaData.openGraph.image.alt)
+      ogData.push({ property: "og:image:alt", content: pageMetaData.openGraph.image.alt });
+  }
+  if (pageMetaData.openGraph.video?.url) {
+    ogData.push({ property: "og:video", content: pageMetaData.openGraph.video.url });
+    if (pageMetaData.openGraph.video.type)
+      ogData.push({ property: "og:video:type", content: pageMetaData.openGraph.video.type });
+    if (pageMetaData.openGraph.video.width)
+      ogData.push({ property: "og:video:width", content: pageMetaData.openGraph.video.width.toString() });
+    if (pageMetaData.openGraph.video.height)
+      ogData.push({ property: "og:video:height", content: pageMetaData.openGraph.video.height.toString() });
+  }
+
+  return ogData;
 }

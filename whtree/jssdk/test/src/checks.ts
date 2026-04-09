@@ -293,7 +293,7 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, options?: 
   }
 }
 
-function testStringify(val: unknown): string {
+function testStringify(val: unknown, maxDepth = 4): string {
   switch (typeof val) {
     case "bigint":
       return val.toString() + "n";
@@ -309,12 +309,14 @@ function testStringify(val: unknown): string {
       if (val instanceof RegExp)
         return val.toString();
       if (val instanceof Money)
-        return `Money(${val.toString()}`;
+        return `Money(${val.toString()})`;
       if (val instanceof Date)
         return `Date("${val.toISOString()}")`;
       if (Array.isArray(val))
         return `[${val.map(testStringify).join(", ")}]`;
-      return `{ ${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}} `;
+      if (maxDepth <= 0)
+        return "{ ... }";
+      return `{ ${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v, maxDepth - 1)}`).join(", ")}} `;
     default:
       return JSON.stringify(val);
   }
