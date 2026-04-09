@@ -1,20 +1,21 @@
 import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, RawPluginSettings, CSPDynamicExecution, CSPBaseProperties, CSPPlugin } from "./siteprofiles";
-import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions, whfsType } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
 import { emplace, nameToSnakeCase, pick, slugify, toCamelCase } from "@webhare/std";
 import { getExtractedConfig, getExtractedHSConfig } from "@mod-system/js/internal/configuration";
-import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
+import { isHistoricWHFSSpace, openFileOrFolder, openFolder, type WHFSFolder, type WHFSObject } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
-import { getType } from "./describe";
+import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
 import type { ApplyAuth } from "@mod-platform/generated/schema/siteprofile";
+import { openType, whfsType } from "@webhare/whfs/src/contenttypes";
+import { lookupURL, type LookupURLOptions } from "./lookupurl";
 
 export interface WebDesignInfo {
   objectname: string;
