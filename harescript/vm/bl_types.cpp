@@ -853,8 +853,8 @@ Blex::StringPair GetLanguageDateTimeStrings(Blex::StringPair datetexts)
                 {
                         Blex::StringPair source = Blex::StringPair::FromStringConstant(datetexts_jp_b64);
                         Blex::DecodeBase64(source.begin, source.end, std::back_inserter(datetexts_jp));
-                        return Blex::StringPair(datetexts_jp.begin(), datetexts_jp.end());
                 }
+                return Blex::StringPair(datetexts_jp.begin(), datetexts_jp.end());
         }
         return Blex::StringPair::FromStringConstant(datetexts_en);
 }
