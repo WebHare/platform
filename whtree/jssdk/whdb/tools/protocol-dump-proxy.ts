@@ -186,6 +186,7 @@ run({
       description: "Command to execute. If provided the command will be executed with WEBHARE_PGHOST set to the socket dir. If no socket dir is provided, a temporary directory will be created."
     }
   ],
+  mixedFlags: false,
   async main({ args, opts }) {
     if (!process.env.PGHOST)
       throw new Error(`Environment variable PGHOST not set`);
