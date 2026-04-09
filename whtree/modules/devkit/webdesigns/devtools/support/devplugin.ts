@@ -1,6 +1,5 @@
-import type { PagePluginFunction, PagePluginRequest } from "@webhare/router";
-import type { PagePluginInit } from "@webhare/router/src/siterequest";
-import { parseYamlPluginConfig } from "@webhare/whfs/src/applytester";
+import type { PagePluginFunction, PagePluginRequest, PagePluginInit } from "@webhare/router";
+import { parseYamlPluginConfig } from "@webhare/whfs";
 
 interface DevPluginData {
   adddebugscript: boolean;
