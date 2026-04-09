@@ -110,7 +110,7 @@ export async function getAuditEvents<S extends SchemaTypeDefinition, Type extend
     query = query.where("entity", "=", filter.user);
 
   if (filter?.limit !== undefined)
-    query = query.orderBy("creationdate desc").limit(filter.limit);
+    query = query.orderBy("creationdate", "desc").limit(filter.limit);
 
   const rows = await query.execute();
   //unmap and sort back to ascending order
