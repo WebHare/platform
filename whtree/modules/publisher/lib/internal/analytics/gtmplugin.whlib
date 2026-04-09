@@ -20,7 +20,7 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   PUBLIC PROPERTY pixel(pvt_pixel, SetPixel);
 
   UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) { //override this to receive configuration from plugins with yaml_property=
-    RECORD config := ParseYamlPluginConfig(cELL[
+    RECORD config := ParseYamlPluginConfig(CELL[
       account := "",
       integration := "script",
       launch := "pagerender",

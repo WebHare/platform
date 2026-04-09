@@ -522,7 +522,6 @@ export class WHFSApplyTester {
 
   async getWRDAuth() {
     const data = await this.getPluginSettings("auth");
-    console.error(data);
     return getWRDPlugindata(data);
   }
 
@@ -607,7 +606,7 @@ export class WHFSApplyTester {
     for (const apply of await this.getMatchingRules('plugins')) {
       for (const plugin of apply.plugins) {
         if (!plugin.yaml_property)
-          continue; //we only supported yaml-capable plugins to simplify the TS side. they all need to switch anyway
+          continue; //we only support yaml-capable plugins to simplify the TS side. they all need to switch anyway
 
         const pluginData = emplace(namedplugins, plugin.name, { insert: () => ({ ...plugin, datas: [] }) });
         const data = apply[`yml_${nameToSnakeCase(plugin.yaml_property)}`] || [];
