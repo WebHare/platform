@@ -1,3 +1,5 @@
+import type { ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
+import { typedEntries } from "@webhare/std";
 import type { ListItem, Thing } from "schema-dts";
 
 const INITIAL_ROBOTS_TAG = {
@@ -24,7 +26,7 @@ export type OpenGraphMetadata = {
 
 /** Manages page level metadata */
 export class PageMetaData {
-  viewport: string;
+  viewport = "width=device-width, initial-scale=1";
   htmlDirection: "ltr" | "rtl" = "ltr";
   htmlClasses: string[] = [];
   htmlDataSet: Record<string, string> = {};
@@ -53,8 +55,18 @@ export class PageMetaData {
     this.#robotsTag = { ...this.#robotsTag, ...robotsTag };
   }
 
-  constructor() {
-    this.viewport = "width=device-width, initial-scale=1.0";
+  constructor(initialData: ApplySetMetadata) {
+    for (const [prop, value] of typedEntries(initialData)) {
+      if (prop === "openGraph") {
+        for (const [ogProp, ogValue] of Object.entries(value as Record<string, unknown>)) {
+          (this.openGraph as Record<string, unknown>)[ogProp] = ogValue;
+        }
+        continue;
+      }
+      if (prop in this && typeof value === typeof this[prop as keyof PageMetaData]) {
+        (this as Record<string, unknown>)[prop] = value;
+      }
+    }
   }
 
   /** Breadcrumb to the current page. Initialized using the targetPath by default, starts at site root and ends at the current targetObject */

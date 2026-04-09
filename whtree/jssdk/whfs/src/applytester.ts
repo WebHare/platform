@@ -2,7 +2,7 @@ import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, RawPluginSettings, CSPDyna
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
-import { emplace, nameToSnakeCase, pick, slugify, toCamelCase } from "@webhare/std";
+import { emplace, nameToSnakeCase, omit, pick, slugify, toCamelCase } from "@webhare/std";
 import { getExtractedConfig, getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder, openFolder, type WHFSFolder, type WHFSObject } from "./objects";
 import type { SiteRow } from "./sites";
@@ -13,7 +13,7 @@ import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
-import type { ApplyAuth } from "@mod-platform/generated/schema/siteprofile";
+import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
 import { openType, whfsType } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
 
@@ -619,6 +619,21 @@ export class WHFSApplyTester {
 
     webDesign.plugins = [...namedplugins.values()];
     return webDesign;
+  }
+
+  async getPageMetadata() {
+    const setMetadata: ApplySetMetadata = {};
+    for (const apply of await this.getMatchingRules('setmetadata')) {
+      const toSet: Record<string, unknown> = toCamelCase(apply.setmetadata);
+      //overwrite all attributes so far, but openGraph needs to be merged on its own level
+      Object.assign(setMetadata, omit(toSet as Record<string, unknown>, ["openGraph"]));
+      if (toSet.openGraph) {
+        setMetadata.openGraph ||= {};
+        //we don't recurse further as eg. setting image shoud replace the whole object (to not leave width/height around)
+        Object.assign(setMetadata.openGraph as Record<string, unknown>, toSet.openGraph);
+      }
+    }
+    return setMetadata;
   }
 
   async getObjRenderInfo() {

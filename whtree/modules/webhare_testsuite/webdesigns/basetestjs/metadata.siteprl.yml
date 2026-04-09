@@ -1,0 +1,15 @@
+apply:
+  - to:
+      all
+    setMetadata:
+      openGraph:
+        siteName: "WebHare Testsite"
+        type: "website"
+
+  - to:
+      sitePath: /testpages/metadata
+    setMetadata:
+      openGraph:
+        image:
+          url: https://beta.webhare.net/testpages/metadata/testimage.jpg
+          alt: "Test image"

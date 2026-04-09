@@ -28,7 +28,9 @@ export function parseResponse(responsetext: string) {
     map(e => new XMLSerializer().serializeToString(e)).
     map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config };
+  const metaTags = new Map(elements(doc.getElementsByTagName("meta")).filter(m => m.getAttribute("name")).map(m => [m.getAttribute("name") || "", m.getAttribute("content") || ""]));
+
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */

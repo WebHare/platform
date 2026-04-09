@@ -211,11 +211,23 @@ export function extractOpenGraphData(doc: Document | xmldom.Document): OpenGraph
   for (const meta of elements((doc as Document).getElementsByTagName("meta"))) {
     const property = meta.getAttribute("property");
     const content = meta.getAttribute("content");
-    if (property?.startsWith("og:") && ogRootMap[property] && content) {
+    if (!property || content === null)
+      continue;
+
+    //image/videos are either an url in og:image or split up with og:image/video:url for the URL
+    if (property === "og:image" || property === "og:video" || property.startsWith("og:image:") || property.startsWith("og:video:")) {
+      const [, prop, subfield] = property.split(":") as [string, "image" | "video", string?];
+      if (!subfield || subfield === "url")
+        ogdata[prop] = { ...ogdata[prop], url: content };
+      else if (["width", "height"].includes(subfield))
+        ogdata[prop] = { url: "", ...ogdata[prop], [subfield]: parseInt(content) };
+      else
+        ogdata[prop] = { url: "", ...ogdata[prop], [subfield]: content };
+    } else if (property.startsWith("og:") && ogRootMap[property]) {
+      //plain string property
       ogdata[ogRootMap[property]] = content;
     }
   }
-  //TODO image/video fields
   return ogdata;
 }
 

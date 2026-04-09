@@ -540,6 +540,8 @@ $defs:
         $ref: "#/$defs/ApplyMailTemplates"
       setWidget:
         $ref: "#/$defs/ApplySetWidget"
+      setMetadata:
+        $ref: "#/$defs/ApplySetMetadata"
       auth:
         $ref: "#/$defs/ApplyAuth"
     patternProperties:
@@ -1185,6 +1187,56 @@ $defs:
         widgetBuilder:
           type: string
           description: JS callback to build the widget HTML code
+
+  ApplySetMetadata:
+    description: Set page metadata values
+    type: object
+    additionalProperties: false
+    properties:
+      # the properties should match PageMetaData structure
+      # TODO title,description,keywords? but would they be overriding the value from metadata or be defaults?
+      viewport:
+        type: string
+      htmlDirection:
+        type: string
+        enum:
+          - ltr
+          - rtl
+      openGraph:
+        type: object
+        additionalProperties: false
+        properties:
+          siteName:
+            type: string
+          type:
+            type: string
+          image:
+            type: object
+            additionalProperties: false
+            properties:
+              url:
+                type: string
+              type:
+                type: string
+              width:
+                type: integer
+              height:
+                type: integer
+              alt:
+                type: string
+          video:
+            type: object
+            additionalProperties: false
+            properties:
+              url:
+                type: string
+              type:
+                type: string
+              width:
+                type: integer
+              height:
+                type: integer
+
 
   ApplyAuth:
     type: object

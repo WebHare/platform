@@ -681,6 +681,9 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     userdata: []
   };
 
+  if (apply.setMetadata)
+    rule.setmetadata = toSnakeCase(apply.setMetadata);
+
   if (apply.baseProps)
     rule.baseproperties = parseBaseProps(apply.baseProps);
 

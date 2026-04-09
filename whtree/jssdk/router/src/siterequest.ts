@@ -85,6 +85,7 @@ export async function buildTargetPath(targetObject: WHFSObject) {
 
 export class CPageRequest {
   #webRequest: WebRequest | null;
+  #pageMetaData!: PageMetaData;
 
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
   /** The source of the content. private because we think users shouldn't be looking at it */
@@ -95,8 +96,6 @@ export class CPageRequest {
 
   /** The navigation path entries from the site root to the current targetObject */
   targetPath: Array<TargetPathEntry> = [];
-
-  readonly pageMetaData = new PageMetaData();
 
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
 
@@ -146,6 +145,7 @@ export class CPageRequest {
     this._renderinfo = await this._contentApplyTester.getObjRenderInfo();
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
+    this.#pageMetaData = new PageMetaData(await this._applyTester.getPageMetadata());
 
     if (!this._renderinfo.dynamicExecution)
       this.#webRequest = null;
@@ -215,6 +215,9 @@ export class CPageRequest {
   }
   get webRequest() {
     return this.#webRequest;
+  }
+  get pageMetaData() {
+    return this.#pageMetaData;
   }
   get statusCode() {
     return this._statusCode;

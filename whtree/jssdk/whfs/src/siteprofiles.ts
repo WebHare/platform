@@ -448,6 +448,7 @@ export type CSPApplyRule = {
   //TODO this is being double parsed (both for us and both into yml_ props) because HS readers haven't switched over to yml_forms
   webtoolsformrules: CSPWebtoolsFormRule[];
   widgetbuilder?: string;
+  setmetadata?: Record<string, unknown>;
 } & CSPYmlNodes;
 
 /** Custom nodes/plugins */
