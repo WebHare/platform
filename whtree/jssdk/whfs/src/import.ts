@@ -49,7 +49,7 @@ type CombinedImportItem = {
   id?: number;
 };
 
-export type ImportedVirtualMetaData = {
+export type ImportedVirtualMetadata = {
   title?: string;
   description?: string;
   keywords?: string;
@@ -60,11 +60,11 @@ export type ImportedVirtualMetaData = {
   order?: number;
 };
 
-export async function resolveVirtualMetaData(target: WHFSObject | null, inData: Record<string, unknown>, importOptions?: ImportOptions): Promise<{
-  data: ImportedVirtualMetaData | null;
+export async function resolveVirtualMetadata(target: WHFSObject | null, inData: Record<string, unknown>, importOptions?: ImportOptions): Promise<{
+  data: ImportedVirtualMetadata | null;
   errors: string[];
 }> {
-  const data: ImportedVirtualMetaData = {};
+  const data: ImportedVirtualMetadata = {};
   const errors = [];
 
   for (const [key, value] of Object.entries(inData)) {
@@ -221,17 +221,17 @@ class ImportSession {
       ...pick(this.options || {}, ["allowResourceImports"])
     };
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
-    let baseMetaData: CreateFileMetadata & CreateFolderMetadata = {};
+    let baseMetadata: CreateFileMetadata & CreateFolderMetadata = {};
 
     if (objectData) {
-      const resolveResult = await resolveVirtualMetaData(null, objectData, importOptions);
+      const resolveResult = await resolveVirtualMetadata(null, objectData, importOptions);
       resolveResult.errors.forEach(error => this.result.messages.push({ subPath: item.subPath, type: "error", message: error }));
       if (resolveResult.data)
-        baseMetaData = resolveResult.data;
+        baseMetadata = resolveResult.data;
     }
 
     if (item.id)
-      baseMetaData.id = item.id; //pre-allocated ID
+      baseMetadata.id = item.id; //pre-allocated ID
 
     const exists = await storeFolder.openFileOrFolder(item.name, { allowMissing: true });
     if (exists && this.options?.ifExists !== "overwrite") {
@@ -240,14 +240,14 @@ class ImportSession {
     }
 
     if (item.blob) {
-      baseMetaData.data = await ResourceDescriptor.fromBlob(await item.blob());
+      baseMetadata.data = await ResourceDescriptor.fromBlob(await item.blob());
     }
 
     let finalObj: WHFSObject;
     if (exists) {
       finalObj = exists;
       await finalObj.update({
-        ...baseMetaData,
+        ...baseMetadata,
         modified: this.importDT //override modified to ensure all items touched by the import have the same modified date (makes testing easier and also makes sense as we're essentially doing a bulk update of all these items)
       });
     } else {
@@ -255,7 +255,7 @@ class ImportSession {
         created: this.importDT,
         modified: this.importDT,
         type: typeinfo?.scopedtype || typeinfo?.namespace,
-        ...baseMetaData
+        ...baseMetadata
       });
     }
 

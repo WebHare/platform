@@ -25,7 +25,7 @@ export type OpenGraphMetadata = {
 };
 
 /** Manages page level metadata */
-export class PageMetaData {
+export class PageMetadata {
   viewport = "width=device-width, initial-scale=1";
   htmlDirection: "ltr" | "rtl" = "ltr";
   htmlClasses: string[] = [];
@@ -63,7 +63,7 @@ export class PageMetaData {
         }
         continue;
       }
-      if (prop in this && typeof value === typeof this[prop as keyof PageMetaData]) {
+      if (prop in this && typeof value === typeof this[prop as keyof PageMetadata]) {
         (this as Record<string, unknown>)[prop] = value;
       }
     }
@@ -99,39 +99,39 @@ export class PageMetaData {
   }
 }
 
-export function getOpenGraphData(pageMetaData: PageMetaData) {
+export function getOpenGraphData(pageMetadata: PageMetadata) {
   const ogData: Array<{ property: string; content: string }> = [];
-  const ogUrl = pageMetaData.openGraph.url === null ? "" : (pageMetaData.openGraph.url ?? pageMetaData.canonicalUrl);
-  if (pageMetaData.openGraph.title)
-    ogData.push({ property: "og:title", content: pageMetaData.openGraph.title });
-  if (pageMetaData.openGraph.description)
-    ogData.push({ property: "og:description", content: pageMetaData.openGraph.description });
+  const ogUrl = pageMetadata.openGraph.url === null ? "" : (pageMetadata.openGraph.url ?? pageMetadata.canonicalUrl);
+  if (pageMetadata.openGraph.title)
+    ogData.push({ property: "og:title", content: pageMetadata.openGraph.title });
+  if (pageMetadata.openGraph.description)
+    ogData.push({ property: "og:description", content: pageMetadata.openGraph.description });
   if (ogUrl)
     ogData.push({ property: "og:url", content: ogUrl });
-  if (pageMetaData.openGraph.siteName)
-    ogData.push({ property: "og:site_name", content: pageMetaData.openGraph.siteName });
-  if (pageMetaData.openGraph.type)
-    ogData.push({ property: "og:type", content: pageMetaData.openGraph.type });
+  if (pageMetadata.openGraph.siteName)
+    ogData.push({ property: "og:site_name", content: pageMetadata.openGraph.siteName });
+  if (pageMetadata.openGraph.type)
+    ogData.push({ property: "og:type", content: pageMetadata.openGraph.type });
 
-  if (pageMetaData.openGraph.image?.url) {
-    ogData.push({ property: "og:image", content: pageMetaData.openGraph.image.url });
-    if (pageMetaData.openGraph.image.type)
-      ogData.push({ property: "og:image:type", content: pageMetaData.openGraph.image.type });
-    if (pageMetaData.openGraph.image.width)
-      ogData.push({ property: "og:image:width", content: pageMetaData.openGraph.image.width.toString() });
-    if (pageMetaData.openGraph.image.height)
-      ogData.push({ property: "og:image:height", content: pageMetaData.openGraph.image.height.toString() });
-    if (pageMetaData.openGraph.image.alt)
-      ogData.push({ property: "og:image:alt", content: pageMetaData.openGraph.image.alt });
+  if (pageMetadata.openGraph.image?.url) {
+    ogData.push({ property: "og:image", content: pageMetadata.openGraph.image.url });
+    if (pageMetadata.openGraph.image.type)
+      ogData.push({ property: "og:image:type", content: pageMetadata.openGraph.image.type });
+    if (pageMetadata.openGraph.image.width)
+      ogData.push({ property: "og:image:width", content: pageMetadata.openGraph.image.width.toString() });
+    if (pageMetadata.openGraph.image.height)
+      ogData.push({ property: "og:image:height", content: pageMetadata.openGraph.image.height.toString() });
+    if (pageMetadata.openGraph.image.alt)
+      ogData.push({ property: "og:image:alt", content: pageMetadata.openGraph.image.alt });
   }
-  if (pageMetaData.openGraph.video?.url) {
-    ogData.push({ property: "og:video", content: pageMetaData.openGraph.video.url });
-    if (pageMetaData.openGraph.video.type)
-      ogData.push({ property: "og:video:type", content: pageMetaData.openGraph.video.type });
-    if (pageMetaData.openGraph.video.width)
-      ogData.push({ property: "og:video:width", content: pageMetaData.openGraph.video.width.toString() });
-    if (pageMetaData.openGraph.video.height)
-      ogData.push({ property: "og:video:height", content: pageMetaData.openGraph.video.height.toString() });
+  if (pageMetadata.openGraph.video?.url) {
+    ogData.push({ property: "og:video", content: pageMetadata.openGraph.video.url });
+    if (pageMetadata.openGraph.video.type)
+      ogData.push({ property: "og:video:type", content: pageMetadata.openGraph.video.type });
+    if (pageMetadata.openGraph.video.width)
+      ogData.push({ property: "og:video:width", content: pageMetadata.openGraph.video.width.toString() });
+    if (pageMetadata.openGraph.video.height)
+      ogData.push({ property: "og:video:height", content: pageMetadata.openGraph.video.height.toString() });
   }
 
   return ogData;

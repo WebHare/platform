@@ -187,7 +187,7 @@ async function testResourceDescriptors() {
       width: null,
       height: null,
       sourceFile: imgEditFile.id,
-    }, fish.getMetaData());
+    }, fish.getMetadata());
 
     const clone1 = await fish.clone();
     test.eqPartial({
@@ -196,7 +196,7 @@ async function testResourceDescriptors() {
       width: null,
       height: null,
       sourceFile: imgEditFile.id,
-    }, clone1.getMetaData());
+    }, clone1.getMetadata());
 
     const clone2 = await clone1.clone({ getImageMetadata: true });
     test.eqPartial({
@@ -204,7 +204,7 @@ async function testResourceDescriptors() {
       hash: null,
       width: 385,
       height: 236
-    }, clone2.getMetaData());
+    }, clone2.getMetadata());
 
     const clone3 = await clone2.clone({ getHash: true });
     test.eqPartial({
@@ -212,7 +212,7 @@ async function testResourceDescriptors() {
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
       width: 385,
       height: 236
-    }, clone3.getMetaData());
+    }, clone3.getMetadata());
 
     const clone4 = await fish.clone({ fileName: "x.png", mediaType: "image/png" });
     test.eqPartial({
@@ -222,7 +222,7 @@ async function testResourceDescriptors() {
       height: null,
       fileName: "x.png",
       sourceFile: imgEditFile.id,
-    }, clone4.getMetaData());
+    }, clone4.getMetadata());
 
     await test.throws(/Cannot update the mediaType/, () => fish.clone({ mediaType: "image/png", getDominantColor: true }));
 
@@ -247,7 +247,7 @@ async function testResourceDescriptors() {
       hash: null,
       width: null,
       height: null
-    }, fish.getMetaData());
+    }, fish.getMetadata());
   }
 
   {
@@ -258,13 +258,13 @@ async function testResourceDescriptors() {
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
       width: null,
       height: null
-    }, fish.getMetaData());
+    }, fish.getMetadata());
   }
 
   {
     const homersbrain = await services.ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp", { getHash: true, getImageMetadata: true, getDominantColor: true });
     test.eq(921654, homersbrain.resource.size);
-    const origMeta = homersbrain.getMetaData();
+    const origMeta = homersbrain.getMetadata();
     test.eqPartial({
       mediaType: "image/x-bmp",
       hash: "TUgOPetpSJcF9d0UDUYOH6lujDWSSNWu0J7FhvJ1EcA",
@@ -274,11 +274,11 @@ async function testResourceDescriptors() {
       dominantColor: "#080808",
       rotation: 0,
       mirrored: false
-    }, homersbrain.getMetaData());
+    }, homersbrain.getMetadata());
 
     const exp = await homersbrain.export();
     const expImported = await services.ResourceDescriptor.import(exp);
-    test.eq(origMeta, expImported.getMetaData());
+    test.eq(origMeta, expImported.getMetadata());
 
     test.throws(/Invalid color format/, () => expImported.dominantColor = "#AAA");
     expImported.dominantColor = null;
@@ -289,7 +289,7 @@ async function testResourceDescriptors() {
 
     const exp2 = await expImported.export();
     const expImported2 = await services.ResourceDescriptor.import(exp2);
-    test.eq(expImported.getMetaData(), expImported2.getMetaData());
+    test.eq(expImported.getMetadata(), expImported2.getMetadata());
     test.eq("#AAAAAA", expImported2.dominantColor);
     test.eq({ x: 1, y: 1 }, expImported2.refPoint);
   }
@@ -305,7 +305,7 @@ async function testResourceDescriptors() {
       rotation: 0,
       dominantColor: null,
       extension: ".png",
-    }, fish.getMetaData());
+    }, fish.getMetadata());
   }
 
   {
@@ -316,7 +316,7 @@ async function testResourceDescriptors() {
       width: 385, //implied by getDmoinantColor
       height: 236,
       dominantColor: "#080808"
-    }, fish.getMetaData());
+    }, fish.getMetadata());
   }
 
   {
@@ -327,7 +327,7 @@ async function testResourceDescriptors() {
       width: 428,
       height: 284,
       extension: ".webp"
-    }, webp.getMetaData());
+    }, webp.getMetadata());
   }
 
   {
@@ -338,7 +338,7 @@ async function testResourceDescriptors() {
       width: 428,
       height: 284,
       extension: ".avif"
-    }, avif.getMetaData());
+    }, avif.getMetadata());
   }
 
   {
@@ -352,7 +352,7 @@ async function testResourceDescriptors() {
       height: 450,
       rotation: 90 as Rotation,
       dominantColor: null
-    }, landscape.getMetaData());
+    }, landscape.getMetadata());
   }
 
   {
@@ -412,7 +412,7 @@ async function testGIFs() {
     rotation: 0,
     dominantColor: "transparent",
     extension: '.gif'
-  }, parsedgif.getMetaData());
+  }, parsedgif.getMetadata());
 
   const brokengif = Buffer.from("47494638396101000100800000ffffffffffff21f90401000000002c0000", "hex");
   const brokenparsedgif = await services.ResourceDescriptor.from(brokengif, { getHash: true, getDominantColor: true });
@@ -426,7 +426,7 @@ async function testGIFs() {
     height: null,
     rotation: null,
     dominantColor: null
-  }, brokenparsedgif.getMetaData());
+  }, brokenparsedgif.getMetadata());
 }
 
 async function testFetchResource() {

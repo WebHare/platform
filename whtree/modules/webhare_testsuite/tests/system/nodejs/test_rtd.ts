@@ -16,7 +16,7 @@ function compareRDIgnoreFilename(expect: unknown, actual: unknown) {
   if (!isResourceDescriptor(expect) || !isResourceDescriptor(actual))
     return;
 
-  test.eqPartial({ ...expect.getMetaData(), fileName: actual.fileName }, actual.getMetaData());
+  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata());
   return true;
 }
 

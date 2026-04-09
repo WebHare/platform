@@ -89,7 +89,7 @@ export async function getAssetPackState(bundle: string): Promise<AssetPackState 
   }
 }
 
-export async function getAssetPackMetaDataFile(bundle: string): Promise<string> {
+export async function getAssetPackMetadataFile(bundle: string): Promise<string> {
   const statspath = getBundleMetadataPath(bundle);
   try {
     return await readFile(statspath + "metafile.json", { encoding: 'utf8' });
