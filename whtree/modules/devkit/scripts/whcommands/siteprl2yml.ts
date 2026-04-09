@@ -3,7 +3,7 @@
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlob } from "@webhare/services";
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
-import { nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
+import { compareProperties, nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
 import { whconstant_builtinmodules, whconstant_defaultwidgetgroup } from "@mod-system/js/internal/webhareconstants";
 import type { AllowDenyTypeList, ApplyRule, ApplyTypes, BaseType, DataFileType, DynamicExecution, FolderType, InstanceType, PageType, RTDType, SiteProfile, SiteSetting, Sources, Type, TypeMembers, UploadType, WebRule, WidgetEditor, WidgetType } from "@mod-platform/generated/schema/siteprofile";
 import { membertypenames } from "@webhare/whfs/src/describe";
@@ -440,6 +440,19 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
     });
   }
 
+  const openGraphPlugin = ar.plugins.find(p => p.name === "opengraph" && p.namespace === "http://www.webhare.net/xmlns/socialite");
+  if (openGraphPlugin) {
+    rule.setMetadata ||= {};
+    rule.setMetadata.openGraph ||= {};
+    const data = (openGraphPlugin as unknown as { data?: Record<string, string> }).data;
+    if (data?.type)
+      rule.setMetadata.openGraph.type = data.type;
+    if (data?.site_name)
+      rule.setMetadata.openGraph.siteName = data.site_name;
+    if (data?.image)
+      rule.setMetadata.openGraph.image = { url: data.image };
+  }
+
   for (let [customKey, data] of Object.entries(ar).filter(([k, v]) => k.startsWith("yml_"))) {
     customKey = nameToCamelCase(customKey.substring(4));
     const plugininfo = getExtractedConfig("plugins").spPlugins.find(p => p.yamlProperty === customKey);
@@ -469,6 +482,8 @@ function myCSPRuleCompare(renamedTypes: Map<string, string>, expect: unknown, ac
   if (path.endsWith(".uploadtypemapping")) //we'll drop this in 6.0 anyway
     return true;
   if (path.endsWith(".siteprofile"))
+    return true;
+  if (path.endsWith(".combine")) //dropped this property in TS so ignore it.
     return true;
   if (path.endsWith(".whfstype") && typeof expect === "string" && renamedTypes.get(expect) === actual)
     return true;
@@ -671,9 +686,14 @@ run({
 
         sourceRule = {
           ...sourceRule,
-          customnodes: sourceRule.customnodes.filter(_ =>
-            _.namespaceuri !== "urn:xyz") //remove these when comparing, they're test nodes to verify the old SP compiler
+          //remove these when comparing, they're test nodes to verify the old SP compiler
+          customnodes: sourceRule.customnodes.filter(_ => _.namespaceuri !== "urn:xyz"),
+          //we move open graph data to a different structure in YAML, ignore it here
+          plugins: sourceRule.plugins.filter(p => !(p.namespace === "http://www.webhare.net/xmlns/socialite" && p.name === "opengraph")),
         };
+
+        sourceRule.plugins.sort(compareProperties(["name", "namespace"]));
+        finalRule.plugins.sort(compareProperties(["name", "namespace"]));
 
         try {
           test.eq(sourceRule, finalRule, { onCompare: (lhs, rhs, path) => myCSPRuleCompare(renamedTypes, lhs, rhs, path) });
