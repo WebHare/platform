@@ -14,6 +14,11 @@ LOADLIB "mod::system/lib/webserver.whlib";
 INTEGER capturing_stream;
 
 RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD ARRAY headers) {
+  RECORD opengraph;
+  OBJECT ogplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/socialite","opengraph");
+  IF(ObjectExists(ogplugin))
+    opengraph := ogplugin->ogproperties;
+
   RETURN CELL[
     content := BlobToString(content),
     headers,
@@ -22,7 +27,8 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
                           FROM UnpackRecord(webdesign->__pagebuilderdata)),
     frontendconfig := (SELECT tag := ToLowercase(name)
                             , data := EncodeJSON(value, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
-                         FROM UnpackRecord(webdesign->__jsconfig))
+                         FROM UnpackRecord(webdesign->__jsconfig)),
+    opengraph := opengraph
   ];
 }
 

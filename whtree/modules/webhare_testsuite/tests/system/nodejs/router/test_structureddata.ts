@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
-import { fetchPreviewAsDoc, getAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { fetchAsDoc, fetchPreviewAsDoc, getAsDoc } from "@mod-webhare_testsuite/js/whfs";
 
 async function testBreadCrumbs() {
   const testSiteRoot: string = (await test.getTestSiteJS()).webRoot!;
@@ -36,7 +36,7 @@ async function testBreadCrumbs() {
     }
   ], breadcrumbs[0].itemListElement);
 
-  const faq = test.extractSchemaOrgData(parsed.doc).find(_ => _["@type"] === "FAQPage");
+  const faq = parsed.schemaOrg.find(_ => _["@type"] === "FAQPage");
   test.eqPartial({
     "mainEntity": [
       {
@@ -53,17 +53,15 @@ async function testBreadCrumbs() {
 async function testOpenGraph() {
   {
     const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
-    const og = test.extractOpenGraphData(parsed.doc);
     test.eq({
       siteName: "WebHare Testsite",
       type: "website",
       url: /\/TestPages\/StaticPage\/$/
-    }, og);
+    }, parsed.openGraph);
   }
 
   {
     const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/metadata");
-    const og = test.extractOpenGraphData(parsed.doc);
     test.eq({
       //url: /\/TestPages\/metadata\/$/, //TODO dynamic pages should probably get a canonical URL too
       siteName: "WebHare Testsite",
@@ -72,7 +70,42 @@ async function testOpenGraph() {
         url: "https://beta.webhare.net/testpages/metadata/testimage.jpg",
         alt: "Test image",
       }
-    }, og, "Opengraph data should have been merged (siteName/type was global)");
+    }, parsed.openGraph, "Opengraph data should have been merged (siteName/type was global)");
+  }
+
+  {
+    //test HS giving us readable metadata
+    test.eq({
+      image: {
+        url: (await test.getTestSiteHS()).webRoot + "TestPages/rangetestfile.jpeg",
+      },
+      title: "webhare_testsuite.testsite",
+      siteName: "webhare_testsuite.testsite",
+      type: "website"
+    }, (await fetchAsDoc("site::webhare_testsuite.testsite/testpages/dynamicpage", { shareimage: "1" })).openGraph);
+
+    test.eq({
+      title: "A share title",
+      description: "A share description",
+      siteName: "webhare_testsuite.testsite",
+      type: "website"
+    }, (await fetchAsDoc("site::webhare_testsuite.testsite/testpages/dynamicpage", { sharedescription: "1" })).openGraph);
+
+    //test HS transferring opengraph data to TS
+    test.eq({
+      image: {
+        url: (await test.getTestSiteJS()).webRoot + "TestPages/rangetestfile.jpeg",
+      },
+      siteName: "WebHare Testsite",
+      type: "website"
+    }, (await fetchAsDoc("site::webhare_testsuite.testsitejs/testpages/dynamicpage", { shareimage: "1" })).openGraph);
+
+    test.eq({
+      title: "A share title",
+      description: "A share description",
+      siteName: "WebHare Testsite",
+      type: "website",
+    }, (await fetchAsDoc("site::webhare_testsuite.testsitejs/testpages/dynamicpage", { sharedescription: "1" })).openGraph);
   }
 }
 

@@ -7,6 +7,7 @@ import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
+import { throwError } from "@webhare/std";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -29,8 +30,10 @@ export function parseResponse(responsetext: string) {
     map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
 
   const metaTags = new Map(elements(doc.getElementsByTagName("meta")).filter(m => m.getAttribute("name")).map(m => [m.getAttribute("name") || "", m.getAttribute("content") || ""]));
+  const openGraph = test.extractOpenGraphData(doc);
+  const schemaOrg = test.extractSchemaOrgData(doc);
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags };
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */
@@ -46,10 +49,26 @@ export async function getAsDoc(whfspath: string) {
   return { response, ...parseResponse(await response.text()) };
 }
 
-/** Fetch the preview for a file */
-export async function fetchPreviewAsDoc(whfspath: string) {
+/** Fetch the final version of a file */
+export async function fetchAsDoc(whfspath: string, urlVars: Record<string, string> = {}) {
   const whfsobj = await whfs.openFile(whfspath);
-  const link = await whfsobj.getPreviewLink();
+  const link = new URL(whfsobj.link || throwError(`File ${whfspath} has no link`));
+  for (const [key, value] of Object.entries(urlVars))
+    link.searchParams.set(key, value);
+
+  console.log(`Fetching ${whfspath}: ${link}`);
+  const fetchResult = await fetch(link);
+  test.assert(fetchResult.ok, `Failed to fetch ${whfspath}: ${fetchResult.status} ${fetchResult.statusText}`);
+
+  return parseResponse(await fetchResult.text());
+}
+
+/** Fetch the preview for a file */
+export async function fetchPreviewAsDoc(whfspath: string, urlVars: Record<string, string> = {}) {
+  const whfsobj = await whfs.openFile(whfspath);
+  const link = new URL(await whfsobj.getPreviewLink());
+  for (const [key, value] of Object.entries(urlVars))
+    link.searchParams.set(key, value);
 
   console.log(`Fetching preview link for ${whfspath}: ${link}`);
   const fetchResult = await fetch(link);
