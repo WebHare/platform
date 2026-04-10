@@ -305,10 +305,7 @@ export function buildBaseConfig(options) {
     rules: {
       // Styling:
       "@stylistic/array-bracket-newline": [
-        "error",
-        {
-          "multiline": true
-        }
+        "error", "consistent"
       ],
       "@stylistic/brace-style": [
         "error",
