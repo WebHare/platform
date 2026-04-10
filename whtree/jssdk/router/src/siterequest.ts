@@ -201,11 +201,15 @@ export class CPageRequest {
     // Initialize the breadcrumb
     const breadcrumb = this.pageMetaData.breadcrumb;
     for (const pathEntry of this.targetPath) {
-      breadcrumb.push({
-        "@type": "ListItem",
-        url: pathEntry.link || undefined,
-        name: pathEntry.title || pathEntry.name || undefined,
-      });
+      // Skip the target object if it's the index document of the target folder
+      if (pathEntry.id === this.targetFolder.indexDoc) {
+        continue;
+      } else
+        breadcrumb.push({
+          "@type": "ListItem",
+          url: pathEntry.link || undefined,
+          name: pathEntry.title || pathEntry.name || undefined,
+        });
     }
   }
 
