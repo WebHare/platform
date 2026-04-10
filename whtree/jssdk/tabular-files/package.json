@@ -1,0 +1,19 @@
+{
+  "name": "@webhare/tabular-files",
+  "version": "",
+  "description": "Process tabular files (CSV, XLSX)",
+  "main": "src/tabular-files.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/tabular-files.ts"
+    ]
+  },
+  "private": true,
+  "dependencies": {}
+}
