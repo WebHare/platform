@@ -136,7 +136,7 @@ export interface ResourceScanOptions {
 
 export type Rotation = 0 | 90 | 180 | 270;
 
-interface ResourceBaseMetaData {
+interface ResourceBaseMetadata {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
   extension: string | null;
   ///Media type (http://www.iana.org/assignments/media-types/)
@@ -159,7 +159,7 @@ interface ResourceBaseMetaData {
   fileName: string | null;
 }
 
-export interface ExportedResourceMetaData extends ResourceBaseMetaData {
+export interface ExportedResourceMetadata extends ResourceBaseMetadata {
   ///Path to original in image library
   sourceFile: string | null;
 }
@@ -178,7 +178,7 @@ export type ExportedBlobReference = {
   resource: string;
 };
 
-export type ExportedResource = Partial<ExportedResourceMetaData> & { file: ExportedBlobReference };
+export type ExportedResource = Partial<ExportedResourceMetadata> & { file: ExportedBlobReference };
 
 export type WebHareDBLocation = {
   /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
@@ -189,27 +189,25 @@ export type WebHareDBLocation = {
   cc: number;
 };
 
-export interface ResourceMetaData extends ResourceBaseMetaData {
+export interface ResourceMetadata extends ResourceBaseMetadata {
   /** Original in image library */
   sourceFile: number | null;
   /** Database location support cached URL generation */
   dbLoc?: WebHareDBLocation;
 }
 
-export interface ResourceSourceMetaData extends ResourceBaseMetaData {
+export interface ResourceSourceMetadata extends ResourceBaseMetadata {
   /** Original in image library */
   sourceFile: string | number | null;
 }
 
 export type SourceBlobReference = ExportedBlobReference | WebHareBlob;
 
-export type ResourceSource = Partial<ResourceSourceMetaData> & {
+export type ResourceSource = Partial<ResourceSourceMetadata> & {
   file: SourceBlobReference;
 };
 
-export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
-
-// export type ResourceDescriptor = WebHareBlob & ResourceMetaData;
+export type ResourceMetadataInit = Partial<ResourceMetadata> & Pick<ResourceMetadata, "mediaType">;
 
 const mimeToExt: Record<string, string> = {
   "image/tiff": ".tif",
@@ -404,7 +402,7 @@ export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink, 
   return unmapExternalWHFSRef(value.internalLink, options).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
 }
 
-export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
+export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetadata>> {
   if (image.size >= MaxImageScanSize)
     return {}; //too large to scan
 
@@ -462,9 +460,9 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   };
 }
 
-export type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
+export type EncodableResourceMetadata = Omit<ResourceMetadata, "sourceFile" | "extension">;
 
-export function encodeScanData(meta: EncodableResourceMetaData): string {
+export function encodeScanData(meta: EncodableResourceMetadata): string {
   const data: SerializedScanData = {};
   if (!meta.hash)
     throw new Error("Hash is required");
@@ -518,7 +516,7 @@ export async function hashStream(r: ReadableStream<Uint8Array>) {
 export async function addMissingScanData(meta: ResourceDescriptor, options?: {
   fileName?: string;
 }) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
-  let newmeta: EncodableResourceMetaData = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+  let newmeta: EncodableResourceMetadata = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
   if (options?.fileName !== undefined)
     newmeta.fileName = options.fileName;
 
@@ -542,7 +540,7 @@ export async function addMissingScanData(meta: ResourceDescriptor, options?: {
   return encodeScanData(newmeta);
 }
 
-export function decodeScanData(scandata: string): ResourceMetaData {
+export function decodeScanData(scandata: string): ResourceMetadata {
   const parseddata = scandata ? decodeHSON(scandata) as SerializedScanData : {};
 
   let fileName = parseddata.f || null;
@@ -600,7 +598,7 @@ export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName,
   return mediaType as Exclude<OutputFormatName, "keep">;
 }
 
-export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
+export function explainImageProcessing(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
@@ -805,7 +803,7 @@ export function getUCPacketHash(packet: Uint8Array, useExtension: string): strin
   return hash2.digest("hex").substring(0, 8);
 }
 
-export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
+export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetadata, dataType: number, useExtension: string): string {
   if (!fileData.dbLoc)
     throw new Error("Cannot use toResize on a resource not backed by a supported database location");
 
@@ -858,7 +856,7 @@ export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: 
   return getUCPacketHash(packet, useExtension) + Buffer.from(packet).toString("hex");
 }
 
-function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
+function getUnifiedCacheURL(dataType: number, metadata: ResourceMetadata, options?: ResourceResizeOptions): string {
   if (dataType === 1 && !options?.method)
     throw new Error("A scalemethod is required for images");
   if (dataType === 2 && options?.method)
@@ -871,7 +869,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
   if (dataType === 1) {
     const setFormat = options?.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT || getFullConfigFile().defaultImageFormat;
 
-    const mimetype = setFormat === 'keep' ? metaData.mediaType : setFormat;
+    const mimetype = setFormat === 'keep' ? metadata.mediaType : setFormat;
     if (mimetype === "image/jpeg")
       validextensions.push("jpg");
     else if (mimetype === "image/png" || mimetype === "image/x-bmp" || mimetype === "image/tiff")
@@ -887,11 +885,11 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
   } else {
     //TOOD HS allowed the extendable mimetype table to be used but that's getting too complex for here I think. should probably reconsider unifiedcache-file usage once we run into this
-    const ext = getExtensionForMediaType(metaData.mediaType);
+    const ext = getExtensionForMediaType(metadata.mediaType);
     validextensions.push(ext ? ext.substring(1) : "bin");  //'bin' was the fallback application/octet-stream extension in WebHare. as long as we do extension-base mimetypeing on imgcache downloads, we *must* attach an extension for safety
   }
 
-  let filename: string = options?.fileName ?? metaData?.fileName ?? "";
+  let filename: string = options?.fileName ?? metadata?.fileName ?? "";
   let useextension = "";
   if (filename.includes(".")) {
     const fileext = extname(filename).substring(1).toLowerCase();
@@ -913,7 +911,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     filename = slugify(filename) ?? (options?.method ? 'image' : 'file'); //then sanitize it
   }
 
-  const packet = getUCSubUrl(options?.method ? options as PackableResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
+  const packet = getUCSubUrl(options?.method ? options as PackableResizeMethod : null, metadata, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
   suffix += packet;
   suffix += '/' + encodeURIComponent((filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : ''));
@@ -924,8 +922,8 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
   a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
-export class ResourceDescriptor implements ResourceMetaData {
-  private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
+export class ResourceDescriptor implements ResourceMetadata {
+  private readonly metadata: ResourceMetadataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
   private readonly _dbLoc?: WebHareDBLocation;
 
@@ -938,7 +936,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   private static "__ $whTypeSymbol" = "ResourceDescriptor"; //Used to identify this as a ResourceDescriptor in the WebHare API
 
-  constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
+  constructor(resource: WebHareBlob | null, metadata: ResourceMetadataInit) {
     this._resource = resource || WebHareBlob.from("");
     this.metadata = pick(metadata, metadataFields); //ensure no 'data' fields leak through
     this._dbLoc = metadata.dbLoc;
@@ -966,7 +964,7 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 
   async clone(options?: ResourceScanOptions): Promise<ResourceDescriptor> {
-    const newdescr = new ResourceDescriptor(this._resource, this.getMetaData());
+    const newdescr = new ResourceDescriptor(this._resource, this.getMetadata());
     if (options)
       await newdescr.applyScanOptions(options);
     return newdescr;
@@ -1048,7 +1046,7 @@ export class ResourceDescriptor implements ResourceMetaData {
       throw new SetDataError(`Not sure how to import file from exportedresource, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
     }
 
-    const importData: ResourceMetaDataInit = {
+    const importData: ResourceMetadataInit = {
       ...resource,
       sourceFile: typeof resource.sourceFile === "string" ? await unmapExternalWHFSRef(resource.sourceFile, options) : resource.sourceFile,
       mediaType: resource.mediaType || "application/octet-stream"
@@ -1114,7 +1112,7 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
 
   //Gets a simple object containing *only* the metadata
-  getMetaData(): ResourceMetaData {
+  getMetadata(): ResourceMetadata {
     return pick(this, metadataFields); //TODO fix fallback value during construction, not during getters, and we can just return this.metadta
   }
 
@@ -1124,7 +1122,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   toResized(method: ResizeMethod) {
     const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
-    const processing = explainImageProcessing(this.getMetaData(), { ...method, format: setFormat });
+    const processing = explainImageProcessing(this.getMetadata(), { ...method, format: setFormat });
 
     const objectPosition = this.refPoint && this.width && this.height ?
       (this.refPoint.x * 100 / this.width).toFixed(4) + "% " + (this.refPoint.y * 100 / this.height).toFixed(4) + "%"
@@ -1152,7 +1150,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     return {
       file,
       ...(this.sourceFile ? { sourceFile: await mapExternalWHFSRef(this.sourceFile, options) } : {}),
-      ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
+      ...typedFromEntries(typedEntries(this.getMetadata()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };
   }
 }

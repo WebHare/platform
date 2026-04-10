@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
-import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetaData } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, getUCSubUrl, getUnifiedCC, packImageResizeMethod, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
@@ -358,8 +358,8 @@ async function testImgMethodPacking() {
 }
 
 async function testImgCacheTokens() {
-  const exampleJpeg = { width: 320, height: 240, mediaType: "image/jpeg", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetaData;
-  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetaData;
+  const exampleJpeg = { width: 320, height: 240, mediaType: "image/jpeg", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
+  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
   const exampleRefPoint = { ...examplePng, refPoint: { x: 120, y: 180 } };
 
   async function analyze(suburl: string, extension: ".png" | ".jpg") {

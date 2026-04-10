@@ -55,8 +55,24 @@ async function testOpenGraph() {
     const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
     const og = test.extractOpenGraphData(parsed.doc);
     test.eq({
+      siteName: "WebHare Testsite",
+      type: "website",
       url: /\/TestPages\/StaticPage\/$/
     }, og);
+  }
+
+  {
+    const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/metadata");
+    const og = test.extractOpenGraphData(parsed.doc);
+    test.eq({
+      //url: /\/TestPages\/metadata\/$/, //TODO dynamic pages should probably get a canonical URL too
+      siteName: "WebHare Testsite",
+      type: "website",
+      image: {
+        url: "https://beta.webhare.net/testpages/metadata/testimage.jpg",
+        alt: "Test image",
+      }
+    }, og, "Opengraph data should have been merged (siteName/type was global)");
   }
 }
 

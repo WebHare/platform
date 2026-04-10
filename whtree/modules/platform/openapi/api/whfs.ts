@@ -6,7 +6,7 @@ import { getVirtualObjectData } from "@webhare/whfs/src/export";
 import { runInWork } from "@webhare/whdb";
 import { getType } from "@webhare/whfs/src/describe";
 import { exportFileAsFetch, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
-import { resolveVirtualMetaData, type ImportedVirtualMetaData } from "@webhare/whfs/src/import";
+import { resolveVirtualMetadata, type ImportedVirtualMetadata } from "@webhare/whfs/src/import";
 import { dirname } from "path";
 import { SetDataError } from "@webhare/services/src/codec-support";
 
@@ -92,8 +92,8 @@ export async function getWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUser, 
   }
 }
 
-async function mapVirtualMetaData(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetaData | null> {
-  const result = await resolveVirtualMetaData(target, data, importOptions);
+async function mapVirtualMetadata(target: WHFSObject | null, data: Record<string, unknown>, importOptions?: ImportOptions): Promise<ImportedVirtualMetadata | null> {
+  const result = await resolveVirtualMetadata(target, data, importOptions);
   if (result.errors.length > 0)
     throw new WHFSAPIError(`Invalid virtual metadata: ${result.errors.join("; ")}`, 400);
 
@@ -132,7 +132,7 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
 
       const newObj = await parentFolder[typeinfo.foldertype ? "createFolder" : "createFile"](req.body.name, {
         type: req.body.type,
-        ...virtualMetadata && await mapVirtualMetaData(null, virtualMetadata) || {}
+        ...virtualMetadata && await mapVirtualMetadata(null, virtualMetadata) || {}
       });
       await applyInstanceUpdates(newObj, req.body.instances);
       return req.createJSONResponse(201, {});
@@ -168,7 +168,7 @@ export async function applyWHFSObjectUpdates(targetObject: WHFSObject, body: Typ
 
   const virtualMetadata = body.instances?.find(_ => _.whfsType === "platform:virtual.objectdata")?.data;
   if (virtualMetadata) {
-    const updates = await mapVirtualMetaData(targetObject, virtualMetadata, importOptions);
+    const updates = await mapVirtualMetadata(targetObject, virtualMetadata, importOptions);
     if (updates) { //TODO how about instance only updates ... they should update lastmod time too?
       await targetObject.update(updates);
     }

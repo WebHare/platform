@@ -1,6 +1,6 @@
 import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
@@ -409,7 +409,7 @@ export class WHFSFile extends WHFSBaseObject {
       return null;
   }
   get data(): ResourceDescriptor {
-    const meta: ResourceMetaDataInit = {
+    const meta: ResourceMetadataInit = {
       ...decodeScanData(this.dbrecord.scandata),
       dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) },
       fileName: this.dbrecord.name

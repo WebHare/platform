@@ -135,8 +135,10 @@ async function testDynamicPage() {
 
 async function testPageResponseApplies() {
   //test various <apply>s and that they affect the webdesign
-  const { doc: langPsAFDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
-  test.eq("ps-AF", langPsAFDoc.documentElement?.getAttribute("lang"));
+  const psAfDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
+  test.eq("ps-AF", psAfDoc.doc.documentElement?.getAttribute("lang"));
+  test.eq("width=device-width, initial-scale=1", psAfDoc.metaTags.get("viewport"));
+  test.eq("ltr", psAfDoc.doc.documentElement?.getAttribute("dir"));
 }
 
 async function testPageResponseMarkdown() {

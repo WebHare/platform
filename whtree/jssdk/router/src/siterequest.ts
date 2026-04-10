@@ -19,7 +19,7 @@ import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { stringify, throwError } from "@webhare/std";
 import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
-import { PageMetaData, getOpenGraphData } from "./metadata";
+import { PageMetadata, getOpenGraphData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
@@ -85,6 +85,7 @@ export async function buildTargetPath(targetObject: WHFSObject) {
 
 export class CPageRequest {
   #webRequest: WebRequest | null;
+  #pageMetadata!: PageMetadata;
 
   readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
   /** The source of the content. private because we think users shouldn't be looking at it */
@@ -95,8 +96,6 @@ export class CPageRequest {
 
   /** The navigation path entries from the site root to the current targetObject */
   targetPath: Array<TargetPathEntry> = [];
-
-  readonly pageMetaData = new PageMetaData();
 
   //buildContentPageRequest will invoke _prepareResponse immediately to set these:
 
@@ -146,34 +145,35 @@ export class CPageRequest {
     this._renderinfo = await this._contentApplyTester.getObjRenderInfo();
     this._siteLanguage = await this._applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
     this._publicationSettings = await this._applyTester.getWebDesignInfo();
+    this.#pageMetadata = new PageMetadata(await this._applyTester.getPageMetadata());
 
     if (!this._renderinfo.dynamicExecution)
       this.#webRequest = null;
 
     //initialize the page metadata before returning the rendering function
-    this.pageMetaData.title = this._contentObject.title || this.targetFolder.title;
+    this.pageMetadata.title = this._contentObject.title || this.targetFolder.title;
     const seoSettings = {
       ...await this.getInstance("platform:web.config"),
       ...await this.getInstance("platform:web.metadata"),
     };
     if (!this.targetObject.isFolder && seoSettings?.seoTitle)
-      this.pageMetaData.title = seoSettings.seoTitle;
-    if (!this.pageMetaData.title && this.targetFolder.id !== this.targetFolder.parentSite) // Try the site root folder's title
-      this.pageMetaData.title = (await openFolder(this.targetSite.id)).title;
-    if (!this.pageMetaData.title) // Still no title
-      this.pageMetaData.title = this.targetSite.name;
-    this.pageMetaData.description = this.targetObject.description; //No fallback to folder. a folder's description is unlikely to apply to a file?
+      this.pageMetadata.title = seoSettings.seoTitle;
+    if (!this.pageMetadata.title && this.targetFolder.id !== this.targetFolder.parentSite) // Try the site root folder's title
+      this.pageMetadata.title = (await openFolder(this.targetSite.id)).title;
+    if (!this.pageMetadata.title) // Still no title
+      this.pageMetadata.title = this.targetSite.name;
+    this.pageMetadata.description = this.targetObject.description; //No fallback to folder. a folder's description is unlikely to apply to a file?
     if (this.targetObject.isFile)
-      this.pageMetaData.keywords = this.targetObject.keywords;
+      this.pageMetadata.keywords = this.targetObject.keywords;
 
     if (seoSettings.canonical) {
       const canonicalTarget = (await openFileOrFolder(seoSettings.canonical, { allowMissing: true }))?.link;
       if (canonicalTarget)
-        this.pageMetaData.canonicalUrl = canonicalTarget;
+        this.pageMetadata.canonicalUrl = canonicalTarget;
     }
     //TODO The form filetype should deal with this instead of hardcoding a type reference here
-    if (!this.pageMetaData.canonicalUrl && (!this.webRequest || this.targetObject.type === "platform:filetypes.form"))
-      this.pageMetaData.canonicalUrl = this.targetObject.link;
+    if (!this.pageMetadata.canonicalUrl && (!this.webRequest || this.targetObject.type === "platform:filetypes.form"))
+      this.pageMetadata.canonicalUrl = this.targetObject.link;
 
     // Build path to the target. We'll need it to initialize the breadcrumb and inital SEO settings
     this.targetPath.push(...await buildTargetPath(this.targetObject));
@@ -182,24 +182,24 @@ export class CPageRequest {
     const seoItems = (await whfsType("platform:web.config").enrich(this.targetPath.slice(0, this.targetPath.length - 1), "id", ["noIndex", "noFollow", "noArchive", "customRobots", "canonical"]));
     for (const seoItem of [...seoItems, seoSettings]) {
       if (seoItem.noIndex)
-        this.pageMetaData.robotsTag.noIndex = true;
+        this.pageMetadata.robotsTag.noIndex = true;
       if (seoItem.noFollow)
-        this.pageMetaData.robotsTag.noFollow = true;
+        this.pageMetadata.robotsTag.noFollow = true;
       if (seoItem.noArchive)
-        this.pageMetaData.robotsTag.noArchive = true;
+        this.pageMetadata.robotsTag.noArchive = true;
       if (seoItem.customRobots)
-        this.pageMetaData.robotsTag.custom = seoItem.customRobots;
+        this.pageMetadata.robotsTag.custom = seoItem.customRobots;
     }
     const baseProps = await this._applyTester.getBaseProperties();
     if (baseProps.noindex)
-      this.pageMetaData.robotsTag.noIndex = true;
+      this.pageMetadata.robotsTag.noIndex = true;
     if (baseProps.nofollow)
-      this.pageMetaData.robotsTag.noFollow = true;
+      this.pageMetadata.robotsTag.noFollow = true;
     if (baseProps.noarchive)
-      this.pageMetaData.robotsTag.noArchive = true;
+      this.pageMetadata.robotsTag.noArchive = true;
 
     // Initialize the breadcrumb
-    const breadcrumb = this.pageMetaData.breadcrumb;
+    const breadcrumb = this.pageMetadata.breadcrumb;
     for (const pathEntry of this.targetPath) {
       // Skip the target object if it's the index document of the target folder
       if (pathEntry.id === this.targetFolder.indexDoc) {
@@ -219,6 +219,9 @@ export class CPageRequest {
   }
   get webRequest() {
     return this.#webRequest;
+  }
+  get pageMetadata() {
+    return this.#pageMetadata;
   }
   get statusCode() {
     return this._statusCode;
@@ -297,7 +300,7 @@ export class CPageRequest {
       return async (_request: ContentPageRequest) => {
         const data = await whfsType(this._contentApplyTester.type).get(this._contentObject.id);
         const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data });
-        this.pageMetaData.htmlClasses.push('wh-widgetpreview');
+        this.pageMetadata.htmlClasses.push('wh-widgetpreview');
         return this.render({ body: widget });
       };
     }
@@ -398,22 +401,22 @@ export class CPageRequest {
   private renderRobotsTag() {
     const tagParts: string[] = [];
     for (const usualProp of ["noIndex", "noFollow", "noArchive", "noImageIndex", "noSnippet"])
-      if (this.pageMetaData.robotsTag[usualProp as keyof typeof this.pageMetaData.robotsTag])
+      if (this.pageMetadata.robotsTag[usualProp as keyof typeof this.pageMetadata.robotsTag])
         tagParts.push(usualProp.toLowerCase());
 
-    if (this.pageMetaData.robotsTag.noIndex && !this.pageMetaData.robotsTag.noFollow)
+    if (this.pageMetadata.robotsTag.noIndex && !this.pageMetadata.robotsTag.noFollow)
       tagParts.push("follow"); //various sources seem to recommend explicitly setting follow/nofollow after a noindex, and it shouldn't do harm
 
-    if (this.pageMetaData.robotsTag.unavailableAfter)
-      tagParts.push("unavailable_after:" + this.pageMetaData.robotsTag.unavailableAfter.toZonedDateTimeISO("UTC").toString({
+    if (this.pageMetadata.robotsTag.unavailableAfter)
+      tagParts.push("unavailable_after:" + this.pageMetadata.robotsTag.unavailableAfter.toZonedDateTimeISO("UTC").toString({
         calendarName: "never",
         smallestUnit: "second",
         timeZoneName: "never",
         offset: "never",
       }));
 
-    if (this.pageMetaData.robotsTag.custom)
-      tagParts.push(this.pageMetaData.robotsTag.custom);
+    if (this.pageMetadata.robotsTag.custom)
+      tagParts.push(this.pageMetadata.robotsTag.custom);
 
     const tag = tagParts.join(",");
     if (tag)
@@ -422,7 +425,7 @@ export class CPageRequest {
   }
 
   private getFinalStructuredData() {
-    return this.pageMetaData.structuredData.map(item => ({
+    return this.pageMetadata.structuredData.map(item => ({
       "@context": "https://schema.org",
       ...item
     }));
@@ -454,21 +457,21 @@ export class CPageRequest {
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${settings.assetpack}' not found`);
 
-    const ogData = getOpenGraphData(this.pageMetaData);
+    const ogData = getOpenGraphData(this.pageMetadata);
     if (ogData.length)
-      this.pageMetaData.registerHTMLPrefix("og", "http://ogp.me/ns#");
+      this.pageMetadata.registerHTMLPrefix("og", "http://ogp.me/ns#");
 
     return litty`<!DOCTYPE html>
 <html lang="${settings.lang}"
-      dir="${this.pageMetaData.htmlDirection}"
-      ${this.pageMetaData.htmlClasses ? litty`class="${this.pageMetaData.htmlClasses.join(" ")}"` : ''}
-      ${this.pageMetaData.htmlPrefixes.length ? litty`prefix="${this.pageMetaData.htmlPrefixes.map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
-      ${Object.entries(this.pageMetaData.htmlDataSet).length ? Object.entries(this.pageMetaData.htmlDataSet).map(([key, value]) => litty`data-${nameToKebabCase(key)}="${value}" `) : ''}
+      dir="${this.pageMetadata.htmlDirection}"
+      ${this.pageMetadata.htmlClasses ? litty`class="${this.pageMetadata.htmlClasses.join(" ")}"` : ''}
+      ${this.pageMetadata.htmlPrefixes.length ? litty`prefix="${this.pageMetadata.htmlPrefixes.map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" ")}"` : ''}
+      ${Object.entries(this.pageMetadata.htmlDataSet).length ? Object.entries(this.pageMetadata.htmlDataSet).map(([key, value]) => litty`data-${nameToKebabCase(key)}="${value}" `) : ''}
       data-wh-ob="${getWHFSObjRef(this.targetObject)}">
   <head>
     <meta charset="utf-8">
-    <title>${this.pageMetaData.title}</title>
-    ${this.pageMetaData.viewport ? litty`<meta name="viewport" content="${this.pageMetaData.viewport}">` : ''}
+    <title>${this.pageMetadata.title}</title>
+    ${this.pageMetadata.viewport ? litty`<meta name="viewport" content="${this.pageMetadata.viewport}">` : ''}
     ${this.__insertions["dependencies-top"] ? await this.__renderInserts("dependencies-top") : ''}
     ${litty`<script type="application/json" id="wh-config">${rawLitty(stringify(this.frontendConfig, { target: "script", typed: true }))}</script>`}
     ${    /* TODO cachebuster /! support
@@ -478,9 +481,9 @@ export class CPageRequest {
 
       rawLitty(getAssetPackIntegrationCode(settings.assetpack))}
     ${this.__insertions["dependencies-bottom"] ? await this.__renderInserts("dependencies-bottom") : ''}
-    ${this.pageMetaData.description ? litty`<meta name="description" content="${this.pageMetaData.description}">` : ''}
-    ${this.pageMetaData.keywords ? litty`<meta name="keywords" content="${this.pageMetaData.keywords}">` : ''}
-    ${this.pageMetaData.canonicalUrl ? litty`<link rel="canonical" href="${this.pageMetaData.canonicalUrl}">` : ''}
+    ${this.pageMetadata.description ? litty`<meta name="description" content="${this.pageMetadata.description}">` : ''}
+    ${this.pageMetadata.keywords ? litty`<meta name="keywords" content="${this.pageMetadata.keywords}">` : ''}
+    ${this.pageMetadata.canonicalUrl ? litty`<link rel="canonical" href="${this.pageMetadata.canonicalUrl}">` : ''}
     ${ogData.map(item => litty`<meta property="${item.property}" content="${item.content}">`)}
     ${head ?? ''}
     ${this.renderRobotsTag()}
@@ -604,7 +607,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetaData">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;

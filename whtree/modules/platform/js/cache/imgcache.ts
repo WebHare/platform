@@ -5,7 +5,7 @@ import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
 import type { WebHareService } from "@webhare/services/src/backendservicerunner";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
-import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
 import { mkdir, open, readFile } from "fs/promises";
@@ -37,7 +37,7 @@ interface HSImgCacheRequest {
   };
 }
 
-export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod) {
+export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod) {
   // https://sharp.pixelplumbing.com/api-resize
   let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
@@ -123,7 +123,7 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
-async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: PackableResizeMethod) {
+async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: PackableResizeMethod) {
   const resizeOptions = getSharpResizeOptions(resource, method);
   if (!resizeOptions)
     return null;
