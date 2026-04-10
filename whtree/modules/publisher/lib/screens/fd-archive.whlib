@@ -141,7 +141,7 @@ PUBLIC OBJECTTYPE ExtractHere EXTEND TolliumScreenBase
     IF (NOT this->BeginUnvalidatedFeedback()->Finish())
       RETURN FALSE;
 
-    IF (replace AND this->RunSimpleScreen("confirm", this->GetTid(".warnreplace"), [ dontshowkey := "publisher.filedialogs.extractreplace" ]) != "ok")
+    IF (replace AND this->RunSimpleScreen("confirm", this->GetTid(".warnreplace"), [ dontshowkey := "publisher.filedialogs.extractreplace" ]) != "yes")
       RETURN FALSE;
 
     OBJECT bgtask := CreateProgressDialog(this, "mod::publisher/lib/screens/fd-archive.whlib", "BackgroundUnarchiver",

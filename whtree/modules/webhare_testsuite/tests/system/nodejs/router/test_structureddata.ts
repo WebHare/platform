@@ -8,7 +8,7 @@ async function testBreadCrumbs() {
   let breadcrumbs = test.extractSchemaOrgData(parsed.doc).filter(_ => _["@type"] === "BreadcrumbList");
 
   test.eq(1, breadcrumbs.length);
-  // There should be only one entry with the site's url and the index document's title
+  // There should be only one entry with the site's url and the root folder's name
   test.eq([
     {
       "@type": "ListItem",
