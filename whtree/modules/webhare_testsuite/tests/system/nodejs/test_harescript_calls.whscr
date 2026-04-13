@@ -76,7 +76,10 @@ TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(g
 TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/goudvis.png"), GetBlobDiskPath(goudvis_ts));
 
 //TestEq("I am a blob", BlobToString(CallJS("./data/calls.ts#getBlob","I am a blob"))); // We're blocking Blob()s as the WASM version of CallJS requires synchronous datatypes
-TestThrowsLike("*se WebHareMemoryBlob or WebHareDiskBlob*", PTR CallJS("./data/calls.ts#getBlob","I am a blob"));
+TestEq(StringToBlob("I am a blob"), CallJS("./data/calls.ts#getBlob","I am a blob"));
+TestEq(StringToBlob("I am a file"), CallJS("./data/calls.ts#getFile","I am a file"));
+TestEq([[ "blob" := StringToBlob("I am a blob") ]], CallJS("./data/calls.ts#getBlobDeeper","I am a blob"));
+TestEq([[ file := StringToBlob("I am a file") ]], CallJS("./data/calls.ts#getFileDeeper","I am a file"));
 
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());

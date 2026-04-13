@@ -124,5 +124,16 @@ export async function getResourceFromDisk(path: string) {
 export async function getBlob(text: string) {
   return new Blob([text]);
 }
+export async function getBlobDeeper(text: string) {
+  return [{ blob: new Blob([text]) }];
+}
+
+export async function getFile(text: string) {
+  return new File([text], "test.txt", { type: "text/plain" });
+}
+
+export async function getFileDeeper(text: string) {
+  return [{ file: new File([text], "test.txt", { type: "text/plain" }) }];
+}
 
 export { isWorkOpen };
