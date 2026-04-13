@@ -278,6 +278,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
   connected: boolean;
   _db;
   openwork?: Work;
+  openingwork = false;
   lastopen?: Error;
   client?: WHDBClientInterface;
   clientPromise?: Promise<WHDBClientInterface>;
@@ -372,7 +373,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
 
   private checkState(expectwork: boolean | undefined): Work | null {
     // Check work first - if work is open the connection must have been connected at some point, so no 'connection closed' error will be thrown during connecting
-    if (expectwork !== undefined && this.isWorkOpen() !== expectwork) {
+    if (expectwork !== undefined && (this.isWorkOpen() || this.openingwork) !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     if (!this.client)
@@ -408,6 +409,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
 
       this.checkState(false); //we must have the mutexes before checking work state otherwise code can't protect itself using the lock
 
+      this.openingwork = true;
       newwork = new Work(this);
       for (const mutex of mutexes)
         newwork.addMutex(mutex);
@@ -426,6 +428,8 @@ export class WHDBConnectionImpl implements WHDBConnection {
       if (mutexes)
         mutexes.forEach(m => m.release());
       throw e;
+    } finally {
+      this.openingwork = false;
     }
 
     this.openwork = newwork;
