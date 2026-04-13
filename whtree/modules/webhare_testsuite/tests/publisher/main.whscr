@@ -212,10 +212,10 @@ MACRO LookupTest()
 
   lookupresult := LookupPublisherURL(root->url || "testfolder/test.html&param");
   TestEq(testfolder->id, lookupresult.folder);
-  TestEq(testfile->id, lookupresult.file);
+  TestEq(testfolder->indexdoc, lookupresult.file, "& is not a separator, should not find the file");
 
   // !part ignored?
-  lookupresult := LookupPublisherURL(root->url || "testfolder/!ignored/test.html&param");
+  lookupresult := LookupPublisherURL(root->url || "testfolder/!ignored/test.html?param");
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(testfile->id, lookupresult.file);
 

@@ -510,6 +510,11 @@ async function testLookup() {
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
 
+  const testIgnoreAmpFile = await testfolder.createFile('test&ignore-amp', { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test&ignore-amp")); //& is not a separator before ?, so should just match no file at all
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testIgnoreAmpFile.id, lookupresult.file);
+
   // test with umlauts
   const testfileUmlaut = await testfolder.createFile('täst-ümlaut.html', { publish: true });
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/t%C3%A4st-%C3%BCmlaut.html"));
