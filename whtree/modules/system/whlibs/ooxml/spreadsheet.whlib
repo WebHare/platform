@@ -43,7 +43,7 @@ STRING FUNCTION CellToString(VARIANT celldata, BOOLEAN dotrimwhitespace, STRING 
     //newvalue := ToString(FloatToInteger(celldata + 0.00000001)) ); // <-- since this first converts to INTEGER it cannot handle very large numbes
     SWITCH (floatmode)
     {
-      CASE "float"
+      CASE "float","number"
       {
         RETURN EncodeJSON(celldata);
       }
@@ -1457,19 +1457,27 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
                               , filename := ""
                               , timezone := ""
                               , compressionlevel := 6
+                              , split := DEFAULT RECORD
+                              , with_auto_filter := FALSE
+                              , withautofilter := FALSE //alias for with_auto_filter
+                              , title := "" //alias for exporttitle
                               ], options, [ required := ["rows" ]]);
 
   IF(Length(options.columns) = 0 AND Length(options.rows) > 0)
     options.columns := GuessHeadersFromRow(options.rows[0]);
+
+  IF(RecordExists(options.split))
+    options.split := ValidateOptions(CELL[ columns := 0, rows := 0], options.split, [ title := "options.split" ]);
 
   options.columns := SELECT AS RECORD ARRAY ValidateOptions(
     [ name := ""
     , title := ""
     , type := ""
     , storeutc := FALSE
+    , width := 0
     ], col, [ required := ["name", "title", "type" ]
             , title := "column " || #col
-            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "integer64", "timestamp", "string" ]
+            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "number", "integer64", "timestamp", "string" ]
                        ]
             ]) FROM options.columns AS col;
 
@@ -1478,6 +1486,9 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
 
   //backwards compatibility... 'string' was often used but actually ignored and then defaulted to 'text'. let's tolerate that...
   UPDATE options.columns SET type := "text" WHERE type = "string";
+
+  options.exporttitle := options.exporttitle || options.title;
+  options.with_auto_filter := options.with_auto_filter OR options.withautofilter;
 
   IF(options.filename = "") //we don't require a timezone just for filename autogeneration
     options.filename := (options.exporttitle ?? "export") || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
@@ -1507,4 +1518,3 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
   BLOB output := csvout->MakeOutputFile();
   RETURN WrapBlob(output, options.filename);
 }
-
