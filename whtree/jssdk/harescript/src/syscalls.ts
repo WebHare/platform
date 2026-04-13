@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
-import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { throwError } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
@@ -53,10 +52,6 @@ export function webHareConfig() {
       "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is
     ]
   };
-}
-
-export function finishWork(hsvm: HareScriptVM, { commit }: { commit: boolean }): Promise<unknown> {
-  return cbDoFinishWork(hsvm, commit);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type

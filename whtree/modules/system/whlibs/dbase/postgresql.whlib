@@ -805,10 +805,6 @@ STRING FUNCTION CalculateApplicationName()
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
 {
-  IF(IsWasm() AND IsDebugTagEnabled("fallback-pg-wasm")) {
-    RETURN MakeFunctionPtr("mod::system/js/internal/whdb/wasm_pgsql.whlib#CreateWASMPostgreSQLTransaction")(transinfo);
-  }
-
   // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
       [ auto :=         TRUE

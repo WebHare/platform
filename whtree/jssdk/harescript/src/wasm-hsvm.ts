@@ -9,7 +9,6 @@ import { HareScriptJob, registerBaseFunctions } from "./wasm-hsfunctions";
 import { getCachedWebAssemblyModule, setCachedWebAssemblyModule, WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar, type HSVMBlob } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
-import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { type Mutex, JSLibraryImporter } from "@webhare/services";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
@@ -860,7 +859,6 @@ async function createHarescriptModule() {
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
-  registerPGSQLFunctions(wasmmodule);
 
   return wasmmodule;
 }
