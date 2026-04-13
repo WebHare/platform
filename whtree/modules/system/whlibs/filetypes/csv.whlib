@@ -404,6 +404,15 @@ PUBLIC OBJECTTYPE CSVColumnFileWriter EXTEND ColumnFileWriterBase
         }
         RETURN "";
       }
+      CASE "number" {
+        IF(TypeID(mycell) = TypeID(INTEGER) OR TypeID(mycell) = TypeID(INTEGER64)) {
+          RETURN ToString(mycell);
+        } ELSE IF(TypeID(mycell) = TypeID(FLOAT)) {
+          RETURN Substitute(FormatFloat(mycell, 12), '.', this->decimalpoint);
+        } ELSE {
+          THROW NEW Exception("Cell '" || coldef.name || "' should have type INTEGER, INTEGER64 or FLOAT, but has type "||GetTypeName(TypeId(mycell))||"!");
+        }
+      }
       CASE "integer"
       {
         IF (TypeID(mycell) != TypeID(INTEGER))
