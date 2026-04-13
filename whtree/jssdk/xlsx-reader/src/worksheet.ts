@@ -21,6 +21,10 @@ function guessFormat(format: string) {
     return "plaindate";
   return "number";
 }
+function fixLinefeeds(str: string): string {
+  //convert \r\n to \n, convert remaining \r to \n
+  return str.replaceAll(/\r\n/g, '\n').replaceAll(/\r/g, '\n');
+}
 function excelFloatToEpochTime(val: number, date1904: boolean): number {
   const daynum = Math.floor(val);
   const remainder = val - daynum;
@@ -229,14 +233,14 @@ export default class XlsxStreamReaderWorkSheet extends Stream {
         switch (workingCell.attributes!.t) {
           case 's': {
             const index = parseInt(workingVal);
-            workingVal = this.workBook._getSharedString(index);
+            workingVal = fixLinefeeds(this.workBook._getSharedString(index));
 
             this.workingRow.values[cellNum] = (workingVal || workingVal === 0) ? workingVal : '';
 
             break;
           }
           case 'inlineStr': {
-            this.workingRow.values[cellNum] = nodeData.shift() || '';
+            this.workingRow.values[cellNum] = fixLinefeeds(nodeData.shift()) || '';
             break;
           }
           case 'n':
