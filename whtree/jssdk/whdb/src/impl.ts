@@ -212,8 +212,8 @@ class Work implements WorkObject {
     if (!this.conn.client)
       throw new Error(`Connection was already closed`);
 
-    this.open = false;
     await this.prepareFinish(false);
+    this.open = false;
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
       await this.invokeFinishHandlers("onRollback");
