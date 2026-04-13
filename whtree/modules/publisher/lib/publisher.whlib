@@ -442,7 +442,7 @@ PUBLIC RECORD FUNCTION LookupPublisherURL(STRING url, RECORD options DEFAULTSTO 
   result.webserver := webserver.id;
   IF(up.urlpath LIKE ".publisher/preview/*")
   {
-    STRING baseurl := Tokenize(Tokenize(Tokenize(Tokenize(up.urlpath, '/')[2],'?')[0],'#')[0],'&')[0];
+    STRING baseurl := Tokenize(Tokenize(Tokenize(up.urlpath, '/')[2],'?')[0],'#')[0];
     RECORD data := DecryptForThisServer("publisher:preview", baseurl);
     IF(RecordExists(data))
     {
@@ -550,7 +550,7 @@ RECORD FUNCTION LookupPublisherURLByPath(INTEGER startroot, STRING url, STRING o
   WHILE(SearchSubstring(url,'//')!=-1)
     url := Substitute(url,'//','/');
 
-  STRING baseurl := Tokenize(Tokenize(Tokenize(url,'?')[0],'#')[0],'&')[0];
+  STRING baseurl := Tokenize(Tokenize(url,'?')[0],'#')[0];
   STRING ARRAY urlparts := Tokenize(baseurl,'/');
 
   RECORD cur := SELECT * FROM system.fs_objects WHERE id = startroot;
