@@ -90,13 +90,21 @@ class Work implements WorkObject {
   /* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
      even when callback handlers open new work during their execution. Runs any precommit handlers immediately */
   private async prepareFinish(commit: boolean): Promise<void> {
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => commit ? h.onBeforeCommit?.() : h.onBeforeRollback?.()));
+    for (const h of this.finishhandlers.values())
+      if (commit)
+        await h.onBeforeCommit?.();
+      else
+        await h.onBeforeRollback?.();
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onAfterPrepare?.()));
   }
 
   private async invokeFinishHandlers(stage: "onCommit" | "onRollback") {
-    //invoke all finishedhandlers in 'parallel' and wait for them to finish
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[stage]?.()));
+    //invoke all finishedhandlers serially (otherwise opening/closing work in different HSVM's might run parallel)
+    for (const h of this.finishhandlers.values())
+      if (stage === "onCommit")
+        await h.onCommit?.();
+      else if (stage === "onRollback")
+        await h.onRollback?.();
   }
 
   async nextVals(field: string, howMany: number): Promise<number[]> {
