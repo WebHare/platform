@@ -55,6 +55,10 @@ export interface FinishHandler {
   onBeforeRollback?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a rollback
   onRollback?: () => unknown | Promise<unknown>;
+  /** Callback that is invoked after all onBeforeXXX handlers have been called. Should be used for
+   * gathering after-commit handlers only, not for doing any work.
+   */
+  onAfterPrepare?: () => unknown | Promise<unknown>;
 }
 
 export class DBReadonlyError extends Error {
@@ -86,7 +90,8 @@ class Work implements WorkObject {
   /* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
      even when callback handlers open new work during their execution. Runs any precommit handlers immediately */
   private async prepareFinish(commit: boolean): Promise<void> {
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[commit ? "onBeforeCommit" : "onBeforeRollback"]?.()));
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => commit ? h.onBeforeCommit?.() : h.onBeforeRollback?.()));
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onAfterPrepare?.()));
   }
 
   private async invokeFinishHandlers(stage: "onCommit" | "onRollback") {
