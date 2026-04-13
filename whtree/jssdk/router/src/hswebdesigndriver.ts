@@ -18,6 +18,16 @@ type RunPageResult = {
   content: string;
   pagebuilderdata: Array<{ tag: string; data: string }>;
   frontendconfig: Array<{ tag: string; data: string }>;
+  opengraph?: {
+    admins: string;
+    app_id: string;
+    description: string;
+    image: string;
+    site_name: string;
+    title: string;
+    type: string;
+    url: string;
+  };
 } | {
   sendfile?: WebHareBlob;
 });
@@ -82,6 +92,19 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
       contReq.setPageBuilderData(tag.toLowerCase() as keyof PageBuilderDataTypes, toCamelCase(parseTyped(data)) as PageBuilderDataTypes[keyof PageBuilderDataTypes]);
     for (const { tag, data } of result.frontendconfig)
       contReq.setFrontendData(tag.toLowerCase() as keyof FrontendDataTypes, toCamelCase(parseTyped(data)) as FrontendDataTypes[keyof FrontendDataTypes]);
+    if (result.opengraph?.description)
+      contReq.pageMetadata.openGraph.description = result.opengraph.description;
+    if (result.opengraph?.image)
+      contReq.pageMetadata.openGraph.image = { url: result.opengraph.image };
+    if (result.opengraph?.site_name)
+      contReq.pageMetadata.openGraph.siteName = result.opengraph.site_name;
+    if (result.opengraph?.title)
+      contReq.pageMetadata.openGraph.title = result.opengraph.title;
+    if (result.opengraph?.type)
+      contReq.pageMetadata.openGraph.type = result.opengraph.type;
+    if (result.opengraph?.url)
+      contReq.pageMetadata.openGraph.url = result.opengraph.url;
+
     response = await contReq.buildWebPage(rawLitty(content)); //FIXME statuscode
   } else {
     response = createWebResponse(result.sendfile, { status: statusCode });

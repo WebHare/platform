@@ -313,7 +313,7 @@ function testStringify(val: unknown, maxDepth = 4): string {
       if (val instanceof Date)
         return `Date("${val.toISOString()}")`;
       if (Array.isArray(val))
-        return `[${val.map(testStringify).join(", ")}]`;
+        return `[${val.map(v => testStringify(v, maxDepth - 1)).join(", ")}]`;
       if (maxDepth <= 0)
         return "{ ... }";
       return `{ ${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v, maxDepth - 1)}`).join(", ")}} `;
