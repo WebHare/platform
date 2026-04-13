@@ -165,11 +165,26 @@ OBJECT calljseventmgr;
 
 /** Invoke a specific JavaScript function. Through a central service in Native mode and
     directly in WASM mode (with reentrancy disallowed)
+    @param(optional) options, eg [ camelcase := TRUE ]
     @param name lib#name to call. Case sensitive!
     @return The result of the function call. Promises are evaluated immediately
     */
-PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 {
+  RECORD options;
+  IF(Length(args) > 1 AND TYPEID(args[0]) = TYPEID(RECORD)) {
+    options := args[0];
+    DELETE FROM args AT 0;
+  }
+
+  options := ValidateOptions([ camelcase := FALSE ], options);
+
+  IF(Length(args) < 1)
+    THROW NEW Exception("CallJS requires a library#name path to invoke");
+
+  STRING name := args[0];
+  DELETE FROM args AT 0;
+
   STRING ARRAY toks := Tokenize(name,'#');
   STRING lib := Length(toks) = 1 ? "" : toks[0];
   IF(IsResolvablePath(lib))
@@ -179,7 +194,7 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
 
   RECORD hscontext := CELL [ auth := __auditcontext ];
   IF(IsWasm())
-    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args, hscontext ]));
+    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args, hscontext, options ]));
 
   IF(NOT ObjectExists(calljseventmgr)) {
     calljseventmgr := NEW EventManager; //RegisterEventCallback won't do, that one waits for microtasks but CallJS avoids running those
@@ -195,7 +210,7 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
   IF(NOT ObjectExists(calljsservice))
     calljsservice := __OpenSynchronousWebHareService("platform:calljs");
 
-  RETURN calljsservice->Invoke(lib,name,args,hscontext);
+  RETURN calljsservice->Invoke(lib,name,args,hscontext,options);
 }
 
 /** @private */
