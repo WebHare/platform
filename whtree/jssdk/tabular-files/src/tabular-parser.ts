@@ -104,8 +104,10 @@ export function parseTabularData<Fields extends TabularFields>(
     maxErrors?: number;
   }): {
     errors: TabularImportError[];
+    rows?: never;
   } | {
     rows: OutputRowForFields<Fields>[];
+    errors?: never;
   } {
   type RowType = OutputRowForFields<Fields>;
   const rows: RowType[] = [];
