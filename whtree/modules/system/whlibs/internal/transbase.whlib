@@ -48,7 +48,11 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseWritable() {
 PUBLIC RECORD FUNCTION __PopPrimaryFinishHandlers(BOOLEAN iscommit)
 {
   OBJECT prim := GetPrimaryWebhareTransactionObject();
-  RETURN ObjectExists(prim) ? prim->__PopFinishHandlers(iscommit) : DEFAULT RECORD;
+  IF (ObjectExists(prim)) {
+    prim->__RunPrepareHandlers(iscommit);
+    RETURN prim->__PopFinishHandlers();
+  }
+  RETURN DEFAULT RECORD;
 }
 
 /** Calls all commit handlers after a commit or rollback
@@ -730,14 +734,15 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     this->BeginWork([ mutexes := [mutexname] ]);
   }
 
-  /// Describes all current finish handlers and pops their state. Used to ensure proper nesting of commit/rollback handlers when new work is opened during handlers
-  PUBLIC RECORD FUNCTION __PopFinishHandlers(BOOLEAN iscommit)
-  {
-    //First run precommit handlers. We allow those to add more post-commit actions (eg broadcasts and (publication) queue manager transmissions which may be triggered by eg. WHFS updates)
+  /// Run all prepare commit handlers
+  PUBLIC MACRO __RunPrepareHandlers(BOOLEAN iscommit) {
     IF(iscommit)
       FOREVERY (RECORD rec FROM this->pvt_commithandlerobjects)
         rec.obj->OnPreCommit(this);
+  }
 
+  /// Describes all current finish handlers, and return them in a record. Used to ensure proper nesting of commit/rollback handlers when new work is opened during handlers
+  PUBLIC RECORD FUNCTION __PopFinishHandlers() {
     RECORD ARRAY handlers := this->pvt_commithandlers;
     RECORD ARRAY objhandlers := this->pvt_commithandlerobjects;
     RECORD ARRAY commitevents := this->pvt_commitevents;
@@ -765,7 +770,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
     TRY
     {
-      handlers := this->__PopFinishHandlers(NOT isreadonlyerror);
+      this->__RunPrepareHandlers(NOT isreadonlyerror);
+      handlers := this->__PopFinishHandlers();
     }
     CATCH (OBJECT e)
     {
@@ -808,9 +814,10 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
       THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
 
     RECORD handlers;
-    TRY
-      handlers := this->__PopFinishHandlers(FALSE);
-    FINALLY
+    TRY {
+      this->__RunPrepareHandlers(FALSE);
+      handlers := this->__PopFinishHandlers();
+    } FINALLY
     {
       this->DoRollbackWork();
       this->pvt_numworks := 0;
@@ -900,7 +907,8 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   */
   PUBLIC MACRO Close()
   {
-    RECORD handlers := this->__PopFinishHandlers(FALSE);
+    this->__RunPrepareHandlers(FALSE);
+    RECORD handlers := this->__PopFinishHandlers();
     this->UnregisterTransaction();
     this->ReleaseAllLocks();
 
@@ -923,8 +931,9 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
     INSERT INTO this->pvt_commitevents(name, data) VALUES(eventname, eventdata) AT END;
 
-    IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
+    IF(NOT this->IsWorkOpen()) {
+      __CallCommitHandlers(this->__PopFinishHandlers(), "onCommit");
+    }
   }
 
   /** Registers a commit handler, which is called when the transaction
@@ -949,7 +958,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     INSERT [ tag := coalesce_tag, handler := handler ] INTO this->pvt_commithandlers AT END;
 
     IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
+      __CallCommitHandlers(this->__PopFinishHandlers(), "onCommit");
   }
 
 
@@ -982,7 +991,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
     INSERT [ "0" := tag, obj := obj ] INTO this->pvt_commithandlerobjects AT -pos-1;
     IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
+      __CallCommitHandlers(this->__PopFinishHandlers(), "onCommit");
   }
 
 
