@@ -5,11 +5,12 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { throwError } from "@webhare/std";
+import { throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
 import * as services from "@webhare/services";
 import { importJSFunction } from "@webhare/services";
+import type { CallJSOptions } from "@mod-platform/js/nodeservices/calljs";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -143,11 +144,13 @@ export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: strin
   return loaded.call(name, args);
 }
 
-export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: string; args: unknown[]; hscontext: HarescriptJSCallContext }) {
+export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: string; args: unknown[]; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
   const func = await importJSFunction<(...args: unknown[]) => unknown>(`${calljs.lib}#${calljs.name}`);
   if (calljs.hscontext.auth)
     updateAuditContext(toAuthAuditContext(calljs.hscontext.auth));
-  return await func(...calljs.args);
+
+  const retval = await func(...calljs.options.camelcase ? toCamelCase(calljs.args) : calljs.args);
+  return calljs.options.camelcase && typeof retval === 'object' ? toSnakeCase(retval) : retval;
 }
 
 export function startSeparatePrimary() {

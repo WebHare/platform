@@ -7,7 +7,7 @@ import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscom
 import { BackendServiceConnection, importJSFunction } from "@webhare/services";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";
-import { omit, pick, toCamelCase, typedEntries, typedFromEntries, type ToCamelCase, type TypedEntries, type TypedFromEntries } from "@webhare/std";
+import { omit, pick, toCamelCase, toSnakeCase, typedEntries, typedFromEntries, type ToCamelCase, type TypedEntries, type TypedFromEntries } from "@webhare/std";
 import * as v8 from "node:v8";
 import { decodeFromMessageTransfer, encodeforMessageTransfer } from "./nodeipchelper";
 
@@ -17,6 +17,10 @@ const pickedV8HeapStats = [
   "peak_malloced_memory",
   "external_memory",
 ] as const;
+
+export type CallJSOptions = {
+  camelcase: boolean;
+};
 
 type SelectedHeapStats = ToCamelCase<Pick<ReturnType<typeof v8.getHeapStatistics>, typeof pickedV8HeapStats[number]>>;
 
@@ -38,7 +42,7 @@ export function filterObject<T extends object>(obj: T, filterFunc: (data: TypedE
 }
 
 
-export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext }: { lib: string; name: string; stringifiedArgs: string; hscontext: HarescriptJSCallContext }) {
+export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, options }: { lib: string; name: string; stringifiedArgs: string; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
   await using context = new CodeContext(`CallJSService ${lib}#${name}`, { lib, name });
   if (hscontext.auth)
     context.setScopedResource("platform:authcontext", toAuthAuditContext(hscontext.auth));
@@ -91,15 +95,18 @@ export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext }
 
 let workerPool: RestAPIWorkerPool | undefined = undefined;
 class CallJSService extends BackendServiceConnection {
-  async invoke(lib: string, name: string, args: unknown[], hscontext: HarescriptJSCallContext) {
+  async invoke(lib: string, name: string, args: unknown[], hscontext: HarescriptJSCallContext, options: CallJSOptions) {
     workerPool ??= new RestAPIWorkerPool("CallJSService", 5, 1000);
     return await workerPool.runInWorker(async (worker) => {
+      if (options.camelcase)
+        args = toCamelCase(args);
+
       const encodedArgs = await encodeforMessageTransfer(args);
 
       const retval: Awaited<ReturnType<typeof workerHandleCall>>["value"] = await worker.callRemote({
         ref: "@mod-platform/js/nodeservices/calljs.ts#workerHandleCall",
         transferList: encodedArgs.transferList,
-      }, { lib, name, stringifiedArgs: encodedArgs.value, hscontext });
+      }, { lib, name, stringifiedArgs: encodedArgs.value, hscontext, options });
       if ("durationMs" in retval) {
         // If debugFlags.calljs is enabled, we log the call details
         bridge.logDebug("platform:calljsservice", {
@@ -108,7 +115,8 @@ class CallJSService extends BackendServiceConnection {
         });
       }
 
-      return decodeFromMessageTransfer(retval.returnValue);
+      const decodedRetval = decodeFromMessageTransfer(retval.returnValue);
+      return options.camelcase && typeof decodedRetval === 'object' ? toSnakeCase(decodedRetval) : decodedRetval;
     });
   }
 }
