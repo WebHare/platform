@@ -508,7 +508,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     @typeParam T - Kysely database definition interface
 */
 
-export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery" | "__getConfiguration">;
+export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");

@@ -11,7 +11,7 @@ import { mapHareScriptPath } from "./wasm-support";
 import { AsyncResource, executionAsyncId } from "node:async_hooks";
 import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
 import { decodeString, isError } from "@webhare/std";
-import { getConnection, type WHDBConnection } from "@webhare/whdb/src/impl";
+import { getConnection, type WHDBConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 
 const wh_namespace_location = "mod::system/whlibs/";
@@ -627,7 +627,7 @@ export class WASMModule extends WASMModuleBase {
 
   async prepareForPgQuery(transactionId: number, webhare_blob_oid: Ptr, webhare_blobarray_oid: Ptr) {
     await this.runInPgTransactionContext(transactionId, async (conn, transactionData) => {
-      const config = await conn.__getConfiguration();
+      const config = await (conn as WHDBConnectionImpl).__getConfiguration();
 
       this.setValue(webhare_blob_oid, config.bloboid, "i32");
       this.setValue(webhare_blobarray_oid, config.blobarrayoid, "i32");

@@ -1536,7 +1536,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerAsyncExternalFunction("__PGSQL_GETBACKENDPID::I:I", async (vm, id_set, transaction) => {
     id_set.setInteger(await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async (conn) => {
-      const config = await conn.__getConfiguration();
+      const config = await (conn as WHDBConnectionImpl).__getConfiguration();
       return config.backendPid;
     }));
   });
