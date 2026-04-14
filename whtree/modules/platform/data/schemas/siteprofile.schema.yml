@@ -544,6 +544,9 @@ $defs:
         $ref: "#/$defs/ApplySetMetadata"
       auth:
         $ref: "#/$defs/ApplyAuth"
+      setLibrary:
+        $ref: "#/$defs/ApplySetLibrary"
+
     patternProperties:
       "[a-z][a-zA-Z0-9_]+:[a-zA-Z0-9_]+$": # Custom properties prefixed with a site name are simply parsed and passed through
         tsType: unknown # prevent broken schema, see also https://github.com/bcherny/json-schema-to-typescript/issues/671
@@ -1288,6 +1291,31 @@ $defs:
       passwordResetLifetime:
         description: Lifetime of password reset tokens, in minutes
         type: integer
+
+  ApplySetLibrary:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^([a-z][a-z0-9_-]*:)?[a-z][a-z0-9_-]*$":
+        description: Redefine the sources for this named library.
+        type: array
+        items:
+          oneOf:
+            - type: string
+              pattern: "^site::.+$"
+              description: An absolute WHFS reference
+            - type: object
+              additionalProperties: false
+              required: [relativeTo, path]
+              properties:
+                relativeTo:
+                  oneOf:
+                    - const: fsObject
+                      description: Resolve the path relative to the matched FS object
+                    - const: site
+                      description: Resolve the path relative to the site of the matched FS object
+                path:
+                  type: string
 
   Sources:
     type: array

@@ -762,6 +762,13 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     };
   }
 
+  for (const [name, lib] of Object.entries(apply.setLibrary || {})) {
+    rule.setlibrary.push({
+      name,
+      sources: lib.map(s => typeof s === "string" ? { relativeto: "", path: s } : { relativeto: s.relativeTo || "", path: s.path || "" })
+    });
+  }
+
   for (const [type, setWidget] of Object.entries(apply.setWidget || {})) {
     rule.setwidget.push({
       contenttype: context.resolveType(type),

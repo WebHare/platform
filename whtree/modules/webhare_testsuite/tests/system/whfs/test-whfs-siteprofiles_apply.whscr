@@ -14,6 +14,13 @@ STRING FUNCTION GetMyIntercepts(INTEGER obj)
   RETURN Detokenize(data.result, ',');
 }
 
+STRING ARRAY FUNCTION GetMyLibrary(INTEGER obj, STRING library)
+{
+  INTEGER ARRAY ids := GetApplyTesterForObject(obj)->GetLibrary(library);
+  RECORD ARRAY paths := SELECT path := OpenWHFSObject(id)->GetResourceName() FROM ToRecordArray(ids, "id");
+  RETURN SELECT AS STRING ARRAY path FROM paths ORDER BY ToUppercase(path);
+}
+
 STRING FUNCTION GetMyCustomNodes(INTEGER obj) {
   STRING ARRAY result;
   FOREVERY(RECORD node FROM GetCustomSiteProfileSettings("urn:xyz", "test", obj))
@@ -70,6 +77,11 @@ MACRO TestBeforeSite()
   TestEq("applytest-megaglobal,in-system-folder,is-slots-folder", GetMyCustomNodesThroughYaml(aslotsfolder->id));
   TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", GetMyCustomNodesThroughYaml(abeaconfolder->id));
   TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", GetMyCustomNodesThroughYaml(subfile->id));
+
+  TestEq(['site::webhare_testsuite.testsite/testpages/', 'site::webhare_testsuite.testsitejs/staticlogin/'], GetMyLibrary(OpenTestsuiteJSSite()->id,"test1"));
+  TestEq(['site::webhare_testsuite.testsite/testpages/', 'site::webhare_testsuite.testsitejs/staticlogin/'], GetMyLibrary(OpenTestsuiteJSSite()->id,"test1"));
+  TestEq(['site::webhare_testsuite.testsite/testpages/', 'site::webhare_testsuite.testsitejs/staticlogin/','site::webhare_testsuite.testsitejs/testpages/foldertemplate/'], GetMyLibrary(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id,"test1"));
+  TestEq(['site::webhare_testsuite.testsitejs/testpages/' ], GetMyLibrary(OpenTestsuiteJSSite()->OpenByPath("testpages/dynamicpage")->id,"test1"));
 }
 
 MACRO TestRules()

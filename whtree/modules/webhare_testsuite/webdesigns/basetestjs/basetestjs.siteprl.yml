@@ -203,5 +203,21 @@ apply:
     userData:
       webhare_testsuite:setting: '{"hasTestFeature":true}'
 
+  - comment: test setLibrary
+    to: all
+    setLibrary:
+      test1:
+        - site::webhare_testsuite.testsite/testpages/
+        - relativeTo: site # this would be testsite*js*
+          path: /staticlogin
+        - relativeTo: fsObject
+          path: ./foldertemplate
+  - comment: test setLibrary overwrite
+    to:
+      sitePath: /testpages/dynamicpage
+    setLibrary:
+      test1:
+        - site::webhare_testsuite.testsitejs/testpages/
+
 applySiteProfiles:
   - ./metadata.siteprl.yml

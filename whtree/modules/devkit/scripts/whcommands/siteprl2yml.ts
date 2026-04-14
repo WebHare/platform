@@ -304,6 +304,11 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
       : { contentBuilder: unresolvePath(ctxt, ar.bodyrenderer.contentbuilder) };
   }
 
+  for (const lib of ar.setlibrary) {
+    rule.setLibrary ||= {};
+    rule.setLibrary[lib.name] = lib.sources.map(s => s.relativeto ? { relativeTo: s.relativeto, path: s.path } : s.path);
+  }
+
   if (ar.contentlisting)
     throw new Error(`<contentlisting> is not supported by YAML based siteprofiles`);
 

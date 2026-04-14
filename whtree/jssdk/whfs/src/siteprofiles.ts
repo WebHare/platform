@@ -417,7 +417,13 @@ export type CSPApplyRule = {
     task: string;
     delay: number;
   }>;
-  setlibrary: any[];
+  setlibrary: Array<{
+    name: string;
+    sources: Array<{
+      relativeto: "" | "site" | "fsObject";
+      path: string;
+    }>;
+  }>;
   setobjecteditor: {
     name: string;
     screen: string;

@@ -1700,26 +1700,18 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN retval;
   }
 
-  OBJECT FUNCTION LookupSource(RECORD source)
-  {
-    STRING resolvename := source.path;
-
-    IF(resolvename NOT LIKE "*::*")
-    {
-      // Resolve relative to the site if this is an absolute path, or relative to the target object itself if this is a folder,
-      // or relative to the parent if this is a file
-      OBJECT relativeto;
-      IF(resolvename LIKE "/*")
-        relativeto := OpenWHFSObject(this->objinfo.site.id);
-      ELSE
-        relativeto := OpenWHFSObject(this->objinfo.obj.isfolder ? this->objinfo.obj.id : this->objinfo.obj.parent);
-      IF(NOT ObjectExists(relativeto) OR NOT relativeto->isactive)
-        RETURN DEFAULT OBJECT;
-
-      resolvename := MakeAbsoluteResourcePath(relativeto->GetResourceName(), resolvename);
+  OBJECT FUNCTION LookupSource(RECORD source) {
+    IF(source.relativeto = "")  { //absolute path
+      RETURN OpenWHFSObjectByPath(source.path);
     }
 
-    RETURN OpenWHFSObjectByPath(resolvename);
+    OBJECT relativeto := OpenWHFSObject(source.relativeto = "site" ? this->objinfo.site.id
+                                        : this->objinfo.obj.isfolder ? this->objinfo.obj.id : this->objinfo.obj.parent);
+
+    IF(NOT ObjectExists(relativeto) OR NOT relativeto->isactive)
+      RETURN DEFAULT OBJECT;
+
+    RETURN relativeto->OpenByPath(source.path LIKE "/*"  ? Substring(source.path,1) : source.path);
   }
 
   PUBLIC INTEGER ARRAY FUNCTION GetLibrary(STRING libraryname)
