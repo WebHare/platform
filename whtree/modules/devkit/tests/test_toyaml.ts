@@ -14,6 +14,8 @@ function testNaming() {
   test.eq("platform:publisher.siteprofile", suggestTypeName("platform", "platform:publisher.siteprofile"));
   test.eq("publisher:publisher.siteprofile", suggestTypeName("platform", "publisher:publisher.siteprofile"));
   test.eq("platform:whfstype", suggestTypeName("platform", "weirdstuff"));
+  test.eq("utwente_base:links_newwindow", suggestTypeName("utwente_base", "http://www.utwente.nl/links_newwindow/"));
+  test.eq("utwente_base:siteprl.pages.itc_absent_staff", suggestTypeName("utwente_base", "http://www.itc.nl/siteprl/pages/itc-absent-staff/"));
 }
 
 function testToRoundtrip(finalTo: ApplyTo, sourceTo: CSPApplyTo[]) {

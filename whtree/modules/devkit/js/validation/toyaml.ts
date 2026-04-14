@@ -4,23 +4,28 @@ import { nameToCamelCase } from "@webhare/std";
 
 export const fallbacknameTypeName = "whfstype";
 
-function preventDoubleName(typename: string) {
+function preventDoubleNameAndDotEnd(typename: string) {
   //prevent webhare_testsuite:webhare_testsuite.webdesign_dynfolder
   const match = typename.match(/^([^:]+):([^.]+)\.(.*)$/);
   if (match && match[1] === match[2])
-    return match[1] + ":" + match[3];
+    typename = match[1] + ":" + match[3];
+
+  while (typename.endsWith('.'))
+    typename = typename.slice(0, -1);
+
+  typename = typename.replaceAll("-", "_");
   return typename;
 }
 
 export function suggestTypeName(module: string, scopedtype: string): string {
   const grabType = scopedtype.match(/^.*\/(xmlns|webhare)\/(.*)\/?$/);
   if (grabType) //it's a common ../xmlns/.. or less-common ../webhare/ namespace
-    return preventDoubleName(module + ":" + grabType[2].replaceAll("/", '.').replaceAll("-", '_'));
+    return preventDoubleNameAndDotEnd(module + ":" + grabType[2].replaceAll("/", '.').replaceAll("-", '_'));
 
   //parse any http://domain/.../
   const grabPostOriginSuffix = scopedtype.match(/^https?:\/\/[^/]+\/(.*)\/?$/);
   if (grabPostOriginSuffix)
-    return preventDoubleName(module + ":" + grabPostOriginSuffix[1].replaceAll("/", '.'));
+    return preventDoubleNameAndDotEnd(module + ":" + grabPostOriginSuffix[1].replaceAll("/", '.'));
 
   if (scopedtype.match(/^[^:]+:[^:]+\.[^:]+$/)) //it's already a module:group.type format
     return scopedtype;
