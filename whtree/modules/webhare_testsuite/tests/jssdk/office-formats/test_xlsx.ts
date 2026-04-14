@@ -1,65 +1,16 @@
 import * as test from "@webhare/test-backend";
 import { generateXLSX, type SpreadsheetColumn } from "@webhare/office-formats";
-import { Money, omit, pick } from "@webhare/std";
+import { omit, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { DOMParser, type Document } from "@xmldom/xmldom";
 import { isValidSheetName } from "@webhare/office-formats/src/support";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { openXlsx } from "@webhare/xlsx-reader";
+import { getTestSpreadsheet, getTestTimes } from "./data/tabular-sources";
 
-const columns: SpreadsheetColumn[] =
-  [
-    { name: "title", title: "Col 1:title", type: "string" },
-    { name: "bool", title: "Col 2:bool", type: "boolean" },
-    { name: "date", title: "Col 3:date", type: "date" },
-    { name: "int", title: "Col 4:int", type: "number" },
-    { name: "time", title: "Col 5:time", type: "time" },
-    { name: "dt", title: "Col 7:datetime", type: "dateTime", storeUTC: true },
-    { name: "mf", title: "Col 8:mf", type: "money" },
-    // { name: "sa", title: "Col 9:stringarray", type: "string" }, //should we support string arrays?
-    { name: "int64", title: "Col 10:int64", type: "number" },
-    { name: "floating", title: "Col 11:floating", type: "number", decimals: 3 }
-  ];
-
-const now = new Date("2011-12-08T07:58:12");
-const sometime = new Date("2011-11-09T00:06:06");
-
-const reftrestrows = [
-  {
-    title: "Ti<>tle 1",
-    bool: true,
-    date: now,
-    int: 17,
-    time: now.getTime() % 86400_000,
-    dt: now,
-    mf: new Money("1.5"),
-    // sa: ["a", "2"],
-    int64: 0,
-    floating: 3.5
-  }, {
-    title: "Tit&le 2\nnext line!",
-    bool: false,
-    date: sometime,
-    int: 666,
-    time: 666_000, //666 secs after midnight = 00:11:06 or 12:11:06 AM
-    dt: sometime,
-    mf: new Money("2.5"),
-    // sa: [3, 4],
-    int64: -10000000000,
-    floating: 1.30000000004
-  }, {
-    title: "Third row",
-    bool: false,
-    date: null,
-    int: 0,
-    time: 0,
-    dt: null,
-    mf: new Money("0"),
-    // sa: [],
-    int64: 0,
-  }
-];
+const testSheet = getTestSpreadsheet();
+const columns = testSheet.columns;
 
 async function getSheet1(xlsx: Blob): Promise<Document> {
   const result = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").UnpackArchive(await WebHareBlob.fromBlob(xlsx));
@@ -108,12 +59,12 @@ async function getRows(xlsx: File) {
 export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
   const incopmpleteColums: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
-  await test.throws(/storeUTC/, generateXLSX({ rows: reftrestrows, columns: incopmpleteColums }));
-  await test.throws(/no timeZone/, generateXLSX({ rows: reftrestrows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
-  await test.throws(/no timeZone/, generateXLSX({ rows: reftrestrows, columns: columns }));
+  await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incopmpleteColums }));
+  await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
+  await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns }));
 
   //FIXME don't allow 'old' timezone names, actually apply timezones to the export format
-  const output2 = await generateXLSX({ rows: reftrestrows, columns, timeZone: "CET" });
+  const output2 = await generateXLSX({ rows: testSheet.rows, columns, timeZone: "CET" });
   test.eq(/\.xlsx$/, output2.name);
   // await storeDiskFile("/tmp/test_xlsx_columnfiles.xlsx", output2, { overwrite: true });
 
@@ -141,6 +92,7 @@ export async function testXLSXColumnFiles() {
   test.eq("Ti<>tle 1", outrows[1][0]);
   test.eq(true, outrows[1][1]);
 
+  const { now, sometime } = getTestTimes();
   const nowRounded = new Date(now.toISOString().substring(0, 10) + "T00:00:00Z");
   test.eq(nowRounded, outrows[1][2]);
   test.eq(17, outrows[1][3]);
@@ -168,7 +120,7 @@ export async function testXLSXColumnFiles() {
 
   // Compare all non-undefined columns to the HS output
   const output2_hs = (await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").GenerateXLSXFile({
-    rows: reftrestrows.map(row => ({ ...row, time: new Date(row.time), dt: row.dt || defaultDateTime, date: row.date || defaultDateTime, floating: row.floating ?? 0 })),
+    rows: testSheet.rows.map(row => ({ ...row, time: new Date(row.time), dt: row.dt || defaultDateTime, date: row.date || defaultDateTime, floating: row.floating ?? 0 })),
     columns: columns.map(c => ({ ...omit(c, ["decimals"]), type: c.type === "number" ? "float" : c.type.toLowerCase() })),
     timeZone: "CET"
   })).data;
@@ -193,7 +145,7 @@ export async function testXLSXColumnFiles() {
 
 async function testAutoXLSXColumnFiles() {
   //Often we don't really care to exactly define an output format - eg an internal used one-off format. We can always go back and specify columns!
-  const doc = await generateXLSX({ rows: reftrestrows });
+  const doc = await generateXLSX({ rows: testSheet.rows });
   test.eq([
     [
       'title', 'bool',
@@ -230,13 +182,13 @@ async function testAutoXLSXColumnFiles() {
 
 async function testXLSXMultipleSheets() {
   const sheet1 = {
-    rows: reftrestrows.map(_ => pick(_, ["title", "date"])),
+    rows: testSheet.rows.map(_ => pick(_, ["title", "date"])),
     columns: columns.filter(_ => ['title', 'date'].includes(_.name)),
     title: "First Sheet"
   };
 
   const sheet2 = {
-    rows: [reftrestrows[1]],
+    rows: [testSheet.rows[1]],
     columns: columns.filter(_ => ['title', 'bool'].includes(_.name)),
   };
 
