@@ -78,6 +78,10 @@ async function testPageResponse() {
   }));
   test.eq(`<div>value1</div>`, await littyToString(jsWidget1));
 
+  //Preview a HS widget
+  const hsWidget = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/hswidget-embed-lvl1");
+  test.eq(/<div class="level1widget"/, hsWidget.bodyElements[0]);
+
   //Regression: the '<b></b>' part was rendered as '[Object object]'
   const richDocument = await sitereq.renderRTD(await buildRTD([
     { h1: ["Heading 1"] },

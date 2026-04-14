@@ -16,9 +16,9 @@ MACRO TestFindWidgetReferences()
 
   TestEq( [[ fsobject := widget_embedlvl1->id, referstofsobject := 0, refersto := "", whfspath := widget_embedlvl1->whfspath, isfolder := FALSE, membername := "" ]
           ]
-        , FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]
+        , SELECT * FROM FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]
                                , publishedonly := FALSE
-                               ]));
+                               ]) WHERE whfspath LIKE "*/tmp/*");
 
  TestEq( RECORD[]
         , FindWHFSObjectReferences([ fstypes := INTEGER[type_embedlvl1->id]

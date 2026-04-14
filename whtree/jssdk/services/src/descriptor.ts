@@ -1,6 +1,6 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType, getHareScriptResourceDescriptor } from "@webhare/hscompat/src/hson";
-import { dateToParts } from "@webhare/hscompat/src/datetime.ts";
+import { dateToParts, type ValidDateTimeSources } from "@webhare/hscompat/src/datetime.ts";
 import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
@@ -785,7 +785,7 @@ export function packImageResizeMethod(resizemethod: PackableResizeMethod): Array
   return buffer.slice(0, ptr);
 }
 
-export function getUnifiedCC(date: Date) {
+export function getUnifiedCC(date: ValidDateTimeSources) {
   const parts = dateToParts(date);
   return parts.days ^ parts.msecs;
 }

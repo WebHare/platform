@@ -1,6 +1,6 @@
 import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit } from "@webhare/services/src/descriptor";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
@@ -956,4 +956,9 @@ export async function openFileOrFolder(path: number | string | null, options?: O
 /** Get a new WHFS object id */
 export async function nextWHFSObjectId(): Promise<number> {
   return nextVal("system.fs_objects.id");
+}
+
+/** Get the dbLoc for a WHFS Object */
+export function getWebHareDBLocation(obj: WHFSObject): WebHareDBLocation {
+  return { source: 1, id: obj.id, cc: getUnifiedCC(obj.created) };
 }

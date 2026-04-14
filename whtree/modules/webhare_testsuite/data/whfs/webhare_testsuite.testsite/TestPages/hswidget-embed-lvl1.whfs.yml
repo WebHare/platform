@@ -1,0 +1,21 @@
+name: widget-preview
+whfsPath: /webhare-tests/webhare_testsuite.testsitejs/TestPages/widget-preview
+modified: 2026-04-14T13:26:20.943Z
+type: http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1
+instances:
+  - whfsType: platform:virtual.objectdata
+    clone: onCopy
+    data:
+      title: Widget preview
+      description: ""
+      order: 0
+      keywords: ""
+  - whfsType: http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1
+    clone: onCopy
+    data:
+      richdoc:
+        - tag: p
+          items:
+            - text: "this is a "
+            - text: RTD
+              bold: true
