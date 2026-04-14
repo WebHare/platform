@@ -20,6 +20,11 @@
   </group>
   <group name="wasm" engine="wasm">
     <test script="primitivevalues.whscr" />
+    <test script="pg_locking.whscr" flaky="true" />
+    <test script="pg_procedures.whscr" />
+    <test script="pg_blobcleanup.whscr" />
+    <test script="pg_metadataupdates.whscr" />
+    <test script="test_cascade.whscr" />
     <test script="test_dynquery.whscr" />
     <test script="test_work.whscr" />
     <test script="test_whtrans.whscr" />
