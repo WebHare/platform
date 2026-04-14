@@ -131,6 +131,8 @@ class WasmQueryResult: public QueryResult {
         void ParseBuffer();
         void EnsureRowCached(uint32_t rowid);
 
+        std::string cmdline;
+
     public:
         std::vector< QueryResultField > fields;
 
@@ -145,6 +147,8 @@ class WasmQueryResult: public QueryResult {
         QueryResultValue GetValue(uint32_t rowid, uint32_t colid);
         virtual std::string GetErrorMessage() const;
         virtual std::string GetVerboseErrorMessage() const;
+        virtual std::string GetCmd();
+        virtual unsigned GetCmdTuples();
 };
 
 
@@ -236,6 +240,14 @@ void WasmQueryResult::ParseBuffer() {
                                         errorfields.push_back(errorfield);
                                 }
                         } break;
+                        case PqMsg_CommandComplete: { // Command complete
+                                // Command tag is a null-terminated string
+                                auto itr = std::find(data + idx, data + packetend, 0);
+                                if (itr == data + packetend)
+                                    throw std::runtime_error("Invalid command complete message");
+                                cmdline = std::string(data + idx, itr - (data + idx));
+                                idx += cmdline.size() + 1;
+                        } break;
                         default:
                                 // Skip unknown message types
                                 break;
@@ -309,6 +321,35 @@ std::string WasmQueryResult::GetErrorMessage() const
                 message += "CONTEXT: " + context + "\n";
 
         return message;
+}
+
+std::string WasmQueryResult::GetCmd()
+{
+        return { cmdline.begin(), std::find(cmdline.begin(), cmdline.end(), ' ') };
+}
+
+unsigned WasmQueryResult::GetCmdTuples()
+{
+        auto ptr = cmdline.c_str();
+        if (Blex::StrStartsWith(cmdline, "INSERT "))
+            ptr += 7;
+        else if (!Blex::CStrCompare(ptr, "SELECT ", 7) &&
+            !Blex::CStrCompare(ptr, "DELETE ", 7) &&
+            !Blex::CStrCompare(ptr, "UPDATE ", 7) &&
+            !Blex::CStrCompare(ptr, "FETCH ", 6) &&
+                !Blex::CStrCompare(ptr, "MERGE ", 6) &&
+                !Blex::CStrCompare(ptr, "MOVE ", 5) &&
+                !Blex::CStrCompare(ptr, "COPY ", 5))
+            return 0;
+
+        // Skip command verb (or INSERT OID)
+        while (*ptr && *ptr != ' ')
+            ++ptr;
+        if (!*ptr)
+            return 0;
+        ++ptr;
+
+        return Blex::DecodeUnsignedNumber<unsigned, const char *>(ptr, cmdline.c_str() + cmdline.size(), 10).first;
 }
 
 std::string WasmQueryResult::GetVerboseErrorMessage() const

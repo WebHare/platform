@@ -2120,7 +2120,7 @@ void PGSQLTransactionDriverBase::CloseCursor(CursorId id)
         queries.Erase(id);
 }
 
-void PGSQLTransactionDriverBase::ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext)
+void PGSQLTransactionDriverBase::ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext, bool with_cmdinfo)
 {
         StackMachine &stackm = vm->GetStackMachine();
 
@@ -2173,9 +2173,19 @@ void PGSQLTransactionDriverBase::ExecuteSimpleQuery(VarId id_set, std::string co
 
         TuplesReader reader(vm, *this, res.get(), nullptr);
 
+        VarId var_rows = id_set;
+        if (with_cmdinfo)
+        {
+                stackm.InitVariable(id_set, VariableTypes::Record);
+                var_rows = stackm.RecordCellCreate(id_set, stackm.columnnamemapper.GetMapping("ROWS"sv));
+                stackm.InitVariable(var_rows, VariableTypes::RecordArray);
+                stackm.SetSTLString(stackm.RecordCellCreate(id_set, stackm.columnnamemapper.GetMapping("CMD"sv)), res->GetCmd());
+                stackm.SetInteger(stackm.RecordCellCreate(id_set, stackm.columnnamemapper.GetMapping("TUPLES"sv)), res->GetCmdTuples());
+        }
+
         for (unsigned i = 0, e = res->GetRowCount(); i < e; ++i)
         {
-                VarId elt = stackm.ArrayElementAppend(id_set);
+                VarId elt = stackm.ArrayElementAppend(var_rows);
                 if (reader.ReadSimpleTuple(elt, i) == TuplesReader::ReadResult::Exception)
                     return;
         }
@@ -2259,7 +2269,8 @@ void PGSQL_Exec(HSVM *hsvm, HSVM_VariableId id_set)
 
         std::string query = HSVM_StringGetSTD(hsvm, HSVM_Arg(1));
         bool astext = HSVM_BooleanGet(hsvm, HSVM_Arg(4));
-        driver->ExecuteSimpleQuery(id_set, query, HSVM_Arg(2), HSVM_Arg(3), astext);
+        bool with_cmdinfo = HSVM_BooleanGet(hsvm, HSVM_Arg(5));
+        driver->ExecuteSimpleQuery(id_set, query, HSVM_Arg(2), HSVM_Arg(3), astext, with_cmdinfo);
 }
 
 void PGSQL_GetWorkOpen(HSVM *hsvm, HSVM_VariableId id_set)
@@ -2408,7 +2419,7 @@ void PGSQLRegisterSharedFunctions(HSVM_RegData *regdata) {
         using namespace HareScript::SQLLib::PGSQL;
 
         HSVM_RegisterMacro(regdata, "__PGSQL_CLOSE:::I", PGSQL_Close);
-        HSVM_RegisterFunction(regdata, "__PGSQL_EXEC::RA:ISVAIAB", PGSQL_Exec);
+        HSVM_RegisterFunction(regdata, "__PGSQL_EXEC::V:ISVAIABB", PGSQL_Exec);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETWORKOPEN:::IB", PGSQL_SetWorkOpen);
         HSVM_RegisterMacro(regdata, "__PGSQL_SETALLOWWRITEERRRORDELAY:::IB", PGSQL_SetAllowWriteErrorDelay);
         HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN::B:I", PGSQL_GetWorkOpen);

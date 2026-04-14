@@ -22,21 +22,16 @@ struct PGPtrDeleter
 
 template < class T > using PGPtr = std::unique_ptr< T, PGPtrDeleter >;
 
-class NativeQueryResult: public QueryResult {
+class CNativeQueryResult: public QueryResult {
     private:
-        PGresult const *result;
-        PGPtr< PGresult > owned;
+        PGresult const *cresult;
     public:
-        NativeQueryResult(PGPtr< PGresult > &&_result)
-        : result(_result.get()), owned(std::move(_result))
-        {
-        }
-        NativeQueryResult(PGresult const *_result)
-        : result(_result)
+        CNativeQueryResult(PGresult const *_cresult)
+        : cresult(_cresult)
         {
         }
 
-        virtual ~NativeQueryResult();
+        virtual ~CNativeQueryResult();
 
         int GetResultStatus() const;
 
@@ -47,6 +42,24 @@ class NativeQueryResult: public QueryResult {
         virtual std::string GetErrorMessage() const;
         virtual std::string GetVerboseErrorMessage() const;
         virtual bool HasError() const;
+        virtual std::string GetCmd();
+        virtual unsigned GetCmdTuples();
+
+};
+
+class NativeQueryResult: public CNativeQueryResult {
+    private:
+        PGPtr< PGresult > result;
+    public:
+        NativeQueryResult(PGPtr< PGresult > &&_result)
+        : CNativeQueryResult(_result.get()), result(std::move(_result))
+        {
+        }
+
+        virtual ~NativeQueryResult();
+
+        virtual std::string GetCmd();
+        virtual unsigned GetCmdTuples();
 };
 
 /** PostgreSQL transaction object */
@@ -78,7 +91,7 @@ class PGSQLNativeTransactionDriver : public PGSQLTransactionDriverBase
         /// Counter for name generation
         uint64_t prepared_statements_counter;
 
-        static void NoticeReceiverCallback(void *arg, const PGresult *res);
+        static void NoticeReceiverCallback(void *arg, PGresult const *res);
         std::unique_ptr< QueryResult > ExecQuery(Query &query, bool asyncresult);
         bool CheckResultStatus(std::unique_ptr< NativeQueryResult > const &res);
         bool WaitForResult();

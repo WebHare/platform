@@ -260,7 +260,7 @@ MACRO TestAutoNumbers()
   INSERT INTO tbl_autonumberwraptest(a32) VALUES (2147483646);
   INSERT INTO tbl_autonumberwraptest(a32) VALUES (2147483647);
   TestThrowsLike("*Table webhare_testsuite_temp.autonumberwraptest is full, no more autonumbers available*", PTR MakeAutoNumber(tbl_autonumberwraptest, "a32"));
-  GetPrimary()->CommitWork();
+  TestThrowsLike("Commit failed (usually due to earlier errors on this transaction)", PTR GetPrimary()->CommitWork());
 
   ApplyTempDatabaseSchema(`
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
