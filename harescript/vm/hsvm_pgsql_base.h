@@ -356,8 +356,6 @@ class PGSQLTransactionDriverBase : public DatabaseTransactionDriverInterface
 
         std::string GetBlobDiskpath(int64_t blobid);
 
-        virtual int GetBackendPid() = 0;
-
         virtual bool IsWorkOpen() = 0;
         virtual void SetWorkOpen(bool open) = 0;
 

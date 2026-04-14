@@ -2,6 +2,7 @@
 
 LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -183,8 +184,16 @@ MACRO TestCommitErrors()
   trans->Close();
 }
 
+MACRO TestPid() {
+  OBJECT trans2 := __StartWHPostgreSQLTransaction([ auto := TRUE ]);
+  INTEGER pid := trans2->backendpid;
+  TestEQ(pid, trans2->__ExecSQL("SELECT pg_backend_pid() as pid")[0].pid);
+  trans2->Close();
+}
+
 RunTestFramework([ PTR Cleanup
                  , PTR TestPrimary
                  , PTR TestWorkLocks
                  , PTR TestCommitErrors
+                 , PTR TestPid
                  ], [ usedatabase := FALSE ]);

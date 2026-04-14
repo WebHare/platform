@@ -33,8 +33,6 @@ class PGSQLWasmTransactionDriver : public PGSQLTransactionDriverBase
         PGSQLWasmTransactionDriver(HSVM *vm, Options const &options);
         ~PGSQLWasmTransactionDriver();
 
-        int GetBackendPid();
-
         bool IsWorkOpen();
         void SetWorkOpen(bool open);
 };

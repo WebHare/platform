@@ -362,19 +362,6 @@ void PGSQLWasmTransactionDriver::PrepareForQuery()
             supportPrepareForQuery(this->sqllib_transid, &webhare_blob_oid, &webhare_blobarray_oid);
 }
 
-/*
-std::pair< ConnStatusType, PGTransactionStatusType > PGSQLWasmTransactionDriver::GetStatus()
-{
-        return std::make_pair(PQstatus(conn), PQtransactionStatus(conn));
-}
-*/
-
-int PGSQLWasmTransactionDriver::GetBackendPid()
-{
-        // FIXME: implement
-        return 0;
-}
-
 EM_JS(bool, supportIsWorkOpen, (int32_t trans_id), {
         return Module.isPgWorkOpen(trans_id);
 });
