@@ -70,6 +70,7 @@ class Mutex {
   private link: MutexManagerLink | null = null;
   public readonly name;
   private context = getCodeContext();
+  onRelease?: (mutex: Mutex) => void;
 
   constructor(mutexmgr: MutexManagerLink, mutexname: string) {
     this.link = mutexmgr;
@@ -84,6 +85,7 @@ class Mutex {
       this.link.close();
     }
     this.link = null;
+    this.onRelease?.(this);
   }
   [Symbol.dispose]() {
     this.release();

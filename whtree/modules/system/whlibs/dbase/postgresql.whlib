@@ -24,7 +24,7 @@ LOADLIB "wh::internal/dbase/pg-internals.whlib" EXPORT PostgreSQLEscapeLiteral, 
 */
 
 
-RECORD FUNCTION __PGSQL_CONNECT(RECORD ARRAY args) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+RECORD FUNCTION __PGSQL_CONNECT(RECORD ARRAY args, BOOLEAN isprimary) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_CLOSE(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETSTATUS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -33,6 +33,16 @@ MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) _
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETDEBUGSETTINGS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands, INTEGER commandtimeout) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
+// WASM-only
+MACRO __PGSQL_BEGINWORK(INTEGER trans, STRING isiloationlevel, INTEGER ARRAY mutexes) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __PGSQL_ROLLBACKWORK(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+RECORD ARRAY FUNCTION __PGSQL_COMMITWORK(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+BOOLEAN FUNCTION __PGSQL_HASMUTEX(INTEGER trans, STRING mutex) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+BOOLEAN FUNCTION __PGSQL_TRYLOCKMUTEX(INTEGER trans, STRING mutex, DATETIME wait_until) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+INTEGER FUNCTION __PGSQL_GETBACKENDPID(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __PGSQL_REGISTERCOMMITHANDLERS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+
 
 //*/
 
@@ -88,11 +98,6 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     this->__UpdateDebugConfig(DEFAULT RECORD);
 
     this->SetAllowErrorDelay(NOT IsDebugTagEnabled("pg-noerrordelay"));
-
-    IF(__PGSQL_GETWORKOPEN(this->id)) //work=open means we got a marshalled transaction. ADDME prevent closure on our side of such a trans/work
-    {
-      this->pvt_numworks := 1;
-    }
   }
 
   UPDATE STRING FUNCTION GetType()
@@ -132,18 +137,24 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE RECORD ARRAY FUNCTION DoCommitWork()
   {
-    RECORD ARRAY result := SendPostgreSQLCommand(this->id, "COMMIT");
-    IF(Length(result) = 0) { //no commit errors
-      IF(ObjectExists(this->__uploadedblobs)) { //give all uploaded blobs their disk path so they can be shared and directly accessed
-        STRING pgstoragepath := GetPGBlobStoragepath(); //will not end in a slash
-        FOR(OBJECT itr := this->__uploadedblobs->GetDangerousIteratorRange().range_begin; NOT itr->atend; itr->next()) {
-          IF(GetBlobDiskPath(itr->value.data) NOT LIKE pgstoragepath || "/*") //not in the database yet?
-            SetBlobDiskPath(itr->value.data, GetPGBlobDiskPath(itr->value.pgblobid));
-        }
+    TRY {
+      RECORD ARRAY result := SendPostgreSQLCommand(this->id, "COMMIT");
+      IF(Length(result) = 0) //no commit errors
+        this->SetUploadedBlobPaths();
+      RETURN result;
+    } FINALLY
+      this->__uploadedblobs := DEFAULT OBJECT;
+  }
+
+  MACRO SetUploadedBlobPaths() {
+    IF(ObjectExists(this->__uploadedblobs)) { //give all uploaded blobs their disk path so they can be shared and directly accessed
+      STRING pgstoragepath := GetPGBlobStoragepath(); //will not end in a slash
+      FOR(OBJECT itr := this->__uploadedblobs->GetDangerousIteratorRange().range_begin; NOT itr->atend; itr->next()) {
+        IF(GetBlobDiskPath(itr->value.data) NOT LIKE pgstoragepath || "/*") //not in the database yet?
+          SetBlobDiskPath(itr->value.data, GetPGBlobDiskPath(itr->value.pgblobid));
       }
+      this->__uploadedblobs := DEFAULT OBJECT;
     }
-    this->__uploadedblobs := DEFAULT OBJECT;
-    RETURN result;
   }
 
   UPDATE PUBLIC MACRO Rollback()
@@ -158,7 +169,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC MACRO Close()
   {
-    IF (this->IsWorkOpen())
+    IF (this->IsWorkOpen() AND this->pvt_localworkopened)
     {
       this->pvt_numworks := 1;
       this->RollbackWork();
@@ -614,6 +625,69 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   }
 >;
 
+STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
+
+  UPDATE PUBLIC PROPERTY backendpid(GetBackendPid, -);
+
+  INTEGER FUNCTION GetBackendPid()
+  {
+    RETURN __PGSQL_GETBACKENDPID(this->id);
+  }
+
+  UPDATE MACRO DoBeginWork() {
+    INTEGER ARRAY locks;
+    FOREVERY (OBJECT lock FROM this->pvt_worklocks)
+      INSERT lock->__GetMutexId() INTO locks AT END;
+    this->pvt_worklocks := OBJECT[];
+    __PGSQL_BeginWork(this->id, this->pvt_transactionisolationlevel, locks);
+  }
+
+   UPDATE PUBLIC MACRO DoRollbackWork() {
+     __PGSQL_RollbackWork(this->id);
+     this->__uploadedblobs := DEFAULT OBJECT;
+   }
+
+   UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
+    TRY {
+      RECORD ARRAY result := __PGSQL_CommitWork(this->id);
+      IF(Length(result) = 0) //no commit errors
+        this->SetUploadedBlobPaths();
+      RETURN result;
+    } FINALLY
+      this->__uploadedblobs := DEFAULT OBJECT;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
+  {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`BeginWork must be called before locking mutexes`);
+    RETURN __PGSQL_TRYLOCKMUTEX(this->id, mutexname, wait_until);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname)
+  {
+    RETURN __PGSQL_HASMUTEX(this->id, mutexname);
+  }
+
+  UPDATE PUBLIC MACRO BroadcastOnCommit(STRING eventname, RECORD eventdata) {
+    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+      __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+    WHPostgreSQLTransaction::BroadcastOnCommit(eventname, eventdata);
+  }
+
+  UPDATE PUBLIC MACRO RegisterCommitHandler(STRING coalesce_tag, FUNCTION PTR handler) {
+    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+      __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+    WHPostgreSQLTransaction::RegisterCommitHandler(coalesce_tag, handler);
+  }
+
+  UPDATE PUBLIC MACRO SetFinishHandler(STRING tag, OBJECT obj) {
+    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+      __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+    WHPostgreSQLTransaction::SetFinishHandler(tag, obj);
+  }
+>;
+
 PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
@@ -660,6 +734,9 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
   BOOLEAN reset_delayerrors;
   IF ((testquery IN [ "ROLLBACK;", "COMMIT;" ] OR testquery LIKE "ROLLBACK *"  OR testquery LIKE "COMMIT *") AND testquery NOT LIKE "*SAVEPOINT*")
   {
+    IF (IsWasm())
+      THROW NEW Exception(`Direct ROLLBACK/COMMIT not allowed in WASM mode`);
+
     __PGSQL_SETWORKOPEN(trans, FALSE);
 
     IF (testquery LIKE "COMMIT*") // Commit
@@ -676,6 +753,9 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
       transobj->pvt_committing := TRUE;
     }
   }
+
+  IF (IsWasm() AND (testquery = "BEGIN;" OR testquery LIKE "START TRANSACTION;" OR testquery LIKE "BEGIN *" OR testquery LIKE "START TRANSACTION *"))
+    THROW NEW Exception(`Direct BEGIN/START TRANSACTION not allowed in WASM mode`);
 
   RECORD ARRAY retval := __PGSQL_EXEC(trans, query, options.args, encodings, options.astext);
 
@@ -725,10 +805,6 @@ STRING FUNCTION CalculateApplicationName()
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
 {
-  IF(IsWasm()) {
-    RETURN MakeFunctionPtr("mod::system/js/internal/whdb/wasm_pgsql.whlib#CreateWASMPostgreSQLTransaction")(transinfo);
-  }
-
   // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
       [ auto :=         TRUE
@@ -768,7 +844,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
           , value :=  IsValueSet(transinfo.clientname) ? Left(transinfo.clientname, 63) : CalculateApplicationName()
           ]
         , ...params
-        ]);
+        ], transinfo.isprimary);
   }
   CATCH (OBJECT e)
   {
@@ -785,7 +861,9 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF(NOT RecordExists(transresult))
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.isprimary, transinfo.blobhandler);
+  OBJECT trans := IsWasm() ?
+    NEW WHPostgreSQLWASMTransaction(transresult, transinfo.isprimary, transinfo.blobhandler) :
+    NEW WHPostgreSQLTransaction(transresult, transinfo.isprimary, transinfo.blobhandler);
 
   IF (IsDebugTagEnabled("pg-auto_explain"))
   {
@@ -908,4 +986,34 @@ PUBLIC STRING FUNCTION __GetUnsafeUploadedPostgreSQLBlobRegistrationId(INTEGER t
       RETURN currentblob.pgblobid;
   }
   RETURN "";
+}
+
+PUBLIC OBJECTTYPE ExtCommitHandler <
+  OBJECT trans;
+  RECORD handlers;
+
+  MACRO NEW(OBJECT trans, RECORD handlers)
+  {
+    this->trans := trans;
+    this->handlers := handlers;
+  }
+
+  PUBLIC MACRO RunHandlers(BOOLEAN iscommit) {
+    __CallCommitHandlers(this->handlers, iscommit ? "onCommit" : "onRollback");
+
+    this->trans->pvt_numworks := 0;
+    this->trans->pvt_localworkopened := FALSE;
+    this->trans->pvt_worklocks := OBJECT[];
+  }
+>;
+
+PUBLIC MACRO __CallPrepareHandlers(INTEGER transaction, BOOLEAN iscommit) {
+  OBJECT trans := GetTransactionObjectByIdInternal(transaction);
+  trans->__RunPrepareHandlers(iscommit);
+}
+
+PUBLIC OBJECT FUNCTION __PopFinishHandlers(INTEGER transaction) {
+  OBJECT trans := GetTransactionObjectByIdInternal(transaction);
+  RECORD handlers := trans->__PopFinishHandlers();
+  RETURN NEW ExtCommitHandler(trans, handlers);
 }

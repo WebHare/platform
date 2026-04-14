@@ -122,6 +122,7 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
              AT END;
     }
 
+    OBJECT selectedbutton;
     FOREVERY (RECORD def FROM buttons)
     {
       // If this was the preselected modalresult, return it immediately (this will only return if the preselected return
@@ -139,6 +140,8 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
       button->tolliumresult := def.tolliumresult;
       IF (def.name NOT IN this->dontshowbuttons)
         INSERT button INTO this->disablebuttons AT END;
+      IF (NOT ObjectExists(selectedbutton) OR def.isdefault)
+        selectedbutton := button;
 
       ^buttons->InsertComponentAfter(button, DEFAULT OBJECT, FALSE);
       this->buttonmap := CellInsert(this->buttonmap, def.name, button);
@@ -160,6 +163,8 @@ PUBLIC STATIC OBJECTTYPE ShowMessageBox EXTEND TolliumScreenBase
         ^pvt_dontbugme->label := GetTid("tollium:common.messages.dontshowagain");
       ^pvt_dontbugme->value := FALSE;
     }
+
+    ^frame->focused := selectedbutton;
   }
 
   UPDATE PUBLIC STRING FUNCTION RunModal()

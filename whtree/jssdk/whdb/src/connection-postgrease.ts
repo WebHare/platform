@@ -19,7 +19,7 @@ import { isError } from '@webhare/std';
 export { DatabaseError, type PGPassthroughQueryCallback } from "@webhare/postgrease";
 
 let configurationPromise: Promise<void> | undefined;
-let configuration: { bloboid: number } | null = null;
+let configuration: { bloboid: number; blobarrayoid: number } | null = null;
 
 /*
 interface PGConnectionDebugEvent {
@@ -42,9 +42,9 @@ export const codecRegistry = new CodecRegistry([
 ]);
 
 // Don't have a WHDBPgClient object when calling this function, so use this version instad of the meta.ts one
-async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
+async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Promise<{ oid: number; typname: string; typarray: number } | null> {
   const result = await pg.query(`
-    SELECT t.oid, t.typname
+    SELECT t.oid, t.typname, t.typarray
       FROM pg_catalog.pg_type t
            JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
            JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
@@ -55,9 +55,6 @@ async function getPGTypeRaw(pg: PGConnection, schema: string, type: string): Pro
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: PGConnection): Promise<void> {
-  //manually setting as workaround for https://github.com/panates/postgrejs/issues/51. but once we start pooling and reuse connections we'll need to do this too
-  await pg.query(`SET application_name = '${process.pid}:${bridge.getGroupId()}'`);
-
   // when another connection is already configuring, wait for it
   // eslint-disable-next-line no-unmodified-loop-condition -- the other connection will modify `configuration`
   while (!configuration && configurationPromise) {
@@ -90,7 +87,7 @@ async function configureWHDBClient(pg: PGConnection): Promise<void> {
 
     const bloboidquery = await getPGTypeRaw(pg, "webhare_internal", "webhare_blob");
     if (bloboidquery) {
-      configuration = { bloboid: bloboidquery.oid };
+      configuration = { bloboid: bloboidquery.oid, blobarrayoid: bloboidquery.typarray };
       BlobType.oid = configuration.bloboid;
       configurationPromise = undefined;
     } else
@@ -118,8 +115,8 @@ export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST ?? ""),
     database: process.env.WEBHARE_DBASENAME ?? "",
     user: "postgres",
-    codecContext: { uploadTracker }
-    //applicationName: process.pid + ':' + bridge.getGroupId() //FIXME https://github.com/panates/postgrejs/issues/51
+    codecContext: { uploadTracker },
+    applicationName: `${process.pid}:${bridge.getGroupId()}`,
   });
 
   //if (debugFlags["pg-logcommands"])
@@ -234,6 +231,10 @@ export class WHDBPgClient implements WHDBClientInterface, PoolClient {
   getBackendProcessId(): number | undefined {
     return this.pgclient.getBackendProcessId();
   }
+
+  async cancelQuery(): Promise<void> {
+    await this.pgclient.cancelQuery();
+  }
 }
 
 export async function createConnection(options?: WHDBPgClientOptions): Promise<WHDBPgClient> {
@@ -246,4 +247,10 @@ export async function createConnection(options?: WHDBPgClientOptions): Promise<W
 
 export function pgBindParam(value: unknown, type: "uuid" | "timestamptz" | "float8"): PGBoundParam {
   return bindParam(value, type);
+}
+
+export function __getConfiguration() {
+  if (!configuration)
+    throw new Error(`WH DB configuration not ready yet`);
+  return configuration;
 }

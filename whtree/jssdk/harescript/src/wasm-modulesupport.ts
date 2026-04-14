@@ -10,7 +10,9 @@ import * as stacktrace_parser from "stacktrace-parser";
 import { mapHareScriptPath } from "./wasm-support";
 import { AsyncResource, executionAsyncId } from "node:async_hooks";
 import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
-import { decodeString } from "@webhare/std";
+import { decodeString, isError } from "@webhare/std";
+import { getConnection, type WHDBConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
+import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
@@ -119,12 +121,19 @@ type RegisteredExternal = {
  */
 const WASMModuleBase = (class { }) as { new(): WASMModuleInterface };
 
+type PgTransactionData = {
+  driver: Ptr;
+  codeContext: CodeContext | null;
+  queries: Promise<Buffer>[];
+};
+
 export class WASMModule extends WASMModuleBase {
 
   stringptrs: Ptr = 0;
   externals = new Array<RegisteredExternal>;
   itf: HareScriptVM; // only one VM per module!
   lastSyncException: undefined | { error: unknown; stopAtFunction: string };
+  pgTransactions: Map<number, PgTransactionData> = new Map;
 
   constructor() {
     super();
@@ -594,6 +603,111 @@ export class WASMModule extends WASMModuleBase {
   debugPoint(str: string) {
     console.trace(`debugPoint ${this.itf!.currentgroup}: ${str}`);
     console.log(`VM stack trace:`, this.itf!.getStackTraceString());
+  }
+
+  runInPgTransactionContext<T>(transactionId: number, func: (conn: WHDBConnection, data: PgTransactionData) => T): T {
+    const transactionData = this.pgTransactions.get(transactionId);
+    if (!transactionData) throw new Error(`Unknown pg transaction ${transactionId}, can't run in transaction context`);
+    return transactionData.codeContext ?
+      transactionData.codeContext.run(() => func(getConnection(), transactionData)) :
+      func(getConnection(), transactionData);
+  }
+
+  initPgDriver(driver: Ptr, transactionId: number, isPrimary: number): void {
+    this.pgTransactions.set(transactionId, {
+      driver,
+      codeContext: isPrimary ? null : new CodeContext(getCodeContext().title + " (pg driver + " + driver + ")"),
+      queries: [],
+    });
+  }
+
+  closePgDriver(driver: Ptr, transactionId: number) {
+    this.pgTransactions.delete(transactionId);
+  }
+
+  async prepareForPgQuery(transactionId: number, webhare_blob_oid: Ptr, webhare_blobarray_oid: Ptr) {
+    await this.runInPgTransactionContext(transactionId, async (conn, transactionData) => {
+      const config = await (conn as WHDBConnectionImpl).__getConfiguration();
+
+      this.setValue(webhare_blob_oid, config.bloboid, "i32");
+      this.setValue(webhare_blobarray_oid, config.blobarrayoid, "i32");
+    });
+  }
+
+  sendPgQuery(transactionId: number, query: Ptr, querylen: number) {
+    try {
+      const buffer = Buffer.from(this.HEAPU8.buffer, this.HEAPU8.byteOffset + query, querylen);
+
+      const res = Promise.withResolvers<Buffer>();
+      const buffers: Buffer[] = [];
+
+      const callback = (data: Buffer | Error | null) => {
+        if (isError(data))
+          res.reject(data);
+        else if (data)
+          buffers.push(data);
+        else
+          res.resolve(Buffer.concat(buffers));
+      };
+
+      this.runInPgTransactionContext(transactionId, (conn, transactionData) => {
+        conn.passthroughQuery(buffer, callback);
+        transactionData.queries.push(res.promise);
+      });
+
+    } catch (e) {
+      console.log(`error in sendPgQuery:`, e);
+    }
+  }
+
+  async getPgResult(transactionId: number, dataptr: Ptr, datalenptr: Ptr, timeoutSecs: number): Promise<boolean> {
+    const transaction = this.pgTransactions.get(transactionId);
+    if (!transaction)
+      throw new Error(`Unknown pg driver ${transactionId}, can't get result`);
+    try {
+      const queryP = transaction.queries.shift();
+      if (queryP) {
+        const timeoutPromise = Promise.withResolvers<null>();
+        const timeoutCb = setTimeout(() => timeoutPromise.resolve(null), timeoutSecs * 1000);
+        const query = await Promise.race([queryP, timeoutPromise.promise]);
+        clearTimeout(timeoutCb);
+        if (!query) {
+          void this.runInPgTransactionContext(transactionId, async (conn) => {
+            await conn.cancelQuery();
+          }).catch(_ => void 0);
+
+          const err = this.stringToNewUTF8(`PostgreSQL command timeout after ${timeoutSecs} seconds`);
+          await this._HSVM_ThrowException(this.itf!.hsvm, err);
+          this._free(err);
+
+          this.setValue(datalenptr, 0, "i32");
+          this.setValue(dataptr, 0, "i32");
+          return false;
+        }
+        const ptr = this._malloc(query.byteLength);
+        this.setValue(datalenptr, query.byteLength, "i32");
+        this.HEAPU8.set(query, ptr);
+        this.setValue(dataptr, ptr, "i32");
+        return true;
+      } else {
+        this.setValue(datalenptr, 0, "i32");
+        this.setValue(dataptr, 0, "i32");
+        return false;
+      }
+    } catch (e) {
+      const message = (e as Error).message;
+      const err = this.stringToNewUTF8(message);
+      await this._HSVM_ThrowException(this.itf!.hsvm, err);
+      this._free(err);
+
+      this.setValue(datalenptr, 0, "i32");
+      this.setValue(dataptr, 0, "i32");
+      return false;
+    }
+  }
+
+  isPgWorkOpen(transactionId: number): 1 | 0 {
+    return this.runInPgTransactionContext(transactionId, (c) => c.isWorkOpen()) ? 1 : 0;
   }
 }
 

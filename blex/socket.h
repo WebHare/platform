@@ -448,11 +448,6 @@ class BLEXLIB_PUBLIC DebugSocket : public Blex::Stream
         bool GetPeerCertificateChain(std::string *dest) { return debuggedsocket.GetPeerCertificateChain(dest); }
 
         private:
-        /** Dump a packet to the debug output
-            @param len Length of the packet
-            @param buf Buffer of packet */
-        void DumpPacket(unsigned len,void const *buf) const;
-
         Socket debuggedsocket;
 
         ///Current debugging mode
@@ -517,6 +512,8 @@ BLEXLIB_PUBLIC std::ostream& operator <<(std::ostream &str,SocketAddress const &
 //IPAddress IPAddressFromString(std::string const &ip_addr);
 
 #endif // __EMSCRIPTEN__
+
+BLEXLIB_PUBLIC void DumpPacket(unsigned len,void  const *buf);
 
 } //end of namespace Blex
 

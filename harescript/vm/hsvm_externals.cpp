@@ -257,8 +257,8 @@ Externals::Externals(FileSystem &filesystem)
         linkmanager.InvokeModuleRegistration(&BaselibsEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&XMLEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&WittyEntryPoint, (void*)0);
-#ifndef __EMSCRIPTEN__
         linkmanager.InvokeModuleRegistration(&PGSQLEntryPoint, (void*)0);
+#ifndef __EMSCRIPTEN__
         linkmanager.InvokeModuleRegistration(&ICUEntryPoint, (void*)0);
 #endif // __EMSCRIPTEN__
 

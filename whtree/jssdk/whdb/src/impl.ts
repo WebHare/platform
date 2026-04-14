@@ -55,6 +55,10 @@ export interface FinishHandler {
   onBeforeRollback?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a rollback
   onRollback?: () => unknown | Promise<unknown>;
+  /** Callback that is invoked after all onBeforeXXX handlers have been called. Should be used for
+   * gathering after-commit handlers only, not for doing any work.
+   */
+  onAfterPrepare?: () => unknown | Promise<unknown>;
 }
 
 export class DBReadonlyError extends Error {
@@ -86,12 +90,21 @@ class Work implements WorkObject {
   /* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
      even when callback handlers open new work during their execution. Runs any precommit handlers immediately */
   private async prepareFinish(commit: boolean): Promise<void> {
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[commit ? "onBeforeCommit" : "onBeforeRollback"]?.()));
+    for (const h of this.finishhandlers.values())
+      if (commit)
+        await h.onBeforeCommit?.();
+      else
+        await h.onBeforeRollback?.();
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onAfterPrepare?.()));
   }
 
   private async invokeFinishHandlers(stage: "onCommit" | "onRollback") {
-    //invoke all finishedhandlers in 'parallel' and wait for them to finish
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[stage]?.()));
+    //invoke all finishedhandlers serially (otherwise opening/closing work in different HSVM's might run parallel)
+    for (const h of this.finishhandlers.values())
+      if (stage === "onCommit")
+        await h.onCommit?.();
+      else if (stage === "onRollback")
+        await h.onRollback?.();
   }
 
   async nextVals(field: string, howMany: number): Promise<number[]> {
@@ -207,8 +220,8 @@ class Work implements WorkObject {
     if (!this.conn.client)
       throw new Error(`Connection was already closed`);
 
-    this.open = false;
     await this.prepareFinish(false);
+    this.open = false;
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
       await this.invokeFinishHandlers("onRollback");
@@ -273,6 +286,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
   connected: boolean;
   _db;
   openwork?: Work;
+  openingwork = false;
   lastopen?: Error;
   client?: WHDBClientInterface;
   clientPromise?: Promise<WHDBClientInterface>;
@@ -293,7 +307,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     });
   }
 
-  waitConnected(): PoolClient | Promise<PoolClient> {
+  waitConnected(): WHDBClientInterface | Promise<WHDBClientInterface> {
     const client = this.client ?? this.getPoolClient();
     if (isPromise(client))
       return client.then(promisedClient => {
@@ -306,7 +320,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
     return client;
   }
 
-  private getPoolClient(): PoolClient | undefined | Promise<PoolClient | undefined> {
+  private getPoolClient(): WHDBClientInterface | undefined | Promise<WHDBClientInterface | undefined> {
     if (!this.connected) {
       this.clientPromise ??= (async () => {
         const client = await PostgreaseConnectionLib.createConnection();
@@ -338,6 +352,11 @@ export class WHDBConnectionImpl implements WHDBConnection {
       client.query<R>(sqlquery, parameters || []);
   }
 
+  async cancelQuery() {
+    // No need to wait for a connection, no connections means no queries issued yet
+    await this.client?.cancelQuery();
+  }
+
   /** kysely query builder */
   db<T>(): Kysely<T> {
     /* Convert the type, the types don't influence the underlying implementation anyway */
@@ -362,7 +381,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
 
   private checkState(expectwork: boolean | undefined): Work | null {
     // Check work first - if work is open the connection must have been connected at some point, so no 'connection closed' error will be thrown during connecting
-    if (expectwork !== undefined && this.isWorkOpen() !== expectwork) {
+    if (expectwork !== undefined && (this.isWorkOpen() || this.openingwork) !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     if (!this.client)
@@ -398,6 +417,7 @@ export class WHDBConnectionImpl implements WHDBConnection {
 
       this.checkState(false); //we must have the mutexes before checking work state otherwise code can't protect itself using the lock
 
+      this.openingwork = true;
       newwork = new Work(this);
       for (const mutex of mutexes)
         newwork.addMutex(mutex);
@@ -416,6 +436,8 @@ export class WHDBConnectionImpl implements WHDBConnection {
       if (mutexes)
         mutexes.forEach(m => m.release());
       throw e;
+    } finally {
+      this.openingwork = false;
     }
 
     this.openwork = newwork;
@@ -472,13 +494,21 @@ export class WHDBConnectionImpl implements WHDBConnection {
     }
     this.client = undefined;
   }
+
+  async __getConfiguration() {
+    const client = await this.waitConnected();
+    return {
+      ...PostgreaseConnectionLib.__getConfiguration(),
+      backendPid: client.getBackendProcessId() ?? 0,
+    };
+  }
 }
 
 /** A database connection
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery">;
+export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "hasMutex" | "tryLockMutex" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals" | "passthroughQuery" | "cancelQuery">;
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");

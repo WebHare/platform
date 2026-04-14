@@ -28,6 +28,12 @@ import { setHSPromiseProxy } from "./wasm-resurrection";
 import { WebHareBlob } from "@webhare/services";
 import * as readline from "node:readline";
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
+import { beginWork, commitWork, rollbackWork, workHasMutex, type FinishHandler } from "@webhare/whdb";
+import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
+import { setHareScriptType } from "@webhare/hscompat/src/hson";
+import type { HSVMObjectWrapper } from "./wasm-proxies";
+import { getCodeContext } from "@webhare/services/src/codecontexts";
+import { lockMutex } from "./syscalls";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 let syscalls: SysCallsModule | null = null;
@@ -1478,6 +1484,105 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const ctxt = stdinContext(vm);
     id_set.setBoolean(vm.consoleSupportAvailable && (ctxt.itr ? ctxt.itrDone : process.stdin.destroyed || process.stdin.readableEnded));
   });
+
+  wasmmodule.registerAsyncExternalMacro("__PGSQL_BEGINWORK:::ISIA", async (vm, transaction, isolationLevel, mutexes) => {
+    await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
+
+      await beginWork({ isolationLevel: isolationLevel.getString() as "read committed" | "repeatable read" | "serializable" });
+      const work = (getConnection() as WHDBConnectionImpl)["checkState"](true);
+      for (let idx = 0, e = mutexes.arrayLength(); idx < e; ++idx) {
+        const mutexId = mutexes.arrayGetRef(idx)!.getInteger();
+        const mutex = vm.mutexes[mutexId - 1];
+        if (!mutex)
+          throw new Error(`Invalid mutex id ${mutexId}`);
+        work.addMutex(mutex);
+      }
+    });
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__PGSQL_ROLLBACKWORK:::I", async (vm, transaction) => {
+    await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
+      // allow callbacks into HS while running rollbackWork
+      await vm.permissionSystem.runFunction(vm.permissionSystem.currentRunContext!, () => rollbackWork());
+    });
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__PGSQL_COMMITWORK::RA:I", async (vm, id_set, transaction) => {
+    await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
+      // allow callbacks into HS while running commitWork
+      await vm.permissionSystem.runFunction(vm.permissionSystem.currentRunContext!, () => commitWork());
+    });
+    id_set.setJSValue(setHareScriptType([], VariableType.RecordArray));
+  });
+
+  wasmmodule.registerExternalFunction("__PGSQL_HASMUTEX::B:IS", (vm, id_set, transaction, mutexname) => {
+    id_set.setBoolean(vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), () =>
+      workHasMutex(mutexname.getString())
+    ));
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__PGSQL_TRYLOCKMUTEX::B:ISD", async (vm, id_set, transaction, mutexname, timeout) => {
+    id_set.setBoolean(await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async (conn) => {
+      const work = (conn as WHDBConnectionImpl)["checkState"](true);
+      const lockResult = await lockMutex(vm, { mutexname: mutexname.getString(), wait_until: timeout.getDateTime() });
+      const mutex = lockResult.mutex ? vm.mutexes[lockResult.mutex - 1] : null;
+      if (!mutex)
+        return false;
+      work.addMutex(mutex);
+      return true;
+    }
+    ));
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__PGSQL_GETBACKENDPID::I:I", async (vm, id_set, transaction) => {
+    id_set.setInteger(await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async (conn) => {
+      const config = await (conn as WHDBConnectionImpl).__getConfiguration();
+      return config.backendPid;
+    }));
+  });
+
+  wasmmodule.registerExternalMacro("__PGSQL_REGISTERCOMMITHANDLERS:::I", (vm, transaction) => {
+    /* non-primary transactions live in their own code context, so switch back the the original
+       code context when calling back into the original vm
+    */
+    const transactionId = transaction.getInteger();
+    const codeContext = getCodeContext();
+    let heapVar: HSVMObjectWrapper | null = null;
+    const handler: FinishHandler = {
+      onBeforeCommit: async () => {
+        await codeContext.run(async () => {
+          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
+        });
+      },
+      onBeforeRollback: async () => {
+        await codeContext.run(async () => {
+          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
+        });
+      },
+      onAfterPrepare: async () => {
+        await codeContext.run(async () => {
+          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PopFinishHandlers(transactionId);
+        });
+      },
+      onCommit: async () => {
+        await codeContext.run(async () => {
+          if (!heapVar)
+            throw new Error("Commit handler heap variable not set");
+          await heapVar.$invoke("RUNHANDLERS", [true]);
+        });
+      },
+      onRollback: async () => {
+        await codeContext.run(async () => {
+          if (!heapVar)
+            throw new Error("Commit handler heap variable not set");
+          await heapVar.$invoke("RUNHANDLERS", [false]);
+        });
+      }
+    };
+    vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), (conn) =>
+      conn.onFinishWork(handler)
+    );
+  });
 }
 
 //The HareScriptJob wraps the actual job inside the Worker
@@ -1579,3 +1684,39 @@ export class HareScriptJob {
     this.terminate();
   }
 }
+
+/*
+// when called, already at indented position
+function dumpVar(v: HSVMVar, indent: number): string {
+  const type = v.getType();
+  if (type & VariableType.Array) {
+    let s = `${VariableType[type]}:`;
+    for (let i = 0; i < v.arrayLength(); ++i)
+      s += `\n${" ".repeat(indent + 2)}- ${dumpVar(v.arrayGetRef(i)!, indent + 2)}`;
+    return s;
+  }
+  switch (type) {
+    case VariableType.Integer: return `Integer: ${v.getInteger()}`;
+    case VariableType.Float: return `Float: ${v.getFloat()}`;
+    case VariableType.String: return `String: ${v.getString()}`;
+    case VariableType.Boolean: return `Boolean: ${v.getBoolean()}`;
+    case VariableType.Record: {
+      const rec = v.recordContents();
+      if (!rec)
+        return "Default record";
+      let s = `Record:`;
+      console.dir(rec, { depth: 1 });
+      for (const [key, val] of Object.entries(rec))
+        s += `\n${" ".repeat(indent + 2)}- ${key}:\n${" ".repeat(indent + 4)}${dumpVar(val, indent + 4)}`;
+      return s;
+    }
+    case VariableType.Blob: {
+      const blob = v.getBlob();
+      if (!blob)
+        return "Default blob";
+      return `Blob: ${blob.size} bytes`;
+    }
+    default: return `Unhandled type ${VariableType[type]}`;
+  }
+}
+*/

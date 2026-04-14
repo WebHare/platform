@@ -17,4 +17,4 @@ export type {
 export { escapePGIdentifier } from "./metadata";
 export { schemaExists, tableExists, columnExists } from "./meta";
 export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, workHasMutex, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, tryLockMutex, uploadBlob, DBReadonlyError, overrideValueType, overrideQueryArgType } from "./impl";
-export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions } from "./impl";
+export type { FinishHandler, Selectable, Updateable, WHDBConnection, WorkObject, WorkOptions } from "./impl";

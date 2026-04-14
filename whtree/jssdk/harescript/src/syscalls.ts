@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
-import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { throwError } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
@@ -23,15 +22,19 @@ export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string;
 
   const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until, __skipNameCheck: true });
   if (!mutex)
-    return { status: "timeout" };
+    return { status: "timeout" as const };
 
+  const id = hsvm.mutexes.length + 1;
   hsvm.mutexes.push(mutex);
-  return { status: "ok", mutex: hsvm.mutexes.length };
+  mutex.onRelease = (oldRef) => {
+    if (hsvm.mutexes[id - 1] === oldRef)
+      hsvm.mutexes[id - 1] = null;
+  };
+  return { status: "ok" as const, mutex: hsvm.mutexes.length };
 }
 
 export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number }) {
   hsvm.mutexes[params.mutexid - 1]?.release();
-  hsvm.mutexes[params.mutexid - 1] = null;
   return null;
 }
 
@@ -49,10 +52,6 @@ export function webHareConfig() {
       "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is
     ]
   };
-}
-
-export function finishWork(hsvm: HareScriptVM, { commit }: { commit: boolean }): Promise<unknown> {
-  return cbDoFinishWork(hsvm, commit);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type

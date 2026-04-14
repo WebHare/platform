@@ -728,46 +728,42 @@ PUBLIC MACRO ShowHTML(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY 
    @param allcontents Record array containing list of all (possible) columns in printlist. Must contain:
        .name Name of column
        .width Width of column */
-PUBLIC MACRO ShowBoxed(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY allcontents, BOOLEAN star)
-{
+PUBLIC MACRO ShowBoxed(INTEGER outputdevice,RECORD ARRAY printlist, RECORD ARRAY allcontents, BOOLEAN star) {
   IF (LENGTH(printlist) = 0)
-    PrintTo (outputdevice,"EMPTY\n");
+    PrintTo(outputdevice,"EMPTY\n");
   ELSE IF (LENGTH(allcontents) = 0)
-    PrintTo (outputdevice,"NO COLUMNS, LENGTH " || LENGTH(printlist) || "\n");
-  ELSE
-  {
+    PrintTo(outputdevice,"NO COLUMNS, LENGTH " || LENGTH(printlist) || "\n");
+  ELSE {
     STRING separator_line;
     separator_line := star?"*":"+";
     FOREVERY (RECORD field FROM allcontents)
       separator_line := separator_line || ExtendString("", field.width, star?"*":"-") || (star?"*":"+");
     separator_line := separator_line || "\n";
-    PrintTo (outputdevice,separator_line);
 
     // print table header
-    PrintTo (outputdevice,star?"*":"|");
+    STRING data := separator_line || (star?"*":"|");
     FOREVERY (RECORD field FROM allcontents)
-    {
-      PrintTo (outputdevice,ExtendString(field.name, field.width," "));
-      PrintTo (outputdevice,star?"*":"|");
-    }
-    PrintTo (outputdevice,"\n" || separator_line);
+      data := data || ExtendString(field.name, field.width," ") || (star?"*":"|");
+    data := data || "\n" || separator_line;
 
     // print table cells
-    FOREVERY (RECORD r FROM printlist)
-    {
-      PrintTo (outputdevice,star?"*":"|");
-      FOREVERY (RECORD field FROM allcontents)
-      {
+    FOREVERY (RECORD r FROM printlist) {
+      STRING line := star?"*":"|";
+      FOREVERY (RECORD field FROM allcontents) {
         IF (CellExists(r, field.name))
-          PrintTo (outputdevice,ExtendString(GETCELL(r, field.name), field.width, " "));
+          line := line || ExtendString(GETCELL(r, field.name), field.width, " ");
         ELSE
-          PrintTo (outputdevice,ExtendString("", field.width, " "));
-
-        PrintTo (outputdevice,star?"*":"|");
+          line := line || ExtendString("", field.width, " ");
+        line := line || (star?"*":"|");
       }
-      PrintTo (outputdevice,"\n");
+      data := data || line || "\n";
+      IF (LENGTH(data) > 10000) {
+        PrintTo(outputdevice,data );
+        data := "";
+      }
     }
-    PrintTo (outputdevice,separator_line);
+    data := data || separator_line;
+    PrintTo(outputdevice, data);
   }
 }
 

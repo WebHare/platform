@@ -72,7 +72,7 @@ export type ParsedMessage = {
 } | {
   type: "CancelRequest";
   processId: number;
-  secretKey: number;
+  secretKey: Buffer;
 } | {
   type: "Close";
   which: string;
@@ -573,7 +573,7 @@ export function parsePGProtocolMessage(code: string, data: Buffer, frontend: boo
         return {
           type: "CancelRequest",
           processId: data.readInt32BE(4),
-          secretKey: data.readInt32BE(8)
+          secretKey: data.subarray(8)
         };
       }
       const retval = {
