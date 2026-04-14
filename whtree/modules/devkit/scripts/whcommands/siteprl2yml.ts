@@ -24,6 +24,8 @@ import { rewriteResource } from "@mod-devkit/js/validation/rewrite";
 type ImportContext = {
   topLevelGid: string;
   resourcePath: string;
+  ejectFormDefinitions: Array<{ name: string; path: string }>;
+  module: string;
 };
 
 function unresolvePath(ctx: Pick<ImportContext, "resourcePath">, targetPath: string) {
@@ -295,8 +297,12 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
   if (ar.sitelanguage?.has_lang)
     rule.siteLanguage = ar.sitelanguage.lang;
 
-  if (ar.formdefinitions.length)
-    throw new Error(`<formdefinitions> is not supported by YAML based siteprofiles, move them to your moduledefinition.yml`);
+  for (const formdef of ar.formdefinitions) {
+    if (formdef.name.startsWith(ctxt.module + ":"))
+      ctxt.ejectFormDefinitions.push({ name: formdef.name, path: formdef.path });
+    else
+      throw new Error(`<formdefinitions> is not supported by YAML based siteprofiles, we can move them to the moduledefinition.yml if you first ensure their name starts with '${ctxt.module}:' (and update any OpenForm/GetWittyDataForForm calls)`);
+  }
 
   if (ar.bodyrenderer) {
     rule.bodyRenderer = ar.bodyrenderer.objectname
@@ -564,6 +570,7 @@ run({
     const renamedTypes = new Map<string, string>();
     //Maps XML based types to shorter scoped types
     const remapTypes = new Map(csp.allcontenttypes.filter(_ => _.scopedtype && _.scopedtype !== _.namespace).map(_ => [_.namespace, _.scopedtype]));
+    const ejectFormDefinitions: ImportContext["ejectFormDefinitions"] = [];
 
     const profilesToConvert = csp.siteprofiles.filter(sp => {
       if (sp.resourcename.endsWith(".yml") || sp.resourcename.endsWith(".yaml"))
@@ -581,7 +588,9 @@ run({
       result: null as SiteProfile | null,
       ctxt: {
         resourcePath: sp.resourcename,
-        topLevelGid: sp.siteprofile.gid
+        topLevelGid: sp.siteprofile.gid,
+        ejectFormDefinitions,
+        module: args.module
       } satisfies ImportContext
     }));
 
@@ -622,8 +631,7 @@ run({
           if (apply.whfstype) { //this apply rule needs to be added to its original type
             const matchtype = Object.values(outsiteprofile.types || {}).find(_ => _.namespace === apply.whfstype);
             if (!matchtype)
-              throw new Error(`Apply rule references unknown type ${apply.whfstype
-                } `);
+              throw new Error(`Apply rule references unknown type ${apply.whfstype} `);
 
             matchtype.apply = importApplyRule(ctxt, apply);
           } else {
@@ -819,6 +827,20 @@ run({
       checkSp.result = fixAllTypeRefs(checkSp.result, remapTypes);
     }
 
+    //Rewrite moduledefinition.yml
+    if (ejectFormDefinitions.length) {
+      const moddefYMLResource = `mod::${args.module}/moduledefinition.yml`;
+      const moddefYMLPath = toFSPath(moddefYMLResource);
+      const moddefYMLSource = existsSync(moddefYMLPath) ? readFileSync(moddefYMLPath, "utf-8") : "";
+      const doc = YAML.parseDocument(moddefYMLSource);
+
+      for (const formdef of ejectFormDefinitions) {
+        const shortName = formdef.name.substring(args.module.length + 1);
+        doc.setIn(['formDefinitions', shortName], unresolvePath({ resourcePath: moddefYMLResource }, formdef.path));
+      }
+
+      toWrite.set(moddefYMLResource, doc.toString());
+    }
 
     //Rewrite moduledefinition.xml
     const moddefXMLResource = `mod::${args.module}/moduledefinition.xml`;

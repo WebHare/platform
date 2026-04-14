@@ -390,7 +390,7 @@ export type CSPApplyRule = {
     newfilename: string;
   } | null;
   foldersettings: CSPFolderSettings | null;
-  formdefinitions: any[];
+  formdefinitions: Array<{ name: string; path: string }>;
   hookintercepts: CSPHookIntercept[];
   line: number;
   mailtemplates: CSPMailTemplate[];
