@@ -484,8 +484,6 @@ function myCSPRuleCompare(renamedTypes: Map<string, string>, expect: unknown, ac
     return true;
   if (path.endsWith(".yaml") && !expect)
     return true;
-  if (path.endsWith(".uploadtypemapping")) //we'll drop this in 6.0 anyway
-    return true;
   if (path.endsWith(".siteprofile"))
     return true;
   if (path.endsWith(".combine")) //dropped this property in TS so ignore it.

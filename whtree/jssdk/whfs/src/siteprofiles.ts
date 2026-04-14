@@ -437,8 +437,6 @@ export type CSPApplyRule = {
   siteprofile: string;
   siteprofileids: any[];
   tagsources: any[];
-  typemappings: any[];
-  uploadtypemapping: any[];
   userdata: Array<{
     key: string;
     value: string;

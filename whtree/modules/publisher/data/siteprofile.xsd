@@ -336,27 +336,6 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <xs:complexType name="UploadTypeMapping">
-    <xs:annotation>
-      <xs:documentation>Change the mimetype-based filetype detection in the Publisher. Must be applied to a folder, not the files themselves</xs:documentation>
-    </xs:annotation>
-    <xs:attribute name="filenamemask" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>case insensitive wildcard match to apply to filename</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="mimetypemask" type="xs:string">
-      <xs:annotation>
-        <xs:documentation>case insensitive wildcard match to apply to the mimetype (as returned by ScanBlob)</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="filetype" type="xs:string" use="required">
-      <xs:annotation>
-        <xs:documentation>xml namespace of filetype to map to</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:complexType>
-
   <xs:complexType name="TagSource">
     <xs:attribute name="contenttype" type="xs:anyURI" use="required" />
     <xs:attribute name="member" type="sc:Name" use="required" />
@@ -813,7 +792,7 @@
       <xs:element name="disablelegacysitesettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
       <xs:element name="intercept" type="sc:Intercept" />
-      <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
+      <xs:element name="uploadtypemapping" /> <!-- support dropped in WH 6.0 -->
       <xs:element name="tagsource" type="TagSource" />
       <xs:element name="rtddoc" type="RTDDoc" />
       <xs:element name="setlibrary" type="SetLibrary" />

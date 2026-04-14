@@ -1457,31 +1457,6 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN retvalue;
   }
 
-  PUBLIC INTEGER FUNCTION GetUploadFileTypeMapping(STRING filename, STRING mimetype)
-  {
-    STRING suggestfiletype;
-
-    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("UPLOADTYPEMAPPING"))
-    {
-      FOREVERY(RECORD mapping FROM apply.uploadtypemapping)
-      {
-        IF(mapping.filenamemask != "" AND ToUppercase(filename) NOT LIKE ToUppercase(mapping.filenamemask))
-          CONTINUE;
-        IF(mapping.mimetypemask != "" AND ToUppercase(mimetype) NOT LIKE ToUppercase(mapping.mimetypemask))
-          CONTINUE;
-        suggestfiletype := mapping.filetype;
-      }
-    }
-
-    IF(suggestfiletype != "")
-    {
-      RECORD suggested := LookupContentTypeByName(suggestfiletype);
-      RETURN RecordExists(suggested) AND RecordExists(suggested.filetype) ? suggested.id : 0;
-    }
-
-    RETURN MimetypeToFiletype(mimetype);
-  }
-
   PUBLIC RECORD FUNCTION GetURLHistorySettings()
   {
     RETURN this->GetCachedProperty("urlhistory", [ accesscheck := "" ]);

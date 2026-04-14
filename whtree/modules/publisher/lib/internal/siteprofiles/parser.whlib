@@ -39,8 +39,6 @@ CONSTANT RECORD csp_base_applyrule :=
   , setwidget := DEFAULT RECORD ARRAY
   , sitelanguage := DEFAULT RECORD
   , tagsources := DEFAULT RECORD ARRAY
-  , typemappings := DEFAULT RECORD ARRAY
-  , uploadtypemapping := DEFAULT RECORD ARRAY
   , urlhistory := DEFAULT RECORD
   , usepublishtemplate := DEFAULT RECORD
   , webdesign := DEFAULT RECORD
@@ -1026,10 +1024,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "uploadtypemapping"
             {
-              INSERT [ filenamemask := node->GetAttribute("filenamemask")
-                     , mimetypemask := node->GetAttribute("mimetypemask")
-                     , filetype     := node->GetAttribute("filetype")
-                     ] INTO apply.uploadtypemapping AT END;
               CONTINUE;
             }
             CASE "tagsource"

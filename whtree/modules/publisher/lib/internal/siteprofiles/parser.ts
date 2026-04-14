@@ -668,8 +668,6 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     siteprofile: context.resourceName,
     siteprofileids: [],
     tagsources: [],
-    typemappings: [],
-    uploadtypemapping: [],
     webtoolsformrules: [],
     whfstype: "",
     baseproperties: null,
