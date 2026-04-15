@@ -17,6 +17,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
@@ -1814,16 +1815,33 @@ PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
   allsites := sitesettingstype->Enrich(allsites, "ID", ["SITEDESIGN","WEBFEATURES"], [ orphans := TRUE]);
   UPDATE allsites SET sitedesign := "publisher:nodesign" WHERE sitedesign = "";
 
-  FOREVERY(RECORD site FROM allsites)
-  {
+  RECORD ARRAY matchingerrors;
+  RECORD ARRAY profilerefs := SELECT * FROM gathersp.profilerefs ORDER BY name, isfeature;
+  FOREVERY(RECORD site FROM allsites) {
     INTEGER ARRAY siteprofileids;
-    RECORD ARRAY tocheck := (SELECT * FROM gathersp.profilerefs WHERE name = site.sitedesign AND isfeature = FALSE)
-                            CONCAT
-                            (SELECT * FROM gathersp.profilerefs WHERE name IN site.webfeatures AND isfeature = TRUE);
-    FOREVERY(RECORD result FROM tocheck)
-      siteprofileids := siteprofileids CONCAT result.siteprofileids;
+    RECORD ARRAY splist := [[ name := site.sitedesign, isfeature := FALSE]
+                            ,...(SELECT name, isfeature := TRUE FROM ToRecordArray(site.webfeatures,"name"))
+                           ];
+    FOREVERY(RECORD item FROM splist) {
+      INTEGER matchpos := RecordBinaryFind(profilerefs, CELL[ item.name, item.isfeature ], [ "NAME", "ISFEATURE" ]);
+      IF(matchpos < 0) {
+        INSERT CELL[ siteid := site.id, sitename := site.name, item := item.name, isfeature := item.isfeature] INTO matchingerrors AT END;
+      } ELSE {
+        siteprofileids := siteprofileids CONCAT profilerefs[matchpos].siteprofileids;
+      }
+    }
 
     INSERT CELL siteprofileids := GetSortedSet(siteprofileids) INTO allsites[#site];
+  }
+
+  //TODO report this to a more useful/active place so we can show it in error/validation lists. we probably
+  //     should move away from adhoc calculating this .. and have HS work through siteprofilerefs.json
+  IF(Length(matchingerrors) > 0) {
+    RECORD ARRAY groupederrors := SELECT isfeature, item, sites := GroupedValues(sitename) FROM matchingerrors GROUP BY item, isfeature;
+    FOREVERY(RECORD error FROM groupederrors) {
+      STRING sites := Detokenize(ArraySlice(error.sites, 0, 5),', ') || (Length(error.sites) > 5 ? ", ..." : "");
+      LogError("platform:spcompiler", `${Length(error.sites)} site(s) refer to non existing ${error.isfeature ? "webfeature" : "webdesign"} ${error.item}: ${sites}`, CELL[ errortype := "missing-designs", ...error ]);
+    }
   }
 
   RETURN allsites;
