@@ -936,14 +936,11 @@ $defs:
       mailRtdType:
         description: Default RTD type to use for mails
         type: string
-      autoCompleteUsername:
+      autoCompleteUserName:
         description: Enable username autocomplete and set its title. Set to '*' to use the default title
         type: string
       pageHooks:
         description: Supply hooks to the webtool form page (would otherwise be done by a %WebtoolFormPage)
-        type: string
-      autoCompleteUserName:
-        description: Enable username autocomplete and set its title. Set to '*' to use the default title
         type: string
       addressOptions: # split off as we might need to reuse these settings elsewhere, and it cleans up a bit
         description: Enable addresses by default for webtool forms
