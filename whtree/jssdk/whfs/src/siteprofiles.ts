@@ -390,7 +390,7 @@ export type CSPApplyRule = {
     newfilename: string;
   } | null;
   foldersettings: CSPFolderSettings | null;
-  formdefinitions: any[];
+  formdefinitions: Array<{ name: string; path: string }>;
   hookintercepts: CSPHookIntercept[];
   line: number;
   mailtemplates: CSPMailTemplate[];
@@ -417,7 +417,13 @@ export type CSPApplyRule = {
     task: string;
     delay: number;
   }>;
-  setlibrary: any[];
+  setlibrary: Array<{
+    name: string;
+    sources: Array<{
+      relativeto: "" | "site" | "fsObject";
+      path: string;
+    }>;
+  }>;
   setobjecteditor: {
     name: string;
     screen: string;
@@ -431,8 +437,6 @@ export type CSPApplyRule = {
   siteprofile: string;
   siteprofileids: any[];
   tagsources: any[];
-  typemappings: any[];
-  uploadtypemapping: any[];
   userdata: Array<{
     key: string;
     value: string;

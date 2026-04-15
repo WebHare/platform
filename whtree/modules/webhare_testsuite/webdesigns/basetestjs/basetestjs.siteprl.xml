@@ -46,8 +46,6 @@
 
     <!-- Downloadable Word docs -->
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
-    <uploadtypemapping mimetypemask="application/msword" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
-    <uploadtypemapping mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
 
     <!-- wrdauth tests
          -->

@@ -68,8 +68,9 @@ ASYNC MACRO TestLibraryObjects()
   TT(":ObjectLibrary")->value := "testparent2";
   TestEq(1, Length(TT(":LibraryObjects")->options));
 
-  // testparent3: cannot go up out of site
-  TestThrowsLike('*tries to escape*',PTR SetTestparent("testparent3"));
+  // testparent3: we don't care for escapes anymore - it's on you if you move outside the site, why would it bother us ?
+  TT(":ObjectLibrary")->value := "testparent3";
+  TestEq(0, Length(TT(":LibraryObjects")->options));
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
 
@@ -120,11 +121,6 @@ ASYNC MACRO TestLibraryObjects()
   TestEq(3, Length(TT(":LibraryObjects")->options));
 
   AWAIT(ExpectScreenChange(-1, PTR TTClick(":Ok")));
-}
-
-MACRO SetTestparent(STRING value)
-{
-  TT(":ObjectLibrary")->value := value;
 }
 
 RunTestframework([ PTR TestLibraryObjects

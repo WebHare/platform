@@ -46,9 +46,6 @@
 
     <!-- Downloadable Word docs -->
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/msworddownload" />
-    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload" mimetypemask="application/msword" />
-    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload"
-                       mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
   </apply>
 
   <filetype kind="virtualfile" namespace="http://www.webhare.net/xmlns/webhare_testsuite/pwatest" title="PWATest App">

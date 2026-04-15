@@ -84,7 +84,7 @@ PUBLIC INTEGER ARRAY FUNCTION DoFilemanagerUpload(OBJECT tolliumscreen, INTEGER 
       IF(RecordExists(uploadsettings) AND uploadsettings.ordering = "orderable")
         INSERT CELL ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = uploadtofolder->id) INTO filemeta;
       IF(ObjectExists(parenttester))
-        INSERT CELL type := parenttester->GetUploadFileTypeMapping(file.filename, file.mimetype) INTO filemeta;
+        INSERT CELL type := MimetypeToFiletype(file.mimetype) INTO filemeta;
 
       filemeta.name := uploadtofolder->GenerateUniqueName(file.filename, [ safename := safename ]);
 

@@ -39,8 +39,6 @@ CONSTANT RECORD csp_base_applyrule :=
   , setwidget := DEFAULT RECORD ARRAY
   , sitelanguage := DEFAULT RECORD
   , tagsources := DEFAULT RECORD ARRAY
-  , typemappings := DEFAULT RECORD ARRAY
-  , uploadtypemapping := DEFAULT RECORD ARRAY
   , urlhistory := DEFAULT RECORD
   , usepublishtemplate := DEFAULT RECORD
   , webdesign := DEFAULT RECORD
@@ -754,13 +752,21 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     RETURN applytos;
   }
 
-  RECORD ARRAY FUNCTION ParseSources(OBJECT node)
-  {
-    RECORD ARRAY paths := SELECT path := sourcenode->GetAttribute("path")
-                               , relativeto := sourcenode->GetAttribute("relativeto") ?? "siteprofile"
-                            FROM ToRecordArray(node->childnodes->GetCurrentElements(), "sourcenode");
-    UPDATE paths SET relativeto := "siteprofile" WHERE path LIKE "*::*";
-    UPDATE paths SET path := MakeAbsoluteResourcePath(this->filename, path) WHERE relativeto="siteprofile";
+  RECORD ARRAY FUNCTION ParseSources(OBJECT node) {
+    RECORD ARRAY paths;
+
+    FOREVERY(OBJECT sourcenode FROM node->childnodes->GetCurrentElements()) {
+      STRING path := sourcenode->GetAttribute("path");
+      STRING relativeto := sourcenode->GetAttribute("relativeto");
+
+      IF(relativeto IN [ "", "siteprofile" ])
+        INSERT CELL[ relativeto := "", path := MakeAbsoluteResourcePath(this->filename, path) ] INTO paths AT END;
+      ELSE IF(path LIKE "/*")
+        INSERT CELL[ relativeto := "site", path ] INTO paths AT END;
+      ELSE
+        INSERT CELL[ relativeto := "fsObject", path ] INTO paths AT END;
+    }
+
     RETURN paths;
   }
 
@@ -1018,10 +1024,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "uploadtypemapping"
             {
-              INSERT [ filenamemask := node->GetAttribute("filenamemask")
-                     , mimetypemask := node->GetAttribute("mimetypemask")
-                     , filetype     := node->GetAttribute("filetype")
-                     ] INTO apply.uploadtypemapping AT END;
               CONTINUE;
             }
             CASE "tagsource"

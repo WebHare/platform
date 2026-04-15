@@ -668,8 +668,6 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     siteprofile: context.resourceName,
     siteprofileids: [],
     tagsources: [],
-    typemappings: [],
-    uploadtypemapping: [],
     webtoolsformrules: [],
     whfstype: "",
     baseproperties: null,
@@ -760,6 +758,13 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       screen: apply.setObjectEditor.screen || '',
       separateapp: apply.setObjectEditor.separateApp === true
     };
+  }
+
+  for (const [name, lib] of Object.entries(apply.setLibrary || {})) {
+    rule.setlibrary.push({
+      name,
+      sources: lib.map(s => typeof s === "string" ? { relativeto: "", path: s } : { relativeto: s.relativeTo || "", path: s.path || "" })
+    });
   }
 
   for (const [type, setWidget] of Object.entries(apply.setWidget || {})) {
