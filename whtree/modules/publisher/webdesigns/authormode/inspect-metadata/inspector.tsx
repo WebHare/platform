@@ -38,9 +38,11 @@ function gatherSchemaOrgData() {
 function gatherHeadData() {
   const errors: Error[] = [];
   const metadata: Metadata[] = [];
+  //Find the right title tag. Note that HTML docs may have multiple <title> cells seen by querySelectorAll, eg if it contains a <svg> with its own <title>.
+  const titlenode = dompack.qS("head > title");
 
-  if (document.title)
-    metadata.push({ field: "Document title", value: document.title, element: dompack.qR("title") });
+  if (titlenode)
+    metadata.push({ field: "Document title", value: titlenode.textContent, element: titlenode });
   else
     errors.push({ message: "No document title", element: null });
 
