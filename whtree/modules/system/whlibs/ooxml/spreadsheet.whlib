@@ -7,6 +7,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::internal/columntools.whlib";
@@ -43,7 +44,7 @@ STRING FUNCTION CellToString(VARIANT celldata, BOOLEAN dotrimwhitespace, STRING 
     //newvalue := ToString(FloatToInteger(celldata + 0.00000001)) ); // <-- since this first converts to INTEGER it cannot handle very large numbes
     SWITCH (floatmode)
     {
-      CASE "float"
+      CASE "float","number"
       {
         RETURN EncodeJSON(celldata);
       }
@@ -1457,9 +1458,19 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
                               , filename := ""
                               , timezone := ""
                               , compressionlevel := 6
+                              , split := DEFAULT RECORD
+                              , with_auto_filter := FALSE
+                              , title := "" //alias for exporttitle
+                              , jswriter := FALSE //use the JS writer
                               ], options, [ required := ["rows" ]]);
 
-  IF(Length(options.columns) = 0 AND Length(options.rows) > 0)
+  IF(RecordExists(options.split))
+    options.split := ValidateOptions(CELL[ columns := 0, rows := 0], options.split, [ title := "options.split" ]);
+
+  IF(RecordExists(options.split) OR options.with_auto_filter)
+    options.jswriter := TRUE;
+
+  IF(Length(options.columns) = 0 AND Length(options.rows) > 0 AND NOT options.jswriter)
     options.columns := GuessHeadersFromRow(options.rows[0]);
 
   options.columns := SELECT AS RECORD ARRAY ValidateOptions(
@@ -1467,17 +1478,22 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
     , title := ""
     , type := ""
     , storeutc := FALSE
+    , width := 0
     ], col, [ required := ["name", "title", "type" ]
             , title := "column " || #col
-            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "integer64", "timestamp", "string" ]
+            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "number", "integer64", "timestamp", "string" ]
                        ]
+            , optional := ["width"]
             ]) FROM options.columns AS col;
 
   IF(options.timezone = "" AND RecordExists(SELECT FROM options.columns WHERE type IN ["datetime","date","time"] AND storeutc))
     THROW NEW Exception(`The 'timezone' option must be set if the export contains any columns with storeutc=true`);
 
   //backwards compatibility... 'string' was often used but actually ignored and then defaulted to 'text'. let's tolerate that...
-  UPDATE options.columns SET type := "text" WHERE type = "string";
+  IF(NOT options.jswriter)
+    UPDATE options.columns SET type := "text" WHERE type = "string";
+
+  options.exporttitle := options.exporttitle ?? options.title;
 
   IF(options.filename = "") //we don't require a timezone just for filename autogeneration
     options.filename := (options.exporttitle ?? "export") || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
@@ -1496,6 +1512,24 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
 {
   options := __ValidateXLSXFileOptions(options);
 
+  IF(options.jswriter) {
+    IF(Length(options.columns) = 0)
+      DELETE CELL columns FROM options; //no columns means 'invoke autoguesser'. for TS the guesser is in generateXLSX itself
+
+    //The JS path is intended for JS sources to render their SpreadsheetData through Tollium. So we assume both ends are camelcasing, but this requires column names to be explicitly camelcased
+    FOREVERY(RECORD col FROM options.columns)
+      IF(col.name LIKE "*_*")
+        THROW NEW Exception(`Column names cannot contain underscores ('_') when using the JS XLSX writer, but column '${col.name}' does`);
+
+    FOREVERY(RECORD row FROM options.rows)  //generateXLSX assumes you use TS types to guard against missing cells. HS has no such protection
+      FOREVERY(RECORD col FROM options.columns)
+        IF(NOT CellExists(row, col.name))
+          THROW NEW Exception(`Row #${#row} is missing column '${col.name}' required by the export`);
+
+    BLOB result := CallJS([ camelcase := TRUE ], "@webhare/office-formats#generateXLSX", options);
+    RETURN WrapBlob(result, options.filename);
+  }
+
   OBJECT csvout := NEW XLSXColumnFileWriter(CELL[ options.compressionlevel ]);
   csvout->columns := options.columns;
   csvout->timezone := options.timezone;
@@ -1507,4 +1541,3 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
   BLOB output := csvout->MakeOutputFile();
   RETURN WrapBlob(output, options.filename);
 }
-

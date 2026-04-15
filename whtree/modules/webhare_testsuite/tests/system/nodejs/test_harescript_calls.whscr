@@ -31,6 +31,12 @@ OBJECT std := ImportJs("@webhare/std");
 TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4"));
 TestEqLike("????????-????-????-????-????????????", CallJS("@webhare/std#generateRandomId", "uuidv4"));
 
+//CallJS options
+TestEq('{"an_object":[{"a_value":42}]}', CallJS("@webhare/std#stringify", [ an_object := [[ a_value := 42 ]]]));
+TestEq('{"anObject":[{"aValue":42}]}', CallJS([ camelcase := TRUE ], "@webhare/std#stringify", [ an_object := [[ a_value := 42 ]]]));
+TestEq([ anobject := [[ avalue := 42 ]]], CallJS("@webhare/std#parseTyped", '{"anObject":[{"aValue":42}]}'));
+TestEq([ an_object := [[ a_value := 42 ]]], CallJS([ camelcase := TRUE ], "@webhare/std#parseTyped", '{"anObject":[{"aValue":42}]}'));
+
 OBJECT imp := ImportJs(Resolve("data/calls.ts"));
 TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
 
@@ -70,7 +76,10 @@ TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(g
 TestEq(GetWebHareResourceDiskPath("mod::system/web/tests/goudvis.png"), GetBlobDiskPath(goudvis_ts));
 
 //TestEq("I am a blob", BlobToString(CallJS("./data/calls.ts#getBlob","I am a blob"))); // We're blocking Blob()s as the WASM version of CallJS requires synchronous datatypes
-TestThrowsLike("*se WebHareMemoryBlob or WebHareDiskBlob*", PTR CallJS("./data/calls.ts#getBlob","I am a blob"));
+TestEq(StringToBlob("I am a blob"), CallJS("./data/calls.ts#getBlob","I am a blob"));
+TestEq(StringToBlob("I am a file"), CallJS("./data/calls.ts#getFile","I am a file"));
+TestEq([[ "blob" := StringToBlob("I am a blob") ]], CallJS("./data/calls.ts#getBlobDeeper","I am a blob"));
+TestEq([[ file := StringToBlob("I am a file") ]], CallJS("./data/calls.ts#getFileDeeper","I am a file"));
 
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
@@ -193,10 +202,10 @@ IF(NOT IsWasm()) { //Test crash resistance
 
   //We need a low level connection to request a crash - and also because the 'CallJS' cached connection must remain in working order
   OBJECT service := WaitForPromise(OpenWebHareService("platform:calljs"));
-  STRING servicerandom := WaitForPromise(service->Invoke(Resolve("./data/calls.ts"), "getOnceRandom", VARIANT[], CELL[auth := DEFAULT RECORD ]));
+  STRING servicerandom := WaitForPromise(service->Invoke(Resolve("./data/calls.ts"), "getOnceRandom", VARIANT[], CELL[auth := DEFAULT RECORD ],CELL[ camelcase := FALSE ]));
   TestEq(servicerandom, startrandom, "Verify it's the same connection");
   //Crash it. wait for the crash to be done
-  TestRejectedLike("Worker exited with code*", service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[], CELL[auth := DEFAULT RECORD ]));
+  TestRejectedLike("Worker exited with code*", service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[], CELL[auth := DEFAULT RECORD ], CELL[ camelcase := FALSE ]));
 
   FOR (INTEGER i := 0; i < 20; i := i + 1)
     TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");

@@ -5,7 +5,7 @@ import { Money, stdTypeOf } from "@webhare/std";
 import { getWHType } from "@webhare/std/src/quacks";
 import type { TransferListItem } from "node:worker_threads";
 
-function runReplacerRecursive(value: unknown, replacer: (arg: object) => object | undefined): unknown {
+export function runReplacerRecursive(value: unknown, replacer: (arg: object) => object | undefined): unknown {
   if (typeof value === "object" && value) {
     if (Array.isArray(value))
       return value.map((item) => typeof item === "object" && item ? runReplacerRecursive(item, replacer) : item);
@@ -33,6 +33,7 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
       case "PlainDateTime":
       case "ZonedDateTime":
         return { "$ipcType": type, [type.toLowerCase()]: (orgValue as { toString: () => string }).toString() };
+      case "File":
       case "Blob": {
         switch (getWHType(orgValue)) {
           case "WebHareMemoryBlob": {
@@ -49,8 +50,19 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
             const blob = orgValue as WebHareDiskBlob;
             return { "$ipcType": "WebHareDiskBlob", type: blob.type, path: blob.path, size: blob.size };
           }
-          default:
-            throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
+          default: {
+            const value = {
+              "$ipcType": "WebHareMemoryBlob",
+              type: (orgValue as Blob).type,
+              data: undefined as ArrayBuffer | undefined
+            };
+            const promiseBuffer = (orgValue as Blob).arrayBuffer().then((buffer) => {
+              value.data = buffer;
+              transferList.push(buffer);
+            });
+            promises.push(promiseBuffer);
+            return value;
+          }
         }
       } break;
       case "object":

@@ -4,11 +4,16 @@ import { readFileSync } from "node:fs";
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
-import { throwError } from "@webhare/std";
+import { stdTypeOf, throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
 import * as services from "@webhare/services";
 import { importJSFunction } from "@webhare/services";
+import type { CallJSOptions } from "@mod-platform/js/nodeservices/calljs";
+import { getWHType } from "@webhare/std/src/quacks";
+import { runReplacerRecursive } from "@mod-platform/js/nodeservices/nodeipchelper";
+import { WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
+import { Marshaller } from "@webhare/hscompat/src/hson";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -156,11 +161,48 @@ export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: strin
   return loaded.call(name, args);
 }
 
-export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: string; args: unknown[]; hscontext: HarescriptJSCallContext }) {
+//Find any Files/Blobs and serialize them
+async function fixBlobs(hsvm: HareScriptVM, val: unknown) {
+  const waiters = new Array<Promise<void>>;
+  const retval = runReplacerRecursive(val, (orgValue) => {
+    const stdType = stdTypeOf(orgValue);
+
+    if (["File", "Blob"].includes(stdTypeOf(orgValue)) && !getWHType(orgValue)) { //Plain blobs, not WebHareMemoryBlob or WebHareDiskBlob
+      //We may eventually build a WASM C++ BlobBase around Blobs so the HSVM can directly use them.
+      //Until then, serialize them to a WebHareMemoryBlob here so APIs like generateXLSX are at least somewhat reachable
+      const newVal = hsvm.allocateVariable();
+
+      const newWaiter = Promise.withResolvers<void>();
+      waiters.push(newWaiter.promise);
+
+      WebHareMemoryBlob.fromBlob(orgValue as Blob).
+        then(blob => {
+          newVal.setBlob(blob);
+          newWaiter.resolve();
+        }).catch(e => newWaiter.reject(e)); //transfer the error to the main promise
+
+      return newVal; //Replace the object with a HSVMVar
+    }
+
+    if (orgValue instanceof Uint8Array || orgValue instanceof ArrayBuffer || orgValue instanceof Buffer || orgValue[Marshaller])
+      return orgValue;
+
+    //keep recursing into plain objects but leave recognized stuff alone
+    return stdType === "object" ? undefined : orgValue;
+  });
+
+  await Promise.all(waiters); //fills all the vars we created with actual blobs
+  return retval;
+}
+
+export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: string; args: unknown[]; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
   const func = await importJSFunction<(...args: unknown[]) => unknown>(`${calljs.lib}#${calljs.name}`);
   if (calljs.hscontext.auth)
     updateAuditContext(toAuthAuditContext(calljs.hscontext.auth));
-  return await func(...calljs.args);
+
+  const retval = await func(...calljs.options.camelcase ? toCamelCase(calljs.args) : calljs.args);
+  const fixedRetval = await fixBlobs(hsvm, retval); //load blobs into memory as setJSValue is sync
+  return calljs.options.camelcase && typeof fixedRetval === 'object' ? toSnakeCase(fixedRetval) : fixedRetval;
 }
 
 export function startSeparatePrimary() {

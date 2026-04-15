@@ -4,21 +4,15 @@ LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC STATIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase
-<
-  BOOLEAN headerrow;
-  PUBLIC BOOLEAN autoaddcolumns;
-
-  PUBLIC RECORD ARRAY columns;
-  PUBLIC RECORD ARRAY rows;
+PUBLIC STATIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase <
+  PUBLIC RECORD options;
 
   /// @short Overridable file name for the exported file (an extension is not needed; also, the file name will be used in conjunction with GetSafeFileName later)
   PUBLIC STRING filename;
   PUBLIC PROPERTY title(this->frame->title, this->frame->title);
 
-  PUBLIC MACRO Init()
-  {
-    this->headerrow := TRUE;
+  PUBLIC MACRO Init(RECORD data) {
+    this->options := data.options;
 
     ^separator->SetvalueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.sep", "semicolon"));
     ^charset->SetValueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.charset","ISO-8859-1"));
@@ -26,25 +20,23 @@ PUBLIC STATIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase
     ^outputformat->SetvalueIfValid(this->tolliumuser->GetRegistryKey("tollium.commondialogs.csvexport.outputformat", "xlsx"));
   }
 
-  MACRO OnDownload(OBJECT filereceiver)
-  {
+  MACRO OnDownload(OBJECT filereceiver) {
+    IF(^outputformat->value="xlsx") {
+      filereceiver->SendWrappedFile(GenerateXLSXFile(this->options));
+      RETURN;
+    }
+
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.sep", ^separator->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.charset", ^charset->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.decimal", ^decimal->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.outputformat", ^outputformat->value);
 
-    RECORD setupwriter;
+    RECORD setupwriter := this->SetupCSVWriter();
+    setupwriter.writer->timezone := this->options.timezone;
+    IF(Length(this->options.columns)>0)
+      setupwriter.writer->columns := this->options.columns;
 
-    IF(^outputformat->value="csv")
-      setupwriter := this->SetupCSVWriter();
-    ELSE
-      setupwriter := this->SetupXLSXWriter();
-
-    setupwriter.writer->timezone := this->tolliumuser->timezone;
-    IF(Length(this->columns)>0)
-      setupwriter.writer->columns := this->columns;
-
-    setupwriter.writer->WriteRows(this->rows);
+    setupwriter.writer->WriteRows(this->options.rows);
 
     BLOB csvfile := setupwriter.writer->MakeOutputFile();
 
@@ -70,7 +62,8 @@ PUBLIC STATIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase
     csvwriter->booleans_to_yesno := TRUE; //for legacy reasons...
     csvwriter->timezone := this->tolliumuser->timezone;
     csvwriter->languagecode := this->tolliumuser->language;
-    csvwriter->headerrow := this->headerrow;
+    csvwriter->headerrow := TRUE;
+
     RETURN [ writer := csvwriter
            , extension := ".csv"
            , mimetype := "application/ms-excel"
