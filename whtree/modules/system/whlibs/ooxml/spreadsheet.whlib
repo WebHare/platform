@@ -1514,7 +1514,7 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
 
   IF(options.jswriter) {
     IF(Length(options.columns) = 0)
-      DELETE CELL columns fROM options; //no columns means 'invoke autoguesser'. for TS the guesser is in generateXLSX itself
+      DELETE CELL columns FROM options; //no columns means 'invoke autoguesser'. for TS the guesser is in generateXLSX itself
 
     //The JS path is intended for JS sources to render their SpreadsheetData through Tollium. So we assume both ends are camelcasing, but this requires column names to be explicitly camelcased
     FOREVERY(RECORD col FROM options.columns)
