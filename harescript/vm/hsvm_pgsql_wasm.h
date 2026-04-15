@@ -22,6 +22,23 @@ class WasmQueryResult;
 class PGSQLWasmTransactionDriver : public PGSQLTransactionDriverBase
 {
     private:
+        struct PreparedStatement
+        {
+                PreparedStatement() : use(0) {}
+                PreparedStatement(PreparedStatement const &rhs) = default;
+                PreparedStatement(PreparedStatement &&rhs) = default;
+
+                unsigned use;
+                std::string name;
+                std::string querystr;
+        };
+
+        /// List of prepared statements
+        std::map< std::string, PreparedStatement > prepared_statements;
+
+        /// Counter for name generation
+        uint64_t prepared_statements_counter;
+
         void PrepareForQuery();
         std::unique_ptr< QueryResult > ExecQuery(Query &query, bool asyncresult);
         bool CheckResultStatus(std::unique_ptr< QueryResult > const &res);
