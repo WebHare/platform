@@ -208,9 +208,10 @@ PUBLIC STATIC OBJECTTYPE Level1Widget EXTEND WidgetBase
            || '" data-targetfolder="' || (ObjectExists(this->context->targetfolder) ? this->context->targetfolder->id : -1)
            || '" data-whfssettingid="' || this->whfssettingid
            || '" data-whfsfileid="' || this->whfsfileid
-           || '" data-libraries-temp="' || EncodeValue(Detokenize(libraries_temp,' ')) || '"'
+           || '" data-libraries-temp="' || EncodeValue(Detokenize(libraries_temp,' '))
            // not exposed yet|| '" data-targetobject="' || (ObjectExists(this->context->targetobject) ? this->context->targetobject->id : -1)
            || '">');
+    this->rtd->RenderAllObjects();
     Print("</div>");
   }
 >;

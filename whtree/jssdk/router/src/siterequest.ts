@@ -24,6 +24,7 @@ import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
 import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
+import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -299,7 +300,8 @@ export class CPageRequest {
     if (typeInfo?.metaType === "widgetType") { //a widget can be rendered as a HTML fragment
       return async (_request: ContentPageRequest) => {
         const data = await whfsType(this._contentApplyTester.type).get(this._contentObject.id);
-        const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data });
+        //TODO do we need an API to get the dbLoc for renderHSWidget (and later similar?) calls?
+        const widget = await this.renderWidget({ whfsType: this._contentApplyTester.type, data, [dbLoc]: getWebHareDBLocation(this._contentObject) });
         this.pageMetadata.htmlClasses.push('wh-widgetpreview');
         return this.render({ body: widget });
       };

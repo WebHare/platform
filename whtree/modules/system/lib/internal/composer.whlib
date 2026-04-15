@@ -337,14 +337,7 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
 
     this->ExtractMetadata(htmldoc);
     htmlversion := rewriter->GenerateHTML(htmldoc);
-/*
-    INTEGER htmldoc := CreateStream();
-    INTEGER oldredirect := RedirectOutputTo(htmldoc);
 
-    RewriteHTMLDocumentTo(0, htmlversion, [ imageurlrewrite := PTR this->RewriteHTMLImage(#1) ], "UTF-8");
-    RedirectOutputTo(oldredirect);
-
-    htmlversion := MakeBlobFromStream(htmldoc);*/
     RETURN [ htmlversion := htmlversion
            , embedded := this->embedded_files
            ];

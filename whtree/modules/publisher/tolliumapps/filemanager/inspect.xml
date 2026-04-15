@@ -106,6 +106,9 @@
             <column name="namespace" type="text" />
           </list>
         </tab>
+        <tab name="yamltab" spacers="none" title="YAML">
+          <codeedit name="yaml" height="1pr" width="1pr" enabled="false" /> <!-- disable it as we're not offering a write-back yet -->
+        </tab>
       </tabs>
     </body>
   </screen>
