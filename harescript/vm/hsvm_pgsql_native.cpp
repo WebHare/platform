@@ -382,55 +382,55 @@ std::pair< std::unique_ptr< QueryResult >, bool > PGSQLNativeTransactionDriver::
 }
 
 
-void PGSQLNativeTransactionDriver::NoticeReceiverCallback(void *arg, const PGresult *res)
+void PGSQLNativeTransactionDriver::NoticeReceiverCallback(void *arg, PGresult const *res)
 {
-        NativeQueryResult queryresult(res);
+        CNativeQueryResult queryresult(res);
         static_cast< PGSQLNativeTransactionDriver * >(arg)->HandleMessage(queryresult);
 }
 
-NativeQueryResult::~NativeQueryResult()
+CNativeQueryResult::~CNativeQueryResult()
 {
 }
 
-int NativeQueryResult::GetResultStatus() const
+int CNativeQueryResult::GetResultStatus() const
 {
-        return PQresultStatus(result);
+        return PQresultStatus(cresult);
 }
 
-std::vector< QueryResultField > NativeQueryResult::GetResultFields() const
+std::vector< QueryResultField > CNativeQueryResult::GetResultFields() const
 {
         std::vector< QueryResultField > fields;
-        int fieldcount = PQnfields(result);
+        int fieldcount = PQnfields(cresult);
         fields.reserve(fieldcount);
         for (int i = 0; i < fieldcount; ++i)
         {
                 QueryResultField field;
-                field.name = PQfname(result, i);
-                field.formatcode = PQfformat(result, i);
-                field.typemodifier = PQfmod(result, i);
-                field.typeoid = static_cast< OID >(PQftype(result, i));
+                field.name = PQfname(cresult, i);
+                field.formatcode = PQfformat(cresult, i);
+                field.typemodifier = PQfmod(cresult, i);
+                field.typeoid = static_cast< OID >(PQftype(cresult, i));
                 fields.push_back(std::move(field));
         }
         return fields;
 
 }
 
-std::string NativeQueryResult::GetErrorField(PG_DIAG_CODE fieldcode) const
+std::string CNativeQueryResult::GetErrorField(PG_DIAG_CODE fieldcode) const
 {
-        const char *fielddata = PQresultErrorField(result, static_cast<char>(fieldcode));
+        const char *fielddata = PQresultErrorField(cresult, static_cast<char>(fieldcode));
         return fielddata ? std::string(fielddata) : std::string();
 }
 
-uint32_t NativeQueryResult::GetRowCount() const
+uint32_t CNativeQueryResult::GetRowCount() const
 {
-        return PQntuples(result);
+        return PQntuples(cresult);
 }
 
-QueryResultValue NativeQueryResult::GetValue(uint32_t rowid, uint32_t colid)
+QueryResultValue CNativeQueryResult::GetValue(uint32_t rowid, uint32_t colid)
 {
-        int len = PQgetlength(result, rowid, colid);
-        char const *data = PQgetvalue(result, rowid, colid);
-        bool isnull = PQgetisnull(result, rowid, colid);
+        int len = PQgetlength(cresult, rowid, colid);
+        char const *data = PQgetvalue(cresult, rowid, colid);
+        bool isnull = PQgetisnull(cresult, rowid, colid);
 
         if (isnull)
             return QueryResultValue{ .data = nullptr, .length = 0, .isnull = true };
@@ -438,24 +438,49 @@ QueryResultValue NativeQueryResult::GetValue(uint32_t rowid, uint32_t colid)
         return QueryResultValue{ .data = data, .length = len, .isnull = false };
 }
 
-std::string NativeQueryResult::GetErrorMessage() const
+std::string CNativeQueryResult::GetErrorMessage() const
 {
-        return PQresultErrorMessage(result);
+        return PQresultErrorMessage(cresult);
 }
 
-std::string NativeQueryResult::GetVerboseErrorMessage() const
+std::string CNativeQueryResult::GetVerboseErrorMessage() const
 {
         std::string retval;
-        char *verbosemessage = PQresultVerboseErrorMessage(result, PQERRORS_VERBOSE, PQSHOW_CONTEXT_ALWAYS);
+        char *verbosemessage = PQresultVerboseErrorMessage(cresult, PQERRORS_VERBOSE, PQSHOW_CONTEXT_ALWAYS);
         retval = std::string(verbosemessage);
         PQfreemem(verbosemessage);
         return retval;
 }
 
-bool NativeQueryResult::HasError() const
+bool CNativeQueryResult::HasError() const
 {
         auto result = GetResultStatus();
         return result == PGRES_FATAL_ERROR || result == PGRES_NONFATAL_ERROR;
+}
+
+std::string CNativeQueryResult::GetCmd()
+{
+        return {};
+}
+
+unsigned CNativeQueryResult::GetCmdTuples()
+{
+        return 0;
+}
+
+NativeQueryResult::~NativeQueryResult()
+{
+}
+
+std::string NativeQueryResult::GetCmd()
+{
+        return PQcmdStatus(result.get());
+}
+
+unsigned NativeQueryResult::GetCmdTuples()
+{
+        const char *tuples = PQcmdTuples(result.get());
+        return Blex::DecodeUnsignedNumber<unsigned, const char *>(tuples, tuples + strnlen(tuples, 20), 10).first;
 }
 
 inline void HSVM_SetIntegerCell(HSVM *hsvm, HSVM_VariableId id_set, HSVM_ColumnId colid, int value)

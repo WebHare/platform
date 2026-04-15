@@ -27,12 +27,13 @@ LOADLIB "wh::internal/dbase/pg-internals.whlib" EXPORT PostgreSQLEscapeLiteral, 
 RECORD FUNCTION __PGSQL_CONNECT(RECORD ARRAY args, BOOLEAN isprimary) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_CLOSE(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETSTATUS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-RECORD ARRAY FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+VARIANT FUNCTION __PGSQL_EXEC(INTEGER trans, STRING query, VARIANT ARRAY args, INTEGER ARRAY encodings, BOOLEAN astext, BOOLEAN with_cmdinfo) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETWORKOPEN(INTEGER trans, BOOLEAN workopen) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETDEBUGSETTINGS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands, INTEGER commandtimeout) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __PGSQL_AWAITPENDINGQUERIES(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 // WASM-only
 MACRO __PGSQL_BEGINWORK(INTEGER trans, STRING isiloationlevel, INTEGER ARRAY mutexes) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -247,7 +248,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
       RECORD ARRAY errors :=
           SELECT message :=     error_message
                , tablename :=   `${schema_name}.${table_name}`
-               , column_name
+               , columnname :=  column_name
             FROM this->delayederrors;
       this->delayederrors := RECORD[];
       THROW NEW DatabaseException(errors);
@@ -428,7 +429,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     IF (amount < 1)
       RETURN INTEGER[];
     STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
-    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
+    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE, FALSE);
     IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
       THROW NEW Exception(`No value returned by MakeAutonumbers generator`);
     RETURN INTEGER ARRAY(result.value);
@@ -446,7 +447,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
     IF (amount < 1)
       RETURN INTEGER64[];
     STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
-    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE);
+    RECORD result := __PGSQL_EXEC(this->id, "SELECT " || generator || " AS value", VARIANT[], INTEGER[], FALSE, FALSE);
     IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
       THROW NEW Exception(`No value returned by MakeAutonumber generator`);
     RETURN INTEGER64 ARRAY(result.value);
@@ -642,19 +643,33 @@ STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
     __PGSQL_BeginWork(this->id, this->pvt_transactionisolationlevel, locks);
   }
 
-   UPDATE PUBLIC MACRO DoRollbackWork() {
-     __PGSQL_RollbackWork(this->id);
-     this->__uploadedblobs := DEFAULT OBJECT;
-   }
+  UPDATE PUBLIC MACRO DoRollbackWork() {
+    __PGSQL_RollbackWork(this->id);
+    this->__uploadedblobs := DEFAULT OBJECT;
+  }
 
-   UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
+  UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
     TRY {
+      // Record all errors in this->delayederrors
+      this->pvt_committing := TRUE;
       RECORD ARRAY result := __PGSQL_CommitWork(this->id);
       IF(Length(result) = 0) //no commit errors
         this->SetUploadedBlobPaths();
-      RETURN result;
-    } FINALLY
+      // Process results of pending queries (errors recorded to this->delayederrors)
+      __PGSQL_AwaitPendingQueries(this->id);
+      RECORD ARRAY delayederrors := this->delayederrors;
+      IF (IsValueSet(delayederrors))
+        delayederrors[0].error_message := `Delayed error: ${delayederrors[0].error_message}`;
+      this->delayederrors := RECORD[];
+      RETURN
+          SELECT message :=     error_message
+               , tablename :=   `${schema_name}.${table_name}`
+               , columnname :=  column_name
+            FROM delayederrors CONCAT result;
+    } FINALLY {
+      this->pvt_committing := FALSE;
       this->__uploadedblobs := DEFAULT OBJECT;
+    }
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
@@ -732,6 +747,7 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
 
   OBJECT transobj;
   BOOLEAN reset_delayerrors;
+  BOOLEAN iscommit;
   IF ((testquery IN [ "ROLLBACK;", "COMMIT;" ] OR testquery LIKE "ROLLBACK *"  OR testquery LIKE "COMMIT *") AND testquery NOT LIKE "*SAVEPOINT*")
   {
     IF (IsWasm())
@@ -741,6 +757,7 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
 
     IF (testquery LIKE "COMMIT*") // Commit
     {
+      iscommit := TRUE;
       transobj := GetTransactionObjectByIdInternal(trans);
       IF (RecordExists(transobj->delayederrors))
         testquery := "ROLLBACK;";
@@ -757,7 +774,22 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
   IF (IsWasm() AND (testquery = "BEGIN;" OR testquery LIKE "START TRANSACTION;" OR testquery LIKE "BEGIN *" OR testquery LIKE "START TRANSACTION *"))
     THROW NEW Exception(`Direct BEGIN/START TRANSACTION not allowed in WASM mode`);
 
-  RECORD ARRAY retval := __PGSQL_EXEC(trans, query, options.args, encodings, options.astext);
+  RECORD ARRAY retval;
+  VARIANT execresult := __PGSQL_EXEC(trans, query, options.args, encodings, options.astext, iscommit);
+  IF (iscommit) {
+    retval := execresult.rows;
+    IF (IsValueSet(transobj->delayederrors))
+      transobj->delayederrors[0].error_message := `Delayed error: ${transobj->delayederrors[0].error_message}`;
+    IF (execresult.cmd != "COMMIT" AND (IsDefaultValue(transobj->delayederrors) OR NOT transobj->pvt_committing)) {
+      INSERT [
+        error_message := `Commit failed (usually due to earlier errors on this transaction)`,
+        schema_name := "",
+        table_name := "",
+        column_name := ""
+      ] INTO transobj->delayederrors AT END;
+    }
+  } ELSE
+    retval := execresult;
 
   IF (testquery = "BEGIN;" OR testquery LIKE "START TRANSACTION;" OR testquery LIKE "BEGIN *" OR testquery LIKE "START TRANSACTION *")
     __PGSQL_SETWORKOPEN(trans, TRUE);
@@ -967,7 +999,7 @@ PUBLIC STRING FUNCTION __StoreNewWebharePostgreSQLBlob(INTEGER transaction, BLOB
 
   STRING pgblobid := blobhandler->StoreBlob(data);
   trans->__uploadedblobs->SetVal(CELL [ hsblobid ], CELL [ pgblobid, data ]);
-  __PGSQL_EXEC(transaction, `INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))`, VARIANT[ pgblobid, Length64(data) ], INTEGER[], FALSE);
+  __PGSQL_EXEC(transaction, `INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))`, VARIANT[ pgblobid, Length64(data) ], INTEGER[], FALSE, FALSE);
 
   RETURN pgblobid;
 }

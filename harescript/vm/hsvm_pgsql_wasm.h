@@ -35,6 +35,7 @@ class PGSQLWasmTransactionDriver : public PGSQLTransactionDriverBase
 
         bool IsWorkOpen();
         void SetWorkOpen(bool open);
+        void AwaitPendingQueries();
 };
 
 } // End of namespace PGSQL

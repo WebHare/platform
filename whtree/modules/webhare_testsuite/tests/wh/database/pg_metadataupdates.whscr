@@ -186,7 +186,7 @@ MACRO TestMultiColumnUniqueIndex()
   testfw->BeginWork();
   INSERT [ id := 2, parent := 0, name := `name` ] INTO tbl_mcindextext;
   RECORD ARRAY errors := testfw->CommitWorkReturnErrors();
-  TestEQLike("ERROR:*duplicate key value violates unique constraint*", (errors??[[message := "no error"]])[0].message);
+  TestEQLike("Delayed error: ERROR:*duplicate key value violates unique constraint*", (errors??[[message := "no error"]])[0].message);
 }
 
 MACRO TestRenameCleanup()

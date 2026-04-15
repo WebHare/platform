@@ -295,6 +295,8 @@ class QueryResult {
         virtual QueryResultValue GetValue(uint32_t rowid, uint32_t colid) = 0;
         virtual std::string GetErrorMessage() const = 0;
         virtual std::string GetVerboseErrorMessage() const = 0;
+        virtual std::string GetCmd() = 0;
+        virtual unsigned GetCmdTuples() = 0;
 };
 
 /** PostgreSQL transaction object base class for native & WASM implementations */
@@ -348,8 +350,9 @@ class PGSQLTransactionDriverBase : public DatabaseTransactionDriverInterface
         void DeleteRecord(CursorId id, unsigned row);
         void UpdateRecord(CursorId id, unsigned row, VarId newfields);
         void CloseCursor(CursorId id);
+        void AwaitPendingQueries();
 
-        void ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext);
+        void ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext, bool with_cmdinfo);
 
         void EscapeLiteral(VarId id_set, Blex::StringPair to_encode);
         void EscapeIdentifier(VarId id_set, Blex::StringPair to_encode);

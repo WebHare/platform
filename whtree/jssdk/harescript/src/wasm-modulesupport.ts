@@ -635,29 +635,24 @@ export class WASMModule extends WASMModuleBase {
   }
 
   sendPgQuery(transactionId: number, query: Ptr, querylen: number) {
-    try {
-      const buffer = Buffer.from(this.HEAPU8.buffer, this.HEAPU8.byteOffset + query, querylen);
+    const buffer = Buffer.from(this.HEAPU8.buffer, this.HEAPU8.byteOffset + query, querylen);
 
-      const res = Promise.withResolvers<Buffer>();
-      const buffers: Buffer[] = [];
+    const res = Promise.withResolvers<Buffer>();
+    const buffers: Buffer[] = [];
 
-      const callback = (data: Buffer | Error | null) => {
-        if (isError(data))
-          res.reject(data);
-        else if (data)
-          buffers.push(data);
-        else
-          res.resolve(Buffer.concat(buffers));
-      };
+    const callback = (data: Buffer | Error | null) => {
+      if (isError(data))
+        res.reject(data);
+      else if (data)
+        buffers.push(data);
+      else
+        res.resolve(Buffer.concat(buffers));
+    };
 
-      this.runInPgTransactionContext(transactionId, (conn, transactionData) => {
-        conn.passthroughQuery(buffer, callback);
-        transactionData.queries.push(res.promise);
-      });
-
-    } catch (e) {
-      console.log(`error in sendPgQuery:`, e);
-    }
+    this.runInPgTransactionContext(transactionId, (conn, transactionData) => {
+      conn.passthroughQuery(buffer, callback);
+      transactionData.queries.push(res.promise);
+    });
   }
 
   async getPgResult(transactionId: number, dataptr: Ptr, datalenptr: Ptr, timeoutSecs: number): Promise<boolean> {
