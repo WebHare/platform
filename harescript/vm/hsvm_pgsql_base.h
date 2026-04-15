@@ -350,6 +350,7 @@ class PGSQLTransactionDriverBase : public DatabaseTransactionDriverInterface
         void DeleteRecord(CursorId id, unsigned row);
         void UpdateRecord(CursorId id, unsigned row, VarId newfields);
         void CloseCursor(CursorId id);
+        void AwaitPendingQueries();
 
         void ExecuteSimpleQuery(VarId id_set, std::string const &query, VarId params, VarId encodings, bool astext, bool with_cmdinfo);
 

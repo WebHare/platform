@@ -1508,11 +1508,19 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerAsyncExternalFunction("__PGSQL_COMMITWORK::RA:I", async (vm, id_set, transaction) => {
-    await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
-      // allow callbacks into HS while running commitWork
-      await vm.permissionSystem.runFunction(vm.permissionSystem.currentRunContext!, () => commitWork());
-    });
     id_set.setJSValue(setHareScriptType([], VariableType.RecordArray));
+    try {
+      await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
+        // allow callbacks into HS while running commitWork
+        await vm.permissionSystem.runFunction(vm.permissionSystem.currentRunContext!, () => commitWork());
+      });
+    } catch (e) {
+      const row = id_set.arrayAppend();
+      row.ensureCell("error_message").setString((e as Error).message);
+      row.ensureCell("schema_name").setString("");
+      row.ensureCell("table_name").setString("");
+      row.ensureCell("column_name").setString("");
+    }
   });
 
   wasmmodule.registerExternalFunction("__PGSQL_HASMUTEX::B:IS", (vm, id_set, transaction, mutexname) => {

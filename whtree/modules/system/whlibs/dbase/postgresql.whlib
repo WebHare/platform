@@ -33,6 +33,7 @@ MACRO __PGSQL_SETALLOWWRITEERRRORDELAY(INTEGER trans, BOOLEAN allowerrordelay) _
 BOOLEAN FUNCTION __PGSQL_GETWORKOPEN(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 RECORD FUNCTION __PGSQL_GETDEBUGSETTINGS(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 MACRO __PGSQL_UPDATEDEBUGSETTINGS(INTEGER trans, INTEGER logstacktraces, INTEGER logcommands, INTEGER commandtimeout) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __PGSQL_AWAITPENDINGQUERIES(INTEGER trans) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 // WASM-only
 MACRO __PGSQL_BEGINWORK(INTEGER trans, STRING isiloationlevel, INTEGER ARRAY mutexes) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -247,7 +248,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
       RECORD ARRAY errors :=
           SELECT message :=     error_message
                , tablename :=   `${schema_name}.${table_name}`
-               , column_name
+               , columnname :=  column_name
             FROM this->delayederrors;
       this->delayederrors := RECORD[];
       THROW NEW DatabaseException(errors);
@@ -642,19 +643,33 @@ STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
     __PGSQL_BeginWork(this->id, this->pvt_transactionisolationlevel, locks);
   }
 
-   UPDATE PUBLIC MACRO DoRollbackWork() {
-     __PGSQL_RollbackWork(this->id);
-     this->__uploadedblobs := DEFAULT OBJECT;
-   }
+  UPDATE PUBLIC MACRO DoRollbackWork() {
+    __PGSQL_RollbackWork(this->id);
+    this->__uploadedblobs := DEFAULT OBJECT;
+  }
 
-   UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
+  UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
     TRY {
+      // Record all errors in this->delayederrors
+      this->pvt_committing := TRUE;
       RECORD ARRAY result := __PGSQL_CommitWork(this->id);
       IF(Length(result) = 0) //no commit errors
         this->SetUploadedBlobPaths();
-      RETURN result;
-    } FINALLY
+      // Process results of pending queries (errors recorded to this->delayederrors)
+      __PGSQL_AwaitPendingQueries(this->id);
+      RECORD ARRAY delayederrors := this->delayederrors;
+      IF (IsValueSet(delayederrors))
+        delayederrors[0].error_message := `Delayed error: ${delayederrors[0].error_message}`;
+      this->delayederrors := RECORD[];
+      RETURN
+          SELECT message :=     error_message
+               , tablename :=   `${schema_name}.${table_name}`
+               , columnname :=  column_name
+            FROM delayederrors CONCAT result;
+    } FINALLY {
+      this->pvt_committing := FALSE;
       this->__uploadedblobs := DEFAULT OBJECT;
+    }
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
@@ -763,8 +778,16 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
   VARIANT execresult := __PGSQL_EXEC(trans, query, options.args, encodings, options.astext, iscommit);
   IF (iscommit) {
     retval := execresult.rows;
-    IF (execresult.cmd != "COMMIT" AND (IsDefaultValue(transobj->delayederrors) OR NOT transobj->pvt_committing))
-      INSERT [ message := `Commit failed (usually due to earlier errors on this transaction)`, tablename := "", column_name := "" ] INTO transobj->delayederrors AT END;
+    IF (IsValueSet(transobj->delayederrors))
+      transobj->delayederrors[0].error_message := `Delayed error: ${transobj->delayederrors[0].error_message}`;
+    IF (execresult.cmd != "COMMIT" AND (IsDefaultValue(transobj->delayederrors) OR NOT transobj->pvt_committing)) {
+      INSERT [
+        error_message := `Commit failed (usually due to earlier errors on this transaction)`,
+        schema_name := "",
+        table_name := "",
+        column_name := ""
+      ] INTO transobj->delayederrors AT END;
+    }
   } ELSE
     retval := execresult;
 

@@ -417,6 +417,11 @@ void PGSQLWasmTransactionDriver::SetWorkOpen(bool)
         ThrowVMRuntimeError(Error::Codes::InternalError, "SetWorkOpen is not supported in PGSQLWasmTransactionDriver");
 }
 
+void PGSQLWasmTransactionDriver::AwaitPendingQueries()
+{
+        // Implementation for awaiting delayed queries in WASM
+}
+
 EM_JS(void, supportSendPgQuery, (int32_t trans_id, void *query, unsigned length), {
         Module.sendPgQuery(trans_id, query, length);
 });

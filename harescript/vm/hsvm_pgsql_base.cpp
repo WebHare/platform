@@ -2244,6 +2244,15 @@ bool PGSQLTransactionDriverBase::HandleMessage(QueryResult const &res)
         return retval;
 }
 
+void PGSQLTransactionDriverBase::AwaitPendingQueries()
+{
+        while (true) {
+                auto res = GetLastResult();
+                if (!res.first)
+                    break;
+        }
+}
+
 void PGSQL_Close(HSVM *hsvm)
 {
         int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
@@ -2345,6 +2354,20 @@ void PGSQL_UpdateDebugSettings(HSVM *hsvm)
         driver->command_timeout_secs = HSVM_IntegerGet(hsvm, HSVM_Arg(3));
 }
 
+void PGSQL_AwaitPendingQueries(HSVM *hsvm)
+{
+        int32_t transid = HSVM_IntegerGet(hsvm, HSVM_Arg(0));
+
+        auto driver = dynamic_cast< PGSQLTransactionDriverBase *>(GetVirtualMachine(hsvm)->GetSQLSupport().GetTransaction(transid));
+        if (!driver)
+        {
+                HSVM_ThrowException(hsvm, "The specified transaction is not a PostgreSQL transaction");
+                return;
+        }
+
+        driver->AwaitPendingQueries();
+}
+
 
 void PGSQL_EscapeIdentifier(HSVM *hsvm, HSVM_VariableId id_set)
 {
@@ -2427,6 +2450,8 @@ void PGSQLRegisterSharedFunctions(HSVM_RegData *regdata) {
         HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:::IIII", PGSQL_UpdateDebugSettings);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL::S:S", PGSQL_EscapeLiteral);
         HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER::S:S", PGSQL_EscapeIdentifier);
+        HSVM_RegisterMacro(regdata, "__PGSQL_AWAITPENDINGQUERIES:::I", PGSQL_AwaitPendingQueries);
+
 
         HSVM_RegisterMacro(regdata, "__PGSQL_BEGINWORK:::ISIA", PGSQL_WasmOnlyMacro);
         HSVM_RegisterMacro(regdata, "__PGSQL_ROLLBACKWORK:::I", PGSQL_WasmOnlyMacro);
