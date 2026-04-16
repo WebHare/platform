@@ -81,18 +81,7 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
 
   MACRO NEW(RECORD ARRAY overridemap DEFAULTSTO RECORD[]) {
     this->overridemap := overridemap;
-    this->result := [ messages             := RECORD[]
-                    , contenttypes         := RECORD[]
-                    , rtdtypes             := RECORD[]
-                    , grouptypes           := RECORD[]
-                    , siteprofiles         := STRING[]
-                    , profilerefs          := RECORD[]
-                    , success              := FALSE
-                    , applies              := RECORD[]
-                    , webrules             := RECORD[]
-                    , addtocatalogs        := RECORD[]
-                    , hiddenfoldertypes    := INTEGER[]
-                    ];
+    this->result := emptysiteprofile;
   }
 
   MACRO LogSPError(STRING resourcename, STRING message, INTEGER line)   {
