@@ -1847,22 +1847,17 @@ PUBLIC RECORD ARRAY FUNCTION GetSiteActiveProfileReferrals(RECORD gathersp)
   RETURN allsites;
 }
 
-RECORD ARRAY FUNCTION GenerateReferrals(RECORD csp)
-{
-  RECORD ARRAY referrals := GetSiteActiveProfileReferrals(csp);
-  referrals := SELECT id, name, roottype, webroot, siteprofileids, sitedesign FROM referrals ORDER BY id;
-  RETURN referrals;
-}
 RECORD FUNCTION GetCacheableCurrentProfileReferrals()
 {
-  RETURN CELL[ value := GenerateReferrals(GetCachedSiteProfiles())
+  RETURN CELL[ value := DecodeJSONBlob(GetWebhareResource("storage::system/config/siteprofilerefs.json"))
              , ttl := 60*60*1000
              , eventmasks := site_referrals_mask
              ];
 }
 PUBLIC MACRO UpdateSiteProfileRefs(RECORD csp)
 {
-  RECORD ARRAY referrals := GenerateReferrals(csp ?? GetCachedSiteProfiles());
+  RECORD ARRAY referrals := GetSiteActiveProfileReferrals(csp ?? GetCachedSiteProfiles());
+  referrals := SELECT id, name, roottype, webroot, siteprofileids, sitedesign FROM referrals ORDER BY id;
   STRING configpath := GetModuleStorageRoot("system") || "config";
   CreateDiskDirectoryRecursive(configpath, TRUE);
   StoreDiskFile(configpath || "/siteprofilerefs.json", EncodeJSONBlob(referrals), [ overwrite := TRUE ]);
