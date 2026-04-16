@@ -50,15 +50,18 @@ RECORD FUNCTION GetMainPublishInfo(INTEGER fileid)
 }
 
 ///A publisher running for a single file
-PUBLIC STATIC OBJECTTYPE PublicationProcess
-<
+PUBLIC STATIC OBJECTTYPE PublicationProcess <
   PUBLIC RECORD basedata;
   RECORD output;
   INTEGER fileid;
   PUBLIC BOOLEAN stripextension;
 
-  MACRO NEW(INTEGER fileid)
-  {
+  MACRO NEW(INTEGER fileid) {
+    /* If a transaction is setting a site's webdesign/features and triggering republishes, those republishes
+       appear to outrace siteprofilerefs cache invalidation. Explicitly clear that cache so that applytester
+       is using the proper references. */
+    BroadcastLocalEvent("system:sites");
+
     this->fileid := fileid;
     this->basedata := GetMainPublishInfo(this->fileid);
     IF(NOT RecordExists(this->basedata))

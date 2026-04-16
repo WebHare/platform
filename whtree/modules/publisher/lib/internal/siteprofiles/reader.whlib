@@ -1861,6 +1861,7 @@ PUBLIC MACRO UpdateSiteProfileRefs(RECORD csp)
   STRING configpath := GetModuleStorageRoot("system") || "config";
   CreateDiskDirectoryRecursive(configpath, TRUE);
   StoreDiskFile(configpath || "/siteprofilerefs.json", EncodeJSONBlob(referrals), [ overwrite := TRUE ]);
+  BroadcastEvent("system:sites");
 }
 
 RECORD ARRAY FUNCTION GetCurrentProfileReferrals()
