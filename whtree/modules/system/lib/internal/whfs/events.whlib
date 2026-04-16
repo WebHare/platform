@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -16,6 +17,13 @@ LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 INTEGER counter;
+
+VARIANT FUNCTION NullIfZero(INTEGER value)
+{
+  IF (value = 0)
+    RETURN DEFAULT RECORD;
+  RETURN value;
+}
 
 STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 < // ---------------------------------------------------------------------------
@@ -340,59 +348,57 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     this->AddEvent(parentsite, folderid, fileid, "file", "rep");
   }
 
-  PUBLIC MACRO ObjectCreate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectCreate(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "create");
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "create");
   }
 
-  PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "update");
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "update");
   }
 
-  PUBLIC MACRO ObjectHistoryChange(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectHistoryChange(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "history");
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "history");
   }
 
-  PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
     this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "rename");
     this->AddAnalyzerTask(folderid, isfolder);
   }
 
-  PUBLIC MACRO ObjectMove(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectMove(INTEGER oldparentsite, INTEGER oldfolderid, INTEGER newparentsite, INTEGER newfolderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
-    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "move");
-    this->AddAnalyzerTask(folderid, isfolder);
+    this->AddEvent(oldparentsite, oldfolderid, objectid, isfolder ? "folder" : "file", "moved");
+    this->AddEvent(newparentsite, newfolderid, objectid, isfolder ? "folder" : "file", "move");
+    this->AddAnalyzerTask(oldfolderid, isfolder);
+    this->AddAnalyzerTask(newfolderid, isfolder);
   }
 
-  PUBLIC MACRO ObjectMoved(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  PUBLIC MACRO ObjectDelete(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "moved");
-  }
-
-  PUBLIC MACRO ObjectDelete(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
-  {
-    BOOLEAN isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
     this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "del");
     this->AddAnalyzerTask(folderid, isfolder);
   }
 
   PUBLIC MACRO Unpublished(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "unp");
+    this->AddEvent(parentsite, folderid, objectid, "file", "unp");
     this->AddAnalyzerTask(folderid, FALSE);
   }
 
-  PUBLIC MACRO ObjectReordered(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  // There are modules that call this function without the isfolder parameter, so make it optional
+  PUBLIC MACRO ObjectReordered(INTEGER parentsite, INTEGER folderid, INTEGER objectid, VARIANT isfolder DEFAULTSTO DEFAULT RECORD)
   {
-    this->AddEvent(parentsite, folderid, objectid, "", "order");
+    IF (TypeID(isfolder) = TypeID(RECORD))
+      isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
+
+    this->AddEvent(parentsite, folderid, objectid, isfolder ? "folder" : "file", "order");
   }
 
-  PUBLIC MACRO FolderIndexDocUpdated(INTEGER folderid)
+  PUBLIC MACRO FolderIndexDocUpdated(INTEGER parentsite, INTEGER parentfolder, INTEGER folderid)
   {
     this->AddAnalyzerTask(folderid, FALSE);
   }
@@ -454,9 +460,9 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
       INSERT fsobj INTO this->reindexes AT pos.position;
   }
 
-  PUBLIC MACRO DoDeleteOrRecycle(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN is_recycle)
+  PUBLIC MACRO DoDeleteOrRecycle(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN is_recycle, BOOLEAN isfolder)
   {
-    this->ObjectDelete(parentsite, folderid, objectid);
+    this->ObjectDelete(parentsite, folderid, objectid, isfolder);
 
     IF(is_recycle)
     {
@@ -521,7 +527,7 @@ PUBLIC MACRO PerformEmptyWHFSMetadataUpdate(INTEGER fsobj, RECORD options)
       ];
 
   UPDATE system.fs_objects SET RECORD newmetadata WHERE id = fsobj;
-  commithandler->ObjectUpdate(oldversion.parentsite, oldversion.parent, fsobj);
+  commithandler->ObjectUpdate(oldversion.parentsite, oldversion.parent, fsobj, oldversion.isfolder);
 
   IF (NOT oldversion.isfolder)
     commithandler->AddCompletionEvent( [ type := "replacefile", id := fsobj ]);

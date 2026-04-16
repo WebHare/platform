@@ -321,7 +321,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     BOOLEAN isfinalize := savetype = whconstant_historytype_final;
     INTEGER setparent := EnsureSnapshotsFolder(this->baseobject->parentsite);
 
-    INTEGER oldparent := SELECT AS INTEGER parent FROM system.fs_objects WHERE id = autosavedoc;
+    RECORD autosavedocrec := SELECT parent, isfolder FROM system.fs_objects WHERE id = autosavedoc;
+    INTEGER oldparent := autosavedocrec.parent;
     IF(oldparent = setparent)
       THROW NEW Exception("This autosave is already finished");
 
@@ -330,8 +331,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
              , modificationdate := now
          WHERE id = autosavedoc;
 
-    INTEGER ARRAY todeleteautosaves := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->baseobject->id;
-    DELETE FROM system.fs_objects WHERE id IN todeleteautosaves;
+    RECORD ARRAY todeleteautosaves := SELECT id, isfolder FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->baseobject->id;
+    DELETE FROM system.fs_objects WHERE id IN (SELECT AS INTEGER ARRAY id FROM todeleteautosaves);
 
     //Patch the existing autosave entry. The autosave will remain the associated snapshot
     UPDATE system_internal.fs_history
@@ -343,13 +344,12 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     // Fire events
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectMoved(0, oldparent, autosavedoc);
-    commithandler->ObjectMove(0, setparent, autosavedoc);
-    commithandler->ObjectUpdate(0, setparent, autosavedoc);
-    FOREVERY (INTEGER id FROM todeleteautosaves)
-      commithandler->ObjectDelete(0, whconstant_whfsid_autosaves, id);
+    commithandler->ObjectMove(0, oldparent, 0, setparent, autosavedoc, autosavedocrec.isfolder);
+    commithandler->ObjectUpdate(0, setparent, autosavedoc, autosavedocrec.isfolder);
+    FOREVERY (RECORD rec FROM todeleteautosaves)
+      commithandler->ObjectDelete(0, whconstant_whfsid_autosaves, rec.id, rec.isfolder);
 
-    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id);
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
 
     RETURN this->currentautosave_version.id;
   }
@@ -390,7 +390,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     // Fire events
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectUpdate(sourcefiledata.parentsite, sourcefiledata.parent, this->baseobject->id);
+    commithandler->ObjectUpdate(sourcefiledata.parentsite, sourcefiledata.parent, this->baseobject->id, this->baseobject->isfolder);
   }
 
   /** @short Save the current version (autosave or draft) as the final version */
@@ -462,7 +462,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     // Fire events
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id);
+    commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
   }
 
 >;

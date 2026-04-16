@@ -133,11 +133,11 @@ MACRO TestEvents() {
       [
         folder := testsite->root,
         events := STRING[],
-        files := [ [ file := testfile->id, isfolder := FALSE, events := [ "move" ] ] ]
+        files := [ [ file := testfile->id, isfolder := FALSE, events := [ "moved" ] ] ]
       ], [
         folder := movetarget->id,
         events := STRING[],
-        files := [ [ file := testfile->id, isfolder := FALSE, events := [ "moved" ] ] ]
+        files := [ [ file := testfile->id, isfolder := FALSE, events := [ "move" ] ] ]
       ]
     ], ExpectWHFSEvents(2));
 
@@ -199,11 +199,11 @@ MACRO TestEvents() {
       [
         folder := testsite->root,
         events := STRING[],
-        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "move" ] ] ]
+        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "moved" ] ] ]
       ], [
         folder := movetarget->id,
         events := STRING[],
-        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "moved" ] ] ]
+        files := [ [ file := testfolder->id, isfolder := TRUE, events := [ "move" ] ] ]
       ]
     ], ExpectWHFSEvents(2));
 
@@ -430,7 +430,7 @@ MACRO TestEvents() {
     snapshotfolder := events[1].files[0].file; // The snapshot parent folder
 
     // Draft is moved from autosaves to drafts, so we get a moved event
-    // Draft2 is deleted (autosaeve cleanup)
+    // Draft2 is deleted (autosave cleanup)
     TestEQ([
       [
         folder := whconstant_whfsid_autosaves,

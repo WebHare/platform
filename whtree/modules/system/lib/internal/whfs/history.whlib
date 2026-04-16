@@ -24,7 +24,7 @@ INTEGER FUNCTION EnsureWHFSSiteFolder(INTEGER forparent, INTEGER site)
     INSERT INTO system.fs_objects(id, parent, name, filelink, creationdate, modificationdate, isfolder)
            VALUES(versionroot, forparent, ToString(versionroot), site, now, now, TRUE);
 
-    GetWHFSCommitHandler()->ObjectCreate(0, forparent, versionroot);
+    GetWHFSCommitHandler()->ObjectCreate(0, forparent, versionroot, TRUE);
   }
 
   RETURN versionroot;
