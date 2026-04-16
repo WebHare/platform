@@ -476,8 +476,10 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
   StoreDiskFile(configpath || "/siteprofiles.bin", blobdata, [ overwrite := TRUE ]);
 }
 
-PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing)
+PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, BOOLEAN reportmissing, STRING source)
 {
+  LogDebug("publisher:siteprofiles", "siteprofilecompilation-start", CELL[ locked, debug, reportmissing, source, trace := GetStackTrace() ]);
+
   IF(NOT HavePrimaryTransaction()) //--twice already gives us one
     OpenPrimary();
   IF(locked)
@@ -502,6 +504,8 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
 
   __SetCSPCacheFromSourceData(response.fullcspdata);
 
+  LogDebug("publisher:siteprofiles", "siteprofilecompilation-done", CELL[ source ]);
+
   RECORD ARRAY errors := SELECT * FROM response.messages WHERE type = "error";
   IF(Length(errors)>0)
     LogError("publisher:siteprofiles", "siteprofilecompilation-error", CELL[ errors ]);
@@ -515,17 +519,17 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
               ];
 }
 
-PUBLIC RECORD FUNCTION RecompileSiteProfiles()
+PUBLIC RECORD FUNCTION RecompileSiteProfiles(STRING source)
 {
-  RETURN WaitForPromise(AsyncRecompileSiteProfiles());
+  RETURN WaitForPromise(AsyncRecompileSiteProfiles(source));
 }
 
-PUBLIC ASYNC FUNCTION AsyncRecompileSiteProfiles()
+PUBLIC ASYNC FUNCTION AsyncRecompileSiteProfiles(STRING source)
 {
   OBJECT service  := AWAIT OpenWebHareService("system:spcompiler");
   TRY
   {
-    RECORD response := AWAIT service->RequestRecompile();
+    RECORD response := AWAIT service->RequestRecompile(source);
     RETURN response;
   }
   FINALLY

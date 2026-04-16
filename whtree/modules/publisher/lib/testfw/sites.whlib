@@ -52,7 +52,7 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
   IF(options.istemplate)
   {
     SetupWebDesign(webdesigntemplate, options.modulename, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
-    RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
+    RecompileSiteProfiles("SetupTestWebsite"); //makes sure the XML/siteprl changes are picked up synchronously
   }
 
   RECORD meta := [ sitedesign := options.istemplate ? `${options.modulename}:testdesign` : webdesigntemplate
@@ -83,4 +83,3 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
 
   RETURN newsite;
 }
-

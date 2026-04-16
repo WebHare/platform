@@ -189,7 +189,7 @@ PUBLIC RECORD ARRAY FUNCTION ValidateModules()
 
 ASYNC MACRO RequestRecompile(OBJECT service) {
   INTEGER64 now := GetUnixTimestampMsecs(GetCurrentDateTime());
-  AWAIT service->RequestRecompile();
+  AWAIT service->RequestRecompile("restart_reset");
   service->CloseService();
   IF(showinfo)
     Print("Recompiled site profiles in " || (GetUnixTimestampMsecs(GetCurrentDateTime()) - now) || "ms\n");

@@ -116,8 +116,7 @@ MACRO VerifyAutoCreateTestFile(OBJECT testfile, BOOLEAN after)
   TestEqMembers(inp, result.rich.instances[1], "INSTANCEID,DATA,WHFSTYPE,STR3");
 }
 
-MACRO AutoCreateTypes()
-{
+MACRO AutoCreateTypes() {
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/autocreatetest", [ openorphans := TRUE ])));
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/autocreatefiletest", [ openorphans := TRUE ])));
   TestEq(FALSE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/autocreatefoldertest", [ openorphans := TRUE ])));
@@ -341,7 +340,7 @@ MACRO AutoCreateTypes()
   testfw->CommitWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles();
+  RecompileSiteProfiles("AutoCreateTypes");
 
   testfw->BeginWOrk();
   FlushUnreferredContentData(); //needed to reliably test
@@ -432,7 +431,7 @@ MACRO AutoCreateTypes()
   testfw->CommitWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles();
+  RecompileSiteProfiles("AutoCreateTypes.2");
 
   testfw->WaitForPublishCompletion(testdatafolder->id);
   testfw->BeginWork();
@@ -481,7 +480,7 @@ MACRO AutoCreateTypes()
   testfw->RollbackWork();
 
   testfw->DeleteTestModule();
-  RecompileSiteProfiles();
+  RecompileSiteProfiles("AutoCreateTypes.3");
 
   testfw->BeginWork();
   FlushUnreferredContentData(); //needed to reliably test

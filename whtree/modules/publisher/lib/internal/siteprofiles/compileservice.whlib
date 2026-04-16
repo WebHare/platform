@@ -8,14 +8,14 @@ OBJECT currentcompile;
 
 OBJECTTYPE CompileServiceClient
 <
-  PUBLIC ASYNC FUNCTION RequestRecompile()
+  PUBLIC ASYNC FUNCTION RequestRecompile(STRING source)
   {
     //Wait for any previous compile to complete
     IF(ObjectExists(currentcompile))
       AWAIT currentcompile;
 
     //Schedule a new compile
-    currentcompile := AsyncCallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compiler.whlib", "__DoRecompileSiteprofiles", TRUE, FALSE, FALSE);
+    currentcompile := AsyncCallFunctionFromJob("mod::publisher/lib/internal/siteprofiles/compiler.whlib", "__DoRecompileSiteprofiles", TRUE, FALSE, FALSE, source);
     TRY RETURN AWAIT currentcompile;
     FINALLY currentcompile := DEFAULT OBJECT;
   }
