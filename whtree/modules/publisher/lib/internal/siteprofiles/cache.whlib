@@ -11,6 +11,20 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+PUBLIC CONSTANT RECORD emptysiteprofile :=
+  [ messages             := RECORD[]
+  , contenttypes         := RECORD[]
+  , rtdtypes             := RECORD[]
+  , grouptypes           := RECORD[]
+  , siteprofiles         := STRING[]
+  , profilerefs          := RECORD[]
+  , success              := FALSE
+  , applies              := RECORD[]
+  , webrules             := RECORD[]
+  , addtocatalogs        := RECORD[]
+  , hiddenfoldertypes    := INTEGER[]
+  ];
+
 
 PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
 {
@@ -26,11 +40,12 @@ PUBLIC MACRO __SetCSPCacheFromSourceData(RECORD data)
 
 RECORD FUNCTION DoGetCacheableSiteProfiles()
 {
-  BLOB data := GetWebhareResource("storage::system/config/siteprofiles.bin");
+  BLOB data := GetWebhareResource("storage::system/config/siteprofiles.bin", [ allowmissing := TRUE ]);
+  RECORD value := Length(data) > 0 ? __HS_MarshalReadFromBlob(data) : emptysiteprofile;
 
   RETURN
       [ ttl :=          60 * 60 * 1000 // 1 hour
-      , value :=        __HS_MarshalReadFromBlob(data)
+      , value :=        value
       , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
       ];
 }
