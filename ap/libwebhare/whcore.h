@@ -69,6 +69,7 @@ class BLEXLIB_PUBLIC ManagerConnection
         void SetSystemConfig(uint8_t const *data, unsigned datalen);
         void GetSystemConfig(std::shared_ptr< Blex::PodVector< uint8_t > const > *data);
         void WaitSendQueueEmpty();
+        bool FenceEvents();
 
         void DistributeNotificationEvent(std::shared_ptr< Blex::NotificationEvent > const &event);
 
@@ -187,6 +188,7 @@ class BLEXLIB_PUBLIC ManagerConnection
                 std::vector< std::string > registered_ports;
                 std::vector< std::pair< std::string, bool > > port_actions;
                 std::map< uint32_t, std::vector< bool > > configurelogresults;
+                std::set< uint32_t > fenceeventsresults;
 
                 bool abort;
                 bool connected;
@@ -359,6 +361,11 @@ class BLEXLIB_PUBLIC Connection
         void SetSystemConfig(uint8_t const *data, unsigned datalen)
         {
                 mgrconn.SetSystemConfig(data, datalen);
+        }
+
+        bool FenceEvents()
+        {
+                return mgrconn.FenceEvents();
         }
 
         int32_t GetProcessCode() const

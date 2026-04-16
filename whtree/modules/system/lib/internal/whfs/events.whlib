@@ -140,7 +140,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   /** Called when the transaction has committed
   */
-  UPDATE PUBLIC MACRO OnCommitBroadcasts()
+  UPDATE PUBLIC BOOLEAN FUNCTION OnCommitBroadcasts()
   {
     IF(IsDebugTagEnabled("que"))
       LogDebug("system:whfscommithandler", "commitbroadcasts", CELL[trace := GetStackTrace() ]);
@@ -202,6 +202,8 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     FOREVERY(INTEGER site FROM GetSortedSet(sites))
       BroadcastEvent("system:whfs.site." || site, DEFAULT RECORD);
+
+    RETURN uncommitted_fstypes_changes OR IsValueSet(this->items);
   }
 
   /** Called when the transaction has committed

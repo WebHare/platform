@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
@@ -12,6 +13,8 @@ RECORD publishfolder := folder;
 RECORD publishsite := site;
 BOOLEAN opened_firstpage;
 INTEGER outputid;
+
+FenceEvents();
 
 OBJECT applytester := GetApplyTesterForObject(file.id);
 IF(NOT ObjectExists(applytester))

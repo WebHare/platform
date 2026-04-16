@@ -35,7 +35,8 @@ enum Type
         FlushLog =              113,
         SetSystemConfig =       114,
         GetPortList =           115,
-        _max =                  115
+        FenceEvents =           116,
+        _max =                  116
 };
 
 std::string GetName(uint8_t code);
@@ -62,7 +63,8 @@ enum Type
         ConfigureLogsResult =   110,
         FlushLogResult =        111,
         SystemConfig =          112,
-        GetPortListResult =     113
+        GetPortListResult =     113,
+        FenceEventsResult =     114
 };
 
 std::string GetName(uint8_t code);

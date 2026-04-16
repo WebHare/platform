@@ -816,7 +816,7 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase <
 
   /** Called when the transaction has committed
   */
-  UPDATE PUBLIC MACRO OnCommitBroadcasts()
+  UPDATE PUBLIC BOOLEAN FUNCTION OnCommitBroadcasts()
   {
     BOOLEAN anylistchange;
     FOREVERY (RECORD type FROM this->types)
@@ -847,6 +847,8 @@ STATIC OBJECTTYPE WRDEntityCommitHandler EXTEND TransactionFinishHandlerBase <
 
     IF (anylistchange)
       BroadcastEvent("wrd:schema.list", DEFAULT RECORD);
+
+    RETURN IsValueSet(this->types);
   }
 
   RECORD FUNCTION EntityChange(INTEGER wrdschema, INTEGER type, INTEGER entityid, STRING cellname)

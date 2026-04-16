@@ -94,6 +94,7 @@ std::string Connection::GetRequestOpcodeName(uint8_t code)
         case WHMRequestOpcode::Disconnect:              return "Disconnect";
         case WHMRequestOpcode::SetSystemConfig:         return "SetSystemConfig";
         case WHMRequestOpcode::GetPortList:             return "GetPortList";
+        case WHMRequestOpcode::FenceEvents:             return "FenceEvents";
         default:
             return "Unknown request opcode";
         }
@@ -116,6 +117,7 @@ std::string Connection::GetResponseOpcodeName(uint8_t code)
         case WHMResponseOpcode::FlushLogResult:         return "FlushLogResult";
         case WHMResponseOpcode::SystemConfig:           return "SystemConfig";
         case WHMResponseOpcode::GetPortListResult:      return "GetPortListResult";
+        case WHMResponseOpcode::FenceEventsResult:      return "FenceEventsResult";
         default:
             return "Unknown response opcode";
         }
@@ -294,6 +296,7 @@ Database::RPCResponse::Type Connection::HookHandleMessage(Database::IOBuffer *io
                 case WHMRequestOpcode::FlushLog:        responsetype = RemoteFlushLog(iobuf); break;
                 case WHMRequestOpcode::SetSystemConfig: responsetype = RemoteSetSystemConfig(iobuf); break;
                 case WHMRequestOpcode::GetPortList:     responsetype = RemoteGetPortList(iobuf); break;
+                case WHMRequestOpcode::FenceEvents:     responsetype = RemoteFenceEvents(iobuf); break;
                 default:
                     throw Database::Exception(Database::ErrorProtocol, "Unknown RPC opcode");
                 }
@@ -916,6 +919,20 @@ Database::RPCResponse::Type Connection::RemoteGetPortList(Database::IOBuffer *io
         return Database::RPCResponse::Respond;
 }
 
+Database::RPCResponse::Type Connection::RemoteFenceEvents(Database::IOBuffer *iobuf)
+{
+        DEBUGPRINT("Conn " << this << " Incoming RPC RemoteFenceEvents");
+
+        uint32_t id = iobuf->Read< uint32_t >();
+
+        iobuf->ResetForSending();
+        iobuf->Write< uint32_t >(id);
+        iobuf->FinishForRequesting(WHMResponseOpcode::FenceEventsResult);
+
+        DEBUGPRINT("Conn " << this << " Sending RPC FenceEventsResult");
+        return Database::RPCResponse::Respond;
+}
+
 void Connection::DumpRemoteToLocalId(std::string const &RTOLMAPPING_ONLY(comment))
 {
         RTOLMAPPING_ONLY(
@@ -1198,6 +1215,7 @@ LogFlusher::LogFlusher(WHManager &_whmanager)
 LogFlusher::~LogFlusher()
 {
         Stop();
+        Blex::ErrStream() << "LogFlusher thread stopped";
 }
 
 void LogFlusher::Stop()

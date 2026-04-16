@@ -134,7 +134,12 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       }
       return { opcode, requestid, ports };
     }
+    case defs.WHMResponseOpcode.FenceEventsResult: {
+      const requestid = iobuf.readU32();
+      return { opcode, requestid };
+    }
     default: {
+      opcode satisfies defs.WHMResponseOpcode.Answer | defs.WHMResponseOpcode.Reset;
       throw new Error(`Cannot decode opcode #${opcode}`);
     }
   }
@@ -220,7 +225,11 @@ export function createRPC(message: defs.WHMRequest): Buffer {
     case defs.WHMRequestOpcode.SetSystemConfig: {
       iobuf.writeBinary(message.systemconfigdata);
     } break;
+    case defs.WHMRequestOpcode.FenceEvents: {
+      iobuf.writeU32(message.requestid);
+    } break;
     default: {
+      message satisfies never;
       throw new Error(`Cannot encode opcode #${(message as defs.WHMRequest).opcode}`);
     }
   }

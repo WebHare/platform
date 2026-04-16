@@ -14,6 +14,7 @@ export enum WHMRequestOpcode {
   FlushLog = 113,
   SetSystemConfig = 114,
   GetPortList = 115,
+  FenceEvents = 116,
 }
 
 export enum WHMResponseOpcode {
@@ -33,6 +34,7 @@ export enum WHMResponseOpcode {
   FlushLogResult = 111,
   SystemConfig = 112,
   GetPortListResult = 113,
+  FenceEventsResult = 114,
 }
 
 export enum WHMProcessType {
@@ -128,6 +130,10 @@ export type WHMRequest_SetSystemConfig = {
   opcode: WHMRequestOpcode.SetSystemConfig;
   systemconfigdata: Buffer | ArrayBuffer;
 };
+export type WHMRequest_FenceEvents = {
+  opcode: WHMRequestOpcode.FenceEvents;
+  requestid: number;
+};
 
 export type WHMRequest = WHMRequest_SendEvent |
   WHMRequest_ConfigureLogs |
@@ -143,7 +149,8 @@ export type WHMRequest = WHMRequest_SendEvent |
   WHMRequest_SendMessageOverLink |
   WHMRequest_SetSystemConfig |
   WHMRequest_UnregisterPort |
-  WHMRequest_GetPortList;
+  WHMRequest_GetPortList |
+  WHMRequest_FenceEvents;
 
 export type WHMResponse_AnswerException = {
   opcode: WHMResponseOpcode.AnswerException;
@@ -235,6 +242,10 @@ export type WHMResponse_GetPortListResult = {
     pid: number;
   }>;
 };
+export type WHMResponse_FenceEventsResult = {
+  opcode: WHMResponseOpcode.FenceEventsResult;
+  requestid: number;
+};
 
 export type WHMResponse =
   WHMResponse_AnswerException |
@@ -250,4 +261,5 @@ export type WHMResponse =
   WHMResponse_FlushLogResult |
   WHMResponse_SystemConfig |
   WHMResponse_RegisterProcessResult |
-  WHMResponse_GetPortListResult;
+  WHMResponse_GetPortListResult |
+  WHMResponse_FenceEventsResult;

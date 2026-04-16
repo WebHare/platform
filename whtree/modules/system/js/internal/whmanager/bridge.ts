@@ -144,6 +144,9 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Connect to a local service in the thread where the mainbridge runs */
   connectToLocalService<T extends object>(factory: string, params?: hsmarshalling.IPCMarshallableData[], options?: { linger?: boolean }): Promise<ConvertLocalServiceInterfaceToClientInterface<T> & ServiceBase>;
+
+  /** Fence events */
+  fenceEvents(): Promise<void>;
 }
 
 enum ToLocalBridgeMessageType {
@@ -156,6 +159,7 @@ enum ToLocalBridgeMessageType {
   ConnectToLocalServiceResult,
   GetPortListResult,
   ChangeLocalDebugFlags,
+  FenceEventsResult,
 }
 
 type ToLocalBridgeMessage = {
@@ -194,6 +198,9 @@ type ToLocalBridgeMessage = {
   type: ToLocalBridgeMessageType.ChangeLocalDebugFlags;
   mode: "enable" | "disable" | "clear";
   flags: string[];
+} | {
+  type: ToLocalBridgeMessageType.FenceEventsResult;
+  requestid: number;
 };
 
 enum ToMainBridgeMessageType {
@@ -209,6 +216,7 @@ enum ToMainBridgeMessageType {
   ConfigureLogs,
   ConnectToLocalService,
   ChangeLocalDebugFlags,
+  FenceEvents,
 }
 
 type ToMainBridgeMessage = {
@@ -262,6 +270,9 @@ type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.ChangeLocalDebugFlags;
   mode: "enable" | "disable" | "clear";
   flags: string[];
+} | {
+  type: ToMainBridgeMessageType.FenceEvents;
+  requestid: number;
 };
 
 type LocalBridgeInitData = {
@@ -314,6 +325,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   debuglink?: DebugIPCLinkType["ConnectEndPoint"];
 
   pendingensuredatasent = new Map<number, () => void>();
+  pendingfenceevents = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
   pendingreconfigurelogs = new Map<number, (results: boolean[]) => void>();
   pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
@@ -426,7 +438,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
         if (envbackend.debugFlags.ipc)
           console.log(`localbridge ${this.workerid}: pendingreconfigurelogs result`, message.requestid, Boolean(reg));
         if (reg) {
-          this.pendinggetprocesslists.delete(message.requestid);
+          this.pendingreconfigurelogs.delete(message.requestid);
           reg(message.results);
         }
       } break;
@@ -441,6 +453,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
       } break;
       case ToLocalBridgeMessageType.ChangeLocalDebugFlags: {
         envbackend.updateLocalDebugFlags(message.mode, message.flags);
+      } break;
+      case ToLocalBridgeMessageType.FenceEventsResult: {
+        const reg = this.pendingfenceevents.get(message.requestid);
+        if (envbackend.debugFlags.ipc)
+          console.log(`localbridge ${this.workerid}: pendingfenceevents result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendingfenceevents.delete(message.requestid);
+          reg();
+        }
       } break;
       default:
         checkAllMessageTypesHandled(message, "type");
@@ -565,6 +586,22 @@ class LocalBridge extends EventSource<BridgeEvents> {
         this.pendingensuredatasent.set(requestid, resolve);
         this.postMainBridgeMessage({
           type: ToMainBridgeMessageType.EnsureDataSent,
+          requestid,
+        });
+      });
+    } finally {
+      lock.release();
+    }
+  }
+
+  async fenceEvents(): Promise<void> {
+    const requestid = ++this.requestcounter;
+    const lock = this.reftracker.getLock();
+    try {
+      await new Promise<void>((resolve) => {
+        this.pendingfenceevents.set(requestid, resolve);
+        this.postMainBridgeMessage({
+          type: ToMainBridgeMessageType.FenceEvents,
           requestid,
         });
       });
@@ -818,6 +855,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   getprocesslistrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   getportlistrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   configurelogrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
+  fenceeventsrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
 
   systemconfig: Record<string, unknown>;
 
@@ -1098,6 +1136,16 @@ class MainBridge extends EventSource<BridgeEvents> {
       case WHMResponseOpcode.UnregisterPortResult: {
         // all ignored
       } break;
+      case WHMResponseOpcode.FenceEventsResult: {
+        const reg = this.fenceeventsrequests.get(data.requestid);
+        if (reg) {
+          this.fenceeventsrequests.delete(data.requestid);
+          this.postLocalBridgeMessage(reg.localBridge, {
+            type: ToLocalBridgeMessageType.FenceEventsResult,
+            requestid: reg.requestid,
+          });
+        }
+      } break;
       default:
         checkAllMessageTypesHandled(data, "opcode");
     }
@@ -1362,6 +1410,26 @@ class MainBridge extends EventSource<BridgeEvents> {
       case ToMainBridgeMessageType.ChangeLocalDebugFlags: {
         for (const bridge of this.localbridges) {
           this.postLocalBridgeMessage(bridge[1], { type: ToLocalBridgeMessageType.ChangeLocalDebugFlags, mode: message.mode, flags: message.flags });
+        }
+      } break;
+      case ToMainBridgeMessageType.FenceEvents: {
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            const requestid = this.allocateRequestId();
+            this.fenceeventsrequests.set(requestid, { localBridge, requestid: message.requestid });
+            this.sendData({
+              opcode: WHMRequestOpcode.FenceEvents,
+              requestid
+            });
+          } else {
+            this.postLocalBridgeMessage(localBridge, {
+              type: ToLocalBridgeMessageType.FenceEventsResult,
+              requestid: message.requestid,
+            });
+          }
+        } finally {
+          ref.release();
         }
       } break;
       default:
