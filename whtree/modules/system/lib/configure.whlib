@@ -247,7 +247,7 @@ RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
 {
   RETURN ValidateOptions(CELL
     [ modules := STRING[]
-    , subsystems := STRING[]
+    , subsystems := STRING[] //TS type: ConfigurableSubsystem
     , force := FALSE
     , verbose := FALSE
     , source := ""
@@ -256,18 +256,15 @@ RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
 }
 
 /** Ensure changes to WebHare's configuration are applied */
-PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateApplyOptions(options);
 
-  OBJECT service := WaitForPromise(OpenWebHareService("platform:configuration"));
-  TRY
-  {
-    WaitForPromise(service->applyConfiguration(options));
-    BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about any new module paths
-  }
-  FINALLY
-  {
+  OBJECT service := __OpenSynchronousWebHareService("platform:configuration");
+  TRY {
+    service->applyConfiguration(options);
+    IF("all" IN options.subsystems OR "config" IN options.subsystems)
+      BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about any new module paths
+  } FINALLY {
     service->CloseService();
   }
 }
