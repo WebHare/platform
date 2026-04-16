@@ -47,48 +47,47 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseWritable() {
 /** Calls all commit handlers after a commit or rollback
     @param stage onCommit or onRollback
 */
-PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage)
-{
+PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage) {
   BOOLEAN iscommit := stage = "onCommit"; //we've left 'stage' as a boolean to leave room for an "onCommitBroadcasts" stage
   IF(stage NOT IN ["onCommit","onRollback"])
    THROW NEW Exception(`Unexpected commit stage '${stage}'`);
 
   OBJECT firstexception;
+  BOOLEAN anybroadcast;
 
   // Do scheduled broadcasts as soon as possible
-  IF (iscommit)
-  {
+  IF (iscommit) {
+    anybroadcast := IsValueSet(handlers.commitevents);
     FOREVERY(RECORD evt FROM handlers.commitevents)
       BroadcastEvent(evt.name, evt.data);
   }
 
-  IF (iscommit)
-  {
+  IF (iscommit) {
     FOREVERY (RECORD rec FROM handlers.objhandlers)
       TRY
-        rec.obj->OnCommitBroadcasts();
+        IF (rec.obj->OnCommitBroadcasts())
+          anybroadcast := TRUE;
       CATCH (OBJECT e)
         firstexception := firstexception ?? e;
   }
 
-  FOREVERY (RECORD rec FROM handlers.handlers)
-  {
+  IF (anybroadcast)
+    FenceEvents();
+
+  FOREVERY (RECORD rec FROM handlers.handlers) {
     TRY
       rec.handler(iscommit);
     CATCH (OBJECT e)
       firstexception := firstexception ?? e;
   }
 
-  FOREVERY (RECORD rec FROM handlers.objhandlers)
-  {
-    TRY
-    {
+  FOREVERY (RECORD rec FROM handlers.objhandlers) {
+    TRY {
       IF (iscommit)
         rec.obj->OnCommit();
       ELSE
         rec.obj->OnRollback();
-    }
-    CATCH (OBJECT e)
+    } CATCH (OBJECT e)
       firstexception := firstexception ?? e;
   }
 
@@ -349,8 +348,9 @@ PUBLIC STATIC OBJECTTYPE TransactionFinishHandlerBase
   /** Called immediately when the transaction has committed, use for event
       broadcasts only
   */
-  PUBLIC MACRO OnCommitBroadcasts()
+  PUBLIC BOOLEAN FUNCTION OnCommitBroadcasts()
   {
+    RETURN FALSE;
   }
 
   /** Called when the transaction has committed (after all OnCommitBroadcasts calls)

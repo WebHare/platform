@@ -41,10 +41,11 @@ OBJECTTYPE CommitHandlerObj EXTEND TransactionFinishHandlerBase
     INSERT "h-precommit" INTO handlerresult AT END;
   }
 
-  UPDATE PUBLIC MACRO OnCommitBroadcasts()
+  UPDATE PUBLIC BOOLEAN FUNCTION OnCommitBroadcasts()
   {
     WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
     INSERT "h-commitbroadcasts" INTO handlerresult AT END;
+    RETURN TRUE;
   }
 
   UPDATE PUBLIC MACRO OnCommit()

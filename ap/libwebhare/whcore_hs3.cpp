@@ -943,6 +943,12 @@ void SetSystemConfig(HSVM *vm)
         scriptcontext->SetSystemConfig(&data[0], data.size());
 }
 
+void FenceEvents(HSVM *vm)
+{
+        ScriptContextData *scriptcontext=static_cast<ScriptContextData*>(HSVM_GetContext(vm, ScriptContextId,true));
+        scriptcontext->FenceEvents();
+}
+
 
 SHTMLCallbacks::~SHTMLCallbacks()
 {
@@ -1186,6 +1192,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata,"__SYSTEM_FLUSHREMOTELOG::B:S", FlushRemoteLog);
         HSVM_RegisterFunction(regdata,"__SYSTEM_GETSYSTEMCONFIG::R:", GetSystemConfig);
         HSVM_RegisterMacro(regdata,"__SYSTEM_SETSYSTEMCONFIG:::R", SetSystemConfig);
+        HSVM_RegisterMacro(regdata,"__SYSTEM_FENCEEVENTS:::", FenceEvents);
 
         HSVM_RegisterFunction(regdata, "CONFIGUREWEBSERVER::R:R",WHMGR_ConfigureWebServer);
         HSVM_RegisterMacro(regdata, "__WHS_FLUSHLOGFILES:::",WHMGR_FlushLogFiles);

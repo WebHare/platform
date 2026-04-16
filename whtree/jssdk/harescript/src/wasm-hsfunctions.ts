@@ -463,6 +463,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalMacro("__SYSTEM_SETSYSTEMCONFIG:::R", (vm) => {
     //ignore attempts up date the system config from WASM. if we really want this, we should probably just forward it to a Native HS Helper API somewhere
   });
+  wasmmodule.registerAsyncExternalMacro("__SYSTEM_FENCEEVENTS:::", async () => {
+    await bridge.fenceEvents();
+  });
   wasmmodule.registerAsyncExternalFunction("__SYSTEM_RECOMPILELIBRARY::R:SB", async (vm, id_set, uri, force) => {
     const uri_str = uri.getString();
     const compileresult = await recompileHarescriptLibrary(uri_str, { force: force.getBoolean() });

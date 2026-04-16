@@ -27,6 +27,7 @@ LOADLIB "wh::internal/jobs.whlib" EXPORT RegisterReceivedExceptionType, EventMan
 LOADLIB "wh::internal/hsservices.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 ///Resolve when events are over
 BOOLEAN eventscancelled;
@@ -1155,4 +1156,12 @@ PUBLIC VARIANT FUNCTION AsyncWaitHandleReadSignalled(INTEGER handle, DATETIME wa
 PUBLIC VARIANT FUNCTION AsyncWaitHandleWriteSignalled(INTEGER handle, DATETIME waituntil)
 {
   RETURN __INTERNAL_AsyncWaitHandleWriteSignalled(handle, waituntil);
+}
+
+/** Guarantees that all broadcasted events have been delivered to the central processing hub, and
+    that all broadcasted events delivered to the centrall processing hub have been processed
+*/
+PUBLIC MACRO FenceEvents()
+{
+  __SYSTEM_FENCEEVENTS();
 }

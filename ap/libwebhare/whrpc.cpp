@@ -23,6 +23,8 @@ std::string GetName(uint8_t code)
         case WHMRequestOpcode::Log:                     return "Log";
         case WHMRequestOpcode::Disconnect:              return "Disconnect";
         case WHMRequestOpcode::SetSystemConfig:         return "SetSystemConfig";
+        case WHMRequestOpcode::GetPortList:             return "GetPortList";
+        case WHMRequestOpcode::FenceEvents:             return "FenceEvents";
         default:
             return "Unknown request opcode";
         }
@@ -48,6 +50,8 @@ std::string GetName(uint8_t code)
         case WHMResponseOpcode::ConfigureLogsResult:    return "ConfigureLogsResult";
         case WHMResponseOpcode::FlushLogResult:         return "FlushLogResult";
         case WHMResponseOpcode::SystemConfig:           return "SystemConfig";
+        case WHMResponseOpcode::GetPortListResult:      return "GetPortListResult";
+        case WHMResponseOpcode::FenceEventsResult:       return "FenceEventsResult";
         default:
             return "Unknown response opcode";
         }

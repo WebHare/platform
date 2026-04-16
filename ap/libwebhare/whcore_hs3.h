@@ -216,6 +216,11 @@ class BLEXLIB_PUBLIC ScriptContextData
                 webhare.SetSystemConfig(data, datalen);
         }
 
+        void FenceEvents()
+        {
+                webhare.FenceEvents();
+        }
+
     private:
         ///Location of our webhare connection
         Connection &webhare;

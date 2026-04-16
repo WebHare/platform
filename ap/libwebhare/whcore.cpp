@@ -1229,6 +1229,16 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
                     }
             } break;
 
+        case WHMResponseOpcode::FenceEventsResult:
+            {
+                    uint32_t id = iobuf->Read< uint32_t >();
+
+                    {
+                            LockedMgrData::WriteRef lock(mgrdata);
+                            lock->fenceeventsresults.insert(id);
+                    }
+                    mgrdata.SignalAll();
+            } break;
 
         default:
             RPCCOMM_PRINT("Unrecognized ManagerConnection opcode " << (unsigned)iobuf->GetOpcode());
@@ -1790,6 +1800,32 @@ void ManagerConnection::WaitSendQueueEmpty()
         }
 }
 
+bool ManagerConnection::FenceEvents()
+{
+        uint32_t requestid = ++LockedMgrData::WriteRef(mgrdata)->requestcounter;
+
+        IOBufferPtr iobuf(new Database::IOBuffer);
+        iobuf->ResetForSending();
+        iobuf->Write<uint32_t>(requestid);
+        iobuf->FinishForRequesting(WHMRequestOpcode::FenceEvents);
+
+        {
+                LockedMgrData::WriteRef lock(mgrdata);
+                LockedPushIntoQueue(lock, &iobuf);
+                RPCCOMM_PRINT("Pushed FenceEvents into queue: "<< lock->queue.size());
+        }
+
+        mgrdata.SignalAll();
+
+        {
+                LockedMgrData::WriteRef lock(mgrdata);
+                while (lock->connected && !lock->fenceeventsresults.count(requestid))
+                    lock.Wait();
+
+                lock->fenceeventsresults.erase(requestid);
+                return lock->connected;
+        }
+}
 
 void ManagerConnection::SetJobMgr(HareScript::JobManager *jobmgr)
 {

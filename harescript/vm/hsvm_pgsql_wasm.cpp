@@ -471,6 +471,28 @@ std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &quer
                 logprefix += "]*/";
         }
 
+        std::string prep_name;
+        bool should_prepare = false;
+
+        if (!query.querystr.empty() && logprefix.empty() && (query.querystr.compare(0, 7, "SELECT "sv) == 0 || query.querystr.compare(0, 7, "INSERT "sv) == 0))
+        {
+                Blex::SHA1 sha1;
+                sha1.Process(query.querystr.c_str(), query.querystr.size() + 1);
+                if (query.params.types.size())
+                    sha1.Process(&query.params.types[0], query.params.types.size() * sizeof(query.params.types[0]));
+                std::string hash = sha1.FinalizeHash().stl_str();
+
+                PreparedStatement &prep = prepared_statements[hash];
+                if (prep.use < 16 && ++prep.use == 16)
+                {
+                        std::string name = "prep_" + Blex::AnyToString(++prepared_statements_counter);
+                        should_prepare = true;
+                        prep.name = name;
+                        prep.querystr = query.querystr;
+                }
+                prep_name = prep.name;
+        }
+
         PQ_PRINT("logcommands");
 
         if (logcommands != 0)
@@ -497,40 +519,47 @@ std::unique_ptr< QueryResult > PGSQLWasmTransactionDriver::ExecQuery(Query &quer
                 PQ_PRINT("build query");
 
                 std::string querystr = logprefix.empty() ? query.querystr.c_str() : (logprefix + query.querystr).c_str();
+                bool must_parse = prep_name.empty() || should_prepare;
 
-                // TODO: prepare buffer with PARSE, BIND and EXECUTE message, pass those to postgrease passthrough query directly
-                unsigned parsesize = 8 + querystr.size() + 4 * query.params.types.size();
-                unsigned bindsize = 14 + 2 * query.params.formats.size() + 4 * query.params.types.size();
+                unsigned parsesize = must_parse ? 9 + prep_name.size() + querystr.size() + 4 * query.params.types.size() : 0;
+                unsigned bindsize = 15 + prep_name.size() + 2 * query.params.formats.size() + 4 * query.params.types.size();
                 for (auto len: query.params.lengths)
                         bindsize += len;
 
-                unsigned buffersize = 24 + parsesize + bindsize; // 2 bytes for describe and bind codes, 7 for describe, 10 for execute message, 5 for sync
+                unsigned buffersize = 22 + parsesize + bindsize; // 7 for describe, 10 for execute message, 5 for sync
 
                 Blex::PodVector< char > &fullquerybuf = query.fullquerybuf;
-                fullquerybuf.resize(buffersize + 65536); // extra room for now
+                fullquerybuf.resize(buffersize);
                 unsigned idx = 0;
 
                 // Parse
-                fullquerybuf[idx++] = PqMsg_Parse;
-                Blex::putu32msb(&fullquerybuf[idx], parsesize);
-                idx += 4;
-                fullquerybuf[idx++] = 0; // unnamed statement
-                for (auto itr: querystr)
-                    fullquerybuf[idx++] = itr;
-                fullquerybuf[idx++] = 0; // end of query string
-                Blex::putu16msb(&fullquerybuf[idx], query.params.types.size());
-                idx += 2;
-                for (auto itr: query.params.types) {
-                        Blex::putu32msb(&fullquerybuf[idx], itr);
+                if (must_parse)
+                {
+                        fullquerybuf[idx++] = PqMsg_Parse;
+                        Blex::putu32msb(&fullquerybuf[idx], parsesize - 1);
                         idx += 4;
+                        for (auto itr: prep_name) // statement
+                            fullquerybuf[idx++] = itr;
+                        fullquerybuf[idx++] = 0;
+                        for (auto itr: querystr)
+                            fullquerybuf[idx++] = itr;
+                        fullquerybuf[idx++] = 0; // end of query string
+                        Blex::putu16msb(&fullquerybuf[idx], query.params.types.size());
+                        idx += 2;
+                        for (auto itr: query.params.types) {
+                                Blex::putu32msb(&fullquerybuf[idx], itr);
+                                idx += 4;
+                        }
                 }
 
                 // Bind
                 fullquerybuf[idx++] = PqMsg_Bind;
-                Blex::putu32msb(&fullquerybuf[idx], bindsize);
+                Blex::putu32msb(&fullquerybuf[idx], bindsize - 1);
                 idx += 4;
                 fullquerybuf[idx++] = 0; // unnamed portal
-                fullquerybuf[idx++] = 0; // unnamed statement
+                for (auto itr: prep_name) // statement
+                    fullquerybuf[idx++] = itr;
+                fullquerybuf[idx++] = 0;
                 Blex::putu16msb(&fullquerybuf[idx], query.params.formats.size());
                 idx += 2;
                 for (auto itr: query.params.formats) {

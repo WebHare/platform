@@ -70,6 +70,7 @@ class Connection : public Database::RPCConnection
         Database::RPCResponse::Type RemoteFlushLog(Database::IOBuffer *iobuf);
         Database::RPCResponse::Type RemoteSetSystemConfig(Database::IOBuffer *iobuf);
         Database::RPCResponse::Type RemoteGetPortList(Database::IOBuffer *iobuf);
+        Database::RPCResponse::Type RemoteFenceEvents(Database::IOBuffer *iobuf);
 
         std::string GetRequestOpcodeName(uint8_t code);
         std::string GetResponseOpcodeName(uint8_t code);
