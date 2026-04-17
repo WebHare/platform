@@ -8,6 +8,13 @@ async function testApplicability() {
   const baseApplicability = getMyApplicabilityInfo();
   baseApplicability.version = "5.6.1";
   test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["system"] }));
+  test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite"] }));
+  test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite>= 4.0"] }));
+  test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite >= 4.0 <= 9.99"] }));
+  test.eq(null, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite >= 4.0", "webhare_testsuite <= 9.99"] }));
+  test.eq(/invalid version range/, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite>=.5"] }));
+  test.eq(/Module 'webhare_testsuite' version '4.31.0' does not satisfy range '>=9.99.0'/, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite >= 9.99"] }));
+  test.eq(/Module 'webhare_testsuite' version '4.31.0' does not satisfy range '>=9.100.0'/, getApplicabilityError(baseApplicability, { ifModules: ["webhare_testsuite >= 4.0", "webhare_testsuite > 9.99"] }));
   test.eq(null, getApplicabilityError(baseApplicability, { whVersion: ">= 5.6.0" }));
   test.eq(/not a valid semver/, getApplicabilityError(baseApplicability, { whVersion: ">= .1" }));
   test.eq(/.*5\.6\.1.*does not satisfy range: <5\.6\.0/, getApplicabilityError(baseApplicability, { whVersion: "<  5.6.0" }));
@@ -58,7 +65,14 @@ function testApplicabilityXML() {
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "system; publisher" })));
   test.eq(/neversuchmodule.*not installed/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "system; neversuchmodule" })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "system;;;" })));
-  test.eq(/System.*not installed/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "System" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite >= 1.0" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite >= 1.0 < 9.99" })));
+  test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite>=1.0; webhare_testsuite < 9.99" })));
+  test.eq(/invalid version range/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite =.5" })));
+  test.eq(/Module 'webhare_testsuite' version '4.31.0' does not satisfy range '>=9.100.0'/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "webhare_testsuite > 9.99" })));
+  test.eq(/Invalid module name 'System'/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "System" })));
+  test.eq(/Module 'adsfdfgfdbfadgas' is not installed/, getApplicabilityError(baseApplicability, readMockXML({ ifmodules: "adsfdfgfdbfadgas" })));
 
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM" })));
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ ifenvironset: "WEBHARE_PLATFORM=" })));

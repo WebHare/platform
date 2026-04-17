@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import { omit, pick, throwError } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { DTAPStage } from "@webhare/env/src/concepts";
+import { DOMParser } from "@xmldom/xmldom";
 import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
 import { isValidModuleName } from "@webhare/services/src/naming";
 import { join } from "node:path";
@@ -19,7 +20,9 @@ export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
 
 type NoDBConfig = Pick<ConfigFile, "modulescandirs"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
 
-type ModuleScanData = ModuleData & { creationdate: Date };
+type ModuleScanData = ModuleData & {
+  creationdate: Date;
+};
 type ModuleScanMap = Map<string, ModuleScanData>;
 
 export function getBuildInfo() {
@@ -73,7 +76,7 @@ export function generateNoDBConfig(): NoDBConfig {
     scanModuleFolder(scanmap, moduledir, true, false);
   scanModuleFolder(scanmap, installationRoot + "modules/", true, true);
 
-  const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, { root: data.root }]));
+  const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, pick(data, ["root", "version"])]));
   const retval: NoDBConfig = {
     modulescandirs,
     public: {
@@ -149,6 +152,17 @@ export function enableDevKit() {
   return Boolean(process.env.WEBHARE_ENABLE_DEVKIT || !process.env.WEBHARE_IN_CONTAINER);
 }
 
+function getModuleVersionFromXML(moddefXMLSource: string) {
+  const moddefXML = new DOMParser().parseFromString(moddefXMLSource, "text/xml");
+  const meta = moddefXML.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "meta")[0];
+  if (!meta)
+    return null;
+  const version = meta.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "version")[0];
+  if (!version)
+    return null;
+  return version.textContent?.trim() || null;
+}
+
 function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
   let entries: fs.Dirent[];
   try {
@@ -179,7 +193,12 @@ function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: 
     if (!nameinfo || !isValidModuleName(nameinfo.name))
       continue;
 
-    const mdata = { creationdate: nameinfo.creationdate, root: modpath };
+    //TODO prefer mod-yml for the version info
+    let version = null;
+    if (hasModXML)
+      version = getModuleVersionFromXML(fs.readFileSync(modpath + "moduledefinition.xml", "utf-8"));
+
+    const mdata: ModuleScanData = { creationdate: nameinfo.creationdate, root: modpath, ...version ? { version } : {} };
 
     const current = modulemap.get(nameinfo.name);
     if (current) {

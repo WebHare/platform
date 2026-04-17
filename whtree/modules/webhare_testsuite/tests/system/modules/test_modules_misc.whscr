@@ -33,6 +33,12 @@ MACRO TestApplicability()
       <node xml:id="test9" unlessenvironset="WEBHARE_PLATFORM=dummy OTHERENV" />
       <node xml:id="test10" unlessenvironset="WEBHARE_PLATFORM=${platform}" />
       <node xml:id="test11" unlessenvironset="WEBHARE_PLATFORM=dummy WEBHARE_PLATFORM" />
+      <node xml:id="test12" ifmodules="webhare_testsuite" />
+      <node xml:id="test13" ifmodules="webhare_testsuite >= 1.0" />
+      <node xml:id="test14" ifmodules="webhare_testsuite>=1.0 &lt;9.99" />
+      <node xml:id="test15" ifmodules="webhare_testsuite>=1.0;webhare_testsuite&lt;9.99" />
+      <node xml:id="test16" ifmodules="webhare_testsuite>=1.0;webhare_testsuite>9.99" />
+
     </xml>`));
 
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test1")));
@@ -47,6 +53,12 @@ MACRO TestApplicability()
   TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test9")));
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test10")));
   TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test11")));
+
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test12")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test13")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test14")));
+  TestEq(TRUE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test15")));
+  TestEq(FALSE, IsNodeApplicableToThisWebHare(xmldoc->GetElementById("test16")));
 }
 
 MACRO TestConfigurationAndVersion()
