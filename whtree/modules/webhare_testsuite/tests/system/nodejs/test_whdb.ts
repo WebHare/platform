@@ -12,7 +12,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
-import { workHasMutex, isDatabaseError, overrideValueType, getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
+import { workHasMutex, isDatabaseError, overrideValueType, getConnection, type WHDBConnectionImpl, type FinishHandler } from "@webhare/whdb/src/impl";
 import { getCurrentPGVersion } from "@webhare/whdb/src/management";
 
 async function cleanup() {
@@ -479,10 +479,13 @@ async function testFinishHandlers() {
   const handlerresult: string[] = [];
 
   const push_result_callback = {
+    onBeforeCommit: async () => { await sleep(20); handlerresult.push("beforecommit"); },
+    onBeforeRollback: async () => { await sleep(20); handlerresult.push("beforerollback"); },
+    onAfterPrepare: async () => { await sleep(20); handlerresult.push("afterprepare"); },
+    onCommitEvents: async () => { await sleep(20); handlerresult.push("commitevents"); },
     onCommit: async () => { await sleep(20); handlerresult.push("commit"); },
     onRollback: async () => { await sleep(20); handlerresult.push("rollback"); },
-    onBeforeCommit: async () => { await sleep(20); handlerresult.push("beforecommit"); }
-  };
+  } satisfies FinishHandler;
 
   const klaversymbol = Symbol("klaver");
   using eventStream = subscribeToEventStream("webhare_testsuite:worktest.*");
@@ -504,12 +507,12 @@ async function testFinishHandlers() {
       await beginWork();
       await commitWork();
     }
-  })); // returns number
+  } satisfies FinishHandler)); // returns number
   onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
 
   await commitWork();
   // Finish handlers are called serially (parallel executing allows opening parallel work in independent HSVMs)
-  test.eq(["beforecommit", "commit", "second"], handlerresult);
+  test.eq(["beforecommit", "afterprepare", "commitevents", "commit", "second"], handlerresult);
   const allevents = [(await eventStream.next()).value, (await eventStream.next()).value];
 
   //ensure both expected events are there
@@ -528,7 +531,7 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.4"); //extra event so we can see if whether any broadcasts should have been processed
   await commitWork();
 
-  test.eq(["rollback"], handlerresult);
+  test.eq(["beforerollback", "afterprepare", "rollback"], handlerresult);
   test.eq("webhare_testsuite:worktest.4", (await eventStream.next()).value.name);
 
   //clear event logs and prepare to test failed commit
@@ -545,7 +548,7 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.6"); //extra event so we can see if whether any broadcasts should have been processed
   await commitWork();
 
-  test.eq(["beforecommit"], handlerresult);
+  test.eq(["beforecommit", "afterprepare", "rollback"], handlerresult);
   test.eq("webhare_testsuite:worktest.6", (await eventStream.next()).value.name);
 
   //clear event logs and prepare to test failed precommits. these still turn into a visible rollback
@@ -561,7 +564,7 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.8"); //extra event so we can see if whether any broadcasts should have been processed
   await commitWork();
 
-  test.eq(["rollback"], handlerresult);
+  test.eq(["beforerollback", "afterprepare", "rollback"], handlerresult);
   test.eq("webhare_testsuite:worktest.8", (await eventStream.next()).value.name);
 }
 

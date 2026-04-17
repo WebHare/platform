@@ -15,7 +15,7 @@ import {
 } from 'kysely';
 
 import type { ReadableStream } from "node:stream/web";
-import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
+import { type BackendEvent, type BackendEventData, broadcast, fenceEvents } from '@webhare/services/src/backendevents';
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
@@ -59,6 +59,8 @@ export interface FinishHandler {
    * gathering after-commit handlers only, not for doing any work.
    */
   onAfterPrepare?: () => unknown | Promise<unknown>;
+  /** Callback that is invoked when the commit events should be emitted */
+  onCommitEvents?: () => unknown | Promise<unknown>;
 }
 
 export class DBReadonlyError extends Error {
@@ -177,9 +179,15 @@ class Work implements WorkObject {
       for (const [databaseid, blob] of this.conn.client.uploadTracker.byId.entries()) {
         blob.setBlobPath(__getBlobDiskFilePath(databaseid));
       }
-      await this.invokeFinishHandlers("onCommit");
-    } finally {
+      const anyHandlerBroadcast = (await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onCommitEvents?.()))).some(_ => _);
+      if (this.commitdataevents.length || this.commituniqueevents.size || anyHandlerBroadcast)
+        await fenceEvents();
       this.clearWork();
+      await this.invokeFinishHandlers("onCommit");
+    } catch (e) {
+      this.clearWork();
+      await this.invokeFinishHandlers("onRollback");
+      throw e;
     }
   }
 

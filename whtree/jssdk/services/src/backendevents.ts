@@ -153,4 +153,8 @@ export function broadcast<EventName extends string>(event: EventName, data?: Eve
   whbridge.sendEvent(event, data ?? null);
 }
 
+export async function fenceEvents(): Promise<void> {
+  await whbridge.fenceEvents();
+}
+
 export type { BackendEventSubscription };

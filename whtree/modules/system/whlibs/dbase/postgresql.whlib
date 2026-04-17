@@ -1023,6 +1023,7 @@ PUBLIC STRING FUNCTION __GetUnsafeUploadedPostgreSQLBlobRegistrationId(INTEGER t
 PUBLIC OBJECTTYPE ExtCommitHandler <
   OBJECT trans;
   RECORD handlers;
+  OBJECT firstexception;
 
   MACRO NEW(OBJECT trans, RECORD handlers)
   {
@@ -1030,12 +1031,22 @@ PUBLIC OBJECTTYPE ExtCommitHandler <
     this->handlers := handlers;
   }
 
+  PUBLIC BOOLEAN FUNCTION RunBroadcasts() {
+    RECORD rec := __BroadcastCommitEvents(this->handlers);
+    this->firstexception := rec.firstexception;
+    RETURN rec.anybroadcast;
+  }
+
   PUBLIC MACRO RunHandlers(BOOLEAN iscommit) {
-    __CallCommitHandlers(this->handlers, iscommit ? "onCommit" : "onRollback");
+    RECORD rec := __CallFinishHandlers(this->handlers, iscommit ? "onCommit" : "onRollback");
 
     this->trans->pvt_numworks := 0;
     this->trans->pvt_localworkopened := FALSE;
     this->trans->pvt_worklocks := OBJECT[];
+
+    OBJECT firstexception := this->firstexception ?? rec.firstexception;
+    IF (ObjectExists(firstexception))
+      THROW firstexception;
   }
 >;
 

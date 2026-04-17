@@ -1575,6 +1575,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
           heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PopFinishHandlers(transactionId);
         });
       },
+      onCommitEvents: async () => {
+        await codeContext.run(async () => {
+          if (!heapVar)
+            throw new Error("Commit handler heap variable not set");
+          return await heapVar.$invoke("RUNBROADCASTS", []) as boolean;
+        });
+      },
       onCommit: async () => {
         await codeContext.run(async () => {
           if (!heapVar)
