@@ -124,13 +124,13 @@ class WHFSFinishHandler implements FinishHandler {
 
   private addObjectEvent(site: number | null, folder: number | null, object: number, event: WHFSObjectEventType | WHFSPublishEventType | WHFSHistoryEventType, isFolder: boolean) {
     if (event === "pub") {
-      const folderRec = emplace(this._folderPubEvents, site || 0, { insert: () => ({ files: new Map() }) });
+      const folderRec = emplace(this._folderPubEvents, folder || 0, { insert: () => ({ files: new Map() }) });
       emplace(folderRec.files, object, { insert: () => ({ isFolder }) });
     } else if (event === "history") {
-      const folderRec = emplace(this._foldersHistoryEvents, site || 0, { insert: () => ({ files: new Map() }) });
+      const folderRec = emplace(this._foldersHistoryEvents, folder || 0, { insert: () => ({ files: new Map() }) });
       emplace(folderRec.files, object, { insert: () => ({ isFolder }) });
     } else {
-      const folderRec = emplace(this._folderEvents, site || 0, { insert: () => ({ files: new Map() }) });
+      const folderRec = emplace(this._folderEvents, folder || 0, { insert: () => ({ files: new Map() }) });
       const events = emplace(folderRec.files, object, { insert: () => ({ events: setHareScriptType([], HareScriptType.StringArray), isFolder }) }).events;
       if (events.indexOf(event) === -1)
         events.push(event);
@@ -140,9 +140,13 @@ class WHFSFinishHandler implements FinishHandler {
   }
 
   private addFolderEvent(site: number | null, folder: number, event: WHFSFolderEventType) {
-    const events = (emplace(this._folderEvents, site || 0, { insert: () => ({ files: new Map() }) }).events ??= setHareScriptType([], HareScriptType.StringArray));
-    if (events.indexOf(event) === -1)
+    const folderRec = emplace(this._folderEvents, folder || 0, { insert: () => ({ files: new Map() }) });
+    const events = folderRec.events ??= setHareScriptType([], HareScriptType.StringArray);
+    if (events.indexOf(event) === -1) {
       events.push(event);
+      if (site)
+        (folderRec.sites ??= new Set).add(site);
+    }
   }
 
   private addAnalyzerTask(folderId: number | null, recursive: boolean) {
@@ -160,11 +164,11 @@ class WHFSFinishHandler implements FinishHandler {
       const data = {
         folder: folderId || 0,
         events: setHareScriptType(folderRec.events?.sort() ?? [], HareScriptType.StringArray),
-        files: folderRec.files.entries().map(([file, rec]) => ({
+        files: setHareScriptType(folderRec.files.entries().map(([file, rec]) => ({
           file,
           isfolder: rec.isFolder,
-          events: setHareScriptType(rec.events.sort(), HareScriptType.StringArray)
-        })).toArray(),
+          events: setHareScriptType(rec.events.sort((a, b) => a === b ? 0 : a < b ? -1 : 1), HareScriptType.StringArray)
+        })).toArray().toSorted(compareProperties(["file"])), HareScriptType.RecordArray),
       };
 
       // Schedule the broadcast for the folder
@@ -401,8 +405,8 @@ class WHFSFinishHandler implements FinishHandler {
    * - the output analyzer will be triggered for the old folder and the new folder
    */
   objectMove(oldParentSite: number | null, oldFolderId: number | null, newParentSite: number | null, newFolderId: number | null, objectId: number, isFolder: boolean) {
-    this.addObjectEvent(oldParentSite, oldFolderId, objectId, "move", isFolder);
-    this.addObjectEvent(newParentSite, newFolderId, objectId, "moved", isFolder);
+    this.addObjectEvent(oldParentSite, oldFolderId, objectId, "moved", isFolder);
+    this.addObjectEvent(newParentSite, newFolderId, objectId, "move", isFolder);
     this.addAnalyzerTask(oldFolderId, isFolder);
     this.addAnalyzerTask(newFolderId, isFolder);
   }
