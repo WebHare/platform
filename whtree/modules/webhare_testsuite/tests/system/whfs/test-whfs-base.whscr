@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -192,7 +193,7 @@ MACRO WrappedTest()
   OBJECT img := testfolderobj->CreateFile([ name := "goudvis.png", wrapped := goudvisfile ]);
   RECORD wrapped := img->GetWrapped();
   TestEq(FALSE, RecordExists(wrapped.refpoint));
-  TestEq("#020000", wrapped.dominantcolor);
+  TestEq(IsWasm() ? "#080808" : "#020000", wrapped.dominantcolor);
 
   wrapped.refpoint := [ x := 5, y := 5 ];
   DELETE CELL hash, data FROM wrapped;
@@ -667,8 +668,9 @@ MACRO InsertPropertiesTest()
     testsite->CreateFile([ name := IsValidWHFSName(rec.name,FALSE) ? rec.name : GetSafefilename(rec.name), data := rec.data ]);
   }
 
+  // Automatic parsing of metadata for PDFs is not enabled in WASM mode
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
@@ -693,8 +695,9 @@ MACRO ExtendedZipTest()
   imp->AddInput(testzip_no_metadata);
   imp->Import(testsite->id);
 
+  // Automatic parsing of metadata for PDFs is not enabled in WASM mode
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]

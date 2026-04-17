@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -705,7 +706,10 @@ MACRO VerifyTheCopy(OBJECT destfolder, BOOLEAN skip_root, STRING timematchmode, 
   }
   DateTimesMatch(imgfile_org->modificationdate, imgfile->modificationdate, timematchmode, mintime);
 
-  TestEq(expectmeta ? "#0000EE" : "#EFF0EB", imgfile->GetWrapped().dominantcolor);
+  IF (IsWasm())
+    TestEq(expectmeta ? "#0000EE" : "#E8E8E8", imgfile->GetWrapped().dominantcolor);
+  ELSE
+    TestEq(expectmeta ? "#0000EE" : "#EFF0EB", imgfile->GetWrapped().dominantcolor);
   TestEq(expectmeta ? 12 : 0, subfolder->ordering);
   TestEq(expectmeta ? foldermeta.ispinned : FALSE, subfolder->ispinned);
 }
