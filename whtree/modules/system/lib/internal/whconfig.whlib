@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -140,11 +141,14 @@ PUBLIC RECORD FUNCTION GetcachedWebHareConfig()
 
 PUBLIC RECORD FUNCTION GetMyApplicabilityInfo()
 {
+  RECORD config := DecodeJSONBlob(GetDiskResource(__SYSTEM_WHCOREPARAMETERS().basedataroot || "config/platform.json"));
+  RECORD ARRAY modules := UnpackRecord(config."public".module);
   RETURN [ versionnum := __SYSTEM_WEBHAREVERSION().versionnum
          , version := GetWebhareBuildInfo().version
          , dtapstage := GetDtapStage()
          , servername := GetEnvironmentVariable("WEBHARE_SERVERNAME") ?? GetcachedWebHareConfig().servername
-         , modules := __SYSTEM_GETINSTALLEDMODULENAMES()
+         , modules := (SELECT AS STRING ARRAY ToLowercase(name) FROM modules)
+         , modversions := (SELECT AS STRING ARRAY CellExists(value,'version') ? value.version : "" FROM modules)
          ];
 }
 
@@ -184,11 +188,28 @@ PUBLIC STRING FUNCTION GetApplicabilityError(RECORD webhareversioninfo, RECORD r
   IF(restrictions.webhareversion != "" AND NOT VersionSatisfiesRange(semver, restrictions.webhareversion))
     RETURN `WebHare version '${semver}' does not match required version '${restrictions.webhareversion}'`;
 
-  FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,';'))
-  {
+  FOREVERY(STRING mod FROM Tokenize(restrictions.ifmodules,';')) {
     mod := TrimWhitespace(mod);
-    IF(mod != "" AND mod NOT IN webhareversioninfo.modules)
-      RETURN `Module '${mod}' is not installed`;
+    IF(mod = "")
+      CONTINUE;
+
+    RECORD ARRAY matches := NEW RegEx(`^([a-zA-Z0-9_]+)(.*)$`)->exec(mod);
+    IF(Length(matches) < 3)
+      RETURN `Invalid module name '${mod}' in ifmodules= restriction`;
+
+    STRING modname := matches[1].value;
+    STRING versionrange := TrimWhitespace(matches[2].value);
+
+    INTEGER modidx := SearchElement(webhareversioninfo.modules, modname);
+    IF(modidx < 0)
+      RETURN `Module '${modName}' is not installed`;
+
+    IF(versionrange != "") {
+      IF(webhareversioninfo.modversions[modidx] = "")
+        RETURN `Module '${modName}' has no version and cannot be checked for version requirement '${versionRange}'`;
+      IF(NOT VersionSatisfiesRange(webhareversioninfo.modversions[modidx], versionrange))
+        RETURN `Module '${modName}' version '${webhareversioninfo.modversions[modidx]}' does not satisfy range '${versionrange}'`;
+    }
   }
 
   STRING stage := webhareversioninfo.dtapstage;

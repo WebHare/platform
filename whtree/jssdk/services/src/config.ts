@@ -5,7 +5,7 @@ export { backendConfig } from "@mod-system/js/internal/configuration";
 
 export interface ModuleData {
   /** Module's version */
-  //version: string;
+  version?: string;
   /** Absolute path to module root data */
   root: string;
 }
