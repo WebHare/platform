@@ -400,6 +400,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   PUBLIC MACRO FolderIndexDocUpdated(INTEGER parentsite, INTEGER parentfolder, INTEGER folderid)
   {
+    this->AddEvent(parentsite, parentfolder, folderid, "folder", "update");
     this->AddAnalyzerTask(folderid, FALSE);
   }
 
@@ -479,8 +480,140 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   }
 >;
 
+OBJECTTYPE WHFSWasmCommitHandler <
+  PUBLIC MACRO FilePublicationFinished(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("filePublicationFinished", NullIfZero(parentsite), NullIfZero(folderid), fileid);
+  }
+
+  PUBLIC MACRO FolderRepublish(INTEGER parentsite, INTEGER objectid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("folderRepublish", NullIfZero(parentsite), objectid);
+  }
+
+  PUBLIC MACRO FileRepublish(INTEGER parentsite, INTEGER folderid, INTEGER fileid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("fileRepublish", NullIfZero(parentsite), NullIfZero(folderid), fileid);
+  }
+
+  PUBLIC MACRO ObjectCreate(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectCreate", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO ObjectUpdate(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectUpdate", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO ObjectHistoryChange(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectHistoryChange", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO ObjectRename(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectRename", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO ObjectMove(INTEGER oldparentsite, INTEGER oldfolderid, INTEGER newparentsite, INTEGER newfolderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectMove", NullIfZero(oldparentsite), NullIfZero(oldfolderid), NullIfZero(newparentsite), NullIfZero(newfolderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO ObjectDelete(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN isfolder)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectDelete", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO Unpublished(INTEGER parentsite, INTEGER folderid, INTEGER objectid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("fileUnpublish", NullIfZero(parentsite), NullIfZero(folderid), objectid);
+  }
+
+  // There are modules that call this function without the isfolder parameter, so make it optional
+  PUBLIC MACRO ObjectReordered(INTEGER parentsite, INTEGER folderid, INTEGER objectid, VARIANT isfolder DEFAULTSTO DEFAULT RECORD)
+  {
+    IF (TypeID(isfolder) = TypeID(RECORD))
+      isfolder := SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = objectid;
+
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("objectReordered", NullIfZero(parentsite), NullIfZero(folderid), objectid, isfolder);
+  }
+
+  PUBLIC MACRO FolderIndexDocUpdated(INTEGER parentsite, INTEGER parentfolder, INTEGER folderid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("folderIndexDocUpdated", NullIfZero(parentsite), NullIfZero(parentfolder), folderid);
+  }
+
+  PUBLIC MACRO SiteUpdated(INTEGER siteid)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("siteUpdated", siteid);
+  }
+
+  PUBLIC MACRO AddCompletionEvent(RECORD data)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("addCompletionEvent", data);
+  }
+
+  PUBLIC MACRO TriggerSiteSettingsCheckOnCommit()
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("checkSiteSettings");
+  }
+
+  PUBLIC MACRO RemoveLinkCheckedSettings(INTEGER64 ARRAY settingids)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("removeLinkCheckSettings", settingids);
+  }
+
+  PUBLIC MACRO AddLinkCheckedSettings(INTEGER64 ARRAY settingids)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("addLinkCheckSettings", settingids);
+  }
+
+  PUBLIC MACRO FSTypesChanged()
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("fsTypesChanged");
+  }
+
+  PUBLIC OBJECT FUNCTION WaitForChangesIndexed()
+  {
+    RETURN CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("waitForChangesIndexed");
+  }
+
+  PUBLIC MACRO TriggerEmptyUpdateOnCommit(INTEGER fsobj)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("triggerEmptyUpdateOnCommit", fsobj);
+  }
+
+  PUBLIC MACRO TriggerReindexOnCommit(INTEGER fsobj)
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("triggerReindexOnCommit", fsobj);
+  }
+
+  PUBLIC MACRO DoDeleteOrRecycle(INTEGER parentsite, INTEGER folderid, INTEGER objectid, BOOLEAN is_recycle, BOOLEAN isfolder)
+  {
+    this->ObjectDelete(parentsite, folderid, objectid, isfolder);
+
+    IF(is_recycle)
+    {
+      //Create the recycle action FIXME break recursive dependency so we can can just invoke it
+
+      RECORD res := MakeFunctionPtr(Resolve("service.whlib#RecycleWHFSObjects"))([ objectid ], "");
+      FOREVERY(RECORD repub FROM res.repubbedfiles)
+        this->FileRepublish(repub.parentsite, repub.parent, repub.file);
+    }
+    ELSE
+    {
+      DELETE FROM system.fs_objects WHERE id = objectid;
+    }
+  }
+>;
+
 PUBLIC OBJECT FUNCTION GetWHFSCommitHandler()
 {
+  IF (IsWasm())
+    RETURN NEW WHFSWasmCommitHandler;
+
   OBJECT this_trans := __INTERNAL_GetSystemSchemaBinding();
 
   OBJECT handler := this_trans->GetFinishHandler("system:whfs");

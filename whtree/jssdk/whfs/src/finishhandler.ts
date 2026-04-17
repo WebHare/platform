@@ -1,5 +1,5 @@
 import { HareScriptType, setHareScriptType } from "@webhare/hscompat";
-import { emplace } from "@webhare/std";
+import { compareProperties, emplace } from "@webhare/std";
 import { type FinishHandler, broadcastOnCommit } from "@webhare/whdb";
 import { finishHandlerFactory } from "@webhare/whdb/src/impl";
 import { db, sql } from "@webhare/whdb";
@@ -9,6 +9,7 @@ import { openBackendService } from "@webhare/services";
 import bridge, { type IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import { selectFSHighestParent } from "@webhare/whdb/src/functions";
 import { loadlib } from "@webhare/harescript";
+import { HSVMMarshallableOpaqueObject } from "@webhare/harescript/src/wasm-proxies";
 
 /** Events on parentfolder level. Update is triggered by an update to indexDoc */
 export type WHFSFolderEventType = "update" | "fullrep";
@@ -69,7 +70,7 @@ async function performEmptyWHFSMetadataUpdate(commitHandler: WHFSFinishHandler, 
 }
 
 
-class WHFSFinishHandler implements FinishHandler {
+class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHandler {
   /// File events
   private _folderEvents = new Map<number, { events?: Array<WHFSFolderEventType>; files: Map<number, { events: Array<WHFSObjectEventType>; isFolder: boolean }>; sites?: Set<number> }>();
 
