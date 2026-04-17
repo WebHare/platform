@@ -154,7 +154,7 @@ MACRO TestCompiler()
 
 MACRO TestUnreferencedSiteprofiles()
 {
-  RECORD fullcompileres := __DoRecompileSiteprofiles(FALSE, FALSE, FALSE);
+  RECORD fullcompileres := __DoRecompileSiteprofiles(FALSE, FALSE, FALSE, "TestUnreferencedSiteprofiles");
   //dumpvalue(GetCachedSiteProfiles());
   TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/unusedfiletype")), "This type should exist, even though its webdesign/siteprofile is not referred");
   TestEq(TRUE, ObjectExists(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/unusedfoldertype")), "This type should exist, even though its feature is not referred");

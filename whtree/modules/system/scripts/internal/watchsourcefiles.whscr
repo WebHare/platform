@@ -104,7 +104,7 @@ RECORD ARRAY actions :=
 ASYNC MACRO HandleModuleDefinitionChange()
 {
   // ADDME: get resource names to see which modules need to be updated
-  OBJECT siteprofcompile := AsyncRecompileSiteProfiles();
+  OBJECT siteprofcompile := AsyncRecompileSiteProfiles("watchsourcefiles HandleModuleDefinitionChange");
   ApplyWebHareConfiguration([ subsystems := ["config.extracts" ], source := "HandleModuleDefinitionChange" ]);
   WaitForPromise(siteprofcompile);
 }
@@ -117,7 +117,7 @@ ASYNC MACRO HandleWRDSchemaChange()
 
 ASYNC MACRO DoSiteProfileRecompile()
 {
-  AWAIT AsyncRecompileSiteProfiles();
+  AWAIT AsyncRecompileSiteProfiles("watchsourcefiles DoSiteProfileRecompile");
 }
 
 ASYNC MACRO ScheduleHotfixCheck()

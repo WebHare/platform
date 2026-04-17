@@ -29,7 +29,7 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   MACRO DoRecompile()
   {
-    RECORD result := RecompileSiteProfiles();
+    RECORD result := RecompileSiteProfiles("Dashboard");
     // Group errors by file, show fatal errors first, order by line number
     RECORD ARRAY messages := SELECT *, iserror := type = "error" FROM result.messages WHERE type IN ["error","warning"] ORDER BY type="error" DESC;
     IF (Length(messages) > 0) {

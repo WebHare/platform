@@ -53,9 +53,9 @@ ELSE IF(args.sp)
   RECORD res;
 
   Print("Recompiling siteprofiles\n");
-  res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
+  res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing, "wh softreset --sp"); //invoke synchronously so we can debug it (Receive info and see proper stack traces)
   IF(args.twice)
-    res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
+    res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing, "wh softreset --sp --twice"); //rerun it, for debugging/profiling
 
   IF(Length(SELECT FROM res.messages WHERE type="error") > 0)
     SetConsoleExitCode(1);

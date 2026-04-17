@@ -171,7 +171,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
     }
 
     if (todoList.includes('siteprofiles')) {
-      await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true);
+      await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true, "executeApply");
     } else if (todoList.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
     }
