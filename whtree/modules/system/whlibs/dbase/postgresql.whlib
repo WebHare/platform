@@ -140,21 +140,22 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   {
     TRY {
       RECORD ARRAY result := SendPostgreSQLCommand(this->id, "COMMIT");
-      IF(Length(result) = 0) //no commit errors
-        this->SetUploadedBlobPaths();
+      IF(Length(result) = 0) { //no commit errors
+        this->SetUploadedBlobPaths(this->__uploadedblobs);
+        this->__uploadedblobs := DEFAULT OBJECT;
+      }
       RETURN result;
     } FINALLY
       this->__uploadedblobs := DEFAULT OBJECT;
   }
 
-  MACRO SetUploadedBlobPaths() {
-    IF(ObjectExists(this->__uploadedblobs)) { //give all uploaded blobs their disk path so they can be shared and directly accessed
+  MACRO SetUploadedBlobPaths(OBJECT uploadedblobs) {
+    IF(ObjectExists(uploadedblobs)) { //give all uploaded blobs their disk path so they can be shared and directly accessed
       STRING pgstoragepath := GetPGBlobStoragepath(); //will not end in a slash
-      FOR(OBJECT itr := this->__uploadedblobs->GetDangerousIteratorRange().range_begin; NOT itr->atend; itr->next()) {
+      FOR(OBJECT itr := uploadedblobs->GetDangerousIteratorRange().range_begin; NOT itr->atend; itr->next()) {
         IF(GetBlobDiskPath(itr->value.data) NOT LIKE pgstoragepath || "/*") //not in the database yet?
           SetBlobDiskPath(itr->value.data, GetPGBlobDiskPath(itr->value.pgblobid));
       }
-      this->__uploadedblobs := DEFAULT OBJECT;
     }
   }
 
@@ -627,6 +628,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 >;
 
 STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
+  BOOLEAN pvt_registeredhandler;
 
   UPDATE PUBLIC PROPERTY backendpid(GetBackendPid, -);
 
@@ -634,6 +636,89 @@ STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
   {
     RETURN __PGSQL_GETBACKENDPID(this->id);
   }
+
+  RECORD FUNCTION __PrepareForFinish() {
+    RECORD handlers := this->__PopFinishHandlers();
+    OBJECT uploadedblobs := this->__uploadedblobs;
+
+    this->pvt_numworks := 0;
+    this->pvt_localworkopened := FALSE;
+    this->__uploadedblobs := DEFAULT OBJECT;
+    this->pvt_registeredhandler := FALSE;
+    IF (IsValueSet(this->pvt_worklocks))
+      ABORT(`work locks should not be present in WASM mode`);
+
+    RETURN CELL[ handlers, uploadedblobs ];
+  }
+
+  /** Commits work
+      @return List of commit errors (FIXME: specify cells)
+  */
+  UPDATE PUBLIC RECORD ARRAY FUNCTION CommitWork()
+  {
+    IF (this->pvt_numworks = 0)
+      THROW NEW Exception("Cannot commit work: work is not open");
+    IF (this->pvt_numworks > 1)
+      THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+    IF (NOT this->pvt_localworkopened)
+      THROW NEW Exception("Cannot commit work: work was not opened locally");
+
+    BOOLEAN isreadonlyerror := this->pvt_isprimary AND NOT IsDatabaseWritable();
+
+    // Ensure we get callbacks when the commit/rollback happens
+    IF (NOT this->pvt_registeredhandler) {
+      __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+      this->pvt_registeredhandler := TRUE;
+    }
+
+    /* Process results of pending queries (errors recorded to this->delayederrors). Can't do it after the
+        commit because the precommit handlers might interfere
+    */
+    this->pvt_committing := TRUE;
+    __PGSQL_AwaitPendingQueries(this->id);
+    this->pvt_committing := FALSE;
+
+    // Record all errors in this->delayederrors
+    RECORD ARRAY result := __PGSQL_CommitWork(this->id);
+    RECORD ARRAY delayederrors := this->delayederrors;
+    IF (IsValueSet(delayederrors))
+      delayederrors[0].error_message := `Delayed error: ${delayederrors[0].error_message}`;
+    this->delayederrors := RECORD[];
+    RECORD ARRAY errors :=
+        SELECT message :=     error_message
+             , tablename :=   `${schema_name}.${table_name}`
+             , columnname :=  column_name
+          FROM delayederrors CONCAT result;
+
+    IF (IsValueSet(errors) AND this->throwoncommiterror)
+      THROW isreadonlyerror ? NEW DatabaseReadonlyException() : NEW DatabaseException(errors);
+
+    this->pvt_numworks := 0;
+    this->pvt_localworkopened := FALSE;
+    this->__uploadedblobs := DEFAULT OBJECT;
+    RETURN errors;
+  }
+
+  /** Rollbacks work
+  */
+  UPDATE PUBLIC MACRO RollbackWork()
+  {
+    IF (this->pvt_numworks = 0)
+      THROW NEW Exception("Cannot rollback work: work is not open");
+    IF (this->pvt_numworks > 1)
+      THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
+    IF (NOT this->pvt_localworkopened)
+      THROW NEW Exception("Cannot rollback work: work was not opened locally");
+
+    // Ensure we get callbacks when the commit/rollback happens
+    IF (NOT this->pvt_registeredhandler) {
+      __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+      this->pvt_registeredhandler := TRUE;
+    }
+
+    __PGSQL_RollbackWork(this->id);
+  }
+
 
   UPDATE MACRO DoBeginWork() {
     INTEGER ARRAY locks;
@@ -644,32 +729,11 @@ STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
   }
 
   UPDATE PUBLIC MACRO DoRollbackWork() {
-    __PGSQL_RollbackWork(this->id);
-    this->__uploadedblobs := DEFAULT OBJECT;
+    ABORT(`should not be called in WASM mode`);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION DoCommitWork() {
-    TRY {
-      // Record all errors in this->delayederrors
-      this->pvt_committing := TRUE;
-      RECORD ARRAY result := __PGSQL_CommitWork(this->id);
-      IF(Length(result) = 0) //no commit errors
-        this->SetUploadedBlobPaths();
-      // Process results of pending queries (errors recorded to this->delayederrors)
-      __PGSQL_AwaitPendingQueries(this->id);
-      RECORD ARRAY delayederrors := this->delayederrors;
-      IF (IsValueSet(delayederrors))
-        delayederrors[0].error_message := `Delayed error: ${delayederrors[0].error_message}`;
-      this->delayederrors := RECORD[];
-      RETURN
-          SELECT message :=     error_message
-               , tablename :=   `${schema_name}.${table_name}`
-               , columnname :=  column_name
-            FROM delayederrors CONCAT result;
-    } FINALLY {
-      this->pvt_committing := FALSE;
-      this->__uploadedblobs := DEFAULT OBJECT;
-    }
+    ABORT(`should not be called in WASM mode`);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
@@ -685,20 +749,26 @@ STATIC OBJECTTYPE WHPostgreSQLWASMTransaction EXTEND WHPostgreSQLTransaction <
   }
 
   UPDATE PUBLIC MACRO BroadcastOnCommit(STRING eventname, RECORD eventdata) {
-    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+    IF (NOT this->pvt_registeredhandler AND this->IsWorkOpen()) {
       __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+      this->pvt_registeredhandler := TRUE;
+    }
     WHPostgreSQLTransaction::BroadcastOnCommit(eventname, eventdata);
   }
 
   UPDATE PUBLIC MACRO RegisterCommitHandler(STRING coalesce_tag, FUNCTION PTR handler) {
-    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+    IF (NOT this->pvt_registeredhandler AND this->IsWorkOpen()) {
       __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+      this->pvt_registeredhandler := TRUE;
+    }
     WHPostgreSQLTransaction::RegisterCommitHandler(coalesce_tag, handler);
   }
 
   UPDATE PUBLIC MACRO SetFinishHandler(STRING tag, OBJECT obj) {
-    IF (NOT this->AnyCommitHandlers() AND this->IsWorkOpen())
+    IF (NOT this->pvt_registeredhandler AND this->IsWorkOpen()) {
       __PGSQL_REGISTERCOMMITHANDLERS(this->id);
+      this->pvt_registeredhandler := TRUE;
+    }
     WHPostgreSQLTransaction::SetFinishHandler(tag, obj);
   }
 >;
@@ -1023,15 +1093,19 @@ PUBLIC STRING FUNCTION __GetUnsafeUploadedPostgreSQLBlobRegistrationId(INTEGER t
 PUBLIC OBJECTTYPE ExtCommitHandler <
   OBJECT trans;
   RECORD handlers;
+  OBJECT uploadedblobs;
   OBJECT firstexception;
 
-  MACRO NEW(OBJECT trans, RECORD handlers)
+  MACRO NEW(OBJECT trans, RECORD handlers, OBJECT uploadedblobs)
   {
     this->trans := trans;
     this->handlers := handlers;
+    this->uploadedblobs := uploadedblobs;
   }
 
   PUBLIC BOOLEAN FUNCTION RunBroadcasts() {
+    IF (ObjectExists(this->uploadedblobs))
+      this->trans->SetUploadedBlobPaths(this->uploadedblobs);
     RECORD rec := __BroadcastCommitEvents(this->handlers);
     this->firstexception := rec.firstexception;
     RETURN rec.anybroadcast;
@@ -1039,10 +1113,6 @@ PUBLIC OBJECTTYPE ExtCommitHandler <
 
   PUBLIC MACRO RunHandlers(BOOLEAN iscommit) {
     RECORD rec := __CallFinishHandlers(this->handlers, iscommit ? "onCommit" : "onRollback");
-
-    this->trans->pvt_numworks := 0;
-    this->trans->pvt_localworkopened := FALSE;
-    this->trans->pvt_worklocks := OBJECT[];
 
     OBJECT firstexception := this->firstexception ?? rec.firstexception;
     IF (ObjectExists(firstexception))
@@ -1055,8 +1125,8 @@ PUBLIC MACRO __CallPrepareHandlers(INTEGER transaction, BOOLEAN iscommit) {
   trans->__RunPrepareHandlers(iscommit);
 }
 
-PUBLIC OBJECT FUNCTION __PopFinishHandlers(INTEGER transaction) {
+PUBLIC OBJECT FUNCTION __PrepareForFinish(INTEGER transaction) {
   OBJECT trans := GetTransactionObjectByIdInternal(transaction);
-  RECORD handlers := trans->__PopFinishHandlers();
-  RETURN NEW ExtCommitHandler(trans, handlers);
+  RECORD rec := trans->__PrepareForFinish();
+  RETURN NEW ExtCommitHandler(trans, rec.handlers, rec.uploadedblobs);
 }

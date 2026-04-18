@@ -1567,12 +1567,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       },
       onBeforeRollback: async () => {
         await codeContext.run(async () => {
-          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
+          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, false);
         });
       },
       onAfterPrepare: async () => {
         await codeContext.run(async () => {
-          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PopFinishHandlers(transactionId);
+          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PrepareForFinish(transactionId);
         });
       },
       onCommitEvents: async () => {
