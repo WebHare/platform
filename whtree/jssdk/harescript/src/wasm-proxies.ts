@@ -2,7 +2,8 @@ import { Marshaller, HareScriptType } from "@webhare/hscompat/src/hson";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import type { HareScriptVM, HSVM_VariableId } from "./wasm-hsvm";
 import type { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, toCamelCase, toSnakeCase } from "@webhare/std";
+import type { CallJSOptions } from "@mod-platform/js/nodeservices/calljs";
 
 export interface HSVMCallsProxy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- you'll have to type the return arguments yourself
@@ -184,14 +185,17 @@ export class HSVMMarshallableOpaqueObject {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function __callMember(obj: any, name: string, args: unknown[]) {
+export function __callMember(obj: any, name: string, args: unknown[], options: CallJSOptions) {
   if (typeof obj !== "object" || obj === null)
     throw new Error(`Cannot call member '${name}' of non-object value`);
 
   if (typeof obj[name] !== "function")
     throw new Error(`Member '${name}' is not a function`);
 
-  return obj[name](...args);
+  if (options?.camelcase)
+    return toSnakeCase(obj[name](...toCamelCase(args)));
+  else
+    return obj[name](...args);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

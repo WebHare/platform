@@ -1,5 +1,5 @@
 import { HSVMMarshallableOpaqueObject, type HSVMObjectWrapper } from "@webhare/harescript/src/wasm-proxies";
-import { generateRandomId, toSnakeCase } from "@webhare/std";
+import { generateRandomId, parseTyped, stringify, toSnakeCase } from "@webhare/std";
 import { beginWork, isWorkOpen } from "@webhare/whdb";
 import * as test from "@webhare/test";
 import { createFirstPartyToken } from "@webhare/auth";
@@ -64,6 +64,13 @@ class TestObject extends HSVMMarshallableOpaqueObject {
   get num() { return this.#num; }
   set num(val: number) { this.#num = val; }
   call(a: number) { return this.#num + a; }
+
+  stringify(d: unknown) {
+    return stringify(d);
+  }
+  parseTyped(s: string) {
+    return parseTyped(s);
+  }
 }
 
 const objects = new Map<number, TestObject>();
