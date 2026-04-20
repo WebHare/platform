@@ -1,6 +1,6 @@
 
 import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
-import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
+import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData, inferTypes } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
 import * as test from "@webhare/test-backend";
@@ -594,6 +594,36 @@ Options:
         }
       }
     });
+
+    // Infer types of main functions, store in a variable and check if parse & run accept the type
+    const inferred = inferTypes({
+      subCommands: {
+        test: {
+          flags: { a: "x" },
+          options: { b: { type: enumOption(["a", "b"]) } },
+          main({ opts, args }) {
+            opts satisfies { a: boolean };
+            args satisfies object;
+          }
+        },
+        test2: {
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        }
+      }
+    });
+
+    test.typeAssert<test.Equals<
+      typeof inferred.subCommands.test.main,
+      (data: { opts: { a: boolean; b?: "a" | "b" }; args: object; specifiedOpts: ("a" | "b")[]; cmd: "test" }) => void>>();
+    test.typeAssert<test.Equals<
+      typeof inferred.subCommands.test2.main,
+      (data: { opts: object; args: object; specifiedOpts: never[]; cmd: "test2" }) => void>>();
+
+    parse(inferred, ["test"]);
+    run(inferred);
   });
 }
 

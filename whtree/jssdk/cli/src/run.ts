@@ -314,6 +314,16 @@ function fixAutcompleteSuffix(ac: string) {
     return ac + '\n';
 }
 
+export function inferTypes<
+  const E extends object,
+  const S extends object,
+  const Z
+>(
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>> & Z
+): Z {
+  return data;
+}
+
 export function parse<
   const E extends object,
   const S extends object
