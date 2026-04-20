@@ -1,4 +1,4 @@
-import { byteStreamFromStringParts, ColumnTypes, getNameForCell, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type SpreadsheetData, type WorkbookData, type SpreadsheetColumn, shouldShowCell } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, getNameForCell, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type SpreadsheetData, type WorkbookData, type SpreadsheetColumn, shouldShowCell } from "./support";
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";

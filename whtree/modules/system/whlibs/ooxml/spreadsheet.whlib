@@ -12,6 +12,7 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::internal/columntools.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::ooxml/internal/utils.whlib";
 LOADLIB "wh::ooxml/internal/ooxml.whlib";
 
@@ -1462,6 +1463,7 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
                               , with_auto_filter := FALSE
                               , title := "" //alias for exporttitle
                               , jswriter := FALSE //use the JS writer
+                              , time_zone := "" //alias for timezone
                               ], options, [ required := ["rows" ]]);
 
   IF(RecordExists(options.split))
@@ -1478,13 +1480,20 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
     , title := ""
     , type := ""
     , storeutc := FALSE
+    , store_u_t_c := FALSE
     , width := 0
+    , decimals := 0
     ], col, [ required := ["name", "title", "type" ]
             , title := "column " || #col
-            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "number", "integer64", "timestamp", "string" ]
+            , enums := [ type := [ "text", "boolean", "money", "datetime", "date", "time", "float", "integer", "number", "integer64", "timestamp", "string", "dateTime" ]
                        ]
-            , optional := ["width"]
+            , optional := ["width", "store_u_t_c", "decimals"]
             ]) FROM options.columns AS col;
+
+  UPDATE options.columns SET storeutc := columns.store_u_t_c WHERE CellExists(columns, "store_u_t_c");
+
+  IF(options.timezone = "" AND options.time_zone != "")
+    options.timezone := options.time_zone;
 
   IF(options.timezone = "" AND RecordExists(SELECT FROM options.columns WHERE type IN ["datetime","date","time"] AND storeutc))
     THROW NEW Exception(`The 'timezone' option must be set if the export contains any columns with storeutc=true`);
@@ -1495,8 +1504,10 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
 
   options.exporttitle := options.exporttitle ?? options.title;
 
-  IF(options.filename = "") //we don't require a timezone just for filename autogeneration
-    options.filename := (options.exporttitle ?? "export") || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
+  IF(options.filename = "") {
+    STRING basename := options.exporttitle != "" ? GetSafeName(options.exporttitle) : "export";
+    options.filename := basename || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
+  }
 
   RETURN options;
 }
@@ -1520,11 +1531,6 @@ PUBLIC RECORD FUNCTION GenerateXLSXFile(RECORD options)
     FOREVERY(RECORD col FROM options.columns)
       IF(col.name LIKE "*_*")
         THROW NEW Exception(`Column names cannot contain underscores ('_') when using the JS XLSX writer, but column '${col.name}' does`);
-
-    FOREVERY(RECORD row FROM options.rows)  //generateXLSX assumes you use TS types to guard against missing cells. HS has no such protection
-      FOREVERY(RECORD col FROM options.columns)
-        IF(NOT CellExists(row, col.name))
-          THROW NEW Exception(`Row #${#row} is missing column '${col.name}' required by the export`);
 
     BLOB result := CallJS([ camelcase := TRUE ], "@webhare/office-formats#generateXLSX", options);
     RETURN WrapBlob(result, options.filename);

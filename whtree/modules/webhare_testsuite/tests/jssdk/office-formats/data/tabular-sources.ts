@@ -39,7 +39,7 @@ const reftrestrows = [
     dt: sometime,
     mf: new Money("2.5"),
     // sa: [3, 4],
-    int64: -10000000000,
+    int64: -10_000_000_000, //10 Billion exceeds 32 bit int range, but not 53 bit JS number range
     floating: 1.30000000004
   }, {
     title: "Third row",
@@ -54,8 +54,9 @@ const reftrestrows = [
   }
 ];
 
-export function getTestSpreadsheet() {
-  return { columns, rows: reftrestrows, withAutoFilter: true, timeZone: "Europe/Amsterdam", title: "This is a very long name for a spreadsheet" };
+export function getTestSpreadsheet(options?: { harescriptCompatible?: boolean }) {
+  const rows = options?.harescriptCompatible ? reftrestrows.map(r => ({ ...r, int64: Math.abs(r.int64) > 2 ** 31 ? 42 : r.int64 })) : reftrestrows;
+  return { columns, rows, withAutoFilter: true, timeZone: "Europe/Amsterdam", title: "This is a very long name for a spreadsheet" };
 }
 
 export function getTestTimes() {
