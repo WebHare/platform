@@ -99,6 +99,25 @@ function generate_config_file() {
 
 init_webhare_pg_db()
 {
+  local LOGFILE
+
+  echo "Initializing new PostgreSQL database"
+
+  # Log postgres' output, we only show it when creation fails
+  LOGFILE="$(mktemp)"
+  if ! init_webhare_pg_db_2 "$@" > $LOGFILE 2>&1 ; then
+    echo "PostgreSQL initialization failed"
+    cat "$LOGFILE"
+    rm "$LOGFILE"
+    exit 1
+  fi
+
+  rm "$LOGFILE"
+  return 0
+}
+
+init_webhare_pg_db_2()
+{
   local DATAROOTDIR PGBINDIR rc
 
   DATAROOTDIR="$1"
@@ -110,10 +129,7 @@ init_webhare_pg_db()
     chown postgres "$PSROOT" "$DATAROOTDIR"
   fi
 
-  echo "Initializing new PostgreSQL database"
-  # Log postgres' output, we only show it when creation fails
-  LOGFILE="$(mktemp)"
-  if ! $RUNAS "$PGBINDIR/initdb" -U postgres -D "$DATAROOTDIR" --auth-local=trust --encoding 'UTF-8' --locale='C' >"$LOGFILE" 2>&1 ; then
+  if ! $RUNAS "$PGBINDIR/initdb" -U postgres -D "$DATAROOTDIR" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
     echo DB initdb failed
     cat "$LOGFILE"
     exit 1
@@ -123,16 +139,21 @@ init_webhare_pg_db()
   generate_config_file > "$DATAROOTDIR/postgresql.conf"
 
   # Launch the database on a separate port so we can configure it without interference
-  INSTALL_PORT="$(( $PGPORT + 1 ))"
-  pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
-  $RUNAS "$PGBINDIR/postgres"  -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$INSTALL_PORT" -c "ssl=off" -D "$DATAROOTDIR" &
-  POSTMASTER_PID=$!
-  popd
+  INSTALL_PORT="$(( PGPORT + 1 ))"
+  pushd "${WEBHARE_DIR}/etc/" >/dev/null || exit 1 # this allows PG when running to find the pg_hba-XXX.conf file
+  $RUNAS "$PGBINDIR/postgres"  -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$INSTALL_PORT" -c "ssl=off" -D  "$DATAROOTDIR" &
+  popd >/dev/null || exit 1
 
   # Use psql to wait for it to become available
+  WAITS=0
   until $RUNAS "$PGBINDIR/psql" -U postgres -d postgres -p "$INSTALL_PORT" -c '\q' 2>/dev/null ; do
     >&2 echo "Postgres is unavailable - sleeping"
     sleep .2
+    WAITS=$(( WAITS + 1 ))
+    if [ $WAITS -gt 300 ]; then #we'll give it one minute
+      echo "PostgreSQL failed to start within expected time"
+      exit 1
+    fi
   done
 
   # Bootstrap the database
