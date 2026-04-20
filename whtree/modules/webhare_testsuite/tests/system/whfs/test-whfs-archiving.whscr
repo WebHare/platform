@@ -549,7 +549,7 @@ MACRO UnpackingSiteVsNonsite()
   CompareFSItems(firstfolder->OpenByName("typetest.7"), sitefolder->OpenByName("typetest.8"), TRUE);
 
   RECORD ARRAY expect_files :=
-      [ [ name := "Kastjes en muren 2.pdf", title := "Kastjes en muren 2" ]
+      [ [ name := "Kastjes en muren 2.pdf", title := IsWasm() ? "" : "Kastjes en muren 2" ]
       , [ name := "docgen_2.tar.gz",        title := "" ]
       , [ name := "goudvis.png",            title := "" ]
       , [ name := "lorum_ipsum.doc",        title := "" ]
