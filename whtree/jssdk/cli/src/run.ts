@@ -185,8 +185,8 @@ type GlobalData<Rec extends OptArgBase> = {
 
 /// Build the declarations for the main functions
 type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
-  (Simplify<Rec> extends { subCommands: any } ? {
-    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<Simplify<Rec>["subCommands"][K], K, Rec> };
+  (NarrowTruthy<Rec> extends { subCommands: any } ? {
+    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<NarrowTruthy<Rec>["subCommands"][K], K, Rec> };
   } : {
     main: (data: MainData<Rec, Cmd, ExtraOpts>) => CommandReturn;
   });

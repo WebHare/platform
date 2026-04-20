@@ -574,6 +574,27 @@ Options:
   }));
   test.eq(2, process.exitCode);
   process.exitCode = 0;
+
+  dontRun(() => {
+    // Test if main() without arguments, options and flags is handled correctly by the type system
+    run({
+      subCommands: {
+        test: {
+          flags: { a: "x" },
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        },
+        test2: {
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        }
+      }
+    });
+  });
 }
 
 async function testCLIOptionTypes() {
