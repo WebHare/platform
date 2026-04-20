@@ -366,7 +366,7 @@ function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: 
 */
 export async function generateODS(options: SpreadsheetData | WorkbookData): Promise<File> {
   const inSheets = "sheets" in options ? options.sheets : [options];
-  const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
+  const sheets = inSheets.map((sheet, index) => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }, index));
   const mimetype = "application/vnd.oasis.opendocument.spreadsheet";
 
   const archive = createArchive({
