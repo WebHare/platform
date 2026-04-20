@@ -55,7 +55,7 @@ const reftrestrows = [
 ];
 
 export function getTestSpreadsheet() {
-  return { columns, rows: reftrestrows, withAutoFilter: true, timeZone: "Europe/Amsterdam" };
+  return { columns, rows: reftrestrows, withAutoFilter: true, timeZone: "Europe/Amsterdam", title: "This is a very long name for a spreadsheet" };
 }
 
 export function getTestTimes() {

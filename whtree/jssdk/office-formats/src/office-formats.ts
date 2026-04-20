@@ -4,7 +4,7 @@ import type { SpreadsheetData, WorkbookData } from "./support";
 declare module "@webhare/office-formats" {
 }
 
-export { isValidSheetName, type SpreadsheetColumn, type SpreadsheetRow, type SpreadsheetData, type WorkbookData } from "./support";
+export { isValidSheetName, type SpreadsheetColumn, type SpreadsheetRow, type SpreadsheetData, type WorkbookData, type TypedSpreadsheetRow } from "./support";
 export { generateXLSX } from "./xlsx-output";
 export { generateODS } from "./ods-output";
 

@@ -256,7 +256,7 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
 */
 export async function generateXLSX(options: SpreadsheetData | WorkbookData): Promise<File> {
   const inSheets = "sheets" in options ? options.sheets : [options];
-  const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
+  const sheets = inSheets.map((sheet, index) => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }, index));
 
   const archive = createArchive({
     async build(controller) {
@@ -267,10 +267,7 @@ export async function generateXLSX(options: SpreadsheetData | WorkbookData): Pro
       const xlsxdoc = new XLSXDocBuilder;
 
       for (const [idx, sheet] of sheets.entries()) {
-        const useTitle = sheet.title ?? `Sheet${idx + 1}`;
-        if (!isValidSheetName(useTitle)) //TOOD merge into validateRowsColumns ? but it would also need to take over assigning titles then
-          throw new Error(`Invalid sheet name: ${useTitle}`);
-
+        const useTitle = sheet.title;
         if (names.has(useTitle.toLowerCase()))
           throw new Error(`Duplicate sheet name: ${useTitle}`);
 

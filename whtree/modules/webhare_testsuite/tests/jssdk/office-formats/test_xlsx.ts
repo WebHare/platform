@@ -1,12 +1,13 @@
 import * as test from "@webhare/test-backend";
-import { generateXLSX, type SpreadsheetColumn } from "@webhare/office-formats";
-import { omit, pick } from "@webhare/std";
+import { generateXLSX, type SpreadsheetColumn, type TypedSpreadsheetRow } from "@webhare/office-formats";
+import { Money, omit, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { DOMParser, type Document } from "@xmldom/xmldom";
 import { isValidSheetName } from "@webhare/office-formats/src/support";
 import { defaultDateTime } from "@webhare/hscompat";
 import { getTestSpreadsheet, getTestTimes } from "./data/tabular-sources";
+import { openXlsx } from "@webhare/xlsx-reader";
 
 const testSheet = getTestSpreadsheet();
 const columns = testSheet.columns;
@@ -61,6 +62,21 @@ export async function testXLSXColumnFiles() {
   await test.throws(/storeUTC/, generateXLSX({ rows: testSheet.rows, columns: incopmpleteColums }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
   await test.throws(/no timeZone/, generateXLSX({ rows: testSheet.rows, columns }));
+
+  testSheet.rows satisfies Array<TypedSpreadsheetRow<typeof columns>>;
+
+  ({
+    title: "Ti<>tle 1",
+    bool: true,
+    date: new Date,
+    int: 17,
+    time: 86400_000,
+    dt: new Date,
+    mf: new Money("1.5"),
+    // sa: ["a", "2"],
+    int64: 0,
+    floating: 3.5
+  }) satisfies TypedSpreadsheetRow<typeof columns>;
 
   //FIXME don't allow 'old' timezone names, actually apply timezones to the export format
   const output2 = await generateXLSX({ rows: testSheet.rows, columns, timeZone: "CET" });
@@ -138,6 +154,12 @@ export async function testXLSXColumnFiles() {
     }
   }
 
+  //verify name/title/type generation
+  const output3 = await generateXLSX(testSheet);
+  const readback3 = await openXlsx(output3);
+  test.eqPartial([{ name: "This is a very long name for a" }], readback3.getSheets());
+  test.eq("This is a very long name for a spreadsheet.xlsx", output3.name);
+  test.eq("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", output3.type);
 
   //The rest of testXLSXColumnFiles was testing various parse modes (eg alltostring TRUE, floatmode 'money' not the generator )
 }
