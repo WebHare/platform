@@ -57,7 +57,8 @@ PUBLIC RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
 PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER modifiedby) {
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
   RECORD objinfo := SELECT name, filelink, parent, parentsite, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR baseobjectid;
-  INSERT CELL [ id := destid
+  RECORD fields := CELL
+              [ id := destid
               , parent := EnsureSnapshotsFolder(objinfo.parentsite)
               , name := ToString(destid)
               , creationdate := now
@@ -65,7 +66,8 @@ PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, I
               , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
               , filelink := baseobjectid
               , modifiedby
-              ] INTO system.fs_objects;
+              ];
+  INSERT fields INTO system.fs_objects;
 
   //We're building a full snapshot. So instancesource (the snapshot) should receive all copyable instances from destid (the final)
   RECORD ARRAY snapshot_current_instances := ListInstances(baseobjectid);
@@ -79,6 +81,8 @@ PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, I
   typeobj->SetInstancedata(destid,
       [ name :=       objinfo.name
       ], [ ifreadonly := "update" ]);
+
+  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid, CellExists(fields, "ISFOLDER") AND fields.isfolder);
 
   RETURN destid;
 }
@@ -210,7 +214,7 @@ STATIC OBJECTTYPE WHFSDraft <
 
     // Draft could have been moved, so we need to refetch parent
     INTEGER parent := SELECT AS INTEGER COLUMN parent FROM system.fs_objects WHERE id = this->id;
-    GetWHFSCommitHandler()->ObjectUpdate(0, parent, this->id);
+    GetWHFSCommitHandler()->ObjectUpdate(0, parent, this->id, this->pvt_fsobject->isfolder);
   }
 
   PUBLIC RECORD FUNCTION GetInstanceData(STRING typens) {
@@ -285,8 +289,8 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
 
   // Fire events
   OBJECT commithandler := GetWHFSCommitHandler();
-  commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id);
-  commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
+  commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id, baseobject->isfolder);
+  commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid, FALSE);
 
   OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobject->id);
   RETURN draft;
@@ -327,6 +331,4 @@ PUBLIC MACRO ImportCurrentState(INTEGER baseobjectid) {
               , version := "1.0"
               , snapshot := destid
               ] INTO system_internal.fs_history;
-
-  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid);
 }

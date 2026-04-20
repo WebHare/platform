@@ -449,7 +449,7 @@ PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
                       , siteowner := 0
                       ]);
   GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
-  GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid);
+  GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid, TRUE);
   GetPrimary()->BroadcastOnCommit("system:sites", [ siteid := rootfolderid ]);
   RETURN OpenSite(rootfolderid);
 }

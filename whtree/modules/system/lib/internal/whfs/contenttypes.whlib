@@ -1369,8 +1369,8 @@ STATIC OBJECTTYPE WHFSType <
 
     //Delete all contents of the converted types, if not converting to a folder
     IF(NOT targettype->foldertype)
-      FOREVERY(RECORD subitem FROM SELECT id, parent, parentsite FROM system.fs_objects WHERE parent IN tofix)
-        GetWHFSCommitHandler()->DoDeleteOrRecycle(subitem.parentsite, subitem.parent, subitem.id, TRUE);
+      FOREVERY(RECORD subitem FROM SELECT id, parent, parentsite, isfolder FROM system.fs_objects WHERE parent IN tofix)
+        GetWHFSCommitHandler()->DoDeleteOrRecycle(subitem.parentsite, subitem.parent, subitem.id, TRUE, subitem.isfolder);
 
     /* Convert the objects
        - when converting into a file, republish if needed

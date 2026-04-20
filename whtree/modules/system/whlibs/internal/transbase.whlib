@@ -44,35 +44,30 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseWritable() {
   RETURN NOT IsDebugTagEnabled("db-readonly");
 }
 
-/** Calls all commit handlers after a commit or rollback
-    @param stage onCommit or onRollback
-*/
-PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage) {
+PUBLIC RECORD FUNCTION __BroadcastCommitEvents(RECORD handlers) {
+  OBJECT firstexception;
+
+  // Do scheduled broadcasts as soon as possible
+  BOOLEAN anybroadcast := IsValueSet(handlers.commitevents);
+  FOREVERY(RECORD evt FROM handlers.commitevents)
+    BroadcastEvent(evt.name, evt.data);
+
+  FOREVERY (RECORD rec FROM handlers.objhandlers)
+    TRY
+      IF (rec.obj->OnCommitBroadcasts())
+        anybroadcast := TRUE;
+    CATCH (OBJECT e)
+      firstexception := firstexception ?? e;
+
+  RETURN CELL[ firstexception, anybroadcast ];
+}
+
+PUBLIC RECORD FUNCTION __CallFinishHandlers(RECORD handlers, STRING stage) {
   BOOLEAN iscommit := stage = "onCommit"; //we've left 'stage' as a boolean to leave room for an "onCommitBroadcasts" stage
   IF(stage NOT IN ["onCommit","onRollback"])
    THROW NEW Exception(`Unexpected commit stage '${stage}'`);
 
   OBJECT firstexception;
-  BOOLEAN anybroadcast;
-
-  // Do scheduled broadcasts as soon as possible
-  IF (iscommit) {
-    anybroadcast := IsValueSet(handlers.commitevents);
-    FOREVERY(RECORD evt FROM handlers.commitevents)
-      BroadcastEvent(evt.name, evt.data);
-  }
-
-  IF (iscommit) {
-    FOREVERY (RECORD rec FROM handlers.objhandlers)
-      TRY
-        IF (rec.obj->OnCommitBroadcasts())
-          anybroadcast := TRUE;
-      CATCH (OBJECT e)
-        firstexception := firstexception ?? e;
-  }
-
-  IF (anybroadcast)
-    FenceEvents();
 
   FOREVERY (RECORD rec FROM handlers.handlers) {
     TRY
@@ -91,7 +86,27 @@ PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage) {
       firstexception := firstexception ?? e;
   }
 
+  RETURN CELL[ firstexception ];
+}
 
+/** Calls all commit handlers after a commit or rollback
+    @param stage onCommit or onRollback
+*/
+PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage) {
+  BOOLEAN iscommit := stage = "onCommit"; //we've left 'stage' as a boolean to leave room for an "onCommitBroadcasts" stage
+  IF(stage NOT IN ["onCommit","onRollback"])
+   THROW NEW Exception(`Unexpected commit stage '${stage}'`);
+
+  RECORD broadcastres := [ firstexception := DEFAULT OBJECT ];
+  IF (stage = "onCommit") {
+    broadcastres := __BroadcastCommitEvents(handlers);
+    IF (broadcastres.anybroadcast)
+      FenceEvents();
+  }
+
+  RECORD handlerres := __CallFinishHandlers(handlers, stage);
+
+  OBJECT firstexception := handlerres.firstexception ?? broadcastres.firstexception;
   IF (ObjectExists(firstexception))
     THROW firstexception;
 }

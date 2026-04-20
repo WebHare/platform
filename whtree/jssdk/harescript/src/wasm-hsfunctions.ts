@@ -1567,12 +1567,19 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       },
       onBeforeRollback: async () => {
         await codeContext.run(async () => {
-          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
+          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, false);
         });
       },
       onAfterPrepare: async () => {
         await codeContext.run(async () => {
-          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PopFinishHandlers(transactionId);
+          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PrepareForFinish(transactionId);
+        });
+      },
+      onCommitEvents: async () => {
+        await codeContext.run(async () => {
+          if (!heapVar)
+            throw new Error("Commit handler heap variable not set");
+          return await heapVar.$invoke("RUNBROADCASTS", []) as boolean;
         });
       },
       onCommit: async () => {

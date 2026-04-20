@@ -1835,7 +1835,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
          WHERE id IN toupdate;
 
     FOREVERY (RECORD rec FROM updated)
-      whfs_commithandler->ObjectReordered(rec.parentsite, rec.parent, rec.id);
+      whfs_commithandler->ObjectReordered(rec.parentsite, rec.parent, rec.id, rec.isfolder);
 
     OBJECT torepub := CreateRepublishState();
 

@@ -35,7 +35,7 @@ MACRO CheckScheduledTasks()
     {
       UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, TRUE) WHERE id=task.file;
       PRINT("File #" || task.file || " had a pending task, but seemed to be incorrectly not marked with a scheduled task icon\n");
-      GetWHFSCommitHandler()->ObjectUpdate(badfile.parentsite, badfile.parent, badfile.id);
+      GetWHFSCommitHandler()->ObjectUpdate(badfile.parentsite, badfile.parent, badfile.id, badfile.isfolder);
     }
   }
 
@@ -50,7 +50,7 @@ MACRO CheckScheduledTasks()
   {
     PRINT("File #" || file.id || " had no pending tasks, but seemed to be incorrectly marked with a scheduled task icon\n");
     UPDATE system.fs_objects SET published := SetFlagsInPublished(published, PublishedFlag_Scheduled, FALSE) WHERE id=file.id;
-    GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, file.id);
+    GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, file.id, file.isfolder);
   }
 
   trans->CommitWork();
@@ -69,6 +69,7 @@ MACRO CheckPublicDrafts()
       SELECT id
            , parent
            , parentsite
+           , isfolder
         FROM system.fs_objects
        WHERE id IN files_with_public_drafts
          AND NOT TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
@@ -77,6 +78,7 @@ MACRO CheckPublicDrafts()
       SELECT id
            , parent
            , parentsite
+           , isfolder
         FROM system.fs_objects
        WHERE published >= PublishedFlag_HasPublicDraft //this criterium just helps the database optimizer weed out improbable matches
          AND id NOT IN files_with_public_drafts
@@ -93,7 +95,7 @@ MACRO CheckPublicDrafts()
        SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, id IN files_with_public_drafts)
      WHERE id = rec.id;
 
-    GetWHFSCommitHandler()->ObjectUpdate(rec.parentsite, rec.parent, rec.id);
+    GetWHFSCommitHandler()->ObjectUpdate(rec.parentsite, rec.parent, rec.id, rec.isfolder);
   }
 
   trans->CommitWork();

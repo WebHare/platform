@@ -743,12 +743,13 @@ OBJECTTYPE WHFSObject <
           IF (RecordExists(parentrec))
           {
             // The file is currently indexdoc, reset the parent folder's indexdoc.
-            commithandler->ObjectUpdate(this->parentsite, oldversion.parent, oldversion.parent);
+            commithandler->ObjectUpdate(this->parentsite, parentrec.parent, oldversion.parent, oldversion.isfolder);
 
             UPDATE system.fs_objects
                SET indexdoc := 0
              WHERE id = oldversion.parent;
-            GetWHFSCommitHandler()->FolderIndexDocUpdated(oldversion.parent);
+
+            GetWHFSCommitHandler()->FolderIndexDocUpdated(this->parentsite, parentrec.parent, oldversion.parent);
           }
         }
       }
@@ -817,9 +818,9 @@ OBJECTTYPE WHFSObject <
       FOREVERY (INTEGER id FROM toupdate)
       {
         commithandler->FileRepublish(this->parentsite, this->pvt_id, id);
-        commithandler->ObjectUpdate(this->parentsite, this->pvt_id, id);
+        commithandler->ObjectUpdate(this->parentsite, this->pvt_id, id, FALSE);
       }
-      GetWHFSCommitHandler()->FolderIndexDocUpdated(this->pvt_id);
+      GetWHFSCommitHandler()->FolderIndexDocUpdated(this->parentsite, this->pvt_parent, this->pvt_id);
     }
 
     DATETIME now := GetCurrentDatetime();
@@ -844,7 +845,7 @@ OBJECTTYPE WHFSObject <
 
     IF (isrename)
     {
-      commithandler->ObjectRename(oldversion.parentsite, oldversion.parent, this->pvt_id);
+      commithandler->ObjectRename(oldversion.parentsite, oldversion.parent, this->pvt_id, this->pvt_isfolder);
       IF(this->isfolder AND this->parentsite = this->id)
       {
         UPDATE system.sites SET name := newname WHERE root = this->id;
@@ -871,7 +872,7 @@ OBJECTTYPE WHFSObject <
 
     UPDATE system.fs_objects SET RECORD newmetadata WHERE id=this->pvt_id;
 
-    commithandler->ObjectUpdate(this->parentsite, this->pvt_parent, this->pvt_id);
+    commithandler->ObjectUpdate(this->parentsite, this->pvt_parent, this->pvt_id, this->pvt_isfolder);
 
     IF(this->isfolder AND isrename AND this->parentsite != 0) //republish when renaming (something inside) a site
       UpdatePublishedRecursive(this->parentsite, this->id, FALSE, DEFAULT OBJECT);
@@ -990,7 +991,7 @@ OBJECTTYPE WHFSObject <
       THROW NEW WHFSException("OTHER","This object is already deleted");
 
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->DoDeleteOrRecycle(this->parentsite, this->pvt_parent, this->pvt_id, is_recycle);
+    commithandler->DoDeleteOrRecycle(this->parentsite, this->pvt_parent, this->pvt_id, is_recycle, this->pvt_isfolder);
 
     this->Refresh();
   }
@@ -1323,7 +1324,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
     ApplyCreationOptions(metadata, options, metadata_had_name);
 
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
+    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id, TRUE);
 
     OBJECT newfolder := OpenWHFSObject(metadata.id);
     IF(NOT ObjectExists(newfolder))
@@ -1375,7 +1376,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
 
     INSERT metadata INTO system.fs_objects;
     ApplyCreationOptions(metadata, options, metadata_had_name);
-    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id);
+    commithandler->ObjectCreate(this->parentsite, this->pvt_id, metadata.id, FALSE);
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.
     // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
@@ -1609,8 +1610,9 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       ORDER BY ordering;
 
     // Get all reordered objects in their current order
-    INTEGER ARRAY select_objects :=
-        SELECT AS INTEGER ARRAY id
+    RECORD ARRAY select_objects :=
+        SELECT id
+              , isfolder
           FROM system.fs_objects
          WHERE id IN objectids
            AND parent = this->id
@@ -1633,8 +1635,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
       before_pos := LENGTH(all_other_objects);
 
     // Insert all reordered objects at the correct place
-    FOREVERY (INTEGER id FROM select_objects)
-      INSERT id INTO all_other_objects AT before_pos + #id;
+    FOREVERY (RECORD obj FROM select_objects)
+      INSERT obj.id INTO all_other_objects AT before_pos + #obj;
 
     // Write back the new ordering
     UPDATE system.fs_objects
@@ -1642,8 +1644,8 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
      WHERE id IN all_other_objects;
 
     OBJECT whfs_commithandler := GetWHFSCommithandler();
-    FOREVERY (INTEGER id FROM all_other_objects)
-      whfs_commithandler->ObjectReordered(this->parentsite, this->id, id);
+    FOREVERY (RECORD obj FROM select_objects)
+      whfs_commithandler->ObjectReordered(this->parentsite, this->id, obj.id, obj.isfolder);
   }
 
   /** Ensures that ordering is set for every child of this folder
@@ -1652,7 +1654,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
   PUBLIC MACRO EnsureOrdering(BOOLEAN force_ordering)
   {
     RECORD ARRAY select_objects :=
-           SELECT id, ordering
+           SELECT id, ordering, isfolder
              FROM system.fs_objects
             WHERE parent = this->id
          ORDER BY ordering, ToUpperCase(name), ToUpperCase(title), id;
@@ -1665,7 +1667,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject <
     {
       UPDATE system.fs_objects SET ordering := #obj + 1 WHERE id = obj.id;
       IF (obj.ordering != #obj + 1)
-        whfs_commithandler->ObjectReordered(this->parentsite, this->id, obj.id);
+        whfs_commithandler->ObjectReordered(this->parentsite, this->id, obj.id, obj.isfolder);
     }
   }
 
@@ -2585,8 +2587,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase <
 //           , ordering := (SELECT AS INTEGER Max(ordering) + 1 FROM system.fs_objects WHERE parent = destfolder->id)// Added 10-04-2015 for new ordering mechanism
        WHERE id = moverec.sourceid;
 
-      this->commithandler->ObjectMove(oldrec.parentsite, oldrec.parent, moverec.sourceid);
-      this->commithandler->ObjectMoved(destfolder->parentsite, destfolder->id, moverec.sourceid);
+      this->commithandler->ObjectMove(oldrec.parentsite, oldrec.parent, destfolder->parentsite, destfolder->id, moverec.sourceid, oldrec.isfolder);
       IF (NOT oldrec.isfolder AND IsPublish(oldrec.published) AND NOT disablepublish)
         this->commithandler->FileRepublish(destfolder->parentsite, destfolder->id, moverec.sourceid);
 

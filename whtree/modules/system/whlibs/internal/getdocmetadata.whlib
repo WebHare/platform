@@ -4,6 +4,7 @@
     @private GetDocumentMetadata should be deprecated/moved to their respective users
 */
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::parser/pdf.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
@@ -37,7 +38,7 @@ PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
                      , description := ""
                      , keywords := ""
                      ];
-  IF(wrappedblob.mimetype = "application/pdf")
+  IF(wrappedblob.mimetype = "application/pdf" AND NOT IsWasm())
   {
     INTEGER pdffile := OpenPDFFile(wrappedblob.data);
     IF(pdffile>0 AND DoPDFConversion(pdffile)) //ADDME: Don't do a full conversion just for metainfo ?
