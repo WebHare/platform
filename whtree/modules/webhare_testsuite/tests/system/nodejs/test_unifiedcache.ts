@@ -32,6 +32,8 @@ async function testResizeMethods() {
   const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: { x: 180, y: 180 } } as const;
   const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
   const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
+  //NOTE all the above was in *HareScript* descriptor format, but HS takes the original pre-rotation width/height. so this rotated portrait image of 3376x6000 shows as 6000x3376 in the metadata
+  const exampleRotatedPortaitJpg = { width: 6000, height: 3376, mediaType: "image/jpeg", rotation: 270, mirrored: false, refPoint: null } as const;
 
   //Test sharp resize methods
   test.eq({
@@ -125,6 +127,13 @@ async function testResizeMethods() {
     format: "webp",
     formatOptions: { lossless: false, quality: 80 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/webp", bgColor: 0xFFFF0000 }));
+  test.eq({
+    extract: null,
+    resize: { width: 338, height: 600, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
+    extend: null,
+    format: "avif",
+    formatOptions: { lossless: false, quality: 50 }
+  }, getSharpResizeOptions(exampleRotatedPortaitJpg, { method: "fit", height: 600, format: "image/avif" }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
     explainImageProcessing(examplePng, { method: "none", format: "keep" }));
