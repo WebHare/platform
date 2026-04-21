@@ -40,7 +40,7 @@ interface StatusTask {
   task: "status";
 }
 
-interface StatusResponse {
+export interface MutexListStatusResponse {
   status: "ok";
   links: Array<{
     id: number;
@@ -63,7 +63,7 @@ interface StatusResponse {
   logtraces: boolean;
 }
 
-export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask | StatusTask, InitResponse | LockResponse | UnlockResponse | StatusResponse>;
+export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask | StatusTask, InitResponse | LockResponse | UnlockResponse | MutexListStatusResponse>;
 export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
 
 class Mutex {
