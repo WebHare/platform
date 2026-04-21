@@ -39,6 +39,25 @@ export type SpreadsheetColumn = {
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
 
+// Map the string literal column `type` to the actual TS type
+type ColumnTypeMap<T extends string> = T extends "string"
+  ? string
+  : T extends "number"
+  ? number
+  : T extends "boolean"
+  ? boolean
+  : T extends "date"
+  ? Temporal.PlainDate | Date //FIXME phase out Date support
+  : T extends "datetime"
+  ? Temporal.Instant | Date //FIXME phase out Date support
+  : unknown;
+
+// Produces a row object type from a `columns` array declared `as const`.
+export type TypedSpreadsheetRow<C extends SpreadsheetColumn[]> = {
+  [Col in C[number]as Col["name"]]: ColumnTypeMap<Col["type"]> | null;
+};
+
+
 export type SpreadsheetData = ({
   rows: SpreadsheetRow[];
   columns: SpreadsheetColumn[];
@@ -88,7 +107,16 @@ export function isValidSheetName(sheetname: string): boolean {
 }
 
 /** Check columns and row consistency. */
-export function validateAndFixRowsColumns(options: SpreadsheetData): FixedSpreadsheetOptions {
+export function validateAndFixRowsColumns(options: SpreadsheetData, index: number): FixedSpreadsheetOptions & { title: string } {
+  options = { ...options }; //don't modify original object, we'll return a new one with the fixes
+
+  if (options.title && options.title?.length >= 31)
+    options.title = options.title.substring(0, 31).trim();
+
+  if (!options?.title || !isValidSheetName(options.title)) { //fix it!
+    options.title = `Sheet${index + 1}`;
+  }
+
   if (!("columns" in options)) {
     //Infer them!
     const cols: SpreadsheetColumn[] = [];
@@ -101,7 +129,7 @@ export function validateAndFixRowsColumns(options: SpreadsheetData): FixedSpread
         }
       }
 
-    return { ...options, columns: cols };
+    return { ...options, columns: cols } as FixedSpreadsheetOptions & { title: string };
   }
 
   if (options.columns.length === 0) { //*if* you define a col[] array, we expect it to be there
@@ -119,7 +147,7 @@ export function validateAndFixRowsColumns(options: SpreadsheetData): FixedSpread
     }
   }
 
-  return options as FixedSpreadsheetOptions; //cast should be safe, we verified columns exists
+  return options as FixedSpreadsheetOptions & { title: string }; //cast should be safe, we verified columns exists
 }
 
 export function byteStreamFromStringParts(parts: Iterable<string | Iterator<string> | (() => string | Iterator<string>)>, options?: { minChunkSize?: number }): ReadableStream<Uint8Array> {
