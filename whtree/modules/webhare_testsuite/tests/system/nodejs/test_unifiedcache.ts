@@ -25,15 +25,13 @@ async function clearUnifiedCache() {
 }
 
 async function testResizeMethods() {
-  const examplePng = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: null } as const;
-  const exampleBmp = { width: 320, height: 240, mediaType: "image/x-bmp", rotation: 0, mirrored: false, refPoint: null } as const;
-  const exampleJpg = { width: 320, height: 240, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
-  const exampleTiff = { width: 320, height: 240, mediaType: "image/tiff", rotation: 0, mirrored: false, refPoint: null } as const;
-  const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: { x: 180, y: 180 } } as const;
-  const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
-  const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
-  //NOTE all the above was in *HareScript* descriptor format, but HS takes the original pre-rotation width/height. so this rotated portrait image of 3376x6000 shows as 6000x3376 in the metadata
-  const exampleRotatedPortaitJpg = { width: 6000, height: 3376, mediaType: "image/jpeg", rotation: 270, mirrored: false, refPoint: null } as const;
+  const examplePng = { width: 320, height: 240, mediaType: "image/png", refPoint: null } as const;
+  const exampleBmp = { width: 320, height: 240, mediaType: "image/x-bmp", refPoint: null } as const;
+  const exampleJpg = { width: 320, height: 240, mediaType: "image/jpeg", refPoint: null } as const;
+  const exampleTiff = { width: 320, height: 240, mediaType: "image/tiff", refPoint: null } as const;
+  const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", refPoint: { x: 180, y: 180 } } as const;
+  const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", refPoint: null } as const;
+  const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", refPoint: null } as const;
 
   //Test sharp resize methods
   test.eq({
@@ -127,13 +125,6 @@ async function testResizeMethods() {
     format: "webp",
     formatOptions: { lossless: false, quality: 80 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/webp", bgColor: 0xFFFF0000 }));
-  test.eq({
-    extract: null,
-    resize: { width: 338, height: 600, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
-    extend: null,
-    format: "avif",
-    formatOptions: { lossless: false, quality: 50 }
-  }, getSharpResizeOptions(exampleRotatedPortaitJpg, { method: "fit", height: 600, format: "image/avif" }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
     explainImageProcessing(examplePng, { method: "none", format: "keep" }));
@@ -367,8 +358,8 @@ async function testImgMethodPacking() {
 }
 
 async function testImgCacheTokens() {
-  const exampleJpeg = { width: 320, height: 240, mediaType: "image/jpeg", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
-  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
+  const exampleJpeg = { width: 320, height: 240, mediaType: "image/jpeg", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
+  const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetadata;
   const exampleRefPoint = { ...examplePng, refPoint: { x: 120, y: 180 } };
 
   async function analyze(suburl: string, extension: ".png" | ".jpg") {

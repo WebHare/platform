@@ -666,8 +666,6 @@ async function testNewAPI() {
   test.eq(null, file.extension);
   test.eq(null, file.width);
   test.eq(null, file.height);
-  test.eq(null, file.rotation);
-  test.eq(null, file.mirrored);
   test.eq(null, file.refPoint);
   test.eq(null, file.dominantColor); //FIXME not set?
   test.eq(null, file.fileName); //FIXME not set?

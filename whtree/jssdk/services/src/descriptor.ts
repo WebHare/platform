@@ -50,7 +50,7 @@ const MapBitmapImageTypes: Record<string, string> = {
   "heif": "image/avif"
 };
 
-const metadataFields = ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
+const metadataFields = ["extension", "mediaType", "width", "height", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
 
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
@@ -134,8 +134,6 @@ export interface ResourceScanOptions {
   sourceFile?: number | null;
 }
 
-export type Rotation = 0 | 90 | 180 | 270;
-
 interface ResourceBaseMetadata {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
   extension: string | null;
@@ -145,10 +143,6 @@ interface ResourceBaseMetadata {
   width: number | null;
   ///Height (in pixels)
   height: number | null;
-  ///Image rotation in degrees (0,90,180 or 270). null if not known (image not analyzed yet) or not an image
-  rotation: Rotation | null;
-  ///True if this is a mirrored image. null if not known (image not analyzed yet) or not an image
-  mirrored: boolean | null;
   ///Reference point if set, default record otherwise
   refPoint: { x: number; y: number } | null;
   ///Image's dominant color as a `#RRGGBB` code, null if the image is transparent or not an image. Only extracted if the extractdominantcolor option is enabled
@@ -444,8 +438,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) === 0;
 
-  const mirrored: boolean = Boolean(metadata.orientation && [2, 4, 5, 7].includes(metadata.orientation));
-  const rotation: Rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? 0 : 0;
+  const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? 0 : 0;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
   const mediaType = metadata.format === 'raw' ? 'image/x-bmp' : (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
@@ -454,9 +447,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
     height: metadata[isrotated ? "width" : "height"] || null,
     dominantColor: istransparent ? "transparent" : stats?.dominant ? colorToHex(stats.dominant) : null,
     mediaType,
-    extension: getExtensionForMediaType(mediaType),
-    mirrored,
-    rotation
+    extension: getExtensionForMediaType(mediaType)
   };
 }
 
@@ -477,20 +468,10 @@ export function encodeScanData(meta: EncodableResourceMetadata): string {
   if (BitmapImageTypes.includes(meta.mediaType) && (!meta.width || !meta.height))
     throw new Error("Width and height are required for bitmap images");
 
-  //TODO Block writing mages with unknown widdth/height
-
-  //HareScript used to store width/height pre-rotation but we don't want that in the presented metadata.
-  const isrotated = [90, 270].includes(meta.rotation!);
-  const width = meta[isrotated ? "height" : "width"];
-  const height = meta[isrotated ? "width" : "height"];
-  if (width)
-    data.w = width;
-  if (height)
-    data.h = height;
-  if (meta.rotation !== null)
-    data.r = meta.rotation;
-  if (meta.mirrored !== null)
-    data.s = meta.mirrored;
+  if (meta.width)
+    data.w = meta.width;
+  if (meta.height)
+    data.h = meta.height;
   if (meta.refPoint)
     data.p = meta.refPoint;
   if (meta.dominantColor)
@@ -516,7 +497,7 @@ export async function hashStream(r: ReadableStream<Uint8Array>) {
 export async function addMissingScanData(meta: ResourceDescriptor, options?: {
   fileName?: string;
 }) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
-  let newmeta: EncodableResourceMetadata = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+  let newmeta: EncodableResourceMetadata = pick(meta, ["hash", "mediaType", "width", "height", "refPoint", "dominantColor", "fileName"]);
   if (options?.fileName !== undefined)
     newmeta.fileName = options.fileName;
 
@@ -557,8 +538,6 @@ export function decodeScanData(scandata: string): ResourceMetadata {
     extension: getExtensionForMediaType(parseddata.m || DefaultMediaType),
     width,
     height,
-    rotation,
-    mirrored: parseddata.w ? (parseddata.s || false) : null,
     refPoint: parseddata.p || null,
     dominantColor: parseddata.d || null,
     fileName,
@@ -598,7 +577,7 @@ export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName,
   return mediaType as Exclude<OutputFormatName, "keep">;
 }
 
-export function explainImageProcessing(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
+export function explainImageProcessing(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, method: PackableResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
@@ -1051,12 +1030,6 @@ export class ResourceDescriptor implements ResourceMetadata {
       sourceFile: typeof resource.sourceFile === "string" ? await unmapExternalWHFSRef(resource.sourceFile, options) : resource.sourceFile,
       mediaType: resource.mediaType || "application/octet-stream"
     };
-    if (importData.width && (typeof importData.mirrored !== "boolean" || typeof importData.rotation !== "number")) {
-      //If we have width and height, we can assume we should have known about any rotation even if stripped from the export record due to default-value-elimination
-      importData.rotation = 0;
-      importData.mirrored = false;
-    }
-
     return new ResourceDescriptor(blob, importData);
   }
 
@@ -1078,12 +1051,6 @@ export class ResourceDescriptor implements ResourceMetadata {
   }
   get height() {
     return this.metadata.height ?? null;
-  }
-  get rotation() {
-    return this.metadata.rotation ?? null;
-  }
-  get mirrored() {
-    return this.metadata.mirrored ?? null;
   }
   get refPoint() {
     return this.metadata.refPoint ?? null;
