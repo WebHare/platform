@@ -184,9 +184,9 @@ test.runTests(
         test.assert(submitResult.contacts[1].photo);
         test.eq("portrait_8.jpg", submitResult.contacts[1].photo.filename);
         // These properties are added after the image has been processed on the server
-        test.eq(600, submitResult.contacts[1].photo.width);
-        test.eq(450, submitResult.contacts[1].photo.height);
-        test.eq(90, submitResult.contacts[1].photo.rotation);
+        test.eq(450, submitResult.contacts[1].photo.width);
+        test.eq(600, submitResult.contacts[1].photo.height);
+        test.eq(0, submitResult.contacts[1].photo.rotation);
 
         // Delete the first row, clear the not-array name field
         test.click(test.qS(".wh-form__arraydelete")!);

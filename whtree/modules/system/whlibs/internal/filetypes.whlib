@@ -74,8 +74,8 @@ RECORD FUNCTION MakeAnalyzedImage(BLOB imgdata)
               , imginfo := CELL[ height := INTEGER(analyzeresult.height)
                                , width := INTEGER(analyzeresult.width)
                                , bpp := 24 //FIXME detect too ? are we axtually using this?
-                               , rotation := 0 //TODO?
-                               , mirrored := FALSE  //TODO?
+                               , rotation := 0
+                               , mirrored := FALSE
                                , refpoint := DEFAULT RECORD
                                ]
               ];
@@ -89,7 +89,7 @@ RECORD FUNCTION MakeTIFFFile(STRING header, INTEGER filehandle)
   filedata.imginfo := [ height := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 257 AND TypeId(singlevalue)=TypeId(INTEGER)
                       , width := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 256 AND TypeId(singlevalue)=TypeId(INTEGER)
                       , bpp := SELECT AS INTEGER singlevalue FROM tiff_fields WHERE tag = 258 AND TypeId(singlevalue)=TypeId(INTEGER)
-                      , rotation := 0 //FIXME in exif data for tiffs too ?
+                      , rotation := 0
                       , mirrored := FALSE
                       , refpoint := DEFAULT RECORD
                       ];
@@ -141,7 +141,7 @@ RECORD FUNCTION MakeJPEGFile(STRING header, INTEGER filehandle, INTEGER filelen)
 {
   RECORD filedata := MakeFile("image/jpeg");
   filedata.imginfo := [ height := 0, width := 0, bpp := 0, rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD ];
-  BOOLEAN have_imginfo, have_orientation;
+  BOOLEAN have_imginfo, have_orientation, is_sideways;
 
   //JPEG is a much complexer file format. We must scan for a 'SOFn' header, containing image data
   INTEGER filepos := 2; //initial segment
@@ -183,15 +183,22 @@ RECORD FUNCTION MakeJPEGFile(STRING header, INTEGER filehandle, INTEGER filelen)
 
       IF(RecordExists(orientation) AND orientation.singlevalue >= 1 AND orientation.singlevalue <= 8)
       {
-        //the mirror is understood to be applied before rotation. so to reverse the properties below: first rotate 360-rotation, then unmirror
         have_orientation := TRUE;
-        filedata.imginfo.mirrored := [FALSE,TRUE,FALSE,TRUE,TRUE,FALSE,TRUE,FALSE][orientation.singlevalue - 1];
-        filedata.imginfo.rotation := [0,0,180,180,270,270,90,90][orientation.singlevalue - 1];
+        INTEGER rotation := [0,0,180,180,270,270,90,90][orientation.singlevalue - 1];
+        IF(rotation = 90 OR rotation = 270)
+          is_sideways := TRUE;
       }
     }
 
     filepos := filepos + 2 + segmentinfo.len; //to the next segment
   }
+
+  IF(is_sideways) { //implies have_imginfo and filedata existing
+    INTEGER swap := filedata.imginfo.width;
+    filedata.imginfo.width := filedata.imginfo.height;
+    filedata.imginfo.height := swap;
+  }
+
   RETURN have_imginfo ? filedata : DEFAULT RECORD;
 }
 

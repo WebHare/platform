@@ -95,14 +95,6 @@ PUBLIC RECORD FUNCTION GetDocumentMetadata(RECORD wrappedblob)
       CloseXML(htmldoc);
     }
   }
-  /* FIXME restore TIFF support
-    RECORD ARRAY tiff_fields := __ParseTIFFTags(PTR ReadFromTIFF(filehandle, #1, #2));
-  IF(metadata)
-  {
-    filedata.title := TrimWhitespace(SELECT AS STRING singlevalue FROM tiff_fields WHERE tag = 269 AND TypeId(singlevalue)=TypeId(STRING));
-    filedata.description := TrimWhitespace(SELECT AS STRING singlevalue FROM tiff_fields WHERE tag = 270 AND TypeId(singlevalue)=TypeId(STRING));
-  }
-  */
 
   RETURN metadata;
 }

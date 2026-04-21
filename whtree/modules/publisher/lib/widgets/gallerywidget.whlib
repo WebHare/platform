@@ -27,8 +27,8 @@ RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
                               , thumbnail := WrapCachedImage(__wrapped, gallery_gridthumb)
                               , thumbnail_2x := WrapCachedImage(__wrapped, gallery_gridthumb_2x)
                               , dominantcolor := __wrapped.dominantcolor
-                              , width := __wrapped.rotation IN [90,270] ? __wrapped.height : __wrapped.width
-                              , height := __wrapped.rotation IN [90,270] ? __wrapped.width : __wrapped.height
+                              , width := __wrapped.width
+                              , height := __wrapped.height
                            FROM system.fs_objects
                           WHERE parent = forfolder
                                 AND type = VAR whconstant_whfstype_imagefile
