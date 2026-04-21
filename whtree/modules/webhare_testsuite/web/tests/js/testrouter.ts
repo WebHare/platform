@@ -1,4 +1,6 @@
 import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
+import { lockMutex } from "@webhare/services";
+import { beginWork, rollbackWork } from "@webhare/whdb";
 
 export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   const searchParams = new URL(req.url).searchParams;
@@ -31,6 +33,20 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
       contentType: req.headers.get("content-type"),
       values
     });
+  }
+
+  if (searchParams.get("type") === "worktest") {
+    const premutexname = searchParams.get("premutexname");
+    if (premutexname)
+      await lockMutex(premutexname);
+
+    await beginWork();
+    const postmutexname = searchParams.get("postmutexname");
+    if (postmutexname)
+      await lockMutex(postmutexname);
+
+    await rollbackWork();
+    return createJSONResponse(200, {});
   }
 
   return createJSONResponse(400, { error: "Invalid request" });
