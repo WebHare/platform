@@ -32,7 +32,7 @@ async function testResizeMethods() {
   const examplerefPoint = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: { x: 180, y: 180 } } as const;
   const exampleKikkertje = { width: 122, height: 148, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
   const exampleSnowbeagle = { width: 428, height: 284, mediaType: "image/jpeg", rotation: 0, mirrored: false, refPoint: null } as const;
-  //NOTE all the above was in *HareScript* descriptor format, but HS takes the original pre-totation witdh/height. so this rotated portrait image of 3376x6000 shows as 6000x3376 in the metadata
+  //NOTE all the above was in *HareScript* descriptor format, but HS takes the original pre-rotation width/height. so this rotated portrait image of 3376x6000 shows as 6000x3376 in the metadata
   const exampleRotatedPortaitJpg = { width: 6000, height: 3376, mediaType: "image/jpeg", rotation: 270, mirrored: false, refPoint: null } as const;
 
   //Test sharp resize methods
