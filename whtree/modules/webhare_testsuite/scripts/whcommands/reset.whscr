@@ -88,6 +88,7 @@ IF(IsDebugTagEnabled("startup"))
   Print("Setup HS testsite\n");
 
 SetupTestSite(testsite_js);
+//We need to reapply webdeisgn/webfeatures because ImportIntoWHFS will have reset it
 testsite_js->UpdateSiteMetadata(CELL[ webdesign := "webhare_testsuite:basetestjs"
                                     , webfeatures := ["platform:identityprovider"]
                                     ]);

@@ -58,6 +58,7 @@ class ApplyFinishHandler implements FinishHandler {
 
 
 /** Create a function that will return a promise when the specific changes are actually applied
+ * marked private and currently unused - not sure if we really want this as we *are* exposing quite some low level details
  *
 */
 export function createAppliedPromise(toApply: RemoteApplyConfigOptions): () => Promise<void> {

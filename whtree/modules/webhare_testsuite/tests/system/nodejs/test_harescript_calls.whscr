@@ -178,6 +178,12 @@ IF(IsWasm()) { //Support opaque object marshalling
   jsobj_11->SetMember("num", 12);
   TestEQ(14, jsobj_11->Call("call", 2));
 
+  TestEq('{"an_object":[{"a_value":42}]}', jsobj_11->Call("stringify", [ an_object := [[ a_value := 42 ]]]));
+  TestEq('{"anObject":[{"aValue":42}]}', jsobj_11->Call([ camelcase := TRUE ], "stringify", [ an_object := [[ a_value := 42 ]]]));
+  TestEq([ anobject := [[ avalue := 42 ]]], jsobj_11->Call("parseTyped", '{"anObject":[{"aValue":42}]}'));
+  TestEq([ an_object := [[ a_value := 42 ]]], jsobj_11->Call([ camelcase := TRUE ],"parseTyped", '{"anObject":[{"aValue":42}]}'));
+
+
   // Correct handling of calling throwing setters on JS objects when using calljs
   PRINT(`test throwing setter\n`);
   TestThrowsLike("throwing setter", PTR CallJS("./data/calls.ts#setThrowingProperty", NEW ThrowingGetterSetter));

@@ -9,6 +9,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/internal/fetcher_linkcheck.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -25,8 +26,8 @@ VARIANT FUNCTION NullIfZero(INTEGER value)
   RETURN value;
 }
 
-STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -44,6 +45,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   RECORD ARRAY deferredindexpromises;
   INTEGER eventcallback;
+  STRING ARRAY configupdates;
 
   // ---------------------------------------------------------------------------
   //
@@ -216,10 +218,14 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
   /** Called when the transaction has committed
   */
-  UPDATE PUBLIC MACRO OnCommit()
-  {
+  UPDATE PUBLIC MACRO OnCommit() {
     IF(IsDebugTagEnabled("que"))
       LogDebug("system:whfscommithandler", "commit", CELL[trace := GetStackTrace() ]);
+
+    IF(Length(this->configupdates) > 0) {
+      ApplyWebHareConfiguration([ subsystems := this->configupdates, source := "WHFSCommitHandler"]);
+      this->configupdates := DEFAULT STRING ARRAY;
+    }
 
     RECORD ARRAY to_republish;
     IF (IsValueSet(this->to_republish_parents))
@@ -404,9 +410,13 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
     this->AddAnalyzerTask(folderid, FALSE);
   }
 
-  PUBLIC MACRO SiteUpdated(INTEGER siteid)
-  {
-    this->AddAnalyzerTask(siteid, TRUE);
+  PUBLIC MACRO SiteUpdated(INTEGER siteid, RECORD options) {
+    options := ValidateOptions(CELL[ site_profile_refs := FALSE, analyze_output := FALSE ], options);
+    IF(options.analyze_output)
+      this->AddAnalyzerTask(siteid, TRUE);
+
+    IF(options.site_profile_refs AND "siteprofilerefs" NOT IN this->configupdates)
+      INSERT "siteprofilerefs" INTO this->configupdates AT END;
   }
 
   PUBLIC MACRO AddCompletionEvent(RECORD data)
@@ -545,9 +555,9 @@ OBJECTTYPE WHFSWasmCommitHandler <
     CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("folderIndexDocUpdated", NullIfZero(parentsite), NullIfZero(parentfolder), folderid);
   }
 
-  PUBLIC MACRO SiteUpdated(INTEGER siteid)
-  {
-    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("siteUpdated", siteid);
+  PUBLIC MACRO SiteUpdated(INTEGER siteid, RECORD options) {
+    options := ValidateOptions(CELL[ site_profile_refs := FALSE, analyze_output := FALSE ], options);
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call([ camelcase := TRUE ], "siteUpdated", siteid, options);
   }
 
   PUBLIC MACRO AddCompletionEvent(RECORD data)

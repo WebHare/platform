@@ -135,8 +135,8 @@ PUBLIC RECORD FUNCTION TestSiteOutputAvailability(INTEGER forsiteid, INTEGER new
 /** WHFS site object
     @public
 */
-STATIC OBJECTTYPE SiteObject
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE SiteObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -287,8 +287,7 @@ STATIC OBJECTTYPE SiteObject
       @cell(integer) metadata.outputweb Output webserver, 0 for no hosting
       @cell(string) metadata.outputfolder Folder within output webserver where this site is hosted
   */
-  PUBLIC RECORD FUNCTION UpdateSiteMetadata(RECORD metadata)
-  {
+  PUBLIC MACRO UpdateSiteMetadata(RECORD metadata) {
     BOOLEAN republishsite;
     RECORD siterecupdate := ValidateOptions( [ sitedesign := ""
                                              , webdesign := ""
@@ -307,13 +306,11 @@ STATIC OBJECTTYPE SiteObject
     IF(CellExists(siterecupdate,'LOCKED') AND siterecupdate.locked != currentrec.locked)
       republishsite := TRUE;
 
-    IF(CellExists(siterecupdate,'OUTPUTWEB') OR CellExists(siterecupdate, 'OUTPUTFOLDER'))
-    {
+    IF(CellExists(siterecupdate,'OUTPUTWEB') OR CellExists(siterecupdate, 'OUTPUTFOLDER')) {
       INTEGER newoutputweb :=   CellExists(siterecupdate, 'OUTPUTWEB')    ? siterecupdate.outputweb : currentrec.outputweb;
       STRING newoutputfolder := CellExists(siterecupdate, 'OUTPUTFOLDER') ? siterecupdate.outputfolder : currentrec.outputfolder;
 
-      IF(newoutputweb != currentrec.outputweb OR newoutputfolder != currentrec.outputfolder)
-      {
+      IF(newoutputweb != currentrec.outputweb OR newoutputfolder != currentrec.outputfolder) {
         RECORD analyze_new_location := TestSiteOutputAvailability(this->id, newoutputweb, newoutputfolder);
         IF(NOT analyze_new_location.success)
         {
@@ -386,21 +383,19 @@ STATIC OBJECTTYPE SiteObject
     STRING ARRAY subsystems;
 
     IF(RecordExists(updsettings))
-    {
       sitesettingstype->SetInstanceData(this->id, updsettings);
-      INSERT "siteprofilerefs" INTO subsystems AT END;
-    }
 
     this->Refresh();
 
     IF(republishsite)
-    {
       ScheduleFolderRepublish(this->id, /*recursive=*/TRUE, /*non_template_too=*/TRUE);
-      GetWHFSCommitHandler()->SiteUpdated(this->id);
-    }
+
+    GetWHFSCommitHandler()->SiteUpdated(this->id, [
+      analyze_output := republishsite,
+      site_profile_refs := CellExists(updsettings,'sitedesign') OR CellExists(updsettings,'webfeatures')
+    ]);
 
     GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
-    RETURN [ applied := CreateAppliedPromise(CELL[subsystems, source := "UpdateSiteMetadata" ]) ];
   }
 >;
 
@@ -450,6 +445,7 @@ PUBLIC OBJECT FUNCTION CreateSiteFromFolder(INTEGER rootfolderid)
                       ]);
   GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
   GetWHFSCommitHandler()->ObjectUpdate(rootfolderid, siteinfo.parent, rootfolderid, TRUE);
+  GetWHFSCommitHandler()->SiteUpdated(rootfolderid, [ analyze_output := TRUE, site_profile_refs := TRUE ]);
   GetPrimary()->BroadcastOnCommit("system:sites", [ siteid := rootfolderid ]);
   RETURN OpenSite(rootfolderid);
 }

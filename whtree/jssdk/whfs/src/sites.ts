@@ -3,9 +3,9 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType, whfsType, type TypedInstanceData } from "./contenttypes";
-import { createAppliedPromise } from "@webhare/services/src/applyconfig.ts";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { list, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
+import { whfsFinishHandler } from "./finishhandler";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -115,16 +115,19 @@ export class Site {
   }
 
   /** Update site settings */
-  async update(updates: UpdateableSiteSettings): Promise<{ applied: () => Promise<void> }> {
+  async update(updates: UpdateableSiteSettings) {
+    //TODO support outputWeb/outputFolder changes, and then we need to analyzeOutput in our siteUpdated call too
+
     let metadataupdate: Record<string, unknown> | undefined;
     if ("webDesign" in updates)
       metadataupdate = { ...metadataupdate, sitedesign: updates.webDesign };
     if ("webFeatures" in updates)
       metadataupdate = { ...metadataupdate, webfeatures: updates.webFeatures?.length ? updates.webFeatures.sort() : [] };
     if (metadataupdate)
-      await openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(this.id, metadataupdate);
+      await whfsType("platform:web.sitesettings").set(this.id, metadataupdate);
+    if ("webDesign" in updates || "webFeatures" in updates)
+      whfsFinishHandler().siteUpdated(this.id, { siteProfileRefs: true });
 
-    return { applied: createAppliedPromise({ subsystems: ["siteprofilerefs"], source: "site.update" }) };
   }
 }
 

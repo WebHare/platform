@@ -196,16 +196,13 @@ async function testSiteUpdates() {
   test.eq("publisher:nodesign", await testsitejs.getWebDesign());
   test.eq(null, await testerhs.getUserData("webhare_testsuite:webfeatures"));
 
-  const updateres_hs = await testsitehs.update({ webFeatures: ["webhare_testsuite:testfeature"], webDesign: "webhare_testsuite:basetest" });
-  const updateres_js = await testsitejs.update({ webFeatures: ["webhare_testsuite:testfeature"], webDesign: "webhare_testsuite:basetestjs" });
+  await testsitehs.update({ webFeatures: ["webhare_testsuite:testfeature"], webDesign: "webhare_testsuite:basetest" });
+  await testsitejs.update({ webFeatures: ["webhare_testsuite:testfeature"], webDesign: "webhare_testsuite:basetestjs" });
   test.eq(["webhare_testsuite:testfeature"], await testsitejs.getWebFeatures());
   test.eq("webhare_testsuite:basetestjs", await testsitejs.getWebDesign());
   test.eq({ feature: "webhare_testsuite:testfeature" }, await testerhs.getUserData("webhare_testsuite:webfeatures"));
 
   await whdb.commitWork();
-
-  await updateres_hs.applied();
-  await updateres_js.applied();
 
   const tester2 = await getApplyTesterForObject(await testsitejs.openFolder("."));
   test.eq({ fish: true }, await tester2.getUserData("webhare_testsuite:blub"));

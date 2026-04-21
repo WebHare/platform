@@ -5,11 +5,12 @@ import { finishHandlerFactory } from "@webhare/whdb/src/impl";
 import { db, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { convertToWillPublish, isPublish, isQueuedForPublication, PubPrio_DirectEdit } from "./support";
-import { openBackendService } from "@webhare/services";
+import { applyConfiguration, openBackendService } from "@webhare/services";
 import bridge, { type IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import { selectFSHighestParent } from "@webhare/whdb/src/functions";
 import { loadlib } from "@webhare/harescript";
 import { HSVMMarshallableOpaqueObject } from "@webhare/harescript/src/wasm-proxies";
+import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 
 /** Events on parentfolder level. Update is triggered by an update to indexDoc */
 export type WHFSFolderEventType = "update" | "fullrep";
@@ -109,6 +110,8 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
 
   /// reindex these objects explicitly, e.g. for invisible updates
   private _reindexes = new Set<number>();
+
+  private _configUpdates: Array<ConfigurableSubsystem> = [];
 
   /// Consilio reindex instructions
   private _toReindex = new Map<number, {
@@ -283,6 +286,10 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
   }
 
   async onCommit() {
+    if (this._configUpdates.length) {
+      await applyConfiguration({ subsystems: this._configUpdates, source: "whfsFinishHandler" });
+    }
+
     await this.handleRepublications();
 
     if (this._completionEvents.length || this._checkSiteSettings) {
@@ -454,8 +461,11 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
    * Sideeffects upon commit:
    * - the output analyzer will be triggered for the root folder of the site (recursively)
    */
-  siteUpdated(siteId: number) {
-    this.addAnalyzerTask(siteId, true);
+  siteUpdated(siteId: number, options?: { siteProfileRefs?: boolean; analyzeOutput?: boolean }) {
+    if (options?.analyzeOutput)
+      this.addAnalyzerTask(siteId, true);
+    if (options?.siteProfileRefs && !this._configUpdates.includes("siteprofilerefs"))
+      this._configUpdates.push("siteprofilerefs");
   }
 
   /** Called when the site settings have been changed

@@ -214,8 +214,7 @@ PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
 }
 
 /** @private */
-PUBLIC STATIC OBJECTTYPE __JSProxy
-<
+PUBLIC STATIC OBJECTTYPE __JSProxy <
   STRING "^$OBJECTID";
   STRING "^$WASMTYPE";
 
@@ -232,7 +231,21 @@ PUBLIC STATIC OBJECTTYPE __JSProxy
     CallJS("@webhare/harescript/src/wasm-proxies.ts#__setMember", this, name, value);
   }
 
-  PUBLIC VARIANT FUNCTION Call(STRING name, VARIANT ARRAY ...args) {
-    RETURN CallFunctionPtrVA(PTR CallJS, VARIANT[ "@webhare/harescript/src/wasm-proxies.ts#__callMember", this, name, args ]);
+  PUBLIC VARIANT FUNCTION Call(VARIANT ARRAY ...args) {
+    RECORD options;
+    IF(Length(args) > 1 AND TYPEID(args[0]) = TYPEID(RECORD)) {
+      options := args[0];
+      DELETE FROM args AT 0;
+    }
+
+    options := ValidateOptions([ camelcase := FALSE ], options);
+
+    IF(Length(args) < 1)
+      THROW NEW Exception("Call requires a library#name path to invoke");
+
+    STRING name := args[0];
+    DELETE FROM args AT 0;
+
+    RETURN CallFunctionPtrVA(PTR CallJS, VARIANT[ "@webhare/harescript/src/wasm-proxies.ts#__callMember", this, name, args, options ]);
   }
 >;
