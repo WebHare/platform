@@ -1,0 +1,53 @@
+<?wh
+
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::ooxml/spreadsheet.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestXLSXExport() {
+  RECORD datasource := CallJS([camelcase := TRUE], "mod::webhare_testsuite/tests/jssdk/office-formats/data/tabular-sources.ts#getTestSpreadsheet", [ harescript_compatible := TRUE ]);
+  AWAIT ExpectScreenChange(+1, PTR RunColumnFileExportDialog(GetTestController(),datasource));
+  RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  RECORD ARRAY exportrows := GetOOXMLSpreadsheetRows(exportfile.data);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
+  TestEq([
+    [ "col 10:int64":="0",
+      "col 11:floating":="3.5",
+      "col 1:title":="Ti<>tle 1",
+      "col 2:bool":="TRUE",
+      "col 3:date":="2011-12-08T00:00:00Z",
+      "col 4:int":="17",
+      "col 5:time":="0.29041666666666666",
+      "col 7:datetime":="2011-12-08T07:58:12Z",
+      "col 8:mf":="1.5"
+    ],[
+      "col 10:int64" := "42",
+      "col 11:floating" := "1.30000000004",
+      "col 1:title" := "Tit&le 2\nnext line!",
+      "col 2:bool" := "FALSE",
+      "col 3:date" := "2011-11-08T00:00:00Z",
+      "col 4:int" := "666",
+      "col 5:time" := "0.0077083333333333335",
+      "col 7:datetime" := "2011-11-09T00:06:06Z",
+      "col 8:mf" := "2.5"
+    ],["col 10:int64" := "0",
+      "col 11:floating" := "",
+      "col 1:title" := "Third row",
+      "col 2:bool" := "FALSE",
+      "col 3:date" := "",
+      "col 4:int" := "0",
+      "col 5:time" := "0",
+      "col 7:datetime" := "",
+      "col 8:mf" := "0"
+    ]
+  ], exportrows);
+}
+
+RunTestFramework([ PTR TestXLSXExport
+                 ]);
