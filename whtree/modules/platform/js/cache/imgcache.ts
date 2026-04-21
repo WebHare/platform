@@ -49,6 +49,9 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
     alpha: ((method.bgColor >> 24) & 0xff) / 255
   } : undefined;
 
+  if (infile.rotation === 90 || infile.rotation === 270)
+    [infile.width, infile.height] = [infile.height, infile.width]; //swap dimensions for rotated images, as HS gives the original dimensions before reversing any rotation
+
   const explain = explainImageProcessing(infile, method);
   const lossless = infile.mediaType !== "image/jpeg";
 
