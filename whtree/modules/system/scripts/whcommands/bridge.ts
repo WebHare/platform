@@ -7,7 +7,7 @@ import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-sys
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
 import { CLIRuntimeError, CLISyntaxError, run } from "@webhare/cli";
-import { getInspectorURL } from "@mod-platform/js/bridge/tools";
+import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 
 function parseHostPort(str: string) {
@@ -191,6 +191,12 @@ run({
           process.exitCode = 1;
           link.close();
         }
+      }
+    },
+    "get-locks": {
+      description: "Get current mutex locks",
+      main: async () => {
+        console.log(await listLocks());
       }
     },
     "findworker": {

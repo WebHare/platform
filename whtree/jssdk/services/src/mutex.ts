@@ -36,7 +36,34 @@ interface UnlockResponse {
   status: string;
 }
 
-export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask, InitResponse | LockResponse | UnlockResponse>;
+interface StatusTask {
+  task: "status";
+}
+
+export interface MutexListStatusResponse {
+  status: "ok";
+  links: Array<{
+    id: number;
+    clientname: string;
+    groupid: string;
+    connectedsince: Date;
+    waiting: boolean;
+    waituntil: Date;
+    waitfor: string;
+    waittrace: unknown[];
+  }>;
+  mutexes: Array<{
+    mutexname: string;
+    taken: boolean;
+    takenby: number;
+    waiters: number;
+    takentrace: unknown[];
+  }>;
+  log: unknown[];
+  logtraces: boolean;
+}
+
+export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask | StatusTask, InitResponse | LockResponse | UnlockResponse | MutexListStatusResponse>;
 export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
 
 class Mutex {
