@@ -4,6 +4,8 @@ import { HTTPMethod, createRedirectResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { decodeHSON } from "@webhare/hscompat/src/hscompat";
 import { IncomingWebRequest, newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
+import { listLocks } from "@mod-platform/js/bridge/tools";
+import { generateRandomId } from "@webhare/std";
 
 interface GetRequestDataResponse {
   method: string;
@@ -179,9 +181,48 @@ async function testJSBackedURLs() {
   }, await fetchresult.json());
 }
 
+async function testRequestSeparation() {
+  const baseURL = services.backendConfig.backendURL + ".webhare_testsuite/tests/js/";
+
+  const mutexBaseName = "webhare_testsuite:testrequestseparation_" + generateRandomId().toLowerCase();
+  const lock1 = await services.lockMutex(mutexBaseName + "_post");
+  const fetch1 = fetch(baseURL + "?type=worktest&postmutexname=" + encodeURIComponent(mutexBaseName) + "_post");
+
+  //Wait for fetch1 to lock its mutex - it will do this *after* beginWork
+  const raceResult1 = await Promise.race([
+    test.wait(async () => (await listLocks()).mutexes.find(lock => lock.mutexname === mutexBaseName + "_post")?.waiters === 1).then(() => null),
+    fetch1
+  ]);
+  test.eq(null, raceResult1);
+
+  //Prepare fetch2. Stop it before beginWork
+  const lock2 = await services.lockMutex(mutexBaseName + "_pre");
+  const fetch2 = fetch(baseURL + "?type=worktest&premutexname=" + encodeURIComponent(mutexBaseName) + "_pre");
+
+  const raceResult2 = await Promise.race([
+    test.wait(async () => (await listLocks()).mutexes.find(lock => lock.mutexname === mutexBaseName + "_pre")?.waiters === 1).then(() => null),
+    fetch2
+  ]);
+  test.eq(null, raceResult2);
+
+  //Release fetch2, it should hang in beginWork (TODO Could we verify *that* instead?)
+  lock2.release();
+  await test.sleep(100); //will hopefully do
+
+  //Release fetch1
+  lock1.release();
+  test.eq(200, (await fetch1).status);
+
+  //Release fetch2
+  lock2.release();
+  test.eq(200, (await fetch2).status);
+}
+
+
 test.runTests([
   testRouterAPIs,
   testWebRequest,
   testHSWebserver,
-  testJSBackedURLs
+  testJSBackedURLs,
+  testRequestSeparation
 ]);
