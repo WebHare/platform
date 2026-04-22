@@ -270,10 +270,10 @@ PUBLIC RECORD FUNCTION GfxResizeWrappedImageWithMethod(RECORD infile, RECORD res
   RETURN retval;
 }
 
-//Basd on MakeJPEGFile
+//Based on MakeJPEGFile
 RECORD FUNCTION GetJPEGRotationInformation(BLOB jpeg) {
   INTEGER filehandle := OpenBlobAsFile(jpeg);
-  INTEGER filelen := LEngth(jpeg);
+  INTEGER filelen := Length(jpeg);
 
   //JPEG is a much complexer file format. We must scan for a 'SOFn' header, containing image data
   INTEGER filepos := 2; //initial segment
