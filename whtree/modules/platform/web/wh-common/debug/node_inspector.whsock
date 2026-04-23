@@ -48,7 +48,6 @@ ASYNC MACRO HandleWebsocket() {
       }
       SWITCH (packet.op) {
         CASE 1 { // data
-          PRINTTO(2, "FROM NODE:" || packet.data || "\n");
           handler->SendData(packet.data);
         }
         DEFAULT {
@@ -69,7 +68,6 @@ ASYNC MACRO HandleWebsocket() {
 
 MACRO OnData(STRING data)
 {
-  PRINTTO(2, "FROM WEB:" || data || "\n");
   websocket->SendData(data);
 }
 
