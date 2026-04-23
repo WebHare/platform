@@ -179,7 +179,7 @@ true #no chromium now
  # CHROMEVERSION="$(/usr/bin/chromium-browser --version |cut -d' ' -f3)"
 else
   # Install chrome. Looks like we can also find versions here: https://github.com/ulixee/chrome-versions/blob/main/versions.json
-  # Ensure the version you select has a "linux" key and look at the exasct URL, not just the version (may need a -1)
+  # Ensure the version you select has a "linux" key and look at the exact URL, not just the version (may need a -1)
   #CHROMEVERSION=current
   CHROMEVERSION=136.0.7103.113-1
   curl --output /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROMEVERSION}_amd64.deb
