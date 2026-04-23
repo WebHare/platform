@@ -314,7 +314,7 @@ function fixAutcompleteSuffix(ac: string) {
     return ac + '\n';
 }
 
-export function inferTypes<
+export function inferRunCliTypes<
   const E extends object,
   const S extends object,
   const Z
@@ -615,7 +615,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
  * @param options - Options for the run
  *    - argv: Override arguments. (defaults to process.argv.slice(2))
  */
-export function run<
+export function runCli<
   const E extends object,
   const S extends object
 >(
