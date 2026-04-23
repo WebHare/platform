@@ -8,7 +8,6 @@
 #include <stdarg.h>
 #include <libxml/catalog.h>
 #include <libxml/schemasInternals.h>
-#include <libxml/schematron.h>
 #include <libxml/c14n.h>
 
 #include <iostream>
@@ -451,7 +450,6 @@ bool XML_CreateObject(HSVM *hsvm, ObjectType type, HSVM_VariableId var, XMLConte
                 case NodeObject:             createfunction = "__CREATEXMLNODEOBJECT"; fptr = &nccontext.fptr_nodeobject; break;
                 case CharacterDataObject:    createfunction = "__CREATEXMLCHARACTERDATAOBJECT"; fptr = &nccontext.fptr_characterdataobject; break;
                 case XMLSchemaObject:        createfunction = "__CREATEXMLSCHEMAOBJECT"; fptr = &nccontext.fptr_xmlschemaobject; break;
-                case SchematronSchemaObject: createfunction = "__CREATESCHEMATRONSCHEMAOBJECT"; fptr = &nccontext.fptr_schematronschemaobject; break;
                 case HTMLDocumentNodeObject: createfunction = "__CREATEHTMLDOCUMENTOBJECT"; fptr = &nccontext.fptr_htmldocumentobject; break;
                 default:
                         HSVM_ReportCustomError(hsvm, ("Unsupported object type " + Blex::AnyToString((int)type)).c_str());
@@ -888,27 +886,6 @@ void XMLDOMImplementation_MakeXMLSchema(HSVM *hsvm, HSVM_VariableId id_set)
         xmlnode->node = (xmlNodePtr)realdoc->GetDocPtr();
 }
 
-void XMLDOMImplementation_MakeSchematronSchema(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Object);
-
-        XMLContextReadDataPtr realdoc(new XMLContextReadData);
-        if(!realdoc->ParseXMLBlob(hsvm, HSVM_Arg(1), HSVM_Arg(2), HSVM_BooleanGet(hsvm, HSVM_Arg(3))))
-            return;
-
-        if (!XML_CreateObject(hsvm, SchematronSchemaObject, id_set, realdoc))
-            return;
-
-        XMLNodeContext::AutoCreateRef xmlnode(hsvm, id_set);
-        xmlnode->node = (xmlNodePtr)realdoc->GetDocPtr();
-
-        Blex::XML::SetXMLGenericThreadErrorCatcher(&realdoc->errorcatcher);
-        xmlSchematronPtr sptr = realdoc->ParseAsSchematronValidator(hsvm, HSVM_Arg(0));
-        Blex::XML::SetXMLGenericThreadErrorCatcher(0);
-        if (!sptr)
-            return;
-}
-
 
 //---------------------------------------------------------------------------
 // Document
@@ -1040,48 +1017,6 @@ void XMLSchema_ValidateDocument(HSVM *hsvm, HSVM_VariableId id_set)
 
         if (docrootnode)
             TranslateXMLNsNodesAfterValidation(docrootnode, xmlns);
-
-        GetErrorsFromCatcher(hsvm, id_set, catcher);
-}
-
-//---------------------------------------------------------------------------
-// SchematronSchema
-
-void SchematronSchema_ValidateDocument(HSVM *hsvm, HSVM_VariableId id_set)
-{
-        XMLNodeContext::Ref xmlschemanode(hsvm, HSVM_Arg(0));
-        XMLNodeContext::Ref xmldoc(hsvm, HSVM_Arg(1));
-        if(!xmldoc->realdoc.get())
-        {
-                HSVM_ReportCustomError(hsvm, "Object is not a valid schematron schema");
-                return;
-        }
-
-        xmlSchematronPtr schematronschema = xmlschemanode->realdoc->GetSchematronSchemaPtr();
-        if(!schematronschema)
-        {
-                HSVM_ReportCustomError(hsvm, "Object is not a valid schematron schema, check the parse errors");
-                return;
-        }
-
-        xmlNodePtr docrootnode = xmlDocGetRootElement(xmldoc->realdoc->GetDocPtr());
-
-        xmlNsPtr xmlns = xmlSearchNs(xmldoc->realdoc->GetDocPtr(), docrootnode, AsXmlChar("xmlns"));
-        if(docrootnode)
-                TranslateXMLNsNodesForValidation(docrootnode, xmlns);
-
-        // Validate the XML file
-        Blex::XML::ErrorCatcher catcher;
-        xmlSchematronValidCtxtPtr val_ctx = xmlSchematronNewValidCtxt(schematronschema, XML_SCHEMATRON_OUT_ERROR);
-        Blex::XML::SetXMLGenericThreadErrorCatcher(&catcher);
-        xmlSchematronSetValidStructuredErrors(val_ctx, HareScript::Xml::HandleXMLError, &catcher);
-        xmlSchematronValidateDoc(val_ctx, xmldoc->realdoc->GetDocPtr());
-        xmlSchematronSetValidStructuredErrors(val_ctx, NULL, NULL);
-        Blex::XML::SetXMLGenericThreadErrorCatcher(0);
-        xmlSchematronFreeValidCtxt(val_ctx);
-
-        if(docrootnode)
-                TranslateXMLNsNodesAfterValidation(docrootnode, xmlns);
 
         GetErrorsFromCatcher(hsvm, id_set, catcher);
 }
@@ -2527,13 +2462,10 @@ int RegisterDomObjectFunctions(HSVM_RegData *regdata)
         HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENT::O:XSB", HareScript::Xml::XMLDOMImplementation_MakeDocument);
         HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKEXMLSCHEMA::O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeXMLSchema);
         HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENTFROMHTML::O:XSBB", HareScript::Xml::XMLDOMImplementation_MakeHTMLDocument);
-        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKESCHEMATRONSCHEMA::O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeSchematronSchema);
 
         HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDELEMENTBYNAME::O:OS", HareScript::Xml::XMLSchema_FindElementByName);
         HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDTYPEBYNAME::O:OS", HareScript::Xml::XMLSchema_FindTypeByName);
         HSVM_RegisterFunction(regdata, "XMLSCHEMA#__VALIDATEDOCUMENT::RA:OO", HareScript::Xml::XMLSchema_ValidateDocument);
-
-        HSVM_RegisterFunction(regdata, "SCHEMATRONSCHEMA#__VALIDATEDOCUMENT::RA:OO", HareScript::Xml::SchematronSchema_ValidateDocument);
 
         HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETDOCUMENTELEMENT::O:O", HareScript::Xml::XMLDoc_GetDocumentElement);
         HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETREADONLY::B:O", HareScript::Xml::XMLDoc_GetReadOnly);

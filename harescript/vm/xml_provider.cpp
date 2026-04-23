@@ -187,8 +187,6 @@ XMLDocRef::Data::SecureData::~SecureData()
 {
         if (schema)
             xmlSchemaFree(schema);
-        if (schematronschema)
-            xmlSchematronFree(schematronschema);
 }
 
 // -----------------------------------------------------------------------------
@@ -223,16 +221,6 @@ xmlSchemaPtr XMLContextReadData::GetSchemaPtr()
 
         XMLDocRef::Data::LockedSecureData::WriteRef lock(data->sdata);
         return lock->schema;
-}
-
-xmlSchematronPtr XMLContextReadData::GetSchematronSchemaPtr()
-{
-        XMLDocRef::Data *data = doc.get();
-        if (!data)
-           return 0;
-
-        XMLDocRef::Data::LockedSecureData::WriteRef lock(data->sdata);
-        return lock->schematronschema;
 }
 
 // -----------------------------------------------------------------------------
@@ -491,42 +479,6 @@ xmlSchemaPtr XMLContextReadData::ParseAsValidator(HSVM *vm, HSVM_VariableId domi
                    xmlSchemaFree(xsdschema);
         }
         return xsdschema;
-}
-
-xmlSchematronPtr XMLContextReadData::ParseAsSchematronValidator(HSVM *vm, HSVM_VariableId domimpl)
-{
-        XMLDocRef::Data *data = doc.get();
-        if (!data)
-           return 0;
-
-        {
-                XMLDocRef::Data::LockedSecureData::WriteRef lock(data->sdata);
-                if (lock->schematronschema)
-                    return lock->schematronschema;
-        }
-
-        xmlSchematronPtr schematronschema = NULL;
-        xmlSchematronParserCtxtPtr stron_ctx = xmlSchematronNewDocParserCtxt(GetDocPtr());
-        //xmlSchematronSetValidStructuredErrors(stron_ctx, HareScript::Xml::HandleXMLError, &errorcatcher);
-        Blex::XML::PushEntityLoader(std::bind(&XMLContextReadData::GetExternalSchema, this, vm, domimpl, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-        schematronschema = xmlSchematronParse(stron_ctx);
-        bool error = !Blex::XML::PopEntityLoader();
-        xmlSchematronFreeParserCtxt(stron_ctx);
-
-        if (error || !schematronschema)
-        {
-                xmlSchematronFree(schematronschema);
-                return 0;
-        }
-
-        {
-                XMLDocRef::Data::LockedSecureData::WriteRef lock(data->sdata);
-                if (!lock->schematronschema)
-                    lock->schematronschema = schematronschema;
-                else
-                   xmlSchematronFree(schematronschema);
-        }
-        return schematronschema;
 }
 
 bool XMLContextReadData::ParseAndValidateXML(XMLBlobData &xmlblob, XMLBlobData *xsdblob, xmlCharEncoding enc, bool readonly)
