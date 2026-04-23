@@ -1,6 +1,7 @@
 
 import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
-import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
+import { intOption, enumOption, floatOption, runCli, CLIRuntimeError, inferRunCliTypes } from "@webhare/cli";
+import { parse, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
 import * as test from "@webhare/test-backend";
@@ -506,7 +507,7 @@ async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<{ d
 
 async function testCLIRun() {
   {
-    const res = run({
+    const res = runCli({
       name: "test",
       description: "Test command",
       flags: {},
@@ -522,7 +523,7 @@ async function testCLIRun() {
     await waitRunDone(res);
   }
   {
-    const res = run({
+    const res = runCli({
       name: "test",
       description: "Test command",
       flags: { "v,verbose": { default: false } },
@@ -549,7 +550,7 @@ async function testCLIRun() {
   // TODO: intercept console.log and check for output
   test.eq(0, process.exitCode ?? 0);
   {
-    const { output } = await waitRunDone(run({
+    const { output } = await waitRunDone(runCli({
       options: { a: "option-a", b: { description: "option-b" } },
       flags: { v: "flag-v", w: { description: "flag-w" } },
       main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
@@ -565,15 +566,66 @@ Options:
   -w                    flag-w
 `, output);
   }
-  await waitRunDone(run({
+  await waitRunDone(runCli({
     main() { throw new CLIRuntimeError("Test error", { exitCode: 2 }); }
   }));
   test.eq(2, process.exitCode);
-  await waitRunDone(run({
+  await waitRunDone(runCli({
     main() { throw new CLIRuntimeError("", {}); }
   }));
   test.eq(2, process.exitCode);
   process.exitCode = 0;
+
+  dontRun(() => {
+    // Test if main() without arguments, options and flags is handled correctly by the type system
+    runCli({
+      subCommands: {
+        test: {
+          flags: { a: "x" },
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        },
+        test2: {
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        }
+      }
+    });
+
+    // Infer types of main functions, store in a variable and check if parse & run accept the type
+    const inferred = inferRunCliTypes({
+      subCommands: {
+        test: {
+          flags: { a: "x" },
+          options: { b: { type: enumOption(["a", "b"]) } },
+          main({ opts, args }) {
+            opts satisfies { a: boolean };
+            args satisfies object;
+          }
+        },
+        test2: {
+          main({ opts, args }) {
+            opts satisfies object;
+            args satisfies object;
+          }
+        }
+      }
+    });
+
+    test.typeAssert<test.Equals<
+      typeof inferred.subCommands.test.main,
+      (data: { opts: { a: boolean; b?: "a" | "b" }; args: object; specifiedOpts: ("a" | "b")[]; cmd: "test" }) => void>>();
+    test.typeAssert<test.Equals<
+      typeof inferred.subCommands.test2.main,
+      (data: { opts: object; args: object; specifiedOpts: never[]; cmd: "test2" }) => void>>();
+
+    parse(inferred, ["test"]);
+    runCli(inferred);
+  });
 }
 
 async function testCLIOptionTypes() {

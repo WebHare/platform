@@ -185,8 +185,8 @@ type GlobalData<Rec extends OptArgBase> = {
 
 /// Build the declarations for the main functions
 type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
-  (Simplify<Rec> extends { subCommands: any } ? {
-    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<Simplify<Rec>["subCommands"][K], K, Rec> };
+  (NarrowTruthy<Rec> extends { subCommands: any } ? {
+    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<NarrowTruthy<Rec>["subCommands"][K], K, Rec> };
   } : {
     main: (data: MainData<Rec, Cmd, ExtraOpts>) => CommandReturn;
   });
@@ -312,6 +312,16 @@ function fixAutcompleteSuffix(ac: string) {
     return ac.substring(0, ac.length - 1);
   else
     return ac + '\n';
+}
+
+export function inferRunCliTypes<
+  const E extends object,
+  const S extends object,
+  const Z
+>(
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>> & Z
+): Z {
+  return data;
 }
 
 export function parse<
@@ -605,7 +615,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
  * @param options - Options for the run
  *    - argv: Override arguments. (defaults to process.argv.slice(2))
  */
-export function run<
+export function runCli<
   const E extends object,
   const S extends object
 >(
