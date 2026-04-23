@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "mod::system/lib/cluster.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
@@ -42,7 +43,7 @@ PUBLIC MACRO ProcessBounce(RECORD parseresult) {
   }
   ELSE
   {
-    THROW NEW Exception(`Unrecognized message id: ${ourmessageid}`);
+    //Drop it. Throwing an exception will just cause the webhook poster to retry indefinitely
+    LogError("platform:processbounce", `Unrecognized message id: ${ourmessageid}`, parseresult);
   }
-
 }
