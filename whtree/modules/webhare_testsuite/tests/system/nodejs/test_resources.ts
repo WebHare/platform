@@ -2,7 +2,6 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as services from "@webhare/services";
 import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
-import type { Rotation } from "@webhare/services/src/descriptor";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
@@ -272,8 +271,6 @@ async function testResourceDescriptors() {
       height: 480,
       extension: ".bmp",
       dominantColor: "#080808",
-      rotation: 0,
-      mirrored: false
     }, homersbrain.getMetadata());
 
     const exp = await homersbrain.export();
@@ -299,10 +296,8 @@ async function testResourceDescriptors() {
     test.eqPartial({
       mediaType: "image/png",
       hash: null,
-      mirrored: false,
       width: 385,
       height: 236,
-      rotation: 0,
       dominantColor: null,
       extension: ".png",
     }, fish.getMetadata());
@@ -347,10 +342,8 @@ async function testResourceDescriptors() {
     test.eqPartial({
       mediaType: "image/jpeg",
       hash: null,
-      mirrored: true,
       width: 600,
       height: 450,
-      rotation: 90 as Rotation,
       dominantColor: null
     }, landscape.getMetadata());
   }
@@ -406,10 +399,8 @@ async function testGIFs() {
   test.eqPartial({
     mediaType: "image/gif",
     hash: "hy_6nckd_mgbm-gsu0HLzcCYXnerJ-FYPjjYThVDy3Q",
-    mirrored: false,
     width: 1,
     height: 1,
-    rotation: 0,
     dominantColor: "transparent",
     extension: '.gif'
   }, parsedgif.getMetadata());
@@ -421,10 +412,8 @@ async function testGIFs() {
   test.eqPartial({
     mediaType: "application/octet-stream",
     hash: "HSYfiL-sB6VV2_nfkPTR_IxepvNXb1oBbJ0rzvrwmgM",
-    mirrored: null,
     width: null,
     height: null,
-    rotation: null,
     dominantColor: null
   }, brokenparsedgif.getMetadata());
 }

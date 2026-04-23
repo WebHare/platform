@@ -6,7 +6,6 @@ import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
-import type { Rotation } from "@webhare/services/src/descriptor";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
@@ -21,8 +20,8 @@ export type HareScriptResourceDescriptor = {
   hash: string;
   filename: string;
   extension: string;
-  rotation: Rotation;
-  mirrored: boolean;
+  rotation: 0;
+  mirrored: false;
   refpoint: { x: number; y: number } | null;
   source_fsobject: number;
   dominantcolor: string;
@@ -95,8 +94,6 @@ export function importHSResourceDescriptor(resource: HareScriptResourceDescripto
     mediaType: resource.mimetype,
     extension: resource.extension,
     hash: resource.hash,
-    rotation: resource.rotation,
-    mirrored: resource.mirrored,
     refPoint: resource.refpoint,
     height: resource.height,
     width: resource.width,
@@ -112,8 +109,8 @@ function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: strin
     mimetype: resource.mediaType,
     extension: resource.extension ?? throwError("ResourceDescriptor must have an extension set"),
     hash: resource.hash ?? throwError("ResourceDescriptor must have a hash set"),
-    rotation: resource.rotation ?? 0,
-    mirrored: resource.mirrored ?? false,
+    rotation: 0,
+    mirrored: false,
     refpoint: resource.refPoint,
     width: resource.width || 0,
     height: resource.height || 0,

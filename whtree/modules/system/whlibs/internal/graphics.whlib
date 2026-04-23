@@ -696,21 +696,9 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
   ];
 
   INTEGER quality := (CellExists(method, "quality") ? method.quality : 0) ?? GetCell(default_qualities, outtype);
-  INTEGER rotate;
-  BOOLEAN mirror;
-  BOOLEAN issideways;
 
-  //First figure out how to undo the rotation on the image, if any
-  IF(method.fixorientation)
-  {
-    IF(scannedblob.rotation IN [90,180,270])
-      rotate := 360 - scannedblob.rotation;
-    mirror := scannedblob.mirrored;
-    issideways := rotate IN [90,270];
-  }
-
-  INTEGER width  := issideways ? scannedblob.height : scannedblob.width;
-  INTEGER height := issideways ? scannedblob.width  : scannedblob.height;
+  INTEGER width  := scannedblob.width;
+  INTEGER height := scannedblob.height;
 
   RECORD instr := [ outwidth := width
                   , outheight := height
@@ -723,8 +711,6 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
                   , noforce := method.noforce
                   , quality := quality
                   , grayscale := method.grayscale
-                  , rotate := rotate
-                  , mirror := mirror
                   , hblur := hblur
                   , vblur := vblur
                   , refpoint := CellExists(scannedblob, "REFPOINT") ? scannedblob.refpoint : DEFAULT RECORD
@@ -742,25 +728,6 @@ RECORD FUNCTION GetResizeInstruction(RECORD baseinstruction, RECORD method)
   IF(method.method = "none")
     RETURN baseinstruction;
 
-/*  IF(method.method = "rotate") Rotate is temporarily
-  {
-    // After ValidateResizeMethod, if method = "rotate", there is a cell "angle" (otherwise the method would've been reset to
-    // "none"), which is either 0, 90, 180 or 270
-    RETURN [ outwidth := method.angle IN [ 0, 180 ] ? width : height
-           , outheight := method.angle IN [ 0, 180 ] ? height : width
-           , outtype := outtype
-           , renderx := 0
-           , rendery := 0
-           , renderwidth := method.angle IN [ 0, 180 ] ? width : height
-           , renderheight := method.angle IN [ 0, 180 ] ? height : width
-           , bgcolor := method.bgcolor
-           , noforce := method.noforce
-           , quality := method.quality
-           , grayscale := method.grayscale
-           , rotation := method.angle
-           ];
-  }
-*/
   INTEGER setwidth := CellExists(method, "setwidth") ? method.setwidth : 0;
   INTEGER setheight := CellExists(method, "setheight") ? method.setheight : 0;
 

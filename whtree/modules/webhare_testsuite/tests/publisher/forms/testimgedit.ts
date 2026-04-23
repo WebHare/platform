@@ -42,8 +42,8 @@ test.runTests(
       test: function () {
         const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');
         test.eq('.jpg', serverreponse.img.extension);
-        test.eq(600, serverreponse.img.width);
-        test.eq(90, serverreponse.img.rotation);
+        test.eq(450, serverreponse.img.width);
+        test.eq(0, serverreponse.img.rotation);
       }
     },
     {

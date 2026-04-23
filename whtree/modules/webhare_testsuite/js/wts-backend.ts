@@ -13,7 +13,8 @@ import { openFile, openFileOrFolder, openFolder, openSite } from "@webhare/whfs"
 
 export const wellKnownHashes = {
   snowbeagleJPG: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw",
-  emptyFile: "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
+  emptyFile: "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
+  portrait6: "Mjzg1xQL52y-ZRHiaHZiQd_nTt3zS3Pyf0Y35VLI2CQ"
 };
 
 /// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)

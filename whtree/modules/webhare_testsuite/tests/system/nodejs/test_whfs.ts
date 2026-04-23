@@ -171,8 +171,6 @@ async function testWHFS() {
   test.eq('.jpg', imgfile.data.extension);
   test.eq(1024, imgfile.data.width);
   test.eq(768, imgfile.data.height);
-  test.eq(0, imgfile.data.rotation);
-  test.eq(false, imgfile.data.mirrored);
   test.eq(null, imgfile.data.refPoint);
   test.eq("#E8E8E8", imgfile.data.dominantColor, "Was #EFF0EB with HareScript reset.whscr");
   test.eq("imgeditfile.jpeg", imgfile.data.fileName);
@@ -237,6 +235,12 @@ async function testWHFS() {
   await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModified: new Date(2023, 1, 1).toTemporalInstant() });
   test.eq(new Date(2022, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
   test.eq(new Date(2023, 1, 1).toTemporalInstant(), goldFish2.contentModified);
+
+  //verify we properly write rotated images metadata
+  const portrait6 = await tmpfolder.createFile("portrait6.jpg", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/portrait_6.jpg"), publish: true });
+  test.eq(450, portrait6.data.width);
+  test.eq(600, portrait6.data.height);
+  test.eq(test.wellKnownHashes.portrait6, portrait6.data.hash);
 
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);

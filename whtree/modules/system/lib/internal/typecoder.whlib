@@ -230,10 +230,8 @@ PUBLIC STRING FUNCTION EncodeScanData(RECORD scandata, BOOLEAN extendedformat)
               , w := scandata.width
               , h := scandata.height
               ];
-    IF(scandata.rotation IN [90,180,270])
-      INSERT CELL r := scandata.rotation INTO retval;
-    IF(scandata.mirrored)
-      INSERT CELL s := TRUE INTO retval;//'s' as in 'spiegel'
+    IF(scandata.rotation != 0 OR scandata.mirrored)
+      THROW NEW Exception(`Recording scandata with rotation/mirror, these should all be zeroed now`);
     IF(RecordExists(scandata.refpoint))
       INSERT CELL p := scandata.refpoint INTO retval;
     IF(scandata.dominantcolor != "")
@@ -262,14 +260,11 @@ PUBLIC RECORD FUNCTION DecodeScanData(STRING encodeddata)
 
   IF(CellExists(parseddata,'w')) //'w' implies an image
   {
+    BOOLEAN sideways := CellExists(parseddata,'r') AND (parseddata.r = 90 OR parseddata.r = 270);
     retval := [ ...retval
-              , width := parseddata.w
-              , height := parseddata.h
+              , width := sideways ? parseddata.h : parseddata.w
+              , height := sideways ? parseddata.w : parseddata.h
               ];
-    IF(CellExists(parseddata,'r'))
-      retval.rotation := parseddata.r;
-    IF(CellExists(parseddata,'s'))
-      retval.mirrored := parseddata.s;
     IF(CellExists(parseddata,'p'))
       retval.refpoint := parseddata.p;
     IF(CellExists(parseddata,'d'))
@@ -329,14 +324,15 @@ PUBLIC RECORD FUNCTION SplitBlobSetting(STRING setting, BLOB blobdata, INTEGER f
           refpoint := [ x := x, y := y ];
       }
     }
+    INTEGER rotation := Length(toks) >= 7 ? ToInteger(toks[6],0) : 0;
     decodeddata := [ ...basestoredfile
                    , filename := DecodeJava(toks[1])
                    , mimetype := DecodeJava(toks[2])
-                   , width := ToInteger(toks[3],0)
-                   , height := ToInteger(toks[4],0)
+                   , width := ToInteger(toks[rotation = 90 OR rotation = 270 ? 4 : 3],0)
+                   , height := ToInteger(toks[rotation = 90 OR rotation = 270 ? 3 : 4],0)
                    , hash := Length(toks) >= 6 ? toks[5] : ""
-                   , rotation := Length(toks) >= 7 ? ToInteger(toks[6],0) : 0
-                   , mirrored := Length(toks) >= 8 AND toks[7]="M"
+                   , rotation := 0
+                   , mirrored := FALSE
                    , refpoint := refpoint
                    , extension := GetExtensionForMimeType(toks[1])
                    ];

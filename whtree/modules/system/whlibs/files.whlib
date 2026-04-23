@@ -836,8 +836,8 @@ PUBLIC STRING FUNCTION GetExtensionForMimeType(STRING mimetype)
     @cell(string) return.mimetype The mimetype for the file. If unrecognized, `application/octet-stream`
     @cell(integer) return.width Image width (in pixels)
     @cell(integer) return.heigh Image height (in pixels)
-    @cell(integer) return.rotation Image rotation in degrees (0,90,180 or 270)
-    @cell(boolean) return.mirrored True if this is a mirrored image
+    @cell(integer) return.rotation Always 0
+    @cell(boolean) return.mirrored Always FALSE
     @cell(record) return.refpoint Reference point if set, default record otherwise
     @cell(integer) return.refpoint.x X coordinate of reference point (in pixels)
     @cell(integer) return.refpoint.y Y coordinate of reference point (in pixels)
@@ -864,12 +864,9 @@ PUBLIC RECORD FUNCTION ScanBlob(BLOB toscan, STRING filename DEFAULTSTO "", RECO
       RECORD imginfo := CallJS("@webhare/services/src/descriptor.ts#analyzeImage", toscan, options.extractdominantcolor);
       //deal with potential nulls
       imginfo := EnforceStructure([ width := 0, height := 0, rotation := 0, mirrored := FALSE, dominantcolor := "", mediatype := "" ], imginfo);
-      BOOLEAN isrotated := imginfo.rotation IN [ 90, 270];
       base := CELL
           [ ...base
           , ...imginfo
-          , width := isrotated ? imginfo.height : imginfo.width
-          , height := isrotated ? imginfo.width : imginfo.height
           , mimetype := imginfo.mediatype ?? base.mimetype
           , DELETE mediatype
           ];

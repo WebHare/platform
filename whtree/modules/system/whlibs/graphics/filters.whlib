@@ -6,6 +6,7 @@
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/graphics-tags.whlib";
 
 /** @short Change colors in a canvas
     @param canvas ID of canvas to grayscale
@@ -269,6 +270,56 @@ PUBLIC RECORD FUNCTION GfxResizeWrappedImageWithMethod(RECORD infile, RECORD res
   RETURN retval;
 }
 
+//Based on MakeJPEGFile
+RECORD FUNCTION GetJPEGRotationInformation(BLOB jpeg) {
+  INTEGER filehandle := OpenBlobAsFile(jpeg);
+  INTEGER filelen := Length(jpeg);
+
+  //JPEG is a much complexer file format. We must scan for a 'SOFn' header, containing image data
+  INTEGER filepos := 2; //initial segment
+
+  RECORD imginfo := [ height := 0, width := 0, bpp := 0, rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD ];
+  BOOLEAN have_imginfo, have_orientation;
+  WHILE (filepos < filelen AND NOT (have_imginfo AND have_orientation)) {
+    SetFilePointer(filehandle, filepos);
+    STRING segmentdata := ReadFrom(filehandle, 64);
+    RECORD segmentinfo := DecodePacket("start:C,type:C,len:N", segmentdata);
+    IF (NOT RecordExists(segmentinfo))
+      BREAK;
+
+    /* JPEG:
+       "Any marker may optionally be preceded by any number of fill bytes, which are bytes assigned code X’FF’."
+       apparently, hitting a type of '255' might mean switching one byte and restarting the parse. we're not handling that yet, then */
+    IF (segmentinfo.start = 255 AND segmentinfo.type IN [0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF]) { // Any SOF marker
+      RECORD imageinfo := DecodePacket(":@5,height:N,width:N,components:C", segmentdata);
+      IF(imageinfo.height <= 0 OR imageinfo.width <= 0)
+        BREAK;
+
+      imginfo.height := imageinfo.height;
+      imginfo.width := imageinfo.width;
+      imginfo.bpp := 8*imageinfo.components;
+
+      have_imginfo := TRUE;
+    }
+    IF (segmentinfo.start = 255 AND segmentinfo.type = 225 AND Substring(segmentdata,4,6) = "Exif\0\0") { //An APP1 EXIF data block
+      SetFilePointer(filehandle, filepos+10);
+      STRING exifdata := ReadFrom(filehandle, segmentinfo.len-8);
+      RECORD ARRAY tags := __ParseTIFFTags(PTR ReadEXIFData(exifdata, #1, #2));
+      RECORD orientation := SELECT * FROM tags WHERE tag=274 AND type=3;
+
+      IF(RecordExists(orientation) AND orientation.singlevalue >= 1 AND orientation.singlevalue <= 8) {
+        //the mirror is understood to be applied before rotation. so to reverse the properties below: first rotate 360-rotation, then unmirror
+        have_orientation := TRUE;
+        imginfo.mirrored := [FALSE,TRUE,FALSE,TRUE,TRUE,FALSE,TRUE,FALSE][orientation.singlevalue - 1];
+        imginfo.rotation := [0,0,180,180,270,270,90,90][orientation.singlevalue - 1];
+      }
+    }
+
+    filepos := filepos + 2 + segmentinfo.len; //to the next segment
+  }
+  CloseBlobFile(filehandle);
+  RETURN imginfo;
+}
 
 /** @short Resize an image with a given resizing method
     @param fileinfo Wrapped input image blob (i.e. WrapBlob, or ScanBlob with an added 'data' cell)
@@ -282,45 +333,47 @@ PUBLIC RECORD FUNCTION GfxResizeWrappedImageWithMethod(RECORD infile, RECORD res
                                color value). Default color is white.
 
 */
-PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD resizemethod)
-{
+PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD resizemethod) {
   IF(fileinfo.height = 0)
     RETURN DEFAULT RECORD;
 
   RECORD instructions := ExplainImageProcessing(fileinfo, CELL[format := "keep", ...resizemethod]);
+
+  RECORD imginfo;
+  IF(fileinfo.mimetype = "image/jpeg")
+    imginfo := GetJPEGRotationInformation(fileinfo.data);
+
+  //We won't be getting these from scanneddata anymore in WH6.0+
+  INTEGER rotation := RecordExists(imginfo) ? imginfo.rotation : 0;
+  BOOLEAN mirrored := RecordExists(imginfo) ? imginfo.mirrored : FALSE;
 
   //ADDME possible to detect untransparent PNG easily ?
   BOOLEAN input_maybe_transparent := fileinfo.mimetype != "image/jpeg";
 
   //Is the input exactly covering its output ?
   BOOLEAN exactcover := instructions.renderx = 0 AND instructions.rendery = 0
-                        AND instructions.outwidth = fileinfo.width AND instructions.outheight = fileinfo.height
-                        AND instructions.rotate = 0
-                        AND NOT instructions.mirror;
+                        AND instructions.outwidth = fileinfo.width AND instructions.outheight = fileinfo.height;
 
   //Get the input canvas
   INTEGER inputcanvas;
-  IF((instructions.renderwidth = fileinfo.width AND instructions.renderheight = fileinfo.height) AND instructions.rotate = 0 AND instructions.mirror = FALSE) //change input?
+  IF(instructions.renderwidth = fileinfo.width AND instructions.renderheight = fileinfo.height) //change input? we expect browers to handle JPEG orientation themselves now so that won't trigger rerendering
   {
     IF(exactcover AND instructions.noforce AND instructions.outtype = fileinfo.mimetype AND NOT instructions.grayscale) //don't open at all
       RETURN [ canvas := 0, outtype := fileinfo.mimetype, width := instructions.outwidth, height := instructions.outheight, refpoint := instructions.refpoint ];
-
-    inputcanvas := __DRAWLIB_V2_CREATECANVASFROMFILE(fileinfo.data);
   }
-  ELSE
-  {
-    INTEGER renderwidth  := instructions.rotate IN [90,270] ? instructions.renderheight : instructions.renderwidth;
-    INTEGER renderheight := instructions.rotate IN [90,270] ? instructions.renderwidth : instructions.renderheight;
 
-    inputcanvas := __DRAWLIB_V2_CREATERESIZEDCANVASFROMFILE(fileinfo.data, renderwidth, renderheight);
-  }
+
+  INTEGER renderwidth  := rotation IN [90,270] ? instructions.renderheight : instructions.renderwidth;
+  INTEGER renderheight := rotation IN [90,270] ? instructions.renderwidth : instructions.renderheight;
+
+  inputcanvas := __DRAWLIB_V2_CREATERESIZEDCANVASFROMFILE(fileinfo.data, renderwidth, renderheight);
 
   // Failed to open/resize the file?
   IF (inputcanvas = 0)
     RETURN DEFAULT RECORD;
 
   INTEGER outputcanvas;
-  IF(exactcover AND (instructions.bgcolor = 0x00FFFFFF OR NOT input_maybe_transparent))
+  IF(exactcover AND (instructions.bgcolor = 0x00FFFFFF OR NOT input_maybe_transparent) AND rotation = 0)
   {
     outputcanvas := inputcanvas;
   }
@@ -329,10 +382,12 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
     //ADDME jpeg has lossless transforms for rotation and mirroring. lookup jpegtran.c, might be worth it ?
 
     // Rotation is either 0, 90, 180 or 270
-    FOR (INTEGER step := instructions.rotate; step > 0; step := step - 90)
-      GfxRotateRightCanvas(inputcanvas);
+    IF(rotation > 0) {
+      FOR (INTEGER step := 360 - rotation; step > 0; step := step - 90)
+        GfxRotateRightCanvas(inputcanvas);
+    }
 
-    IF(instructions.mirror)
+    IF(mirrored)
       __DRAWLIB_V2_MIRRORCANVAS(inputcanvas);
 
     //The canvas needs to be rendered.
