@@ -4,11 +4,13 @@ import * as std from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat/src/datetime.ts";
 import { checkModuleScopedName } from "./naming";
 import { getCodeContext } from "./codecontexts";
+import type { StackTraceItem } from "@webhare/js-api-tools";
 
 interface InitTask {
   task: "init";
   clientname: string;
   groupid: string;
+  __responseKey: InitResponse;
 }
 interface InitResponse {
   status: "ok";
@@ -19,8 +21,9 @@ interface LockTask {
   task: "lock";
   mutexname: string;
   wait_until: Date;
-  trace: [];
+  trace: StackTraceItem[];
   trylock: boolean;
+  __responseKey: LockResponse;
 }
 
 interface LockResponse {
@@ -30,6 +33,7 @@ interface LockResponse {
 interface UnlockTask {
   task: "unlock";
   mutexname: string;
+  __responseKey: UnlockResponse;
 }
 
 interface UnlockResponse {
@@ -38,6 +42,7 @@ interface UnlockResponse {
 
 interface StatusTask {
   task: "status";
+  __responseKey: MutexListStatusResponse;
 }
 
 export interface MutexListStatusResponse {
@@ -63,7 +68,12 @@ export interface MutexListStatusResponse {
   logtraces: boolean;
 }
 
-export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask | StatusTask, InitResponse | LockResponse | UnlockResponse | MutexListStatusResponse>;
+interface SetDebuggingEvent {
+  task: "setdebugging";
+  logtraces: boolean;
+}
+
+export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask | StatusTask, InitResponse | LockResponse | UnlockResponse | MutexListStatusResponse | SetDebuggingEvent>;
 export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
 
 class Mutex {
