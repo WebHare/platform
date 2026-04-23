@@ -42,5 +42,5 @@ Error.stackTraceLimit = 25;
 
 export const startTime = new Date;
 
-// TODO @deprecated We're renaming run to runTests to avoid a conflict with \@webhare/cli's run() - once everyone is WH5.7+
+/** @deprecated Use runTests instead of run (available since WH5.7) */
 export const run = runTests;

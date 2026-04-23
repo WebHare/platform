@@ -321,7 +321,7 @@ async function testDoubleSchedule(engine: "hs" | "js") {
   await test.wait(() => (messages.length === 4 * iters), { timeout: 3000_000 }); // default 1 minute is not enough
 }
 
-test.run([
+test.runTests([
   () => testFailingTask("hs"),
   () => testFailingTask("js"),
   () => testCancellableTask("hs"),

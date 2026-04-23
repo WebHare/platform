@@ -31,4 +31,4 @@ async function testLitty() {
   test.eq(`<div>&lt;'a<br>b</div>`, await littyToString(divComponent(littyEncode("<'a\nb", "html"))));
 }
 
-test.run([testLitty]);
+test.runTests([testLitty]);

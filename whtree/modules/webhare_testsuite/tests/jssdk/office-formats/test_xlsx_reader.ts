@@ -96,4 +96,4 @@ async function testStreamingReader() {
   }
 }
 
-test.run([testStreamingReader]);
+test.runTests([testStreamingReader]);

@@ -236,7 +236,7 @@ async function testStackTrace() {
   checkStackTraces(traces2);
 }
 
-test.run([
+test.runTests([
   testDiagnostics,
   testSymbolLookupAndHover,
   testFormatting,

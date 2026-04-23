@@ -11,7 +11,7 @@ async function testCreateModule() {
   test.assert(backendConfig.module[tempModuleName], "Module should be registered in backendConfig");
 }
 
-test.run([
+test.runTests([
   test.reset,
   //creates a basic module
   testCreateModule
