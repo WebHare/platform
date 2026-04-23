@@ -21,15 +21,15 @@ PUBLIC STATIC OBJECTTYPE ColumnFileExport EXTEND TolliumScreenBase <
   }
 
   MACRO OnDownload(OBJECT filereceiver) {
-    IF(^outputformat->value="xlsx") {
-      filereceiver->SendWrappedFile(GenerateXLSXFile(this->options));
-      RETURN;
-    }
-
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.sep", ^separator->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.charset", ^charset->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.decimal", ^decimal->value);
     this->tolliumuser->SetRegistryKey("tollium.commondialogs.csvexport.outputformat", ^outputformat->value);
+
+    IF(^outputformat->value="xlsx") {
+      filereceiver->SendWrappedFile(GenerateXLSXFile(this->options));
+      RETURN;
+    }
 
     RECORD setupwriter := this->SetupCSVWriter();
     setupwriter.writer->timezone := this->options.timezone;
