@@ -459,9 +459,10 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
 
   /** Called when a site is updated
    * Sideeffects upon commit:
-   * - the output analyzer will be triggered for the root folder of the site (recursively)
+   * - when analyzeOutput = true: the output analyzer will be triggered for the root folder of the site (recursively)
+   * - when siteProfileRefs = true: apply the siteprofilerefs.
    */
-  siteUpdated(siteId: number, options?: { siteProfileRefs?: boolean; analyzeOutput?: boolean }) {
+  siteUpdated(siteId: number, options?: { siteProfiles?: boolean; siteProfileRefs?: boolean; analyzeOutput?: boolean }) {
     if (options?.analyzeOutput)
       this.addAnalyzerTask(siteId, true);
     if (options?.siteProfileRefs && !this._configUpdates.includes("siteprofilerefs"))
@@ -537,6 +538,15 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
     this._indexPromise ??= Promise.withResolvers();
     void this._indexPromise.promise.catch(() => undefined);
     return this._indexPromise.promise;
+  }
+
+  /** Called when the siteprofiles need to be recompiled
+   * Sideeffects upon commit:
+   * - apply the siteprofiles
+   */
+  updateSiteProfiles() {
+    if (!this._configUpdates.includes("siteprofiles"))
+      this._configUpdates.push("siteprofiles");
   }
 }
 
