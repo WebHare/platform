@@ -9,6 +9,7 @@ import { openBackendService, type GetBackendServiceInterface } from '@webhare/se
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { spawn } from 'child_process';
 import { kill } from 'process';
+import { compareProperties } from '@webhare/std';
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
@@ -78,7 +79,7 @@ run({
       main: async ({ opts, args }) => {
         const smservice = await openBackendService("platform:servicemanager");
         const state = await smservice.getWebHareState();
-        console.table(state.availableServices);
+        console.table(state.availableServices.toSorted(compareProperties(["name"])));
       }
     },
     "relaunch": {
