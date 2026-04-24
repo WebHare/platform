@@ -12,7 +12,7 @@ async function testBreadCrumbs() {
   test.eq([
     {
       "@type": "ListItem",
-      url: testSiteRoot,
+      item: testSiteRoot,
       name: "webhare_testsuite.testsitejs",
     },
   ], breadcrumbs[0].itemListElement);
@@ -23,7 +23,7 @@ async function testBreadCrumbs() {
   test.eq([
     {
       "@type": "ListItem",
-      url: testSiteRoot,
+      item: testSiteRoot,
       name: "webhare_testsuite.testsitejs",
     }, {
       "@type": "ListItem",
@@ -31,7 +31,7 @@ async function testBreadCrumbs() {
       //has no index and thus no url
     }, {
       "@type": "ListItem",
-      url: testSiteRoot + "TestPages/StaticPage/",
+      item: testSiteRoot + "TestPages/StaticPage/",
       name: "StaticPage"
     }
   ], breadcrumbs[0].itemListElement);

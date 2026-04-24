@@ -50,15 +50,15 @@ STRING FUNCTION MyFormatFileSize(INTEGER64 fsize, INTEGER decimals, STRING decim
   STRING filesize, sizetype;
   FLOAT size := FLOAT(fsize); //ADDME use integer calculation, not float
 
-  IF (size>=1073737728f)
+  IF (size>=1073741824f)
   {
-    FLOAT formatsize := size / 1073737728f;
+    FLOAT formatsize := size / 1073741824f;
     IF (decimals = 0)
       formatsize := Ceil(formatsize);
     filesize := FormatFloat(formatsize, decimals);
     sizetype := 'GB';
   }
-  ELSE IF (size>=1048572)
+  ELSE IF (size>=1048576)
   {
     FLOAT formatsize := size / 1048576;
     IF (decimals = 0)

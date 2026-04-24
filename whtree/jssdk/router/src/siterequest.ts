@@ -208,7 +208,7 @@ export class CPageRequest {
       } else
         breadcrumb.push({
           "@type": "ListItem",
-          url: pathEntry.link || undefined,
+          item: pathEntry.link || undefined,
           name: pathEntry.title || pathEntry.name || undefined,
         });
     }
