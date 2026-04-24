@@ -243,18 +243,19 @@ class ImportSession {
       baseMetadata.data = await ResourceDescriptor.fromBlob(await item.blob());
     }
 
+    baseMetadata.type = typeinfo?.scopedtype || typeinfo?.namespace;
+    baseMetadata.modified = this.importDT; //override modified to ensure all items touched by the import have the same modified date (makes testing easier and also makes sense as we're essentially doing a bulk update of all these items)
+
     let finalObj: WHFSObject;
     if (exists) {
       finalObj = exists;
       await finalObj.update({
         ...baseMetadata,
-        modified: this.importDT //override modified to ensure all items touched by the import have the same modified date (makes testing easier and also makes sense as we're essentially doing a bulk update of all these items)
+
       });
     } else {
       finalObj = await storeFolder[typeinfo.foldertype ? "createFolder" : "createFile"](item.name, {
         created: this.importDT,
-        modified: this.importDT,
-        type: typeinfo?.scopedtype || typeinfo?.namespace,
         ...baseMetadata
       });
     }
