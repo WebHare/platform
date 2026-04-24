@@ -1407,44 +1407,6 @@ MACRO TestXMLNSError()
   CloseTest("TestXMLNSError");
 }
 
-MACRO TestSchematron()
-{
-  OpenTest("TestSchematron");
-
-  OBJECT domimpl := NEW XMLDOMImplementation;
-
-  BLOB schema_fail_data := OpenTestFile("schematron-fail.sch");
-  OBJECT schema_fail := domimpl->MakeSchematronSchema(schema_fail_data);
-  TestEQ(
-      [ [ code :=     0
-        , line :=     0
-        , message :=  "rule has no assert nor report element"
-        , filename := ""
-        , localname := ""
-        , namespaceuri := ""
-        ]
-      ], schema_fail->GetParseErrors());
-
-  BLOB schema_ok_data := OpenTestFile("schematron.sch");
-  OBJECT schema_ok := domimpl->MakeSchematronSchema(schema_ok_data);
-  TestEQ(DEFAULT RECORD ARRAY, schema_ok->GetParseErrors());
-
-  BLOB verify_data := OpenTestFile("schematron-data.xml");
-  OBJECT verify := MakeXMLDocument(verify_data);
-
-  TestEQ(
-      [ [ code :=     4000
-        , line :=     3
-        , filename := ""
-        , message :=  "/*/* line 3: the sum is not 100"
-        , localname := "node"
-        , namespaceuri := "http://www.blex.nl"
-        ]
-      ], schema_ok->ValidateDocument(verify));
-
-  CloseTest("TestSchematron");
-}
-
 
 MACRO TestHTMLDocument()
 {
@@ -2028,7 +1990,6 @@ TestOuterXML();
 TestImportNode();
 TestDocumentFragmentInserts();
 TestXMLNSError();
-TestSchematron();
 TestCorruptOutput();
 //TestErrorNoise();
 TestRegression();

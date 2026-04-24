@@ -127,7 +127,7 @@ async function tryWHAPIUsingWeb() {
   test.eq(200, (await fetch(primaryApiURL + "openapi.json")).status, "Verify the spec exists at " + primaryApiURL);
 }
 
-test.run([
+test.runTests([
   setupWHAPITest,
   tryWHAPI,
   tryWHAPIUsingWeb

@@ -9,7 +9,6 @@
 #include <libxml/parserInternals.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/xmlschemas.h>
-#include <libxml/schematron.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 #include <unordered_set>
@@ -55,8 +54,7 @@ enum ObjectType
         DOMExceptionObject = 201,
         NodeObject,
         CharacterDataObject,
-        XMLSchemaObject,
-        SchematronSchemaObject
+        XMLSchemaObject
 };
 
 
@@ -104,12 +102,11 @@ class XMLDocRef
                 class SecureData
                 {
                     public:
-                        inline SecureData() : refcount(1), schema(0), schematronschema(0) {}
+                        inline SecureData() : refcount(1), schema(0) {}
                         ~SecureData();
 
                         unsigned refcount;
                         xmlSchemaPtr schema;
-                        xmlSchematronPtr schematronschema;
                 };
 
                 typedef Blex::InterlockedData< SecureData, Blex::Mutex > LockedSecureData;
@@ -145,7 +142,6 @@ struct XMLContextReadData
         bool ParseXMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_VariableId encoding, bool readonly);
         bool ParseHTMLBlob(HSVM *hsvm, HSVM_VariableId blob, HSVM_VariableId encoding, bool readonly, bool noimplied);
         xmlSchemaPtr ParseAsValidator(HSVM *vm, HSVM_VariableId domimpl);
-        xmlSchematronPtr ParseAsSchematronValidator(HSVM *vm, HSVM_VariableId domimpl);
 
         bool ParseAndValidateXML(XMLBlobData &xmlblob, XMLBlobData *xsdblob, xmlCharEncoding enc, bool readonly);
         bool ParseHTML(XMLBlobData &xmlblob, xmlCharEncoding enc, bool readonly);
@@ -159,7 +155,6 @@ struct XMLContextReadData
 
         inline xmlDocPtr GetDocPtr() { return doc.get() ? doc.get()->doc : 0; }
         xmlSchemaPtr GetSchemaPtr();
-        xmlSchematronPtr GetSchematronSchemaPtr();
         inline bool IsReadonly() { return doc.get() && doc.get()->readonly; }
         void SetIsUnlinkedHead(xmlNodePtr node, bool unlinked);
 
@@ -223,7 +218,6 @@ struct XMLNodeCreate
                 fptr_nodeobject = 0;
                 fptr_characterdataobject = 0;
                 fptr_xmlschemaobject = 0;
-                fptr_schematronschemaobject = 0;
                 fptr_htmldocumentobject = 0;
         }
 
@@ -243,7 +237,6 @@ struct XMLNodeCreate
         HSVM_VariableId fptr_nodeobject;
         HSVM_VariableId fptr_characterdataobject;
         HSVM_VariableId fptr_xmlschemaobject;
-        HSVM_VariableId fptr_schematronschemaobject;
         HSVM_VariableId fptr_htmldocumentobject;
 };
 
@@ -320,4 +313,3 @@ extern "C"
 } // End of namespace HareScript
 
 #endif
-

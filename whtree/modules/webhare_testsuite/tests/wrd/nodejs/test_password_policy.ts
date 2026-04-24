@@ -126,7 +126,7 @@ async function testSettingOverrides() {
   await rollbackWork();
 }
 
-test.run([
+test.runTests([
   testPasswordBreachCount,
   testCheckParser,
   testGetPasswordMinValueFrom,

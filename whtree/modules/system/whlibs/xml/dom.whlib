@@ -1196,34 +1196,6 @@ PUBLIC STATIC OBJECTTYPE XmlSchema EXTEND XmlDocument
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// DOM Objects: SchematronSchema
-//
-///////////////////////////////////////////////////////////////////////////////
-
-/** A Schematron Schema document as returned by XMLDomImplementation::MakeSchematronSchema */
-PUBLIC STATIC OBJECTTYPE SchematronSchema EXTEND XmlDocument
-<
-  // HareScript
-  RECORD ARRAY FUNCTION __ValidateDocument(OBJECT document) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
-  /** Validates a document
-      @param(object %XmlDocument) document Document to validate
-      @return Validation errors
-      @cell(integer) return.code Error code
-      @cell(integer) return.line Line number of the error
-      @cell(string) return.message Validation error message
-      @cell(string) return.filename File with the error
-      @cell(string) return.localname Local name of the element relevant to the error
-      @cell(string) return.namespaceuri Namespace URI of the element relevant to the error
-  */
-  PUBLIC RECORD ARRAY FUNCTION ValidateDocument(OBJECT document)
-  {
-    RETURN SELECT *, line := linenum, DELETE linenum FROM this->__ValidateDocument(document);
-  }
->;
-
-///////////////////////////////////////////////////////////////////////////////
-//
 // DOM Objects: DOMImplementation
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1327,7 +1299,6 @@ PUBLIC STATIC OBJECTTYPE XmlDOMImplementation
   PUBLIC OBJECT FUNCTION CreateDocument(STRING namespaceuri, STRING qualifiedname, OBJECT doctype) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   OBJECT FUNCTION __MakeXMLSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-  OBJECT FUNCTION __MakeSchematronSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   /** @short Register an extra entity loader
       @param loader Loader function, which will receive URL and ID as parameters, and must return a record [ success := TRUE, data := <blob> ] on success */
@@ -1369,21 +1340,6 @@ PUBLIC STATIC OBJECTTYPE XmlDOMImplementation
       this->pvt_loadedfiles := saved_files;
     }
   }
-
-  /** @short Creates an Schematron schema out of the specified blob
-      @param xmlfile Schematron file to parse
-      @param encoding Schematron file encoding, if known
-      @param readonly If true, create a read-only XML document
-      @return A new schema object. use GetParseErrors() to check for syntax errors */
-  PUBLIC OBJECT FUNCTION MakeSchematronSchema(BLOB xmlfile, STRING encoding DEFAULTSTO "", BOOLEAN readonly DEFAULTSTO FALSE)
-  {
-    OBJECT doc := this->__MakeSchematronSchema(xmlfile, encoding, readonly);
-    IF (NOT ObjectExists(doc))
-      doc := this->__MakeSchematronSchema(StringToBlob(" "), encoding, readonly);
-
-    RETURN doc;
-  }
-
 >;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2353,11 +2309,6 @@ PUBLIC OBJECT FUNCTION __CreateXmlProcessingInstructionObject()
 PUBLIC OBJECT FUNCTION __CreateXmlSchemaObject()
 {
   RETURN NEW XmlSchema;
-}
-// @return SchematronSchema
-PUBLIC OBJECT FUNCTION __CreateSchematronSchemaObject()
-{
-  RETURN NEW SchematronSchema;
 }
 
 

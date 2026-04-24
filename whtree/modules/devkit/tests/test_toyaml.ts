@@ -120,7 +120,7 @@ function testToRules() {
 
 }
 
-test.run([
+test.runTests([
   testNaming,
   testToRules
 ]);
