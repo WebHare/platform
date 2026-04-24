@@ -44,6 +44,7 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
     test.eq(subdir.created, subdir.modified, "created === modified as we're building a new tree");
   test.eq(subdir.created, rootfile.created, "All items touched by a single import should have matching creationdates (if new)");
   test.eq(subdir.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
+  test.eq("platform:foldertypes.system", subdir.type);
 
   const subdirIndex = await subdir.openFile("index");
   test.eq(subdirIndex.id, subdir.indexDoc);
