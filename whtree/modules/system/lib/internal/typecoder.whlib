@@ -226,12 +226,12 @@ PUBLIC STRING FUNCTION EncodeScanData(RECORD scandata, BOOLEAN extendedformat)
 
   IF(scandata.width > 0 OR scandata.height > 0)
   {
+    //we may still see sideways images if we we were syncing from an older webhare and receiving raw data. just flip the dimensions and forget the rotation/mirrored values
+    BOOLEAN issideways := scandata.rotation = 90 OR scandata.rotation = 270;
     retval := [ ...retval
-              , w := scandata.width
-              , h := scandata.height
+              , w := issideways ? scandata.height : scandata.width
+              , h := issideways ? scandata.width : scandata.height
               ];
-    IF(scandata.rotation != 0 OR scandata.mirrored)
-      THROW NEW Exception(`Recording scandata with rotation/mirror, these should all be zeroed now`);
     IF(RecordExists(scandata.refpoint))
       INSERT CELL p := scandata.refpoint INTO retval;
     IF(scandata.dominantcolor != "")
