@@ -548,6 +548,12 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
     if (!this._configUpdates.includes("siteprofiles"))
       this._configUpdates.push("siteprofiles");
   }
+
+  /** Called to synchronously reload the webserver config */
+  updateWebserverConfig() {
+    if (!this._configUpdates.includes("webserver"))
+      this._configUpdates.push("webserver");
+  }
 }
 
 export const whfsFinishHandler = finishHandlerFactory(WHFSFinishHandler);

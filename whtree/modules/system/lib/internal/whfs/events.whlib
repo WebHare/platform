@@ -493,6 +493,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase <
     IF ("siteprofiles" NOT IN this->configupdates)
       INSERT "siteprofiles" INTO this->configupdates AT END;
   }
+
+  PUBLIC MACRO UpdateWebserverConfig() {
+    IF ("webserver" NOT IN this->configupdates)
+      INSERT "webserver" INTO this->configupdates AT END;
+  }
 >;
 
 OBJECTTYPE WHFSWasmCommitHandler <
@@ -626,6 +631,11 @@ OBJECTTYPE WHFSWasmCommitHandler <
   PUBLIC MACRO UpdateSiteProfiles()
   {
     CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("updateSiteProfiles");
+  }
+
+  PUBLIC MACRO UpdateWebserverConfig()
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("updateWebserverConfig");
   }
 >;
 
