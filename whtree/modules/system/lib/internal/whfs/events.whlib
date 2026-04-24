@@ -488,6 +488,11 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase <
       DELETE FROM system.fs_objects WHERE id = objectid;
     }
   }
+
+  PUBLIC MACRO UpdateSiteProfiles() {
+    IF ("siteprofiles" NOT IN this->configupdates)
+      INSERT "siteprofiles" INTO this->configupdates AT END;
+  }
 >;
 
 OBJECTTYPE WHFSWasmCommitHandler <
@@ -616,6 +621,11 @@ OBJECTTYPE WHFSWasmCommitHandler <
     {
       DELETE FROM system.fs_objects WHERE id = objectid;
     }
+  }
+
+  PUBLIC MACRO UpdateSiteProfiles()
+  {
+    CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("updateSiteProfiles");
   }
 >;
 

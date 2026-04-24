@@ -224,6 +224,10 @@ OBJECT oldsiteprofile := OpenWHFSObjectByPath("/webhare-private/publisher/compil
 IF(ObjectExists(oldsiteprofile))
   oldsiteprofile->RecycleSelf();
 
+// trigger initial compilation of siteprofiles before we add the first site
+// TODO: if we split up siteprofiles into platform / installed modules and ship the platform set in platform/generated/, this trigger will be unneeded again
+GetWHFSCommitHandler()->UpdateSiteProfiles();
+
 // Ensure we have a repository site too
 BOOLEAN isfreshwebhare;
 IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
