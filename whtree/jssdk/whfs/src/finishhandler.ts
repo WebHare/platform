@@ -462,7 +462,7 @@ class WHFSFinishHandler extends HSVMMarshallableOpaqueObject implements FinishHa
    * - when analyzeOutput = true: the output analyzer will be triggered for the root folder of the site (recursively)
    * - when siteProfileRefs = true: apply the siteprofilerefs.
    */
-  siteUpdated(siteId: number, options?: { siteProfiles?: boolean; siteProfileRefs?: boolean; analyzeOutput?: boolean }) {
+  siteUpdated(siteId: number, options?: { siteProfileRefs?: boolean; analyzeOutput?: boolean }) {
     if (options?.analyzeOutput)
       this.addAnalyzerTask(siteId, true);
     if (options?.siteProfileRefs && !this._configUpdates.includes("siteprofilerefs"))
