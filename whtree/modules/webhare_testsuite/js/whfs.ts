@@ -7,7 +7,7 @@ import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
-import { throwError } from "@webhare/std";
+import { attempt, throwError } from "@webhare/std";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -18,7 +18,7 @@ export function getWHConfig(parseddoc: Document): WHConfigScriptData {
 
 export function parseResponse(responsetext: string) {
   const doc = parseDocAsXML(responsetext, 'text/html');
-  const config = getWHConfig(doc);
+  const config = attempt(() => getWHConfig(doc),null);
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];
   const contentdiv = doc.getElementById("content");

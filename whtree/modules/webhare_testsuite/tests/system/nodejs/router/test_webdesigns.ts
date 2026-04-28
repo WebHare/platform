@@ -132,9 +132,29 @@ async function testDynamicPage() {
         `<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`,
         `<div id="dynamicpageinfo">{"echoWebVar":"12378"}</div>`
       ], response.contentElements, dynamicPage.link + "?echo=12378");
-      test.eq({ echoWebVar: "12378" }, response.config["webhare_testsuite:dynamicpagefrontend"]);
+      test.eq({ echoWebVar: "12378" }, response.config?.["webhare_testsuite:dynamicpagefrontend"]);
     }
   }
+
+  //Verify TestPages/dynfolder is routed properly
+  {
+    //HS Site
+    { //HS site
+      const dynamicPage = await whfs.openFolder("site::webhare_testsuite.testsite/TestPages/dynfolder/");
+      test.assert(dynamicPage.link, "Folder should have a link since it has an index doc");
+      const fetchResult = await fetch(dynamicPage.link);
+      const response = parseResponse(await fetchResult.text());
+      test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsite/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
+    }
+    { //JS site
+      const dynamicPage = await whfs.openFolder("site::webhare_testsuite.testsitejs/TestPages/dynfolder/");
+      test.assert(dynamicPage.link, "Folder should have a link since it has an index doc");
+      const fetchResult = await fetch(dynamicPage.link);
+      const response = parseResponse(await fetchResult.text());
+     test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
+    }
+  }
+
 }
 
 async function testPageResponseApplies() {

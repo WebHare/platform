@@ -638,7 +638,7 @@ export class WHFSApplyTester {
 
   async getObjRenderInfo() {
     const baseinfo = { contentBuilder: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
-    const typeInfo = getType(this.objinfo.type);
+    const typeInfo = getType(this.objinfo.type === "platform:filetypes.dynamicfoldercontents" ? this.objinfo.parent.type : this.objinfo.type);
     if (typeInfo?.dynamicexecution) {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
       if (baseinfo.dynamicExecution.contentbuilder)

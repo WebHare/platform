@@ -82,7 +82,11 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
     STRING throwmessage;
     RECORD wcsresult, wdsresult;
 
-    meaningoflife := browser->CallJSONRPC(GetRequestURL(), "GetMeaningOfLife", "Dent");
+    TRY {
+      meaningoflife := browser->CallJSONRPC(GetRequestURL(), "GetMeaningOfLife", "Dent");
+    } CATCH(OBJECT e) {
+      meaningoflife := -1;
+    }
 
     TRY
     {
@@ -104,8 +108,17 @@ PUBLIC OBJECTTYPE WebPage EXTEND DynamicPageBase
       throwmessage := e->what;
     }
 
-    wcsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesignContext");
-    wdsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesign");
+    TRY {
+      wcsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesignContext");
+    } CATCH(OBJECT e) {
+      //ignore
+    }
+
+    TRY {
+      wdsresult := browser->CallJSONRPC(GetRequestURL(), "VerifyWebDesign");
+    } CATCH(OBJECT e) {
+      //ignore
+    }
 
     EmbedWittyComponent("mod::webhare_testsuite/tests/publisher-webdesign/testdata/dynamicpage.witty:testdyn",
                        [ p1 := "Arg1"

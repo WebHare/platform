@@ -1,0 +1,7 @@
+name: dynfolder
+type: http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder
+link: https://webhare.moe.sf.webhare.dev/testoutput/webhare_testsuite.testsite/TestPages/dynfolder/
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      indexDoc: index
