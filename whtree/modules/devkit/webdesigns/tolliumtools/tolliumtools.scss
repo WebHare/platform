@@ -18,6 +18,9 @@ html.dompack--debug-tolliumtools body
   }
 }
 
+.tolliumtools--currentfocus {
+  outline: 2px dashed red;
+}
 
 ::-webkit-resizer {
   border: 2px solid yellow;
