@@ -1241,3 +1241,34 @@ PUBLIC RECORD FUNCTION ParseISO8601Duration(STRING duration) {
 
   RETURN retval;
 }
+
+DATETIME FUNCTION AddDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor) {
+  FOREVERY (RECORD part FROM UnpackRecord(duration))
+  {
+    IF (part.value = 0)
+      CONTINUE;
+    SWITCH (part.name)
+    {
+      CASE "YEARS"          { date := AddYearsToDate(factor * part.value, date); }
+      CASE "MONTHS"         { date := AddMonthsToDate(factor * part.value, date); }
+      CASE "WEEKS"          { date := AddDaysToDate(factor * 7*part.value, date); }
+      CASE "DAYS"           { date := AddDaysToDate(factor * part.value, date); }
+      CASE "HOURS"          { date := AddTimeToDate(factor * 60*60*1000*part.value, date); }
+      CASE "MINUTES"        { date := AddTimeToDate(factor * 60*1000*part.value, date); }
+      CASE "SECONDS"        { date := AddTimeToDate(factor * 1000*part.value, date); }
+      CASE "MILLISECONDS"   { date := AddTimeToDate(factor * part.value, date); }
+    }
+  }
+
+  RETURN date;
+}
+
+/** Add duration to a datetime. Added in WH6.0 */
+PUBLIC DATETIME FUNCTION AddDurationToDate(RECORD duration, DATETIME date) {
+  RETURN AddDurationToDateInternal(duration, date, 1);
+}
+
+/** Subtract duration from a datetime. Added in WH6.0 */
+PUBLIC DATETIME FUNCTION SubtractDurationFromDate(RECORD duration, DATETIME date) {
+  RETURN AddDurationToDateInternal(duration, date, -1);
+}
