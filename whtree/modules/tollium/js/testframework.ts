@@ -143,15 +143,23 @@ class ScreenProxy {
     }
     return null;
   }
-  qS(selector) {
+  qS<T extends HTMLElement = HTMLElement>(selector): T | null {
     if (!this.win)
       return null;
-    return this.win.node.querySelector(selector);
+    return this.win.node.querySelector<T>(selector);
   }
-  qSA(selector) {
+  qSA<T extends HTMLElement = HTMLElement>(selector): T[] {
     if (!this.win)
-      return null;
-    return Array.from(this.win.node.querySelectorAll(selector));
+      return [];
+    return Array.from(this.win.node.querySelectorAll<T>(selector));
+  }
+  qR<T extends HTMLElement = HTMLElement>(selector): T {
+    if (!this.win)
+      throw new Error("No window");
+    const el = this.win.node.querySelector<T>(selector);
+    if (!el)
+      throw new Error(`Could not find element for selector '${selector}'`);
+    return el;
   }
   getElement(selector) {
     if (!this.win)
@@ -163,7 +171,8 @@ class ScreenProxy {
       return null;
     return this.win.node.getElements(selector);
   }
-  getToddElement(toddname) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- for backwards compatibility with existing tests, keep it at 'any'. without this we'd have 1217 more TS errors to fix
+  getToddElement(toddname): any {
     const candidates = this.qSA('*[data-name]');
 
     let regex = new RegExp("^" + escapeRegExp(toddname).replace('\\*', '.*') + "$");
@@ -520,3 +529,5 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(window, "$screen", { get: () => { throw new Error("Use ToddTest.$screen() instead of window.$screen"); } });
   Object.defineProperty(window, "ToddTest", { get: () => { throw new Error("ToddTest has been removed, use testClickTolliumToolbarButton or testSelectListRow"); } });
 }
+
+export type { ScreenProxy };

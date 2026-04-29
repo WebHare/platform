@@ -32,19 +32,19 @@ test.runTests(
     "Empty line between objects disappear on save",
     async function () {
       // focus the edit area
-      let body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
+      let body = test.getCurrentScreen().qR(".wh-rtd-editor-bodynode");
       test.click(body);
       test.getWin().getSelection()!.setBaseAndExtent(body, body.children.length, body, body.children.length);
 
       // Append two objects
-      test.click(test.getCurrentScreen().qS(`*[data-button="object-insert"]`));
+      test.click(test.getCurrentScreen().qR(`*[data-button="object-insert"]`));
       await test.wait("ui");
       test.click(test.getCurrentScreen().getListRow('contenttypes', 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget'));
       await test.wait("ui");
       test.click(test.compByTitle("OK"));
       await test.wait("ui");
 
-      test.click(test.getCurrentScreen().qS(`*[data-button="object-insert"]`));
+      test.click(test.getCurrentScreen().qR(`*[data-button="object-insert"]`));
       await test.wait("ui");
       test.click(test.getCurrentScreen().getListRow('contenttypes', 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget'));
       await test.wait("ui");
@@ -52,7 +52,7 @@ test.runTests(
       await test.wait("ui");
 
       // Ensure an empty line between them
-      test.click(test.getCurrentScreen().qS(`.wh-rtd-navunderbutton`));
+      test.click(test.getCurrentScreen().qR(`.wh-rtd-navunderbutton`));
 
       // Ensure an empty line between them
       test.click(test.compByTitle("Save"));
@@ -69,7 +69,7 @@ test.runTests(
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
       await test.waitForUI();
 
-      body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
+      body = test.getCurrentScreen().qR(".wh-rtd-editor-bodynode");
       test.eq(["h1", "div", "p", "div"], Array.from((body as HTMLElement).children).map(n => n.nodeName.toLowerCase()));
     }
 

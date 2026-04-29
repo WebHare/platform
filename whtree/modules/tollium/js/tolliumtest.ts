@@ -5,11 +5,11 @@
         return null (lots of !s) or start throwing if a component was not found */
 
 import { toElement, type CastableToElement } from "dompack/testframework/pointer";
-import { getCurrentScreen, getTestScreen } from "./testframework";
+import { getCurrentScreen, getTestScreen, type ScreenProxy } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
 import { changeValue, isFormControl, qSA } from "@webhare/dompack";
-import { nameToSnakeCase } from "@webhare/std";
+import { nameToSnakeCase, throwError } from "@webhare/std";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
@@ -190,16 +190,25 @@ function matchesLabel(el: HTMLElement, textlabel: string) {
   return false;
 }
 
+function findComp(screen: ScreenProxy, name: string): HTMLElement[] {
+  if (name === "frame")
+    return [screen.getNode() ?? throwError("Screen has no node")];
+
+  const snakeName = nameToSnakeCase(name);
+  const candidates = screen.qSA<HTMLElement>('*[data-name]').filter(
+    el => el.dataset.name === `${screen.win.screenname}:${snakeName}` //direct name match
+      || (el.tagName === 'SELECT' && el.dataset.name?.startsWith(`${screen.win.screenname}:${snakeName}$`)) //<select type="pulldown" is sent as a subelement named pulldown$<seqnr>
+      || (name.startsWith(':') && matchesLabel(el, name.substring(1))));
+
+  return candidates;
+}
+
 export function comp(name: string, options?: { allowMissing: false }): ComponentProxy;
 export function comp(name: string, options?: { allowMissing: boolean }): ComponentProxy | null;
 
 export function comp(name: string, options?: { allowMissing: boolean }): ComponentProxy | null {
   const screen = getCurrentScreen();
-  const snakeName = nameToSnakeCase(name);
-  const candidates = (screen.qSA('*[data-name]')! as HTMLElement[]).filter(
-    el => el.dataset.name === `${screen.win.screenname}:${snakeName}` //direct name match
-      || (el.tagName === 'SELECT' && el.dataset.name?.startsWith(`${screen.win.screenname}:${snakeName}$`)) //<select type="pulldown" is sent as a subelement named pulldown$<seqnr>
-      || (name.startsWith(':') && matchesLabel(el, name.substring(1))));
+  const candidates = findComp(screen, name);
 
   if (candidates.length > 1) {
     console.error(`Multiple matches for name '${name}'`, candidates);
