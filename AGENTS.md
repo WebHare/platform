@@ -10,3 +10,6 @@ New scripts, command line tools etc should prefer TypeScript. HareScript is depr
 Command line tools must use `@webhare/cli` for option and argument parsing.
 
 Command line tools are generally stored in `<module directory>/scripts/whcommands`.
+
+## HareScript
+Files with the `.whscr` and `.whlib` extension contain HareScript code
