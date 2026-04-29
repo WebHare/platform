@@ -4,6 +4,7 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/eventemitter.whlib";
 LOADLIB "wh::xml/xsd.whlib";
@@ -1674,10 +1675,15 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
       }
 
       INSERT [ title := "Open in debugger"
-             , cmd := GetAppLaunchInstruction("system:debugger", [ message := [ groupid := GetCurrentGroupId()
-                                                                              , files := [ lib ]
-                                                                              ]
-                                                                 ])
+             , cmd := GetAppLaunchInstruction(
+                  IsWasm() ? "system:nodedebugger" : "system:debugger",
+                  [ message :=
+                      [ groupid := GetCurrentGroupId()
+                      , pid := GetProcessId()
+                      , files := [ lib ]
+                      ],
+                    reuse_instance := "whennotbusy"
+                  ])
              ] INTO items AT END;
     }
     RETURN items;

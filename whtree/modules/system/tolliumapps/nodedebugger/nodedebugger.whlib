@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::javascript.whlib";
@@ -18,6 +19,29 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase <
   MACRO Init(RECORD data) {
     this->app := CallJS(Resolve("nodedebugger.ts#getNodeDebuggerApp"), this);
     this->app->Call("init");
+    IF (CellExists(data, "message") AND RecordExists(data.message))
+      this->GotMessage(data.message);
+  }
+
+  MACRO GotMessage(RECORD message) {
+    FOR (INTEGER i := 0; i < 10; i := i + 1) {
+      IF (RecordExists(SELECT FROM ^processlist->rows WHERE rowkey = ToString(message.pid)))
+        BREAK;
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+    }
+
+    ^processlist->value := ToString(message.pid);
+
+    STRING match;
+    FOR (INTEGER i := 0; i < 10; i := i + 1) {
+      match := SELECT AS STRING rowkey FROM  ^workerlist->rows WHERE message.groupid LIKE rowkey || "*";
+      IF (match != "") {
+        ^workerlist->value := match;
+        BREAK;
+      }
+      WaitUntil(DEFAULT RECORD, AddTimeToDate(100, GetCurrentDateTime()));
+    }
+    ^frame->focused := ^workerlist;
   }
 
   MACRO GotUnload() {
