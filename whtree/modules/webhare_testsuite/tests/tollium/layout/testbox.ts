@@ -12,7 +12,6 @@ test.runTests(
 
     {
       name: 'verifybox',
-      //   , xfail: "box layout will be changed significantly in new interface design"
       test: function (doc, win) {
         test.eq(2, test.qSA('.t-screen').length);
 

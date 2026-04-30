@@ -98,7 +98,6 @@ export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animation
 
 //An individual step in a test
 export type TestStep = {
-  xfail?: string;
   test?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
   loadpage?: string | ((doc: Document, win: Window) => string);
   _rethrow?: boolean;
@@ -107,7 +106,6 @@ export type TestStep = {
   //only used internally now:
   __subtest?: number;
   __subname?: string;
-  ignore?: boolean;
 };
 
 class FrameRecord {
@@ -573,9 +571,6 @@ class TestFramework {
     // Result promise (chained with all the step parts)
     let result = Promise.resolve();
 
-    if (step.ignore)
-      return result;
-
     if ((this.scriptframewin! as Window & typeof globalThis).Error && (this.scriptframewin! as Window & typeof globalThis).Error.stackTraceLimit)
       (this.scriptframewin! as Window & typeof globalThis).Error.stackTraceLimit = 50;
 
@@ -622,19 +617,6 @@ class TestFramework {
           return Promise.race([f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve()]);
         }
     });
-
-    // If marked as xfail, give an error when no exception, and swallow exceptions (but note them & update state)
-    if (step.xfail) {
-      const xfailText = step.xfail;
-      result = result.then(
-        () => { throw new Error("Step " + idx + " should have failed, but didn't (is marked as xfail)"); },
-        () => {
-          // Note & swallow the execution
-          test.xfails = test.xfails || [];
-          test.xfails.push({ stepname: step.name || '', stepnr: idx, text: xfailText, e: 'Failed as expected' });
-          this.updateTestState();
-        });
-    }
 
     result = result.finally(function () {
       //        for (const f of this.testframes)

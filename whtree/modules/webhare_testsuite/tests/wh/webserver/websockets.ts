@@ -36,7 +36,6 @@ test.runTests(
   [
     {
       name: 'init',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const url = new URL("/tollium_todd.res/webhare_testsuite/tests/websockets/echo.whsock", location.href);
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -52,7 +51,6 @@ test.runTests(
     },
     {
       name: '0',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(0);
         socket.send(str);
@@ -61,7 +59,6 @@ test.runTests(
     },
     {
       name: '126-7',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(126 - 7);
         socket.send(str);
@@ -70,7 +67,6 @@ test.runTests(
     },
     {
       name: '126-6',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(126 - 6);
         socket.send(str);
@@ -79,7 +75,6 @@ test.runTests(
     },
     {
       name: '126-5',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(126 - 5);
         socket.send(str);
@@ -96,7 +91,6 @@ test.runTests(
     },
     {
       name: '126',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(126 - 0);
         socket.send(str);
@@ -105,7 +99,6 @@ test.runTests(
     },
     {
       name: '64KB - 7',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 - 7);
         socket.send(str);
@@ -114,7 +107,6 @@ test.runTests(
     },
     {
       name: '64KB - 6',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 - 6);
         socket.send(str);
@@ -123,7 +115,6 @@ test.runTests(
     },
     {
       name: '64KB - 5',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 - 5);
         socket.send(str);
@@ -132,7 +123,6 @@ test.runTests(
     },
     {
       name: '64KB - 1',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 - 1);
         socket.send(str);
@@ -141,7 +131,6 @@ test.runTests(
     },
     {
       name: '64KB',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 - 0);
         socket.send(str);
@@ -150,7 +139,6 @@ test.runTests(
     },
     {
       name: '64KB + 1',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 + 1);
         socket.send(str);
@@ -159,7 +147,6 @@ test.runTests(
     },
     {
       name: '128KB',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 * 2);
         socket.send(str);
@@ -168,7 +155,6 @@ test.runTests(
     },
     {
       name: '256KB',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 * 4);
         socket.send(str);
@@ -177,7 +163,6 @@ test.runTests(
     },
     {
       name: '512KB',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 * 8);
         socket.send(str);
@@ -186,7 +171,6 @@ test.runTests(
     },
     {
       name: '1MB',
-      xfail: !window.WebSocket,
       test: function (doc, win) {
         const str = getTestString(65536 * 16);
         socket.send(str);

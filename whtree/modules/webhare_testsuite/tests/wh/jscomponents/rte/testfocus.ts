@@ -1,6 +1,5 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import * as browser from "dompack/extra/browser";
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
@@ -310,7 +309,6 @@ test.runTests(
 
     {
       name: 'selectionrestore-setwhenhidden-test',
-      xfail: test.getTestArgument(0) === 'contenteditable' && (browser.getName() === "chrome"), // see comment at -prepare
       test: function (doc, win) {
         const rte = win.rte.getEditor();
         const range = rte.debugGetRawSelectionRange();
