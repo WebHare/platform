@@ -14,8 +14,6 @@ test.runTests(
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/'
     },
-    /*, { wait: rtetest.
-      }*/
     {
       name: 'firsttest',
       test: function (doc, win) {

@@ -279,22 +279,5 @@ test.runTests(
 
       test.assert(test.getCurrentScreen().getListRow("arrayedit!list", "aapje"));
 
-      //       test.click(test.getCurrentScreen().getListRow("arrayedit!list", "Aap"));
-
-      //     }
-      //   }
-
-      // , { name: "editing 3"
-      //   , test: async function ()
-      //     {
-      //       // There should be a textedit now
-      //       let textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
-      //       test.assert(textedit);
-      //       // Change the value
-      //       textedit.value = "monkey";
-
-      //       // Press Escape to stop editing
-      //       await test.pressKey("Escape");
-
     }
   ]);

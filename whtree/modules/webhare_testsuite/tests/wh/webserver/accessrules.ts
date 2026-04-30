@@ -41,15 +41,6 @@ test.runTests(
       name: "open protected url",
       loadpage: webroot + 'portal2/?wh-debug='
     },
-    /*, { name: 'redirect to login page'
-      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
-      }
-    , { name: 'redirect to import'
-      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
-      }
-    , { name: 'redirect to protected portal'
-      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
-      }*/
     "protected portal login", //we should be on portal1 here!
     async function () {
       test.eq(/.*\/portal2\/.*/, test.getWin().location.href);
@@ -71,8 +62,6 @@ test.runTests(
       name: "open protected url",
       loadpage: webroot + 'staticprotected/?wh-debug='
     },
-    //, testFollowWRDAuthRedirect("redirect through gologin")
-    //, testFollowWRDAuthRedirect("redirect to login page #2")
     {
       name: "access rule portal login #2",
       test: async function (doc, win) {
@@ -134,7 +123,6 @@ test.runTests(
       name: "open protected url",
       loadpage: webroot + 'staticprotected2/?wh-debug=aut'
     },
-    //, testFollowWRDAuthRedirect('redirect to login page #3')
 
     {
       name: "access rule portal login - fail",

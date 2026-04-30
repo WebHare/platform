@@ -254,22 +254,6 @@ test.runTests(
       test.getWin().focus();
       rte.takeFocus();
     },
-    /*
-        // wait for it to load again...
-      , { name: 'selectionrestore-validbefore-waitload'
-        , wait: function (doc,win,callback)
-          {
-    //        var rte=win.rte.getEditor();
-    //        rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
-
-            if(win.rte.getEditor().isloaded)
-              callback();
-            else
-              win.rte.getEditor().addEvent('load:once', callback);
-
-          }
-        }
-    */
     {
       name: 'selectionrestore-validbefore-test',
       test: function (doc, win) {
