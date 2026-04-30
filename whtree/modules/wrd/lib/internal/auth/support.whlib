@@ -281,55 +281,17 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
   }
 }
 
-/** Parses a subset an ISO8061 duration.
-    Limitations:
-    - fractions are only allowed with seconds, not with smallest item
-    -
-    @param duration Duration to parse
-    @return Duration parts
-    @cell(integer) return.years Number of years
-    @cell(integer) return.months Number of months
-    @cell(integer) return.weeks Number of weeks
-    @cell(integer) return.days Number of days
-    @cell(integer) return.hours Number of hours
-    @cell(integer) return.minutes Number of minutes
-    @cell(integer) return.seconds Number of seconds
-    @cell(integer) return.milliseconds Number of milliseconds
-*/
+//These entry points are left behind for code that was desperate to invoke them pre WH6.0
 PUBLIC RECORD FUNCTION ParseDuration(STRING duration) {
   RETURN duration = "" ? DEFAULT RECORD : ParseISO8601Duration(duration);
 }
 
-DATETIME FUNCTION AddUnpackedDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor)
-{
-  FOREVERY (RECORD part FROM UnpackRecord(duration))
-  {
-    IF (part.value = 0)
-      CONTINUE;
-    SWITCH (part.name)
-    {
-      CASE "YEARS"          { date := AddYearsToDate(factor * part.value, date); }
-      CASE "MONTHS"         { date := AddMonthsToDate(factor * part.value, date); }
-      CASE "WEEKS"          { date := AddDaysToDate(factor * 7*part.value, date); }
-      CASE "DAYS"           { date := AddDaysToDate(factor * part.value, date); }
-      CASE "HOURS"          { date := AddTimeToDate(factor * 60*60*1000*part.value, date); }
-      CASE "MINUTES"        { date := AddTimeToDate(factor * 60*1000*part.value, date); }
-      CASE "SECONDS"        { date := AddTimeToDate(factor * 1000*part.value, date); }
-      CASE "MILLISECONDS"   { date := AddTimeToDate(factor * part.value, date); }
-    }
-  }
-
-  RETURN date;
+PUBLIC DATETIME FUNCTION AddUnpackedDurationToDate(RECORD duration, DATETIME date) {
+  RETURN AddDurationToDate(duration, date);
 }
 
-PUBLIC DATETIME FUNCTION AddUnpackedDurationToDate(RECORD duration, DATETIME date)
-{
-  RETURN AddUnpackedDurationToDateInternal(duration, date, 1);
-}
-
-PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIME date)
-{
-  RETURN AddUnpackedDurationToDateInternal(duration, date, -1);
+PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIME date) {
+  RETURN SubtractDurationFromDate(duration, date);
 }
 
 /** Get a text describing a duration.

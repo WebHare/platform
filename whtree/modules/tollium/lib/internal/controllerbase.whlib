@@ -3108,7 +3108,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
       CASE "$devhook"
       {
         IF(NOT this->contexts->controller->IsTrustedToDebug())
-          THROW NEW Exception("Devhooks are only allowed for sysops or in development environment");
+          THROW NEW Exception("Devhooks are only allowed for sysops or if debugflag tollium:trustparams is set");
 
         SWITCH (todd_request.param.action) {
           CASE "openineditor" {

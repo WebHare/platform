@@ -1804,8 +1804,9 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
   refreshSortHeaders() {
     for (const col of this.lv_datacolumns) {
       if (col.headernode) {
-        col.headernode.classList.toggle('sortascending', col.src.name === this.sort?.colName && this.sort?.ascending);
-        col.headernode.classList.toggle('sortdescending', col.src.name === this.sort?.colName && !this.sort?.ascending);
+        const isSortTarget = col.src.name && col.src.name === this.sort?.colName;
+        col.headernode.classList.toggle('sortascending', Boolean(isSortTarget && this.sort?.ascending));
+        col.headernode.classList.toggle('sortdescending', Boolean(isSortTarget && !this.sort?.ascending));
       }
     }
   }

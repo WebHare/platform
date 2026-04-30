@@ -146,7 +146,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
           {
             RECORD expiryduration := ParseDuration(expire_duration);
 
-            DATETIME expiredate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
+            DATETIME expiredate := AddDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
             IF (expiredate < GetCurrentDateTime())
               passwordexpired := TRUE;
             ELSE
@@ -163,10 +163,10 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
                 warnduration.days := 0;
 
 
-              DATETIME warndate := AddUnpackedDurationToDate(warnduration, authsettings.passwords[END-1].validfrom);
+              DATETIME warndate := AddDurationToDate(warnduration, authsettings.passwords[END-1].validfrom);
               IF (warndate < GetCurrentDateTime())
               {
-                DATETIME expirydate := AddUnpackedDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
+                DATETIME expirydate := AddDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
                 RECORD diff := GetDateTimeDifference(GetCurrentDateTime(), expirydate);
 
                 passwordabouttoexpire := TRUE;

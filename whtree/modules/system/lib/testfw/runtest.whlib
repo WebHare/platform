@@ -193,7 +193,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
             subtestname := subtestname || (subtestname != "" ? "." : "") || name;
 
           STRING path := this->SubstituteArg(testfile, file);
-          STRING subfile := IsPathAbsolute(path) ? path : MergePath(GetDirectoryFromPath(testfile), path);
+          STRING fullpath := IsPathAbsolute(path) ? path : MergePath(GetDirectoryFromPath(testfile), path);
 
           RECORD test := MakeMergedRecord(ApplyTestSettings(testsettings, elt)
                         ,[ type := elt->nodename
@@ -201,7 +201,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , testname := subtestname
                          , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
                          , testscript := [ args := arginfo.args
-                                         , scriptpath := subfile
+                                         , scriptpath := fullpath
                                          ]
                          , baseurl := url
                          , sitename := sitename
@@ -211,6 +211,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , validationconfig := validationconfig
                          , env := RECORD[]
                          , compatibility := testnode->GetAttribute("compatibility")
+                         , fullpath := GetWebHareResourceDiskPath(fullpath)
                          ]);
 
           FOREVERY(OBJECT env FROM testnode->GetElements("env"))
@@ -264,6 +265,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
               type := "fail";
             }
 
+            STRING fullpath := IsPathAbsolute(script) ? script : GetWebHareResourceDiskPath(MergePath(GetDirectoryFromPath(testfile), script));
             INSERT MakeMergedRecord(ApplyTestSettings(testsettings, elt), CELL
                 [ type
                 , errormsg
@@ -283,6 +285,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                 , validationconfig
                 , timeout := ParseXSInt(elt->GetAttribute("timeout")) ?? default_test_timeout
                 , env := RECORD[]
+                , fullpath := fullpath
                 ]) INTO tests AT END;
           }
         }
@@ -374,7 +377,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
     STRING ARRAY testmasks := this->ReadTestMasks(masks);
     tests := SELECT *
                FROM tests
-              WHERE this->IsMatch(testname, testmasks, skips);
+              WHERE this->IsMatch(testname, testmasks, skips) OR this->IsMatch(fullpath, testmasks, skips);
     RETURN tests;
   }
 
@@ -383,7 +386,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
   */
   PUBLIC RECORD ARRAY FUNCTION GatherAllTests(STRING ARRAY masks, STRING ARRAY skips)
   {
-    RETURN this->FiltertestList(this->GetTestList(), masks, skips);
+    RETURN this->FilterTestList(this->GetTestList(), masks, skips);
   }
 
   RECORD ARRAY FUNCTION GatherAllModuleTests()
