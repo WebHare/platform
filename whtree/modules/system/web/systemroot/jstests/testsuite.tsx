@@ -99,7 +99,6 @@ export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animation
 //An individual step in a test
 export type TestStep = {
   test?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
-  loadpage?: string | ((doc: Document, win: Window) => string);
   name?: string;
   //only used internally now:
   _rethrow?: boolean;
@@ -279,9 +278,6 @@ class TestFramework {
     return rec ?? null;
   }
 
-  resetPageFrame() {
-    this.getFrameRecord().holder?.replaceChildren();
-  }
   rebuildFrameTabs() {
     const tabsnode = qR("#testframetabs");
     tabsnode.replaceChildren();
@@ -573,10 +569,6 @@ class TestFramework {
     // Signals to detect if a page load happens (all properties are promises)
     this.getFrameRecord().currentsignals = { pageload: null };
 
-    // Loadpage? Execute it first
-    if (step.loadpage)
-      result = result.then(this.doLoadPage.bind(this, step));
-
     // Initialize the signals - AFTER loading the page.
     result = result.then(() => {
       // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
@@ -736,25 +728,14 @@ class TestFramework {
   }
 
   /// Execute a load page command
-  doLoadPage(step: TestStep) {
-    let loadpage;
-    if (typeof step.loadpage === 'string')
-      loadpage = step.loadpage;
-    else if (typeof step.loadpage === 'function') {
-      const framerec = this.getFrameRecord();
-      loadpage = step.loadpage(framerec.doc!, framerec.win!);
-    }
-
-    if (debugFlags.testfw)
-      console.log('[testfw] doLoadPage: ' + loadpage);
-
-    this.resetPageFrame();
+  prepareTestFrame() {
     const framerec = this.getFrameRecord();
+    framerec.holder?.replaceChildren();
 
     const name = framerec.name === "main" ? "testframe" : `testframe-${framerec.name}`;
     const iframe = dompack.create("iframe", { "id": name, "name": name });
     framerec.holder!.appendChild(iframe);
-    iframe.src = loadpage as string;
+    iframe.src = "about:blank";
     if (framerec.holder!.dataset.width)
       iframe.style.width = `${framerec.holder!.dataset.width}px`;
 
@@ -865,7 +846,7 @@ class TestFramework {
           qR("#testframes").append(holder);
           this.currenttestframe = name;
           this.rebuildFrameTabs();
-          await this.doLoadPage({ loadpage: "about:blank" });
+          await this.prepareTestFrame();
           frec.currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
         } break;
       case "update":
