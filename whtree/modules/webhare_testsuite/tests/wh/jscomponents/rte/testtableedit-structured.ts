@@ -54,8 +54,8 @@ test.runTests(
             { up: 0, clientx: coords.left + 1 + 65, clienty: coords.top + 1 + 12, delay: gesture_time, transition: test.dragTransition }
           ]);
         });
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
 
     {
@@ -73,8 +73,8 @@ test.runTests(
             { up: 0, clientx: coords.left + 100, clienty: coords.bottom + 50, delay: gesture_time, transition: test.dragTransition }
           ]);
         });
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
 
     {

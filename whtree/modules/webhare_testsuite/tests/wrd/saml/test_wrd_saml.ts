@@ -20,68 +20,72 @@ test.runTests(
 
     {
       name: "Configure IDP - open SAMLauth for domain",
-      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth&lang=en"; },
-      waits: ["ui"]
+      test: async function () {
+        await test.load(webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth&lang=en");
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure IDP - open SAMLauth for domain",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.sendMouseGesture([{ el: test.getCurrentScreen().getListRow('samlproviders!entities', 'IDP'), down: 2 }, { up: 2 }]);
         const ctxtmenu = test.getOpenMenu();
         const menuitem = test.qSA(ctxtmenu, "li").filter(li => li.textContent.includes('Add connected SP'))[0];
         test.click(menuitem);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure IDP - Import SP metadata",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const metadataurl = new URL(webroot + "test-saml/portal-sp/saml-sp-test-sp", location.href).toString();
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
         test.clickToddButton("Update metadata");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure IDP - Confirm imported SP",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq("http://webhare.net/webhare_testsuite/test-saml/saml/sp", test.getCurrentScreen().getToddElement("samlentityid").querySelector("input").value);
         test.clickToddButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "Configure SP - open SAMLauth for domain",
-      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth&lang=en"; },
-      waits: ["ui"]
+      test: async function () {
+        await test.load(webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth&lang=en");
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure SP - open SAMLauth for domain",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.sendMouseGesture([{ el: test.getCurrentScreen().getListRow('samlproviders!entities', 'TEST-SP'), down: 2 }, { up: 2 }]);
         const ctxtmenu = test.getOpenMenu();
         const menuitem = test.qSA(ctxtmenu, "li").filter(li => li.textContent.includes('Add connected IDP'))[0];
         test.click(menuitem);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure SP - Import IDP metadata",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const metadataurl = webroot + "test-saml/portal-idp/saml-idp";
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
         test.clickToddButton("Update metadata");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "Configure SP - Confirm imported IDP",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq("http://webhare.net/webhare_testsuite/test-saml/saml/idp", test.getCurrentScreen().getToddElement("samlentityid").querySelector("input").value);
         test.clickToddButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "Verify adding worked",
@@ -93,8 +97,11 @@ test.runTests(
 
     {
       name: "open sp-enabled portal",
-      loadpage: webroot + 'test-saml/portal-sp/?lang=en',
-      waits: ["ui", 'ui']
+      test: async function () {
+        await test.load(webroot + 'test-saml/portal-sp/?lang=en');
+        await test.waitForUI();
+        await test.waitForUI();
+      }
     },
 
     "goto idp",

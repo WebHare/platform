@@ -88,12 +88,12 @@ test.runTests(
 
     {
       name: 'gridupdate',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(0, test.qSA('.wh-radiobutton').length);
         test.eq(4, test.qSA('select').length);
         test.click(test.compByName('button')); //converts the select to a radiobutton
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

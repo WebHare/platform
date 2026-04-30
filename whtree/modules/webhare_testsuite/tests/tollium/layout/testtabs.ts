@@ -22,17 +22,17 @@ test.runTests(
 
     {
       name: 'launchappholder',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.canClick(test.compByName('tabs')));
         const A01 = test.getMenu(['M01', 'A01']);
         test.click(A01);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'clicktab',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.isElementClickable(test.compByName('tabs')));
 
         //verify the tabs properly all got the same szie (the 400x350 max)
@@ -65,8 +65,8 @@ test.runTests(
         test.eq('Tab 1', getTabSheetLabel(activetab).textContent);
         const elt = test.compByName("typepulldown");
         elt.propTodd.setValue('P02');
-      },
-      waits: ['ui'] //we need to wait for the animation at least
+          await test.waitForUI(); //we need to wait for the animation at least
+        }
     },
 
     {
@@ -77,8 +77,8 @@ test.runTests(
 
         const tabs = getTabs(test.compByName('tabs'));
         test.click(tabs[3]); //goto tab 3
-      },
-      waits: ['ui'] //we need to wait for the animation at least
+        await test.waitForUI(); //we need to wait for the animation at least
+      }
     },
     {
       test: function (doc, win) {
@@ -98,19 +98,19 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const tabs = getTabs(test.compByName('tabs'));
         test.click(tabs[1]); //goto tab 2
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'stackedtabs3',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.compByName('syncbutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -124,27 +124,27 @@ test.runTests(
     //test state saving
     {
       name: 'isstatesaved',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'isstatesaved-reopen',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const A02 = test.getMenu(['M01', 'A02']);
         test.click(A02);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'isstatesaved-settab3',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //note,we should be able to access the app, as appholder should've saved state
         const tabs = getTabs(test.compByName('tabs'));
         test.click(tabs[2]); //goto tab 3
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'isstatesaved-checkstacked2',
@@ -166,13 +166,13 @@ test.runTests(
     },   //the menu shouldn't be here yet...
     {
       name: 'testmenu',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const tablabel = test.compByName('tabs').querySelector('.nav-tabs');
         test.assert(!test.isElementClickable(tablabel));
 
         test.click(test.getMenu(['M01', 'A02']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     'testmenu', //use the menu to go to a different tab
     async function (doc, win) {

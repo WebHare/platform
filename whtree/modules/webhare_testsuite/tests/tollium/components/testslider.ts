@@ -21,9 +21,8 @@ async function moveTheKnob(percentage) {
 
 test.runTests(
   [
-    {
-      loadpage: test.getCompTestPage('slider'),
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('slider'));
     },
     async function () {
       // This was fixed at 200px, should have been set through component width

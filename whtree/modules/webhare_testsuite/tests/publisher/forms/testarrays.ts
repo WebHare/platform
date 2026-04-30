@@ -235,8 +235,8 @@ test.runTests(
         test.assert(validateResult.valid);
 
         test.click("button[type=submit]");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       test: async function () {
@@ -309,9 +309,9 @@ test.runTests(
         //REDO the settings above but now through a nicer Form api
 
         test.click("button[type=submit]");
+        await test.waitForUI();
 
-      },
-      waits: ["ui"]
+      }
     },
     "Test setting value client-side - NEW API",
     async function () {
@@ -444,8 +444,8 @@ test.runTests(
         test.eq(4, test.qSA(".wh-form__arrayrow").length);
 
         test.click("button[type=submit]");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       test: async function () {

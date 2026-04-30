@@ -30,8 +30,8 @@ test.runTests(
         test.assert(listrow, 'listrow with <8> not available/visible');
         test.assert(listrow.classList.contains("wh-list__row--selected"));
         await test.pressKey(['4']);
-      },
-      waits: [2500] // Above find as you type timeout (2000)
+        await test.sleep(2500); // Above find as you type timeout (2000)
+      }
     },
     {
       name: "select <4>",

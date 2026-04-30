@@ -69,12 +69,12 @@ test.runTests(
 
         //request raw version
         test.clickTolliumButton("Edit raw html");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'verify-normal',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rawcode = rtetest.getRawHTMLCode(win);
 
         // The raw code has an instanceid. Replace that with our instanceref for the compare
@@ -89,26 +89,26 @@ test.runTests(
         // use the original rawcode for modification
         test.fill(rtetest.getRawHTMLTextArea(win), rawcode.split('be selected').join('no longer be selected'));
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'rewrite', //rewrite it, to ensure the server is preserving its cid:
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Rewrite");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'rewrite.2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Edit raw html");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'rewrite.3',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rawcode = rtetest.getRawHTMLCode(win);
 
         // Instance id should not have changed on the backend site
@@ -120,8 +120,8 @@ test.runTests(
           + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>', comparecode);
 
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     "Paste image from data url",
@@ -253,14 +253,14 @@ test.runTests(
         test.eq("A", imgnode.parentNode.nodeName.toUpperCase());
         test.eq("http://b-lex.nl/nieuws/", imgnode.parentNode.href);
         test.assert(!imgnode.getAttribute("alt"));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     //create a simple hyperlink
     {
       name: 'createlink',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         const mypara = rte.qSA('p')[1];
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -271,38 +271,38 @@ test.runTests(
             endOffset: 4
           });
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=a-href]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'createlink-enterit',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textfield = test.getTolliumLabel("External link").closest('.form')!.querySelector('input[type=text]')!;
         test.fill(textfield, "http://webhare.net/");
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'createlink-verify',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         const anode = rte.qSA('a')[1];
         test.eq("http://webhare.net/", anode.href);
         test.assert(!anode.hasAttribute("target"));
         test.eq("Hier", anode.firstChild.nodeValue);
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'createlink-verifyprops',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textfield = test.getTolliumLabel("External link").closest('.form')!.querySelector('input[type=text]')! as HTMLInputElement;
         test.eq("http://webhare.net/", textfield.value);
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -322,8 +322,8 @@ test.runTests(
 
         //        test.prepareNextUpload(win, 'logo.png', new $wh.URL(location.href).resolveToAbsoluteURL('/tollium_todd.res/webhare_testsuite/tollium/logo.png'));
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=img]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'imagebuttontest-verify',
@@ -369,8 +369,8 @@ test.runTests(
         // new p?
         test.eq("p", body.lastElementChild.nodeName.toLowerCase());
         test.assert(body.lastElementChild !== firstp);
-      },
-      waits: ["ui"] //give dirty event time to process
+        await test.waitForUI(); //give dirty event time to process
+      }
     },
 
     {

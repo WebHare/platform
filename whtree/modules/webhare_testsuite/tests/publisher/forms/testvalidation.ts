@@ -431,8 +431,8 @@ test.runTests([
       test.getWin().scrollTo(0, test.getDoc().documentElement.scrollHeight - test.getWin().innerHeight);
       test.assert(!test.canClick(test.qR('#coretest-email')), '#coretest-email should be out of sight');
       test.click('.validatebutton');
-    },
-    waits: ['ui']
+      await test.waitForUI();
+    }
   },
   {
     test: function () {

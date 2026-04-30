@@ -21,8 +21,8 @@ test.runTests(
         test.eq(0, test.qSA('t-towlnotification').length);
         test.click(test.getMenu(['A01']));
         await test.wait("ui");
-      },
-      waits: [() => { return getTowlNotifications().length > 0; }]
+        await test.wait(() => { return getTowlNotifications().length > 0; });
+      }
     },
 
     "Check second event",
@@ -61,11 +61,11 @@ test.runTests(
     },
     {
       name: 'no duplicate events form last test?',
-      test: function () {
+      test: async function () {
         test.eq(0, getTowlNotifications().length);
         test.click(test.getMenu(['A01']));
-      },
-      waits: [() => { return getTowlNotifications().length > 0; }]
+        await test.wait(() => { return getTowlNotifications().length > 0; });
+      }
     },
     {
       test: function () {

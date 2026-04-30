@@ -55,8 +55,8 @@ const TestImageEditor =
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ["animationframe"]
+        await test.wait("animationframe");
+      }
     },
 
     {
@@ -68,8 +68,8 @@ const TestImageEditor =
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ["animationframe"]
+        await test.wait("animationframe");
+      }
     },
 
 
@@ -78,15 +78,15 @@ const TestImageEditor =
 
     {
       name: "image crop cancelled",
-      test: function () {
+      test: async function () {
         // Check if the image size hasn't changed (it's set by the tollium backend based on the uploaded blob)
         const dimensions = test.compByName('fragment1!dimensions');
         test.assert(dimensions);
         test.eq("1024X768", dimensions.textContent.replace(/[^0-9]/, "X"));
 
         test.click(test.compByName("fragment1!editbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -105,8 +105,8 @@ const TestImageEditor =
           { down: 0, clientx: coords.left + 4, clienty: coords.top + 4 },
           { up: 0, clientx: coords.left + 156, clienty: coords.top + 257, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ["animationframe"]
+        await test.wait("animationframe");
+      }
     },
 
     {
@@ -118,8 +118,8 @@ const TestImageEditor =
           { down: 0, clientx: coords.right - 4, clienty: coords.bottom - 4 },
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ["animationframe"]
+        await test.wait("animationframe");
+      }
     },
 
 
@@ -143,14 +143,14 @@ const TestImageEditor =
     { test: testBackground },
 
     {
-      test: function () {
+      test: async function () {
         test.eq(367, testimg?.width);
         test.eq(241, testimg?.height);
         testimg = null;
 
         test.click(test.compByName("fragment1!editbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -177,14 +177,13 @@ test.runTests(
   [
     {
       name: "load component test page",
-      loadpage: function () {
-        // Delayed to pick up overridetoken
-        return test.getCompTestPage("imgedit", {
+      test: async function () {
+        await test.load(test.getCompTestPage("imgedit", {
           width: "250px",
           height: "250px"
-        });
-      },
-      waits: ["ui"]
+        }));
+        await test.waitForUI();
+      }
     },
 
     {
@@ -204,16 +203,16 @@ test.runTests(
         prepareUpload(["/tollium_todd.res/webhare_testsuite/tests/rangetestfile.jpg"]);
         test.click(test.compByName("fragment1!uploadbutton"));
         await test.wait(() => test.compByName("fragment1!editbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     //note: the editor is skipped, because the image is already proper and then we won't auto-open
     {
-      test: function () {
+      test: async function () {
         test.assert(test.compByName("fragment1!editbutton"));
         test.click(test.compByName("fragment1!editbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     ...TestImageEditor,
@@ -246,19 +245,19 @@ test.runTests(
 
     {
       name: "visibility",
-      test: function () {
+      test: async function () {
         test.assert(test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function () {
+      test: async function () {
         test.assert(!test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     { test: testBackground },
@@ -273,7 +272,7 @@ test.runTests(
 
     {
       name: "button status",
-      test: function () {
+      test: async function () {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(test.compByName("fragment1!editbutton"));
@@ -281,12 +280,12 @@ test.runTests(
         //test.assert(test.compByName("fragment1!clearbutton"));
 
         test.click(test.compByName("visible"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function () {
+      test: async function () {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -294,19 +293,23 @@ test.runTests(
         //test.assert(!test.compByName("fragment1!clearbutton"));
 
         test.click(test.compByName("visible"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "clear image",
-      test: function () {
+      test: async function () {
         test.click(test.compByName("fragment1!clearbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
-    test.testClickTolliumButton("Yes", { name: "confirm clear image", waits: ["ui"] }),
+    "confirm clear image",
+    async function () {
+      test.clickTolliumButton("Yes");
+      await test.waitForUI();
+    },
 
     {
       name: "imgedit status",
@@ -327,13 +330,17 @@ test.runTests(
 
     {
       name: "open browse for object",
-      test: function () {
+      test: async function () {
         test.click(test.compByName("fragment1!publisherbutton"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
-    test.testSelectListRow("folders!thelist", "webhare_testsuite.testsite", { name: "open testsite node", waits: ["ui"] }),
+    "open testsite node",
+    async function () {
+      await test.selectListRow("folders!thelist", "webhare_testsuite.testsite");
+      await test.waitForUI();
+    },
 
     {
       name: "select image",

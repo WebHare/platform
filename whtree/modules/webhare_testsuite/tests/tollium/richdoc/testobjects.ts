@@ -23,7 +23,7 @@ test.runTests(
 
     {
       name: 'structured-rte',
-      test: function () {
+      test: async function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
@@ -33,13 +33,13 @@ test.runTests(
             endOffset: 4
           });
         test.click(test.getMenu(['M01', testblock ? 'A01' : 'A03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'objectprops',
-      test: function () {
+      test: async function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
 
@@ -57,23 +57,23 @@ test.runTests(
 
         test.eq(1, test.getCurrentApp().getNumOpenScreens());
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'objectprops-settitle',
-      test: function () {
+      test: async function () {
         test.eq(2, test.getCurrentApp().getNumOpenScreens());
         const textfield = test.compByName("fragment1!html").querySelector("textarea");
         test.eq("<u>inserted</u> object", textfield.value);
         test.fill(textfield, "<b>bolded</u> object");
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'objectprops-checktitle',
-      test: function () {
+      test: async function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
 
@@ -89,12 +89,12 @@ test.runTests(
 
         //request raw version
         test.clickTolliumButton("Edit raw html");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'objectprops-checkhtml',
-      test: function () {
+      test: async function () {
         const rawcode = rtetest.getRawHTMLCode(test.getWin());
 
         const instanceid_regex = /data-instanceid="([^"]*)"/g;
@@ -118,8 +118,8 @@ test.runTests(
             + '</body></html>', rawcode);
         }
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'objectprops-checkhtml',
@@ -162,8 +162,8 @@ test.runTests(
           });
 
         await rtetest.runWithUndo(rte.getEditor(), () => test.pasteHTML(pasteblock), { waits: 'ui' });
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'objects-badpaste should now be dirty',

@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
@@ -16,7 +15,7 @@ test.runTests(
 
     {
       name: 'firstclick-issue',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.compByName('focusfield').focus();
 
         const toddrte = test.compByName('structured');
@@ -25,28 +24,28 @@ test.runTests(
         dompack.dispatchDomEvent(htmlnode, 'scroll');
 
         savescrollpos = htmlnode.scrollTop; //should be truncated to maxheight
-      },
-      waits: [100]
+        await test.sleep(100);
+      }
     },
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //        test.click(htmlnode.querySelector('.wh-rtd__widgetedit'));
         //ADDME completely confused why the click above doesn't work for IE...
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: htmlnode.querySelector('.wh-rtd-editbutton'), down: 0, x: "50%", y: "50%" },
           { el: htmlnode.querySelector('.wh-rtd-editbutton'), up: 0, x: "50%", y: "50%" }
         ]);
-
-      },
-      waits: ['pointer', 'ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(savescrollpos, htmlnode.scrollTop);
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui', 'events']
+        await test.waitForUI();
+        await test.wait("events");
+      }
     },
 
     {

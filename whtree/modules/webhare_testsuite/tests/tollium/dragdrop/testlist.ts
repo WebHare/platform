@@ -47,8 +47,8 @@ test.runTests(
           { el: srow, x: 10, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -72,8 +72,8 @@ test.runTests(
           { el: srow, x: 10, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -97,8 +97,8 @@ test.runTests(
           { el: srow, x: 10, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -122,8 +122,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -147,8 +147,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -164,12 +164,12 @@ test.runTests(
 
     {
       name: 'source.row2->target.none_copy_clickrow1',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -182,8 +182,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -199,21 +199,21 @@ test.runTests(
 
     {
       name: 'source.row2->target.none_copy_clickrow1',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'source.row2->target.none_copy_ctrlclickrow1',
-      test: function () {
+      test: async function () {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         test.click(srow, { x: 10, cmd: true });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -226,8 +226,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -243,12 +243,12 @@ test.runTests(
 
     {
       name: 'source.row4->target.none_copy_clickrow4',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -261,8 +261,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, y: 100, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -278,12 +278,12 @@ test.runTests(
 
     {
       name: 'source.row4->target.row1.copy_clickrow4',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -296,8 +296,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -339,12 +339,12 @@ test.runTests(
 
     {
       name: 'source.void->target.row1.copy_clickrow4',
-      test: function () {
+      test: async function () {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -357,8 +357,8 @@ test.runTests(
           { el: srow, x: 10, y: 140, cmd: false, down: 0, ...test.keyboardCopyModifier },
           { el: trow, x: 10, up: 0, ...test.keyboardCopyModifier, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -384,8 +384,8 @@ test.runTests(
           { relx: 30, delay: gesture_time }, // move 30px to right
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -410,8 +410,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui-nocheck"]
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
@@ -436,8 +436,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -463,8 +463,8 @@ test.runTests(
           { relx: 30, delay: gesture_time }, // move a little
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -490,8 +490,8 @@ test.runTests(
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -517,8 +517,8 @@ test.runTests(
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: -10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -544,8 +544,8 @@ test.runTests(
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 1, x: 20, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -571,8 +571,8 @@ test.runTests(
           //                         , { relx: 30, delay: gesture_time } // move a little
           { el: trow, y: 23, x: -10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -597,8 +597,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: -10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -623,8 +623,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 12, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -649,8 +649,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 22, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -675,8 +675,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 38, up: 0, delay: Number(gesture_time) }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -701,8 +701,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 23, x: 40, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -727,8 +727,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 1, x: -10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -753,8 +753,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 1, x: 50, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["pointer", "ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -779,8 +779,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, y: 19, x: 50, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -796,12 +796,12 @@ test.runTests(
 
     {
       name: 'drop-on-scrolled-list-prepare',
-      test: function () {
+      test: async function () {
         const A01 = test.getMenu(['A01']);
         test.assert(A01);
         test.click(A01);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -817,8 +817,8 @@ test.runTests(
           { el: srow, x: 10, cmd: false, down: 0 },
           { el: trow, x: 50, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {

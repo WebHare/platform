@@ -14,7 +14,6 @@ test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
-      //, waits:['ui']
     },
     {
       name: "earlyselectionstatecheck",
@@ -161,8 +160,8 @@ test.runTests(
       }
     },
 
-    {
-      waits: [waitForReparentedRTE]
+    async function () {
+      await test.wait(waitForReparentedRTE);
     },
     //and verify restoration
     {
@@ -184,8 +183,11 @@ test.runTests(
         win.reparent_rte();
 
         // RTE is now hidden -> no selection!
-      },
-      waits: [waitForReparentedRTE]
+      }
+    },
+
+    async function () {
+      await test.wait(waitForReparentedRTE);
     },
 
     //and verify restoration

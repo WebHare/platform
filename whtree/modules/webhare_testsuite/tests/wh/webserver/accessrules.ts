@@ -16,8 +16,7 @@ test.runTests(
     // Goto portal2. Expect a redirect through gologin portal1 from access rule.
     {
       name: "open protected url",
-      loadpage: webroot + 'portal2/?wh-debug=',
-      waits: ['ui']
+      loadpage: webroot + 'portal2/?wh-debug='
     },
 
     "access rule portal login", //this lands on /porta1l/
@@ -40,8 +39,7 @@ test.runTests(
     // Goto portal2. Expect a redirect to portal1 from access rule protecting portal2
     {
       name: "open protected url",
-      loadpage: webroot + 'portal2/?wh-debug=',
-      waits: ['ui']
+      loadpage: webroot + 'portal2/?wh-debug='
     },
     /*, { name: 'redirect to login page'
       , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
@@ -51,7 +49,6 @@ test.runTests(
       }
     , { name: 'redirect to protected portal'
       , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
-      , waits: [ 'ui' ]
       }*/
     "protected portal login", //we should be on portal1 here!
     async function () {
@@ -78,13 +75,12 @@ test.runTests(
     //, testFollowWRDAuthRedirect("redirect to login page #2")
     {
       name: "access rule portal login #2",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.qS("#login").value = "test-portal1@example.com";
         test.qS("#password").value = "secret";
         test.click('input[type=submit]');
-      },
-      waits: ["pageload"]
-      //, waits: [ "ui", "pageload" ]
+        await test.wait('load');
+      }
     },
     //, testFollowWRDAuthRedirect("redirect to protected page #2") //sets window.wrdauth_lastredirectsource
     {
@@ -142,12 +138,12 @@ test.runTests(
 
     {
       name: "access rule portal login - fail",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.fill(test.qS("#login"), "external");
         test.fill(test.qS("#password"), "b");
         test.click('input[type=submit]');
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     }
   ]
 );

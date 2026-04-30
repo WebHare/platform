@@ -15,8 +15,8 @@ test.runTests(
         target.focus();
 
         await test.pressKey("F7");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -30,8 +30,8 @@ test.runTests(
         target.focus();
 
         await test.pressKey("F7", { ctrlKey: true });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {

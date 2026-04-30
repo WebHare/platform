@@ -28,8 +28,8 @@ test.runTests(
 
         //        test.prepareNextUpload(win, 'logo.png', new $wh.URL(location.href).resolveToAbsoluteURL('/tollium_todd.res/webhare_testsuite/tollium/logo.png'));
         test.click(test.compByName('editor').querySelector('.wh-rtd-button[data-button=img]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -43,26 +43,26 @@ test.runTests(
 
     {
       name: 'imagebutton properties',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         test.click(rte.getButtonNode('action-properties'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq('27', test.compByName('width').querySelector('input').value);
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Rewrite");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -80,21 +80,24 @@ test.runTests(
         imgnode.parentNode.insertBefore(Object.assign(document.createElement("img"), { src: "/tollium_todd.res/webhare_testsuite/tollium/touchicon.png" }), imgnode.nextSibling.nextSibling);
 
         // Give paste handlers chance to run
-        setTimeout(callback, 10);
-      },
-      waits: ['ui']
+        setTimeout(() => {
+          void test.waitForUI().then(() => {
+            callback();
+          });
+        }, 10);
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Edit raw html");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'verify-copypasteimage',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = document.createElement("div");
         holder.innerHTML = rtetest.getRawHTMLTextArea(win).value;
         const imgs = holder.querySelectorAll('img');
@@ -107,13 +110,13 @@ test.runTests(
         test.assert(imgs[1].src !== imgs[2].src);
 
         test.clickTolliumButton("Cancel");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'texthyperlink',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const quote = rte.qS('blockquote');
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -124,12 +127,12 @@ test.runTests(
             endOffset: 10
           });
         test.click(rte.getButtonNode('a-href'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -138,13 +141,13 @@ test.runTests(
         texteditinput.value = 'http://www.example.net/';
 
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'verifyhyperlink',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const range = rte.getEditor().getSelectionRange();
         //ensure hyperlink contents are selected
@@ -157,12 +160,12 @@ test.runTests(
 
         test.assert(!rte.getButtonNode('a-href').classList.contains('disabled'), 'a-href should not be disabled');
         test.click(rte.getButtonNode('a-href'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -170,12 +173,12 @@ test.runTests(
         test.eq('http://www.example.net/', texteditinput.value);
         texteditinput.value = 'http://www.example.com/';
         test.clickTolliumButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const link = rte.qSA("a[href]")[0];
         test.eq('http://www.example.com/', link.href);
@@ -186,16 +189,16 @@ test.runTests(
 
         //Reopen hyperlink dialog
         test.click(rte.getButtonNode('a-href'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'Remove hyperlink',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Remove hyperlink");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -216,8 +219,8 @@ test.runTests(
         // Length is now 989
         const counternode = test.compByName('editor').querySelector('.wh-counter__count');
         test.eq("989", counternode.textContent);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     "Plain text conversion options",

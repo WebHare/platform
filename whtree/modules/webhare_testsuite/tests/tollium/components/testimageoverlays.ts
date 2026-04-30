@@ -2,10 +2,9 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      name: "An empty canvas...",
-      loadpage: test.getCompTestPage('image-overlays'),
-      waits: ['ui']
+    "An empty canvas...",
+    async function () {
+      await test.load(test.getCompTestPage('image-overlays'));
     },
 
     {
@@ -50,17 +49,16 @@ test.runTests(
         test.eq(122, overlays[0].area.height, 'only remaining overlay should still be the one that\'s 122px high');
       }
     },
-    {
-      name: "Page with preset overlays",
-      loadpage: test.getCompTestPage('image-overlays',
+    "Page with preset overlays",
+    async function () {
+      await test.load(test.getCompTestPage('image-overlays',
         {
           overlays: [
             { rowkey: 1, area: { type: "rectangle", left: 50, top: 50, width: 80, height: 80 } },
             { rowkey: 2, area: { type: "rectangle", left: 500, top: 150, width: 80, height: 80 } },
             { rowkey: 3, area: { type: "rectangle", left: 250, top: 450, width: 80, height: 80 } }
           ]
-        }),
-      waits: ['ui']
+        }));
     },
     {
       name: "Add overlay",

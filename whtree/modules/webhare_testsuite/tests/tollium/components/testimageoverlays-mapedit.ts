@@ -4,10 +4,9 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      name: "imagemap test",
-      loadpage: test.getTestSiteRoot() + `testsuiteportal/?app=webhare_testsuite:imagemap`,
-      waits: ['ui']
+    "imagemap test",
+    async function () {
+      await test.load(test.getTestSiteRoot() + `testsuiteportal/?app=webhare_testsuite:imagemap`);
     },
 
     {

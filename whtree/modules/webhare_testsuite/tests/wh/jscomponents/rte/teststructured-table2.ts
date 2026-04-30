@@ -8,7 +8,6 @@ test.runTests(
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=tables2'
       // Wait 5 seconds for the RTE to fully load so the tableeditor has a change to correctly position itself
-      //, waits: [ 'ui', 5000 ] //  { wait:  }
     },
 
 

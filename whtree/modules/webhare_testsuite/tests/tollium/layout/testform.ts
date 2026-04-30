@@ -9,10 +9,10 @@ test.runTests(
 
     {
       name: 'openform',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.getMenu(['M01', 'A05']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

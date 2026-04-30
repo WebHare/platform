@@ -10,7 +10,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -33,12 +33,12 @@ test.runTests(
 
         // Toggle visibility to visible
         test.click(test.compByName('togglebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -62,12 +62,12 @@ test.runTests(
 
         // Toggle visibility to invisible
         test.click(test.compByName('togglebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -90,12 +90,12 @@ test.runTests(
 
         // Toggle visibility to visible
         test.click(test.compByName('togglebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -118,12 +118,12 @@ test.runTests(
 
         // Replace the static box with a dynamic box
         test.click(test.compByName('replacebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -146,12 +146,12 @@ test.runTests(
 
         // Toggle visibility to invisible
         test.click(test.compByName('togglebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -174,8 +174,8 @@ test.runTests(
 
         // Toggle visibility to visible
         test.click(test.compByName('togglebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

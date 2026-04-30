@@ -583,11 +583,11 @@ test.runTests(
     },
     {
       name: 'test RPC',
-      test: function () {
+      test: async function () {
         test.click('#coretest-email');
         test.click('.prefillbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'test RPC response',

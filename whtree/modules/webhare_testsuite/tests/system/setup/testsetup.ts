@@ -26,38 +26,41 @@ test.runTests(
     },
     {
       name: "Start backend",
-      loadpage: function () { return webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en&transport=" + test.getTestArgument(0); },
-      waits: ['ui'] // Also wait for user profile data (applications & such)
+      test: async function () {
+        await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en&transport=" + test.getTestArgument(0));
+        // Also wait for user profile data (applications & such)
+        await test.waitForUI();
+      }
     },
     {
       name: "Launch usermanagement",
-      test: function () {
+      test: async function () {
         //verify whether we see the Publisher as an option (we need to make sure this selector works, otherwise our test as pietje makes no sense)
         test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: "Create unit",
-      test: function () {
+      test: async function () {
         test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("Units"))[0]);
         // Wait for selection update
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
-      test: function () {
+      test: async function () {
         test.clickToddToolbarButton("Add", "New unit");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
-      test: function () {
+      test: async function () {
         test.setTodd('wrd_title', "Testunit");
         test.clickToddButton('OK');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     test.testClickTolliumToolbarButton("Add", "New user", { name: "Create user pietje" }),
     async function createPietje() {
@@ -99,12 +102,16 @@ test.runTests(
     },
     test.testSelectListRow('unitcontents!userandrolelist', 'jantje', { rightclick: true, name: "Select jantje" }),
     {
-      test: function () {
+      test: async function () {
         test.click(test.qSA('.wh-menulist.open li').filter(node => node.textContent?.includes("Grant right"))[0]);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
-    test.testSelectListRow('', 'Miscellaneous', { waits: ["ui"], name: "Select MISC" }),
+    "Select MISC",
+    async function () {
+      await test.selectListRow('', 'Miscellaneous');
+      await test.waitForUI();
+    },
     test.testSelectListRow('', 'Sysop', { name: "Select SYSOP" }),
     {
       name: "Confirm user as sysop",
@@ -147,8 +154,10 @@ test.runTests(
     },
     {
       name: "login as pietje",
-      loadpage: function () { return webroot + "portal1/?openas=" + pietjeguid + "&lang=en&transport=" + test.getTestArgument(0); },
-      waits: ['ui']
+      test: async function () {
+        await test.load(webroot + "portal1/?openas=" + pietjeguid + "&lang=en&transport=" + test.getTestArgument(0));
+        await test.waitForUI();
+      }
     },
     async function () {
       test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
@@ -181,8 +190,10 @@ test.runTests(
       }
     },
     {
-      loadpage: function () { return webroot + 'portal1/?lang=en&wh-debug=aut'; },
-      waits: ['ui']
+      test: async function () {
+        await test.load(webroot + 'portal1/?lang=en&wh-debug=aut');
+        await test.waitForUI();
+      }
     },
     "logout and become jantje",
     async function () {

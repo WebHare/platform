@@ -57,18 +57,18 @@ test.runTests(
         test.click(thewin.querySelector('textarea'));
         test.eq(/:textarea$/, getToddFocusedComponent());
         test.click(test.getMenu(['M01', 'A06']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'serverfocus',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(/:list$/, getToddFocusedComponent());
 
         test.click(test.getMenu(['M01', 'A01']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     'focussub',
@@ -108,29 +108,29 @@ test.runTests(
 
     {
       name: 'openemptydialog',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.getMenu(['M01', 'A02']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'openemptydialog-testfocus',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const screens = test.qSA('.t-screen');
         test.eq(2, screens.length);
         test.eq(screens[1], doc.activeElement);
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'opertedialog',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.getMenu(['M01', 'A03']));
+        await test.waitForUI();
       },
-      waits: ['ui'],
       delayafter: 500 //we NEED the delay for the RTE iframe to steal focus...
     },
 
@@ -151,11 +151,11 @@ test.runTests(
 
     {
       name: 'openrtedialog-opensubwindow',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //and open a subwindow
         test.click(test.getMenu(['M02', 'A03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -167,11 +167,11 @@ test.runTests(
 
     {
       name: 'openrtedialog-closesub',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //close the subwindow again
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -184,23 +184,23 @@ test.runTests(
 
     {
       name: 'openrtedialog-close',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //close this window too, and we'll be back at the toplevel window
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'openrteonlydialog',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.getMenu(['M01', 'A04']));
+        await test.waitForUI();
       },
-      waits: ['ui'],
       delayafter: 500 //we NEED the delay for the RTE iframe to steal focus...
     },
 
-    { name: 'openrteonlydialog-testfocus' },
+    'openrteonlydialog-testfocus',
     async function (doc, win) {
       //the RTE should NOT have focus
       test.eq(2, test.qSA('.t-screen').length);

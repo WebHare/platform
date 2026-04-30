@@ -80,30 +80,30 @@ test.runTests(
 
     {
       name: 'Insert beagle',
-      test: function () {
+      test: async function () {
         rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een object"</p>');
         test.qR(videobuttonselector).click();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
-      test: function () {
+      test: async function () {
         test.eq(null, test.qS('#embedvideo'));
         test.eq(null, test.qS('#embedvideo-videourl')); //do not want the fields to leak with a name
 
         test.eq(1, test.qSA('.mydialog').length); //should be only one dialog
         test.qR('.mydialog input[name=videourl]').value = 'https://www.youtube.com/watch?v=u-e3CcIBxdw';
         test.qR('.mydialog button.wh-form__button--submit').click();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'Test beagle',
       test: async function () {
         await verifyBeagleVideo();
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'Test beagle after reload',
@@ -119,8 +119,8 @@ test.runTests(
         rtetestapi.setStructuredContent(test.qS('[name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een afbeelding"</p>');
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.qR('[name="rtd"] [data-button="img"]').click();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -128,8 +128,8 @@ test.runTests(
       test: async function () {
         await verifyImage();
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

@@ -12,62 +12,62 @@ test.runTests(
 
     {
       name: 'initialselectedline',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.hasFocus(test.qS('textarea')));
         test.assert(test.qS('textarea').scrollTop !== 0, 'scrollTop = 0, so no initial selection done');
         test.assert(!test.qS('textarea').readOnly);
 
         // Disable
         test.click(test.getMenu(['I04']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.qS('textarea').readOnly);
         test.assert(test.qS('textarea').scrollTop !== 0);
 
         // Enable
         test.click(test.getMenu(['I04']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'reenabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.qS('textarea').readOnly);
         test.assert(test.qS('textarea').scrollTop !== 0);
 
         // First line
         test.click(test.getMenu(['I01']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'firstline',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.qS('textarea').scrollTop === 0);
 
         // Last line
         test.click(test.getMenu(['I02']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'lastline',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textarea = test.qS('textarea');
         test.eq(textarea.scrollHeight - textarea.clientHeight, textarea.scrollTop);
 
         // Reset
         test.click(test.getMenu(['I03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -87,8 +87,8 @@ test.runTests(
         await test.pressKey('Enter'); //ensure cr doesn't kill us by leaking to parent frame
         test.fill(textarea, "Dit is een test");
         test.click(test.getMenu(['I05']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

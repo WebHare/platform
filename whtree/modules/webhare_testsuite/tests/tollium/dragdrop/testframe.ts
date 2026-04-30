@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
@@ -37,18 +36,17 @@ function generateResizeTests(name, opts) {
   return [
     {
       name: 'resize frame ' + name,
-      test: function (doc, win) {
+      test: async function (doc, win) {
         savewinpos = test_win.getBoundingClientRect(); //store current
 
         const clientx = opts.left ? savewinpos.left + 2 : opts.right ? savewinpos.right - 2 : Math.floor((savewinpos.left + savewinpos.right) / 2);
         const clienty = opts.top ? savewinpos.top + 2 : opts.bottom ? savewinpos.bottom - 2 : Math.floor((savewinpos.top + savewinpos.bottom) / 2);
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: clientx, clienty: clienty },
           { up: 0, relx: opts.relx || 0, rely: opts.rely || 0, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer']//,'animationframe']
+      }
     },
     {
       test: function (doc, win) {
@@ -70,7 +68,7 @@ test.runTests(
 
     {
       name: 'move frame',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Initialize the test window node
         initTestWin(win);
 
@@ -83,17 +81,17 @@ test.runTests(
         // Move the window 100 pixels down
         test_pos = { x: pos.x, y: pos.y + 100 };
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
 
     {
       name: 'move frame down',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(test_pos.x, test_el.getBoundingClientRect().left);
         test.eq(test_pos.y, test_el.getBoundingClientRect().top);
 
@@ -102,17 +100,17 @@ test.runTests(
         // Move the window 100 pixels to the right
         test_pos = { x: pos.x + 100, y: pos.y };
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
 
     {
       name: 'move frame right',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(test_pos.x, test_el.getBoundingClientRect().left);
         test.eq(test_pos.y, test_el.getBoundingClientRect().top);
 
@@ -121,12 +119,12 @@ test.runTests(
         // Move the window out of the bottom left corner of the browser
         const to_pos = { x: -200, y: doc.body.offsetHeight + 200 };
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: from_pos.x + testel_centerx, clienty: from_pos.y + testel_centery },
           { up: 0, clientx: to_pos.x, clienty: to_pos.y, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
     {
       test: function (doc, win) {
@@ -137,18 +135,18 @@ test.runTests(
 
     {
       name: 'move frame out of window south west',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Start at the current position
         const from_pos = test_pos;
         // Move the window out of the top right corner of the browser
         const to_pos = { x: doc.body.offsetWidth + 200, y: -200 };
 
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: from_pos.x + testel_centerx, clienty: from_pos.y + testel_centery },
           { up: 0, clientx: to_pos.x, clienty: to_pos.y, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
     {
       test: function (doc, win) {
@@ -160,13 +158,13 @@ test.runTests(
 
     {
       name: 'move frame out of window north east',
-      test: function (doc, win) {
-        test.sendMouseGesture([
+      test: async function (doc, win) {
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: 0, clienty: desktopbounds.bottom - 1 },
           { up: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
     {
       test: function (doc, win) {
@@ -177,14 +175,14 @@ test.runTests(
 
     {
       name: 'move back',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //IE/Edge work around, add one. not sure why, but otherwise we hit the appbar?
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top + 1 },
           { up: 0, clientx: 300, clienty: 200, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
     {
       test: function (doc, win) {
@@ -195,17 +193,17 @@ test.runTests(
 
     {
       name: 'try to move using close button',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Find the close button
         const closebutton = test_win.querySelector('.closewindow');
 
         // Drag 100 pixels down - the window should not move
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: closebutton, down: 0 },
           { up: 0, rely: 100, delay: gesture_time, transition: test.dragTransition }
         ]);
-      },
-      waits: ['pointer', 'animationframe']
+        await test.wait("animationframe");
+      }
     },
     {
       test: function (doc, win) {

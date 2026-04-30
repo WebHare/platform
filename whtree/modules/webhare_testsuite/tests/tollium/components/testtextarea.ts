@@ -7,9 +7,8 @@ import * as dompack from 'dompack';
 
 test.runTests(
   [
-    {
-      loadpage: test.getCompTestPage('textarea'),
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('textarea'));
     },
 
     {

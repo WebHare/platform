@@ -4,9 +4,8 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      loadpage: test.getCompTestPage('progress', {}),
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('progress', {}));
     },
     {
       test: async function () {
