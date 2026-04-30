@@ -123,6 +123,12 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
 }): Promise<WebResponseInfo> {
   const req = options?.webreq ? await newWebRequestFromInfo(options.webreq) : null;
 
+  if (options?.webreq) {
+    const isJsonRpc = req?.headers.get("Content-Type")?.split(";")[0] === "application/json" && req.method === "POST";
+    if (isJsonRpc)
+      return createWebResponse(`<html><body>WCS_/WDS_ JSON-RPC requests are not supported for JS-hosted webpages</body></html>`, { status: 400 }).asWebResponseInfo();
+  }
+
   const targetObject = await whfs.openFileOrFolder(targetId);
   if (!targetObject || !targetObject.parentSite || !targetObject.parent)
     throw new Error(`Invalid fileid '${targetId}' for content page request`);

@@ -870,7 +870,7 @@ export function distributeSizes(available: number, sizeobjs: SizeObj[], horizont
 
   let remaining = available - total_pixels;
   if (remaining) {
-    if (leftoverobj && leftoverobj >= 0 && leftoverobj < sizeobjs.length) {
+    if (leftoverobj !== undefined && leftoverobj >= 0 && leftoverobj < sizeobjs.length) {
       if (logdistribute)
         console.log("We have " + (available - total_pixels) + " unassigned pixels, assign to child #" + leftoverobj);
       tempsizes[leftoverobj].pref += remaining;
