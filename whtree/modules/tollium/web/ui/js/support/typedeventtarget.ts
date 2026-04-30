@@ -5,8 +5,8 @@ export interface EventMapType {
 }
 
 export class TypedEventTarget<EventMap extends EventMapType> extends EventTarget {
-  dispatch<E extends keyof EventMap>(eventname: E, detail: EventMap[E]["detail"]) {
-    this.dispatchEvent(new CustomEvent(eventname as string, { bubbles: false, cancelable: false, detail }));
+  dispatch<E extends keyof EventMap>(eventname: E, detail: EventMap[E]["detail"]): boolean {
+    return this.dispatchEvent(new CustomEvent(eventname as string, { bubbles: false, cancelable: false, detail }));
   }
 
   addEventListener<E extends keyof EventMap>(type: E, listener: ((this: TypedEventTarget<EventMap>, ev: EventMap[E]) => void) | EventListenerObject | null, options?: boolean | AddEventListenerOptions): void {
