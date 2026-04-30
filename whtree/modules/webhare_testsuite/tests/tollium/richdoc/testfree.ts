@@ -67,7 +67,8 @@ test.runTests(
 
     {
       name: 'copypasteimage',
-      wait: function (doc, win, callback) {
+      test: async function () {
+        const win = test.getWin();
         const rte = rtetest.getRTE(win, 'editor');
         const imgnode = rte.qSA("img")[0];
 
@@ -80,11 +81,8 @@ test.runTests(
         imgnode.parentNode.insertBefore(Object.assign(document.createElement("img"), { src: "/tollium_todd.res/webhare_testsuite/tollium/touchicon.png" }), imgnode.nextSibling.nextSibling);
 
         // Give paste handlers chance to run
-        setTimeout(() => {
-          void test.waitForUI().then(() => {
-            callback();
-          });
-        }, 10);
+        await test.sleep(10);
+        await test.waitForUI();
       }
     },
 
