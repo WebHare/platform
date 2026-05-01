@@ -1,6 +1,4 @@
-import * as test from '@mod-system/js/wh/testframework';
-
-// let testdata;
+import * as test from "@webhare/test-frontend";
 
 test.runTests(
   [
