@@ -46,9 +46,15 @@ export type WidgetBuilderFunction = (request: PagePartRequest, data: InstanceDat
 /** Defines the callback offered by a plugin (not exported from webhare/router yet, plugin APIs are still unstable) */
 export type PagePluginFunction = (init: PagePluginInit, req: PagePluginRequest) => Promise<void> | void;
 
-type ContentPageRequestOptions = {
+/** Options for creating a content page request */
+export type ContentPageRequestOptions = {
+  /** WebRequest associated with the content page request. If not set, we're (pre)building a static content page */
+  webRequest?: WebRequest;
+  /** Status code, defaults to 200 */
   statusCode?: number;
+  /** Object with the actual content (the target of a content link or a WHFSObject containing a historic or draft version) */
   contentObject?: WHFSObject;
+  /** If set, the request is being made in the context of an editor preview. Widgets often change rendering or become non-interactive when being shown in a RTD editor */
   isEditorPreview?: boolean;
 };
 
@@ -98,7 +104,7 @@ export class CPageRequest {
   /** The navigation path entries from the site root to the current targetObject */
   targetPath: Array<TargetPathEntry> = [];
 
-  //buildContentPageRequest will invoke _prepareResponse immediately to set these:
+  //createContentPageRequest will invoke _prepareResponse immediately to set these:
 
   /** Apply tester for the target object. Not exposed through official interfaces as applyteser itself is still an internal object */
   public _applyTester!: WHFSApplyTester;
@@ -122,8 +128,8 @@ export class CPageRequest {
   /** Page builder data */
   private pageBuilderData: Record<string, unknown> = {};
 
-  constructor(webRequest: WebRequest | null, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
-    this.#webRequest = webRequest;
+  constructor(targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, options?: ContentPageRequestOptions) {
+    this.#webRequest = options?.webRequest ?? null;
     this.targetSite = targetSite as Site & { webRoot: string };
     this.targetFolder = targetFolder;
     this.targetObject = targetObject;
@@ -593,7 +599,11 @@ export class CPageRequest {
   }
 }
 
-export async function buildContentPageRequest(webRequest: WebRequest | null, targetObject: WHFSObject, options?: ContentPageRequestOptions): Promise<ContentPageRequest> {
+/** Create a request for a WHFS object (eg. a page in the CMS/Publisher)
+ * @param options - Options for creating the content page request, such as the associated WebRequest.
+ * @param targetObject - The WHFS object to create the request for
+ */
+export async function createContentPageRequest(targetObject: WHFSObject, options?: ContentPageRequestOptions): Promise<ContentPageRequest> {
   if (!targetObject.parentSite)
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
@@ -602,7 +612,7 @@ export async function buildContentPageRequest(webRequest: WebRequest | null, tar
   if (!targetFolder)
     throw new Error(`Target folder #${targetObject.parent}) not found`);
 
-  const req = new CPageRequest(webRequest, targetSite, targetFolder, targetObject, options);
+  const req = new CPageRequest(targetSite, targetFolder, targetObject, options);
   await req._preparePageRequestBase();
   return req;
 }

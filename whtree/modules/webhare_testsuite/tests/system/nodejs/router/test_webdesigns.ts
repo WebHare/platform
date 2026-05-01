@@ -1,9 +1,8 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
-import type { WebResponse } from "@webhare/router";
+import { createContentPageRequest, type WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
-import { buildContentPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
@@ -41,7 +40,7 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
 async function testPageResponse() {
   // Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = await buildContentPageRequest(new IncomingWebRequest(markdowndoc.link!), markdowndoc);
+  const sitereq = await createContentPageRequest(markdowndoc, { webRequest: new IncomingWebRequest(markdowndoc.link!) });
   test.eq([
     { id: markdowndoc.parentSite!, name: "webhare_testsuite.testsitejs", title: "", link: (await whfs.openSite(markdowndoc.parentSite!)).webRoot },
     { id: markdowndoc.parent!, name: "TestPages", title: "", link: null },
@@ -151,7 +150,7 @@ async function testDynamicPage() {
       test.assert(dynamicPage.link, "Folder should have a link since it has an index doc");
       const fetchResult = await fetch(dynamicPage.link);
       const response = parseResponse(await fetchResult.text());
-     test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
+      test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
     }
   }
 

@@ -1,7 +1,7 @@
 import * as whfs from "@webhare/whfs";
 import { type ContentBuilderFunction, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { buildContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
+import { createContentPageRequest, buildTargetPath, type PagePartRequest, type WidgetBuilderFunction } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction, type Instance, type RichTextDocument } from "@webhare/services";
 import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
@@ -87,8 +87,8 @@ async function routeThroughHSWebserver(port: WebServerPort, request: WebRequest,
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk
         dragging in a lot of dependencies here in the end, and may @webhare/router should only be for apps that implement routes, not execute them */
 
-export async function coreWebHareRouter(port: WebServerPort, request: WebRequest, localAddress: string): Promise<WebResponse> {
-  const target = await lookupPublishedTarget(request.url.toString(), { clientWebServer: request.clientWebServer }); //"Kijkt in database. Haalt file info en publisher info op"
+export async function coreWebHareRouter(port: WebServerPort, webRequest: WebRequest, localAddress: string): Promise<WebResponse> {
+  const target = await lookupPublishedTarget(webRequest.url.toString(), { clientWebServer: webRequest.clientWebServer }); //"Kijkt in database. Haalt file info en publisher info op"
   /* TODO we have to disable this to be able to resolve <backend> webrules.
           ideally we would only forward to the HS Websever if we hit a SHTML
   if (!target) //FIXME avoid new Error - it forces a stacktrace to be generated
@@ -96,22 +96,22 @@ export async function coreWebHareRouter(port: WebServerPort, request: WebRequest
   */
 
   if (!target?.renderer) //Looks like we'll need to fallback to the WebHare webserver to handle this request
-    return await routeThroughHSWebserver(port, request, localAddress);
+    return await routeThroughHSWebserver(port, webRequest, localAddress);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
   const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(target.renderer);
-  const whfsreq = await buildContentPageRequest(request, target.targetObject);
+  const whfsreq = await createContentPageRequest(target.targetObject, { webRequest });
   return await renderer(whfsreq);
 }
 
 export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl: string, funcname: string, funcarg: unknown) {
-  const req = await newWebRequestFromInfo(webreq);
-  const lookupresult = await whfs.lookupURL(new URL(webdesignurl), { clientWebServer: req.clientWebServer });
+  const webRequest = await newWebRequestFromInfo(webreq);
+  const lookupresult = await whfs.lookupURL(new URL(webdesignurl), { clientWebServer: webRequest.clientWebServer });
   if (!lookupresult?.folder)
     throw new Error(`Unable to lookup webdesign for url '${webdesignurl}'`);
 
   const targetObject = await whfs.openFileOrFolder(lookupresult.file ?? lookupresult.folder);
-  const whfsreq = await buildContentPageRequest(req, targetObject);
+  const whfsreq = await createContentPageRequest(targetObject, { webRequest });
   return (await runHareScriptPage(whfsreq, { pageRouter: { funcname, funcarg } })).asWebResponseInfo();
 }
 
@@ -121,10 +121,10 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   errorcode?: number;
   webreq?: WebRequestInfo;
 }): Promise<WebResponseInfo> {
-  const req = options?.webreq ? await newWebRequestFromInfo(options.webreq) : null;
+  const webRequest = options?.webreq ? await newWebRequestFromInfo(options.webreq) : undefined;
 
   if (options?.webreq) {
-    const isJsonRpc = req?.headers.get("Content-Type")?.split(";")[0] === "application/json" && req.method === "POST";
+    const isJsonRpc = webRequest?.headers.get("Content-Type")?.split(";")[0] === "application/json" && webRequest.method === "POST";
     if (isJsonRpc)
       return createWebResponse(`<html><body>WCS_/WDS_ JSON-RPC requests are not supported for JS-hosted webpages</body></html>`, { status: 400 }).asWebResponseInfo();
   }
@@ -134,7 +134,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
   const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile) : undefined;
-  const whfsreq = await buildContentPageRequest(req, targetObject, { statusCode: options?.errorcode, contentObject });
+  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
     const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
@@ -168,11 +168,11 @@ export async function renderTSWidgetHS(context: {
   const pagePartRequest: PagePartRequest = {
     //Consider taking the parent rendering context if available (or at least reuse the pagereq between invocations)
     renderRTD: async (rtd: RichTextDocument) => {
-      const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
+      const pagereq = await createContentPageRequest(await whfs.openFileOrFolder(context.targetobject));
       return pagereq.renderRTD(rtd);
     },
     renderWidget: async (widget: Instance) => {
-      const pagereq = await buildContentPageRequest(null, await whfs.openFileOrFolder(context.targetobject));
+      const pagereq = await createContentPageRequest(await whfs.openFileOrFolder(context.targetobject));
       return pagereq.renderWidget(widget);
     },
     targetObject: targetObject,

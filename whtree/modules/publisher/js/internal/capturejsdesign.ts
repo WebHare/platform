@@ -1,4 +1,4 @@
-import { buildContentPageRequest } from "@webhare/router/src/siterequest";
+import { createContentPageRequest } from "@webhare/router";
 import * as whfs from "@webhare/whfs";
 import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
@@ -11,8 +11,8 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
   await using mycontext = new CodeContext(`captureJSPage ${obj}`);
   return await mycontext.run(async () => {
     const targetdoc = await whfs.openFile(obj);
-    const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
-    const sitereq = await buildContentPageRequest(req, targetdoc);
+    const webRequest = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
+    const sitereq = await createContentPageRequest(targetdoc, { webRequest });
     const builder = await sitereq.getPageRenderer();
     if (!builder)
       throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
