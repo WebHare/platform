@@ -78,6 +78,8 @@ async function testWHFS() {
   test.eq(testsite.webRoot + "TestPages/markdownpage/", markdownfile.link);
   test.eq("/TestPages/markdownpage", markdownfile.sitePath);
   test.eq(testsite.id, markdownfile.parentSite);
+  test.eq([`system:whfs.folder.${markdownfile.parent}`], markdownfile.getEventMasks());
+  test.eq([`system:whfs-history.folder.${markdownfile.parent}`, `publisher:publication.folder.${markdownfile.parent}`], markdownfile.getEventMasks(["history", "publication"]));
 
   test.eq(true, (await openFileOrFolder(markdownfile.id)).isFile);
 
@@ -90,6 +92,8 @@ async function testWHFS() {
   const testpagesfolder = await whfs.openFolder(markdownfile.parent);
   test.eq("TestPages", testpagesfolder.name);
   test.eq(null, testpagesfolder.indexDoc);
+  test.eq([`system:whfs.folder.${testpagesfolder.id}`], testpagesfolder.getEventMasks());
+  test.eq([`system:whfs-history.folder.${testpagesfolder.id}`, `publisher:publication.folder.${testpagesfolder.id}`], testpagesfolder.getEventMasks(["history", "publication"]));
 
   const testpagesfolderAsFileOrfolder = await whfs.openFileOrFolder(markdownfile.parent);
   //@ts-expect-error TS is unsure whether it's a file or folder

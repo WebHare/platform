@@ -733,6 +733,17 @@ export class WHFSFolder extends WHFSBaseObject {
       }
     }
   }
+
+  getEventMasks(types: ("default" | "history" | "publication")[] = ["default"]): string[] {
+    const res: string[] = [];
+    if (types.includes("default"))
+      res.push(`system:whfs.folder.${this.id}`);
+    if (types.includes("history"))
+      res.push(`system:whfs-history.folder.${this.id}`);
+    if (types.includes("publication"))
+      res.push(`publisher:publication.folder.${this.id}`);
+    return res;
+  }
 }
 
 /** Resolve a WHFS object
