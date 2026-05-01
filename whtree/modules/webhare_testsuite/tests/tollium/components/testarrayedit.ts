@@ -121,16 +121,18 @@ test.runTests(
     },
     {
       name: "move_2_check",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.assert(!(line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
 
         const elt = test.getTolliumButton("Up");
         test.assert(elt.className.match(/disabled/));
+
+        tt.comp(":Down").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumButton('Down'),
     {
       name: "move_2_down_check",
       test: function (doc, win) {

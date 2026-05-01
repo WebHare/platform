@@ -62,8 +62,9 @@ test.runTests(
         await test.waitForUI();
       }
     },
-    test.testClickTolliumToolbarButton("Add", "New user", { name: "Create user pietje" }),
     async function createPietje() {
+      test.clickToddToolbarButton("Add", "New user");
+      await test.waitForUI();
       test.setTodd('username', "pietje@example.com");
       test.setTodd('wrd_firstname', "Pietje");
 
@@ -84,8 +85,10 @@ test.runTests(
       await test.waitForUI();
     },
 
-    test.testClickTolliumToolbarButton("Add", "New user", { name: "Create user jantje" }),
     async function createJantje() {
+      test.clickToddToolbarButton("Add", "New user");
+      await test.waitForUI();
+
       test.setTodd('username', 'jantje@example.com');
 
       test.clickToddButton('OK');

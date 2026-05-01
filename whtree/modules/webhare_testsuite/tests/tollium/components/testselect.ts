@@ -2,6 +2,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import * as browser from "dompack/extra/browser";
+import * as tt from "@mod-tollium/js/tolliumtest";
 
 
 let savefirstwidth;
@@ -14,9 +15,11 @@ test.runTests(
 
     async function () {
       await test.load(test.getCompTestPage('select', { type: 'pulldown', rowkeytype: 34 })); // TypeID(STRING) = 34
+      tt.comp(":Visible").click();
+      await test.waitForUI();
+      tt.comp(":Visible").click();
+      await test.waitForUI();
     },
-    test.testClickTolliumLabel('Visible'),
-    test.testClickTolliumLabel('Visible'),
     {
       test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
@@ -27,7 +30,7 @@ test.runTests(
     },
     {
       name: 'select second option',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //change the selection on the component. it should stay on its spot
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
@@ -39,29 +42,34 @@ test.runTests(
 
         test.assert(label.getBoundingClientRect().right <= select.getBoundingClientRect().left, 'replaced element should still be to the right of its label');
         test.eq(savefirstwidth, select.getBoundingClientRect().width, 'element should still be same size after selecting second option');
+
+        tt.comp(":Enabled").click();
+        await test.waitForUI();
       }
     },
 
-    test.testClickTolliumLabel('Enabled'),
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(select.disabled);
         test.eq(2, select.options.length);
+        tt.comp(":Update options").click();
+        await test.waitForUI();
       }
     },
 
-    test.testClickTolliumButton('Update options'),
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         // Browsers other than Firefox insert <hr> dividers instead of disabled options
         test.eq(browser.getName() === "firefox" ? 5 : 4, select.options.length);
+
+        tt.comp(":Enabled").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('Enabled'),
 
     {
       name: 'check dividers',
@@ -123,18 +131,21 @@ test.runTests(
       test: async function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
         await test.waitForUI();
+        tt.comp(":Update options").click();
+        await test.waitForUI();
+        tt.comp(':This is the third available option').click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumButton('Update options'),
-    test.testClickTolliumLabel('This is the third available option'),
     {
       name: 'enabletargets_test_both_disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
+        tt.comp(':Another long option, but the second').click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('Another long option, but the second'),
     {
       name: 'enabletargets_test_both_enabled',
       test: function (doc, win) {
@@ -182,33 +193,37 @@ test.runTests(
       test: async function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
         await test.waitForUI();
+        tt.comp(":Update options").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumButton('Update options'),
     {
       name: 'enabletargets_test_both_disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
+        tt.comp(':A very long first option').click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('A very long first option'),
     {
       name: 'enabletargets_test_first_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
+        tt.comp(':Another long option, but the second').click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('Another long option, but the second'),
     {
       name: 'enabletargets_test_both_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
+        tt.comp(":A very long first option").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('A very long first option'),
     {
       name: 'enabletargets_test_first_enabled',
       test: function (doc, win) {
@@ -244,22 +259,25 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName("componentpanel").querySelector("input").disabled);
+        tt.comp(":Enabled").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumLabel('Enabled'),
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.compByName("componentpanel").querySelector("input").disabled);
+
+        tt.comp(":Enabled").click();
+        await test.waitForUI();
+        tt.comp(":included1").click();
+        await test.waitForUI();
+        tt.comp(":included2").click();
+        await test.waitForUI();
       }
     },
-
-    test.testClickTolliumLabel('Enabled'),
-    test.testClickTolliumLabel('included1'),
-    test.testClickTolliumLabel('included2'),
-
     {
       name: 'checkboxlist_enabletargets_test_both_disabled',
       test: function (doc, win) {

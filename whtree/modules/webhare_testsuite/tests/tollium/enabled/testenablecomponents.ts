@@ -259,16 +259,18 @@ test.runTests(
 
     async function () {
       await tt.loadWTSTestScreen("tests/enabled.enablecomponentstest_arrayedit");
+      tt.comp(":Enabled").click();
+      await test.waitForUI();
     },
-    test.testClickTolliumLabel("Enabled", { name: "Enable arrayedit" }),
     {
       name: "select arrayedit row",
       test: async function (doc, win) {
         test.click(test.$screen(win).getListRow("arrayedit!list", "Title"));
         await test.wait("ui");
+        tt.comp(":Edit").click();
+        await test.wait("ui");
       }
     },
-    test.testClickTolliumButton("Edit", "Click edit button"),
     {
       name: "arrayedit test edit screen opened",
       test: function (doc, win) {

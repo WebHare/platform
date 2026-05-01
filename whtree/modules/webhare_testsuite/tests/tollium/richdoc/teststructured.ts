@@ -327,15 +327,15 @@ test.runTests(
     },
     {
       name: 'imagebuttontest-verify',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Image should be selected
         const rte = rtetest.getRTE(win, 'structured');
         const selection = rte.getEditor().getSelectionRange();
         test.eq(1, selection.querySelectorAll("img").length);
+        tt.comp(":Rewrite").click();
+        await test.waitForUI();
       }
     },
-
-    test.testClickTolliumButton("Rewrite", "dirtytest-resetdirty"),
 
     {
       name: 'dirtytest-testnotdirty',

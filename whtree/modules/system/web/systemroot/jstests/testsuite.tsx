@@ -100,10 +100,9 @@ export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animation
 export type TestStep = {
   test?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
   loadpage?: string | ((doc: Document, win: Window) => string);
-  _rethrow?: boolean;
-  waits?: TestWaitItem[];
   name?: string;
   //only used internally now:
+  _rethrow?: boolean;
   __subtest?: number;
   __subname?: string;
 };
@@ -561,9 +560,6 @@ class TestFramework {
     if (this.stop)
       return;
 
-    // Translate legacy waits to modern format
-    this.translateWaits(step);
-
     // Update the test state for this step, so the user knows we're running it.
     this.setStatus(test.name + " " + this.currentstep + "/" + this.currentsteps!.length + (step.name ? ': ' + step.name : ''));
     this.updateTestState();
@@ -601,11 +597,7 @@ class TestFramework {
     if (step.test) //TODO get rid of the 'as' but that requires us not use a then() here
       result = result.then(() => this.executeStepTestFunction(step as TestStep & Required<Pick<TestStep, "test">>));
 
-    // Schedule all waits serially after the tests. Clears signals if it uses them
-    if (step.waits)
-      step.waits.forEach((item) => { result = result.then(() => this.executeWait(step, item, this.getFrameRecord().currentsignals)).then(() => void undefined); });
-
-    // After the waits have all executed, see if a page load happened we did'nt expect
+    // See if a page load happened we didn't expect
     result = result.then(() => {
       // A 'pageload' wait clears signals.pageload. If not cleared, error out when the load happens
       for (const f of this.testframes)
@@ -1115,13 +1107,6 @@ class TestFramework {
 
   executeWaitFinish() {
     qR('#currentwait').style.display = "none";
-  }
-
-  /// Translate the .waitxxx values in a test step to step.waits
-  translateWaits(step: TestStep) {
-    const waits = step.waits || [];
-    if (waits.length)
-      step.waits = waits;
   }
 
   // standardize stacks to 'funcname@http-location:line:col'

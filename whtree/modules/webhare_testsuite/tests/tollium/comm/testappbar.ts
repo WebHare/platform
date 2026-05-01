@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import type WebSocketTransport from "@mod-tollium/web/ui/js/comm/websocket";
 import type { IndyShell } from "@mod-tollium/web/ui/js/shell";
 const transport = test.getTestArgument(0);
@@ -71,15 +72,17 @@ test.runTests(
       test.assert(closer);
       test.assert(test.isElementClickable(closer), 'closer (x) should be clickable');
       test.assert(!test.getCurrentApp().isBusy());
+
+      //but clicking it should have no effect. app should remain non busy
+      //it requires the close button
       test.click(closer);
       test.assert(!test.getCurrentApp().isBusy());
       await test.pressKey('Escape');
       test.assert(!test.getCurrentApp().isBusy());
-    },
 
-    //but clicking it should have no effect. app should remain non busy
-    //it requires the close button
-    test.testClickTolliumButton('Close'),
+      tt.comp(":Close").click();
+      await test.waitUI();
+    },
 
     "toggle allowclose",
     async function () {
@@ -102,9 +105,9 @@ test.runTests(
     async function () {
       test.click(test.qSA('.t-apptab--activeapp .t-apptab__close')[0]);
       await test.waitUI();
+      tt.comp(":No").click();
+      await test.waitUI();
     },
-
-    test.testClickTolliumButton('No'),
 
     "check confirmation",
     async function () {
@@ -112,9 +115,9 @@ test.runTests(
       test.eq(3, test.qSA('.t-apptab').length);
       await test.waitUI();
 
+      tt.comp(":Yes").click();
+      await test.waitUI();
     },
-
-    test.testClickTolliumButton('Yes'),
 
     "check close",
     async function () {
