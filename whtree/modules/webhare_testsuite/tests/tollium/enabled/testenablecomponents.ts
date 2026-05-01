@@ -49,7 +49,7 @@ test.runTests(
 
         const checkbox_node = test.qSA(".t-checkbox")[1];
         test.click(checkbox_node);
-        await test.wait("ui");
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
       }
     },
 
@@ -62,7 +62,7 @@ test.runTests(
 
         const pulldown_node = test.qSA("select")[1];
         test.fill(pulldown_node, 'enabled');
-        await test.wait("ui");
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
       }
     },
 
@@ -104,7 +104,7 @@ test.runTests(
 
         const checkbox_node = test.qSA(".t-checkbox")[0];
         test.click(checkbox_node);
-        await test.wait("ui");
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
       }
     },
 

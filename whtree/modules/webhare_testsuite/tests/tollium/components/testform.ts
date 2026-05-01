@@ -45,6 +45,7 @@ test.runTests(
         test.eq('o02', selects[0].propTodd.getValue());
 
         selects[0].propTodd.setValue('o01');
+        //won't trigger a ui wait probably until we go back to custom selects
         await test.waitForUI({ optional: true });
       }
     },

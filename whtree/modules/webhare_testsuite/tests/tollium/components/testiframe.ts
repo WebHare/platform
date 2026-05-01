@@ -50,6 +50,7 @@ test.runTests(
         iframe.contentWindow!.document.getElementById('adda')!.click();
         test.eq('databa', data.value); //this simply tests if the iframe processed its click correctly
         console.log('should start ui wait');
+        //100msec as we have no good wait to 'wait' for the postmessage. a less racy alternative would continously press I04 and see if the data is there yet
         await test.sleep(100);
         await test.waitForUI();
       }
