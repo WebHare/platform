@@ -1,5 +1,5 @@
 /* To see what Puppeteer is doing:
-   WEBHARE_DEBUG=show-browser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
+   WEBHARE_DEBUG=test-showbrowser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
 */
 
 import { loadlib, makeObject } from "@webhare/harescript";
@@ -19,7 +19,7 @@ import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oa
 import { generateRandomId } from "@webhare/std";
 
 const callbackUrl = "http://localhost:3000/cb";
-const headless = !debugFlags["show-browser"];
+const headless = !debugFlags["test-showbrowser"];
 let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
