@@ -64,7 +64,7 @@ async function testPageResponse() {
 
   //Verify the GTM plugin is present
   const config = getWHConfig(doc);
-  test.eq({ "a": "GTM-TN7QQM", "h": true, "m": false }, config["socialite:gtm"]);
+  test.eq({ "a": "GTM-TN7QQM", "m": false }, config["socialite:gtm"]);
   test.eq({ otherData: 112233 }, config["webhare_testsuite:otherdata"]);
   test.eq({ notOurAlarmCode: 424242 }, config["webhare_testsuite:basetestjs"]);
 

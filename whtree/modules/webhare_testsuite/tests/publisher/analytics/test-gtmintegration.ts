@@ -1,25 +1,10 @@
 import * as test from '@mod-system/js/wh/testframework';
 import type { pushToDataLayer } from '@webhare/frontend';
+import { checkForGTM, forceResetConsent } from '../data/publisher-testsupport';
 
 async function waitForGTM() {
   return test.wait(() => Boolean(test.getWin().webharetestcontainer) //GTM-TN7QQM has been configured to set this
   );
-}
-
-function forceResetConsent() {
-  test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
-}
-
-function checkForGTM(opts: { selfhosted?: 1; remote?: 1; snippet?: 1 }) {
-  try {
-    test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
-    test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
-    test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
-  } catch (e) {
-    console.log("GTM check failed, current scripts:", JSON.stringify(Array.from(test.qSA("script")).map(s => s.src)));
-    console.log(e);
-    throw e;
-  }
 }
 
 export function __testDataLayerTypes() { //never invoked
@@ -51,10 +36,10 @@ test.runTests(
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=none&setupdatalayertags=1');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=assetpack&setupdatalayertags=1');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({ selfhosted: 1 });
+      checkForGTM({ remote: 1 });
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
@@ -105,14 +90,6 @@ test.runTests(
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
-    },
-
-    "The new debugflag 'sne' should disable selfhosting",
-    async function () {
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?wh-debug=sne&ga4_integration=none');
-      await waitForGTM();
-      test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({ remote: 1 });
     },
 
     "Test consent API",

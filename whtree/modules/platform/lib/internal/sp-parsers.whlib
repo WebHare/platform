@@ -142,10 +142,6 @@ PUBLIC RECORD FUNCTION GetGTMAsYaml(OBJECT node) {
     gtm := CELL[ ...gtm, integration := node->GetAttribute("integration") ];
   IF(node->HasAttribute("launch"))
     gtm := CELL[ ...gtm, launch := node->GetAttribute("launch") ];
-  IF(node->HasAttribute("script"))
-    gtm := CELL[ ...gtm, script := node->GetAttribute("script") ];
-  IF(node->HasAttribute("pixel"))
-    gtm := CELL[ ...gtm, pixel := node->GetAttribute("pixel") ];
 
   RETURN gtm;
 }

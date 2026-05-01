@@ -7,23 +7,16 @@ declare module "@webhare/frontend" {
     "socialite:gtm": {
       /** Account ID, usually GTM-XXXXXX */
       a: string;
-      /** True if integration is selfhosted */
-      h: boolean;
       /** True if GTM is manually activated */
       m: boolean;
-      /** Override script URL, WH5.5/5.6 - FIXME only implemented in HareScript, not yet in TypeScript */
-      s?: string;
     };
   }
 }
 
 interface GTMPluginData {
   account: string;
-  integration: "script" | "assetpack" | "selfhosted";
+  integration: "script" | "assetpack";
   launch: "pagerender" | "manual";
-  //optional for WH5.5/5.6: in case we *just* upgraded and still need to recompile CSP
-  script?: string;
-  pixel?: string;
 }
 
 export function hookComposer(init: PagePluginInit, response: PagePluginRequest) {
@@ -43,7 +36,7 @@ export function hookComposer(init: PagePluginInit, response: PagePluginRequest) 
     response.insertAt("dependencies-top",
       `<script>(function (w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${hookdata.account}');</script>`);
   } else {
-    response.setFrontendData("socialite:gtm", { a: hookdata.account, h: hookdata.integration === 'selfhosted', m: hookdata.launch === 'manual' });
+    response.setFrontendData("socialite:gtm", { a: hookdata.account, m: hookdata.launch === 'manual' });
   }
 
   if (hookdata.launch === 'pagerender') {

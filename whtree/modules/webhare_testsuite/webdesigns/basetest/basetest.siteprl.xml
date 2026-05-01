@@ -594,7 +594,7 @@
   <apply>
     <to type="file" pathmask="/testpages/dynamicpage" />
     <to type="file" pathmask="/testpages/staticpage" />
-    <gtm account="GTM-TN7QQM" integration="selfhosted" />
+    <gtm account="GTM-TN7QQM" integration="assetpack" />
     <googleanalytics4 account="G-WQHC6J2JN0" />
   </apply>
 

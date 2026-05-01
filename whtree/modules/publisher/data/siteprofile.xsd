@@ -1615,23 +1615,8 @@
               <xs:documentation>Have the assetpack launch GTM. This may be needed to ensure datalayer values are ready. Requires you to import the @mod-publisher/js/analytics/gtm script</xs:documentation>
             </xs:annotation>
           </xs:enumeration>
-          <xs:enumeration value="selfhosted">
-            <xs:annotation>
-              <xs:documentation>Locally host the GTM code. Requires you to import the @mod-publisher/js/analytics/gtm script</xs:documentation>
-            </xs:annotation>
-          </xs:enumeration>
         </xs:restriction>
       </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="script">
-      <xs:annotation>
-        <xs:documentation>Overwrite script URL for GTM integration</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="pixel">
-      <xs:annotation>
-        <xs:documentation>Overwrite frame/pixel URL for GTM integration</xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="launch">
       <xs:annotation>

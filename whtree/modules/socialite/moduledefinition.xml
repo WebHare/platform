@@ -18,10 +18,6 @@
     </validation>
   </meta>
 
-  <servicemanager>
-    <task runat="*/5   * * * *" script="scripts/tasks/update_embedded.whscr" tag="update_embedded" description="Update embedded scripts" />
-  </servicemanager>
-
   <portal>
     <application name="config"
                  group="system:setup"
@@ -36,13 +32,6 @@
 
   <backend>
     <webrule path="allroots:/.socialite/" match="initial" handlebydir="web/global/" priority="after" />
-
-    <!-- embed scripts. cache for 10 minutes, together with the 5 minutes refresh rate this should sort of simulate GTM's 15 minute cache -->
-    <webrule path="allroots:/.se/"
-             match="initial"
-             cachecontrol="public, max-age=600"
-             priority="after"
-             redirecttodir="var:se/" />
   </backend>
 
   <rights>
@@ -143,10 +132,7 @@
 
   <moduleregistry>
     <obsoletenode name="localoverrides" />
-
-    <node name="embedscripts">
-      <string name="tagmanagers" />
-    </node>
+    <obsoletenode name="embedscripts" />
     <node name="maps">
       <string name="defaultprovider" initialval="leaflet" />
     </node>
