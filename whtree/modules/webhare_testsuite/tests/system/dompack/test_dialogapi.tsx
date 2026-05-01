@@ -31,7 +31,7 @@ test.runTests(
       test.eq(0, test.qR("#dialoglog").childNodes.length);
 
       test.click('[data-dialog-counter="2"] button.return1');
-      await test.wait('tick'); //dialog completion is a promise, so give it time to resolve
+      await test.sleep(1); //dialog completion is a promise, so give it time to resolve
 
       test.eq(false, test.hasFocus('#inputfield2')); //should remove focus...
 
@@ -39,7 +39,7 @@ test.runTests(
       test.eq(0, test.qSA('[data-dialog-counter="2"]').length, "Cannot certify that dialog #2 has left the DOM");
 
       test.click('[data-dialog-counter="1"] button.returnyeey');
-      await test.wait('tick'); //dialog completion is a promise, so give it time to resolve
+      await test.sleep(1); //dialog completion is a promise, so give it time to resolve
 
       await test.wait(() => test.hasFocus('#inputfield2'), 'focus should be restored to #inputfield2');
 

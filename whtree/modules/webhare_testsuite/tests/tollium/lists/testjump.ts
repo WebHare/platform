@@ -72,11 +72,11 @@ test.runTests(
 
         // focus the component to make sure the key gets there
         test.compByName("dynamiclist").focus();
-        await test.wait("events");
+        await test.sleep(1);
 
         // press the left key, should go to the parent
         await test.pressKey("ArrowLeft");
-        await test.wait("events");
+        await test.sleep(1);
 
         // Test the right row is selected
         const listview = test.compByName("dynamiclist").propTodd.list;

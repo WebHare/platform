@@ -162,11 +162,11 @@ test.runTests(
       const label = testpanel.querySelector('label');
 
       test.click(textedit_selection.querySelector("input"));
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(alternatedefault.classList.contains("default"));
     },
 
@@ -240,11 +240,11 @@ test.runTests(
       const label = testpanel.querySelector('input[type=checkbox]');
 
       test.click(textedit_selection.querySelector("input"));
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(alternatedefault.classList.contains("default"));
     },
 
@@ -324,11 +324,11 @@ test.runTests(
       const label = testpanel.querySelector('.listrow');
 
       test.click(textedit_selection.querySelector("input"));
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(!alternatedefault.classList.contains("default"));
 
       test.click(label);
-      await test.wait("events");
+      await test.sleep(1);
       test.assert(alternatedefault.classList.contains("default"));
     }
   ]);

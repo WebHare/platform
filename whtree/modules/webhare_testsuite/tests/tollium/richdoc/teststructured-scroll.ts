@@ -44,7 +44,7 @@ test.runTests(
         test.eq(savescrollpos, htmlnode.scrollTop);
         test.clickTolliumButton("OK");
         await test.waitForUI();
-        await test.wait("events");
+        await test.sleep(1);
       }
     },
 

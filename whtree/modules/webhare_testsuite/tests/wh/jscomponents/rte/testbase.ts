@@ -358,7 +358,7 @@ test.runTests(
             win.imgpropshandler = null;
         };
 
-        await test.wait("events"); // FF needs to load the image
+        await test.sleep(1); // FF needs to load the image
         await test.sleep(100); // chrome needs some extra wait too
         test.click(test.qS(rte.getBody(), "img"));
         test.click(test.qS(rte.getBody(), "img")); //doubleclick

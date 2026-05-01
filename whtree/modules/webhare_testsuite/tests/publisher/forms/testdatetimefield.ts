@@ -92,14 +92,14 @@ test.runTests([
 
     test.qR("[name=dateofbirth]").disabled = true;
     test.qR("[name=time]").disabled = true;
-    await test.wait('tick'); //wait for the observer to disable the rest
+    await test.sleep(1); //wait for the observer to disable the rest
 
     test.assert(dayfield.disabled);
     test.assert(hourfield.disabled);
 
     test.qR("[name=dateofbirth]").disabled = false;
     test.qR("[name=time]").disabled = false;
-    await test.wait('tick');
+    await test.sleep(1);
 
     test.assert(!dayfield.disabled);
     test.assert(!hourfield.disabled);
@@ -127,7 +127,7 @@ test.runTests([
     test.eq(2, timechangeevents, "keeping it invalid should not be a change");
 
     test.click(test.qSA('[type=submit]')[0]);
-    await test.wait('tick');
+    await test.sleep(1);
     test.assert(test.qR('[data-wh-form-group-for=dateofbirth]').classList.contains('wh-form__fieldgroup--error'), "Date field should be in error state");
     test.assert(test.qR('[data-wh-form-group-for=time]').classList.contains('wh-form__fieldgroup--error'), "Time field should be in error state");
 

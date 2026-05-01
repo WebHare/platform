@@ -19,7 +19,7 @@ test.runTests(
 
         // replace 'Kop', the chrome/safari/edge way
         rtetest.setRTESelection(win, rte, { startContainer: body, startOffset: 0, endContainer: body, endOffset: 1 });
-        await test.wait("events");
+        await test.sleep(1);
         await test.sleep(10);
 
         await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
@@ -36,7 +36,7 @@ test.runTests(
 
         // replace 'Kop'
         rtetest.setRTESelection(win, rte, { startContainer: body, startOffset: 0, endContainer: body, endOffset: 1 });
-        await test.wait("events");
+        await test.sleep(1);
 
         await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
           {

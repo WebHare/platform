@@ -31,7 +31,7 @@ test.runTests(
         test.qS('#store').focus();
         test.eq(test.qS('#store'), doc.activeElement);
         test.click(test.qS('.wh-rtd-editor'));
-        await test.wait("events");
+        await test.sleep(1);
         test.eq(test.qS('.wh-rtd-editor-bodynode'), doc.activeElement);
       }
     },
@@ -168,7 +168,7 @@ test.runTests(
       test: async function (doc, win) {
         const rte = win.rte.getEditor();
         rte.takeFocus();
-        await test.wait("events");
+        await test.sleep(1);
 
         rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
       }

@@ -94,7 +94,7 @@ declare global {
   }
 }
 
-export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | "events" | "tick" | "scroll" | number;
+export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | number;
 
 //An individual step in a test
 export type TestStep = {
@@ -1019,11 +1019,6 @@ class TestFramework {
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
-    if (item === "events" || item === "tick") {
-      console.warn(`Waiting for '${item}' just waits for 1 millisecond and does nothing magic, so just replace it with await wait(1)`);
-      item = 1;
-    }
-
     // Number: just wait for so many milliseconds
     if (typeof item === "number") {
       setTimeout(deferred.resolve, item);
@@ -1083,18 +1078,6 @@ class TestFramework {
             this.executeWaitFinish();
           }
         }
-      case "scroll":
-        {
-          const win = this.getFrameRecord().win!;
-          const scrollwaiter = () => {
-            //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
-            setTimeout(deferred.resolve, 0);
-            this.currentwaitstack = null;
-            win.removeEventListener("scroll", scrollwaiter);
-          };
-          win.addEventListener("scroll", scrollwaiter);
-          this.timedReject(deferred, "Timeout when waiting for scroll event", this.waittimeout);
-        } break;
 
       default:
         {
@@ -1207,35 +1190,6 @@ class TestFramework {
       node_teststatus.scrollIntoView({ block: "nearest" });
     }
   }
-
-  /* These don't compile and don't seem to be used
-  startNextStep() {
-    if (this.nextstepscheduled)
-      return;
-
-    this.nextstepscheduled = true;
-    setTimeout(() => this.startNextStepNow(), 0);
-  }
-  doWaitForGestures() {
-    this.waitforgestures = false;
-    if (!this.scriptframewin!.waitForGestures)
-      throw new Error("waitforgestures specified, but no waitForGestures found in scriptframe");
-
-    if (this.nextstepscheduled)
-      return;
-
-    this.nextstepscheduled = true;
-    this.scriptframewin!.waitForGestures(() => this.startNextStepNow());
-  }
-  doWaitForAnimationFrame() {
-    const framerec = this.getFrameRecord();
-    this.waitforanimationframe = false;
-    if (!framerec.win!.requestAnimationFrame)
-      throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-
-    framerec.win!.requestAnimationFrame(() => this.startNextStepNow());
-  }
-  */
 
   getCurrentStep() {
     return this.currentsteps![this.currentstep];

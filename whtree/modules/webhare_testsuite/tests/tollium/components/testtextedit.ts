@@ -68,7 +68,7 @@ test.runTests(
       test.assert(!counter.classList.contains("t-textedit__counter--underflow"));
 
       test.click(test.compByTitle("Required"));
-      await test.wait("events");
+      await test.sleep(1);
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
@@ -81,7 +81,7 @@ test.runTests(
       test.eq("3/4+", counter.textContent);
 
       test.fill(test.compByTitle("maxlength").querySelector("input"), "6");
-      await test.wait("events");
+      await test.sleep(1);
       test.clickTolliumButton("Read"); //force immediate state transfer
       await test.wait("ui");
 

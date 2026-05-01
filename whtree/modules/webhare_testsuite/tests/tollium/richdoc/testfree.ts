@@ -291,7 +291,7 @@ test.runTests(
       quote.parentNode.insertBefore(scriptnode, quote);
 
       // Give paste handlers chance to run
-      await test.wait('tick');
+      await test.sleep(1);
       test.eq(null, rte.qS("style")); //should be removed!
       test.eq(null, rte.qS("script")); //should be removed!
 
