@@ -47,8 +47,8 @@ test.runTests(
 
         //submit it
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {

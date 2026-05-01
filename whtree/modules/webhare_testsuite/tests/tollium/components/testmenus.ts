@@ -24,7 +24,7 @@ test.runTests(
 
     {
       name: 'dummyaction',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const X01 = test.getMenu(['X01']);
         test.click(X01);
         test.assert(X01.classList.contains("selected"));
@@ -37,13 +37,13 @@ test.runTests(
         test.assert(!test.getCurrentApp().isBusy());
         test.click(X09);
         test.assert(test.getCurrentApp().isBusy());
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'triggerquickaction',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.getCurrentApp().isBusy());
 
         // After clicking a menu item, ensure the menu is closed
@@ -66,12 +66,11 @@ test.runTests(
         test.assert(!X01.classList.contains("selected"));
 
         //click outside the menu to close it
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { rely: 150, down: 0 },
           { up: 0 }
         ]);
-      },
-      waitforgestures: 1
+      }
     },
 
     {
@@ -92,13 +91,13 @@ test.runTests(
         //should still have hover status but not selected
         await test.sleep(1);
         test.assert(!X03.classList.contains("selected"));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'visibility checks',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         let menu = test.qSA('.wh-menubar')[0];
         const X03 = test.qSA(menu, "*").filter(item => item.textContent.includes('X03'))[0];
         const X01 = test.qSA(menu, "*").filter(item => item.textContent.includes('X01'))[0];
@@ -144,8 +143,8 @@ test.runTests(
         test.click(X04);
         X07 = test.qSA("li").filter(item => item.textContent.includes('X07'))[0];
         test.click(X07);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
@@ -163,27 +162,27 @@ test.runTests(
 
     {
       name: 'disableaction',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
         const X12 = test.getMenu(['X01', 'X12']);
         test.click(X12);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'disableaction2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
         const X12 = test.getMenu(['X01', 'X12']);
         test.click(X12);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'customaction',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         win.$shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
 
         test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
@@ -194,8 +193,8 @@ test.runTests(
         test.assert(lastcustomactioninfo !== null);
         test.eq(/:customaction$/, lastcustomactioninfo.action);
         test.eq(test.getCurrentScreen().win, lastcustomactioninfo.screen);
-      },
-      waits: ['ui'] //the custom action should send message, which removes the screen
+        await test.wait("ui");
+      }
     },
 
     {
@@ -207,7 +206,7 @@ test.runTests(
 
     {
       name: 'switchbar',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -216,12 +215,12 @@ test.runTests(
         const X10 = test.getMenu(['X01', 'X10']);
         test.assert(X10 !== null);
         test.click(X10);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
       name: 'switchbar2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -231,12 +230,12 @@ test.runTests(
         const X22 = test.getMenu(['X21', 'x22']);
         test.assert(X22 !== null);
         test.click(X22);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
       name: 'switchbar3',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -245,25 +244,25 @@ test.runTests(
         test.assert(!test.getMenu([], { allowMissing: true }));
         test.assert(test.compByName('b02_togglebutton') !== null);
         test.click(test.compByName('b01_switchbar'));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'toolbarbuttonvisible',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const X13 = test.getMenu(['X01', 'X13']);
         test.assert(X13 !== null);
         test.click(X13);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
       name: 'toolbarbuttonvisible2 - now use keyboard',
       test: async function (doc, win) {
         await test.pressKey('b', { ctrlKey: true });
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
       name: 'toolbarbuttonvisible3',
@@ -274,18 +273,18 @@ test.runTests(
 
     {
       name: 'toolbarbuttonenable',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
         test.click(test.getMenu(['X01', 'X15']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName('b03_menubutton').classList.contains("todd--disabled"));
         test.click(test.getMenu(['X01', 'X15']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
     {
       test: function (doc, win) {

@@ -18,10 +18,10 @@ test.runTests(
     },
     {
       name: 'jumptoselection',
-      test: function () {
+      test: async function () {
         test.click(test.getMenu(['M01', 'M06']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {

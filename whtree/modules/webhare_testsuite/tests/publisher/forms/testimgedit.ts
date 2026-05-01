@@ -35,8 +35,8 @@ test.runTests(
         const imginfo = await loadImage(imgurl);
         test.eq(450, Math.floor(imginfo.naturalWidth)); //should be portrait even though we uploaded landscape
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {
@@ -60,8 +60,8 @@ test.runTests(
         test.eq(450, Math.floor(imginfo.naturalWidth)); //should be portrait even though we uploaded landscape
         //save loaded image again
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'Verify re-reloaded image',

@@ -12,11 +12,11 @@ test.runTests(
 
     {
       name: 'opensplit',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const A06 = test.getMenu(['M01', 'A06']);
         test.click(A06);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

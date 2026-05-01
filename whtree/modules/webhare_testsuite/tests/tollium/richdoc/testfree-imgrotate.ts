@@ -30,8 +30,8 @@ test.runTests(
         console.log('done prepare');
 
         test.click(test.compByName('editor').querySelector('.wh-rtd-button[data-button=img]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

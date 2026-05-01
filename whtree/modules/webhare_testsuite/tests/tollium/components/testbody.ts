@@ -11,14 +11,14 @@ test.runTests(
 
     {
       name: 'make body invisible',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //is the toolbar still there?
         test.eq(1, test.qSA('t-toolbar').length);
         //and does it still have buttons?
         test.eq(5, test.qSA('t-toolbar button').length);
         test.click(test.getMenu(['X01', 'X20']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

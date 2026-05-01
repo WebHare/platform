@@ -15,12 +15,12 @@ test.runTests(
 
     {
       name: 'iframeloadwait',
-      test: function () {
+      test: async function () {
         lasttextareavalue = test.qSA('textarea')[0].value;
         //var iframe = test.qSA('iframe')[0];
         test.click(test.getMenu(['I00']));
-      },
-      waits: [function () { return test.qSA('textarea')[0].value !== lasttextareavalue; }]
+        await test.wait(function () { return test.qSA('textarea')[0].value !== lasttextareavalue; });
+      }
     },
 
     'iframeinitialcall',
@@ -39,7 +39,7 @@ test.runTests(
 
     {
       name: 'serverdataupdate',
-      test: function ()//, callback)
+      test: async function ()//, callback)
       {
         const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
         const data = iframe.contentWindow!.document.querySelector<HTMLInputElement>('#data')!;
@@ -50,8 +50,10 @@ test.runTests(
         iframe.contentWindow!.document.getElementById('adda')!.click();
         test.eq('databa', data.value); //this simply tests if the iframe processed its click correctly
         console.log('should start ui wait');
-      },
-      waits: [100, 'ui'] //100msec as we have no good wait to 'wait' for the postmessage. a less racy alternative would continously press I04 and see if the data is there yet
+        //100msec as we have no good wait to 'wait' for the postmessage. a less racy alternative would continously press I04 and see if the data is there yet
+        await test.sleep(100);
+        await test.waitForUI();
+      }
     },
 
     'clientdataupdate_prepare',
@@ -66,21 +68,20 @@ test.runTests(
 
     {
       name: 'clientdataupdate',
-      test: function () {
+      test: async function () {
         const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
         const data = iframe.contentWindow!.document.querySelector<HTMLInputElement>('#data')!;
         test.eq('databab', data.value);
 
         // SetHTMLContent
         test.click(test.getMenu(['I01']));
-      },
-      waits: [
-        'ui', () => {
+        await test.waitForUI();
+        await test.wait(() => {
           const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
           const source = iframe.contentWindow!.document.getElementById('source');
           return source && source.dataset.source === 'htmlcontent2';
-        }
-      ]
+        });
+      }
     },
 
     {
@@ -96,8 +97,9 @@ test.runTests(
 
         // Do a JS call outside of loading stage
         test.click(test.getMenu(['I03']));
-      },
-      waits: [100, 'ui']
+        await test.sleep(100);
+        await test.waitForUI();
+      }
     },
 
     {
@@ -150,8 +152,8 @@ test.runTests(
 
         const iframdoc = iframe.contentWindow!.document;
         iframdoc.getElementById('link')?.click();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

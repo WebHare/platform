@@ -157,25 +157,25 @@ test.runTests(
     // Test table left
     {
       name: 'leftheader-open-properties-1',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
 
         test.assert(table.querySelector("td").offsetWidth > 200, "if the tablecell is < 200px, the table lost its styling after rewriting");
         test.click(table.querySelector("td"), { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: 'leftheader-enable',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header row"))[0]);  // disable
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // enable
         test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
         test.clickTolliumButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     'leftheader reclick (crashed earlier when targetting existing TH)',
     async function (doc, win) {
@@ -191,7 +191,7 @@ test.runTests(
     },
     {
       name: 'leftheader-test',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.eq(0, table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -212,7 +212,7 @@ test.runTests(
     // Test table header disable
     {
       name: 'headerdisable-open-properties-1',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         const first_td_p = table.querySelector("td p");
@@ -228,16 +228,16 @@ test.runTests(
 
         test.click(table.querySelector("td"), { button: 2 });
         test.click(test.getOpenMenuItem("Properties"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: 'headerdisable-enable',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // disable
         test.clickTolliumButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: 'headerdisable-test',

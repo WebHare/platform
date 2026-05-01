@@ -12,9 +12,8 @@ test.runTests(
     // Pulldown
     //
 
-    {
-      loadpage: test.getCompTestPage('select', { type: 'pulldown', rowkeytype: 34 }), // TypeID(STRING) = 34
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('select', { type: 'pulldown', rowkeytype: 34 })); // TypeID(STRING) = 34
     },
     test.testClickTolliumLabel('Visible'),
     test.testClickTolliumLabel('Visible'),
@@ -92,9 +91,8 @@ test.runTests(
     // Radio
     //
 
-    {
-      loadpage: test.getCompTestPage('select', { type: 'radio', rowkeytype: 34 }), // TypeID(STRING) = 34
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('select', { type: 'radio', rowkeytype: 34 })); // TypeID(STRING) = 34
     },
 
     {
@@ -113,19 +111,19 @@ test.runTests(
 
     {
       name: 'enabletargets_set_1',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: 'enabletargets_set_2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     test.testClickTolliumButton('Update options'),
     test.testClickTolliumLabel('This is the third available option'),
@@ -166,26 +164,25 @@ test.runTests(
     // Checkbox
     //
 
-    {
-      loadpage: test.getCompTestPage('select', { type: 'checkbox', rowkeytype: 34 }), // TypeID(STRING) = 34
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('select', { type: 'checkbox', rowkeytype: 34 })); // TypeID(STRING) = 34
     },
 
     {
       name: 'enabletargets_set_1',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: 'enabletargets_set_2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     test.testClickTolliumButton('Update options'),
     {
@@ -241,9 +238,8 @@ test.runTests(
     // Checkboxlist
     //
 
-    {
-      loadpage: test.getCompTestPage('select', { type: 'checkboxlist', rowkeytype: 34 }), // TypeID(STRING) = 34
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('select', { type: 'checkboxlist', rowkeytype: 34 })); // TypeID(STRING) = 34
     },
 
     {
@@ -274,10 +270,10 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow1',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.qSA('.listrow')[0].querySelector('input[type=checkbox]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -290,10 +286,10 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.qSA('.listrow')[1].querySelector('input[type=checkbox]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     'checkboxlist_enabletargets_test_first_enabled',

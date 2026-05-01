@@ -21,7 +21,7 @@ test.runTests(
 
     {
       name: 'selectcell',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Check if cell 0:0 is selected
 
         const node_tbl = test.compByName("tbl");
@@ -38,25 +38,25 @@ test.runTests(
 
         // Get current selection state
         test.click(test.getMenu(['M01']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'reportselect-single',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textarea = test.qSA('textarea')[0];
         test.eq('single/single\n1:1', textarea.value.trim());
 
         // Move to multiple selection
         test.click(test.getMenu(['M02']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'innerselect', //test that the outer table does not respond to selections made in the inner table in cell(2,2)
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const outertable = test.compByName('tbl');
         let selected = getSelection(outertable);
         test.eq(1, selected.length);
@@ -82,13 +82,13 @@ test.runTests(
 
         // Disable inner table selection
         test.click(test.getMenu(['M03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'addselect',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textarea = test.qSA('textarea')[0];
         test.eq('multiple/single\n1:1', textarea.value.trim());
 
@@ -104,20 +104,20 @@ test.runTests(
 
         // Get current selection state
         test.click(test.getMenu(['M01']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'reportselect-multiple',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textarea = test.qSA('textarea')[0];
         test.eq('multiple/none\n1:1\n2:2', textarea.value.trim());
 
         // Move to select none
         test.click(test.getMenu(['M02']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

@@ -59,7 +59,7 @@ test.runTests(
 
     {
       name: 'statictree',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //should be initially selected
         const listrow = test.getCurrentScreen().getListRow('staticlist', 'Row #2|');
         test.assert(listrow.classList.contains("wh-list__row--selected"));
@@ -78,8 +78,8 @@ test.runTests(
 
         //Select the first row
         test.click(test.getCurrentScreen().getListRow('staticlist', 'Row #1|'));
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
 
     {
@@ -131,12 +131,11 @@ test.runTests(
         cells = getListRowCells(staticlist, "Row #1|");
         test.eq("Row #1 is collapsed", cells[2].textContent);
       }
-      //    , waits:["ui"]
     },
 
     {
       name: 'statictree-buttonplay',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //note: the rowkeys are generated dynamically, row 1=1, etc
         //check selection
         test.eq('1', test.compByName("staticlistselection").textContent); //we didn't even touch it...
@@ -158,12 +157,12 @@ test.runTests(
         test.assert(!B05.classList.contains('todd--disabled'));
 
         //test.click(B05); //racy on IE/Edge
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: B05, down: 0, x: "50%", y: "50%" },
           { el: B05, up: 0, x: "50%", y: "50%", delay: 500 }
         ]);
-      },
-      waits: ["pointer", "ui"]
+        await test.wait("ui");
+      }
     },
 
     {
@@ -178,7 +177,7 @@ test.runTests(
 
     {
       name: 'statictree-sort',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Integer column"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
         test.click(spancol);
@@ -195,22 +194,22 @@ test.runTests(
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #2.1').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #1|').getBoundingClientRect().top);
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #1.2').getBoundingClientRect().top);
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.2').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').getBoundingClientRect().top);
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
     {
       name: 'select invisible element',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const M10 = test.getMenu(['M01', 'M10']);
         console.log("Click M10");
         test.click(M10);
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'dynamictree',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(0, test.qSA('.listheader span').filter(span => span.textContent.includes("Text col (asc)")).length);//should not be there, list is not sortable
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 10').getBoundingClientRect().top < test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 10').getBoundingClientRect().top); //should retain original order
 
@@ -225,15 +224,14 @@ test.runTests(
         clickRowExpander(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20'));
         //the feedback should be immediate..
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
-      },
-      //, waits:["ui"]
-      waits: [function () { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') !== null; }]
+        await test.wait(function () { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') !== null; });
+      }
     },
 
 
     {
       name: 'dynamictree-dynexpand',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //FIXME Inspecting the JSON output, it looks like the entire list is re-sent by Tollium in NG mode (old Todd is better). should only send new rows...
 
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
@@ -245,8 +243,8 @@ test.runTests(
 
         //test multi selection
         test.click(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 20'), { cmd: true });
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
 
     {
@@ -262,7 +260,7 @@ test.runTests(
 
     {
       name: 'contextmenu',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         let ctxtmenu = test.qS('.toddContextMenu');
         test.assert(ctxtmenu === null);
 
@@ -291,14 +289,14 @@ test.runTests(
 
         //select option MC03
         test.click(MC03); //'do something'
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
 
 
     {
       name: 'contextmenu-checkclick',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //the menu should have left the DOM
         test.eq(null, test.qS('.toddContextMenu'));
         //check selection after clicking 'do something'
@@ -312,8 +310,8 @@ test.runTests(
         const M05 = test.getMenu(['M01', 'M05']);
         test.assert(!M05.classList.contains('disabled'));
         test.click(M05);
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
@@ -362,47 +360,47 @@ test.runTests(
 
     {
       name: 'empty text is hidden',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq(0, test.qSA('.emptytextholder')[0].offsetHeight);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M07']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'empty text is shown but empty',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'empty text is shown and non-empty',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
         test.click(test.getMenu(['M01', 'M08']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'empty text is changed, multiline',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.assert(test.qSA('.emptytextholder')[0].offsetHeight !== 0);
         test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
         // Show some lines again
         test.click(test.getMenu(['M01', 'M06']));
-      },
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
@@ -414,7 +412,7 @@ test.runTests(
 
     {
       name: 'sort-fallback',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         let spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Text col"))[0];
         test.click(spancol);
 
@@ -439,8 +437,8 @@ test.runTests(
 
         // Init sort by ordering
         test.click(test.getMenu(['M01', 'M09']));
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
 
     {

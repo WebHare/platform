@@ -41,8 +41,8 @@ test.runTests(
         test.eq('This is a test.\n', await formdata.file[0].file?.text());
 
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {
@@ -59,8 +59,8 @@ test.runTests(
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         //save loaded image again
         test.click('#submitbutton');
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'Verify re-reloaded file',

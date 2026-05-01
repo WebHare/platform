@@ -2,24 +2,23 @@ import * as test from '@mod-tollium/js/testframework';
 
 test.runTests(
   [
-    {
-      loadpage: test.getTolliumHost() + '?app=__jsapp_hack__', //tollium_todd.res/webhare_testsuite/tollium/jsapp.js
-      waits: ['ui']
+    async function () {
+      await test.load(test.getTolliumHost() + '?app=__jsapp_hack__'); //tollium_todd.res/webhare_testsuite/tollium/jsapp.js
     },
 
     {
-      test: function () {
+      test: async function () {
         test.eq(2, test.qSA('.t-apptab').length);
 
         test.assert(test.getCurrentScreen().getNode()?.textContent?.includes("Hello, World"));
         test.click(test.compByName('remote'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: "Remote app embedding test",
-      test: function () {
+      test: async function () {
         //no extra app should visibly appear
         test.eq(2, test.qSA('.t-apptab').length);
 
@@ -36,40 +35,40 @@ test.runTests(
         //see if it can open the lineair subwindows properly
         test.click(test.getMenu(['N01', 'B02']));
         //FIXME implement busy handling: test.assert(test.getCurrentApp().isBusy());
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: "click away first subscreen",
-      test: function () {
+      test: async function () {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(test.getMenu(['M01', 'A02']) !== null); //check if M01 A02 exists, then assume all is good
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: "click away second subscreen",
-      test: function () {
+      test: async function () {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(!test.getMenu(['M01', 'A02'], { allowMissing: true }));
         test.click(test.getCurrentScreen().qR('button'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
-      test: function () {
+      test: async function () {
         test.eq(3, test.qSA(".t-screen").length);
         test.click(test.getCurrentScreen().qR('button'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
-      test: function () {
+      test: async function () {
         test.eq(2, test.qSA(".t-screen").length);
         test.getCurrentScreen().clickCloser();
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {

@@ -9,7 +9,7 @@ test.runTests(
 
     {
       name: 'enableburger',
-      test: function () {
+      test: async function () {
         test.assert(test.getCurrentScreen().qS("ul.wh-menubar"));
         test.assert(test.qS('li[data-menuitem$="x0b1"]'));
         test.assert(!test.qS('li[data-menuitem$="x0b2"]'));
@@ -17,8 +17,8 @@ test.runTests(
 
         //XB01 should be there, XB02 shouldn't
         test.click(test.compByName('b14_toggleforcemenubar'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       test: function () {
@@ -74,15 +74,15 @@ test.runTests(
 
     {
       name: 'initialburger',
-      test: function () {
+      test: async function () {
         test.click(test.getMenu(['X01', 'X17']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'test burger',
-      test: function () {
+      test: async function () {
         console.error(test.getCurrentScreen());
         const burgerbutton = test.getCurrentScreen().qS('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(burgerbutton);
@@ -93,8 +93,8 @@ test.runTests(
         test.assert(test.getOpenMenu());
 
         test.click(test.compByName('b14_toggleforcemenubar'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'test menu back',
@@ -108,22 +108,22 @@ test.runTests(
     },
     {
       name: 'reenable burger',
-      test: function () {
+      test: async function () {
         test.click(test.compByName('b14_toggleforcemenubar'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'add menuitems',
-      test: function () {
+      test: async function () {
         //check if the ismenubutton is back
         const lastbutton = test.getCurrentScreen().qR('t-toolbar .t-toolbar-buttongroup__right button:last-child');
         test.assert(lastbutton.classList.contains("ismenubutton"));
         test.click(lastbutton);
         test.click(test.qR(test.getOpenMenu(), 'li[data-menuitem$=":x01menu"]'));
         test.click(test.qR(test.getOpenMenu(), 'li[data-menuitem$=":x18"]'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'check added menuitems',
@@ -143,10 +143,10 @@ test.runTests(
 
     {
       name: 'initialburger-withpopup',
-      test: function () {
+      test: async function () {
         test.click(test.getMenu(['X01', 'X19']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

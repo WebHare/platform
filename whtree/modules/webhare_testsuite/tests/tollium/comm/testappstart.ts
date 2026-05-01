@@ -20,7 +20,7 @@ test.runTests(
 
     {
       name: 'checktargetedstart',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.eq('app_1_1', doc.title);
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
@@ -37,13 +37,13 @@ test.runTests(
 
         // Send message to self {target: 1}
         test.click(test.getMenu(['X03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'checkselfmessage',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -64,7 +64,7 @@ test.runTests(
 
     {
       name: 'checkappswitch',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -75,8 +75,8 @@ test.runTests(
         test.eq([apps[1]], Array.from(test.qSA('.appcanvas--visible')));
 
         test.click(test.getMenu(['X03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -116,9 +116,9 @@ test.runTests(
 
         //if so, let's close the dialog
         test.click(test.compByName('closebutton'));
+        await test.waitForUI();
 
-      },
-      waits: ['ui']
+      }
     },
 
     {

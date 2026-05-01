@@ -15,11 +15,11 @@ test.runTests(
 
     {
       name: 'opensplit',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const A03 = test.getMenu(['M01', 'A03']);
         test.click(A03);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

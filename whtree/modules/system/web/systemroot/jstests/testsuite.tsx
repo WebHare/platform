@@ -99,28 +99,15 @@ export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animation
 //An individual step in a test
 export type TestStep = {
   xfail?: string;
-  timeout?: number;
-  wait?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
   test?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
-  /// @deprecated Use a normal `test` function and use `waits: ["load"]`
-  expectload?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
-  /// @deprecated Uuse `waits: [ (doc, win) => { ...} ]`
-  waituntil?: (doc: Document, win: Window) => void | Promise<unknown>;
   loadpage?: string | ((doc: Document, win: Window) => string);
   _rethrow?: boolean;
   waits?: TestWaitItem[];
   name?: string;
-  subtest?: number;
-  subname?: string;
+  //only used internally now:
+  __subtest?: number;
+  __subname?: string;
   ignore?: boolean;
-
-  /// @deprecated Use waits: ["pointer"] instead
-  waitforgestures?: boolean;
-  /// @deprecated Use waits: ["ui"] instead
-  waitwhtransitions?: boolean;
-  /// @deprecated Use waits: ["animationframe"] instead
-  waitforanimationframe?: boolean;
-
 };
 
 class FrameRecord {
@@ -616,8 +603,8 @@ class TestFramework {
     });
 
     // Test or wait? Execute it after the loadpage
-    if (step.test || step.wait)
-      result = result.then(() => this.executeStepTestFunction(step));
+    if (step.test) //TODO get rid of the 'as' but that requires us not use a then() here
+      result = result.then(() => this.executeStepTestFunction(step as TestStep & Required<Pick<TestStep, "test">>));
 
     // Schedule all waits serially after the tests. Clears signals if it uses them
     if (step.waits)
@@ -675,7 +662,7 @@ class TestFramework {
 
   /// Handles a test step that errored out
   async handleTestStepException(test: TestScript, step: TestStep, e: unknown) {
-    const fullname = step.name ? step.name + (step.subname ? "#" + step.subname : "") : "";
+    const fullname = step.name ? step.name + (step.__subname ? "#" + step.__subname : "") : "";
     // Got a test exception. Log it everywhere
     const prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname + ' (#' + this.currentstep + ')' : '#' + this.currentstep);
     const text = prefix + ' failed';
@@ -872,8 +859,8 @@ class TestFramework {
   _setSubName(step: TestStep, name: string) {
     if (debugFlags.testfw)
       console.log('[testfw] -- setsubname ', name);
-    step.subtest = (step.subtest || 0) + 1;
-    step.subname = name;
+    step.__subtest = (step.__subtest || 0) + 1;
+    step.__subname = name;
   }
 
   _checkClientAsyncFunc() {
@@ -962,15 +949,13 @@ class TestFramework {
   }
 
   /// Executes the step.test or test.wait functions
-  executeStepTestFunction(step: TestStep) {
+  executeStepTestFunction(step: TestStep & Required<Pick<TestStep, "test">>) {
     const deferred = Promise.withResolvers<void>();
 
-    const func = (step.test || step.wait)!;
+    const func = step.test;
 
     // Initialize the callback for step.wait if needed
     let callback;
-    if (step.wait)
-      callback = deferred.resolve;
 
     this.setCallbacks(step);
 
@@ -978,25 +963,14 @@ class TestFramework {
     const returnvalue = func(framerec.doc!, framerec.win!, callback!);
 
     //this.uiwasbusy = this.pageframewin && this.pageframewin.$wh && this.pageframewin.$wh.busycount > 0;
-    if (step.wait || (returnvalue && "then" in returnvalue)) {
-      const text = "Wait: " + (step.wait ? "callback" : "test promise");
-      qR('#currentwait').textContent = text;
-      qR('#currentwait').style.display = "inline-block";
-      deferred.promise = deferred.promise.finally(function () { qR('#currentwait').style.display = "none"; });
-    }
+    // Resolve deferred with the returnvalue of the test function. If a promise was returned, deferred will be fulfulled
+    // with the result of the promise
+    Promise.resolve(returnvalue)
+      .finally(() => this.setCallbacks(null))
+      .then(() => deferred.resolve(), deferred.reject);
 
-    if (step.test) {
-      // Resolve deferred with the returnvalue of the test function. If a promise was returned, deferred will be fulfulled
-      // with the result of the promise
-      Promise.resolve(returnvalue)
-        .finally(() => this.setCallbacks(null))
-        .then(() => deferred.resolve(), deferred.reject);
-
-      // Also schedule a timeout
-      this.timedReject(deferred, "Timeout waiting for promise returned by step.test to resolve", step.timeout || this.waittimeout);
-    } else {// Timeout on the callback, please. If the callback is earlier, it wins.
-      this.timedReject(deferred, "Timeout waiting for step.wait callback", step.timeout || this.waittimeout);
-    }
+    // Also schedule a timeout
+    this.timedReject(deferred, "Timeout waiting for promise returned by step.test to resolve", this.waittimeout);
 
     return deferred.promise;
   }
@@ -1024,7 +998,7 @@ class TestFramework {
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
     // Schedule a timeout
-    this.timedReject(deferred, "Timeout when waiting for function", step.timeout || this.waittimeout);
+    this.timedReject(deferred, "Timeout when waiting for function", this.waittimeout);
 
     // If the timeout triggers, cancel the animationframerequest
     deferred.promise.catch(() => {
@@ -1092,7 +1066,7 @@ class TestFramework {
 
           void dombusy.waitUIFree().then(() => deferred.resolve());
           void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for UI", step.timeout || this.waittimeout);
+          this.timedReject(deferred, "Timeout when waiting for UI", this.waittimeout);
         } break;
 
       case "pointer":
@@ -1102,7 +1076,7 @@ class TestFramework {
 
           this.scriptframewin!.waitForGestures(() => deferred.resolve());
           void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for gestures to finish", step.timeout || this.waittimeout);
+          this.timedReject(deferred, "Timeout when waiting for gestures to finish", this.waittimeout);
         } break;
 
       case "animationframe":
@@ -1112,7 +1086,7 @@ class TestFramework {
             throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
           framerec.win!.requestAnimationFrame(() => deferred.resolve());
           void deferred.promise.then(() => this.currentwaitstack = null);
-          this.timedReject(deferred, "Timeout when waiting for animation frame", step.timeout || this.waittimeout);
+          this.timedReject(deferred, "Timeout when waiting for animation frame", this.waittimeout);
         } break;
 
       case "load":
@@ -1121,7 +1095,7 @@ class TestFramework {
           if (!signals.pageload)
             throw new Error("Pageload promise was already used in earlier wait");
 
-          this.timedReject(deferred, "Timeout when waiting for pageload", step.timeout || this.waittimeout);
+          this.timedReject(deferred, "Timeout when waiting for pageload", this.waittimeout);
 
           const framerec = this.getFrameRecord();
           const promise = signals.pageload;
@@ -1145,7 +1119,7 @@ class TestFramework {
             win.removeEventListener("scroll", scrollwaiter);
           };
           win.addEventListener("scroll", scrollwaiter);
-          this.timedReject(deferred, "Timeout when waiting for scroll event", step.timeout || this.waittimeout);
+          this.timedReject(deferred, "Timeout when waiting for scroll event", this.waittimeout);
         } break;
 
       default:
@@ -1164,34 +1138,6 @@ class TestFramework {
   /// Translate the .waitxxx values in a test step to step.waits
   translateWaits(step: TestStep) {
     const waits = step.waits || [];
-
-    const translations = {
-      waitforgestures: 'pointer',
-      waitwhtransitions: 'ui',
-      waitforanimationframe: 'animationframe'
-    } as const;
-
-    Object.entries(translations).map(([name, value]) => {
-      if (step[name as keyof typeof translations]) {
-        console.error(name + " is deprecated, use waits:[\"" + value + "\"]");
-        waits.push(value);
-        delete step[name as keyof typeof translations];
-      }
-    });
-
-    if (step.expectload) {
-      console.error('expectload is deprecated, use a normal test() and waits: ["pageload"]', step);
-      step.test = step.expectload;
-      delete step.expectload;
-      waits.unshift('pageload');
-    }
-
-    if (step.waituntil) {
-      console.error('waituntil is deprecated, use waits: [function (doc, win) { ... } ]', step);
-      waits.unshift(step.waituntil);
-      delete step.waituntil;
-    }
-
     if (waits.length)
       step.waits = waits;
   }

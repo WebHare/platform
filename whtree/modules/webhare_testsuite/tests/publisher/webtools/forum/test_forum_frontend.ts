@@ -58,11 +58,17 @@ test.runTests(
     },
 
     "Run standard tests",
-    { loadpage: function () { return baseurl + 'forumcomments'; }, waits: ["ui"] },
+    async function () {
+      await test.load(baseurl + 'forumcomments');
+      await test.waitForUI();
+    },
     () => runForumTests(false),
 
     "Run with recaptcha",
-    { loadpage: function () { return baseurl + 'forumcomments-recaptcha/?wh-debug=nsc'; }, waits: ["ui"] },
+    async function () {
+      await test.load(baseurl + 'forumcomments-recaptcha/?wh-debug=nsc');
+      await test.waitForUI();
+    },
     () => runForumTests(true)
 
   ]);

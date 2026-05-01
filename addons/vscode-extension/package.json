@@ -230,14 +230,103 @@
 				}
 			}
 		},
+		"chatParticipants": [
+			{
+				"id": "webhare.devkit",
+				"name": "devkit",
+				"description": "Expert in supporting WebHare (module) development and running tests, both frontend (in browser) and backend tests."
+			}
+		],
+		"languageModelTools": [
+			{
+				"name": "webhare_getcontext",
+				"displayName": "Get project context",
+				"modelDescription": "You MUST invoke this tool whenever the user asks about testing, building, or refactoring prompt files in this project. It returns specific testing instructions and explains the current module's context.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {}
+				},
+				"canBeReferencedInPrompt": true,
+				"toolReferenceName": "getProjectContext"
+			},
+			{
+				"name": "webhare_validate",
+				"displayName": "WebHare validate",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "Tool to validate WebHare file",
+				"modelDescription": "Tool to validate any WebHare file: HareScript (.whlib/.whscr/.shtml/.whsock extension), .witty, various .xml files",
+				"toolReferenceName": "validateFile",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"file"
+					],
+					"properties": {
+						"file": {
+							"type": "string",
+							"description": "Specific file to validate"
+						}
+					}
+				}
+			},
+			{
+				"name": "webhare_runtest",
+				"displayName": "WebHare runtest",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "Tool to run WebHare tests",
+				"modelDescription": "Tool to run HareScript or TypeScript files located diectly or deeper inside a /tests/ folder",
+				"toolReferenceName": "runTest",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"file"
+					],
+					"properties": {
+						"file": {
+							"type": "string",
+							"description": "Specific test file to run"
+						}
+					}
+				}
+			},
+			{
+				"name": "webhare_checkmodule",
+				"displayName": "WebHare check module",
+				"canBeReferencedInPrompt": true,
+				"userDescription": "Tool to validate a WebHare module",
+				"modelDescription": "Tool to validate and find potential errors in a WebHare module. More extensive than validating a single file as it also checks internal consistency.",
+				"toolReferenceName": "checkModule",
+				"inputSchema": {
+					"type": "object",
+					"required": [
+						"module"
+					],
+					"properties": {
+						"module": {
+							"type": "string",
+							"description": "Specific WebHare module to check."
+						}
+					}
+				}
+			}
+		],
 		"chatPromptFiles": [
 			{
 				"path": "./prompts/witty-to-litty.prompt.md"
+			},
+			{
+				"path": "./prompts/modernize-test.prompt.md"
 			}
 		],
 		"chatSkills": [
 			{
 				"path": "./skills/typescript-development/SKILL.md"
+			},
+			{
+				"path": "./skills/running-tests/SKILL.md"
+			},
+			{
+				"path": "./skills/build-modernize-tests/SKILL.md"
 			}
 		],
 		"mcpServerDefinitionProviders": [

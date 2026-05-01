@@ -10,7 +10,7 @@ test.runTests(
     },
 
     {
-      test: function () {
+      test: async function () {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
@@ -22,12 +22,12 @@ test.runTests(
         //var menu = activewindow[0].getElement('.wh-menubar');
         const N01 = test.getMenu(['N01', 'B02']);
         test.click(N01);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function () {
+      test: async function () {
         //this sequentially opens two windows. let's get the first
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
@@ -42,12 +42,12 @@ test.runTests(
 
         //Let's play with the embeddable frames option
         test.click(test.getMenu(['M01', 'A05'])); //embed a window
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: "embedded window tests",
-      test: function () {
+      test: async function () {
         //Let's make sure there is only ONE body in the windowq
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
@@ -62,12 +62,12 @@ test.runTests(
         test.fill(thetextedit, 'This was number 2');
 
         test.click(test.getMenu(['M01', 'A02'])); //embed a window
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: "test after swap", //this used to cause issues because elementnames were something like embeddingpanelname!componentname, so two screens sharing component names woudl conflict
-      test: function () {
+      test: async function () {
         const thetext = test.compByName("body").querySelector("t-text");
         test.eq('#1', thetext.textContent);
         const thetextedit = test.compByName("body").querySelector("input[type='text']");
@@ -75,8 +75,8 @@ test.runTests(
 
         //Find the new button. There should be only one button in the window, so it should be easy to find..
         test.clickToddButton("B01 Add line");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     async function () {
       const activewindow = test.qSA('.t-screen.active');
@@ -92,7 +92,7 @@ test.runTests(
       await test.waitForUI();
     },
     {
-      test: function () {
+      test: async function () {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(3, test.qSA('#mainarea .t-screen').length); //if this test returns '4', the intermediate window wasn't killed
@@ -105,12 +105,12 @@ test.runTests(
         const buttons = activewindow[0].querySelectorAll('button');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
-      test: function () {
+      test: async function () {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
@@ -118,26 +118,26 @@ test.runTests(
         const buttons = activewindow[0].querySelectorAll('button');
         test.eq(1, buttons.length);
         test.click(buttons[0]);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'mbox-cancel',
-      test: function () {
+      test: async function () {
         test.eq(1, test.qSA('#mainarea .t-screen').length);
         test.click(test.getMenu(['M01', 'A03']));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
       name: 'mbox-cancel-clickok',
-      test: function () {
+      test: async function () {
         test.eq(3, test.qSA('#mainarea .t-screen').length); //N01 + a box should popup
         test.clickToddButton("OK");
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {
@@ -149,10 +149,10 @@ test.runTests(
 
     {
       name: 'megawindow',
-      test: function () {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A04'])); //this screen will try to become MUCH bigger than the canvas
-      },
-      waits: ['ui'] //validateDimensions will ensure the screen size has been limited
+        await test.waitForUI(); //validateDimensions will ensure the screen size has been limited
+      }
     }
 
   ]);

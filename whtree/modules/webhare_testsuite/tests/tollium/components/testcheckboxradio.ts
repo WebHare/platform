@@ -2,9 +2,8 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      loadpage: test.getCompTestPage('checkbox', { title: "", label: "checkboxlabel" }), //standard labelled checkbox
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('checkbox', { title: "", label: "checkboxlabel" })); //standard labelled checkbox
     },
     {
       test: async function () {
@@ -93,9 +92,8 @@ test.runTests(
       }
     },
 
-    {
-      loadpage: test.getCompTestPage('radiobutton', { title: "", label: "radiolabel" }), //standard labelled radio
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('radiobutton', { title: "", label: "radiolabel" })); //standard labelled radio
     },
     {
       test: async function () {

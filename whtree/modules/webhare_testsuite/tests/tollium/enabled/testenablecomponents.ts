@@ -11,7 +11,7 @@ test.runTests(
 
     {
       name: 'enablecomponents',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // The box's checkbox should be disabled
         const box_checkbox_node = test.qSA(".t-checkbox")[1];
         const box_checkbox_comp = box_checkbox_node.propTodd;
@@ -31,13 +31,13 @@ test.runTests(
         // Toggle the 'control box' checkbox, enabling the box
         const checkbox_node = test.qSA(".t-checkbox")[0];
         test.click(checkbox_node);
-      },
-      waits: ["ui"] // enablecomponents are handled serverside at the moment
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'box just enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         let textedit_node = test.compByName('boxedit');
         let textedit_comp = textedit_node.propTodd;
 
@@ -49,21 +49,21 @@ test.runTests(
 
         const checkbox_node = test.qSA(".t-checkbox")[1];
         test.click(checkbox_node);
-      },
-      waits: ["ui"] // enablecomponents are handled serverside at the moment
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
+      }
     },
 
     {
       name: 'checkbox',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
         test.assert(textedit_comp.getEnabled());
 
         const pulldown_node = test.qSA("select")[1];
         test.fill(pulldown_node, 'enabled');
-      },
-      waits: ["ui"] // enablecomponents are handled serverside at the moment
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
+      }
     },
 
     {
@@ -82,7 +82,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_subwindow_open',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.getCurrentScreen().getParent().getToddElement('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -90,14 +90,13 @@ test.runTests(
 
         const button_node = test.qSA("button")[0];
         test.click(button_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_subwindow_close',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -105,9 +104,8 @@ test.runTests(
 
         const checkbox_node = test.qSA(".t-checkbox")[0];
         test.click(checkbox_node);
-      },
-      waitforgestures: true,
-      waits: ['ui'] // enablecomponents are handled serverside at the moment
+        await test.wait("ui"); // enablecomponents are handled serverside at the moment
+      }
     },
 
     {
@@ -126,7 +124,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -134,14 +132,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_select_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -149,14 +146,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[2];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_select_also_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -164,14 +160,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[1];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_select_enabled_again',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -179,14 +174,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[0];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_select_also_disabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -194,14 +188,12 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
-      },
-      waitforgestures: true
-      //    , waits: ['ui']
+      }
     },
 
     {
       name: 'enablecomponents_radio_group',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -209,14 +201,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_group_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -224,14 +215,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[5];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_group_also_enabled',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -239,14 +229,13 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[4];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
       name: 'enablecomponents_radio_group_enabled_again',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -254,9 +243,8 @@ test.runTests(
 
         const radio_node = test.qSA(".wh-radiobutton-wrapper")[3];
         test.click(radio_node);
-      },
-      waitforgestures: true,
-      waits: ['ui']
+        await test.wait("ui");
+      }
     },
 
     {
@@ -275,10 +263,10 @@ test.runTests(
     test.testClickTolliumLabel("Enabled", { name: "Enable arrayedit" }),
     {
       name: "select arrayedit row",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.click(test.$screen(win).getListRow("arrayedit!list", "Title"));
-      },
-      waits: ["ui"]
+        await test.wait("ui");
+      }
     },
     test.testClickTolliumButton("Edit", "Click edit button"),
     {

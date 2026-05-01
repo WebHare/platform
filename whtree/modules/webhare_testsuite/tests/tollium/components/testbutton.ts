@@ -5,16 +5,15 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      loadpage: test.getCompTestPage('button'),
-      waits: ['ui']
+    async function () {
+      await test.load(test.getCompTestPage('button'));
     },
     {
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.fill(test.compByName('title').querySelector('input'), "WWWWWWWWWW WWWWWWWWWW WWWWWWWWWWW");
         test.click(test.compByName('updatetitlebutton'));
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'button large enough to show the text',

@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
@@ -15,22 +14,22 @@ test.runTests(
 
     {
       name: "add_4_opendialog",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Add");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "add_4_enterdata",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Enter '4' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
         elt.value = "4";
 
         // press 'ok'
         test.clickTolliumButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "add_4_check",
@@ -41,29 +40,29 @@ test.runTests(
 
     {
       name: "rename_3a_select",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const elt = test.getCurrentScreen().getListRow('comp!list', /3a/);
         test.click(elt);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "rename_3a_opendialog",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Edit");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "rename_3a_enterdata",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         // Enter '3' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
         elt.value = "3";
 
         test.clickTolliumButton("OK");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "rename_3a_check",
@@ -75,25 +74,25 @@ test.runTests(
 
     {
       name: "delete_5_select",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const elt = test.getCurrentScreen().getListRow('comp!list', /5/);
         test.click(elt);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "rename_5_delete",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Delete");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "delete_5_confirm",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumButton("Yes");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "delete_5_check",
@@ -104,22 +103,22 @@ test.runTests(
 
     {
       name: "move_2_select",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const elt = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.click(elt);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "move_2_up",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.assert((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
 
         test.clickTolliumButton("Up");
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "move_2_check",
@@ -135,17 +134,17 @@ test.runTests(
 
     {
       name: "move_2_dragdown",
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const elt_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         const elt_4 = test.getCurrentScreen().getListRow('comp!list', /4/);
 
         // Drag elt2 past elt4
-        test.sendMouseGesture([
+        await test.sendMouseGesture([
           { el: elt_2, x: 20, cmd: 0, down: 0 },
           { el: elt_4, x: 20, y: 20, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["pointer", "ui"]
+        await test.waitForUI();
+      }
     },
     {
       name: "move_2_dragdown_check",

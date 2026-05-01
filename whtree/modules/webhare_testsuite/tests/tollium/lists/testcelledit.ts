@@ -24,16 +24,16 @@ test.runTests(
 
     {
       name: "not editing",
-      test: function () {
+      test: async function () {
         // Click the first cell in the first row again to start editing it
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "editing",
-      test: function () {
+      test: async function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should be a textedit now
@@ -42,13 +42,13 @@ test.runTests(
 
         // Click the second cell in the first row to stop editing the first cell
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[1]);
-      },
-      waits: [250] // Wait for list rows to be updated
+        await test.sleep(250); // Wait for list rows to be updated
+      }
     },
 
     {
       name: "submitting by clicking other cell",
-      test: function () {
+      test: async function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
@@ -56,26 +56,26 @@ test.runTests(
 
         // Click the first cell in the first row again to start editing it again
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "editing 2",
-      test: function () {
+      test: async function () {
         // There should be a textedit now
         const textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
         test.assert(textedit);
 
         // Click the first cell in the second row to stop editing
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Bok").childNodes[1]);
-      },
-      waits: [250] // Wait for list rows to be updated
+        await test.sleep(250); // Wait for list rows to be updated
+      }
     },
 
     {
       name: "submitting by clicking another row",
-      test: function () {
+      test: async function () {
         // The first row should still be selected
         test.assert(test.getCurrentScreen().getListRow("leesplankje", "Aap").classList.contains("wh-list__row--selected"));
         // There should not be a textedit
@@ -83,8 +83,8 @@ test.runTests(
 
         // Click the first cell in the first row again to start editing it again
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -98,25 +98,26 @@ test.runTests(
 
         // Press Escape to stop editing
         await test.pressKey("Escape");
-      },
-      waits: ["ui-nocheck", 500] // Prevent double click
+        await test.waitForUI({ optional: true });
+        await test.sleep(500); // Prevent double click
+      }
     },
 
     {
       name: "cancelling by pressing escape",
-      test: function () {
+      test: async function () {
         // There should not be a textedit
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit"));
 
         // Click the first cell in the first row again to start editing it again
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "editing 4",
-      test: function () {
+      test: async function () {
         // There should be a textedit now
         const textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
         test.assert(textedit);
@@ -127,13 +128,13 @@ test.runTests(
 
         // Click the first cell in the second row to stop editing
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Bok").childNodes[1]);
-      },
-      waits: [250] // Wait for list rows to be updated
+        await test.sleep(250); // Wait for list rows to be updated
+      }
     },
 
     {
       name: "value changed to 'Monkey' by clicking another row",
-      test: function () {
+      test: async function () {
         // There should no longer be a row with 'Aap'
         test.assert(!test.getCurrentScreen().getListRow("leesplankje", "Aap"));
         // There should not be a row with 'monkey'
@@ -147,8 +148,8 @@ test.runTests(
 
         // Click the first cell in the first row again to start editing it again
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Monkey").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -186,20 +187,20 @@ test.runTests(
 
     {
       name: "changing value of another row",
-      test: function () {
+      test: async function () {
         // Click the second cell in the 4th row to select it, don't click in the middle to prevent the mail client from opening
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Duif").childNodes[1], { x: "90%" });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
       name: "changing value of another row - start edit",
-      test: function () {
+      test: async function () {
         // Click the first cell in the 4th row to edit it
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Duif").childNodes[0]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -213,8 +214,8 @@ test.runTests(
 
         // Press Enter to submit
         await test.pressKey("Enter");
-      },
-      waits: [250] // Wait for list rows to be updated
+        await test.sleep(250); // Wait for list rows to be updated
+      }
     },
 
     {
@@ -231,11 +232,11 @@ test.runTests(
 
     {
       name: "changing value of cell with checkbox - start edit",
-      test: function () {
+      test: async function () {
         // Click the second cell in the 4th row to select it, don't click in the middle to prevent the mail client from opening
         test.click(test.getCurrentScreen().getListRow("leesplankje", "Dove").childNodes[1], { x: "90%" });
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {
@@ -249,8 +250,8 @@ test.runTests(
 
         // Press Enter to submit
         await test.pressKey("Enter");
-      },
-      waits: [250] // Wait for list rows to be updated
+        await test.sleep(250); // Wait for list rows to be updated
+      }
     },
 
     {
@@ -277,24 +278,6 @@ test.runTests(
       await test.waitForUI();
 
       test.assert(test.getCurrentScreen().getListRow("arrayedit!list", "aapje"));
-
-      //       test.click(test.getCurrentScreen().getListRow("arrayedit!list", "Aap"));
-
-      //     }
-      //   , waits: [ "ui" ]
-      //   }
-
-      // , { name: "editing 3"
-      //   , test: async function ()
-      //     {
-      //       // There should be a textedit now
-      //       let textedit = test.getCurrentScreen().getListRow("leesplankje", "Aap").querySelector(".textedit");
-      //       test.assert(textedit);
-      //       // Change the value
-      //       textedit.value = "monkey";
-
-      //       // Press Escape to stop editing
-      //       await test.pressKey("Escape");
 
     }
   ]);

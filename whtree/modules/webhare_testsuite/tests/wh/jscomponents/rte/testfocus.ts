@@ -14,7 +14,6 @@ test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
-      //, waits:['ui']
     },
     {
       name: "earlyselectionstatecheck",
@@ -161,8 +160,8 @@ test.runTests(
       }
     },
 
-    {
-      waits: [waitForReparentedRTE]
+    async function () {
+      await test.wait(waitForReparentedRTE);
     },
     //and verify restoration
     {
@@ -184,8 +183,11 @@ test.runTests(
         win.reparent_rte();
 
         // RTE is now hidden -> no selection!
-      },
-      waits: [waitForReparentedRTE]
+      }
+    },
+
+    async function () {
+      await test.wait(waitForReparentedRTE);
     },
 
     //and verify restoration
@@ -218,30 +220,31 @@ test.runTests(
 
     {
       name: 'selectionrestore-validbefore-setcursor',
-      wait: function (doc, win, callback) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         console.log('TEST set cursor');
         rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
         console.log('TEST set cursor done, hiding');
 
         // FF sometimes fails restoring. trying this to find out why
-        setTimeout(callback, 2000);
+        await test.sleep(2000);
       }
     },
 
     {
       name: 'selectionrestore-validbefore-hide',
-      wait: function (doc, win, callback) {
+      test: async function () {
         test.qS('#holder').style.display = "none";
-        setTimeout(callback, 100);
+        await test.sleep(100);
       }
     },
 
     {
       name: 'selectionrestore-validbefore-show',
-      wait: function (doc, win, callback) {
+      test: async function () {
         test.qS('#holder').style.display = "";
-        setTimeout(callback, 100);
+        await test.sleep(100);
       }
     },
 
@@ -251,22 +254,6 @@ test.runTests(
       test.getWin().focus();
       rte.takeFocus();
     },
-    /*
-        // wait for it to load again...
-      , { name: 'selectionrestore-validbefore-waitload'
-        , wait: function (doc,win,callback)
-          {
-    //        var rte=win.rte.getEditor();
-    //        rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
-
-            if(win.rte.getEditor().isloaded)
-              callback();
-            else
-              win.rte.getEditor().addEvent('load:once', callback);
-
-          }
-        }
-    */
     {
       name: 'selectionrestore-validbefore-test',
       test: function (doc, win) {
@@ -301,21 +288,23 @@ test.runTests(
 
     {
       name: 'selectionrestore-setwhenhidden-show',
-      wait: function (doc, win, callback) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
         test.qS('#holder').style.display = "";
-        setTimeout(callback, 100);
+        await test.sleep(100);
       }
     },
 
     {
       name: 'selectionrestore-setwhenhidden-refocus',
-      wait: function (doc, win, callback) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         win.focus();
         rte.takeFocus();
-        setTimeout(callback, 100);
+        await test.sleep(100);
       }
     },
 

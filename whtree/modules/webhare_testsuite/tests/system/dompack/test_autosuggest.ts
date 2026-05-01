@@ -132,16 +132,4 @@ test.runTests(
       test.eq("Spatie ", test.qS("#casesensitivelist").value);
     }
 
-    // , "Keyboard tests"
-    // , async function ()
-    //   {
-    //     test.click(test.qS('#alwaysopendown'));
-    //     let items = testhelpers.getSelectListVisibleItems();
-    //     test.eq(0, items.length);
-
-    //     test.pressKey("ArrowDown");
-    //     items = testhelpers.getSelectListVisibleItems();
-    //     test.eq(11, items.length);
-    //   }
-
   ]);

@@ -26,8 +26,8 @@ test.runTests(
           { el: srow, x: 10, down: 0 },
           { el: trow, x: 10, up: 0, delay: gesture_time }
         ]);
-      },
-      waits: ["ui"]
+        await test.waitForUI();
+      }
     },
 
     {

@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'textfields ',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const richhtmlcomp = test.compByName('richhtmlcomp');
         const richplaincomp = test.compByName('richplaincomp');
 
@@ -21,8 +21,8 @@ test.runTests(
 
         //cause onclicklink to trigger
         test.click(richhtmlcomp.querySelector('a'), { x: 2, y: 2 });
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
     {
       name: 'onclicklink',
@@ -34,7 +34,7 @@ test.runTests(
 
     {
       name: 'setvalue',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         //initially unset
         const textfield = test.compByName('v01').querySelector('input');
         test.eq('', textfield.value);
@@ -45,20 +45,21 @@ test.runTests(
         test.eq('o02', selects[0].propTodd.getValue());
 
         selects[0].propTodd.setValue('o01');
-      },
-      waits: ['ui-nocheck'] //won't trigger a ui wait probably until we go back to custom selects
+        //won't trigger a ui wait probably until we go back to custom selects
+        await test.waitForUI({ optional: true });
+      }
     },
 
     {
       name: 'setvalue2',
-      test: function (doc, win) {
+      test: async function (doc, win) {
         const textfield = test.compByName('v01').querySelector('input');
         test.eq('o01', textfield.value);
 
         const F01 = test.getMenu(['F01']);
         test.click(F01);
-      },
-      waits: ['ui']
+        await test.waitForUI();
+      }
     },
 
     {

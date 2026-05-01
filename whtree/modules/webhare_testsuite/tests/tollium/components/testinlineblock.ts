@@ -5,9 +5,10 @@ import * as test from '@mod-tollium/js/testframework';
 
 test.runTests(
   [
-    {
-      loadpage: test.getTestScreen('tests/inlineblock.inlineblocktest'),
-      waits: ['ui', 200] // wait for svg to get loaded
+    async function () {
+      await test.load(test.getTestScreen('tests/inlineblock.inlineblocktest'));
+      await test.waitForUI();
+      await test.sleep(200); // wait for svg to get loaded
     },
 
     // Some simple tests to check if the inline block and its contents are rendered
