@@ -212,13 +212,13 @@ test.runTests(
     // Test table header disable
     {
       name: 'headerdisable-open-properties-1',
-      test: async function (doc, win) {
+      test: async function () {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         const first_td_p = table.querySelector("td p");
 
-        const rte = rtetest.getRTE(win, 'structured');
-        rtetest.setRTESelection(win, rte.getEditor(),
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: first_td_p,
             startOffset: 0,

@@ -110,10 +110,10 @@ test.runTests(
     // Now test creating one from scratch
     {
       name: 'create-embeddedobject',
-      test: async function (doc, win) {
+      test: async function () {
         const rte = test.getWin().rte.getEditor();
-        rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
-        rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+        rtetest.setRawStructuredContent(test.getWin(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+        rtetest.testEqSelHTMLEx(test.getWin(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title' }));
@@ -170,10 +170,10 @@ test.runTests(
     // Now test creating one from scratch
     {
       name: 'create-inlineobject',
-      test: async function (doc, win) {
+      test: async function () {
         const rte = test.getWin().rte.getEditor();
-        rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
-        rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+        rtetest.setRawStructuredContent(test.getWin(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
+        rtetest.testEqSelHTMLEx(test.getWin(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         test.assert(!rte.getSelectionState().propstarget);
 
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: 'De <b>inhoud</b>', title: 'title', embedtype: 'inline' }));
@@ -186,7 +186,7 @@ test.runTests(
 
         test.assert(rte.getSelectionState().propstarget);
 
-        rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)(*1*) HIER een object ingevoegd gaat worden"</p>');
+        rtetest.setRawStructuredContent(test.getWin(), '<p class=normal>"Dit is een paragraaf tekst waar (*0*)(*1*) HIER een object ingevoegd gaat worden"</p>');
         await rtetest.runWithUndo(rte, () => rte.insertEmbeddedObject({ instanceid: 'inst', htmltext: getInlineElementPreview(<span>De <b> inhoud </b></span >), title: 'title', embedtype: 'inline' }));
 
         test.eq(3, body.childNodes[0].childNodes.length);

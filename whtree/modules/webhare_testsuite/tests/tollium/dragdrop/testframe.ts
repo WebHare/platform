@@ -68,9 +68,9 @@ test.runTests(
 
     {
       name: 'move frame',
-      test: async function (doc, win) {
+      test: async function () {
         // Initialize the test window node
-        initTestWin(win);
+        initTestWin(test.getWin());
 
         // Find the window header
         initTestElement(".windowheader");
@@ -82,7 +82,7 @@ test.runTests(
         test_pos = { x: pos.x, y: pos.y + 100 };
 
         await test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
+          { doc: test.getDoc(), down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
         await test.wait("animationframe");
@@ -222,13 +222,13 @@ test.runTests(
 
     {
       name: 'savestate',
-      test: async function (doc, win) {
+      test: async function () {
         const savesize = test_win.getBoundingClientRect();
         test.getCurrentScreen().clickCloser();
         await test.waitForUI();
 
         // We have a new window, re-initialize the test window node
-        initTestWin(win);
+        initTestWin(test.getWin());
 
         //tollium should immediately reopen so
         test.eq(savesize.width, test_win.getBoundingClientRect().width);

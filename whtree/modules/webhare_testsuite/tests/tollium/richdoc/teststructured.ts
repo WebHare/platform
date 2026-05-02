@@ -24,13 +24,13 @@ test.runTests(
 
     {
       name: 'structured-rte',
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         const toddrte = test.compByName('structured');
         test.eq('Heading 2', toddrte.querySelector('.wh-rtd__toolbarstyle').selectedOptions[0].textContent);
 
-        const rte = rtetest.getRTE(win, 'structured');
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         test.eq("rgb(255, 255, 255)", getComputedStyle(rte.getBody()).backgroundColor);
 
         const h2 = rte.qS('h2');
@@ -42,7 +42,7 @@ test.runTests(
         test.assert(instanceref !== '');
 
         //select the paragraph
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: h2.nextSibling.firstChild,
             startOffset: 5,
@@ -53,7 +53,7 @@ test.runTests(
         //proper select value?
         test.eq('Normal', toddrte.querySelector('.wh-rtd__toolbarstyle').selectedOptions[0].textContent);
 
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: h2.firstChild,
             startOffset: 5,
@@ -74,8 +74,8 @@ test.runTests(
     },
     {
       name: 'verify-normal',
-      test: async function (doc, win) {
-        const rawcode = rtetest.getRawHTMLCode(win);
+      test: async function () {
+        const rawcode = rtetest.getRawHTMLCode(test.getWin());
 
         // The raw code has an instanceid. Replace that with our instanceref for the compare
         instanceid = /data-instanceid="([^"]*)"/.exec(rawcode)![1];
@@ -87,7 +87,7 @@ test.runTests(
           comparecode);
 
         // use the original rawcode for modification
-        test.fill(rtetest.getRawHTMLTextArea(win), rawcode.split('be selected').join('no longer be selected'));
+        test.fill(rtetest.getRawHTMLTextArea(test.getWin()), rawcode.split('be selected').join('no longer be selected'));
         test.clickTolliumButton("OK");
         await test.waitForUI();
       }
@@ -108,8 +108,8 @@ test.runTests(
     },
     {
       name: 'rewrite.3',
-      test: async function (doc, win) {
-        const rawcode = rtetest.getRawHTMLCode(win);
+      test: async function () {
+        const rawcode = rtetest.getRawHTMLCode(test.getWin());
 
         // Instance id should not have changed on the backend site
         test.assert(rawcode.indexOf(instanceid) !== -1);
@@ -171,8 +171,8 @@ test.runTests(
 
     {
       name: 'imageprops',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         rte.getEditor().selectNodeOuter(rte.qSA('img')[0]);
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
         await test.wait("ui");
@@ -223,8 +223,8 @@ test.runTests(
     //reopen the properties to verify and unset 'overridedimensions'
     {
       name: 'openimageprops-2',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
 
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
         await test.wait("ui");
@@ -260,10 +260,10 @@ test.runTests(
     //create a simple hyperlink
     {
       name: 'createlink',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         const mypara = rte.qSA('p')[1];
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: mypara.firstChild,
             startOffset: 0,
@@ -276,7 +276,7 @@ test.runTests(
     },
     {
       name: 'createlink-enterit',
-      test: async function (doc, win) {
+      test: async function () {
         const textfield = test.getTolliumLabel("External link").closest('.form')!.querySelector('input[type=text]')!;
         test.fill(textfield, "http://webhare.net/");
         test.clickTolliumButton("OK");
@@ -285,8 +285,8 @@ test.runTests(
     },
     {
       name: 'createlink-verify',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         const anode = rte.qSA('a')[1];
         test.eq("http://webhare.net/", anode.href);
         test.assert(!anode.hasAttribute("target"));
@@ -297,7 +297,7 @@ test.runTests(
     },
     {
       name: 'createlink-verifyprops',
-      test: async function (doc, win) {
+      test: async function () {
         const textfield = test.getTolliumLabel("External link").closest('.form')!.querySelector('input[type=text]')! as HTMLInputElement;
         test.eq("http://webhare.net/", textfield.value);
         test.getCurrentScreen().clickCloser();
@@ -307,10 +307,10 @@ test.runTests(
 
     {
       name: 'imagebuttontest',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         const textnode = rte.qSA("a")[1].nextSibling;
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: textnode,
             startOffset: 5,
@@ -327,9 +327,9 @@ test.runTests(
     },
     {
       name: 'imagebuttontest-verify',
-      test: async function (doc, win) {
+      test: async function () {
         // Image should be selected
-        const rte = rtetest.getRTE(win, 'structured');
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
         test.eq(1, selection.querySelectorAll("img").length);
         tt.comp(":Rewrite").click();
@@ -346,7 +346,7 @@ test.runTests(
 
     {
       name: 'append-paragraph',
-      test: async function (doc, win) {
+      test: async function () {
         const rtenode = test.compByName('structured');
 
         //remove last paragraph with the inline block, as we need the lat para to be a block element for this test
@@ -360,7 +360,7 @@ test.runTests(
         test.eq("p", body.lastElementChild.nodeName.toLowerCase());
         const firstp = body.lastElementChild;
 
-        const rte = rtetest.getRTE(win, 'structured');
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         rte.getEditor().insertTable(2, 2);
 
         test.click(htmlnode);
@@ -382,7 +382,7 @@ test.runTests(
 
     {
       name: "Test dirtyness regression",
-      test: async function (doc, win) {
+      test: async function () {
         // a document that was changed and than reverted, and then undirties from the backend
         // was still marked as dirty in the rte - but not signalled anymore, so further edits
         // would not cause dirtyness in the backend
@@ -391,7 +391,7 @@ test.runTests(
         const body = rtenode.querySelector(".wh-rtd-editor-bodynode");
 
         body.querySelector("a").textContent = "Dirtytest1";
-        const rte = rtetest.getRTE(win, 'structured');
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
         rte._gotStateChange();
         test.click(test.compByName('undirtybutton'));
         await test.wait("ui");
@@ -418,7 +418,7 @@ test.runTests(
     },
 
     "Test another dirtyness regression",
-    async function (doc, win) {
+    async function () {
       /* when
          - making a simple change
          - forcing undirty
@@ -434,7 +434,7 @@ test.runTests(
       let body = test.compByName('structured').querySelector(".wh-rtd-editor-bodynode");
       body.querySelector("h2").textContent = "another change";
 
-      const rte = rtetest.getRTE(win, 'structured');
+      const rte = rtetest.getRTE(test.getWin(), 'structured');
       rte._gotStateChange();
 
       await test.wait("ui");
@@ -455,7 +455,7 @@ test.runTests(
     },
 
     "Test another dirtyness regression",
-    async function (doc, win) {
+    async function () {
       test.clickTolliumButton("Rewrite");
       await test.wait("ui");
       test.clickTolliumButton("Rewrite");
@@ -465,7 +465,7 @@ test.runTests(
       const body = rtenode.querySelector(".wh-rtd-editor-bodynode");
       body.appendChild(body.ownerDocument.createTextNode("Dirtytest3"));
 
-      const rte = rtetest.getRTE(win, 'structured');
+      const rte = rtetest.getRTE(test.getWin(), 'structured');
       rte._gotStateChange();
 
       await test.wait("ui");
@@ -474,8 +474,8 @@ test.runTests(
 
     {
       name: "Test image copypaste within document",
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'structured');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'structured');
 
         const rtenode = test.compByName('structured');
         const bodynode = rtenode.querySelector(".wh-rtd-editor-bodynode");

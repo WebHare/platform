@@ -107,8 +107,8 @@ test.runTests(
 
     {
       name: 'checkresizers',
-      test: function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: function () {
+        const rte = test.getWin().rte.getEditor();
         const table = rte.getBody().getElementsByTagName('table')[0];
         const driver = new rtetest.RTEDriver;
 
@@ -122,13 +122,13 @@ test.runTests(
 
         // Check resizer positions
         const coords = table.getBoundingClientRect();
-        let el = test.getValidatedElementFromPoint(doc, coords.right, coords.top + 5, true);
+        let el = test.getValidatedElementFromPoint(test.getDoc(), coords.right, coords.top + 5, true);
 
         test.assert(el, "column and row resizer");
         test.assert(el.classList.contains('wh-tableeditor-resize-col'), "column and row resizer class 1");
         test.assert(el.classList.contains('wh-tableeditor-resize-table'), "column and row resizer class 2");
 
-        el = test.getValidatedElementFromPoint(doc, coords.left + driver.qS('table tr+tr th').offsetWidth, coords.top + 10, true);
+        el = test.getValidatedElementFromPoint(test.getDoc(), coords.left + driver.qS('table tr+tr th').offsetWidth, coords.top + 10, true);
         test.assert(el, "column resizer rowspanned");
         test.assert(!el.classList.contains('wh-tableeditor-resize-col'), "column resizer rowspanned class 1");
         test.assert(!el.classList.contains('wh-tableeditor-resize-row'), "column resizer rowspanned class 2");
@@ -137,17 +137,17 @@ test.runTests(
         const tryx = coords.left + driver.qS('table tr+tr th').offsetWidth;
         const tryy = coords.bottom - 10;
 
-        el = test.getValidatedElementFromPoint(doc, tryx, tryy, true);
+        el = test.getValidatedElementFromPoint(test.getDoc(), tryx, tryy, true);
         test.assert(el, "column resizer");
         test.assert(el.classList.contains('wh-tableeditor-resize-col'), "column resizer class 1");
         test.assert(!el.classList.contains('wh-tableeditor-resize-table'), "column resizer class 2");
 
-        el = test.getValidatedElementFromPoint(doc, coords.left + 10, coords.top + table.getElementsByTagName('tr')[0].offsetHeight, true);
+        el = test.getValidatedElementFromPoint(test.getDoc(), coords.left + 10, coords.top + table.getElementsByTagName('tr')[0].offsetHeight, true);
         test.assert(el, "row resizer");
         test.assert(el.classList.contains('wh-tableeditor-resize-row'), "row resizer class 1");
         test.assert(!el.classList.contains('wh-tableeditor-resize-table'), "row resizer class 2");
 
-        el = test.getValidatedElementFromPoint(doc, coords.left + 10, coords.bottom - 2, true);
+        el = test.getValidatedElementFromPoint(test.getDoc(), coords.left + 10, coords.bottom - 2, true);
         test.assert(el, "row and table resizer");
 
         test.assert(el.classList.contains('wh-tableeditor-resize-row'), "row and table resizer class 1");
@@ -157,8 +157,8 @@ test.runTests(
 
     {
       name: 'checkstyle',
-      test: function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: function () {
+        const rte = test.getWin().rte.getEditor();
 
         // The 'table' style should not be available as a selectable style
         const styles = rte.getAvailableBlockStyles(rte.getSelectionState());
@@ -168,8 +168,8 @@ test.runTests(
 
     {
       name: 'refilter table',
-      test: function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: function () {
+        const rte = test.getWin().rte.getEditor();
         rte.setContentsHTML('<h1 class="heading1">H1</h1>'
           + '<table class="table"><tbody>'
           + '<tr> <td class="red"><p class="normal">EOS</p></td> <td class="blue"><p class="normal">Team </p></td> <td><p class="normal">EOS private pages </p></td> </tr>'
@@ -185,15 +185,15 @@ test.runTests(
         test.eq("wh-rtd__tablecell red", trs[0].querySelectorAll("td")[0].className);
         test.eq("wh-rtd__tablecell blue", trs[0].querySelectorAll("td")[1].className);
 
-        rtetest.testEqHTMLEx(win, '<p class="normal">"EOS"</p><p class="normal">"Team"</p><p class="normal">"EOS private pages"</p>', trs[0]);
-        rtetest.testEqHTMLEx(win, '<p class="normal">"1"</p><p class="normal">"2"</p><p class="mystyle">"3"</p><p class="mystyle">"4"</p><p class="normal">"9"</p>', trs[2]);
+        rtetest.testEqHTMLEx(test.getWin(), '<p class="normal">"EOS"</p><p class="normal">"Team"</p><p class="normal">"EOS private pages"</p>', trs[0]);
+        rtetest.testEqHTMLEx(test.getWin(), '<p class="normal">"1"</p><p class="normal">"2"</p><p class="mystyle">"3"</p><p class="mystyle">"4"</p><p class="normal">"9"</p>', trs[2]);
       }
     },
 
     {
       name: 'insertcolumnbefore',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         rte.setCursor(rte.getBody().querySelectorAll('td > p')[1], 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addcolumn-before'));
 
@@ -205,8 +205,8 @@ test.runTests(
 
     {
       name: 'insertrowafter',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         const extendfromcell = rte.getBody().querySelectorAll('td')[2];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addrow-after'));
@@ -227,8 +227,8 @@ test.runTests(
 
     {
       name: 'insertrowabove',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         const extendfromcell = rte.getBody().querySelectorAll('tr')[2].cells[0];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addrow-before'));
@@ -241,8 +241,8 @@ test.runTests(
 
     {
       name: 'mergetoright',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         rte.setContentsHTML('<table class="table"><tbody>'
           + '<tr> <td><p class="normal">1</p></td> <td><p class="normal">2</p></td> <td><p class="normal">3</p></td> </tr>'
           + '<tr> <td><p class="normal">4</p></td> <td><p class="normal">5</p></td> <td><p class="normal">6</p></td> </tr>'
@@ -274,8 +274,8 @@ test.runTests(
 
     {
       name: 'mergedown',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         rte.setContentsHTML('<table class="table"><tbody>'
           + '<tr> <td><p class="normal">1</p></td> <td><p class="normal">2</p></td> <td><p class="normal">3</p></td> </tr>'
           + '<tr> <td><p class="normal">4</p></td> <td><p class="normal">5</p></td> <td><p class="normal">6</p></td> </tr>'
@@ -307,8 +307,8 @@ test.runTests(
 
     {
       name: 'complicatedsplit',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
         let tdp;
 
         rte.setContentsHTML('<table class="table"><tbody>'
@@ -353,8 +353,8 @@ test.runTests(
 
     {
       name: 'insertrowwithspans',
-      test: async function (doc, win) {
-        const rte = win.rte.getEditor();
+      test: async function () {
+        const rte = test.getWin().rte.getEditor();
 
         // In combination with col/rowspans
         rte.setContentsHTML(

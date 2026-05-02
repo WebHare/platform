@@ -13,10 +13,10 @@ test.runTests(
 
     {
       name: 'imagebuttontest',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const geoffreynode = rte.qSA("br")[1].nextSibling;
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: geoffreynode,
             startOffset: 5,

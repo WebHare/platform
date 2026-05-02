@@ -182,8 +182,8 @@ test.runTests(
 
     {
       name: 'customaction',
-      test: async function (doc, win) {
-        win.$shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
+      test: async function () {
+        test.getWin().$shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
 
         test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
         const X11 = test.getMenu(['X01', 'X11']);

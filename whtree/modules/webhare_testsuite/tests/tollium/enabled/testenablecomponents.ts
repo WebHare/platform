@@ -264,8 +264,8 @@ test.runTests(
     },
     {
       name: "select arrayedit row",
-      test: async function (doc, win) {
-        test.click(test.$screen(win).getListRow("arrayedit!list", "Title"));
+      test: async function () {
+        test.click(test.$screen(test.getWin()).getListRow("arrayedit!list", "Title"));
         await test.wait("ui");
         tt.comp(":Edit").click();
         await test.wait("ui");
@@ -273,8 +273,8 @@ test.runTests(
     },
     {
       name: "arrayedit test edit screen opened",
-      test: function (doc, win) {
-        test.eq("editscreen", test.$screen(win).getFrameTitle(), "Edit screen should have opened");
+      test: function () {
+        test.eq("editscreen", test.$screen(test.getWin()).getFrameTitle(), "Edit screen should have opened");
       }
     }
   ]);
