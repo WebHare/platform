@@ -11,7 +11,7 @@ test.runTests(
 
     {
       name: 'enablecomponents',
-      test: async function (doc, win) {
+      test: async function () {
         // The box's checkbox should be disabled
         const box_checkbox_node = test.qSA(".t-checkbox")[1];
         const box_checkbox_comp = box_checkbox_node.propTodd;
@@ -37,7 +37,7 @@ test.runTests(
 
     {
       name: 'box just enabled',
-      test: async function (doc, win) {
+      test: async function () {
         let textedit_node = test.compByName('boxedit');
         let textedit_comp = textedit_node.propTodd;
 
@@ -55,7 +55,7 @@ test.runTests(
 
     {
       name: 'checkbox',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
         test.assert(textedit_comp.getEnabled());
@@ -68,7 +68,7 @@ test.runTests(
 
     {
       name: 'pulldown',
-      test: function (doc, win) {
+      test: function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
         console.log(textedit_comp);
@@ -82,7 +82,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_subwindow_open',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.getCurrentScreen().getParent().getToddElement('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -96,7 +96,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_subwindow_close',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -110,7 +110,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_subwindow_enabled',
-      test: function (doc, win) {
+      test: function () {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -124,7 +124,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -138,7 +138,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -152,7 +152,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select_also_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -166,7 +166,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select_enabled_again',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -180,7 +180,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_select_also_disabled',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -193,7 +193,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_group',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -207,7 +207,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_group_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -221,7 +221,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_group_also_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -235,7 +235,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_group_enabled_again',
-      test: async function (doc, win) {
+      test: async function () {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -249,7 +249,7 @@ test.runTests(
 
     {
       name: 'enablecomponents_radio_group_also_disabled',
-      test: function (doc, win) {
+      test: function () {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 

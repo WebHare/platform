@@ -15,7 +15,7 @@ test.runTests(
 
     {
       name: 'firstclick-issue',
-      test: async function (doc, win) {
+      test: async function () {
         test.compByName('focusfield').focus();
 
         const toddrte = test.compByName('structured');
@@ -28,7 +28,7 @@ test.runTests(
       }
     },
     {
-      test: async function (doc, win) {
+      test: async function () {
         //        test.click(htmlnode.querySelector('.wh-rtd__widgetedit'));
         //ADDME completely confused why the click above doesn't work for IE...
         await test.sendMouseGesture([
@@ -40,7 +40,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.eq(savescrollpos, htmlnode.scrollTop);
         test.clickTolliumButton("OK");
         await test.waitForUI();
@@ -49,7 +49,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(savescrollpos, htmlnode.scrollTop, 'should still be at right scroll pos');
       }
     }

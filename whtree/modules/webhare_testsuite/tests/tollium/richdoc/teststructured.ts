@@ -94,14 +94,14 @@ test.runTests(
     },
     {
       name: 'rewrite', //rewrite it, to ensure the server is preserving its cid:
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Rewrite");
         await test.waitForUI();
       }
     },
     {
       name: 'rewrite.2',
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Edit raw html");
         await test.waitForUI();
       }
@@ -339,7 +339,7 @@ test.runTests(
 
     {
       name: 'dirtytest-testnotdirty',
-      test: function (doc, win) {
+      test: function () {
         test.eq('NO', test.compByName('dirty').querySelector('input').value);
       }
     },
@@ -375,7 +375,7 @@ test.runTests(
 
     {
       name: 'dirtytest-testdirty', //should be dirty after appending paragraph
-      test: function (doc, win) {
+      test: function () {
         test.eq('YES', test.compByName('dirty').querySelector('input').value);
       }
     },

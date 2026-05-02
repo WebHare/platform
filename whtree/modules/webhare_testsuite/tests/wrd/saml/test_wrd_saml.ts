@@ -27,7 +27,7 @@ test.runTests(
     },
     {
       name: "Configure IDP - open SAMLauth for domain",
-      test: async function (doc, win) {
+      test: async function () {
         test.sendMouseGesture([{ el: test.getCurrentScreen().getListRow('samlproviders!entities', 'IDP'), down: 2 }, { up: 2 }]);
         const ctxtmenu = test.getOpenMenu();
         const menuitem = test.qSA(ctxtmenu, "li").filter(li => li.textContent.includes('Add connected SP'))[0];
@@ -37,7 +37,7 @@ test.runTests(
     },
     {
       name: "Configure IDP - Import SP metadata",
-      test: async function (doc, win) {
+      test: async function () {
         const metadataurl = new URL(webroot + "test-saml/portal-sp/saml-sp-test-sp", location.href).toString();
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
         test.clickToddButton("Update metadata");
@@ -46,7 +46,7 @@ test.runTests(
     },
     {
       name: "Configure IDP - Confirm imported SP",
-      test: async function (doc, win) {
+      test: async function () {
         test.eq("http://webhare.net/webhare_testsuite/test-saml/saml/sp", test.getCurrentScreen().getToddElement("samlentityid").querySelector("input").value);
         test.clickToddButton("OK");
         await test.waitForUI();
@@ -62,7 +62,7 @@ test.runTests(
     },
     {
       name: "Configure SP - open SAMLauth for domain",
-      test: async function (doc, win) {
+      test: async function () {
         test.sendMouseGesture([{ el: test.getCurrentScreen().getListRow('samlproviders!entities', 'TEST-SP'), down: 2 }, { up: 2 }]);
         const ctxtmenu = test.getOpenMenu();
         const menuitem = test.qSA(ctxtmenu, "li").filter(li => li.textContent.includes('Add connected IDP'))[0];
@@ -72,7 +72,7 @@ test.runTests(
     },
     {
       name: "Configure SP - Import IDP metadata",
-      test: async function (doc, win) {
+      test: async function () {
         const metadataurl = webroot + "test-saml/portal-idp/saml-idp";
         test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
         test.clickToddButton("Update metadata");
@@ -81,7 +81,7 @@ test.runTests(
     },
     {
       name: "Configure SP - Confirm imported IDP",
-      test: async function (doc, win) {
+      test: async function () {
         test.eq("http://webhare.net/webhare_testsuite/test-saml/saml/idp", test.getCurrentScreen().getToddElement("samlentityid").querySelector("input").value);
         test.clickToddButton("OK");
         await test.waitForUI();
@@ -89,7 +89,7 @@ test.runTests(
     },
     {
       name: "Verify adding worked",
-      test: function (doc, win) {
+      test: function () {
         const el = test.getCurrentScreen().getListRow('samlproviders!entities', 'SP');
         test.assert(el, 'the row with the SP should be in the list');
       }
@@ -105,7 +105,7 @@ test.runTests(
     },
 
     "goto idp",
-    async function (doc, win) {
+    async function () {
       test.click(await test.waitForElement(["button", /SAML login/]));
       await test.wait('pageload'); // wait for us to arrive at the IDP
       await testwrd.runLogin('idpaccount@allow2fa.test.webhare.net', 'a');

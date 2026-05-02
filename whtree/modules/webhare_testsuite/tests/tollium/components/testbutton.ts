@@ -9,7 +9,7 @@ test.runTests(
       await test.load(test.getCompTestPage('button'));
     },
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.fill(test.compByName('title').querySelector('input'), "WWWWWWWWWW WWWWWWWWWW WWWWWWWWWWW");
         test.click(test.compByName('updatetitlebutton'));
         await test.waitForUI();
@@ -17,7 +17,7 @@ test.runTests(
     },
     {
       name: 'button large enough to show the text',
-      test: function (doc, win) {
+      test: function () {
         const holder = test.compByName("componentpanel");
         const button = holder.querySelector("button");
         const title = button.querySelector("span");

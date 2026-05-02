@@ -63,7 +63,7 @@ test.runTests(
 
     {
       name: 'serverfocus',
-      test: async function (doc, win) {
+      test: async function () {
         test.eq(/:list$/, getToddFocusedComponent());
 
         test.click(test.getMenu(['M01', 'A01']));
@@ -72,7 +72,7 @@ test.runTests(
     },
 
     'focussub',
-    async function (doc, win) {
+    async function (doc) {
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(test.getCurrentScreen().getNode().contains(doc.activeElement)); //make sure focus is in the expected window
       test.eq(/:box!heading!cbox$/, getToddFocusedComponent());
@@ -100,7 +100,7 @@ test.runTests(
 
     {
       name: 'focusback',
-      test: function (doc, win) {
+      test: function () {
         test.eq(1, test.qSA('.t-screen').length);
         test.eq(/:list$/, getToddFocusedComponent());
       }
@@ -108,7 +108,7 @@ test.runTests(
 
     {
       name: 'openemptydialog',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A02']));
         await test.waitForUI();
       }
@@ -116,7 +116,7 @@ test.runTests(
 
     {
       name: 'openemptydialog-testfocus',
-      test: async function (doc, win) {
+      test: async function (doc) {
         const screens = test.qSA('.t-screen');
         test.eq(2, screens.length);
         test.eq(screens[1], doc.activeElement);
@@ -127,7 +127,7 @@ test.runTests(
 
     {
       name: 'opertedialog',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A03']));
         await test.waitForUI();
       },
@@ -136,7 +136,7 @@ test.runTests(
 
     {
       name: 'openrtedialog-testfocus',
-      test: function (doc, win) {
+      test: function () {
         //the RTE should NOT have focus
         test.eq(2, test.qSA('.t-screen').length);
         test.eq(/:textedit$/, getToddFocusedComponent());
@@ -151,7 +151,7 @@ test.runTests(
 
     {
       name: 'openrtedialog-opensubwindow',
-      test: async function (doc, win) {
+      test: async function () {
         //and open a subwindow
         test.click(test.getMenu(['M02', 'A03']));
         await test.waitForUI();
@@ -160,14 +160,14 @@ test.runTests(
 
     {
       name: 'openrtedialog-testsubwindowfocus',
-      test: function (doc, win) {
+      test: function () {
         test.eq(/:textedit$/, getToddFocusedComponent());
       }
     },
 
     {
       name: 'openrtedialog-closesub',
-      test: async function (doc, win) {
+      test: async function () {
         //close the subwindow again
         test.getCurrentScreen().clickCloser();
         await test.waitForUI();
@@ -176,7 +176,7 @@ test.runTests(
 
     {
       name: 'openrtedialog-testfocusafterclosesub',
-      test: function (doc, win) {
+      test: function () {
         //verify that the RTE got focus again
         test.eq(/:rte/, getToddFocusedComponent());
       }
@@ -184,7 +184,7 @@ test.runTests(
 
     {
       name: 'openrtedialog-close',
-      test: async function (doc, win) {
+      test: async function () {
         //close this window too, and we'll be back at the toplevel window
         test.getCurrentScreen().clickCloser();
         await test.waitForUI();
@@ -193,7 +193,7 @@ test.runTests(
 
     {
       name: 'openrteonlydialog',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A04']));
         await test.waitForUI();
       },
@@ -201,7 +201,7 @@ test.runTests(
     },
 
     'openrteonlydialog-testfocus',
-    async function (doc, win) {
+    async function (doc) {
       //the RTE should NOT have focus
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
@@ -211,7 +211,7 @@ test.runTests(
     },
 
     "Open RTE+text Dialog, focus the RTE",
-    async function (doc, win) {
+    async function (doc) {
       test.click(test.getMenu(['M01', 'A05']));
       await test.waitUIFree();
       test.eq(2, test.qSA('.t-screen').length);

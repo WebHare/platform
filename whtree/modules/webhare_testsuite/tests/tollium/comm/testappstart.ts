@@ -20,7 +20,7 @@ test.runTests(
 
     {
       name: 'checktargetedstart',
-      test: async function (doc, win) {
+      test: async function (doc) {
         test.eq('app_1_1', doc.title);
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
@@ -43,7 +43,7 @@ test.runTests(
 
     {
       name: 'checkselfmessage',
-      test: async function (doc, win) {
+      test: async function () {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -64,7 +64,7 @@ test.runTests(
 
     {
       name: 'checkappswitch',
-      test: async function (doc, win) {
+      test: async function () {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -81,7 +81,7 @@ test.runTests(
 
     {
       name: 'checkmessagetoother',
-      test: function (doc, win) {
+      test: function () {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -123,7 +123,7 @@ test.runTests(
 
     {
       name: 'checkcrash-appgone',
-      test: function (doc, win) {
+      test: function () {
         test.eq(2, test.qSA('.appcanvas').length);
         test.eq(2, test.qSA('.t-apptab').length);
         test.eq(1, test.qSA('.t-apptab--activeapp').length);

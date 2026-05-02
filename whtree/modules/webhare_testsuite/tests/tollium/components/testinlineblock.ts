@@ -13,7 +13,7 @@ test.runTests(
 
     // Some simple tests to check if the inline block and its contents are rendered
     {
-      test: function (doc, win) {
+      test: function () {
         const holder = test.compByName('componentpanel');
 
         // Check if the inline block is visible

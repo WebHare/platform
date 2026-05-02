@@ -21,7 +21,7 @@ test.runTests(
       await test.waitForUI();
     },
     {
-      test: function (doc, win) {
+      test: function () {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(test.canClick(select), 'and should be clickable');
@@ -30,7 +30,7 @@ test.runTests(
     },
     {
       name: 'select second option',
-      test: async function (doc, win) {
+      test: async function () {
         //change the selection on the component. it should stay on its spot
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
@@ -49,7 +49,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(select.disabled);
@@ -60,7 +60,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         // Browsers other than Firefox insert <hr> dividers instead of disabled options
@@ -73,14 +73,14 @@ test.runTests(
 
     {
       name: 'check dividers',
-      test: function (doc, win) {
+      test: function () {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(!select.disabled);
       }
     },
 
-    async function (doc, win) {
+    async function () {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -119,7 +119,7 @@ test.runTests(
 
     {
       name: 'enabletargets_set_1',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
@@ -128,7 +128,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_set_2',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.compByName("enableontarget2_include"));
         await test.waitForUI();
         tt.comp(":Update options").click();
@@ -139,7 +139,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_both_disabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
         tt.comp(':Another long option, but the second').click();
@@ -148,13 +148,13 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_both_enabled',
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     },
 
-    async function defaultbutton_radio(doc, win) {
+    async function defaultbutton_radio() {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -181,7 +181,7 @@ test.runTests(
 
     {
       name: 'enabletargets_set_1',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
@@ -190,7 +190,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_set_2',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.compByName("enableontarget2_include"));
         await test.waitForUI();
         tt.comp(":Update options").click();
@@ -199,7 +199,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_both_disabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
         tt.comp(':A very long first option').click();
@@ -208,7 +208,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_first_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
         tt.comp(':Another long option, but the second').click();
@@ -217,7 +217,7 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_both_enabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         tt.comp(":A very long first option").click();
@@ -226,13 +226,13 @@ test.runTests(
     },
     {
       name: 'enabletargets_test_first_enabled',
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly, "Enablecomponents of second checkbox should override the enablecomponents of the first");
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     },
 
-    async function (doc, win) {
+    async function () {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -259,7 +259,7 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.compByName("componentpanel").querySelector("input").disabled);
         tt.comp(":Enabled").click();
         await test.waitForUI();
@@ -267,7 +267,7 @@ test.runTests(
     },
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.compByName("componentpanel").querySelector("input").disabled);
 
         tt.comp(":Enabled").click();
@@ -280,7 +280,7 @@ test.runTests(
     },
     {
       name: 'checkboxlist_enabletargets_test_both_disabled',
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -288,7 +288,7 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow1',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.qSA('.listrow')[0].querySelector('input[type=checkbox]'));
         await test.waitForUI();
       }
@@ -296,7 +296,7 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletargets_test_first_enabled',
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -304,19 +304,19 @@ test.runTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow2',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.qSA('.listrow')[1].querySelector('input[type=checkbox]'));
         await test.waitForUI();
       }
     },
 
     'checkboxlist_enabletargets_test_first_enabled',
-    async function (doc, win) {
+    async function () {
       test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
       test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
     },
 
-    async function (doc, win) {
+    async function () {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 

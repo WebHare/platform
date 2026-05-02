@@ -36,7 +36,7 @@ test.runTests(
   [
     {
       name: 'init',
-      test: function (doc, win) {
+      test: function () {
         const url = new URL("/tollium_todd.res/webhare_testsuite/tests/websockets/echo.whsock", location.href);
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
         socket = new WebSocket(url.toString());
@@ -51,7 +51,7 @@ test.runTests(
     },
     {
       name: '0',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(0);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -59,7 +59,7 @@ test.runTests(
     },
     {
       name: '126-7',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(126 - 7);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -67,7 +67,7 @@ test.runTests(
     },
     {
       name: '126-6',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(126 - 6);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -75,7 +75,7 @@ test.runTests(
     },
     {
       name: '126-5',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(126 - 5);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -83,7 +83,7 @@ test.runTests(
     },
     {
       name: '126-1',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(126 - 1);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -91,7 +91,7 @@ test.runTests(
     },
     {
       name: '126',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(126 - 0);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -99,7 +99,7 @@ test.runTests(
     },
     {
       name: '64KB - 7',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 - 7);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -107,7 +107,7 @@ test.runTests(
     },
     {
       name: '64KB - 6',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 - 6);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -115,7 +115,7 @@ test.runTests(
     },
     {
       name: '64KB - 5',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 - 5);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -123,7 +123,7 @@ test.runTests(
     },
     {
       name: '64KB - 1',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 - 1);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -131,7 +131,7 @@ test.runTests(
     },
     {
       name: '64KB',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 - 0);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -139,7 +139,7 @@ test.runTests(
     },
     {
       name: '64KB + 1',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 + 1);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -147,7 +147,7 @@ test.runTests(
     },
     {
       name: '128KB',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 * 2);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -155,7 +155,7 @@ test.runTests(
     },
     {
       name: '256KB',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 * 4);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -163,7 +163,7 @@ test.runTests(
     },
     {
       name: '512KB',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 * 8);
         socket.send(str);
         return expectMessage('Echo: ' + str);
@@ -171,7 +171,7 @@ test.runTests(
     },
     {
       name: '1MB',
-      test: function (doc, win) {
+      test: function () {
         const str = getTestString(65536 * 16);
         socket.send(str);
         return expectMessage('Echo: ' + str);

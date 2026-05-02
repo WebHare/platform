@@ -9,7 +9,7 @@ test.runTests(
 
     {
       name: 'openform',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A05']));
         await test.waitForUI();
       }
@@ -17,7 +17,7 @@ test.runTests(
 
     {
       name: 'verifybox',
-      test: function (doc, win) {
+      test: function () {
         test.eq(2, test.qSA('.t-screen').length);
 
         const emptytext = test.compByName('emptytext');
@@ -69,7 +69,7 @@ test.runTests(
 
     {
       name: 'verifybox-wrapequality',
-      test: function (doc, win) {
+      test: function () {
         const nolabeltext_wrapped = test.compByName('nolabel_wrapped');
         const nolabeltext_crs = test.compByName('nolabel_crs');
         test.eq(nolabeltext_wrapped.offsetHeight, nolabeltext_crs.offsetHeight, "nolabel_wrapped should be just as high as nolabel_crs. it wrapped in unexpected places");
@@ -78,7 +78,7 @@ test.runTests(
 
     {
       name: 'verifyalignmodes',
-      test: function (doc, win) {
+      test: function () {
         //mode should not affect positioning if no titles are specified
         test.eq(test.compByName('mode_left').getBoundingClientRect().left, test.compByName('mode_right').getBoundingClientRect().left);
         test.eq(test.compByName('mode_left').getBoundingClientRect().left, test.compByName('mode_form').getBoundingClientRect().left);
@@ -87,7 +87,7 @@ test.runTests(
 
     {
       name: 'verifyspacers',
-      test: function (doc, win) {
+      test: function () {
         const label = test.qSA("t-text").filter(text => text.textContent?.includes('label'))[0];
         test.eq('label:', label.textContent); //Semicolons
 
@@ -102,7 +102,7 @@ test.runTests(
     },
     {
       name: 'verifyellipsis',
-      test: function (doc, win) {
+      test: function () {
         const valuenode = test.compByName('ellipsistest');
         //compare with panel width minus padding 2*10px
         test.eq(valuenode.closest('t-panel').offsetWidth - 20, valuenode.offsetWidth);

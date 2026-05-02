@@ -12,7 +12,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         const holder = test.compByName("componentpanel");
         const textedits = holder.querySelectorAll("textarea");
         test.eq(1, textedits.length); //make sure we've got the right(only) one
@@ -20,7 +20,7 @@ test.runTests(
       }
     },
 
-    async function defaultbutton_pulldown(doc, win) {
+    async function defaultbutton_pulldown() {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 

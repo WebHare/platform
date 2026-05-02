@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'opensplit',
-      test: async function (doc, win) {
+      test: async function () {
         const A06 = test.getMenu(['M01', 'A06']);
         test.click(A06);
         await test.waitForUI();
@@ -21,7 +21,7 @@ test.runTests(
 
     {
       name: 'verifytable',
-      test: function (doc, win) {
+      test: function () {
         // The screen should show up
         const cell_left = test.compByName('cell_left');
         test.assert(cell_left);

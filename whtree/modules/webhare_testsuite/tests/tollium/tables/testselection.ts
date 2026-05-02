@@ -21,7 +21,7 @@ test.runTests(
 
     {
       name: 'selectcell',
-      test: async function (doc, win) {
+      test: async function () {
         // Check if cell 0:0 is selected
 
         const node_tbl = test.compByName("tbl");
@@ -44,7 +44,7 @@ test.runTests(
 
     {
       name: 'reportselect-single',
-      test: async function (doc, win) {
+      test: async function () {
         const textarea = test.qSA('textarea')[0];
         test.eq('single/single\n1:1', textarea.value.trim());
 
@@ -56,7 +56,7 @@ test.runTests(
 
     {
       name: 'innerselect', //test that the outer table does not respond to selections made in the inner table in cell(2,2)
-      test: async function (doc, win) {
+      test: async function () {
         const outertable = test.compByName('tbl');
         let selected = getSelection(outertable);
         test.eq(1, selected.length);
@@ -88,7 +88,7 @@ test.runTests(
 
     {
       name: 'addselect',
-      test: async function (doc, win) {
+      test: async function () {
         const textarea = test.qSA('textarea')[0];
         test.eq('multiple/single\n1:1', textarea.value.trim());
 
@@ -110,7 +110,7 @@ test.runTests(
 
     {
       name: 'reportselect-multiple',
-      test: async function (doc, win) {
+      test: async function () {
         const textarea = test.qSA('textarea')[0];
         test.eq('multiple/none\n1:1\n2:2', textarea.value.trim());
 
@@ -122,7 +122,7 @@ test.runTests(
 
     {
       name: 'reportselect-none',
-      test: function (doc, win) {
+      test: function () {
         const textarea = test.qSA('textarea')[0];
         test.eq('none/none', textarea.value.trim());
       }
@@ -130,7 +130,7 @@ test.runTests(
 
     {
       name: 'click-unselectable',
-      test: async function (doc, win) {
+      test: async function () {
         // Move to select single
         test.click(test.getMenu(['M02']));
         await test.wait("ui");

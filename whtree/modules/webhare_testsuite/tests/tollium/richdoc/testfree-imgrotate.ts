@@ -36,7 +36,7 @@ test.runTests(
 
     {
       name: 'verifyimage',
-      test: function (doc, win) {
+      test: function () {
         const img = test.compByName('editor').querySelector("div.wh-rtd-editor-bodynode img");
         //did it return to portrait ?
         test.eq(600, img.height);

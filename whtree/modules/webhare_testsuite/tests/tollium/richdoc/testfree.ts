@@ -51,7 +51,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.eq('27', test.compByName('width').querySelector('input').value);
         test.clickTolliumButton("OK");
         await test.waitForUI();
@@ -59,7 +59,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Rewrite");
         await test.waitForUI();
       }
@@ -87,7 +87,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Edit raw html");
         await test.waitForUI();
       }
@@ -130,7 +130,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -163,7 +163,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -193,7 +193,7 @@ test.runTests(
 
     {
       name: 'Remove hyperlink',
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Remove hyperlink");
         await test.waitForUI();
       }
@@ -209,7 +209,7 @@ test.runTests(
 
     {
       name: 'Counter',
-      test: async function (doc, win) {
+      test: async function () {
         // Enable the counter
         test.setTodd("showcounter", true);
         await test.wait("ui");

@@ -27,7 +27,7 @@ test.runTests(
 
     {
       name: 'create-table',
-      test: function (doc, win) {
+      test: function () {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         const rtenode = test.compByName('structured');
@@ -157,7 +157,7 @@ test.runTests(
     // Test table left
     {
       name: 'leftheader-open-properties-1',
-      test: async function (doc, win) {
+      test: async function () {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
 
@@ -169,7 +169,7 @@ test.runTests(
     },
     {
       name: 'leftheader-enable',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header row"))[0]);  // disable
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // enable
         test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
@@ -178,7 +178,7 @@ test.runTests(
       }
     },
     'leftheader reclick (crashed earlier when targetting existing TH)',
-    async function (doc, win) {
+    async function () {
       const rtenode = test.compByName('structured');
       const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
       test.click(table.querySelector("th"), { button: 2 });
@@ -191,7 +191,7 @@ test.runTests(
     },
     {
       name: 'leftheader-test',
-      test: async function (doc, win) {
+      test: async function () {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.eq(0, table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -233,7 +233,7 @@ test.runTests(
     },
     {
       name: 'headerdisable-enable',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // disable
         test.clickTolliumButton("OK");
         await test.waitForUI();
@@ -241,7 +241,7 @@ test.runTests(
     },
     {
       name: 'headerdisable-test',
-      test: function (doc, win) {
+      test: function () {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.eq(0, table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -260,7 +260,7 @@ test.runTests(
     },
 
     "Remove the table",
-    async function (doc, win) {
+    async function () {
       const rtenode = test.compByName('structured');
       const driver = new rtetest.RTEDriver('structured');
       driver.setSelection(driver.qS("td p"));
