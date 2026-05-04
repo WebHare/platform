@@ -259,7 +259,11 @@ std::pair< unsigned, unsigned > GetConsoleSize()
 }
 uint32_t GetProcessId()
 {
+#ifdef __EMSCRIPTEN__
+        return EM_ASM_INT({return process.pid;});
+#else
         return getpid();
+#endif
 }
 
 uint32_t GetPageFaults()

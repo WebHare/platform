@@ -5,6 +5,7 @@
           height="30x"
           allowresize="true"
           flags="issysop"
+          onmessage="GotMessage"
           onunload="GotUnload"
           savestate="size"
           tid=".apptitle">
