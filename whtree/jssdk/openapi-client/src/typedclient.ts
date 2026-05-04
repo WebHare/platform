@@ -130,17 +130,14 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
       fetchoptions.headers["Content-Type"] = "application/json";
     }
     const used_pathelts: string[] = [];
-    route = route.split("/").map(pathelt => {
-      if (pathelt.startsWith("{")) {
-        const name = pathelt.slice(1, -1);
-        used_pathelts.push(name);
-        const value = options?.params?.[name];
-        if (typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean")
-          throw new Error(`Missing parameter ${JSON.stringify(pathelt.slice(1, -1))}`);
-        return encodeURIComponent(value); // correctly encodes booleans to 'true'/'false'
-      }
-      return pathelt;
-    }).join("/");
+    route = route.replaceAll(/{[^}]+}/g, (match) => {
+      const name = match.slice(1, -1);
+      used_pathelts.push(name);
+      const value = options?.params?.[name];
+      if (typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean")
+        throw new Error(`Missing parameter ${JSON.stringify(name)} for path ${route}`);
+      return encodeURIComponent(value); // correctly encodes booleans to 'true'/'false'
+    });
     if (route.startsWith("/"))
       route = route.slice(1);
 

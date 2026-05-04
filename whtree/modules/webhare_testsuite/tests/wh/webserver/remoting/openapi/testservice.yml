@@ -204,6 +204,37 @@ paths:
           "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#getFile
 
+  "/test-multi-param/{param1}-{param2}-{param3}":
+    parameters:
+    - in: path
+      name: param1
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: param2
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: param3
+      required: true
+      schema:
+        type: string
+    get:
+      description: Test multiple parameters in path
+      responses:
+        "200":
+          description: Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+      x-webhare-implementation: users.ts#testMultiParam
+
   "/getcontext/{id}":
     parameters:
     - in: path
