@@ -48,7 +48,7 @@ test.runTests(
         const rte = win.rte.getEditor();
 
         rte.getBody().focus();
-        await test.wait("events");
+        await test.sleep(1);
 
         test.subtest("Delete selected character");
         rtetest.setStructuredContent(win, '<p class="normal">"a(*0*)b(*1*)c"</p>');

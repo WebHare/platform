@@ -88,7 +88,7 @@ test.runTests(
 
     {
       name: 'gridupdate',
-      test: async function (doc, win) {
+      test: async function () {
         test.eq(0, test.qSA('.wh-radiobutton').length);
         test.eq(4, test.qSA('select').length);
         test.click(test.compByName('button')); //converts the select to a radiobutton
@@ -97,7 +97,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(2, test.qSA('.wh-radiobutton').length);
         test.eq(3, test.qSA('select').length);
       }

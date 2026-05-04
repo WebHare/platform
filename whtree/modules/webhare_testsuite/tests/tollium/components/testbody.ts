@@ -11,7 +11,7 @@ test.runTests(
 
     {
       name: 'make body invisible',
-      test: async function (doc, win) {
+      test: async function () {
         //is the toolbar still there?
         test.eq(1, test.qSA('t-toolbar').length);
         //and does it still have buttons?
@@ -23,7 +23,7 @@ test.runTests(
 
     {
       name: 'verify toolbar is still there',
-      test: function (doc, win) {
+      test: function () {
         test.eq(1, test.qSA('t-toolbar').length);
         //and does it still have buttons? IE innerHTML = destroy all nodes bug
         test.eq(5, test.qSA('t-toolbar button').length);

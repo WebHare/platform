@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'verifyalign',
-      test: function (doc, win) {
+      test: function () {
         const lastbutton = test.compByName('filelistsingle');
         const splitedge = test.compByName("topleftpanel");
         test.eq(splitedge.getBoundingClientRect().right, lastbutton.getBoundingClientRect().right, 'lastbutton right coordinate should match its containing panel right coordinate');

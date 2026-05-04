@@ -36,7 +36,7 @@ function generateResizeTests(name, opts) {
   return [
     {
       name: 'resize frame ' + name,
-      test: async function (doc, win) {
+      test: async function (doc) {
         savewinpos = test_win.getBoundingClientRect(); //store current
 
         const clientx = opts.left ? savewinpos.left + 2 : opts.right ? savewinpos.right - 2 : Math.floor((savewinpos.left + savewinpos.right) / 2);
@@ -49,7 +49,7 @@ function generateResizeTests(name, opts) {
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         const newpos = test_win.getBoundingClientRect();
         test.eq(savewinpos.left + (opts.left ? opts.relx : 0), newpos.left);
         test.eq(savewinpos.right + (opts.right ? opts.relx : 0), newpos.right);
@@ -68,9 +68,9 @@ test.runTests(
 
     {
       name: 'move frame',
-      test: async function (doc, win) {
+      test: async function () {
         // Initialize the test window node
-        initTestWin(win);
+        initTestWin(test.getWin());
 
         // Find the window header
         initTestElement(".windowheader");
@@ -82,7 +82,7 @@ test.runTests(
         test_pos = { x: pos.x, y: pos.y + 100 };
 
         await test.sendMouseGesture([
-          { doc: doc, down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
+          { doc: test.getDoc(), down: 0, clientx: pos.x + testel_centerx, clienty: pos.y + testel_centery },
           { up: 0, clientx: test_pos.x + testel_centerx, clienty: test_pos.y + testel_centery, delay: gesture_time, transition: test.dragTransition }
         ]);
         await test.wait("animationframe");
@@ -91,7 +91,7 @@ test.runTests(
 
     {
       name: 'move frame down',
-      test: async function (doc, win) {
+      test: async function (doc) {
         test.eq(test_pos.x, test_el.getBoundingClientRect().left);
         test.eq(test_pos.y, test_el.getBoundingClientRect().top);
 
@@ -110,7 +110,7 @@ test.runTests(
 
     {
       name: 'move frame right',
-      test: async function (doc, win) {
+      test: async function (doc) {
         test.eq(test_pos.x, test_el.getBoundingClientRect().left);
         test.eq(test_pos.y, test_el.getBoundingClientRect().top);
 
@@ -127,7 +127,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(desktopbounds.left - testel_centerx, test_el.getBoundingClientRect().left);
         test.eq(desktopbounds.top + (desktopbounds.height - 1 - testel_centery), test_el.getBoundingClientRect().top);
       }
@@ -135,7 +135,7 @@ test.runTests(
 
     {
       name: 'move frame out of window south west',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // Start at the current position
         const from_pos = test_pos;
         // Move the window out of the top right corner of the browser
@@ -149,7 +149,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(-testel_centerx, test_el.getBoundingClientRect().left);
         test.eq(desktopbounds.bottom - testel_centery - 1, test_el.getBoundingClientRect().top);
         //test.eq({ x: desktopbounds.left - testel_centerx, y: desktopbounds.top + (desktopbounds.height - 1 - testel_centery) }, test_el.getPosition());
@@ -158,7 +158,7 @@ test.runTests(
 
     {
       name: 'move frame out of window north east',
-      test: async function (doc, win) {
+      test: async function (doc) {
         await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: 0, clienty: desktopbounds.bottom - 1 },
           { up: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top, delay: gesture_time, transition: test.dragTransition }
@@ -167,7 +167,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(desktopbounds.right - testel_centerx - 1, test_el.getBoundingClientRect().left);
         test.eq(desktopbounds.top - testel_centery, test_el.getBoundingClientRect().top);
       }
@@ -175,7 +175,7 @@ test.runTests(
 
     {
       name: 'move back',
-      test: async function (doc, win) {
+      test: async function (doc) {
         //IE/Edge work around, add one. not sure why, but otherwise we hit the appbar?
         await test.sendMouseGesture([
           { doc: doc, down: 0, clientx: desktopbounds.right - 1, clienty: desktopbounds.top + 1 },
@@ -185,7 +185,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(300 - testel_centerx, test_el.getBoundingClientRect().left);
         test.eq(200 - testel_centery - 1, test_el.getBoundingClientRect().top);
       }
@@ -193,7 +193,7 @@ test.runTests(
 
     {
       name: 'try to move using close button',
-      test: async function (doc, win) {
+      test: async function () {
         // Find the close button
         const closebutton = test_win.querySelector('.closewindow');
 
@@ -206,7 +206,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq(300 - testel_centerx, test_el.getBoundingClientRect().left);
         test.eq(200 - testel_centery - 1, test_el.getBoundingClientRect().top);
       }
@@ -222,13 +222,13 @@ test.runTests(
 
     {
       name: 'savestate',
-      test: async function (doc, win) {
+      test: async function () {
         const savesize = test_win.getBoundingClientRect();
         test.getCurrentScreen().clickCloser();
         await test.waitForUI();
 
         // We have a new window, re-initialize the test window node
-        initTestWin(win);
+        initTestWin(test.getWin());
 
         //tollium should immediately reopen so
         test.eq(savesize.width, test_win.getBoundingClientRect().width);

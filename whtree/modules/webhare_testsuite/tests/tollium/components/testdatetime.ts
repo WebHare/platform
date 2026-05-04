@@ -466,7 +466,7 @@ test.runTests(
       const dt3 = test.compByName('dt3');
       const dt2 = test.compByName('dt2');
 
-      await test.wait("events");
+      await test.sleep(1);
 
       test.click(dt3.querySelector(".tollium__datetime__day"));
       test.assert(alternatedefault.classList.contains("default"));

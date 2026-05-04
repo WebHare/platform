@@ -256,12 +256,10 @@ test.runTests(
 
     {
       name: 'iframe in contents',
-      loadpage: test.getTestScreen('tests/basecomponents.iframetestincontents'),
-      waits: [
-        'ui', function () {
-          const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
-          return Boolean(iframe.contentWindow!.document.querySelector('#source, .wh-errorinfo'));
-        }
-      ]
+      test: async function () {
+        await test.load(test.getTestScreen('tests/basecomponents.iframetestincontents'));
+        const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
+        return Boolean(iframe.contentWindow!.document.querySelector('#source, .wh-errorinfo'));
+      }
     }
   ]);

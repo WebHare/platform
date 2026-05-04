@@ -30,7 +30,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // Test initial table sizes
         const coords = table.getBoundingClientRect();
         test.eq(301, coords.width); // (4 * 75 column + 2 * 1 outer border)
@@ -60,7 +60,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col1-row1',
-      test: async function (doc, win) {
+      test: async function (doc) {
         const cells = table.querySelectorAll('tr:first-child th');
         test.eq(65, cells[0].getBoundingClientRect().width);
 
@@ -79,7 +79,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-tableheight',
-      test: function (doc, win) {
+      test: function () {
         const coords = table.getBoundingClientRect();
 
         test.eq(301, coords.width); // (4 * 75 column + 2 * 1 outer border)

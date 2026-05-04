@@ -22,7 +22,7 @@ test.runTests(
 
     {
       name: 'launchappholder',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.canClick(test.compByName('tabs')));
         const A01 = test.getMenu(['M01', 'A01']);
         test.click(A01);
@@ -32,7 +32,7 @@ test.runTests(
 
     {
       name: 'clicktab',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.isElementClickable(test.compByName('tabs')));
 
         //verify the tabs properly all got the same szie (the 400x350 max)
@@ -65,14 +65,14 @@ test.runTests(
         test.eq('Tab 1', getTabSheetLabel(activetab).textContent);
         const elt = test.compByName("typepulldown");
         elt.propTodd.setValue('P02');
-          await test.waitForUI(); //we need to wait for the animation at least
-        }
+        await test.waitForUI(); //we need to wait for the animation at least
+      }
     },
 
     {
       //NOTE Tabs are no longer actually stacked, but the tests till pass so can't hurt to keep them
       name: 'stackedtabs',
-      test: async function (doc, win) {
+      test: async function () {
         test.fill(test.compByName('type_imagetext_title').querySelector('input'), 'Test Title');
 
         const tabs = getTabs(test.compByName('tabs'));
@@ -81,7 +81,7 @@ test.runTests(
       }
     },
     {
-      test: function (doc, win) {
+      test: function () {
         test.eq('Stacked tab 1', getActiveTab(test.compByName('stackedtabs')).querySelector('.label').textContent);
 
         let tabs = getTabs(test.compByName('stackedtabs'));
@@ -98,7 +98,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const tabs = getTabs(test.compByName('tabs'));
         test.click(tabs[1]); //goto tab 2
         await test.waitForUI();
@@ -107,7 +107,7 @@ test.runTests(
 
     {
       name: 'stackedtabs3',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.compByName('syncbutton'));
         await test.waitForUI();
       }
@@ -115,7 +115,7 @@ test.runTests(
 
     {
       name: 'stackedtabs4',
-      test: function (doc, win) {
+      test: function () {
         test.eq('Test Title', test.compByName('tab1_imagetext_title').textContent);
         test.eq('Test Twee', test.compByName('tab3_texteditstack2').textContent);
       }
@@ -124,14 +124,14 @@ test.runTests(
     //test state saving
     {
       name: 'isstatesaved',
-      test: async function (doc, win) {
+      test: async function () {
         test.getCurrentScreen().clickCloser();
         await test.waitForUI();
       }
     },
     {
       name: 'isstatesaved-reopen',
-      test: async function (doc, win) {
+      test: async function () {
         const A02 = test.getMenu(['M01', 'A02']);
         test.click(A02);
         await test.waitForUI();
@@ -139,7 +139,7 @@ test.runTests(
     },
     {
       name: 'isstatesaved-settab3',
-      test: async function (doc, win) {
+      test: async function () {
         //note,we should be able to access the app, as appholder should've saved state
         const tabs = getTabs(test.compByName('tabs'));
         test.click(tabs[2]); //goto tab 3
@@ -148,7 +148,7 @@ test.runTests(
     },
     {
       name: 'isstatesaved-checkstacked2',
-      test: function (doc, win) {
+      test: function () {
         const tabs = getTabs(test.compByName('stackedtabs'));
         test.assert(!tabs[0].classList.contains('active'));
         test.assert(tabs[1].classList.contains('active'));
@@ -158,7 +158,7 @@ test.runTests(
     //test anonymous tab
     {
       name: 'testanonymoustab',
-      test: function (doc, win) {
+      test: function () {
         const tablabel = test.qSA('*[data-tab$=":untitledtab"]')[0];
         test.click(tablabel, { x: 5, y: 5 });
         test.assert(test.isElementClickable(test.compByName('untitledtabtext')));
@@ -166,7 +166,7 @@ test.runTests(
     },   //the menu shouldn't be here yet...
     {
       name: 'testmenu',
-      test: async function (doc, win) {
+      test: async function () {
         const tablabel = test.compByName('tabs').querySelector('.nav-tabs');
         test.assert(!test.isElementClickable(tablabel));
 
@@ -175,7 +175,7 @@ test.runTests(
       }
     },
     'testmenu', //use the menu to go to a different tab
-    async function (doc, win) {
+    async function () {
       const tablabel = test.compByName('tabs').querySelector('.nav-tabs');
       test.assert(test.isElementClickable(tablabel), 'nav pulldown should have appeared');
       test.click(tablabel);

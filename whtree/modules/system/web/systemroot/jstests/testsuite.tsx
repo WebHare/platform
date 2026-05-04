@@ -94,20 +94,17 @@ declare global {
   }
 }
 
-export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | "events" | "tick" | "scroll" | number;
+export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | number;
 
 //An individual step in a test
 export type TestStep = {
-  xfail?: string;
   test?: (doc: Document, win: Window, callback: () => void) => void | Promise<unknown>;
   loadpage?: string | ((doc: Document, win: Window) => string);
-  _rethrow?: boolean;
-  waits?: TestWaitItem[];
   name?: string;
   //only used internally now:
+  _rethrow?: boolean;
   __subtest?: number;
   __subname?: string;
-  ignore?: boolean;
 };
 
 class FrameRecord {
@@ -563,18 +560,12 @@ class TestFramework {
     if (this.stop)
       return;
 
-    // Translate legacy waits to modern format
-    this.translateWaits(step);
-
     // Update the test state for this step, so the user knows we're running it.
     this.setStatus(test.name + " " + this.currentstep + "/" + this.currentsteps!.length + (step.name ? ': ' + step.name : ''));
     this.updateTestState();
 
     // Result promise (chained with all the step parts)
     let result = Promise.resolve();
-
-    if (step.ignore)
-      return result;
 
     if ((this.scriptframewin! as Window & typeof globalThis).Error && (this.scriptframewin! as Window & typeof globalThis).Error.stackTraceLimit)
       (this.scriptframewin! as Window & typeof globalThis).Error.stackTraceLimit = 50;
@@ -606,11 +597,7 @@ class TestFramework {
     if (step.test) //TODO get rid of the 'as' but that requires us not use a then() here
       result = result.then(() => this.executeStepTestFunction(step as TestStep & Required<Pick<TestStep, "test">>));
 
-    // Schedule all waits serially after the tests. Clears signals if it uses them
-    if (step.waits)
-      step.waits.forEach((item) => { result = result.then(() => this.executeWait(step, item, this.getFrameRecord().currentsignals)).then(() => void undefined); });
-
-    // After the waits have all executed, see if a page load happened we did'nt expect
+    // See if a page load happened we didn't expect
     result = result.then(() => {
       // A 'pageload' wait clears signals.pageload. If not cleared, error out when the load happens
       for (const f of this.testframes)
@@ -622,19 +609,6 @@ class TestFramework {
           return Promise.race([f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve()]);
         }
     });
-
-    // If marked as xfail, give an error when no exception, and swallow exceptions (but note them & update state)
-    if (step.xfail) {
-      const xfailText = step.xfail;
-      result = result.then(
-        () => { throw new Error("Step " + idx + " should have failed, but didn't (is marked as xfail)"); },
-        () => {
-          // Note & swallow the execution
-          test.xfails = test.xfails || [];
-          test.xfails.push({ stepname: step.name || '', stepnr: idx, text: xfailText, e: 'Failed as expected' });
-          this.updateTestState();
-        });
-    }
 
     result = result.finally(function () {
       //        for (const f of this.testframes)
@@ -1045,11 +1019,6 @@ class TestFramework {
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
 
-    if (item === "events" || item === "tick") {
-      console.warn(`Waiting for '${item}' just waits for 1 millisecond and does nothing magic, so just replace it with await wait(1)`);
-      item = 1;
-    }
-
     // Number: just wait for so many milliseconds
     if (typeof item === "number") {
       setTimeout(deferred.resolve, item);
@@ -1109,18 +1078,6 @@ class TestFramework {
             this.executeWaitFinish();
           }
         }
-      case "scroll":
-        {
-          const win = this.getFrameRecord().win!;
-          const scrollwaiter = () => {
-            //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
-            setTimeout(deferred.resolve, 0);
-            this.currentwaitstack = null;
-            win.removeEventListener("scroll", scrollwaiter);
-          };
-          win.addEventListener("scroll", scrollwaiter);
-          this.timedReject(deferred, "Timeout when waiting for scroll event", this.waittimeout);
-        } break;
 
       default:
         {
@@ -1133,13 +1090,6 @@ class TestFramework {
 
   executeWaitFinish() {
     qR('#currentwait').style.display = "none";
-  }
-
-  /// Translate the .waitxxx values in a test step to step.waits
-  translateWaits(step: TestStep) {
-    const waits = step.waits || [];
-    if (waits.length)
-      step.waits = waits;
   }
 
   // standardize stacks to 'funcname@http-location:line:col'
@@ -1240,35 +1190,6 @@ class TestFramework {
       node_teststatus.scrollIntoView({ block: "nearest" });
     }
   }
-
-  /* These don't compile and don't seem to be used
-  startNextStep() {
-    if (this.nextstepscheduled)
-      return;
-
-    this.nextstepscheduled = true;
-    setTimeout(() => this.startNextStepNow(), 0);
-  }
-  doWaitForGestures() {
-    this.waitforgestures = false;
-    if (!this.scriptframewin!.waitForGestures)
-      throw new Error("waitforgestures specified, but no waitForGestures found in scriptframe");
-
-    if (this.nextstepscheduled)
-      return;
-
-    this.nextstepscheduled = true;
-    this.scriptframewin!.waitForGestures(() => this.startNextStepNow());
-  }
-  doWaitForAnimationFrame() {
-    const framerec = this.getFrameRecord();
-    this.waitforanimationframe = false;
-    if (!framerec.win!.requestAnimationFrame)
-      throw new Error("waitforanimationframe specified, but no requestAnimationFrame found in scriptframe");
-
-    framerec.win!.requestAnimationFrame(() => this.startNextStepNow());
-  }
-  */
 
   getCurrentStep() {
     return this.currentsteps![this.currentstep];

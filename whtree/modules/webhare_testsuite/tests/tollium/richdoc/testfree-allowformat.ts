@@ -11,7 +11,7 @@ test.runTests(
     },
     {
       name: 'checktoolbar',
-      test: async function (doc, win) {
+      test: async function () {
         const rte = test.compByName('myrte');
         test.assert(!rte.querySelector('.wh-rtd__toolbarstyle') !== null);
         test.assert(!rte.querySelector('.wh-rtd-button.disabled[data-button=b]') !== null);

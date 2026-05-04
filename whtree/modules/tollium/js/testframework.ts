@@ -253,19 +253,6 @@ function clickTolliumButton(toddbuttontitle) {
     throw new Error(`No button titled '${toddbuttontitle}'`);
   test.click(button);
 }
-function testClickTolliumButton(toddbuttontitle, options?, _deprecated_waits?) {
-  options = typeof options === "string" ? { name: options } : { ...options };
-  if (_deprecated_waits)
-    options.waits = _deprecated_waits;
-
-  return {
-    name: options.name || "Click button: " + toddbuttontitle,
-    test: function () {
-      clickTolliumButton(toddbuttontitle);
-    },
-    waits: (options.waits || ["ui"])
-  };
-}
 function getTolliumLabel(toddlabel: string) {
   return test.qSA('t-text').filter(text => text.textContent?.includes(toddlabel))[0];
 }
@@ -274,29 +261,6 @@ function clickTolliumLabel(toddlabel: string) {
   if (!label)
     throw new Error("No label titled '" + toddlabel + "'");
   test.click(label);
-}
-function testClickTolliumLabel(toddlabel: string, options?: { name?: string }) {
-  options = typeof options === "string" ? { name: options } : { ...options };
-
-  return {
-    name: options.name || ("Click label: " + toddlabel),
-    test: function () {
-      clickTolliumLabel(toddlabel);
-    },
-    waits: ["ui"]
-  };
-}
-
-export function testClickTolliumToolbarButton(toddlabel: string, submenulabel: string, options?: { name?: string; waits?: test.TestWaitItem[] }): test.RegisteredTestStep {
-  const name = options?.name || ("Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : ""));
-
-  return {
-    name: name,
-    test: function () {
-      clickToddToolbarButton(toddlabel, submenulabel);
-    },
-    waits: (options?.waits || ["ui"])
-  };
 }
 
 async function selectListRow(listname: string, textinrow: string, options: { rightclick?: boolean; doubleclick?: boolean; waits?: test.TestWaitItem[] } = {}) {
@@ -487,8 +451,6 @@ export { getTestScreen };
 export { getTolliumDebugVariables };
 export { getTolliumHost };
 export { setTodd };
-export { testClickTolliumButton };
-export { testClickTolliumLabel };
 export { $screen };
 export { getOpenSelectList };
 export { getSelectListVisibleItems };
@@ -523,11 +485,6 @@ export async function expectWindowOpen(code: () => void | Promise<void>) {
   } finally {
     test.getWin().open = _testfw_oldopen;
   }
-}
-
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, "$screen", { get: () => { throw new Error("Use ToddTest.$screen() instead of window.$screen"); } });
-  Object.defineProperty(window, "ToddTest", { get: () => { throw new Error("ToddTest has been removed, use testClickTolliumToolbarButton or testSelectListRow"); } });
 }
 
 export type { ScreenProxy };

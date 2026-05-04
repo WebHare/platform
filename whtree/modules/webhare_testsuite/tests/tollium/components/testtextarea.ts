@@ -12,7 +12,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         const holder = test.compByName("componentpanel");
         const textedits = holder.querySelectorAll("textarea");
         test.eq(1, textedits.length); //make sure we've got the right(only) one
@@ -20,7 +20,7 @@ test.runTests(
       }
     },
 
-    async function defaultbutton_pulldown(doc, win) {
+    async function defaultbutton_pulldown() {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -65,7 +65,7 @@ test.runTests(
       test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       test.click(test.compByTitle("Required"));
-      await test.wait("events");
+      await test.sleep(1);
       await test.wait("ui");
 
       textedit_comp = test.compByName("componentpanel");
@@ -78,7 +78,7 @@ test.runTests(
       test.eq("3/4+", counter.textContent);
 
       test.fill(test.compByTitle("maxlength").querySelector("input"), "6");
-      await test.wait("events");
+      await test.sleep(1);
       test.clickTolliumButton("Read"); //force immediate state transfer
       await test.wait("ui");
 

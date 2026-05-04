@@ -21,7 +21,7 @@ test.runTests(
     },
 
     "Test pulldown visibleon (initial mode)",
-    async function (doc, win) {
+    async function () {
       const tabs = getTabs(test.compByName('tabs'));
       test.click(tabs[0]);
 
@@ -43,7 +43,7 @@ test.runTests(
     },
 
     "Test radio visibleon",
-    async function (doc, win) {
+    async function () {
       test.fill(test.compByName("selectortype"), "radio");
       await test.wait("ui");
 
@@ -65,7 +65,7 @@ test.runTests(
     },
 
     "Test checkbox visibleon",
-    async function (doc, win) {
+    async function () {
       test.fill(test.compByName("selectortype"), "checkbox");
       await test.wait("ui");
 
@@ -95,7 +95,7 @@ test.runTests(
     },
 
     "Test checkboxlist visibleon",
-    async function (doc, win) {
+    async function () {
       test.fill(test.compByName("selectortype"), "checkboxlist");
       await test.wait("ui");
 

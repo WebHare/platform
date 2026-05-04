@@ -223,7 +223,7 @@ test.runTests(
 
       //Test that selecting NL does not disable the or reorder the zip field
       test.fill(address3country, 'NL');
-      await test.wait('tick'); //just in case someone delays reodering
+      await test.sleep(1); //just in case someone delays reodering
 
       const zipfield = test.qR("#addressform-address3\\.zip");
       const streetfield = test.qR("#addressform-address3\\.street");

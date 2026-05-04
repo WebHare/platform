@@ -208,8 +208,11 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
 
 export function comp(name: string, options?: { allowMissing: boolean }): ComponentProxy | null {
   const screen = getCurrentScreen();
-  const candidates = findComp(screen, name);
+  let candidates = findComp(screen, name);
 
+  if (candidates.length > 1) { //eliminate containing elements - eg don't match all panels containing a label just because there's a button inside with the label
+    candidates = candidates.filter(node => !candidates.some(other => other !== node && node.contains(other)));
+  }
   if (candidates.length > 1) {
     console.error(`Multiple matches for name '${name}'`, candidates);
     throw new Error(`Multiple matches for name '${name}'`);

@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-tollium/js/testframework";
@@ -18,7 +17,7 @@ test.runTests(
     },
     {
       name: "add_4_enterdata",
-      test: async function (doc, win) {
+      test: async function () {
         // Enter '4' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
         elt.value = "4";
@@ -30,14 +29,14 @@ test.runTests(
     },
     {
       name: "add_4_check",
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.getCurrentScreen().getListRow('comp!list', /4/));
       }
     },
 
     {
       name: "rename_3a_select",
-      test: async function (doc, win) {
+      test: async function () {
         const elt = test.getCurrentScreen().getListRow('comp!list', /3a/);
         test.click(elt);
         await test.waitForUI();
@@ -45,14 +44,14 @@ test.runTests(
     },
     {
       name: "rename_3a_opendialog",
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Edit");
         await test.waitForUI();
       }
     },
     {
       name: "rename_3a_enterdata",
-      test: async function (doc, win) {
+      test: async function () {
         // Enter '3' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
         elt.value = "3";
@@ -64,7 +63,7 @@ test.runTests(
     },
     {
       name: "rename_3a_check",
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.getCurrentScreen().getListRow('comp!list', /3a/));
         test.assert(test.getCurrentScreen().getListRow('comp!list', /3/));
       }
@@ -72,7 +71,7 @@ test.runTests(
 
     {
       name: "delete_5_select",
-      test: async function (doc, win) {
+      test: async function () {
         const elt = test.getCurrentScreen().getListRow('comp!list', /5/);
         test.click(elt);
         await test.waitForUI();
@@ -80,14 +79,14 @@ test.runTests(
     },
     {
       name: "rename_5_delete",
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Delete");
         await test.waitForUI();
       }
     },
     {
       name: "delete_5_confirm",
-      test: async function (doc, win) {
+      test: async function () {
         // press 'yes'
         test.clickTolliumButton("Yes");
         await test.waitForUI();
@@ -95,14 +94,14 @@ test.runTests(
     },
     {
       name: "delete_5_check",
-      test: function (doc, win) {
+      test: function () {
         test.assert(!test.getCurrentScreen().getListRow('comp!list', /5/));
       }
     },
 
     {
       name: "move_2_select",
-      test: async function (doc, win) {
+      test: async function () {
         const elt = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.click(elt);
         await test.waitForUI();
@@ -110,7 +109,7 @@ test.runTests(
     },
     {
       name: "move_2_up",
-      test: async function (doc, win) {
+      test: async function () {
         const line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.assert((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
@@ -121,19 +120,21 @@ test.runTests(
     },
     {
       name: "move_2_check",
-      test: function (doc, win) {
+      test: async function () {
         const line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.assert(!(line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
 
         const elt = test.getTolliumButton("Up");
         test.assert(elt.className.match(/disabled/));
+
+        tt.comp(":Down").click();
+        await test.waitForUI();
       }
     },
-    test.testClickTolliumButton('Down'),
     {
       name: "move_2_down_check",
-      test: function (doc, win) {
+      test: function () {
         const line_1 = test.getCurrentScreen().getListRow('comp!list', /1/);
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         test.assert((line_1.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));
@@ -143,7 +144,7 @@ test.runTests(
 
     {
       name: "move_2_dragdown",
-      test: async function (doc, win) {
+      test: async function () {
         const elt_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         const elt_4 = test.getCurrentScreen().getListRow('comp!list', /4/);
 
@@ -157,7 +158,7 @@ test.runTests(
     },
     {
       name: "move_2_dragdown_check",
-      test: function (doc, win) {
+      test: function () {
         const line_2 = test.getCurrentScreen().getListRow('comp!list', /2/);
         const line_4 = test.getCurrentScreen().getListRow('comp!list', /4/);
         test.assert((line_4.compareDocumentPosition(line_2) & Node.DOCUMENT_POSITION_FOLLOWING));

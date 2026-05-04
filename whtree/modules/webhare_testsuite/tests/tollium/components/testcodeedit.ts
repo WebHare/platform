@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'initialselectedline',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.hasFocus(test.qS('textarea')));
         test.assert(test.qS('textarea').scrollTop !== 0, 'scrollTop = 0, so no initial selection done');
         test.assert(!test.qS('textarea').readOnly);
@@ -25,7 +25,7 @@ test.runTests(
 
     {
       name: 'disabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.qS('textarea').readOnly);
         test.assert(test.qS('textarea').scrollTop !== 0);
 
@@ -37,7 +37,7 @@ test.runTests(
 
     {
       name: 'reenabled',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(!test.qS('textarea').readOnly);
         test.assert(test.qS('textarea').scrollTop !== 0);
 
@@ -49,7 +49,7 @@ test.runTests(
 
     {
       name: 'firstline',
-      test: async function (doc, win) {
+      test: async function () {
         test.assert(test.qS('textarea').scrollTop === 0);
 
         // Last line
@@ -60,7 +60,7 @@ test.runTests(
 
     {
       name: 'lastline',
-      test: async function (doc, win) {
+      test: async function () {
         const textarea = test.qS('textarea');
         test.eq(textarea.scrollHeight - textarea.clientHeight, textarea.scrollTop);
 
@@ -72,7 +72,7 @@ test.runTests(
 
     {
       name: 'reset',
-      test: function (doc, win) {
+      test: function () {
         test.assert(test.qS('textarea').scrollTop === 0);
         const textarea = test.qS('textarea');
         test.eq('', textarea.value);
@@ -93,7 +93,7 @@ test.runTests(
 
     {
       name: 'setcheck',
-      test: function (doc, win) {
+      test: function () {
         const textarea = test.qS('textarea');
         test.eq("RGl0IGlzIGVlbiB0ZXN0", textarea.value);
       }

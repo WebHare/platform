@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'openform',
-      test: async function (doc, win) {
+      test: async function () {
         test.click(test.getMenu(['M01', 'A14']));
         await test.waitForUI();
       }
@@ -20,7 +20,7 @@ test.runTests(
 
     {
       name: 'verifybox',
-      test: function (doc, win) {
+      test: function () {
         const ta1holder = test.compByName('ta1holder');
         const ta1 = test.compByName('TA1');
         test.assert(ta1.getBoundingClientRect().right <= ta1holder.getBoundingClientRect().right, "Textarea should not escape parent (this happened when <textarea> forgot about its own minwidth");
@@ -33,6 +33,4 @@ test.runTests(
         test.assert(realtextarea.scrollHeight > 200);
       }
     }
-
-
   ]);

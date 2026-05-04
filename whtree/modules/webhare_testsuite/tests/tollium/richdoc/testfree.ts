@@ -13,10 +13,10 @@ test.runTests(
 
     {
       name: 'imagebuttontest',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const geoffreynode = rte.qSA("br")[1].nextSibling;
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: geoffreynode,
             startOffset: 5,
@@ -34,8 +34,8 @@ test.runTests(
 
     {
       name: 'imagebuttontest-verify',
-      test: function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const selection = rte.getEditor().getSelectionRange();
         test.eq(1, selection.querySelectorAll("img").length);
       }
@@ -43,15 +43,15 @@ test.runTests(
 
     {
       name: 'imagebutton properties',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         test.click(rte.getButtonNode('action-properties'));
         await test.waitForUI();
       }
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.eq('27', test.compByName('width').querySelector('input').value);
         test.clickTolliumButton("OK");
         await test.waitForUI();
@@ -59,7 +59,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Rewrite");
         await test.waitForUI();
       }
@@ -87,7 +87,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Edit raw html");
         await test.waitForUI();
       }
@@ -95,9 +95,9 @@ test.runTests(
 
     {
       name: 'verify-copypasteimage',
-      test: async function (doc, win) {
+      test: async function () {
         const holder = document.createElement("div");
-        holder.innerHTML = rtetest.getRawHTMLTextArea(win).value;
+        holder.innerHTML = rtetest.getRawHTMLTextArea(test.getWin()).value;
         const imgs = holder.querySelectorAll('img');
         test.eq(3, imgs.length); //should be two
         test.eq(/^cid:/, imgs[0].src);
@@ -114,10 +114,10 @@ test.runTests(
 
     {
       name: 'texthyperlink',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const quote = rte.qS('blockquote');
-        rtetest.setRTESelection(win, rte.getEditor(),
+        rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
             startContainer: quote.firstChild,
             startOffset: 5,
@@ -130,7 +130,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -145,8 +145,8 @@ test.runTests(
 
     {
       name: 'verifyhyperlink',
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const range = rte.getEditor().getSelectionRange();
         //ensure hyperlink contents are selected
         test.eq(range.start.element, range.end.element);
@@ -163,7 +163,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function () {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -176,8 +176,8 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: async function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         const link = rte.qSA("a[href]")[0];
         test.eq('http://www.example.com/', link.href);
         test.assert(!link.hasAttribute("target"));
@@ -193,15 +193,15 @@ test.runTests(
 
     {
       name: 'Remove hyperlink',
-      test: async function (doc, win) {
+      test: async function () {
         test.clickTolliumButton("Remove hyperlink");
         await test.waitForUI();
       }
     },
 
     {
-      test: function (doc, win) {
-        const rte = rtetest.getRTE(win, 'editor');
+      test: function () {
+        const rte = rtetest.getRTE(test.getWin(), 'editor');
         //Verify the link's disappearance
         test.eq(0, rte.qSA('a[href="http://www.example.com/"]').length);
       }
@@ -209,7 +209,7 @@ test.runTests(
 
     {
       name: 'Counter',
-      test: async function (doc, win) {
+      test: async function () {
         // Enable the counter
         test.setTodd("showcounter", true);
         await test.wait("ui");
@@ -291,7 +291,7 @@ test.runTests(
       quote.parentNode.insertBefore(scriptnode, quote);
 
       // Give paste handlers chance to run
-      await test.wait('tick');
+      await test.sleep(1);
       test.eq(null, rte.qS("style")); //should be removed!
       test.eq(null, rte.qS("script")); //should be removed!
 

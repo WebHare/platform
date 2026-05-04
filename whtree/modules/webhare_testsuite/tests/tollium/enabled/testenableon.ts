@@ -12,7 +12,7 @@ test.runTests(
 
     {
       name: 'enableon',
-      test: async function (doc, win) {
+      test: async function () {
         // The action should be disabled initially, because there is no selection yet
         const button_node = test.compByName('subwindowbutton');
         const button_comp = button_node.propTodd;
@@ -28,7 +28,7 @@ test.runTests(
 
     {
       name: 'select item',
-      test: async function (doc, win) {
+      test: async function () {
         // The action should be enabled now
         const button_node = test.compByName('subwindowbutton');
         const button_comp = button_node.propTodd;
@@ -42,7 +42,7 @@ test.runTests(
 
     {
       name: 'open subwindow',
-      test: async function (doc, win) {
+      test: async function () {
         // Click the close button to close the window again
         const button_node = test.compByName('closebutton');
         test.click(button_node);
@@ -52,7 +52,7 @@ test.runTests(
 
     {
       name: 'enabled after direct close',
-      test: async function (doc, win) {
+      test: async function () {
         // The action should still be enabled
         const button_node = test.compByName('subwindowbutton');
         const button_comp = button_node.propTodd;
@@ -66,7 +66,7 @@ test.runTests(
 
     {
       name: 'open subwindow again',
-      test: async function (doc, win) {
+      test: async function () {
         // Click the reload button to reload the list
         const button_node = test.compByName('reloadbutton');
         test.click(button_node);
@@ -76,7 +76,7 @@ test.runTests(
 
     {
       name: 'reload subwindow list',
-      test: async function (doc, win) {
+      test: async function () {
         // Click the close button to close the window
         const button_node = test.compByName('closebutton');
         test.click(button_node);
@@ -86,7 +86,7 @@ test.runTests(
 
     {
       name: 'enabled after subwindow list reload',
-      test: function (doc, win) {
+      test: function () {
         // The action should still be enabled
         const button_node = test.compByName('subwindowbutton');
         const button_comp = button_node.propTodd;

@@ -44,7 +44,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize',
-      test: async function (doc, win) {
+      test: async function (doc) {
 
         // Test initial table sizes
         const coords = getRoundedCoordinates(table);
@@ -73,7 +73,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col1-row1',
-      test: async function (doc, win) {
+      test: async function (doc) {
         const coords = getRoundedCoordinates(table);
 
         // Resize first column with the second row's resizer
@@ -87,7 +87,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col1-row2',
-      test: async function (doc, win) {
+      test: async function (doc) {
         const coords = getRoundedCoordinates(table);
 
         // Resize first column with the third row's resizer, make it smaller than its contents
@@ -101,7 +101,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col1-row3',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(301, coords.width);
@@ -126,7 +126,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col2',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(301, coords.width);
@@ -151,7 +151,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col4',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(301, coords.width);
@@ -225,7 +225,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-wider',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table should be 25 pixels wider
         const coords = getRoundedCoordinates(table);
         test.eq(326, coords.width);
@@ -250,7 +250,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-smaller',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table should be wide enough just to contain its contents
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -275,7 +275,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-higher',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table should be higher
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -298,7 +298,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-row1-bigger',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -322,7 +322,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-row2-lower',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself and the rows should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -344,7 +344,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-row1-lower',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -368,7 +368,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-row1-2-lower',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table itself should not be resized
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -392,7 +392,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-lower',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table should be wide enough just to contain its contents
         const coords = getRoundedCoordinates(table);
         test.eq(200, coords.width);
@@ -424,7 +424,7 @@ test.runTests(
     },
 
     {
-      test: async function (doc, win) {
+      test: async function (doc) {
         const coords = getRoundedCoordinates(table);
 
         // Resize the table, making it higher
@@ -438,7 +438,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-edited-higher',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // The table should be 50 pixels higher
         const coords = getRoundedCoordinates(table);
         test.eq(200 + 1 + moved.x, coords.width);
@@ -462,7 +462,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-edited-wider',
-      test: async function (doc, win) {
+      test: async function () {
         // The table should be 50 pixels wider
         const coords = getRoundedCoordinates(table);
         test.eq(200 + 1 + moved.x + 50, coords.width);
@@ -490,7 +490,7 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-table-edited',
-      test: function (doc, win) {
+      test: function () {
 
         // The table should keep its size and not shrink to the new content
         const coords = getRoundedCoordinates(table);
@@ -501,7 +501,7 @@ test.runTests(
 
     {
       name: 'tableeditor-scrolled',
-      test: async function (doc, win) {
+      test: async function (doc) {
         // Injects some brs before the table
         const br = rte.getBody().getElementsByTagName('br')[0];
         for (let i = 0; i < 40; ++i)
@@ -529,7 +529,7 @@ test.runTests(
 
     {
       name: 'tableeditor-scrolled-table-resized',
-      test: function (doc, win) {
+      test: function () {
         // The table should be resized properly
         const coords = getRoundedCoordinates(table);
         test.eq(200 + 1 + moved.x, coords.width);

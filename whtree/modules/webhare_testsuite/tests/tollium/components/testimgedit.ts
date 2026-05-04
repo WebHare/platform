@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import { prepareUpload, fetchAsFile } from '@webhare/test-frontend';
 
 const gesture_time = 25;
@@ -69,12 +70,15 @@ const TestImageEditor =
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
         await test.wait("animationframe");
+
+        //cancel crop
+        tt.comp(":Cancel").click();
+        await test.waitForUI();
+        //save image
+        tt.comp(":Save").click();
+        await test.waitForUI();
       }
     },
-
-
-    test.testClickTolliumButton("Cancel", { name: "cancel crop" }),
-    test.testClickTolliumButton("Save", { name: "save image" }),
 
     {
       name: "image crop cancelled",
@@ -119,12 +123,14 @@ const TestImageEditor =
           { up: 0, clientx: coords.right - 258, clienty: coords.bottom - 75, delay: gesture_time, transition: test.dragTransition }
         ]);
         await test.wait("animationframe");
+        //apply crop
+        tt.comp(":OK").click();
+        await test.waitForUI();
+        //save image
+        tt.comp(":Save").click();
+        await test.waitForUI();
       }
     },
-
-
-    test.testClickTolliumButton("OK", { name: "apply crop" }),
-    test.testClickTolliumButton("Save", { name: "save image" }),
 
     {
       name: "image saved",
@@ -354,10 +360,13 @@ test.runTests(
         const textnodes = test.qSA(thumbnailtab, "t-text").filter(node => node.textContent === "imgeditfile.jpeg");
         test.eq(1, textnodes.length);
         test.click(textnodes[0]);
+
+        //select file
+        tt.comp(":OK").click();
+        await test.waitForUI();
       }
     },
 
-    test.testClickTolliumButton("OK", "select file"),
     ...TestImageEditor,
 
     "Image dropping",
