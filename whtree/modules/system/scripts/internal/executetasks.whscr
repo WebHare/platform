@@ -726,6 +726,8 @@ IF (NOT RecordExists(args))
   RETURN;
 }
 
+args.debug := args.debug OR GetEnvironmentVariable("WEBHARE_DEBUG_SERVICE") != "";
+
 trans := OpenPrimary();
 
 port := CreateIPCPort("system:executetasks");

@@ -3,7 +3,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
 import { XMLSerializer, type Document } from "@xmldom/xmldom";
-import { buildContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
+import { createContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
@@ -18,7 +18,7 @@ export function getWHConfig(parseddoc: Document): WHConfigScriptData {
 
 export function parseResponse(responsetext: string) {
   const doc = parseDocAsXML(responsetext, 'text/html');
-  const config = attempt(() => getWHConfig(doc),null);
+  const config = attempt(() => getWHConfig(doc), null);
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];
   const contentdiv = doc.getElementById("content");
@@ -39,7 +39,7 @@ export function parseResponse(responsetext: string) {
 /** Get the file inline (running its builders in the current script, often easier to debug) */
 export async function getAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
-  const sitereq = await buildContentPageRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
+  const sitereq = await createContentPageRequest(whfsobj, { webRequest: new IncomingWebRequest(whfsobj.link!) });
   const builder = await (sitereq as CPageRequest).getPageRenderer();
   if (!builder)
     throw new Error(`No builder found for this page`);

@@ -4,7 +4,7 @@ import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
 import { getPaymentApi } from "@webhare/payments";
 
-const headless = !debugFlags["show-browser"];
+const headless = !debugFlags["test-showbrowser"];
 
 let puppeteer: Puppeteer.Browser | undefined;
 

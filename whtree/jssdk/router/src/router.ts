@@ -21,8 +21,9 @@ export {
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
 export type { WebDesignFunction, SiteRequest, ResponseBuilder, PageBuildRequest, PagePartRequest, ContentBuilderFunction, PagePluginRequest, PagePluginInit, PagePluginFunction } from './siterequest';
+export { createContentPageRequest } from './siterequest';
 export {
-  RestRequest
+  RestRequest,
 } from './restrequest';
 export type { DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction, RestDefaultErrorMapperFunction, RestResponseType, RestDefaultErrorBody } from './restrequest';
 export { getAssetPackIntegrationCode } from "./concepts";

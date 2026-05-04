@@ -123,7 +123,7 @@ export async function init(options: {
 
   alwayslog = Boolean(options.alwayslog);
   puppeteer = await launchPuppeteer({
-    headless: !debugFlags["test-keepopen"] && !debugFlags["test-browser"],
+    headless: !debugFlags["test-keepopen"] && !debugFlags["test-showbrowser"],
     defaultViewport: { height: 1024, width: 1280, deviceScaleFactor: 1 }
   });
 }

@@ -1,7 +1,7 @@
 <?wh
 
 /* To see what Puppeteer and Mollie are doing:
-   WEBHARE_DEBUG=show-browser,wrq wh runwasm mod::webhare_testsuite/tests/wrd/payments/test_mollie.whscr
+   WEBHARE_DEBUG=test-showbrowser,wrq wh runwasm mod::webhare_testsuite/tests/wrd/payments/test_mollie.whscr
 */
 
 
