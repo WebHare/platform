@@ -21,7 +21,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
-LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 IF(GetPrimaryWebhareInterfaceURL() = "")
@@ -35,8 +34,6 @@ WaitForPromise(assetpackservice->WaitForCompile("webhare_testsuite:basetest"));
 WaitForPromise(assetpackservice->WaitForCompile("webhare_testsuite:basetestjs"));
 
 OBJECT trans := OpenPrimary();
-
-UpdateSocialiteEmbeddableScripts("GTM", ourgtmtestcontainer, TRUE);
 
 trans->BeginWork();
 

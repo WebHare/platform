@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 
 PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 <
@@ -37,12 +36,6 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
     this->pvt_pixel := config.pixel;
   }
 
-  MACRO ValidateCode(STRING code)
-  {
-    IF(code != "")
-      ValidateGTMCode(code);
-  }
-
   UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
   {
     INSERT instruction INTO this->datalayerpushes AT END;
@@ -70,11 +63,8 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
   {
     RECORD settings;
     IF((this->pvt_integration != "script" OR this->pvt_launch != "pagerender") AND this->pvt_account != "")
-    {
-      settings := [ a := this->pvt_account, h := this->pvt_integration = "selfhosted", m := this->pvt_launch = "manual" ];
-      IF(this->pvt_script != "")
-        INSERT CELL s := this->pvt_script INTO settings;
-    }
+      settings := [ a := this->pvt_account, m := this->pvt_launch = "manual" ];
+
     this->webdesign->SetFrontendData("socialite:gtm", settings);
   }
   MACRO SetAccount(STRING newaccount)

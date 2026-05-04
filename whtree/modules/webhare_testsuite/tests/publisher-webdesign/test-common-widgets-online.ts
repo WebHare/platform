@@ -1,10 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-system/js/wh/testframework';
-
-function forceResetConsent() {
-  test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
-}
+import { forceResetConsent } from '../publisher/data/publisher-testsupport';
 
 test.runTests(
   [

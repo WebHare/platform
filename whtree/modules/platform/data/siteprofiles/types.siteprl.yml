@@ -422,8 +422,6 @@ apply:
           pxl:
             title: Pxl events
             requireRight: ""
-          sne:
-            title: Don't embed external scripts like GTM
           win:
             title: Witty invocations
       - groupTitle: RPCs & authentication

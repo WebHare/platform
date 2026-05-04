@@ -3,7 +3,6 @@
 import { pushToDataLayer, setupGTM } from "@webhare/frontend/src/gtm";
 import type { DataLayerEntry } from "@webhare/frontend/src/gtm-types";
 import * as dompack from '@webhare/dompack';
-import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange, type ConsentSettings } from "./consenthandler";
 
@@ -57,23 +56,11 @@ export async function init() {
   didinit = true;
   window.dataLayer.push({ 'gtm.start': Date.now() });
 
-  //give other event handlers a chance to run and add their events
+  //give other event handlers a chance to run and add their events - many GTM users expect all variables to be available when their script starts
   await new Promise(resolve => window.setTimeout(resolve, 1));
   window.dataLayer.push({ event: 'gtm.js' });
 
-  if (gtmsettings.h && !debugFlags.sne) { //self hosting
-    //ADDME taking whintegration.config.designcdnroot would be nice, but it's current format is pretty unusable
-    const src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
-    try {
-      await loadScript(src);
-      return; //done!
-    } catch (e) {
-      console.warn("Cannot load local GTM version at ", src);
-      //fallback to loading GTM's version
-    }
-  }
-  const gtmsrc = (gtmsettings.s ?? "https://www.googletagmanager.com/gtm.js") + "?id=" + gtmsettings.a;
-  await loadScript(gtmsrc);
+  await loadScript("https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(gtmsettings.a));
 }
 
 export function initOnConsent() {

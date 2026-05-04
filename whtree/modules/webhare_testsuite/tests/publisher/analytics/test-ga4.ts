@@ -1,11 +1,8 @@
 import * as test from '@mod-system/js/wh/testframework';
+import { forceResetConsent } from '../data/publisher-testsupport';
 
-function forceResetConsent() {
-  test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
-}
-
-function checkForGTM(opts: { selfhosted: boolean; remote: boolean; snippet: boolean }) {
-  test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
+function checkForGTM(opts: { remote: boolean; snippet: boolean }) {
+  test.eq(0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should NOT be loaded`);
   test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
   test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
@@ -34,7 +31,7 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=inpage&gtmplugin_integration=none');
       test.assert(test.qS("script[src*='googletagmanager.com/gtag']")); //should be directly embedded
 
-      checkForGTM({ selfhosted: false, remote: false, snippet: false });
+      checkForGTM({ remote: false, snippet: false });
 
       //Check datalayerpush
       // test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
@@ -44,7 +41,7 @@ test.runTests(
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none');
       await test.wait(() => test.qS("script[src*='googletagmanager.com/gtag']"));
-      checkForGTM({ selfhosted: false, remote: false, snippet: false });
+      checkForGTM({ remote: false, snippet: false });
 
       // test.eq(undefined, test.getWin().gtm_consent);
       // checkForGTM({remote:1});
@@ -150,7 +147,7 @@ test.runTests(
       test.assert(test.qS("script[src*='googletagmanager.com/gtag']")); //should be directly embedded
 
       await test.wait(() => getAnalyticsHits(/.*/).length > 0);
-      checkForGTM({ selfhosted: false, remote: false, snippet: false });
+      checkForGTM({ remote: false, snippet: false });
       checkForAnonymizeIp(true);
     },
 
@@ -160,7 +157,7 @@ test.runTests(
 
       await test.wait(() => getAnalyticsHits(/.*/).length > 0);
 
-      checkForGTM({ selfhosted: false, remote: false, snippet: false });
+      checkForGTM({ remote: false, snippet: false });
       checkForAnonymizeIp(true);
     },
 
@@ -168,7 +165,7 @@ test.runTests(
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none&ga4_anonymizeip=false');
       await test.wait(() => getAnalyticsHits(/.*/).length > 0);
-      checkForGTM({ selfhosted: false, remote: false, snippet: false });
+      checkForGTM({ remote: false, snippet: false });
       checkForAnonymizeIp(false);
 
       // test.eq(undefined, test.getWin().gtm_consent);

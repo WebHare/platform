@@ -29,6 +29,8 @@ run({
     const obsoleteStuff = [
       //6.0: Remove system.dbcode
       backendConfig.dataRoot + "ephemeral/system.dbcode",
+      //6.0 Remove socialite.se (embedded GTM script storage)
+      backendConfig.dataRoot + "socialite.se",
     ];
 
     for (const todelete of obsoleteStuff)
