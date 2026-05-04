@@ -210,7 +210,7 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
   const screen = getCurrentScreen();
   let candidates = findComp(screen, name);
 
-  if (candidates.length > 1) { //eliminate containing elements - eg don't match all panels conttaining a label just because there's a button inside with the label
+  if (candidates.length > 1) { //eliminate containing elements - eg don't match all panels containing a label just because there's a button inside with the label
     candidates = candidates.filter(node => !candidates.some(other => other !== node && node.contains(other)));
   }
   if (candidates.length > 1) {
