@@ -13,6 +13,7 @@ ASYNC MACRO TestXLSXExport() {
   RECORD datasource := CallJS([camelcase := TRUE], "mod::webhare_testsuite/tests/jssdk/office-formats/data/tabular-sources.ts#getTestSpreadsheet", [ harescript_compatible := TRUE ]);
   AWAIT ExpectScreenChange(+1, PTR RunColumnFileExportDialog(GetTestController(),datasource));
   RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  TestEq("this-is-a-very-long-name-for-a-spreadsheet-2026-05-06.xlsx", exportfile.filename);
   RECORD ARRAY exportrows := GetOOXMLSpreadsheetRows(exportfile.data);
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
 
@@ -47,6 +48,13 @@ ASYNC MACRO TestXLSXExport() {
       "col 8:mf" := "0"
     ]
   ], exportrows);
+
+  datasource := CELL[...datasource, filename := "test-file" ]; //note: forgetting the XLSX extension
+  AWAIT ExpectScreenChange(+1, PTR RunColumnFileExportDialog(GetTestController(),datasource));
+  RECORD exportfile2 := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
+  TestEq("test-file.xlsx", exportfile2.filename);
+  AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
+
 }
 
 RunTestFramework([ PTR TestXLSXExport
