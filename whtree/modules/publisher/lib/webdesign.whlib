@@ -66,8 +66,8 @@ RECORD FUNCTION GetSiteLanguageRecord(STRING assetpack, STRING matchlang) {
 }
 
 
-PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
+ // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -229,6 +229,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC PROPERTY ogsharetitle(GetOGShareTitle, SetOGShareTitle);
   /// Share title property. Adds the opengraph plugin without requiring you to explicitly declare it
   PUBLIC PROPERTY ogsharedescription(GetOGShareDescription, SetOGShareDescription);
+  /// Structured data, snakecased. Supported since WH 5.9.5+
+  PUBLIC RECORD ARRAY structured_data;
 
   // ---------------------------------------------------------------------------
   //
@@ -1226,9 +1228,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->DoInserts("body-top");
   }
 
-  MACRO __PrintBodyFinale(RECORD data)
-  {
+  MACRO __PrintBodyFinale(RECORD data) {
     this->DoInserts("body-bottom");
+    IF(Length(this->structured_data) > 0) {
+      RECORD ARRAY finaldata := SELECT "@context" := "https://schema.org", * FROM this->structured_data;
+      Print(`<script type="application/ld+json">${EncodeJSON(finaldata, DEFAULT RECORD, [camelcase := TRUE] )}</script>`);
+    }
 
     IF(RecordExists(this->consiliofields))
     {
