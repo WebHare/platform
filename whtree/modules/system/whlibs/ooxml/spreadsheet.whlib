@@ -1507,7 +1507,8 @@ PUBLIC RECORD FUNCTION __ValidateXLSXFileOptions(RECORD options)
   IF(options.filename = "") {
     STRING basename := options.exporttitle != "" ? GetSafeName(options.exporttitle) : "export";
     options.filename := basename || "-" || FormatDatetime("%Y-%m-%d", UTCToLocal(GetCurrentDatetime(), options.timezone ?? "UTC")) || ".xlsx";
-  }
+  } ELSE IF(ToUppercase(options.filename) NOT LIKE "*.XLSX")
+    options.filename := options.filename || ".xlsx";
 
   RETURN options;
 }
