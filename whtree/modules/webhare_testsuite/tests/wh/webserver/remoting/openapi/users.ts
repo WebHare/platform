@@ -127,3 +127,9 @@ export function getContext(req: TypedRestRequest<unknown, "/getcontext/{id}">) {
     path: req.path,
   });
 }
+
+export function testMultiParam(req: TypedRestRequest<unknown, "/test-multi-param/{param1}-{param2}-{param3}">) {
+  return req.createJSONResponse(HTTPSuccessCode.Ok, {
+    path: new URL(req.webRequest.url).pathname,
+  });
+}

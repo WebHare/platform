@@ -105,6 +105,13 @@ async function testService() {
   }
 
   {
+    const res = await service.get("/test-multi-param/{param1}-{param2}-{param3}", { params: { param1: "a", param2: "-", param3: "c" } });
+    test.assert(res.status === HTTPSuccessCode.Ok);
+    //we can't parse these routes though, just build them in the client
+    test.eq({ path: "/api/test-multi-param/a---c" }, res.body);
+  }
+
+  {
     const res = await service.get("/validateoutput", { params: { test: "illegalData" } });
     test.eq(HTTPErrorCode.InternalServerError, res.status);
   }
