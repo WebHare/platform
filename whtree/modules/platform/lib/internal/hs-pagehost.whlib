@@ -19,7 +19,7 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
   IF(ObjectExists(ogplugin))
     opengraph := ogplugin->ogproperties;
 
-  RETURN CELL[  //Must match RunPageResult#RunPageResult
+  RETURN CELL[  //Must match @webhare/router/src/hswebdesigndriver.tsRunPageResult#RunPageResult
     content := BlobToString(content),
     headers,
     pagebuilderdata := (SELECT tag := ToLowercase(name)
@@ -35,7 +35,6 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
 
 PUBLIC RECORD FUNCTION RunStaticHarescriptPage(STRING hspageobjecttype, INTEGER fileid) {
   OBJECT webdesign := GetWebDesign(fileid);
-  webdesign->__pagebuilderdata := CELL[]; //allow setting data for the page builder
 
   capturing_stream := CreateStream();
   RedirectOutputTo(capturing_stream);
@@ -76,12 +75,44 @@ MACRO ResetResponse() {
   }
 }
 
+PUBLIC RECORD FUNCTION RunAndCaptureHSBody(OBJECT webdesign, MACRO PTR renderfunc) {
+  INTEGER capture := CreateStream();
+  RedirectOutputTo(capture);
+
+  TRY {
+    renderfunc();
+
+    BLOB content := MakeBlobFromStream(capture);
+    RedirectOutputTo(0);
+    capture := 0;
+
+    RETURN EncodeWebdesignResponse(webdesign, content, RECORD[]);
+  } FINALLY {
+    IF(capture != 0) {
+      RedirectOutputTo(0);
+      MakeBlobFromStream(capture); //and discard it
+    }
+  }
+}
+
+PUBLIC RECORD FUNCTION RunInstantiatedDynHSPage(OBJECT webdesign, OBJECT pageobject) {
+  MACRO PTR renderfunc;
+  IF(pageobject EXTENDSFROM WebPageBase) {
+    renderfunc := pageobject->GetPageBody();
+  } ELSE {
+    pageobject->PrepareForPageConfig(webdesign);
+    pageobject->PrepareForRendering(webdesign);
+    renderfunc := PTR pageobject->RunBody(webdesign);
+  }
+
+  webdesign->pageconfig := webdesign->__BeforeRenderPage(webdesign->pageconfig);
+  RETURN RunAndCaptureHSBody(webdesign, PTR webdesign->CallWithScope(renderfunc));
+}
 
 PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER fileid) {
   MockUsingClientInfo(webclientinfo);
 
   OBJECT webdesign := GetWebDesign(fileid);
-  webdesign->__pagebuilderdata := CELL[]; //allow setting data for the page builder
 
   RECORD dynamicexecution := CellExists(how, 'dynamicexecution') ? how.dynamicexecution : DEFAULT RECORD;
   RECORD pagerouter := CellExists(how, 'pagerouter') ? how.pagerouter : DEFAULT RECORD;
@@ -97,10 +128,6 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     ];
   }
 
-  INTEGER capture := CreateStream();
-  RedirectOutputTo(capture);
-
-  STRING content;
   TRY {
     OBJECT pageobject;
     IF(RecordExists(dynamicexecution))
@@ -113,28 +140,11 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     ELSE
       pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
 
-
-    MACRO PTR renderfunc;
-    IF(pageobject EXTENDSFROM WebPageBase) {
-      renderfunc := pageobject->GetPageBody();
-    } ELSE {
-      pageobject->PrepareForPageConfig(webdesign);
-      pageobject->PrepareForRendering(webdesign);
-      renderfunc := PTR pageobject->RunBody(webdesign);
-    }
-
-    webdesign->pageconfig := webdesign->__BeforeRenderPage(webdesign->pageconfig);
-    webdesign->CallWithScope(renderfunc);
-
-    RedirectOutputTo(0);
-
-    RECORD ARRAY headers := sendhttpheaders;
+    RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
+    result.headers := sendhttpheaders;
     sendhttpheaders := RECORD[];
-    RETURN EncodeWebdesignResponse(webdesign, MakeBlobFromStream(capture), headers);
+    RETURN result;
   } CATCH(OBJECT <SendWebFileAbortException> e) {
-    RedirectOutputTo(0);
-    MakeBlobFromStream(capture); //discard captured output
-
     RECORD ARRAY headers := sendhttpheaders;
     sendhttpheaders := RECORD[];
     RETURN CELL[ headers, sendfile := e->data ];

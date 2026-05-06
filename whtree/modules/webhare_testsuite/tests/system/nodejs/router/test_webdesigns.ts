@@ -7,9 +7,11 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { buildInstance, buildRTD } from "@webhare/services";
+import { backendConfig, buildInstance, buildRTD } from "@webhare/services";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { loadlib } from "@webhare/harescript";
+import { getTestSiteJS } from "@mod-webhare_testsuite/js/wts-backend.ts";
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseDocAsXML(await response.text(), "text/html");
@@ -154,6 +156,13 @@ async function testDynamicPage() {
     }
   }
 
+  { //Verify the form test renders (testing the RunPageForWHFSId path)
+    const formtesturl: string = await loadlib("mod::publisher/lib/internal/forms/hooks.whlib").getFormTestURL((await getTestSiteJS()).id);
+    const finalurl = new URL(formtesturl, backendConfig.backendURL).href;
+    console.log("Form test URL:", finalurl);
+    const fetchResult = parseResponse(await (await fetch(finalurl)).text());
+    test.eq(/Basetest title.*Full demo/s, fetchResult.responsetext, "Verifies both the template 'Basetest title' and content 'Full demo' appears");
+  }
 }
 
 async function testPageResponseApplies() {
