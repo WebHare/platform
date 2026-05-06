@@ -27,8 +27,12 @@ ASYNC MACRO CreateMDFile()
   TT(":Title")->value:="md1";
   TT("doceditor")->contents->^markdowntext->value := "# Heya\nThis is marked down!\n";
   TT("doceditor")->contents->^dirtylistener->SetDirty();
-
   TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  //Verify preview works (used to fail with 'it is a recycled or historic object.' in the TS render path)
+  RECORD mypreview := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+  TestEq(TRUE, testfw->browser->GotoWebPage(mypreview.url));
+  TestEqLike("*This is marked down*", testfw->browser->QS("#content")->textcontent);
 
   TTClick(":Save");
   TestEq(FALSE, topscreen->frame->flags.isdirty);
