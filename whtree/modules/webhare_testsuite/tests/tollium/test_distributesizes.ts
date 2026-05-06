@@ -8,7 +8,10 @@ import { distributeSizes } from '@mod-tollium/web/ui/js/componentbase';
 
 test.runTests(
   [
-    { loadpage: 'about:blank' },
+    'Load blank page',
+    async function () {
+      await test.load('about:blank');
+    },
 
     {
       test: function (doc, win) {

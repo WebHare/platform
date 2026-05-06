@@ -57,8 +57,9 @@ const useblockfill = true;
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
+    'Load free RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=free');
     },
 
     "Locator comparing", //test first because the RTE init might even fail otherwise

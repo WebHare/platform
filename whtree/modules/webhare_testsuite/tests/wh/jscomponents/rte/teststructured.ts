@@ -23,8 +23,9 @@ function getContentsHTMLRaw(win) {
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    'Load structured RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
     },
     {
       name: 'verifyclasses',
@@ -76,8 +77,9 @@ test.runTests(
       }
     },
 
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
+    'Load structured RTE empty page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
     },
 
     {

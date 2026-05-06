@@ -5,8 +5,9 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    'Load structured RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
     },
     {
       name: "simulate paste",

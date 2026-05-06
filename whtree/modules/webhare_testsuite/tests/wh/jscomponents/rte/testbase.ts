@@ -11,8 +11,9 @@ const useblockfill = true;
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/'
+    'Load default RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/');
     },
     {
       name: 'firsttest',

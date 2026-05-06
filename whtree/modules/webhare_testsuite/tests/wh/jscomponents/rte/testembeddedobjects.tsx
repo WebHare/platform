@@ -35,8 +35,8 @@ function escapeHTML(html) {
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
     },
 
     {

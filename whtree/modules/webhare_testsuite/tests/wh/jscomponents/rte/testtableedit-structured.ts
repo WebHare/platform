@@ -8,8 +8,9 @@ let rte = null, table = null;
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables'
+    'Load structured contentarea table page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables');
     },
 
     {

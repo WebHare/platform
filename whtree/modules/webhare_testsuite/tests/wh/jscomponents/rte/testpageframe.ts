@@ -6,8 +6,9 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
+    'Load free RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=free');
     },
 
     {
