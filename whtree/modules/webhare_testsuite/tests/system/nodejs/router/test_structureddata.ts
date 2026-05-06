@@ -50,6 +50,38 @@ async function testBreadCrumbs() {
   }, faq);
 }
 
+async function testCustomStructuredData() {
+  //HS generated, HS rendered
+  {
+    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/TestPages/dynamicpage");
+    const faq = dynamicPage.schemaOrg.find(_ => _["@type"] === "FAQPage");
+    test.eqPartial({
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where is this page's code located?",
+          acceptedAnswer: { '@type': 'Answer', text: 'Try basetestpages.whlib#DynamicPage' },
+        }
+      ]
+    }, faq);
+  }
+
+  //HS generated, JS rendered (to ensure proper transfer from HS to JS)
+  {
+    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/TestPages/dynamicpage");
+    const faq = dynamicPage.schemaOrg.find(_ => _["@type"] === "FAQPage");
+    test.eqPartial({
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where is this page's code located?",
+          acceptedAnswer: { '@type': 'Answer', text: 'Try basetestpages.whlib#DynamicPage' },
+        }
+      ]
+    }, faq);
+  }
+}
+
 async function testOpenGraph() {
   {
     const parsed = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage");
@@ -111,5 +143,6 @@ async function testOpenGraph() {
 
 test.runTests([
   testBreadCrumbs,
+  testCustomStructuredData,
   testOpenGraph
 ]);

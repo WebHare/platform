@@ -24,6 +24,8 @@ export type OpenGraphMetadata = {
   video?: { url: string; type?: string; width?: number; height?: number };
 };
 
+export type StructuredData = Array<Exclude<Thing, string>>;
+
 /** Manages page level metadata */
 export class PageMetadata {
   viewport = "width=device-width, initial-scale=1";
@@ -36,7 +38,7 @@ export class PageMetadata {
   canonicalUrl: string | null = null;
 
   /** schema.org metadata for this page */
-  structuredData: Array<Exclude<Thing, string>> = [];
+  readonly structuredData: StructuredData = []; //readonly to make it harder to overwrite instead of pushing/appending
 
   /** OpenGraph metadata; usually preferred by social media sharing */
   openGraph: OpenGraphMetadata = {};

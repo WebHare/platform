@@ -14,10 +14,22 @@ PUBLIC OBJECTTYPE WebStaticPage EXTEND StaticPageBase
   }
 >;
 
-PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
-<
-  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
-  {
+PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase <
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody() {
+    this->webdesign->structured_data := [
+        [
+          "@type" := "FAQPage",
+          main_entity:= [[
+            "@type" := "Question",
+            name := "Where is this page's code located?",
+            accepted_answer := [
+              "@type" := "Answer",
+              text := "Try basetestpages.whlib#DynamicPage"
+            ]
+          ]]
+        ]
+    ];
+
     OBJECT gtmplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
     IF(ObjectExists(gtmplugin))
     {
