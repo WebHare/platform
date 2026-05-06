@@ -138,7 +138,7 @@ Eg the following legacy object passed to runTests
 ```
     {
       name: "move_2_dragdown_check",
-      test: function (doc, win) {
+      test: function () {
         ...code...
       },
       waits: ['ui','load']

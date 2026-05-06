@@ -94,7 +94,7 @@ declare global {
   }
 }
 
-export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | number;
+export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | (() => Promise<unknown> | unknown) | number;
 
 //An individual step in a test
 export type TestStep = {
@@ -985,9 +985,7 @@ class TestFramework {
 
     // Type === function: execute function on every animation frame until it succeeds
     if (typeof item === "function") {
-      // function in waits has signature func(doc, win)
-      const framerec = this.getFrameRecord();
-      let promise = this.repeatedFunctionTest(step, item.bind(null, framerec.doc!, framerec.win!));
+      let promise = this.repeatedFunctionTest(step, item.bind(null));
       if (debugFlags.bus)
         promise = promise.then(x => { console.debug("Finished wait for '" + item + "'"); this.currentwaitstack = null; return x; });
       return promise.finally(this.executeWaitFinish.bind(this));

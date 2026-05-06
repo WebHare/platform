@@ -368,7 +368,7 @@ export async function writeLogMarker(text: string) {
 export async function wait<T>(waitfor: (() => T | Promise<T>), options: WaitOptions<T> & { test: unknown }): Promise<T>;
 export async function wait<T>(waitfor: (() => T | Promise<T>), options?: WaitOptions<T>): PositiveWaitRetVal<T>;
 export async function wait<T>(waitfor: Promise<T>, options?: WaitOptions<T>): Promise<T>;
-export async function wait<T>(waitfor: (doc: Document, win: Window) => T | Promise<T>, annotation?: string): PositiveWaitRetVal<T>;
+export async function wait<T>(waitfor: () => T | Promise<T>, annotation?: string): PositiveWaitRetVal<T>;
 export async function wait(waitfor: TestWaitItem, annotation?: string): Promise<void>;
 
 
