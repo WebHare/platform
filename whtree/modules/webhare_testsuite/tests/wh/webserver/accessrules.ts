@@ -64,7 +64,7 @@ test.runTests(
     },
     {
       name: "access rule portal login #2",
-      test: async function (doc, win) {
+      test: async function () {
         test.qS("#login").value = "test-portal1@example.com";
         test.qS("#password").value = "secret";
         test.click('input[type=submit]');
@@ -74,9 +74,9 @@ test.runTests(
     //, testFollowWRDAuthRedirect("redirect to protected page #2") //sets window.wrdauth_lastredirectsource
     {
       name: 'protected page location test',
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/staticprotected/));
-        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+      test: function () {
+        test.assert(test.getWin().location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
       }
     },
     /*  , 'test variable clear' //the authentication rules have gotten out of the way, so see if URLs are still fixed
@@ -86,10 +86,10 @@ test.runTests(
             await test.load(window.wrdauth_lastredirectsource);
           }
       , { name: 'protected page location varclear test'
-        , test:function (doc,win)
+        , test:function ()
           {
-            test.assert(win.location.href.match(/staticprotected/));
-            test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+            test.assert(test.getWin().location.href.match(/staticprotected/));
+            test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
           }
         }*/
     {
@@ -104,9 +104,9 @@ test.runTests(
       await test.load(webroot + 'staticprotected/?wh-debug=aut');
     },
     {
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/staticprotected/));
-        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+      test: function () {
+        test.assert(test.getWin().location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
       }
     },
 
@@ -125,7 +125,7 @@ test.runTests(
 
     {
       name: "access rule portal login - fail",
-      test: async function (doc, win) {
+      test: async function () {
         test.fill(test.qS("#login"), "external");
         test.fill(test.qS("#password"), "b");
         test.click('input[type=submit]');

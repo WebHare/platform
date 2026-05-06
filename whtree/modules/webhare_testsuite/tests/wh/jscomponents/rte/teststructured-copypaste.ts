@@ -11,7 +11,8 @@ test.runTests(
     },
     {
       name: "simulate paste",
-      test: async function (doc, win) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         const body = rte.getBody();
         body.focus();

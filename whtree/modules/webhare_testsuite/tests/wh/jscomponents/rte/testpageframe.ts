@@ -13,7 +13,8 @@ test.runTests(
 
     {
       name: 'verifyload',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const body = win.rte.getBody();
         let imgs = body.getElementsByTagName('img');
         test.eq(2, imgs.length);
@@ -34,7 +35,8 @@ test.runTests(
     //start next test to make sure reparenting had a chance to work
     {
       name: 'verifyafterreparent',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const body = win.rte.getBody();
         const imgs = body.getElementsByTagName('img');
         test.eq(1, imgs.length);

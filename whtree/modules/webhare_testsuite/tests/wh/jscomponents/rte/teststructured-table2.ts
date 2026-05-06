@@ -14,7 +14,8 @@ test.runTests(
 
     {
       name: 'checktable',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         const tables = rte.getBody().getElementsByTagName('table');
         test.eq(2, tables.length);
@@ -22,9 +23,10 @@ test.runTests(
     },
 
     'paste paragraph in cell',
-    async function (doc, win) {
+    async function () {
       // STORY: paste of entiry paragraph at end of table cell left an empty paragraph
       // STORY: paste of entiry paragraph at end of table cell broke the table into two subtables
+      const win = test.getWin();
       const rte = win.rte.getEditor();
       const body = rte.getBody();
       await test.sleep(10);

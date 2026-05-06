@@ -45,7 +45,8 @@ test.runTests(
          - at first paragraph
     */
     {
-      test: async (doc, win) => {
+      test: async () => {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.getBody().focus();

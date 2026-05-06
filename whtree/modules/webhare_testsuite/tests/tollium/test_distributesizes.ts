@@ -14,7 +14,7 @@ test.runTests(
     },
 
     {
-      test: function (doc, win) {
+      test: function () {
         // This triggered a bug, which should be fixed by now
         let sizeobjs = [
           { xml_set: "1pr", min: 116, calc: 1 },

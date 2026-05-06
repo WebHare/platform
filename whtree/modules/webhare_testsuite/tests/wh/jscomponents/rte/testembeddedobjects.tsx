@@ -41,7 +41,7 @@ test.runTests(
 
     {
       name: 'clean-embeddedobject',
-      test: function (doc, win) {
+      test: function () {
         const rte = test.getWin().rte.getEditor();
 
         //processing embedded object
@@ -148,7 +148,7 @@ test.runTests(
 
     {
       name: 'embeddedobject-contentsignore',
-      test: function (doc, win) {
+      test: function () {
         const rte = test.getWin().rte.getEditor();
 
         const href_contents = escapeHTML(
