@@ -133,7 +133,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   if (!targetObject || !targetObject.parentSite || !targetObject.parent)
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
-  const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile) : undefined;
+  const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile, { allowHistoric: true }) : undefined;
   const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?

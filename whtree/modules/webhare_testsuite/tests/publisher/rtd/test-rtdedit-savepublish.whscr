@@ -367,6 +367,27 @@ ASYNC MACRO TestReopenDeletedFile()
   //TODO also test Properties dialog, but that one currently doesn't render SP tabs at all in the recyclebin or for any readonly object
 }
 
+ASYNC MACRO TestTSRenderedPreview() {
+  //Some specific issues/regressions that trigger with markdown (always TS rendered) but not always with RTD. If we ever remove markdown, test this with some other TS rendered file
+  testfw->BeginWork();
+  OBJECT testfile := GetTestsuiteJSTempFolder()->CreateFile(
+      [ name :=   "testmarkdown"
+      , typens := "platform:filetypes.markdown"
+      ]);
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ ToString(testfile->id) ]  ]));
+  TT("doceditor")->contents->^markdowntext->value := "# Heya\nThis is marked down!\n";
+  TT("doceditor")->contents->^dirtylistener->SetDirty();
+  TestEq(TRUE, topscreen->frame->flags.isdirty);
+
+  RECORD mypreview := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
+  TestEq(TRUE, testfw->browser->GotoWebPage(mypreview.url));
+  TestEqLike("*This is marked down*", testfw->browser->QS("#content")->textcontent);
+
+  TTClick(":Save");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
 
 ASYNC MACRO TestPublishInitialEmptyDocument() {
   /* STORY A file already exists for whatever reason but it's unpublished. We want to open the RTD and publish it immediately, so the only change is the publish flag.
@@ -395,6 +416,7 @@ RunTestFramework(
     , PTR TestPinned
     , PTR TestSaveToUnpublishedSite
     , PTR TestReopenDeletedFile
+    , PTR TestTSRenderedPreview
     , PTR TestPublishInitialEmptyDocument
     ],
     [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
