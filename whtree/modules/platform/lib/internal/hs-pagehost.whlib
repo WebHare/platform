@@ -4,7 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
-LOADLIB "mod::publisher/lib/webdesign.whlib";
+LOADLIB "mod::publisher/lib/internal/webdesign/webpagebase.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";

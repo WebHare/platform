@@ -1,0 +1,6 @@
+# implemented by mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#testrouter
+type: http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      indexDoc: index

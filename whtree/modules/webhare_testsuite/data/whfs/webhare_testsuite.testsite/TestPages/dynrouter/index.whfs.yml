@@ -1,0 +1,6 @@
+name: index
+type: platform:filetypes.dynamicfoldercontents
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      publish: true

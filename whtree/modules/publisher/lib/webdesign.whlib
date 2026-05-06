@@ -12,6 +12,8 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
 
+LOADLIB "mod::platform/lib/internal/hs-pagehost.whlib";
+
 LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -1825,7 +1827,7 @@ PUBLIC OBJECTTYPE DynamicPageBase
     webdesign->__truecontentbody := PTR this->RunBody(webdesign);
 
     IF(webdesigninfo.js) {
-      RECORD torender := MakeFunctionPtr("mod::platform/lib/internal/hs-pagehost.whlib#RunInstantiatedDynHSPage")(webdesign, this);
+      RECORD torender := RunInstantiatedDynHSPage(webdesign, this);
       RECORD webresponse := CallJS("mod::platform/js/pagebuilders/pagebuilders-hs.ts#runJSDesignForRenderedHSPage", whfsid, torender);
       ExecuteWebResponse(webresponse); //terminates the script
     }

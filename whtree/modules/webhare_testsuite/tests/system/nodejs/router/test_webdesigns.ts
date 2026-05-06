@@ -163,6 +163,14 @@ async function testDynamicPage() {
     const fetchResult = parseResponse(await (await fetch(finalurl)).text());
     test.eq(/Basetest title.*Full demo/s, fetchResult.responsetext, "Verifies both the template 'Basetest title' and content 'Full demo' appears");
   }
+
+  { //Verify the dynrouter works
+    const finalurl = (await getTestSiteJS()).webRoot + "testpages/dynrouter/?test=sendwebfile";
+    console.log("dynrouter test URL:", finalurl);
+    const fetchResult = await fetch(finalurl);
+    test.eq("text/plain", fetchResult.headers.get("Content-Type"));
+    test.eq("A web file -\u0000- with a null", await fetchResult.text());
+  }
 }
 
 async function testPageResponseApplies() {
