@@ -19,7 +19,7 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
   IF(ObjectExists(ogplugin))
     opengraph := ogplugin->ogproperties;
 
-  RETURN CELL[
+  RETURN CELL[  //Must match RunPageResult#RunPageResult
     content := BlobToString(content),
     headers,
     pagebuilderdata := (SELECT tag := ToLowercase(name)
@@ -28,7 +28,8 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
     frontendconfig := (SELECT tag := ToLowercase(name)
                             , data := EncodeJSON(value, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
                          FROM UnpackRecord(webdesign->__jsconfig)),
-    opengraph := opengraph
+    opengraph,
+    webdesign->structured_data
   ];
 }
 

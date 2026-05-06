@@ -2,13 +2,14 @@ import { littyToString, rawLitty, type Litty } from "@webhare/litty";
 import { type WebResponse, createWebResponse } from "./response";
 import type { ContentPageRequest, CPageRequest, PageBuildRequest } from "./siterequest";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
-import { generateRandomId, parseTyped, toCamelCase } from "@webhare/std";
+import { appendToArray, generateRandomId, parseTyped, toCamelCase } from "@webhare/std";
 import type { CSPDynamicExecution } from "@webhare/whfs/src/siteprofiles";
 import type { WebHareBlob } from "@webhare/services";
 import type { WebRequest } from "./request";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import type { PageBuilderDataTypes } from "@webhare/router";
 import type { FrontendDataTypes } from "@webhare/frontend";
+import type { Thing } from "schema-dts";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
@@ -28,6 +29,7 @@ type RunPageResult = {
     type: string;
     url: string;
   };
+  structured_data: Array<Record<string, unknown> & { "@type": string }>;
 } | {
   sendfile?: WebHareBlob;
 });
@@ -104,6 +106,8 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
       contReq.pageMetadata.openGraph.type = result.opengraph.type;
     if (result.opengraph?.url)
       contReq.pageMetadata.openGraph.url = result.opengraph.url;
+    if (result.structured_data.length)
+      appendToArray(contReq.pageMetadata.structuredData, toCamelCase(result.structured_data) as Array<Exclude<Thing, string>>);
 
     response = await contReq.buildWebPage(rawLitty(content)); //FIXME statuscode
   } else {
