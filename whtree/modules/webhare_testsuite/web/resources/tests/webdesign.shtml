@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+OpenPrimary();
+
+SWITCH(GetWebVariable("type")) {
+  CASE "RunPageWithContents" {
+    OBJECT tssite := OpenTestsuiteJSSite();
+    OBJECT tsdesign := GetWebDesign(tssite->id);
+    tsdesign->RunPageWithContents(PTR Print("<p>This is RunPageWithContents</p>"));
+    RETURN;
+  }
+  DEFAULT
+  {
+    ABORT("Unknown test type '" || GetWebVariable("type") || "'");
+  }
+}

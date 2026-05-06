@@ -162,6 +162,7 @@ async function testDynamicPage() {
     console.log("Form test URL:", finalurl);
     const fetchResult = parseResponse(await (await fetch(finalurl)).text());
     test.eq(/Basetest title.*Full demo/s, fetchResult.responsetext, "Verifies both the template 'Basetest title' and content 'Full demo' appears");
+    test.eq(2, fetchResult.responsetext.split("<html").length, "Response should not contain nested html tags");
   }
 
   { //Verify the dynrouter works
@@ -170,6 +171,15 @@ async function testDynamicPage() {
     const fetchResult = await fetch(finalurl);
     test.eq("text/plain", fetchResult.headers.get("Content-Type"));
     test.eq("A web file -\u0000- with a null", await fetchResult.text());
+  }
+
+  { //Verify HS RunPageWithContentsin a TS design
+    const testurl = backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/webdesign.shtml?type=RunPageWithContents";
+    const fetchResult = await fetch(testurl);
+    test.eq(200, fetchResult.status, "Failed to fetch " + testurl);
+    const text = await fetchResult.text();
+    test.eq(/Basetest title.*This is RunPageWithContents/s, text, "Verifies both the template 'Basetest title' and content 'This is RunPageWithContents' appears");
+    test.eq(2, text.split("<html").length, "Response should not contain nested html tags");
   }
 }
 

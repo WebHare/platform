@@ -1280,8 +1280,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     this->RunPageWithContents(PTR this->__PrintContents);
   }
 
-  PUBLIC MACRO RunPageWithContents(MACRO PTR contents)
-  {
+  PUBLIC MACRO RunPageWithContents(MACRO PTR contents) { //this is used to render self-generated content as if it were a publisher page
+    IF(this->__config.js AND NOT IsWasm()) { //this is probably a SHTML file in HS that has opened a JS webdesign. Inefficient but we'll need to support it
+      RECORD torender := RunAndCaptureHSBody(this, PTR this->CallWithScope(contents));
+      RECORD webresponse := CallJS("mod::platform/js/pagebuilders/pagebuilders-hs.ts#runJSDesignForRenderedHSPage", this->targetobject->id, torender);
+      ExecuteWebResponse(webresponse); //terminates the script
+    }
+
     IF(ObjectExists(this->pagewitty))
       this->__RunWithContents(contents, PTR this->RunPageWitty);
   }
