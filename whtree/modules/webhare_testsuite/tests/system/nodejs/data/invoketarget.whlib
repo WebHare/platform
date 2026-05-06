@@ -69,7 +69,7 @@ MACRO DoSetGlobal(RECORD newrec, BOOLEAN iscommit)
   GetPrimary()->CommitWork();
   SetGlobal(CELL[...newrec, iscommit]);
 }
-PUBLIC MACRO SetGobalOnCommit(RECORD newrec)
+PUBLIC MACRO SetGlobalOnFinish(RECORD newrec)
 {
   GetPrimary()->RegisterCommitHandler("", PTR DoSetGlobal(newrec, #1));
 }
