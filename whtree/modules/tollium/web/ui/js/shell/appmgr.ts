@@ -2,14 +2,14 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from "@webhare/dompack";
 import type { ApplicationBase } from "../application";
 import type { IndyShell } from "../shell";
-import { TypedEventTarget, type EventMapType } from "../support/typedeventtarget";
+import { TypedEventTarget } from "../support/typedeventtarget";
 import { debugFlags } from "@webhare/env";
 
 
 //Event definities
-interface AppMgrEventMap extends EventMapType {
+type AppMgrEventMap = {
   "activateapp": CustomEvent<{ app: ApplicationBase }>;
-}
+};
 
 
 /** Manages applicaions for the shell */
@@ -20,6 +20,7 @@ export class AppMgr extends TypedEventTarget<AppMgrEventMap> {
   constructor(shell: IndyShell) {
     super();
     this.shell = shell;
+    this.addEventListener("activateapp", () => this.onApplicationStackChange());
   }
 
   /** Get currently focused application */

@@ -1,5 +1,5 @@
 import "typeface-roboto";
-import { type EventMapType, TypedEventTarget } from "@mod-tollium/web/ui/js/support/typedeventtarget";
+import { TypedEventTarget } from "@mod-tollium/web/ui/js/support/typedeventtarget";
 
 declare global {
   interface GlobalEventHandlersEventMap {
@@ -7,9 +7,9 @@ declare global {
   }
 }
 
-interface ThemeEventMap extends EventMapType {
+type ThemeEventMap = {
   "change": CustomEvent<null>;
-}
+};
 
 // Tollium theme settings (keep in sync with ../styling/tollium.css!)
 

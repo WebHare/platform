@@ -1,9 +1,10 @@
 /** Allows TS supported events for classes deriving from EventTarget that are not in the DOM */
 
-export interface EventMapType {
+type EventMapType = {
   [key: string]: CustomEvent<unknown>;
-}
+};
 
+/** @typeParam EventMap - A mapping of event names to their corresponding CustomEvent types. Should be `type` not an `interface` */
 export class TypedEventTarget<EventMap extends EventMapType> extends EventTarget {
   dispatch<E extends keyof EventMap>(eventname: E, detail: EventMap[E]["detail"]): boolean {
     return this.dispatchEvent(new CustomEvent(eventname as string, { bubbles: false, cancelable: false, detail }));
