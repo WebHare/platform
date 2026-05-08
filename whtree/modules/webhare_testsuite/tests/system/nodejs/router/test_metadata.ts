@@ -50,6 +50,19 @@ async function testBreadCrumbs() {
   }, faq);
 }
 
+async function testGTM() {
+  { //test HS/HS page with GTM plugin
+    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/TestPages/consenttest.rtd");
+    test.eq({ a: "GTM-TN7QQM", m: true }, dynamicPage.config?.["socialite:gtm"]);
+    test.eq(/<wh-socialite-gtm push.*datalayerpush.*420042004200}/, dynamicPage.responsetext);
+  }
+  { //test TS hosted HS page
+    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/TestPages/staticpage.html");
+    test.eq({ a: "GTM-TN7QQM", m: false }, dynamicPage.config?.["socialite:gtm"]);
+    test.eq(/<wh-socialite-gtm push.*datalayerpush.*430043004300}/, dynamicPage.responsetext);
+  }
+}
+
 async function testCustomStructuredData() {
   //HS generated, HS rendered
   {
@@ -143,6 +156,7 @@ async function testOpenGraph() {
 
 test.runTests([
   testBreadCrumbs,
+  testGTM,
   testCustomStructuredData,
   testOpenGraph
 ]);
