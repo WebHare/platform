@@ -28,13 +28,15 @@ function getComparableRTEText(rtenode) {
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    'Load structured RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
     },
 
     {
       name: 'restructuring',
-      test: async function (doc, win) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         const rpc = new JSONRPC(
           {

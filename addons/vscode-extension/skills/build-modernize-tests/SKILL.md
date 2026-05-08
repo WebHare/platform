@@ -138,7 +138,7 @@ Eg the following legacy object passed to runTests
 ```
     {
       name: "move_2_dragdown_check",
-      test: function (doc, win) {
+      test: function () {
         ...code...
       },
       waits: ['ui','load']
@@ -157,8 +157,6 @@ must be rewritten as two separate array elements:
 ```
 
 leave out the string element if the test had no 'name'.
-
-If a legacy object uses `loadpage` together with waits, rewrite it as a single async function that does `await test.load(...)` and then performs any explicit waits needed in that same function.
 
 If a legacy object calls a helper such as `test.testSelectListRow(...)` or `test.testClickTolliumButton(...)` and also had waits, inline the underlying action so the action and explicit wait remain in the same function.
 

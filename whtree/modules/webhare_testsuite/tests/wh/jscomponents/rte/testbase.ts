@@ -11,12 +11,14 @@ const useblockfill = true;
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/'
+    'Load default RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/');
     },
     {
       name: 'firsttest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<p><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -26,7 +28,8 @@ test.runTests(
 
     {
       name: 'selectionapi_1',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         const tests =
@@ -110,7 +113,8 @@ test.runTests(
     //test the selection apis, mostly used to verify the IE6-8 range emulation
     {
       name: 'selectionapi_2',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('hey <b>bold</b> text');
@@ -269,7 +273,8 @@ test.runTests(
 
     {
       name: 'selectionapi_ie8andlower',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         // Rangy has problems with positioning at end of text node just before OL, places them inside the ol
         rtetest.setStructuredContent(win, '<ol><li>"ab(*0*)"<ol><li>"c"</li></ol></li></ol>');
         rtetest.testEqSelHTMLEx(win, '<ol><li>"ab(*0*)(*1*)"<ol><li>"c"</li></ol></li></ol>');
@@ -279,7 +284,8 @@ test.runTests(
 
     {
       name: 'properties',
-      test: async (doc, win) => {
+      test: async () => {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<b>Bold tekst</b> en ook een plaatje: <img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" />'
           + ' en een link <a id="link" href="#link">link</a>,'
@@ -368,7 +374,8 @@ test.runTests(
 
     {
       name: 'formattingstate',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         const stdavailable = ["img", "b", "i", "u", "strike", "sub", "sup", "ol", "ul", "object-video", "object-insert"];
@@ -418,7 +425,8 @@ test.runTests(
 
     {
       name: 'insertimage',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<b id="b">Bold tekst</b>');
         rte.setCursor(test.qS('#b').firstChild, 4);
@@ -446,7 +454,8 @@ test.runTests(
 
     {
       name: 'simplereadwritetest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         const body = rte.getBody();
 
@@ -577,7 +586,8 @@ test.runTests(
 
     {
       name: 'elementoffsettest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<b>this text a b<span>old</span> text</b>');
@@ -631,7 +641,8 @@ test.runTests(
 
     {
       name: 'doubleapplytest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<b>this text a bold text</b>');
@@ -688,7 +699,8 @@ test.runTests(
 
     {
       name: 'complexmaniptest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('just another text. <b>bold 1</b>, <i>italic 1</i>, <b>secondbold</b>, <u>underline 1</u>');
         test.eq('just another text. <b>bold 1</b>, <i>italic 1</i>, <b>secondbold</b>, <u>underline 1</u>', win.rte.getValue().toLowerCase());
@@ -711,7 +723,8 @@ test.runTests(
 
     {
       name: 'breaktest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('a<br>b<br>c<br>');
 
@@ -734,7 +747,8 @@ test.runTests(
 
     {
       name: 'paramaniptest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
         //testEqHTML( '<p>haikus are easy</p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'
@@ -776,7 +790,8 @@ test.runTests(
 
     {
       name: 'hyperlinktest',
-      test: async function (doc, win) {
+      test: async function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         win.rte.setValue('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
         test.assert(!win.rte.isDirty());
@@ -874,7 +889,8 @@ test.runTests(
 
     {
       name: 'iteratortest',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
 

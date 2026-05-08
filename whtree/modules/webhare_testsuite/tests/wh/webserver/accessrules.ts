@@ -14,9 +14,9 @@ test.runTests(
     },
 
     // Goto portal2. Expect a redirect through gologin portal1 from access rule.
-    {
-      name: "open protected url",
-      loadpage: webroot + 'portal2/?wh-debug='
+    "open protected url",
+    async function () {
+      await test.load(webroot + 'portal2/?wh-debug=');
     },
 
     "access rule portal login", //this lands on /porta1l/
@@ -37,9 +37,9 @@ test.runTests(
     },
 
     // Goto portal2. Expect a redirect to portal1 from access rule protecting portal2
-    {
-      name: "open protected url",
-      loadpage: webroot + 'portal2/?wh-debug='
+    "open protected url",
+    async function () {
+      await test.load(webroot + 'portal2/?wh-debug=');
     },
     "protected portal login", //we should be on portal1 here!
     async function () {
@@ -58,13 +58,13 @@ test.runTests(
     },
 
     // Goto staticprotected. Expect a redirect through gologin to staticlogin from access rule.
-    {
-      name: "open protected url",
-      loadpage: webroot + 'staticprotected/?wh-debug='
+    "open protected url",
+    async function () {
+      await test.load(webroot + 'staticprotected/?wh-debug=');
     },
     {
       name: "access rule portal login #2",
-      test: async function (doc, win) {
+      test: async function () {
         test.qS("#login").value = "test-portal1@example.com";
         test.qS("#password").value = "secret";
         test.click('input[type=submit]');
@@ -74,23 +74,22 @@ test.runTests(
     //, testFollowWRDAuthRedirect("redirect to protected page #2") //sets window.wrdauth_lastredirectsource
     {
       name: 'protected page location test',
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/staticprotected/));
-        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+      test: function () {
+        test.assert(test.getWin().location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
       }
     },
-    /*  , { name: 'test variable clear' //the authentication rules have gotten out of the way, so see if URLs are still fixed
-        , loadpage: function (doc,win)
+    /*  , 'test variable clear' //the authentication rules have gotten out of the way, so see if URLs are still fixed
+        , async function ()
           {
-            console.log("Restarting flow at ",window.wrdauth_lastredirectsource);
-            return window.wrdauth_lastredirectsource;
+            console.log("Restarting flow at ", window.wrdauth_lastredirectsource);
+            await test.load(window.wrdauth_lastredirectsource);
           }
-        }
       , { name: 'protected page location varclear test'
-        , test:function (doc,win)
+        , test:function ()
           {
-            test.assert(win.location.href.match(/staticprotected/));
-            test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+            test.assert(test.getWin().location.href.match(/staticprotected/));
+            test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
           }
         }*/
     {
@@ -100,14 +99,14 @@ test.runTests(
       }
     },
 
-    {
-      name: "open protected url after session reset",
-      loadpage: webroot + 'staticprotected/?wh-debug=aut'
+    "open protected url after session reset",
+    async function () {
+      await test.load(webroot + 'staticprotected/?wh-debug=aut');
     },
     {
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/staticprotected/));
-        test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
+      test: function () {
+        test.assert(test.getWin().location.href.match(/staticprotected/));
+        test.assert(/THE FIRST PROTECTED CONTENT/.exec(test.getDoc().body.textContent));
       }
     },
 
@@ -119,14 +118,14 @@ test.runTests(
     },
 
     // Goto portal2. Expect a redirect to staticlogin from access rule, with external users
-    {
-      name: "open protected url",
-      loadpage: webroot + 'staticprotected2/?wh-debug=aut'
+    "open protected url",
+    async function () {
+      await test.load(webroot + 'staticprotected2/?wh-debug=aut');
     },
 
     {
       name: "access rule portal login - fail",
-      test: async function (doc, win) {
+      test: async function () {
         test.fill(test.qS("#login"), "external");
         test.fill(test.qS("#password"), "b");
         test.click('input[type=submit]');

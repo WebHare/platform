@@ -35,13 +35,13 @@ function escapeHTML(html) {
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');
     },
 
     {
       name: 'clean-embeddedobject',
-      test: function (doc, win) {
+      test: function () {
         const rte = test.getWin().rte.getEditor();
 
         //processing embedded object
@@ -148,7 +148,7 @@ test.runTests(
 
     {
       name: 'embeddedobject-contentsignore',
-      test: function (doc, win) {
+      test: function () {
         const rte = test.getWin().rte.getEditor();
 
         const href_contents = escapeHTML(

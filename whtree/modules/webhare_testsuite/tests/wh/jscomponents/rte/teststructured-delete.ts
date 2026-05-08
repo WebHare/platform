@@ -5,8 +5,9 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'
+    'Load structured RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
     },
 
     /* test scenario's
@@ -44,7 +45,8 @@ test.runTests(
          - at first paragraph
     */
     {
-      test: async (doc, win) => {
+      test: async () => {
+        const win = test.getWin();
         const rte = win.rte.getEditor();
 
         rte.getBody().focus();

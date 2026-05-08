@@ -6,7 +6,10 @@ function getPressedKeys() { return JSON.parse(test.qS('#keyspressed').value || "
 
 test.runTests(
   [
-    { loadpage: '/.webhare_testsuite/tests/pages/keyboard/' },
+    'Load keyboard test page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/keyboard/');
+    },
     'simple press',
     async function () {
       test.qS('#testfield').focus();

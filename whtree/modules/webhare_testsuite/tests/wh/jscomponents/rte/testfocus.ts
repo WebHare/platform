@@ -11,12 +11,13 @@ function waitForReparentedRTE() {
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
+    'Load free RTE page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=free');
     },
     {
       name: "earlyselectionstatecheck",
-      test: function (doc, win) {
+      test: function () {
         //create a local RTE and immediately check its selection state (ie before we know its loaded
         //        var rtenode = new Element('div');
         //        var myrte = new win.$wh.Rich.FreeEditor(rtenode);
@@ -27,7 +28,8 @@ test.runTests(
 
     {
       name: "clickfocus",
-      test: async function (doc, win) {
+      test: async function () {
+        const doc = test.getDoc();
         test.qS('#store').focus();
         test.eq(test.qS('#store'), doc.activeElement);
         test.click(test.qS('.wh-rtd-editor'));

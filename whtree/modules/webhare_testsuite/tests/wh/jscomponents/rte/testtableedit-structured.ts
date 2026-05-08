@@ -8,13 +8,15 @@ let rte = null, table = null;
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables'
+    'Load structured contentarea table page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables');
     },
 
     {
       name: 'init',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         rte = win.rte.getEditor();
         const body = rte.getBody();
 
@@ -30,7 +32,8 @@ test.runTests(
 
     {
       name: 'tableeditor-resize',
-      test: async function (doc) {
+      test: async function () {
+        const doc = test.getDoc();
         // Test initial table sizes
         const coords = table.getBoundingClientRect();
         test.eq(301, coords.width); // (4 * 75 column + 2 * 1 outer border)
@@ -60,7 +63,8 @@ test.runTests(
 
     {
       name: 'tableeditor-resize-col1-row1',
-      test: async function (doc) {
+      test: async function () {
+        const doc = test.getDoc();
         const cells = table.querySelectorAll('tr:first-child th');
         test.eq(65, cells[0].getBoundingClientRect().width);
 

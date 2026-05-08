@@ -6,12 +6,14 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.runTests(
   [
-    {
-      loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free&allowtags=b,img'
+    'Load free RTE allowtags page',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=free&allowtags=b,img');
     },
     {
       name: 'testallowtagsbar',
-      test: function (doc, win) {
+      test: function () {
+        const win = test.getWin();
         const boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
         const italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 
