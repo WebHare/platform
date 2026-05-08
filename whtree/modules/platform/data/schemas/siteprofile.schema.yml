@@ -908,6 +908,15 @@ $defs:
       mailRtdType:
         description: Default RTD type to use for mails
         type: string
+      defaultStoreeDays:
+        description: Default days we store visible results.
+        type: integer
+      maxStoreeDays:
+        description: Maximum days we allow storing visible results
+        type: integer
+      processDays:
+        description: "Maximum days we allow to keep results for processing (minimal: 1)"
+        type: integer
       autoCompleteUsername:
         description: Enable username autocomplete and set its title. Set to '*' to use the default title
         type: string
