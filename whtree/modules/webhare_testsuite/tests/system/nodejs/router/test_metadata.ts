@@ -61,6 +61,12 @@ async function testGTM() {
     test.eq({ a: "GTM-TN7QQM", m: false }, dynamicPage.config?.["socialite:gtm"]);
     test.eq(/<wh-socialite-gtm push.*datalayerpush.*430043004300}/, dynamicPage.responsetext);
   }
+  { //test TS hosted HS page that adds its own datlayer push
+    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/TestPages/dynamicpage");
+    test.eq({ a: "GTM-TN7QQM", m: false }, dynamicPage.config?.["socialite:gtm"]);
+    test.eq(/<wh-socialite-gtm push.*datalayerpush.*430043004300}/, dynamicPage.responsetext);
+    test.eq(/<wh-socialite-gtm push.*HiThere/, dynamicPage.responsetext);
+  }
 }
 
 async function testCustomStructuredData() {

@@ -19,6 +19,11 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
   IF(ObjectExists(ogplugin))
     opengraph := ogplugin->ogproperties;
 
+  RECORD ARRAY datalayer_pushes;
+  OBJECT gtmplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
+  IF(ObjectExists(gtmplugin))
+    datalayer_pushes := gtmplugin->__datalayerpushes;
+
   RETURN CELL[  //Must match @webhare/router/src/hswebdesigndriver.ts#RunPageResult
     content := BlobToString(content),
     headers,
@@ -29,7 +34,8 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
                             , data := EncodeJSON(value, DEFAULT RECORD, [ typed := TRUE, camelcase := TRUE ])
                          FROM UnpackRecord(webdesign->__jsconfig)),
     opengraph,
-    webdesign->structured_data
+    webdesign->structured_data,
+    datalayer_pushes
   ];
 }
 

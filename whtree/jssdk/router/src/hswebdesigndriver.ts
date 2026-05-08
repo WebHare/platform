@@ -8,7 +8,7 @@ import type { WebHareBlob } from "@webhare/services";
 import type { WebRequest } from "./request";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import type { PageBuilderDataTypes } from "@webhare/router";
-import type { FrontendDataTypes } from "@webhare/frontend";
+import type { DataLayerEntry, FrontendDataTypes } from "@webhare/frontend";
 import type { Thing } from "schema-dts";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
@@ -32,6 +32,8 @@ export type RunPageResultContent = {
     url: string;
   };
   structured_data: Array<Record<string, unknown> & { "@type": string }>;
+  /** DatalayerPush calls. These are not expected to be camelcased during rendering */
+  datalayer_pushes: Array<DataLayerEntry>;
 };
 
 type RunPageResultFile = {
@@ -84,6 +86,8 @@ export function setupRequestFromResult(contReq: ContentPageRequest, result: RunP
     contReq.pageMetadata.openGraph.url = result.opengraph.url;
   if (result.structured_data.length)
     appendToArray(contReq.pageMetadata.structuredData, toCamelCase(result.structured_data) as Array<Exclude<Thing, string>>);
+  if (result.datalayer_pushes.length)
+    appendToArray(contReq.pageMetadata.dataLayer, result.datalayer_pushes);
 }
 
 export async function runHareScriptPage(contReq: ContentPageRequest, how:

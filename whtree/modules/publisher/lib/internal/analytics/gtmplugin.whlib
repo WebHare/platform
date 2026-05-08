@@ -4,7 +4,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 <
-  RECORD ARRAY datalayerpushes;
+  PUBLIC RECORD ARRAY __datalayerpushes;
   OBJECT webdesign;
   STRING pvt_account;
   STRING pvt_integration;
@@ -38,15 +38,15 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
 
   UPDATE PUBLIC MACRO DatalayerPush(RECORD instruction)
   {
-    INSERT instruction INTO this->datalayerpushes AT END;
+    INSERT instruction INTO this->__datalayerpushes AT END;
   }
 
   MACRO PrintDatalayerPushes()
   {
-    IF(Length(this->datalayerpushes) = 0)
+    IF(Length(this->__datalayerpushes) = 0)
       RETURN;
 
-    STRING pushes := EncodeJSON(this->datalayerpushes);
+    STRING pushes := EncodeJSON(this->__datalayerpushes);
 
     IF(this->pvt_integration = "script" AND this->pvt_launch="pagerender")
     {
