@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
@@ -216,3 +217,13 @@ PUBLIC OBJECTTYPE TestPageListProvider EXTEND PagelistProviderBase
     RETURN pages;
   }
 >;
+
+PUBLIC OBJECT FUNCTION TestRouter(OBJECT webdesign) {
+  SWITCH(GetWebVariable("test")) {
+    CASE "sendwebfile" {
+      AddHTTPHeader("Content-Type","text/plain",FALSE);
+      SendWebFile(StringToBlob("A web file -\0- with a null"));
+    }
+  }
+  RETURN NEW SimpleWebPage(PTR Print(`<p>Unknown test: ${EncodeHTML(GetWebVariable("test"))}</p>`));
+}

@@ -13,9 +13,11 @@ import type { Thing } from "schema-dts";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
-type RunPageResult = {
+type RunPageResultCommon = {
   headers: Array<{ header: string; data: string; always_add: boolean }>;
-} & ({
+};
+
+export type RunPageResultContent = {
   content: string;
   pagebuilderdata: Array<{ tag: string; data: string }>;
   frontendconfig: Array<{ tag: string; data: string }>;
@@ -30,9 +32,13 @@ type RunPageResult = {
     url: string;
   };
   structured_data: Array<Record<string, unknown> & { "@type": string }>;
-} | {
-  sendfile?: WebHareBlob;
-});
+};
+
+type RunPageResultFile = {
+  sendfile: WebHareBlob;
+};
+
+type RunPageResult = RunPageResultCommon & (RunPageResultContent | RunPageResultFile);
 
 async function getVariables(webRequest: WebRequest) {
   const vars: Array<{
@@ -57,6 +63,27 @@ async function getVariables(webRequest: WebRequest) {
     }
   }
   return vars;
+}
+
+export function setupRequestFromResult(contReq: ContentPageRequest, result: RunPageResultContent) {
+  for (const { tag, data } of result.pagebuilderdata)
+    contReq.setPageBuilderData(tag.toLowerCase() as keyof PageBuilderDataTypes, toCamelCase(parseTyped(data)) as PageBuilderDataTypes[keyof PageBuilderDataTypes]);
+  for (const { tag, data } of result.frontendconfig)
+    contReq.setFrontendData(tag.toLowerCase() as keyof FrontendDataTypes, toCamelCase(parseTyped(data)) as FrontendDataTypes[keyof FrontendDataTypes]);
+  if (result.opengraph?.description)
+    contReq.pageMetadata.openGraph.description = result.opengraph.description;
+  if (result.opengraph?.image)
+    contReq.pageMetadata.openGraph.image = { url: result.opengraph.image };
+  if (result.opengraph?.site_name)
+    contReq.pageMetadata.openGraph.siteName = result.opengraph.site_name;
+  if (result.opengraph?.title)
+    contReq.pageMetadata.openGraph.title = result.opengraph.title;
+  if (result.opengraph?.type)
+    contReq.pageMetadata.openGraph.type = result.opengraph.type;
+  if (result.opengraph?.url)
+    contReq.pageMetadata.openGraph.url = result.opengraph.url;
+  if (result.structured_data.length)
+    appendToArray(contReq.pageMetadata.structuredData, toCamelCase(result.structured_data) as Array<Exclude<Thing, string>>);
 }
 
 export async function runHareScriptPage(contReq: ContentPageRequest, how:
@@ -90,25 +117,7 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
   let response: WebResponse;
   if ("content" in result) {
     const content = hshostComments ? `\n<!-- HS Page Host: ${contReq.targetObject.id}, content=${contentTime} -->\n${result.content}\n<!-- /HS Page Host -->` : result.content;
-    for (const { tag, data } of result.pagebuilderdata)
-      contReq.setPageBuilderData(tag.toLowerCase() as keyof PageBuilderDataTypes, toCamelCase(parseTyped(data)) as PageBuilderDataTypes[keyof PageBuilderDataTypes]);
-    for (const { tag, data } of result.frontendconfig)
-      contReq.setFrontendData(tag.toLowerCase() as keyof FrontendDataTypes, toCamelCase(parseTyped(data)) as FrontendDataTypes[keyof FrontendDataTypes]);
-    if (result.opengraph?.description)
-      contReq.pageMetadata.openGraph.description = result.opengraph.description;
-    if (result.opengraph?.image)
-      contReq.pageMetadata.openGraph.image = { url: result.opengraph.image };
-    if (result.opengraph?.site_name)
-      contReq.pageMetadata.openGraph.siteName = result.opengraph.site_name;
-    if (result.opengraph?.title)
-      contReq.pageMetadata.openGraph.title = result.opengraph.title;
-    if (result.opengraph?.type)
-      contReq.pageMetadata.openGraph.type = result.opengraph.type;
-    if (result.opengraph?.url)
-      contReq.pageMetadata.openGraph.url = result.opengraph.url;
-    if (result.structured_data.length)
-      appendToArray(contReq.pageMetadata.structuredData, toCamelCase(result.structured_data) as Array<Exclude<Thing, string>>);
-
+    setupRequestFromResult(contReq, result);
     response = await contReq.buildWebPage(rawLitty(content)); //FIXME statuscode
   } else {
     response = createWebResponse(result.sendfile, { status: statusCode });

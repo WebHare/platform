@@ -13,7 +13,7 @@ ASYNC MACRO TestXLSXExport() {
   RECORD datasource := CallJS([camelcase := TRUE], "mod::webhare_testsuite/tests/jssdk/office-formats/data/tabular-sources.ts#getTestSpreadsheet", [ harescript_compatible := TRUE ]);
   AWAIT ExpectScreenChange(+1, PTR RunColumnFileExportDialog(GetTestController(),datasource));
   RECORD exportfile := (AWAIT ExpectSentWebFile(PTR TTClick(":Download"))).file;
-  TestEq("this-is-a-very-long-name-for-a-spreadsheet-2026-05-06.xlsx", exportfile.filename);
+  TestEqLike("this-is-a-very-long-name-for-a-spreadsheet-2???-??-??.xlsx", exportfile.filename);
   RECORD ARRAY exportrows := GetOOXMLSpreadsheetRows(exportfile.data);
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes
 

@@ -2,8 +2,11 @@
 
 LOADLIB "mod::system/lib/services.whlib";
 
+PUBLIC STRING FUNCTION GetFormTestURL(INTEGER fsid) {
+  RETURN "/.publisher/backend/testpage.shtml?fsobject=" || EncryptForThisServer("publisher:testpage", fsid);
+}
 
 PUBLIC MACRO OpenFormsTest(OBJECT parent, OBJECT openhandler, RECORD parentobject)
 {
-  openhandler->SendURL("/.publisher/backend/testpage.shtml?fsobject=" || EncryptForThisServer("publisher:testpage", parentobject.objectid));
+  openhandler->SendURL(GetFormTestURL(parentobject.objectid));
 }

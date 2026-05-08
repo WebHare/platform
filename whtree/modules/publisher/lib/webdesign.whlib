@@ -5,12 +5,16 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::util/localization.whlib";
 
+LOADLIB "mod::platform/lib/internal/hs-pagehost.whlib";
+
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -243,6 +247,10 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
   {
     IF(NOT RecordExists(__webdesign_config))
       THROW NEW Exception("A webdesign cannot be directly instantiated using NEW - use GetWebDesign to open a webdesign for a specific object");
+
+    IF(this->__config.js) { //we're being rendered for a JS pagebuilder
+      this->__pagebuilderdata := CELL[]; //allow setting data for the page builder
+    }
 
     this->pvt_htmldata := __webdesign_config.htmldataset;
     this->wittyencoding := __webdesign_config.wittyencoding;
@@ -1272,8 +1280,13 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     this->RunPageWithContents(PTR this->__PrintContents);
   }
 
-  PUBLIC MACRO RunPageWithContents(MACRO PTR contents)
-  {
+  PUBLIC MACRO RunPageWithContents(MACRO PTR contents) { //this is used to render self-generated content as if it were a publisher page
+    IF(this->__config.js AND NOT IsWasm()) { //this is probably a SHTML file in HS that has opened a JS webdesign. Inefficient but we'll need to support it
+      RECORD torender := RunAndCaptureHSBody(this, PTR this->CallWithScope(contents));
+      RECORD webresponse := CallJS("mod::platform/js/pagebuilders/pagebuilders-hs.ts#runJSDesignForRenderedHSPage", this->targetobject->id, torender);
+      ExecuteWebResponse(webresponse); //terminates the script
+    }
+
     IF(ObjectExists(this->pagewitty))
       this->__RunWithContents(contents, PTR this->RunPageWitty);
   }
@@ -1817,6 +1830,13 @@ PUBLIC OBJECTTYPE DynamicPageBase
 
     OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, this, FALSE);
     webdesign->__truecontentbody := PTR this->RunBody(webdesign);
+
+    IF(webdesigninfo.js) {
+      RECORD torender := RunInstantiatedDynHSPage(webdesign, this);
+      RECORD webresponse := CallJS("mod::platform/js/pagebuilders/pagebuilders-hs.ts#runJSDesignForRenderedHSPage", whfsid, torender);
+      ExecuteWebResponse(webresponse); //terminates the script
+    }
+
     webdesign->RunPage();
   }
 

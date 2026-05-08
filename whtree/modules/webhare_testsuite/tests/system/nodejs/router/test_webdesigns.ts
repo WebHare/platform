@@ -7,9 +7,11 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { getTidLanguage } from "@webhare/gettid";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { litty, littyToString } from "@webhare/litty";
-import { buildInstance, buildRTD } from "@webhare/services";
+import { backendConfig, buildInstance, buildRTD } from "@webhare/services";
 import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make config["socialite:gtm"] work
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { loadlib } from "@webhare/harescript";
+import { getTestSiteJS } from "@mod-webhare_testsuite/js/wts-backend.ts";
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseDocAsXML(await response.text(), "text/html");
@@ -154,6 +156,31 @@ async function testDynamicPage() {
     }
   }
 
+  { //Verify the form test renders (testing the RunPageForWHFSId path)
+    const formtesturl: string = await loadlib("mod::publisher/lib/internal/forms/hooks.whlib").getFormTestURL((await getTestSiteJS()).id);
+    const finalurl = new URL(formtesturl, backendConfig.backendURL).href;
+    console.log("Form test URL:", finalurl);
+    const fetchResult = parseResponse(await (await fetch(finalurl)).text());
+    test.eq(/Basetest title.*Full demo/s, fetchResult.responsetext, "Verifies both the template 'Basetest title' and content 'Full demo' appears");
+    test.eq(2, fetchResult.responsetext.split("<html").length, "Response should not contain nested html tags");
+  }
+
+  { //Verify the dynrouter works
+    const finalurl = (await getTestSiteJS()).webRoot + "testpages/dynrouter/?test=sendwebfile";
+    console.log("dynrouter test URL:", finalurl);
+    const fetchResult = await fetch(finalurl);
+    test.eq("text/plain", fetchResult.headers.get("Content-Type"));
+    test.eq("A web file -\u0000- with a null", await fetchResult.text());
+  }
+
+  { //Verify HS RunPageWithContents in a TS design
+    const testurl = backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/webdesign.shtml?type=RunPageWithContents";
+    const fetchResult = await fetch(testurl);
+    test.eq(200, fetchResult.status, "Failed to fetch " + testurl);
+    const text = await fetchResult.text();
+    test.eq(/Basetest title.*This is RunPageWithContents/s, text, "Verifies both the template 'Basetest title' and content 'This is RunPageWithContents' appears");
+    test.eq(2, text.split("<html").length, "Response should not contain nested html tags");
+  }
 }
 
 async function testPageResponseApplies() {
