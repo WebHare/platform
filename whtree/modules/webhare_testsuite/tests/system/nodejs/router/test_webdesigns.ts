@@ -173,7 +173,7 @@ async function testDynamicPage() {
     test.eq("A web file -\u0000- with a null", await fetchResult.text());
   }
 
-  { //Verify HS RunPageWithContentsin a TS design
+  { //Verify HS RunPageWithContents in a TS design
     const testurl = backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/webdesign.shtml?type=RunPageWithContents";
     const fetchResult = await fetch(testurl);
     test.eq(200, fetchResult.status, "Failed to fetch " + testurl);
