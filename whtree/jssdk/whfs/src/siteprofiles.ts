@@ -181,20 +181,6 @@ export interface RawPluginSettings {
   [key: string]: unknown;
 }
 
-// export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
-//   addressoptions: string[];
-//   addressvalidationkey: string;
-//   addressvalidationschema: string;
-//   allowsubmittype: boolean;
-//   countrylist: string[];
-//   enableinfotexts: boolean;
-//   enablepagetitles: boolean;
-//   infotextrtdtype: string;
-//   mailrtdtype: string;
-//   usecaptcha: boolean;
-//   webtoolformhooks: string;
-// }
-
 export type CSPPlugin = ToSnakeCase<ModulePlugins["spPlugins"][number]>;
 
 export interface CSPRtddoc {

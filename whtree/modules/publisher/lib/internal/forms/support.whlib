@@ -266,6 +266,9 @@ PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
     , addressvalidationschema := ""
     , webtoolformhooks := ""
     , autocompleteusername := ""
+    , default_store_days := -1
+    , process_days := -1
+    , max_store_days := -1
     ];
 
   FOREVERY(RECORD p FROM props) {

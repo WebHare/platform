@@ -811,17 +811,24 @@ PUBLIC INTEGER FUNCTION GetFormExpectedExpiredResults(OBJECT applytester, INTEGE
   RETURN Length(SELECT FROM publisher.formresults WHERE form_fsobject = formid AND expiration >= now AND when <= new_expiration_cutoff);
 }
 
-PUBLIC INTEGER FUNCTION GetFormDefaultStoreResults()
+PUBLIC INTEGER FUNCTION GetFormDefaultStoreResults(RECORD formsettings)
 {
-  RETURN ReadRegistryKey("publisher.forms.storeresults");
+  INTEGER storedays := RecordExists(formsettings) AND formsettings.default_store_days >=0 ? formsettings.default_store_days : ReadRegistryKey("publisher.forms.storeresults");
+  IF(RecordExists(formsettings) AND formsettings.max_store_days >= 0 AND storedays > formsettings.max_store_days)
+    storedays := formsettings.max_store_days;
+  RETURN storedays;
 }
 
 PUBLIC RECORD FUNCTION GetFormResultsExpirationDaysByInstance(OBJECT applytester, RECORD instancedata)
 {
   // If storeresults = 0, use the default value; if storeresults is -1, use 0 (as we cannot differentiate between explicit 0 and 'default')
   RECORD formsettings := GetFormPluginConfiguration(applytester);
-  INTEGER storeresults   := instancedata.storeresults < 0 ? 0 : (instancedata.storeresults ?? GetFormDefaultStoreResults());
-  INTEGER processresults := ReadRegistryKey("publisher.forms.processresults");
+  INTEGER storeresults   := instancedata.storeresults < 0 ? 0 : (instancedata.storeresults ?? GetFormDefaultStoreResults(formsettings));
+  INTEGER processresults := RecordExists(formsettings) AND formsettings.process_days >= 0 ? formsettings.process_days : ReadRegistryKey("publisher.forms.processresults");
+
+  // Site profiles can also maximize storage settings
+  IF(RecordExists(formsettings) AND formsettings.max_store_days >= 0 AND storeresults > formsettings.max_store_days)
+    storeresults := formsettings.max_store_days;
 
   // Delete after storeresults days, but keep at least processresults days
   processresults := Max[]([ processresults, storeresults ]);
