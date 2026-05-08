@@ -343,8 +343,8 @@ async function testHSCommitHandlers() {
 
   await beginWork();
 
-  await invoketarget.SetGobalOnCommit({ x: 121 });
-  await invoketarget_manualvm.SetGobalOnCommit({ x: 232 });
+  await invoketarget.SetGlobalOnFinish({ x: 121 });
+  await invoketarget_manualvm.SetGlobalOnFinish({ x: 232 });
 
   test.eq(null, await invoketarget.getGlobal());
   test.eq(null, await invoketarget_manualvm.getGlobal());
@@ -364,12 +364,21 @@ async function testHSCommitHandlers() {
   test.eq({ x: 333 }, await invoketarget_manualvm.getGlobal(), "Verifies the handler was cleared");
 
   await beginWork();
-  await invoketarget.SetGobalOnCommit({ x: 343 });
-  await invoketarget_manualvm.SetGobalOnCommit({ x: 545 });
+  await invoketarget.SetGlobalOnFinish({ x: 343 });
+  await invoketarget_manualvm.SetGlobalOnFinish({ x: 545 });
   await rollbackWork();
 
   test.eq({ x: 343, iscommit: false }, await invoketarget.getGlobal(), "Verify rollback works too");
   test.eq({ x: 545, iscommit: false }, await invoketarget_manualvm.getGlobal(), "Verify rollback works too");
+
+  /// STORY: Install a rollback handler but CRASH the VM - shouldn't run finish handlers
+  await beginWork();
+  await invoketarget_manualvm.SetGlobalOnFinish({ x: 578 });
+  await test.throws(/jscall aborted/, () => invoketarget_manualvm.Crash());
+  await rollbackWork(); //this used to trigger: VM xxx-wasmmodule-0 has already shut down
+
+  await test.throws(/jscall aborted/, manualvm.done);
+
 }
 
 async function testCodeContexts() {

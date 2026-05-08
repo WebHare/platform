@@ -1562,21 +1562,26 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const handler: FinishHandler = {
       onBeforeCommit: async () => {
         await codeContext.run(async () => {
-          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
+          if (!vm.__isShuttingdown())
+            await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, true);
         });
       },
       onBeforeRollback: async () => {
         await codeContext.run(async () => {
-          await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, false);
+          if (!vm.__isShuttingdown())
+            await vm.loadlib("wh::dbase/postgresql.whlib").__CallPrepareHandlers(transactionId, false);
         });
       },
       onAfterPrepare: async () => {
         await codeContext.run(async () => {
-          heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PrepareForFinish(transactionId);
+          if (!vm.__isShuttingdown())
+            heapVar = await vm.loadlib("wh::dbase/postgresql.whlib").__PrepareForFinish(transactionId);
         });
       },
       onCommitEvents: async () => {
         await codeContext.run(async () => {
+          if (vm.__isShuttingdown())
+            return;
           if (!heapVar)
             throw new Error("Commit handler heap variable not set");
           return await heapVar.$invoke("RUNBROADCASTS", []) as boolean;
@@ -1584,6 +1589,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       },
       onCommit: async () => {
         await codeContext.run(async () => {
+          if (vm.__isShuttingdown())
+            return;
           if (!heapVar)
             throw new Error("Commit handler heap variable not set");
           await heapVar.$invoke("RUNHANDLERS", [true]);
@@ -1591,6 +1598,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       },
       onRollback: async () => {
         await codeContext.run(async () => {
+          if (vm.__isShuttingdown())
+            return;
           if (!heapVar)
             throw new Error("Commit handler heap variable not set");
           await heapVar.$invoke("RUNHANDLERS", [false]);
