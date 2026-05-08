@@ -16,8 +16,8 @@ import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/c
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
 import type { InstanceData, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
-import { stringify, throwError } from "@webhare/std";
-import { type Insertable, type InsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { isPromise, stringify, throwError } from "@webhare/std";
+import { type LegacyResponseInsertable, type ResponseInsertable, type ResponseInsertPoints, type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetadata, getOpenGraphData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
@@ -120,7 +120,7 @@ export class CPageRequest {
   private didInitializePlugins = false;
 
   //TODO make private but hswebdesigndriver needs to be able to read the insertions to do its rendering
-  __insertions: { [key in InsertPoints]?: Insertable[] } = {};
+  __insertions: { [key in ResponseInsertPoints]?: Array<LegacyResponseInsertable | ResponseInsertable> } = {};
 
   /** JS configuration data */
   private frontendConfig: WHConfigScriptData_FromServer;
@@ -241,8 +241,17 @@ export class CPageRequest {
     return this._siteLanguage;
   }
 
+  /** Insert a callback for use during rendering
+   * @deprecated WH6.0: Insert Litties, not raw string, to ensure encoding is properly considered
+  */
+  insertAt(where: ResponseInsertPoints, what: LegacyResponseInsertable): void;
+
+  /** Insert a callback for use during rendering
+  */
+  insertAt(where: ResponseInsertPoints, what: ResponseInsertable): void;
+
   /** Insert a callback for use during rendering */
-  insertAt(where: InsertPoints, what: Insertable) {
+  insertAt(where: ResponseInsertPoints, what: LegacyResponseInsertable | ResponseInsertable): void {
     if (!this.__insertions[where])
       this.__insertions[where] = [];
 
@@ -370,7 +379,7 @@ export class CPageRequest {
     //only stub what we need for backwards compatibility
     let html = '';
     return {
-      insertAt: (where: InsertPoints, what: Insertable) => {
+      insertAt: (where: ResponseInsertPoints, what: ResponseInsertable) => {
         this.insertAt(where, what as Litty);
       },
       appendHTML: (data: string) => {
@@ -393,17 +402,15 @@ export class CPageRequest {
   } = {};
 
   //FIXME private but hswebdesigndriver needs to be able to read the insertions to do its rendering
-  async __renderInserts(point: InsertPoints): Promise<Litty> {
-    let output = '';
+  async __renderInserts(point: ResponseInsertPoints): Promise<Litty> {
+    const output = new Array<Litty>();
     for (const insert of this.__insertions[point] || []) {
-      if (typeof insert === "string")
-        output += insert;
-      else if ("strings" in insert) //Litty
-        output += await littyToString(insert);
-      else
-        output += await insert();
+      const asAwaitable = typeof insert === "function" ? insert() : insert;
+      const asValue = isPromise(asAwaitable) ? await asAwaitable : asAwaitable;
+      const asLitty = typeof asValue === "string" ? rawLitty(asValue) : asValue;
+      output.push(asLitty);
     }
-    return rawLitty(output);
+    return litty`${output}`;
   }
 
   private renderRobotsTag() {

@@ -31,10 +31,10 @@ export class SiteResponseSettings {
   }
 }
 
-export type InsertPoints = "dependencies-top" | "dependencies-bottom" | "content-top" | "content-bottom" | "body-top" | "body-bottom" | "body-devbottom";
+export type ResponseInsertPoints = "dependencies-top" | "dependencies-bottom" | "content-top" | "content-bottom" | "body-top" | "body-bottom" | "body-devbottom";
 
-//FIXME reduce to just Litty
-export type Insertable = string | (() => string | Promise<string>) | Litty;
+export type LegacyResponseInsertable = string | (() => string | Promise<string>);
+export type ResponseInsertable = (() => Litty | Promise<Litty>) | Litty;
 
 function getDesignRootForAssetPack(assetpack: string): string {
   //Transform an assetpackname, eg 'webhare_testsuite:basetestjs' to its corresponding URL, '/.publisher/sd/webhare_testsuite/basetestjs/'
@@ -73,11 +73,13 @@ export class SiteResponse<T extends object = object> {
     return Object.fromEntries(this.settings.supportedlanguages.map(lang => [lang, false]));
   }
 
+
   /** Insert a callback for use during rendering */
-  insertAt(where: InsertPoints, what: Insertable) {
+  insertAt(where: ResponseInsertPoints, what: LegacyResponseInsertable | ResponseInsertable) {
     if (this.rendering)
       throw new Error("Cannot insert after rendering has started"); //TODO should ResponseBUilder do this check or can it mostly avoid rendering phase?
-    this.renderPageRequest.insertAt(where, what);
+    //Using 'as' to work around insertAt not publishing an overload accepting both types
+    this.renderPageRequest.insertAt(where, what as ResponseInsertable);
   }
 
   private async getContents(): Promise<string> {
