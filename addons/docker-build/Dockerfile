@@ -118,15 +118,16 @@ ADD addons/docker-build/dropins /
 
 # Throw in the whtree and addons - note: builds will always stop caching after this step
 # But one does not simply 'copy all files from the source to the target'.
-# Force all timestamps to second precisions, docker layers drop milliseconds during compression but they also seem
+# docker layers drop milliseconds during compression but they also seem
 # to reuse the FS between buildstemps, causing finalize-webhare to otherwise include millisecond precision timestamps (visible in libdumper)
 # while losing these on the filesystem causing unneeded recompilation
 # using a reference 'file' as setting and the *using* an envvar inside a docker command line is tricky
+# podman may be confused by the PG socket files in whtree/currentinstall. we'll mask it
+# exclude files that may appear in local development. exclude/include rules are positional so we mention 'buildinfo' first as we *do* need that file from 'generated', not the rest
+# this step might still be slow on local podman builds due to the need to hash the /whtree/ folder completely, including irrelevant node_modules. (we previously copied and stripped the wthree in builddocker.sh, but --bind is faster *if* the source tree was clean)
 RUN --mount=type=bind,source=whtree,target=/whtree/ \
     if [ -d /opt/wh/whtree/jssdk ] || [ -d /opt/wh/whtree/modules ]; then echo "jssdk/modules already have content! touching will cause layer bloat"; ls -lR /opt/wh/whtree ; exit 201;  fi ; \
-    cp -a /whtree /opt/wh/ && \
-    touch -t $(date +%Y%m%d%H%M.%S) /opt/wh/whtree && \
-    find /opt/wh/whtree/jssdk /opt/wh/whtree/modules -type f -print0  | xargs -0 -n250 touch -r /opt/wh/whtree
+    ( tar -c -C /whtree modules/platform/generated/buildinfo --exclude=currentinstall --exclude=generated --exclude=node_modules --exclude=libexec --mtime="$(date "+%Y-%m-%d %H:%M:%S")" . | tar -x -C /opt/wh/whtree )
 
 # Add built WebHare (ie 'wh make install' from the parallel build)
 RUN --mount=type=bind,from=builder,target=/builder \
