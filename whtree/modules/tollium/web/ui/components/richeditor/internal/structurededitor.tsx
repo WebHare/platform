@@ -556,7 +556,7 @@ export default class StructuredEditor extends EditorBase {
       \@cell return.node
       \@cell return.contentlocator
   */
-  insertBlockNode(locator, blockstyle, insertli, preservelocators, undoitem, anchor) {
+  insertBlockNode(locator, blockstyle, insertli, preservelocators, undoitem) {
     //    console.log('insertBlockNode: ', blockstyle, insertli, richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
     //    console.log(locator);
 
@@ -659,10 +659,7 @@ export default class StructuredEditor extends EditorBase {
     //console.log('going insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
     // Insert the new blocknode at the locator
-    const bres = this.createBlockStyleElement(blockstyle, true, anchor);
-    if (anchor)
-      bres.insertnode.setAttribute('data-rtd-anchor', anchor);
-
+    const bres = this.createBlockStyleElement(blockstyle, true);
     locator.insertNode(bres.node, preservelocators, undoitem);
 
     //console.log('post insert node: ', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -1532,7 +1529,7 @@ export default class StructuredEditor extends EditorBase {
                   this.parseContainerContentsRecursive(subchild, listitem, topblocklist, textstyles, null, options);
                 }
             } else {
-              block = { type: 'block', style: type.style, nodes: [], anchor: child.getAttribute('data-rtd-anchor') };
+              block = { type: 'block', style: type.style, nodes: [] };
               topblocklist.push(block);
 
               this.parseContainerContentsRecursive(child, block, topblocklist, textstyles, null, options);
@@ -1688,7 +1685,7 @@ export default class StructuredEditor extends EditorBase {
                   this.requireVisibleContentInBlockAfterLocator(locator, [locator, ...(preservelocators || [])], undoitem);
               } else {
                 // Insert block node (allow li inserts)
-                const res = this.insertBlockNode(locator, node.style, true, preservelocators, undoitem, node.anchor);
+                const res = this.insertBlockNode(locator, node.style, true, preservelocators, undoitem);
 
                 //console.log(' inserted blocknode, now', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }))
 
@@ -1734,7 +1731,7 @@ export default class StructuredEditor extends EditorBase {
                 continue;
               }
 
-              const res = this.insertBlockNode(locator, node.style, false, preservelocators, undoitem, node.anchor);
+              const res = this.insertBlockNode(locator, node.style, false, preservelocators, undoitem);
               for (let j = 0; j < node.nodes.length; ++j) {
                 const newli = document.createElement('li');
                 res.contentlocator.insertNode(newli, preservelocators, undoitem);

@@ -51,7 +51,7 @@ MACRO ConsilioTest()
                                  || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break. Check deze afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
                                  || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>'
                                     || '<tr>'
-                                      || '<td><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
+                                      || '<td><p class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
                                       || '<td><p class="normal">Cell 2 para 1</p></td>'
                                     || '</tr><tr>'
                                       || '<td><p class="normal">Cell 3</p></td>'
