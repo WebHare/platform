@@ -1,7 +1,12 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
 
 /** Wait for output analyser scans to finish
     @param folderids Ids of folders that must be completed
@@ -25,3 +30,64 @@ PUBLIC MACRO WaitForOutputAnalyzer(INTEGER ARRAY folderids, DATETIME deadline)
   outputanalyzer->CloseService();
 }
 
+// We need some setters implemented in HareScript to safely test troundtrips (other sources eg the test site are getting converted to TS so we're not actually testing HS code interop anymore)
+PUBLIC MACRO SetSnowBeagleTabledTestDoc(INTEGER fileid) {
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob('<html><head></head><body>'
+                                 || '<h1 class="heading1"><a href="">Ik</a> <a name="ben">ben</a>     \neen <b>heading 1&</b></h1>'
+                                 || '<p class="normal"><br/></p>'
+                                 || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met\neen      soft-break. Check deze afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /></p>'
+                                 || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>'
+                                    || '<tr>'
+                                      || '<td><p class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></td>'
+                                       || '<td><p class="normal">Cell 2 para 1</p></td>'
+                                    || '</tr><tr>'
+                                      || '<td><p class="normal">Cell 3</p></td>'
+                                      || '<td><p class="normal">Cell 4</p></td>'
+                                    || '</tr>'
+                                 || '</tbody></table>'
+                                 || '</body></html>')
+                 , embedded := [ MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]) ]
+                 ]);;
+
+  richdoctype->SetInstanceData(fileid, [data := myrichdoc->ExportAsRecord()]);
+}
+
+PUBLIC MACRO SetSnowBeagleWidgetTestDoc(INTEGER fileid) {
+  RECORD testimage := WrapBlob(GetWebHareResource("mod::system/web/tests/goudvis.png"),"goudvis.png");
+  OBJECT widget1 := OpenWHFSObjectByPath("site::webhare_testsuite.testsitejs/testpages/htmlwidget", [expect := "file"]);
+  OBJECT widget2 := OpenWHFSObjectByPath("site::webhare_testsuite.testsitejs/testpages/jswidget", [expect := "file"]);
+  OBJECT imgeditfile := OpenWHFSObjectByPath("site::webhare_testsuite.testsitejs/testpages/imgeditfile.jpeg", [expect := "file"]);
+  OBJECT rangetestfile := OpenWHFSObjectByPath("site::webhare_testsuite.testsitejs/testpages/rangetestfile.jpeg", [expect := "file"]);
+  OpenWHFSObject(fileid)->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
+          [ data := [ htmltext := StringToBlob(
+                                                    `<html><body>
+                                                      <p class="normal">indirect html widget:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="holder1"></div>
+                                                      <p class="normal">indirect jswidget:</p>
+                                                      <div class="wh-rtd-embeddedobject" data-instanceid="holder2"></div>
+                                                      <p class="normal">Een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>
+                                                      <p class="normal">Een <a href="https://beta.webhare.net/">externe</a> en een <a href="x-richdoclink:1234-5678-001#dieper">interne</a> link.</p>
+                                                    </body></html>`)
+                    , instances := [ [ instanceid := "holder1"
+                                    , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
+                                              , widgets := INTEGER[widget1->id]
+                                              ]
+                                    ]
+                                  , [ instanceid := "holder2"
+                                    , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
+                                              , widgets := INTEGER[widget2->id]
+                                              ]
+                                    ]
+                                  ]
+                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                        , contentid := "imagecid-81400"
+                                        , source_fsobject := imgeditfile->Id
+                                    ]
+                                  ]
+                    , links := [[ tag := "1234-5678-001", linkref := rangetestfile->id ]]
+                  ]
+          ]);
+
+}

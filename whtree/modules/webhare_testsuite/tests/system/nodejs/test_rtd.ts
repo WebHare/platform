@@ -170,6 +170,76 @@ async function testReader() {
   ], aboutAFish.data);
 }
 
+async function testHSReader() {
+  await beginWork();
+  const tempBeagleWidgets = await (await test.getTestSiteJSTemp()).ensureFile("beagle-widgets", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleWidgetTestDoc(tempBeagleWidgets.id);
+  await commitWork();
+
+  const docBeagleWidgets = await whfsType("platform:filetypes.richdocument").get(tempBeagleWidgets.id, { export: true });
+  test.eq([
+    { tag: 'p', items: [{ text: 'indirect html widget:' }] },
+    {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        data: {
+          widgets: ['site::webhare_testsuite.testsitejs/TestPages/htmlwidget']
+        }
+      }
+    },
+    { tag: 'p', items: [{ text: 'indirect jswidget:' }] },
+    {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        data: {
+          widgets: ['site::webhare_testsuite.testsitejs/TestPages/jswidget']
+        }
+      }
+    },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Een afbeelding: ' },
+        {
+          alt: 'I&G',
+          width: 160,
+          height: 120,
+          image: {
+            file: { base64: /^\/9j/ },
+            sourceFile: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg',
+            extension: '.jpg',
+            mediaType: 'image/jpeg',
+            width: 428,
+            height: 284,
+            dominantColor: /^#[0-9A-F]{6}$/,
+            hash: test.wellKnownHashes.snowbeagleJPG,
+            fileName: 'imagecid-81400'
+          }
+        }
+      ]
+    },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Een ' },
+        {
+          text: 'externe',
+          link: { externalLink: 'https://beta.webhare.net/' }
+        },
+        { text: ' en een ' },
+        {
+          text: 'interne',
+          link: {
+            internalLink: 'site::webhare_testsuite.testsitejs/TestPages/rangetestfile.jpeg',
+            append: '#dieper'
+          }
+        },
+        { text: ' link.' }
+      ]
+    }
+  ], docBeagleWidgets.data);
+}
+
 async function testBuilder() {
   // eslint-disable-next-line no-constant-condition -- TS API type tests
   if (false) {
@@ -815,6 +885,7 @@ async function testRegressions() {
 test.runTests(
   [
     testReader,
+    testHSReader,
     testBuilder,
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
