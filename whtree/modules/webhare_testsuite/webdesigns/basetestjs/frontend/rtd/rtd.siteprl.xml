@@ -12,6 +12,9 @@
       <textstyle tag="UNORDERED" containertag="ul" textstyles="" />
       <textstyle tag="ORDERED" containertag="ol" textstyles="" />
       <tablestyle tag="TABLE" />
+      <tablestyle tag="TABLE2" />
+      <cellstyle tag="CELL1" />
+      <cellstyle tag="CELL2" />
     </blockstyles>
 
     <widgets>

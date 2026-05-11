@@ -1,0 +1,81 @@
+# Example table
+type: platform:filetypes.richdocument
+instances:
+  - whfsType: platform:virtual.objectdata
+    clone: onCopy
+    data:
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    clone: onCopy
+    data:
+      data:
+        - tag: p
+          items:
+            - text: "Simple table:"
+        - tag: table
+          colGroups:
+            - cols:
+                - width: 319
+                - width: 319
+                - width: 319
+          rowGroups:
+            - rows:
+                - cells:
+                    - cellItems:
+                        - tag: p
+                          items:
+                            - text: R1C1
+                    - scope: col
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: R1C2
+                    - scope: col
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: R1C3
+                - cells:
+                    - scope: row
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: R2C1
+                    - cellItems:
+                        - tag: p
+                          items:
+                            - text: R2C2
+                    - cellItems:
+                        - widget:
+                            whfsType: platform:widgets.anchor
+                            data:
+                              name: anker
+                        - tag: p
+                          items:
+                            - text: R2C3
+                - cells:
+                    - scope: row
+                      rowSpan: 2
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: R2D1 rowspan 2
+                        - tag: p
+                          items: []
+                    - colSpan: 2
+                      className: cell1
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: R2D2 colspan 2
+                        - tag: p
+                          items:
+                            - text: cell1 styles
+                - cells:
+                    - colSpan: 2
+                      className: cell2
+                      cellItems:
+                        - tag: p
+                          items:
+                            - text: cell2 styled
+          caption: Met een captie!

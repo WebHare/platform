@@ -3,7 +3,7 @@
 
 import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
-import { isTruthy } from "@webhare/std";
+import { isTruthy, throwError } from "@webhare/std";
 import * as xmldom from "@xmldom/xmldom";
 
 /** Build a \@xmldom/xmldom DOCParser that doesn't make noise about broken docs */
@@ -161,4 +161,34 @@ export function determineNodeGid(resourcename: string, node: xmldom.Node | null)
     return module ? `${module}:${localgid}` : '';
   }
   return '';
+}
+
+export type XMLToJSElement = {
+  ns: string | null;
+  tag: string;
+  attributes: Record<string, string>;
+  //TODO namespaced attributes
+  children: Array<XMLToJSElement | string>;
+  textContent: string;
+};
+
+//if we make this a public API, we'll need to support (or explicitly drop): comments, namespaced attributes, prefix info?
+export function xmlToJS(node: xmldom.Element | xmldom.Document): XMLToJSElement {
+  if (node.nodeType === node.DOCUMENT_NODE)
+    return xmlToJS((node as xmldom.Document).documentElement ?? throwError("Document has no documentElement"));
+
+  const outNode: XMLToJSElement = {
+    ns: node.namespaceURI,
+    tag: node.localName || node.nodeName,
+    attributes: Object.fromEntries(Array.from(node.attributes).filter(attr => !attr.namespaceURI).map(attr => [attr.name, attr.value])),
+    children: [],
+    textContent: node.textContent || ""
+  };
+  for (const child of node.childNodes) {
+    if (child.nodeType === child.ELEMENT_NODE)
+      outNode.children.push(xmlToJS(child as xmldom.Element));
+    else if (child.nodeType === child.TEXT_NODE)
+      outNode.children.push(child.textContent || "");
+  }
+  return outNode;
 }

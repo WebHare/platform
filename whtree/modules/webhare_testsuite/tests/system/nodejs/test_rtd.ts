@@ -7,6 +7,8 @@ import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
@@ -1001,6 +1003,224 @@ async function testRegressions() {
   ], parseResult.blocks);
 }
 
+async function testRTDOutput() {
+  for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
+    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
+    const table = tabledRTD.body.getElementsByTagName("table")[0];
+    test.assert(table);
+    test.eq("Met een captie!", table.getElementsByTagName("caption")[0]?.textContent?.trim());
+    // console.dir(xmlToJS(table), { depth: null });
+    test.eqPartial({
+      ns: 'http://www.w3.org/1999/xhtml',
+      tag: 'table',
+      attributes: { class: 'wh-rtd__table table' },
+      children: [
+        {
+          tag: 'caption',
+          attributes: { class: 'wh-rtd__tablecaption' },
+          children: ['Met een captie!'],
+        },
+        {
+          tag: 'colgroup',
+          attributes: {},
+          children: [
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            },
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            },
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            }
+          ],
+        },
+        {
+          tag: 'tbody',
+          attributes: {},
+          children: [
+            {
+              tag: 'tr',
+              attributes: { class: 'wh-rtd--hascolheader' },
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C1'],
+                      textContent: 'R1C1'
+                    }
+                  ],
+                  textContent: 'R1C1'
+                },
+                {
+                  tag: 'th',
+                  attributes: { class: 'wh-rtd__tablecell', scope: 'col' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C2'],
+                      textContent: 'R1C2'
+                    }
+                  ],
+                  textContent: 'R1C2'
+                },
+                {
+                  tag: 'th',
+                  attributes: { class: 'wh-rtd__tablecell', scope: 'col' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C3'],
+                      textContent: 'R1C3'
+                    }
+                  ],
+                  textContent: 'R1C3'
+                }
+              ],
+              textContent: 'R1C1R1C2R1C3'
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C1'],
+                      textContent: 'R2C1'
+                    }
+                  ],
+                  textContent: 'R2C1'
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C2'],
+                      textContent: 'R2C2'
+                    }
+                  ],
+                  textContent: 'R2C2'
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'a',
+                      attributes: { class: 'wh-anchor', id: 'anker' },
+                      children: [],
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C3'],
+                      textContent: 'R2C3'
+                    }
+                  ],
+                  textContent: 'R2C3'
+                }
+              ],
+              textContent: 'R2C1R2C2R2C3'
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell', rowspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2D1 rowspan 2'],
+                      textContent: 'R2D1 rowspan 2'
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: [
+                        {
+                          tag: 'br',
+                          attributes: {},
+                          children: [],
+                        }
+                      ],
+                    }
+                  ],
+                  textContent: 'R2D1 rowspan 2'
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell cell1', colspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2D2 colspan 2'],
+                      textContent: 'R2D2 colspan 2'
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['cell1 styles'],
+                      textContent: 'cell1 styles'
+                    }
+                  ],
+                  textContent: 'R2D2 colspan 2cell1 styles'
+                }
+              ],
+              textContent: 'R2D1 rowspan 2R2D2 colspan 2cell1 styles'
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell cell2', colspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['cell2 styled'],
+                      textContent: 'cell2 styled'
+                    }
+                  ],
+                  textContent: 'cell2 styled'
+                }
+              ],
+              textContent: 'cell2 styled'
+            }
+          ],
+          textContent: 'R1C1R1C2R1C3R2C1R2C2R2C3R2D1 rowspan 2R2D2 colspan 2cell1 stylescell2 styled'
+        }
+      ],
+      textContent: 'Met een captie!R1C1R1C2R1C3R2C1R2C2R2C3R2D1 rowspan 2R2D2 colspan 2cell1 stylescell2 styled'
+    }, xmlToJS(table));
+  }
+}
+
 test.runTests(
   [
     testReader,
@@ -1010,5 +1230,6 @@ test.runTests(
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
     testWRDRoundTrips,
-    testRegressions
+    testRegressions,
+    testRTDOutput
   ]);

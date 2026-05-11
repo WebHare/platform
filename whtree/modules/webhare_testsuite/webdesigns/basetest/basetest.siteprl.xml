@@ -604,6 +604,11 @@
   </apply>
 
   <apply>
+    <to type="file" pathmask="*tables*" />
+    <rtddoc rtdtype="http://www.webhare.dev/xmlns/basetestjs/defaultrtdtype" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="/testpages/staticpage-en-gb" />
     <sitelanguage lang="en-GB" />
   </apply>

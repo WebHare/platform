@@ -89,7 +89,7 @@ async function testPageResponse() {
     { tag: "p", items: [] }, //empty line without items
     { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
   ]));
-  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
 }
 
 async function testDynamicPage() {
