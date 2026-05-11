@@ -1,5 +1,6 @@
 import type { ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
 import { typedEntries } from "@webhare/std";
+import type { DataLayerEntry } from "@webhare/frontend";
 import type { ListItem, Thing } from "schema-dts";
 
 const INITIAL_ROBOTS_TAG = {
@@ -39,6 +40,9 @@ export class PageMetadata {
 
   /** schema.org metadata for this page */
   readonly structuredData: StructuredData = []; //readonly to make it harder to overwrite instead of pushing/appending
+
+  /** dataLayer. Should only be appended to */
+  readonly dataLayer: DataLayerEntry[] = []; //readonly to make it harder to overwrite instead of pushing/appending
 
   /** OpenGraph metadata; usually preferred by social media sharing */
   openGraph: OpenGraphMetadata = {};

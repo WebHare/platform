@@ -72,6 +72,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   }
   req.pageMetadata.htmlDataSet.test = "test";
   req.pageMetadata.htmlDataSet.otherField = "";
+  req.pageMetadata.dataLayer.push({ datalayerpush: 430043004300 });
 
   const contentobjectpath = "FIXME"; //are we receiving contentObject yet ? do we want it?
   const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?

@@ -138,6 +138,10 @@ OBJECTTYPE BetaWebDesign EXTEND BetaSharedDesign
                       , bobimagelink := ObjectExists(bobimage) ? WrapCachedImage(bobimage->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD
                       ];
 
+    OBJECT gtmplugin := this->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
+    IF(ObjectExists(gtmplugin))
+      gtmplugin->DataLayerPush([ datalayerpush := 420042004200 ]);
+
     RETURN pageconfig;
   }
 

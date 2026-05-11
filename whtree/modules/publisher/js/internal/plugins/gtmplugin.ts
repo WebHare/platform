@@ -1,5 +1,7 @@
 
+import { litty, type Litty } from "@webhare/litty";
 import type { PagePluginFunction, PagePluginInit, PagePluginRequest } from "@webhare/router";
+import { encodeString, stringify } from "@webhare/std";
 import { parseYamlPluginConfig } from "@webhare/whfs/src/applytester";
 
 declare module "@webhare/frontend" {
@@ -17,6 +19,17 @@ interface GTMPluginData {
   account: string;
   integration: "script" | "assetpack";
   launch: "pagerender" | "manual";
+}
+
+function printDataLayerPushes(hookdata: GTMPluginData, response: PagePluginRequest): Litty {
+  if (!response.pageMetadata.dataLayer.length)
+    return litty``;
+
+  if (hookdata.integration === 'script' && hookdata.launch === 'pagerender') {
+    const pushes = response.pageMetadata.dataLayer.map(entry => stringify(entry, { target: "script" })).join(",");
+    return litty`<script>window.dataLayer.push(${pushes})</script>`;
+  }
+  return litty`<wh-socialite-gtm push="${encodeString(JSON.stringify(response.pageMetadata.dataLayer), "attribute")}"></wh-socialite-gtm>`;
 }
 
 export function hookComposer(init: PagePluginInit, response: PagePluginRequest) {
@@ -43,6 +56,8 @@ export function hookComposer(init: PagePluginInit, response: PagePluginRequest) 
     //The noscript code is probably always useful. no need to intercept it
     response.insertAt("body-bottom", `<noscript><iframe src="//www.googletagmanager.com/ns.html?id=${hookdata.account}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`);
   }
+
+  response.insertAt("dependencies-bottom", () => printDataLayerPushes(hookdata, response));
 }
 
 //validate signatures
