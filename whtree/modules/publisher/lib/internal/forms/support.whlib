@@ -291,6 +291,13 @@ PUBLIC RECORD FUNCTION CombineFormPluginConfiguration(RECORD ARRAY props) {
     IF(CellExists(p, "page_hooks"))
       config.webtoolformhooks := MakeAbsoluteResourcePath(p.source.siteprofile, p.page_hooks);
 
+    IF(CellExists(p, "default_store_days"))
+      config.default_store_days := p.default_store_days;
+    IF(CellExists(p, "process_days"))
+      config.process_days := p.process_days;
+    IF(CellExists(p, "max_store_days"))
+      config.max_store_days := p.max_store_days;
+
     IF(CellExists(p, "address_options")) {
       RECORD pao := p.address_options;
       IF(CellExists(pao, "country_list"))
