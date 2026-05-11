@@ -1,10 +1,10 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
-import { encodeString, generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase } from "@webhare/std";
+import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat, type RTDBaseTable, type RTDBaseTableCell } from "@webhare/services/src/richdocument";
+import { encodeString, generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
-import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
@@ -117,6 +117,33 @@ function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: strin
     contentid,
     source_fsobject: resource.sourceFile || 0
   };
+}
+
+function hasSameStyling(lhs: RTDInlineItem, rhs: RTDInlineItem): boolean {
+  const lhsEntries = typedEntries(lhs);
+
+  if (Object.keys(rhs).some(key => key !== "text" && !(key in lhs)))
+    return false;
+
+  for (const [key, value] of lhsEntries)
+    if (key !== "text" && value !== rhs[key as keyof RTDInlineItem])
+      return false;
+
+  return true;
+}
+
+function normalizeInlineItems(items: RTDInlineItem[]): RTDInlineItem[] {
+  //Remove redundant styling (eg adjacent items with the same style, or items with no text and no widget/image)
+  const normalized: RTDInlineItem[] = [];
+  for (const item of items) {
+    const prevItem = normalized.at(-1);
+    if ("text" in item && prevItem && "text" in prevItem && hasSameStyling(item, prevItem)) {
+      prevItem.text += item.text; //merge text into previous item
+      continue;
+    }
+    normalized.push(item);
+  }
+  return normalized;
 }
 
 class HSRTDImporter {
@@ -257,6 +284,54 @@ class HSRTDImporter {
     return items;
   }
 
+  async parseTable(node: Element, setClass: string): Promise<RTDBaseTable<"build">> {
+    const newblock: RTDBaseTable<"build"> = {
+      tag: "table",
+      colGroups: [{ cols: [] }],
+      rowGroups: [{ rows: [] }]
+    };
+    const captionNode = node.getElementsByTagName("caption")[0];
+    if (captionNode?.textContent)
+      newblock.caption = captionNode.textContent;
+
+    const colgroup = node.getElementsByTagName("colgroup")[0];
+    if (colgroup) {
+      for (const col of elements(colgroup.getElementsByTagName("col"))) {
+        const width = parseInt(col.getAttribute("style")?.match(/width\s*:\s*(\d+)px/)?.[1] || "0", 10);
+        newblock.colGroups[0].cols.push({ width });
+      }
+    }
+
+    const tbody = node.getElementsByTagName("tbody")[0] || node; //allow tables without tbody
+    for (const row of tbody.getElementsByTagName("tr")) {
+      const newRow = { cells: [] as Array<RTDBaseTableCell<"build">> };
+      for (const cell of elements(row.childNodes)) {
+        if (!isElement(cell))
+          continue;
+        const tag = cell.tagName.toLowerCase();
+        if (tag !== 'td' && tag !== 'th')
+          continue;
+
+        const scope = tag === 'th' ? (cell.getAttribute("scope") as "col" | "row" | null) : undefined;
+        const colSpan = parseInt(cell.getAttribute("colspan") || "1");
+        const rowSpan = parseInt(cell.getAttribute("rowspan") || "1");
+        const className = (cell.getAttribute("class") || '').split(' ').filter(c => c && c !== 'wh-rtd__tablecell' && isValidRTDClassName(c))[0];
+
+        newRow.cells.push({
+          ...(scope ? { scope } : {}),
+          ...(colSpan > 1 ? { colSpan } : {}),
+          ...(rowSpan > 1 ? { rowSpan } : {}),
+          ...(className ? { className } : {}),
+          cellItems: await this.parseBlocks(cell)
+        });
+      }
+      newblock.rowGroups[0].rows.push(newRow);
+    }
+    if (setClass && setClass !== rtdBlockDefaultClass["table"]) //only set if not default
+      newblock.className = setClass;
+    return newblock;
+  }
+
   async parseBlocks(node: Element): Promise<RTDSourceBlock[]> {
     const blocks = new Array<RTDSourceBlock>;
     for (let child = node.firstChild; child; child = child!.nextSibling) {
@@ -275,18 +350,20 @@ class HSRTDImporter {
 
       const setClass = classNames.length && isValidRTDClassName(classNames[0]) ? classNames[0] : '';
       if ((rtdListTypes as readonly string[]).includes(tag)) {
-        const newblock: RTDBlock = {
+        const newblock: RTDList = {
           tag: tag as typeof rtdListTypes[number],
           listItems: await this.getListItems(child)
         };
         if (setClass && setClass !== rtdBlockDefaultClass[tag]) //only set if not default
           newblock.className = setClass;
         blocks.push(newblock);
+      } else if (tag === "table") {
+        blocks.push(await this.parseTable(child, setClass));
       } else {
         const useTag: RTDParagraphType = (rtdParagraphTypes as readonly string[]).includes(tag) ? tag as RTDParagraphType : 'p';
         const newblock: RTDParagraph = {
           tag: useTag,
-          items: await this.processInlineItems(child, {}, [])
+          items: normalizeInlineItems(await this.processInlineItems(child, {}, []))
         };
         if (setClass && setClass !== rtdBlockDefaultClass[useTag]) //only set if not default
           newblock.className = setClass;
@@ -455,10 +532,48 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
       } else {
         htmlText += await buildInlineItems(block.items);
       }
+    } else if (block.tag === "table") {
+      htmlText += await buildTable(block);
     } else {
       block satisfies never;
       throw new Error(`Unhandled block type: ${JSON.stringify(block)}`);
     }
+    return htmlText;
+  }
+
+  async function buildTable(table: RTDBaseTable<"inMemory">) {
+    const className = table.className || rtdBlockDefaultClass.table;
+    let htmlText = `<table${className ? ` class="${encodeString(className, "attribute")}"` : ""}>`;
+    if (table.caption)
+      htmlText += `<caption>${encodeString(table.caption, 'html')}</caption>`;
+    for (const colGroup of table.colGroups) {
+      htmlText += `<colgroup>`;
+      for (const col of colGroup.cols) {
+        htmlText += `<col${col.width ? ` style="width:${col.width}px"` : ""}/>`;
+      }
+      htmlText += `</colgroup>`;
+      htmlText += `<tbody>`;
+      for (const rowGroup of table.rowGroups) {
+        for (const row of rowGroup.rows) {
+          htmlText += `<tr>`;
+          for (const cell of row.cells) {
+            const tagName = cell.scope === "col" ? "th" : "td";
+            htmlText += `<${tagName}`;
+            if (cell.className)
+              htmlText += ` class="${encodeString(cell.className, "attribute")}"`;
+            if (cell.scope)
+              htmlText += ` scope="${cell.scope}"`;
+            if (cell.colSpan && cell.colSpan > 1)
+              htmlText += ` colspan="${cell.colSpan}"`;
+            if (cell.rowSpan && cell.rowSpan > 1)
+              htmlText += ` rowspan="${cell.rowSpan}"`;
+            htmlText += `>${await buildBlocks(cell.cellItems)}</${tagName}>`;
+          }
+          htmlText += `</tr>`;
+        }
+      }
+    }
+    htmlText += `</tbody></table>`;
     return htmlText;
   }
 

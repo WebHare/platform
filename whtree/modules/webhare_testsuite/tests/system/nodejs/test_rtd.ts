@@ -240,6 +240,125 @@ async function testHSReader() {
   ], docBeagleWidgets.data);
 }
 
+async function testHSReaderTables() {
+  await beginWork();
+  const tempBeagleTables = await (await test.getTestSiteJSTemp()).ensureFile("beagle-tables", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleTabledTestDoc(tempBeagleTables.id);
+  await commitWork();
+
+  const docBeagleTables = await whfsType("platform:filetypes.richdocument").get(tempBeagleTables.id, { export: true });
+  test.assert(docBeagleTables.data);
+
+  test.eq([
+    {
+      tag: 'h1',
+      items: [
+        { text: 'Ik ben      een ' },
+        { text: 'heading 1&', bold: true }
+      ]
+    },
+    { tag: 'p', items: [] },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Ik ben een ' },
+        { text: '<normale>', bold: true },
+        { text: ' ' },
+        { text: 'b-lex', link: { externalLink: 'http://b-lex.nl/' } },
+        { text: ' ' },
+        { text: 'paragraaf', italic: true },
+        { text: 'met een      soft-break. Check deze afbeelding: ' },
+        {
+          alt: 'I&G',
+          width: 160,
+          height: 120,
+          image: {
+            file: { base64: /^\/9j/ },
+            extension: '.jpg',
+            mediaType: 'image/jpeg',
+            width: 428,
+            height: 284,
+            dominantColor: /^#[0-9A-F]{6}$/,
+            hash: test.wellKnownHashes.snowbeagleJPG,
+            fileName: 'imagecid-81400'
+          }
+        }
+      ]
+    },
+    {
+      tag: 'table',
+      caption: "Met een captie!",
+      className: "maintable",
+      colGroups: [
+        { cols: [{ width: 25 }, { width: 45 }] }
+      ],
+      rowGroups: [{
+        rows: [{
+          cells: [
+            {
+              scope: "col",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 1 para 1" }]
+              }, {
+                tag: 'p',
+                items: [{ text: "Cell 1 para 2" }]
+              }]
+            },
+            {
+              scope: "col",
+              className: "cell2",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 2 para 1" }]
+              }]
+            }
+
+          ]
+        }, {
+          cells: [
+            {
+              rowSpan: 2,
+              className: "cell1",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 3" }]
+              }]
+            },
+            {
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 4" }]
+              }]
+            }
+          ]
+        }, {
+          cells: [
+            {
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Next to the rowspan 2" }]
+              }]
+            }
+          ]
+        }, {
+          cells: [
+            {
+              colSpan: 2,
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Colspan 2" }]
+              }]
+            }
+          ]
+        }]
+      }]
+    }
+  ], docBeagleTables.data);
+
+  await verifySimpleRoundTrip(await buildRTD(docBeagleTables.data));
+}
+
 async function testBuilder() {
   // eslint-disable-next-line no-constant-condition -- TS API type tests
   if (false) {
@@ -886,6 +1005,7 @@ test.runTests(
   [
     testReader,
     testHSReader,
+    testHSReaderTables,
     testBuilder,
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
