@@ -1,4 +1,4 @@
-import { appendToArray, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
+import { appendToArray, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
@@ -331,16 +331,6 @@ function splitBuildTag<T extends string>(tag: T): { tag: T extends `${infer Tag}
   };
 }
 
-function getArrayPromise<T>(array: T[]): MaybePromise<Array<Awaited<T>>> {
-  const resolved: Array<Awaited<T>> = [];
-  for (const item of array) {
-    if (isPromise(item))
-      return Promise.all(array);
-    resolved.push(item as Awaited<T>);
-  }
-  return resolved;
-}
-
 type MaybePromise<T> = T | Promise<T>;
 
 function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Promise<U> {
@@ -527,9 +517,9 @@ export class RichTextDocument {
     const newblock: RTDBaseTable<"inMemory"> = {
       tag: "table",
       colGroups: structuredClone(table.colGroups),
-      rowGroups: await getArrayPromise(table.rowGroups.map(async rowGroup => ({
-        rows: await getArrayPromise(rowGroup.rows.map(async row => {
-          const newCells = await getArrayPromise(row.cells.map(async cell => {
+      rowGroups: await maybePromiseAll(table.rowGroups.map(async rowGroup => ({
+        rows: await maybePromiseAll(rowGroup.rows.map(async row => {
+          const newCells = await maybePromiseAll(row.cells.map(async cell => {
             const newCellItems = await this.buildBlocks(cell.cellItems, options || {});
             return { ...cell, cellItems: newCellItems };
           }));
@@ -598,7 +588,7 @@ export class RichTextDocument {
 
 
   #exportInlineItems(block: Array<RTDBaseInlineItem<"inMemory">>, options: ExportOptions): MaybePromise<Array<RTDBaseInlineItem<"export">>> {
-    return getArrayPromise(block.map(async item => {
+    return maybePromiseAll(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
         return { ...item, inlineWidget: await item.inlineWidget.export(options) satisfies ExportedInstance } as RTDBaseInlineItem<"export">;
@@ -619,9 +609,9 @@ export class RichTextDocument {
   }
 
   async #exportRTDTable(table: RTDBaseTable<"inMemory">, options: ExportOptions): Promise<RTDBaseTable<"export">> {
-    const newRowGroups = await getArrayPromise(table.rowGroups.map(async rowGroup => {
-      const newRows = await getArrayPromise(rowGroup.rows.map(async row => {
-        const newCells = await getArrayPromise(row.cells.map(async cell => {
+    const newRowGroups = await maybePromiseAll(table.rowGroups.map(async rowGroup => {
+      const newRows = await maybePromiseAll(rowGroup.rows.map(async row => {
+        const newCells = await maybePromiseAll(row.cells.map(async cell => {
           const newCellItems = await this.#exportRTDBlocks(cell.cellItems, options);
           return { ...cell, cellItems: newCellItems };
         }));
@@ -653,16 +643,16 @@ export class RichTextDocument {
     });
     // Casting to RTDBaseListItem<"export"> to avoid a lot of code duplkication due to the [ anonymousparagraph, ...Array<RTDBaseList> ] type
     // Rob: can't think of a way to write a map function and a conversion function that work with the type system to preserve the format
-    return mapMaybePromise(getArrayPromise(convertedItems), li => ({ li })) as RTDBaseListItem<"export">;
+    return mapMaybePromise(maybePromiseAll(convertedItems), li => ({ li })) as RTDBaseListItem<"export">;
   }
 
   #exportRTDList(block: RTDBaseList<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseList<"export">> {
     const convertedItems = block.listItems.map(item => this.#exportRTDListItem(item, options));
-    return mapMaybePromise(getArrayPromise(convertedItems), items => ({ ...block, listItems: items }));
+    return mapMaybePromise(maybePromiseAll(convertedItems), items => ({ ...block, listItems: items }));
   }
 
   #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<RTDExport> {
-    return getArrayPromise(blocks.map(block => {
+    return maybePromiseAll(blocks.map(block => {
       if ("items" in block)
         return this.#exportRTDParagraph(block, options) satisfies MaybePromise<RTDExport[number]>;
       else if ("listItems" in block) {

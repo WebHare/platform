@@ -924,6 +924,11 @@ async function testPromises() {
   test.eq(undefined, await std.attempt(() => Promise.reject(new Error("this is rejected"))));
   test.eq(null, await std.attempt(() => Promise.reject(new Error("this is rejected")), null));
   test.eq(42, await std.attempt(() => Promise.resolve(42), null));
+
+  //test maybePromiseAll
+  test.eq([], std.maybePromiseAll([]));
+  test.eq([2], std.maybePromiseAll([2]));
+  test.eq([2, 4], await std.maybePromiseAll([2, Promise.resolve(4)]));
 }
 
 async function testMutex() {

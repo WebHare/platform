@@ -1,5 +1,5 @@
 import { Money } from "./money";
-import { isBlob, isDate, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalPlainTime, isTemporalZonedDateTime, stdTypeOf } from "./quacks";
+import { isBlob, isDate, isMoney, isPromise, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalPlainTime, isTemporalZonedDateTime, stdTypeOf } from "./quacks";
 import type { Temporal } from "temporal-polyfill";
 
 /// Returns T or a promise resolving to T
@@ -94,6 +94,23 @@ export function toCamelCase<T extends object | object[] | null | undefined>(inp:
 function isUInt8Array(value: unknown): value is Uint8Array {
   return value !== null && typeof value === "object" && "length" in value && (value as Uint8Array).BYTES_PER_ELEMENT === 1;
 }
+
+type AwaitedValues<T extends readonly unknown[]> = { -readonly [K in keyof T]: Awaited<T[K]> };
+
+/** Resolve an array of potential promises, returning an array with resolved results
+ * @param array - Array of values or promises
+ * @returns An array of resolved values, or a promise resolving to that array if any input was a promise
+*/
+export function maybePromiseAll<const T extends readonly unknown[]>(array: T): MaybePromise<AwaitedValues<T>> {
+  const resolved: Array<Awaited<T[number]>> = [];
+  for (const item of array) {
+    if (isPromise(item))
+      return Promise.all(array) as Promise<AwaitedValues<T>>;
+    resolved.push(item as Awaited<T[number]>);
+  }
+  return resolved as AwaitedValues<T>;
+}
+
 
 /** Compare two values of std-supported types
  * @param left - First value
