@@ -78,4 +78,4 @@ instances:
                         - tag: p
                           items:
                             - text: cell2 styled
-          caption: Met een captie!
+          caption: "table <> caption"

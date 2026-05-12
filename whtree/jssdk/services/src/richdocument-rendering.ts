@@ -42,14 +42,14 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
       parts.push(await partRequest.renderWidget(block.widget));
     else if ("listItems" in block) {
       const className = block.className || rtdBlockDefaultClass[block.tag];
-      parts.push(litty`<${block.tag}${className ? litty` class="${encodeString(className, "attribute")}"` : ""}>`);
+      parts.push(litty`<${block.tag}${className ? litty` class="${className}"` : ""}>`);
       for (const item of block.listItems)
         parts.push(litty`<li>${await buildBlocks(item.li)}</li>`);
       parts.push(litty`</${block.tag}>`);
     } else if ("items" in block) {
       if (block.tag) {
         const className = block.className || rtdBlockDefaultClass[block.tag];
-        parts.push(litty`<${block.tag}${className ? litty` class="${encodeString(className, "attribute")}"` : ""}>${await buildInlineItems(block.items)}</${block.tag}>`);
+        parts.push(litty`<${block.tag}${className ? litty` class="${className}"` : ""}>${await buildInlineItems(block.items)}</${block.tag}>`);
       } else {
         parts.push(await buildInlineItems(block.items));
       }
@@ -98,6 +98,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
   }
 
   async function buildTableCell(cell: RTDBaseTableCell<"inMemory">): Promise<Litty> {
+    //We're building a raw string here, so we need to manually encoe too
     let prefix = cell.scope ? `<th scope="${encodeString(cell.scope, "attribute")}"` : `<td`;
     const className = ("wh-rtd__tablecell " + (cell.className || "")).trim();
     prefix += ` class="${encodeString(className, "attribute")}"`;
@@ -118,7 +119,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
     if (row.cells.some(_ => _.scope === "row"))
       className += " wh-rtd--hasrowheader";
 
-    return litty`<tr${className ? litty` class="${encodeString(className.trim(), "attribute")}"` : ""}>${cells}</tr>`;
+    return litty`<tr${className ? litty` class="${className.trim()}"` : ""}>${cells}</tr>`;
   }
 
   async function buildTable(table: RTDBaseTable<"inMemory">): Promise<Litty> {
@@ -126,7 +127,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
     const rowgroups = (await maybePromiseAll(table.rowGroups.map(rowgroup => maybePromiseAll(rowgroup.rows.map(buildTableRow))))).flat();
 
     const className = `wh-rtd__table ${table.className || "table"}`;
-    return litty`<table class="${encodeString(className, "attribute")}">${table.caption ? litty`<caption class="wh-rtd__tablecaption">${encodeString(table.caption, "html")}</caption>` : ""}${colgroups}<tbody>${rowgroups}</tbody></table>`;
+    return litty`<table class="${className}">${table.caption ? litty`<caption class="wh-rtd__tablecaption">${table.caption}</caption>` : ""}${colgroups}<tbody>${rowgroups}</tbody></table>`;
   }
 
   return await buildBlocks(rtd.blocks);

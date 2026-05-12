@@ -1009,7 +1009,6 @@ async function testRTDOutput() {
     const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
     const table = tabledRTD.body.getElementsByTagName("table")[0];
     test.assert(table);
-    test.eq("Met een captie!", table.getElementsByTagName("caption")[0]?.textContent?.trim());
     // console.dir(xmlToJS(table), { depth: null });
     test.eqPartial({
       ns: 'http://www.w3.org/1999/xhtml',
@@ -1019,7 +1018,7 @@ async function testRTDOutput() {
         {
           tag: 'caption',
           attributes: { class: 'wh-rtd__tablecaption' },
-          children: ['Met een captie!'],
+          children: ['table <> caption'],
         },
         {
           tag: 'colgroup',
@@ -1058,10 +1057,8 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R1C1'],
-                      textContent: 'R1C1'
                     }
                   ],
-                  textContent: 'R1C1'
                 },
                 {
                   tag: 'th',
@@ -1071,10 +1068,8 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R1C2'],
-                      textContent: 'R1C2'
                     }
                   ],
-                  textContent: 'R1C2'
                 },
                 {
                   tag: 'th',
@@ -1084,13 +1079,10 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R1C3'],
-                      textContent: 'R1C3'
                     }
                   ],
-                  textContent: 'R1C3'
                 }
               ],
-              textContent: 'R1C1R1C2R1C3'
             },
             {
               tag: 'tr',
@@ -1104,10 +1096,8 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R2C1'],
-                      textContent: 'R2C1'
                     }
                   ],
-                  textContent: 'R2C1'
                 },
                 {
                   tag: 'td',
@@ -1117,10 +1107,8 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R2C2'],
-                      textContent: 'R2C2'
                     }
                   ],
-                  textContent: 'R2C2'
                 },
                 {
                   tag: 'td',
@@ -1135,13 +1123,10 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R2C3'],
-                      textContent: 'R2C3'
                     }
                   ],
-                  textContent: 'R2C3'
                 }
               ],
-              textContent: 'R2C1R2C2R2C3'
             },
             {
               tag: 'tr',
@@ -1155,7 +1140,6 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R2D1 rowspan 2'],
-                      textContent: 'R2D1 rowspan 2'
                     },
                     {
                       tag: 'p',
@@ -1169,7 +1153,6 @@ async function testRTDOutput() {
                       ],
                     }
                   ],
-                  textContent: 'R2D1 rowspan 2'
                 },
                 {
                   tag: 'td',
@@ -1179,19 +1162,15 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['R2D2 colspan 2'],
-                      textContent: 'R2D2 colspan 2'
                     },
                     {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['cell1 styles'],
-                      textContent: 'cell1 styles'
                     }
                   ],
-                  textContent: 'R2D2 colspan 2cell1 styles'
                 }
               ],
-              textContent: 'R2D1 rowspan 2R2D2 colspan 2cell1 styles'
             },
             {
               tag: 'tr',
@@ -1205,19 +1184,14 @@ async function testRTDOutput() {
                       tag: 'p',
                       attributes: { class: 'normal' },
                       children: ['cell2 styled'],
-                      textContent: 'cell2 styled'
                     }
                   ],
-                  textContent: 'cell2 styled'
                 }
               ],
-              textContent: 'cell2 styled'
             }
           ],
-          textContent: 'R1C1R1C2R1C3R2C1R2C2R2C3R2D1 rowspan 2R2D2 colspan 2cell1 stylescell2 styled'
         }
       ],
-      textContent: 'Met een captie!R1C1R1C2R1C3R2C1R2C2R2C3R2D1 rowspan 2R2D2 colspan 2cell1 stylescell2 styled'
     }, xmlToJS(table));
 
     ////////////// Lists
@@ -1229,7 +1203,6 @@ async function testRTDOutput() {
         tag: 'p',
         attributes: { class: 'normal' },
         children: ['Test list'],
-        textContent: 'Test list'
       },
       {
         ns: 'http://www.w3.org/1999/xhtml',
@@ -1241,7 +1214,6 @@ async function testRTDOutput() {
             tag: 'li',
             attributes: {},
             children: ['simple'],
-            textContent: 'simple'
           },
           {
             ns: 'http://www.w3.org/1999/xhtml',
@@ -1270,22 +1242,16 @@ async function testRTDOutput() {
                             tag: 'li',
                             attributes: {},
                             children: ['deepest bullet'],
-                            textContent: 'deepest bullet'
                           }
                         ],
-                        textContent: 'deepest bullet'
                       }
                     ],
-                    textContent: 'deeper bulletdeepest bullet'
                   }
                 ],
-                textContent: 'deeper bulletdeepest bullet'
               }
             ],
-            textContent: 'bulletdeeper bulletdeepest bullet'
           }
         ],
-        textContent: 'simplebulletdeeper bulletdeepest bullet'
       },
       {
         ns: 'http://www.w3.org/1999/xhtml',
@@ -1308,16 +1274,12 @@ async function testRTDOutput() {
                     tag: 'li',
                     attributes: {},
                     children: ['level 2 (so number 1.1)'],
-                    textContent: 'level 2 (so number 1.1)'
                   }
                 ],
-                textContent: 'level 2 (so number 1.1)'
               }
             ],
-            textContent: 'numbered listlevel 2 (so number 1.1)'
           }
         ],
-        textContent: 'numbered listlevel 2 (so number 1.1)'
       }
     ], listedRTD.contentElements);
   }
