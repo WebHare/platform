@@ -23,6 +23,7 @@ async function testListObjects() {
   const testsitejs = await test.getTestSiteJS();
   const markdownfile = await testsite.openFile("testpages/markdownpage");
   test.assert(markdownfile.parent);
+  const landScape5 = await testsite.openFile("photoalbum/landscape_5.jpg");
 
   const testpagesfolder = await whfs.openFolder(markdownfile.parent);
   const testpagesfolderAsFileOrfolder = await whfs.openFileOrFolder(markdownfile.parent);
@@ -60,6 +61,24 @@ async function testListObjects() {
     contentModified: date => isTemporalInstant(date),
   }, list3.find(_ => _.name === 'staticpage-ps-af'));
 
+  // Test list()ing any object
+  test.eq([{
+    id: landScape5.id,
+    name: landScape5.name,
+    isFolder: false,
+  }, {
+    id: markdownfile.id,
+    name: markdownfile.name,
+    isFolder: false,
+  }], (await whfs.listWHFSObjects(["id", "name", "isFolder"], { ids: [landScape5.id, markdownfile.id] })).toSorted((a, b) => a.name.localeCompare(b.name)));
+
+  test.eq([{
+    id: landScape5.id,
+    name: landScape5.name,
+    isFolder: false,
+    parent: landScape5.parent
+  }], (await whfs.listWHFSObjects(["id", "name", "isFolder", "parent"], { ids: [landScape5.id] })));
+
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name === markdownfile.name), "Verify list() works without any keys");
   test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name === markdownfile.name), "Verify list() works with empty keys");
 
@@ -75,8 +94,6 @@ async function testListObjects() {
   const photoalbum = listDepth2.filter(_ => _.name === "photoalbum");
   test.eqPartial([{ parent: testsitejs.id, path: "photoalbum", name: "photoalbum" }], photoalbum);
   test.eqPartial([{ parent: photoalbum[0].id, path: "photoalbum/landscape_5.jpg", name: "landscape_5.jpg" }], listDepth2.filter(_ => _.name === "landscape_5.jpg"));
-
-
 }
 
 test.runTests([

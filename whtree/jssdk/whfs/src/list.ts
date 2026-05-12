@@ -105,6 +105,8 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
 
 export interface ListFSOptions {
+  /** Filter list result by these object ids */
+  ids?: number[];
 }
 
 export interface ListFSRecursiveOptions extends ListFSOptions {
@@ -119,7 +121,7 @@ export type ListFSRecursiveResult<K extends keyof ListableFsObjectRow> = Pick<Li
   path: string;
 };
 
-export async function list<K extends keyof ListableFsObjectRow = never>(parents: number[] | null, keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
+export async function list<K extends keyof ListableFsObjectRow = never>(parents: number[] | null | "*", keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
   const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
   const selectkeys = new Set<keyof FsObjectRow>;
 
@@ -132,7 +134,8 @@ export async function list<K extends keyof ListableFsObjectRow = never>(parents:
 
   const retval = await db<PlatformDB>()
     .selectFrom("system.fs_objects")
-    .where(qb => parents ? qb.eb("parent", "in", parents) : qb.eb("parent", "is", null))
+    .$if(parents !== "*", qb => qb.where(qb2 => parents ? qb2.eb("parent", "in", parents as number[]) : qb2.eb("parent", "is", null)))
+    .$if(Boolean(options?.ids), qb => qb.where("id", "in", options!.ids!))
     .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
     .$if(getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
     .$if(getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
@@ -194,4 +197,9 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
   }
 
   return rows;
+}
+
+export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
+  const listresults = await list("*", keys, options);
+  return listresults;
 }
