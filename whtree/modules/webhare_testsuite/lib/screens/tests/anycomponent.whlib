@@ -98,14 +98,14 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
       }
     }
 
-    this->title->value := this->comp->title;
+    ^title->value := this->comp->title;
 
     IF(MemberExists(this->comp, "placeholder"))
       this->comp->placeholder := "the-placeholder";
     IF(MemberExists(this->comp, "autocomplete"))
       this->comp->autocomplete := ["organization-title"];
     IF(MemberExists(this->comp, "defaultbutton"))
-      this->comp->defaultbutton := this->alternatedefault;
+      this->comp->defaultbutton := ^alternatedefault;
 
     ^indeterminate->enabled := MemberExists(^comp, "indeterminate");
     IF(^indeterminate->enabled)
@@ -118,19 +118,21 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
       this->comp->onchange := PTR this->OnCompChange;
 
     this->frame->flags.readoverlays := MemberExists(this->comp,"overlays");
-    this->overlaypanel->visible := this->frame->flags.readoverlays;
+    ^overlaypanel->visible := this->frame->flags.readoverlays;
     IF(this->frame->flags.readoverlays)
     {
       this->comp->onchangeoverlays := PTR this->onchangeoverlays;
     }
 
-    this->value->enabled := this->frame->flags.readvalue;
-    this->label->enabled := MemberExists(this->comp, "LABEL");
-    this->updatelabel->enabled := this->label->enabled;
-    this->updateoptions->enabled := MemberExists(this->comp, "OPTIONS");
-    this->enableontarget1_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
-    this->enableontarget2_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS");
+    ^value->enabled := this->frame->flags.readvalue;
+    ^label->enabled := MemberExists(this->comp, "LABEL");
+    ^updatelabel->enabled := ^label->enabled;
+    ^updateoptions->enabled := MemberExists(this->comp, "OPTIONS");
+    ^updatechips->enabled := MemberExists(this->comp, "CHIPS");
+    ^enableontarget1_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS") OR MemberExists(this->comp, "CHIPS");
+    ^enableontarget2_include->enabled := MemberExists(this->comp, "ENABLECOMPONENTS") OR MemberExists(this->comp, "OPTIONS") OR MemberExists(this->comp, "CHIPS");
     ^hiderequiredifdisabled->enabled := MemberExists(^comp, "hiderequiredifdisabled");
+    ^listenopenaction->enabled := MemberExists(this->comp, "OPENACTION");
 
     //Component specific stuff
     SWITCH(component)
@@ -212,7 +214,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
                 , type :=       "button"
                 , onclick :=    PTR this->SetImageSelection
                 ]
-              ], [receiver := this->overlaypanel ]);
+              ], [receiver := ^overlaypanel ]);
 
           this->userdata := [ counter := SELECT AS INTEGER Max(rowkey) FROM this->comp->overlays ];
         }
@@ -237,7 +239,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
       }
     }
 
-    this->componentpanel->InsertComponentAfter(this->comp, DEFAULT OBJECT, FALSE);
+    ^componentpanel->InsertComponentAfter(this->comp, DEFAULT OBJECT, FALSE);
   }
 
   RECORD FUNCTION OnCreateOverlay(RECORD area)
@@ -258,39 +260,48 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
 
   MACRO onchangeoverlays()
   {
-    this->onchangeoverlayscount->value := this->onchangeoverlayscount->value+1;
+    ^onchangeoverlayscount->value := ^onchangeoverlayscount->value+1;
     this->DoReadoverlays();
   }
 
   MACRO OnCompSelect()
   {
-    this->onselectcount->value := this->onselectcount->value+1;
+    ^onselectcount->value := ^onselectcount->value+1;
     this->doreadselection();
   }
 
   MACRO OnCompChange()
   {
-    this->onchangecount->value := this->onchangecount->value+1;
+    ^onchangecount->value := ^onchangecount->value+1;
     this->DoReadValue();
+  }
+
+  VARIANT FUNCTION RemoveEnableComponents(VARIANT value)
+  {
+    IF (TypeID(value) = TypeID(RECORD ARRAY))
+      RETURN SELECT *, DELETE enablecomponents FROM value;
+    ELSE IF (TypeID(value) = TypeID(RECORD))
+      RETURN CellDelete(value, "enablecomponents");
+    RETURN value;
   }
 
   MACRO DoReadSelection()
   {
     IF (MemberExists(this->comp, "SELECTION"))
-      this->selection->value := EncodeJSON(this->comp->selection);
+      ^selection->value := EncodeJSON(this->RemoveEnableComponents(this->comp->selection));
   }
   MACRO DoWriteSelection()
   {
     IF (MemberExists(this->comp, "SELECTION"))
-      this->comp->selection := DecodeJSONOrHSON(this->selection->value);
+      this->comp->selection := DecodeJSONOrHSON(^selection->value);
   }
   MACRO DoReadoverlays()
   {
-    this->overlays->value:=EncodeJSON(this->comp->overlays);
+    ^overlays->value:=EncodeJSON(this->comp->overlays);
   }
   MACRO DoWriteoverlays()
   {
-    this->comp->overlays := DecodeJSONOrHSON(this->overlays->value);
+    this->comp->overlays := DecodeJSONOrHSON(^overlays->value);
   }
 
   MACRO AddImageOverlay()
@@ -338,15 +349,15 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
 
   MACRO OnVisibleChange()
   {
-    ^comp->visible := this->visible->value;
+    ^comp->visible := ^visible->value;
   }
   MACRO OnEnableChange()
   {
-    ^comp->enabled := this->enable->value;
+    ^comp->enabled := ^enable->value;
   }
   MACRO OnRequiredChange()
   {
-    ^comp->required := this->required->value;
+    ^comp->required := ^required->value;
   }
   MACRO OnReadonlyChange()
   {
@@ -364,7 +375,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
   MACRO GotCallback(STRING type)
   {
     LogDebug("tollium:anycomponent", "onchange/onset", type, GetStackTrace());
-    STRING ARRAY parts := STRING[ ...Tokenize(this->onchangecounter->value, ", "), "" ];
+    STRING ARRAY parts := STRING[ ...Tokenize(^onchangecounter->value, ", "), "" ];
     STRING ARRAY newparts;
     BOOLEAN havepart;
     FOREVERY (STRING part FROM parts)
@@ -375,26 +386,33 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
         INSERT type || ": " || (ToInteger(SubString(part, SearchSubstring(part, ": ") + 2), 0) + 1) INTO newparts AT END;
         havepart := TRUE;
       }
-    this->onchangecounter->value := Detokenize(newparts, ", ");
+    ^onchangecounter->value := Detokenize(newparts, ", ");
   }
   MACRO OnUpdateEnableComponents()
   {
     IF (MemberExists(this->comp, "ENABLECOMPONENTS"))
     {
       OBJECT ARRAY list;
-      IF (this->enableontarget1_include->value)
-        INSERT this->enableontarget1 INTO list AT END;
-      IF (this->enableontarget2_include->value)
-        INSERT this->enableontarget2 INTO list AT END;
+      IF (^enableontarget1_include->value)
+        INSERT ^enableontarget1 INTO list AT END;
+      IF (^enableontarget2_include->value)
+        INSERT ^enableontarget2 INTO list AT END;
       this->comp->enablecomponents := list;
     }
-    ELSE
+    ELSE IF (MemberExists(this->comp, "OPTIONS"))
       this->SetOptions();
+    ELSE IF (MemberExists(this->comp, "CHIPS"))
+      this->SetChips();
   }
   MACRO DoUpdateOptions()
   {
     this->longoptions := NOT this->longoptions;
     this->SetOptions();
+  }
+  MACRO DoUpdateChips()
+  {
+    this->longoptions := NOT this->longoptions;
+    this->SetChips();
   }
   MACRO SetOptions()
   {
@@ -417,34 +435,77 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
           ];
     }
 
-    IF (this->enableontarget1_include->value OR this->enableontarget2_include->value)
+    IF (^enableontarget1_include->value OR ^enableontarget2_include->value)
       options := SELECT *, enablecomponents := DEFAULT OBJECT ARRAY FROM options;
 
 
-    IF (this->enableontarget1_include->value)
+    IF (^enableontarget1_include->value)
     {
-      INSERT this->enableontarget1 INTO options[0].enablecomponents AT END;
-      INSERT this->enableontarget1 INTO options[1].enablecomponents AT END;
+      INSERT ^enableontarget1 INTO options[0].enablecomponents AT END;
+      INSERT ^enableontarget1 INTO options[1].enablecomponents AT END;
     }
-    IF (this->enableontarget2_include->value)
-      INSERT this->enableontarget2 INTO options[1].enablecomponents AT END;
+    IF (^enableontarget2_include->value)
+      INSERT ^enableontarget2 INTO options[1].enablecomponents AT END;
 
     this->comp->options := options;
   }
+  MACRO SetChips()
+  {
+    RECORD ARRAY chips;
+    IF(this->longoptions)
+    {
+      chips :=
+          [ [ rowkey := "first",  title := "A very long first option", text := "And also a long text", backgroundcolor := "#000", icon := 1 ]
+          , [ rowkey := "second", title := "Another long option, but the second", text := "And also a long text", backgroundcolor := "#700" ]
+          , [ rowkey := "third", title := "This is the third available option", text := "And also a long text" ]
+          , [ rowkey := "fourth", title := "This is the fourth available option", text := "Mand!", icon := 1, hint := "This is the hint" ]
+          , [ rowkey := "fifth", title := "This is the fifth available option", text := "White", backgroundcolor := "white" ]
+          ];
+    }
+    ELSE
+    {
+      chips :=
+          [ [ rowkey := "first",  title := "First option", text := "And text" ]
+          , [ rowkey := "second", title := "Second option", text := "And text" ]
+          ];
+    }
+
+    IF (^enableontarget1_include->value OR ^enableontarget2_include->value)
+      chips := SELECT *, enablecomponents := DEFAULT OBJECT ARRAY FROM chips;
+
+
+    IF (^enableontarget1_include->value)
+    {
+      INSERT ^enableontarget1 INTO chips[0].enablecomponents AT END;
+      INSERT ^enableontarget1 INTO chips[1].enablecomponents AT END;
+    }
+    IF (^enableontarget2_include->value)
+      INSERT ^enableontarget2 INTO chips[1].enablecomponents AT END;
+
+    this->comp->chips := chips;
+  }
+
   MACRO DoUpdateTitle()
   {
-    this->comp->title := this->title->value;
+    this->comp->title := ^title->value;
   }
   MACRO DoUpdateLabel()
   {
-    this->comp->label := this->label->value;
+    this->comp->label := ^label->value;
   }
   MACRO DoListenOnchange()
   {
     IF (MemberExists(this->comp, "ONCHANGE"))
-      this->comp->onchange := this->listenonchange->value ? PTR this->GotCallback("change") : DEFAULT FUNCTION PTR;
+      this->comp->onchange := ^listenonchange->value ? PTR this->GotCallback("change") : DEFAULT FUNCTION PTR;
     ELSE IF (MemberExists(this->comp, "ONSET"))
-      this->comp->onset := this->listenonchange->value ? PTR this->GotCallback("set") : DEFAULT FUNCTION PTR;
+      this->comp->onset := ^listenonchange->value ? PTR this->GotCallback("set") : DEFAULT FUNCTION PTR;
+  }
+  MACRO DoListenOpenaction() {
+    IF (MemberExists(this->comp, "OPENACTION"))
+      this->comp->openaction := ^listenopenaction->value ? ^openaction : DEFAULT OBJECT;
+  }
+  MACRO DoOpenAction() {
+    ^opencounter->value := ToString(ToInteger(^opencounter->value, 0) + 1);
   }
   MACRO DoReadValue()
   {
@@ -452,13 +513,13 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     {
       VARIANT value := this->comp->value;
       IF (TypeID(value) = TypeID(DATETIME))
-        this->value->value := EncodeHSON(value);
+        ^value->value := EncodeHSON(value);
       ELSE
-        this->value->value := EncodeJSON(value);
+        ^value->value := EncodeJSON(value);
     }
     CATCH(OBJECT e)
     {
-      this->value->value := "EXCEPTION: " || e->what;
+      ^value->value := "EXCEPTION: " || e->what;
     }
 
     IF(^indeterminate->enabled)
@@ -466,7 +527,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
   }
   MACRO DoWriteValue()
   {
-    this->comp->value := DecodeJSONOrHSON(this->value->value);
+    this->comp->value := DecodeJSONOrHSON(^value->value);
   }
   MACRO DoValidateValue()
   {
@@ -494,7 +555,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
 
   MACRO AddComponents(VARIANT ARRAY props, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions([receiver := this->mainprops] , options);
+    options := ValidateOptions([receiver := ^mainprops] , options);
     BOOLEAN breakafter;
     FOREVERY (VARIANT prop FROM props)
     {
