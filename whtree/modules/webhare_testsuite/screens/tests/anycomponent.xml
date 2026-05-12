@@ -3,6 +3,7 @@
   <screen name="anycomponent" allowresize="true" flags="readvalue readselection readoverlays">
     <actions>
       <action name="updateoptions" onexecute="doupdateoptions" title="Update options" />
+      <action name="updatechips" onexecute="doupdatechips" title="Update chips" />
       <action name="updatetitle" onexecute="doupdatetitle" title="Update title" />
       <action name="updatelabel" onexecute="doupdatelabel" title="Update label" />
       <action name="readvalue" frameflags="readvalue" onexecute="doreadvalue" title="Read" />
@@ -12,6 +13,7 @@
       <action name="validatevalue" onexecute="dovalidatevalue" title="Validate" />
       <action name="readoverlays" frameflags="readoverlays" onexecute="doreadoverlays" title="Read" />
       <action name="writeoverlays" onexecute="dowriteoverlays" title="Write" />
+      <action name="openaction" onexecute="doopenaction" title="Open" />
     </actions>
 
     <compositions>
@@ -76,10 +78,15 @@
               <textedit name="label" />
               <button name="updatelabelbutton" action="updatelabel" />
             </line>
-            <button action="updateoptions" />
+            <line>
+              <button action="updateoptions" />
+              <button action="updatechips" />
+            </line>
             <line>
               <textedit name="onchangecounter" enabled="false" />
               <checkbox name="listenonchange" label="listen onchange/onset" onchange="DoListenOnchange" title="" />
+              <textedit name="opencounter" enabled="false" />
+              <checkbox name="listenopenaction" label="listen openaction" onchange="DoListenOpenaction" title="" />
             </line>
             <panel name="mainprops" />
           </cell>
