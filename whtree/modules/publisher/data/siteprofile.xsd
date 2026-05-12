@@ -1682,6 +1682,21 @@
         <xs:documentation>RTD type to use for mails (if not set, falls back to http://www.webhare.net/xmlns/publisher/defaultmailrtdtype)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="defaultstoredays" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>Default days we store visible results.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="maxstoredays" type="xs:nonNegativeInteger">
+      <xs:annotation>
+        <xs:documentation>Maximum days we allow storing visible results</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="processdays" type="xs:positiveInteger">
+      <xs:annotation>
+        <xs:documentation>Maximum days we allow to keep results for processing (minimal: 1)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="autocompleteusername">
       <xs:annotation>
         <xs:documentation>Enables the username autocomplete and sets it title. Set to '*' to use the default title</xs:documentation>
