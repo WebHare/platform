@@ -25,14 +25,6 @@
   <test script="test_bridge_from_harescript.whscr" />
   <test script="test_node_regressions.ts" />
   <test script="test_tests.ts" />
-  <test script="test_whfs.ts" />
-  <test script="test_whfs_types.ts" />
-  <test script="test_whfs_siteprofiles.ts" />
-  <test script="test_whfs_harescript.ts" />
-  <test script="test_whfs_events.ts" flaky="true" />
-  <test script="test_whfs_imexport.ts" />
-  <test script="test_whfs_archiving.ts" />
-  <test script="test_whfs_cli.ts" />
   <test script="test_whdb.ts" />
   <test script="test_manualcondition.ts" />
   <test script="test_fifo.ts" />
@@ -57,5 +49,6 @@
   <test script="test_externals.ts" tags="external"/>
   <test name="meta" path="meta/" />
   <test name="wasm" path="wasm/" />
+  <test name="whfs" path="whfs/" />
   <test name="router" path="router/" />
 </group>

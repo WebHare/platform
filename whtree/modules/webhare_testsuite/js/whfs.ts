@@ -74,3 +74,7 @@ export async function fetchPreviewAsDoc(whfspath: string, urlVars: Record<string
 
   return parseResponse(await fetchResult.text());
 }
+
+export async function listObjHistory(id: number) {
+  return await (await whfs.openFileOrFolder(id)).listHistory();
+}

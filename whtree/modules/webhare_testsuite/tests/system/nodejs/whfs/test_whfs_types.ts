@@ -3,7 +3,7 @@ import { beginWork, commitWork, db } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
-import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
+import { verifyNumSettings, dumpSettings } from "../data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob, buildInstance, type Instance, type TypedInstance, exportFileAsFetch } from "@webhare/services";

@@ -2,11 +2,13 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/richdocument.whlib";
+LOADLIB "wh::javascript.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
 
 /** Wait for output analyser scans to finish
     @param folderids Ids of folders that must be completed
@@ -95,4 +97,30 @@ PUBLIC MACRO SetSnowBeagleWidgetTestDoc(INTEGER fileid) {
                   ]
           ]);
 
+}
+
+VARIANT FUNCTION Ternary(BOOLEAN test, VARIANT iftrue, VARIANT iffalse) {
+  IF(test)
+    RETURN iftrue;
+  RETURN iffalse;
+}
+
+PUBLIC MACRO VerifyTSHistory(INTEGER fileid) {
+  RECORD ARRAY hs_history;
+  FOREVERY(RECORD entry FROM ListObjectHistory(fileid)) {
+    INSERT CELL[ entry.id
+               , entry.name
+               , entry.type
+               , user_auth_object := Ternary(entry.user != 0, entry.user, DEFAULT RECORD)
+               , user_data := entry.userdata
+               , entry.when
+               , snapshot := Ternary(entry.snapshot != 0, entry.snapshot, DEFAULT RECORD)
+               , entry.version
+               , is_active := entry.isactive
+               //FIXME userdata
+               ] INTO hs_history AT END;
+  }
+
+  RECORD ARRAY ts_history := CallJS([ camelcase := TRUE ], "mod::webhare_testsuite/js/whfs.ts#listObjHistory", fileid);
+  TestEq(hs_history, ts_history);
 }

@@ -16,6 +16,7 @@ import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
 import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { list, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
+import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -26,6 +27,32 @@ export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects">
   parentsite: number | null;
   publish: boolean;
 }
+
+const eventNames = [
+  "recycled", //0 whconstant_historytype_recycled
+  "saved",    //1 whconstant_historytype_saved
+  undefined,  //currently unused
+  "reverted", //3 whconstant_historytype_reverted
+  "created",  //4 whconstant_historytype_created
+  "approved", //5 whconstant_historytype_approved
+  "autosave", //6 whconstant_historytype_autosave
+  "import",   //7 whconstant_historytype_import
+  "final"     //8 whconstant_historytype_final
+] as const;
+
+type HistoryEntryType = NonNullable<typeof eventNames[number]>;
+
+type HistoryEntry = {
+  id: number;
+  type: HistoryEntryType;
+  userAuthObject: number | null;
+  userData: object | null; //FIXME document this object
+  when: Temporal.Instant;
+  snapshot: number | null;
+  version: string;
+  name: string;
+  isActive: boolean;
+};
 
 type BaseFSObjectMetadata = {
   id?: number;
@@ -372,6 +399,30 @@ abstract class WHFSBaseObject {
     if (emitReordering)
       finishHandler.objectReordered(this.parentSite, this.parent, this.id, this.isFolder);
     finishHandler.objectUpdate(this.parentSite, this.parent, this.id, this.isFolder);
+  }
+
+  async listHistory(): Promise<Array<HistoryEntry>> {
+    const dbHistory = await db<PlatformDB>().
+      selectFrom("system.fs_history").
+      select(["id", "type", "user", "userdata", "when", "snapshot", "version", "currentname"]).
+      where("fs_object", "=", this.id).
+      orderBy("when", "asc").
+      orderBy("id", "asc").
+      execute();
+
+    const lastApproved = dbHistory.find(h => h.type === 5 || h.type === 4)?.id; //whconstant_historytype_approved || whconstant_historytype_created
+
+    return dbHistory.filter(h => eventNames[h.type]).map(h => ({
+      id: h.id,
+      type: eventNames[h.type] as HistoryEntryType,
+      userAuthObject: h.user,
+      userData: decodeHSONorJSONRecord(h.userdata, { typed: true }),
+      when: Temporal.Instant.fromEpochMilliseconds(h.when.getTime()),
+      snapshot: h.snapshot || null,
+      version: h.version,
+      name: h.currentname,
+      isActive: h.id === lastApproved
+    } satisfies HistoryEntry));
   }
 
   async listInstances(options?: ListInstancesOptions): Promise<ListInstancesResult> {
