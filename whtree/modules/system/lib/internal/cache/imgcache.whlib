@@ -639,3 +639,27 @@ PUBLIC RECORD ARRAY FUNCTION ExpireForMissingSources(RECORD ARRAY indata)
   }
   RETURN indata;
 }
+
+/** Export for use in TypeScript
+    @loadlib mod::system/lib/cache.whlib */
+PUBLIC RECORD FUNCTION ExportTSDescriptor(RECORD wrappedblob) {
+  IF(NOT CellExists(wrappedblob,'__blobsource'))
+    THROW NEW Exception("Is not a valid wrapped blob");
+  IF(wrappedblob.__blobsource = "")
+    THROW NEW Exception("Only wrapped blobs sourced from the database can be exported");
+
+  STRING type := Left(wrappedblob.__blobsource,1);
+  INTEGER64 id := ToInteger64(Substring(wrappedblob.__blobsource, 1), 0);
+  INTEGER source := SearchElement(["o","s","w","r"], type) + 1;
+  IF(source <= 0 OR source > 4)
+    THROW NEW Exception("Unrecognized blob source type");
+
+  RECORD objinfo := GetObjInfo(source, id);
+  RETURN CELL[ __ts_resource_descriptor :=
+             CELL[ source,
+                   id,
+                   cc := GetUnifiedCC(objinfo.creationdate),
+                   setting := CELL[...SplitBlobSetting(objinfo.settingdata, DEFAULT BLOB, 0), DELETE data, DELETE __blobsource, DELETE mirrored, DELETE rotation ]
+             ]
+  ];
+}

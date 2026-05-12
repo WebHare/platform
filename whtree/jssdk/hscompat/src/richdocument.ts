@@ -101,7 +101,7 @@ export function importHSResourceDescriptor(resource: HareScriptResourceDescripto
   });
 }
 
-function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: string): HareScriptRTD["embedded"][number] {
+function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: string): HareScriptResourceDescriptor {
   return {
     dominantcolor: resource.dominantColor || '',
     data: resource.file,

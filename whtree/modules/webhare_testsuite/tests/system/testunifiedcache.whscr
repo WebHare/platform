@@ -3,6 +3,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
@@ -281,6 +282,14 @@ MACRO ImgCacheSourcesTest()
 
   TestEq('kikker.jpg', wrappedinfo.filename);
   TestEq(122, wrappedinfo.width); //original width
+
+  RECORD kikkerinstance_ts := CallJS("@webhare/hscompat#resizeTSDescriptor", ExportTSDescriptor(img), [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png", format := "keep" ]);
+  TestEqLike("*/kikker.jpg", kikkerinstance_ts.link);
+  TestEq(TRUE, testfw->browser->GotoWebPage(kikkerinstance_ts.link), kikkerinstance_ts.link);
+
+  RECORD kikkerinfo := ScanBlob(testfw->browser->content,"");
+  TestEq(122, kikkerinfo.width);
+  TestEq(148, kikkerinfo.height);
 }
 
 MACRO NotTheImageTest()

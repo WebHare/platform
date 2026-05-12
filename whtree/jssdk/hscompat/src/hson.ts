@@ -3,6 +3,7 @@ import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { Money, isBlob, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "./datetime";
 import type { ResourceDescriptor } from "@webhare/services";
+import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 
 declare global {
   interface Object {
@@ -1275,6 +1276,18 @@ export function decodeHSON(hson: string | Uint8Array | ArrayBuffer | Buffer): IP
   throw new Error(res.msg);
 }
 
+function getBlobSource(dbLoc: WebHareDBLocation | undefined): string {
+  if (!dbLoc)
+    return "";
+  switch (dbLoc.source) {
+    case 4: return "r" + dbLoc.id; //formresult
+    case 3: return "w" + dbLoc.id; //wrdsetting
+    case 2: return "s" + dbLoc.id; //fssetting
+    case 1: return "o" + dbLoc.id; //fsobject
+    default: return "";
+  }
+}
+
 export function getHareScriptResourceDescriptor(value: ResourceDescriptor) {
   return {
     hash: value.hash || undefined,
@@ -1289,9 +1302,6 @@ export function getHareScriptResourceDescriptor(value: ResourceDescriptor) {
     filename: value.fileName,
     data: value.file,
     source_fsobject: value.sourceFile || 0,
-    __blobsource: value.dbLoc?.source === 3 ? "w" + value.dbLoc?.id
-      : value.dbLoc?.source === 2 ? "s" + value.dbLoc?.id
-        : value.dbLoc?.source === 1 ? "o" + value.dbLoc?.id
-          : ""
+    __blobsource: getBlobSource(value.dbLoc)
   };
 }
