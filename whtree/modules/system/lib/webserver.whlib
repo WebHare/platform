@@ -107,10 +107,8 @@ PUBLIC MACRO AbortWithHTTPError(INTEGER errorcode, STRING reason DEFAULTSTO "", 
     @param data File to send */
 PUBLIC MACRO SendWebFile(BLOB data) __ATTRIBUTES__(TERMINATES)
 {
-  IF(RecordExists(shtmlcontext)) {
-    ResetWebResponse();
-    THROW NEW SendWebFileAbortException(data);
-  }
+  IF(RecordExists(shtmlcontext))
+    shtmlcontext.sendwebfile(data); //Usually terminates
 
   PrepareHTTPResponse(); //flush add headers
   IF (LENGTH(data) = 0)

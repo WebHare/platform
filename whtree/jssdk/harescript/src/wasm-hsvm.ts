@@ -201,6 +201,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
   rootRunPermission = this.permissionSystem.allocRootContext();
   runContextStore = new AsyncLocalStorage<HSVMRunContext>();
 
+  terminationValue: unknown = null;
+
   /** Unresolved resurrected promises we still expect the VM to syscall fulfillResurrectedPromise for */
   unresolvedPromises = new Map<number, PromiseWithResolvers<unknown>>;
   /** Promises that still appear to be alive and may be requested to resolve by JavaScript users of this VM*/

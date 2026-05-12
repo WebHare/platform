@@ -10,6 +10,7 @@ import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import type { PageBuilderDataTypes } from "@webhare/router";
 import type { DataLayerEntry, FrontendDataTypes } from "@webhare/frontend";
 import type { Thing } from "schema-dts";
+import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
@@ -116,7 +117,27 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
       remoteip: contReq.webRequest.clientIp,
       webserver: contReq.webRequest.clientWebServer,
     };
-    result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id);
+
+    try {
+      result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id);
+    } catch (e) {
+      const tv = (await getCodeContextHSVM())?._getHSVM().terminationValue as {
+        data: WebHareBlob;
+        sendhttpheaders: Array<{
+          header: string;
+          data: string;
+          always_add: boolean;
+        }>;
+      } | null;
+
+      if (!tv) //It's not a SendWebFile/Redirect
+        throw e;
+
+      result = {
+        headers: tv.sendhttpheaders,
+        sendfile: tv.data
+      };
+    }
   } else {
     result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id);
   }

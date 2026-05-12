@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
@@ -71,11 +72,16 @@ MACRO MockUsingClientInfo(RECORD clientinfo) {
     localport := 0,
     binding := 0,
     //callbacks
-    resetresponse := PTR ResetResponse
+    resetresponse := PTR MyResetResponse,
+    sendwebfile := PTR MySendWebFile
   ]);
 }
 
-MACRO ResetResponse() {
+MACRO MySendWebFile(BLOB data) {
+  EM_Syscall("terminateHSVM", CELL[data, sendhttpheaders]);
+}
+
+MACRO MyResetResponse() {
   IF(capturing_stream != 0) {
     MakeBlobFromStream(capturing_stream); //and discard it
     capturing_stream := CreateStream();
@@ -136,27 +142,22 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
     ];
   }
 
-  TRY {
-    OBJECT pageobject;
-    IF(RecordExists(dynamicexecution))
-      IF(dynamicexecution.routerfunction != "")
-        pageobject := MakeFunctionPtr(dynamicexecution.routerfunction)(webdesign);
-      ELSE {
-        INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(dynamicexecution.webpageobjectname,'#')[0]) INTO __pageinfo;
-        pageobject := MakeObject(dynamicexecution.webpageobjectname);
-      }
-    ELSE
-      pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
+  //NOTE: Any use of SendWebFile (and Redirect) by the code below will trigger a terminateHSVM EM_Syscall - which will abort the VM and be handled directly in hswebdesigndriver.ts
+  OBJECT pageobject;
+  IF(RecordExists(dynamicexecution))
+    IF(dynamicexecution.routerfunction != "")
+      pageobject := MakeFunctionPtr(dynamicexecution.routerfunction)(webdesign);
+    ELSE {
+      INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(dynamicexecution.webpageobjectname,'#')[0]) INTO __pageinfo;
+      pageobject := MakeObject(dynamicexecution.webpageobjectname);
+    }
+  ELSE
+    pageobject := MakeFunctionPtr(pagerouter.funcname)(webdesign, pagerouter.funcarg);
 
-    RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
-    result.headers := sendhttpheaders;
-    sendhttpheaders := RECORD[];
-    RETURN result;
-  } CATCH(OBJECT <SendWebFileAbortException> e) {
-    RECORD ARRAY headers := sendhttpheaders;
-    sendhttpheaders := RECORD[];
-    RETURN CELL[ headers, sendfile := e->data ];
-  }
+  RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
+  result.headers := sendhttpheaders;
+  sendhttpheaders := RECORD[];
+  RETURN result;
 }
 
 PUBLIC RECORD FUNCTION RenderHSWidget(INTEGER targetobject, STRING widgettype, RECORD dbloc) {
