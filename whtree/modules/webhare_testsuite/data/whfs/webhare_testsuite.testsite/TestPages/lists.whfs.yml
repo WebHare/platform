@@ -1,0 +1,42 @@
+type: platform:filetypes.richdocument
+instances:
+  - whfsType: platform:virtual.objectdata
+    clone: onCopy
+    data:
+      title: Lists
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    clone: onCopy
+    data:
+      data:
+        - tag: p
+          items:
+            - text: Test list
+        - tag: ul
+          listItems:
+            - li:
+                - items:
+                    - text: simple
+            - li:
+                - items:
+                    - text: bullet
+                - tag: ul
+                  listItems:
+                    - li:
+                        - items:
+                            - text: deeper bullet
+                        - tag: ul
+                          listItems:
+                            - li:
+                                - items:
+                                    - text: deepest bullet
+        - tag: ol
+          listItems:
+            - li:
+                - items:
+                    - text: numbered list
+                - tag: ol
+                  listItems:
+                    - li:
+                        - items:
+                            - text: level 2 (so number 1.1)

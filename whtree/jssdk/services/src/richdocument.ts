@@ -1,4 +1,4 @@
-import { omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
+import { appendToArray, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
@@ -25,7 +25,7 @@ export const rtdParagraphTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as co
 /** List types supported by us */
 export const rtdListTypes = ["ul", "ol"] as const;
 /** Maps h1 etc to a default class if we're building RTDs wthout an explicit RTDType (needed for consistent output) */
-export const rtdBlockDefaultClass: Record<RTDParagraphType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal", "ol": "ordered", "ul": "unordered" } as const;
+export const rtdBlockDefaultClass: Record<RTDParagraphType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal", "ol": "ordered", "ul": "unordered", "table": "table" } as const;
 /** Simple text styles and their order */
 export const rtdTextStyles = { //Note that a-href is higher than all these styles. See also this.textstyletags in structurededitor
   "i": "italic",
@@ -80,6 +80,7 @@ type RTDBaseListItem<Mode extends RTDItemMode> = {
 type RTDBaseBlock<Mode extends RTDItemMode> =
   RTDBaseParagraph<Mode> |
   RTDBaseList<Mode> |
+  RTDBaseTable<Mode> |
   { widget: RTDBaseWidget<Mode> };
 
 
@@ -152,6 +153,7 @@ type RTDSourceListItem = {
 export type RTDSourceBlock =
   RTDBaseParagraph<"build"> |
   RTDSourceList |
+  RTDBaseTable<"build"> |
   { widget: RTDBaseWidget<"build"> };
 
 /** The items of a list (type of list.listItems) */
@@ -186,9 +188,35 @@ export type RTDExportListItem = {
   li: RTDExportListItemItems;
 };
 
+export type RTDBaseTableCell<Mode extends RTDItemMode> = {
+  /** Scope for headers. If set, this cell is considered a `<TH>`, otherwise a `<TD>` */
+  scope?: "col" | "row";
+  cellItems: RTDBaseBlocks<Mode>;
+  colSpan?: number;
+  rowSpan?: number;
+  className?: string;
+};
+
+export type RTDBaseTable<Mode extends RTDItemMode> = {
+  tag: "table";
+  className?: string;
+  caption?: string;
+  colGroups: Array<{
+    cols: Array<{
+      width: number;
+    }>;
+  }>;
+  rowGroups: Array<{
+    rows: Array<{
+      cells: Array<RTDBaseTableCell<Mode>>;
+    }>;
+  }>;
+};
+
 export type RTDExportBlock =
   RTDBaseParagraph<"export"> |
   RTDExportList |
+  RTDBaseTable<"export"> |
   { widget: RTDBaseWidget<"export"> };
 
 /** The items of a list (type of list.listItems) */
@@ -301,16 +329,6 @@ function splitBuildTag<T extends string>(tag: T): { tag: T extends `${infer Tag}
     tag: tagName as (T extends `${infer Tag}.${string}` ? Tag : T),
     ...(className !== defaultClass ? { className } : {})
   };
-}
-
-function getArrayPromise<T>(array: T[]): MaybePromise<Array<Awaited<T>>> {
-  const resolved: Array<Awaited<T>> = [];
-  for (const item of array) {
-    if (isPromise(item))
-      return Promise.all(array);
-    resolved.push(item as Awaited<T>);
-  }
-  return resolved;
 }
 
 type MaybePromise<T> = T | Promise<T>;
@@ -446,7 +464,7 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async addBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems, options?: ImportOptions) {
+  private async buildBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems, options?: ImportOptions): Promise<RTDBlock> {
     validateTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -457,7 +475,7 @@ export class RichTextDocument {
     if (useclass !== rtdBlockDefaultClass[tag]) {
       newblock.className = useclass;
     }
-    this.#blocks.push(newblock);
+    return newblock;
   }
 
   private async addImage(node: RTDBaseInlineItem<"build"> & object & RTDBaseInlineImageItem<"build">, options?: ImportOptions): Promise<RTDBaseInlineItem<"inMemory">> {
@@ -476,7 +494,7 @@ export class RichTextDocument {
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
 
-  async addList(tag: string, className: string | undefined, listItems: RTDSourceListItems, options?: ImportOptions) {
+  private async buildList(tag: string, className: string | undefined, listItems: RTDSourceListItems, options?: ImportOptions): Promise<RTDBlock> {
     validateListTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -488,17 +506,47 @@ export class RichTextDocument {
     if (useclass !== rtdBlockDefaultClass[tag]) {
       newblock.className = useclass;
     }
-    this.#blocks.push(newblock);
+    return newblock;
   }
 
-  async addBlocks(blocks: RTDSourceBlock[], options?: ImportOptions): Promise<void> {
+  private async buildTable(table: RTDBaseTable<"build">, options?: ImportOptions): Promise<RTDBlock> {
+    const className = table.className || rtdBlockDefaultClass["table"] || throwError(`No default class for table`);
+    if (!isValidRTDClassName(className))
+      throw new Error(`Invalid class name '${className}'`);
+
+    const newblock: RTDBaseTable<"inMemory"> = {
+      tag: "table",
+      colGroups: structuredClone(table.colGroups),
+      rowGroups: await maybePromiseAll(table.rowGroups.map(async rowGroup => ({
+        rows: await maybePromiseAll(rowGroup.rows.map(async row => {
+          const newCells = await maybePromiseAll(row.cells.map(async cell => {
+            const newCellItems = await this.buildBlocks(cell.cellItems, options || {});
+            return { ...cell, cellItems: newCellItems };
+          }));
+          return { ...row, cells: newCells };
+        }))
+      })))
+    };
+    if (className !== rtdBlockDefaultClass["table"])
+      newblock.className = className;
+    if (table.caption)
+      newblock.caption = table.caption;
+
+    return newblock;
+  }
+
+  async buildBlocks(inBlocks: RTDSourceBlock[], options?: ImportOptions): Promise<RTDBlock[]> {
     //TODO validate, import disk objects etc
-    for (const block of blocks) {
+    const blocks: RTDBlock[] = [];
+    for (const block of inBlocks) {
       if ("items" in block) {
-        await this.addBlock(block.tag, block.className, block.items, options);
+        blocks.push(await this.buildBlock(block.tag, block.className, block.items, options));
         continue;
       } else if ("listItems" in block) {
-        await this.addList(block.tag, block.className, block.listItems, options);
+        blocks.push(await this.buildList(block.tag, block.className, block.listItems, options));
+        continue;
+      } else if ("tag" in block && block.tag === "table") {
+        blocks.push(await this.buildTable(block, options));
         continue;
       }
 
@@ -510,12 +558,12 @@ export class RichTextDocument {
       const entry = entries[0];
 
       if (entry[0] === 'widget') {
-        this.#blocks.push({ widget: await this.addWidget(entry[1], options) });
+        blocks.push({ widget: await this.addWidget(entry[1], options) });
         continue;
       }
 
       if (isTagEntry(entry, rtdParagraphTypes)) {
-        this.#blocks.push({
+        blocks.push({
           ...splitBuildTag(entry[0]),
           items: await this.#buildParagraphItems(entry[1], options || {})
         });
@@ -524,6 +572,11 @@ export class RichTextDocument {
       entry satisfies ["tag", undefined]; // artefact of the OneProperty type
       throw new Error(`Invalid block entry: ${JSON.stringify(entry)}`);
     }
+    return blocks;
+  }
+
+  async addBlocks(blocks: RTDSourceBlock[], options?: ImportOptions): Promise<void> {
+    appendToArray(this.#blocks, await this.buildBlocks(blocks, options));
   }
 
   private async exportLink<T>(item: T & RTDBaseLink<"inMemory">, options: ExportOptions): Promise<T & RTDBaseLink<"export">> {
@@ -533,8 +586,9 @@ export class RichTextDocument {
     return expLink ? { ...item, link: expLink } : omit(item, ["link"]) as T & RTDBaseLink<"export">;
   }
 
+
   #exportInlineItems(block: Array<RTDBaseInlineItem<"inMemory">>, options: ExportOptions): MaybePromise<Array<RTDBaseInlineItem<"export">>> {
-    return getArrayPromise(block.map(async item => {
+    return maybePromiseAll(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
         return { ...item, inlineWidget: await item.inlineWidget.export(options) satisfies ExportedInstance } as RTDBaseInlineItem<"export">;
@@ -552,6 +606,20 @@ export class RichTextDocument {
 
   async #exportRTDWidget(widget: { widget: RTDBaseWidget<"inMemory"> }, options: ExportOptions): Promise<{ widget: RTDBaseWidget<"export"> }> {
     return { widget: await widget.widget.export(options) };
+  }
+
+  async #exportRTDTable(table: RTDBaseTable<"inMemory">, options: ExportOptions): Promise<RTDBaseTable<"export">> {
+    const newRowGroups = await maybePromiseAll(table.rowGroups.map(async rowGroup => {
+      const newRows = await maybePromiseAll(rowGroup.rows.map(async row => {
+        const newCells = await maybePromiseAll(row.cells.map(async cell => {
+          const newCellItems = await this.#exportRTDBlocks(cell.cellItems, options);
+          return { ...cell, cellItems: newCellItems };
+        }));
+        return { ...row, cells: newCells };
+      }));
+      return { ...rowGroup, rows: newRows };
+    }));
+    return { ...table, rowGroups: newRowGroups };
   }
 
   #exportRTDAnonymousParagraph(block: RTDBaseAnonymousParagraph<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseAnonymousParagraph<"export">> {
@@ -575,22 +643,24 @@ export class RichTextDocument {
     });
     // Casting to RTDBaseListItem<"export"> to avoid a lot of code duplkication due to the [ anonymousparagraph, ...Array<RTDBaseList> ] type
     // Rob: can't think of a way to write a map function and a conversion function that work with the type system to preserve the format
-    return mapMaybePromise(getArrayPromise(convertedItems), li => ({ li })) as RTDBaseListItem<"export">;
+    return mapMaybePromise(maybePromiseAll(convertedItems), li => ({ li })) as RTDBaseListItem<"export">;
   }
 
   #exportRTDList(block: RTDBaseList<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseList<"export">> {
     const convertedItems = block.listItems.map(item => this.#exportRTDListItem(item, options));
-    return mapMaybePromise(getArrayPromise(convertedItems), items => ({ ...block, listItems: items }));
+    return mapMaybePromise(maybePromiseAll(convertedItems), items => ({ ...block, listItems: items }));
   }
 
   #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<RTDExport> {
-    return getArrayPromise(blocks.map(block => {
+    return maybePromiseAll(blocks.map(block => {
       if ("items" in block)
         return this.#exportRTDParagraph(block, options) satisfies MaybePromise<RTDExport[number]>;
       else if ("listItems" in block) {
         return this.#exportRTDList(block, options) satisfies MaybePromise<RTDExport[number]>;
-      } else if ("widget" in block)
+      } else if ("widget" in block) {
         return this.#exportRTDWidget(block, options) satisfies MaybePromise<RTDExport[number]>;
+      } else if (block.tag === "table")
+        return this.#exportRTDTable(block, options) satisfies MaybePromise<RTDExport[number]>;
       else
         block satisfies never;
       throw new Error(`Block ${JSON.stringify(block)} has no export definition`);

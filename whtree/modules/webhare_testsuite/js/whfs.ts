@@ -2,12 +2,13 @@
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import * as whfs from "@webhare/whfs";
-import { XMLSerializer, type Document } from "@xmldom/xmldom";
+import type { Document } from "@xmldom/xmldom";
 import { createContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { attempt, throwError } from "@webhare/std";
+import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -22,18 +23,15 @@ export function parseResponse(responsetext: string) {
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];
   const contentdiv = doc.getElementById("content");
-  const contentElements = contentdiv ? elements(contentdiv.childNodes).
-    map(e => new XMLSerializer().serializeToString(e)).
-    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
-  const bodyElements = body ? elements(body.childNodes).
-    map(e => new XMLSerializer().serializeToString(e)).
-    map(s => s.replaceAll(" xmlns=\"http://www.w3.org/1999/xhtml\"", "")) : [];
+  //eliminate empty toplevel nodes:
+  const contentElements = contentdiv ? xmlToJS(contentdiv).children.filter(child => typeof child === "object" || child.trim()) : [];
+  const bodyElements = body ? xmlToJS(body).children.filter(child => typeof child === "object" || child.trim()) : [];
 
   const metaTags = new Map(elements(doc.getElementsByTagName("meta")).filter(m => m.getAttribute("name")).map(m => [m.getAttribute("name") || "", m.getAttribute("content") || ""]));
   const openGraph = test.extractOpenGraphData(doc);
   const schemaOrg = test.extractSchemaOrgData(doc);
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg };
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */

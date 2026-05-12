@@ -7,6 +7,8 @@ import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
@@ -168,6 +170,195 @@ async function testReader() {
       ]
     }
   ], aboutAFish.data);
+}
+
+async function testHSReader() {
+  await beginWork();
+  const tempBeagleWidgets = await (await test.getTestSiteJSTemp()).ensureFile("beagle-widgets", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleWidgetTestDoc(tempBeagleWidgets.id);
+  await commitWork();
+
+  const docBeagleWidgets = await whfsType("platform:filetypes.richdocument").get(tempBeagleWidgets.id, { export: true });
+  test.eq([
+    { tag: 'p', items: [{ text: 'indirect html widget:' }] },
+    {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        data: {
+          widgets: ['site::webhare_testsuite.testsitejs/TestPages/htmlwidget']
+        }
+      }
+    },
+    { tag: 'p', items: [{ text: 'indirect jswidget:' }] },
+    {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        data: {
+          widgets: ['site::webhare_testsuite.testsitejs/TestPages/jswidget']
+        }
+      }
+    },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Een afbeelding: ' },
+        {
+          alt: 'I&G',
+          width: 160,
+          height: 120,
+          image: {
+            file: { base64: /^\/9j/ },
+            sourceFile: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg',
+            extension: '.jpg',
+            mediaType: 'image/jpeg',
+            width: 428,
+            height: 284,
+            dominantColor: /^#[0-9A-F]{6}$/,
+            hash: test.wellKnownHashes.snowbeagleJPG,
+            fileName: 'imagecid-81400'
+          }
+        }
+      ]
+    },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Een ' },
+        {
+          text: 'externe',
+          link: { externalLink: 'https://beta.webhare.net/' }
+        },
+        { text: ' en een ' },
+        {
+          text: 'interne',
+          link: {
+            internalLink: 'site::webhare_testsuite.testsitejs/TestPages/rangetestfile.jpeg',
+            append: '#dieper'
+          }
+        },
+        { text: ' link.' }
+      ]
+    }
+  ], docBeagleWidgets.data);
+}
+
+async function testHSReaderTables() {
+  await beginWork();
+  const tempBeagleTables = await (await test.getTestSiteJSTemp()).ensureFile("beagle-tables", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleTabledTestDoc(tempBeagleTables.id);
+  await commitWork();
+
+  const docBeagleTables = await whfsType("platform:filetypes.richdocument").get(tempBeagleTables.id, { export: true });
+  test.assert(docBeagleTables.data);
+
+  test.eq([
+    {
+      tag: 'h1',
+      items: [
+        { text: 'Ik ben      een ' },
+        { text: 'heading 1&', bold: true }
+      ]
+    },
+    { tag: 'p', items: [] },
+    {
+      tag: 'p',
+      items: [
+        { text: 'Ik ben een ' },
+        { text: '<normale>', bold: true },
+        { text: ' ' },
+        { text: 'b-lex', link: { externalLink: 'http://b-lex.nl/' } },
+        { text: ' ' },
+        { text: 'paragraaf', italic: true },
+        { text: 'met een      soft-break. Check deze afbeelding: ' },
+        {
+          alt: 'I&G',
+          width: 160,
+          height: 120,
+          image: {
+            file: { base64: /^\/9j/ },
+            extension: '.jpg',
+            mediaType: 'image/jpeg',
+            width: 428,
+            height: 284,
+            dominantColor: /^#[0-9A-F]{6}$/,
+            hash: test.wellKnownHashes.snowbeagleJPG,
+            fileName: 'imagecid-81400'
+          }
+        }
+      ]
+    },
+    {
+      tag: 'table',
+      caption: "Met een captie!",
+      className: "maintable",
+      colGroups: [
+        { cols: [{ width: 25 }, { width: 45 }] }
+      ],
+      rowGroups: [{
+        rows: [{
+          cells: [
+            {
+              scope: "col",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 1 para 1" }]
+              }, {
+                tag: 'p',
+                items: [{ text: "Cell 1 para 2" }]
+              }]
+            },
+            {
+              scope: "col",
+              className: "cell2",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 2 para 1" }]
+              }]
+            }
+
+          ]
+        }, {
+          cells: [
+            {
+              rowSpan: 2,
+              className: "cell1",
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 3" }]
+              }]
+            },
+            {
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Cell 4" }]
+              }]
+            }
+          ]
+        }, {
+          cells: [
+            {
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Next to the rowspan 2" }]
+              }]
+            }
+          ]
+        }, {
+          cells: [
+            {
+              colSpan: 2,
+              cellItems: [{
+                tag: 'p',
+                items: [{ text: "Colspan 2" }]
+              }]
+            }
+          ]
+        }]
+      }]
+    }
+  ], docBeagleTables.data);
+
+  await verifySimpleRoundTrip(await buildRTD(docBeagleTables.data));
 }
 
 async function testBuilder() {
@@ -812,12 +1003,297 @@ async function testRegressions() {
   ], parseResult.blocks);
 }
 
+async function testRTDOutput() {
+  for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
+    ////////////// Tables
+    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
+    const table = tabledRTD.body.getElementsByTagName("table")[0];
+    test.assert(table);
+    // console.dir(xmlToJS(table), { depth: null });
+    test.eqPartial({
+      ns: 'http://www.w3.org/1999/xhtml',
+      tag: 'table',
+      attributes: { class: 'wh-rtd__table table' },
+      children: [
+        {
+          tag: 'caption',
+          attributes: { class: 'wh-rtd__tablecaption' },
+          children: ['table <> caption'],
+        },
+        {
+          tag: 'colgroup',
+          attributes: {},
+          children: [
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            },
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            },
+            {
+              tag: 'col',
+              attributes: { style: 'width:319px' },
+              children: [],
+            }
+          ],
+        },
+        {
+          tag: 'tbody',
+          attributes: {},
+          children: [
+            {
+              tag: 'tr',
+              attributes: { class: 'wh-rtd--hascolheader' },
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C1'],
+                    }
+                  ],
+                },
+                {
+                  tag: 'th',
+                  attributes: { class: 'wh-rtd__tablecell', scope: 'col' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C2'],
+                    }
+                  ],
+                },
+                {
+                  tag: 'th',
+                  attributes: { class: 'wh-rtd__tablecell', scope: 'col' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R1C3'],
+                    }
+                  ],
+                }
+              ],
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C1'],
+                    }
+                  ],
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C2'],
+                    }
+                  ],
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell' },
+                  children: [
+                    {
+                      tag: 'a',
+                      attributes: { class: 'wh-anchor', id: 'anker' },
+                      children: [],
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2C3'],
+                    }
+                  ],
+                }
+              ],
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell', rowspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2D1 rowspan 2'],
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: [
+                        {
+                          tag: 'br',
+                          attributes: {},
+                          children: [],
+                        }
+                      ],
+                    }
+                  ],
+                },
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell cell1', colspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['R2D2 colspan 2'],
+                    },
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['cell1 styles'],
+                    }
+                  ],
+                }
+              ],
+            },
+            {
+              tag: 'tr',
+              attributes: {},
+              children: [
+                {
+                  tag: 'td',
+                  attributes: { class: 'wh-rtd__tablecell cell2', colspan: '2' },
+                  children: [
+                    {
+                      tag: 'p',
+                      attributes: { class: 'normal' },
+                      children: ['cell2 styled'],
+                    }
+                  ],
+                }
+              ],
+            }
+          ],
+        }
+      ],
+    }, xmlToJS(table));
+
+    ////////////// Lists
+    const listedRTD = await fetchPreviewAsDoc(`site::${site}/testpages/lists`);
+    // console.dir(xmlToJS(listedRTD.body), { depth: null });
+    test.eqPartial([
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['Test list'],
+      },
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'ul',
+        attributes: { class: 'unordered' },
+        children: [
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: ['simple'],
+          },
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: [
+              'bullet',
+              {
+                ns: 'http://www.w3.org/1999/xhtml',
+                tag: 'ul',
+                attributes: {},
+                children: [
+                  {
+                    ns: 'http://www.w3.org/1999/xhtml',
+                    tag: 'li',
+                    attributes: {},
+                    children: [
+                      'deeper bullet',
+                      {
+                        ns: 'http://www.w3.org/1999/xhtml',
+                        tag: 'ul',
+                        attributes: {},
+                        children: [
+                          {
+                            ns: 'http://www.w3.org/1999/xhtml',
+                            tag: 'li',
+                            attributes: {},
+                            children: ['deepest bullet'],
+                          }
+                        ],
+                      }
+                    ],
+                  }
+                ],
+              }
+            ],
+          }
+        ],
+      },
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'ol',
+        attributes: { class: 'ordered' },
+        children: [
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: [
+              'numbered list',
+              {
+                ns: 'http://www.w3.org/1999/xhtml',
+                tag: 'ol',
+                attributes: {},
+                children: [
+                  {
+                    ns: 'http://www.w3.org/1999/xhtml',
+                    tag: 'li',
+                    attributes: {},
+                    children: ['level 2 (so number 1.1)'],
+                  }
+                ],
+              }
+            ],
+          }
+        ],
+      }
+    ], listedRTD.contentElements);
+  }
+}
+
 test.runTests(
   [
     testReader,
+    testHSReader,
+    testHSReaderTables,
     testBuilder,
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
     testWRDRoundTrips,
-    testRegressions
+    testRegressions,
+    testRTDOutput
   ]);

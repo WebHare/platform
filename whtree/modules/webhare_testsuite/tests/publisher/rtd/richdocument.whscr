@@ -122,7 +122,7 @@ MACRO ParserApiTest()
                                  || '<p class="normal">I\'m a merge field: <b><span data-merge="textContent:yourname"></span></b></p>'
                                  || '<table><colgroup><col style="width:25px"/><col style="width:45px"/></colgroup><tbody>' //FIXME should have class="tabletag" but we lack tabletyping
                                     || '<tr>'
-                                      || '<th scope="col"><p data-rtd-anchor="bob" class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></th>'
+                                      || '<th scope="col"><p class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></th>'
                                       || '<th scope="col"><p class="normal">Cell 2 para 1</p></th>'
                                     || '</tr><tr>'
                                       || '<td><p class="normal">Cell 3</p></td>'

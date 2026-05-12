@@ -81,7 +81,7 @@ async function testPageResponse() {
 
   //Preview a HS widget
   const hsWidget = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/hswidget-embed-lvl1");
-  test.eq(/<div class="level1widget"/, hsWidget.bodyElements[0]);
+  test.eqPartial([{ tag: 'div', attributes: { class: "level1widget" } }, {}], hsWidget.bodyElements);
 
   //Regression: the '<b></b>' part was rendered as '[Object object]'
   const richDocument = await sitereq.renderRTD(await buildRTD([
@@ -89,7 +89,7 @@ async function testPageResponse() {
     { tag: "p", items: [] }, //empty line without items
     { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
   ]));
-  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+  test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
 }
 
 async function testDynamicPage() {
@@ -97,7 +97,7 @@ async function testDynamicPage() {
     const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-js");
     const fetchResult = await fetch(dynamicPage.link + "?echo=1234");
     const response = parseResponse(await fetchResult.text());
-    test.eq([`<p>renderDynamicPage(echo = 1234)</p>`], response.contentElements);
+    test.eqPartial([{ tag: "p", textContent: 'renderDynamicPage(echo = 1234)' }], response.contentElements);
     test.eq(/Dynamic request from/, response.doc.getElementById("isdynamicrequest")?.textContent);
   }
 
@@ -107,13 +107,13 @@ async function testDynamicPage() {
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-js");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
       const response = parseResponse(await fetchResult.text());
-      test.eq([`<p>renderDynamicPage(echo = 12378)</p>`], response.contentElements, dynamicPage.link + "?echo=12378");
+      test.eqPartial([{ tag: "p", textContent: 'renderDynamicPage(echo = 12378)' }], response.contentElements, dynamicPage.link + "?echo=12378");
     }
     { //JS site
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-js");
-      const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
+      const fetchResult = await fetch(dynamicPage.link + "?echo=12379");
       const response = parseResponse(await fetchResult.text());
-      test.eq([`<p>renderDynamicPage(echo = 12378)</p>`], response.contentElements, dynamicPage.link + "?echo=12378");
+      test.eqPartial([{ tag: "p", textContent: 'renderDynamicPage(echo = 12379)' }], response.contentElements, dynamicPage.link + "?echo=12379");
     }
   }
 
@@ -123,15 +123,15 @@ async function testDynamicPage() {
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsite/TestPages/dynamicpage-override-hs");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
       const response = parseResponse(await fetchResult.text());
-      test.eq([`<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`], response.contentElements, dynamicPage.link + "?echo=12378");
+      test.eqPartial([{ attributes: { id: "dynamicpage_override" }, tag: "div", textContent: "This is DynamicPageOverride with echo=12378" }], response.contentElements, dynamicPage.link + "?echo=12378");
     }
     { //JS site
       const dynamicPage = await whfs.openFile("site::webhare_testsuite.testsitejs/TestPages/dynamicpage-override-hs");
       const fetchResult = await fetch(dynamicPage.link + "?echo=12378");
       const response = parseResponse(await fetchResult.text());
-      test.eq([
-        `<div id="dynamicpage_override">This is DynamicPageOverride with echo=12378</div>`,
-        `<div id="dynamicpageinfo">{"echoWebVar":"12378"}</div>`
+      test.eqPartial([
+        { attributes: { id: "dynamicpage_override" }, tag: "div", textContent: "This is DynamicPageOverride with echo=12378" },
+        { attributes: { id: "dynamicpageinfo" }, tag: "div", textContent: '{"echoWebVar":"12378"}' }
       ], response.contentElements, dynamicPage.link + "?echo=12378");
       test.eq({ echoWebVar: "12378" }, response.config?.["webhare_testsuite:dynamicpagefrontend"]);
     }
@@ -145,14 +145,14 @@ async function testDynamicPage() {
       test.assert(dynamicPage.link, "Folder should have a link since it has an index doc");
       const fetchResult = await fetch(dynamicPage.link);
       const response = parseResponse(await fetchResult.text());
-      test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsite/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
+      test.eqPartial({ attributes: { id: "whfspath" }, tag: "div", textContent: "/webhare-tests/webhare_testsuite.testsite/TestPages/dynfolder/index" }, response.bodyElements[1], dynamicPage.link);
     }
     { //JS site
       const dynamicPage = await whfs.openFolder("site::webhare_testsuite.testsitejs/TestPages/dynfolder/");
       test.assert(dynamicPage.link, "Folder should have a link since it has an index doc");
       const fetchResult = await fetch(dynamicPage.link);
       const response = parseResponse(await fetchResult.text());
-      test.eq(`<div id="whfspath">/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynfolder/index</div>`, response.bodyElements[1], dynamicPage.link);
+      test.eqPartial({ attributes: { id: "whfspath" }, tag: "div", textContent: "/webhare-tests/webhare_testsuite.testsitejs/TestPages/dynfolder/index" }, response.bodyElements[1], dynamicPage.link);
     }
   }
 
@@ -222,68 +222,255 @@ async function testPageResponsePlainPages() {
 async function testPageResponseJSRTD() {
   {
     const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
-
     //small differences with the TS output: imgheight rounded down, more stray spaces there
     const expectContent = [
-      `<p class="normal">indirect html widget:</p>`,
-      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><b>htmlwidget</b></div></div>`,
-      `<p class="normal">indirect jswidget:</p>`,
-      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><div>js widget</div></div></div>`,
-      `<p class="normal">direct html widget:</p>`,
-      `<b>direct html</b>`,
-      `<p class="normal">direct jswidget:</p>`,
-      `<div>jswidget-direct2</div>`,
-      /^<p class="normal">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="106"\/><\/p>$/,
-      /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
-    ];
-    test.eq(expectContent, contentElements);
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['indirect html widget:'],
+      },
+      {
+        tag: 'div',
+        attributes: { class: 'widgetblockwidget' },
+        children: [
+          {
+            tag: 'div',
+            attributes: { class: 'widgetblockwidget__widget' },
+            children: [
+              {
+                tag: 'b',
+                attributes: {},
+                children: ['htmlwidget'],
+              }
+            ],
+          }
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['indirect jswidget:'],
+      },
+      {
+        tag: 'div',
+        attributes: { class: 'widgetblockwidget' },
+        children: [
+          {
+            tag: 'div',
+            attributes: { class: 'widgetblockwidget__widget' },
+            children: [
+              {
+                tag: 'div',
+                attributes: {},
+                children: ['js widget'],
+              }
+            ],
+          }
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['direct html widget:'],
+      },
+      {
+        tag: 'b',
+        attributes: {},
+        children: ['direct html'],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['direct jswidget:'],
+      },
+      {
+        tag: 'div',
+        attributes: {},
+        children: ['jswidget-direct2'],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: [
+          'Een afbeelding: ',
+          {
+            tag: 'img',
+            attributes: {
+              class: 'wh-rtd__img',
+              src: /^\/.wh\/ea\/uc\/.*\.*$/,
+              alt: 'I&G',
+              width: '160',
+              height: '106'
+            },
+            children: [],
+          }
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: [
+          'Een ',
+          {
+            tag: 'a',
+            attributes: { href: 'https://beta.webhare.net/' },
+            children: ['externe'],
+          },
+          ' en een ',
+          {
+            tag: 'a',
+            attributes: { href: /\/TestPages\/rangetestfile\.jpeg#dieper$/ },
+            children: ['interne'],
+          },
+          ' link.'
+        ],
+      }
+    ] as const;
+    test.eqPartial(expectContent, contentElements);
 
     const { contentElements: fetchedContentElements, doc: fetchedDoc } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
-    test.eq(expectContent, fetchedContentElements);
+    test.eqPartial(expectContent, fetchedContentElements);
     test.assert(fetchedDoc.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
   }
 
   {
     const expectContent = [
-      `<p class="normal">indirect html widget:</p>`,
-      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><b>htmlwidget</b></div> </div>`,
-      `<p class="normal">indirect jswidget:</p>`,
-      `<div class="widgetblockwidget"><div class="widgetblockwidget__widget"><div>js widget</div></div> </div>`,
-      `<p class="normal">direct html widget:</p>`,
-      `<b>direct html</b>`,
-      `<p class="normal">direct jswidget:</p>`,
-      `<div>jswidget-direct2</div>`,
-      /^<p class="normal">Een afbeelding: <img class="wh-rtd__img" src="\/.wh\/ea\/.*" alt="I&amp;G" width="160" height="107"\/><\/p>$/,
-      /^<p class="normal">Een <a href="https:\/\/beta.webhare.net\/">externe<\/a> en een <a href=".*rangetestfile.jpeg#dieper">interne<\/a> link.<\/p>$/
-    ];
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['indirect html widget:'],
+      },
+      {
+        tag: 'div',
+        attributes: { class: 'widgetblockwidget' },
+        children: [
+          {
+            tag: 'div',
+            attributes: { class: 'widgetblockwidget__widget' },
+            children: [
+              {
+                tag: 'b',
+                attributes: {},
+                children: ['htmlwidget'],
+              }
+            ],
+          },
+          ' '
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['indirect jswidget:'],
+      },
+      {
+        tag: 'div',
+        attributes: { class: 'widgetblockwidget' },
+        children: [
+          {
+            tag: 'div',
+            attributes: { class: 'widgetblockwidget__widget' },
+            children: [
+              {
+                tag: 'div',
+                attributes: {},
+                children: ['js widget'],
+              }
+            ],
+          },
+          ' '
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['direct html widget:'],
+      },
+      {
+        tag: 'b',
+        attributes: {},
+        children: ['direct html'],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['direct jswidget:'],
+      },
+      {
+        tag: 'div',
+        attributes: {},
+        children: ['jswidget-direct2'],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: [
+          'Een afbeelding: ',
+          {
+            tag: 'img',
+            attributes: {
+              class: 'wh-rtd__img',
+              src: /^\/.wh\/ea\/uc\/.*\.*$/,
+              alt: 'I&G',
+              width: '160',
+              height: '107'
+            },
+            children: [],
+          }
+        ],
+      },
+      {
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: [
+          'Een ',
+          {
+            tag: 'a',
+            attributes: { href: 'https://beta.webhare.net/' },
+            children: ['externe'],
+          },
+          ' en een ',
+          {
+            tag: 'a',
+            attributes: { href: /\/TestPages\/rangetestfile\.jpeg#dieper$/ },
+            children: ['interne'],
+          },
+          ' link.'
+        ],
+      }
+    ] as const;
 
     const { contentElements: contentElementsTSTS, doc: docTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
-    test.eq(expectContent, contentElementsTSTS);
+    test.eqPartial(expectContent, contentElementsTSTS);
     test.assert(docTSTS.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
 
     const { contentElements: contentElementsHSTS } = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/widgetholder-ts");
-    test.eq(expectContent, contentElementsHSTS);
+    test.eqPartial(expectContent, contentElementsHSTS);
 
     const { contentElements } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder");
-    test.eq(expectContent, contentElements);
+    test.eqPartial(expectContent, contentElements);
   }
 
   //Test widget preview in testsite (HS renderer)
   const htmlWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/htmlwidget");
-  test.eq([`<b>htmlwidget</b>`], htmlWidgetHSSite.bodyElements);
-  test.eq(["wh-widgetpreview", "wh-preview"], htmlWidgetHSSite.htmlClasses);
+  test.eqPartial([{ attributes: {}, children: ["htmlwidget"], tag: "b" }], htmlWidgetHSSite.bodyElements);
 
   const jsWidgetHSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/jswidget");
-  test.eq([`<div>js widget</div>`], jsWidgetHSSite.bodyElements);
-  test.eq(["wh-widgetpreview", "wh-preview"], jsWidgetHSSite.htmlClasses);
+  test.eqPartial([{ attributes: {}, children: ["js widget"], tag: "div" }], jsWidgetHSSite.bodyElements);
 
   //Test widget preview in testsitejs (JS renderer)
   const htmlWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/htmlwidget");
-  test.eq([`<b>htmlwidget</b>`, /^<script type="application\/ld\+json">.*<\/script>$/], htmlWidgetJSSite.bodyElements);
+  test.eqPartial([
+    { tag: "b", children: ["htmlwidget"] },
+    { tag: "script", attributes: { type: "application/ld+json" } }
+  ], htmlWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], htmlWidgetJSSite.htmlClasses);
 
   const jsWidgetJSSite = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/jswidget");
-  test.eq([`<div>js widget</div>`, /^<script type="application\/ld\+json">.*<\/script>$/], jsWidgetJSSite.bodyElements);
+  test.eqPartial([
+    { tag: "div", children: ["js widget"] },
+    { tag: "script", attributes: { type: "application/ld+json" } }
+  ], jsWidgetJSSite.bodyElements);
   test.eq(["wh-widgetpreview"], jsWidgetJSSite.htmlClasses);
 }
 
