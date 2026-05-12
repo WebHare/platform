@@ -2,7 +2,7 @@ import { littyToString, rawLitty, type Litty } from "@webhare/litty";
 import { type WebResponse, createWebResponse } from "./response";
 import type { ContentPageRequest, CPageRequest, PageBuildRequest } from "./siterequest";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
-import { appendToArray, generateRandomId, parseTyped, toCamelCase } from "@webhare/std";
+import { appendToArray, generateRandomId, parseTyped, toCamelCase, toCLocaleLowercase } from "@webhare/std";
 import type { CSPDynamicExecution } from "@webhare/whfs/src/siteprofiles";
 import type { WebHareBlob } from "@webhare/services";
 import type { WebRequest } from "./request";
@@ -17,6 +17,7 @@ type RunPageResultCommon = {
   headers: Array<{ header: string; data: string; always_add: boolean }>;
 };
 
+/** hs-pagehost.whlib description of a captured page, applied to the ContentPageRequest by setupRequestFromResult  */
 export type RunPageResultContent = {
   content: string;
   pagebuilderdata: Array<{ tag: string; data: string }>;
@@ -34,6 +35,8 @@ export type RunPageResultContent = {
   structured_data: Array<Record<string, unknown> & { "@type": string }>;
   /** DatalayerPush calls. These are not expected to be camelcased during rendering */
   datalayer_pushes: Array<DataLayerEntry>;
+  htmlclasses: string[];
+  htmldata: Record<string, unknown>;
 };
 
 type RunPageResultFile = {
@@ -88,6 +91,10 @@ export function setupRequestFromResult(contReq: ContentPageRequest, result: RunP
     appendToArray(contReq.pageMetadata.structuredData, toCamelCase(result.structured_data) as Array<Exclude<Thing, string>>);
   if (result.datalayer_pushes.length)
     appendToArray(contReq.pageMetadata.dataLayer, result.datalayer_pushes);
+  if (result.htmlclasses.length)
+    appendToArray(contReq.pageMetadata.htmlClasses, result.htmlclasses);
+  if (result.htmldata)
+    Object.assign(contReq.pageMetadata.htmlDataSet, Object.fromEntries(Object.entries(result.htmldata).map(([k, v]) => [toCLocaleLowercase(k), v])));
 }
 
 export async function runHareScriptPage(contReq: ContentPageRequest, how:

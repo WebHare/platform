@@ -30,6 +30,10 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase <
         ]
     ];
 
+    //TODO test more property forwarding ? update corresponding test in test_metadata.ts
+    INSERT "html--dynamicpage" INTO this->webdesign->htmlclasses AT END;
+    INSERT CELL test_data_field := "asxd-8231" INTO this->webdesign->htmldata;
+
     OBJECT gtmplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
     IF(ObjectExists(gtmplugin))
     {

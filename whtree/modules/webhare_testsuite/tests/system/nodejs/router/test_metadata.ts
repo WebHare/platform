@@ -70,9 +70,9 @@ async function testGTM() {
 }
 
 async function testCustomStructuredData() {
-  //HS generated, HS rendered
-  {
-    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/TestPages/dynamicpage");
+  //HS generated, HS and TS rendered
+  for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
+    const dynamicPage = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage`);
     const faq = dynamicPage.schemaOrg.find(_ => _["@type"] === "FAQPage");
     test.eqPartial({
       "mainEntity": [
@@ -83,21 +83,10 @@ async function testCustomStructuredData() {
         }
       ]
     }, faq);
-  }
 
-  //HS generated, JS rendered (to ensure proper transfer from HS to JS)
-  {
-    const dynamicPage = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/TestPages/dynamicpage");
-    const faq = dynamicPage.schemaOrg.find(_ => _["@type"] === "FAQPage");
-    test.eqPartial({
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Where is this page's code located?",
-          acceptedAnswer: { '@type': 'Answer', text: 'Try basetestpages.whlib#DynamicPage' },
-        }
-      ]
-    }, faq);
+    const htmlClasses = dynamicPage.doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
+    test.assert(htmlClasses.includes("html--dynamicpage"), "HS generated class should be present in " + site);
+    test.eq("asxd-8231", dynamicPage.doc.documentElement?.getAttribute("data-test_data_field"));
   }
 }
 
