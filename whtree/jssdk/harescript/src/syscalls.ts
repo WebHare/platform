@@ -212,3 +212,8 @@ export function stopSeparatePrimary() {
   // Restore the stashed work, not waiting for the old connection to close
   popWork()?.then(() => { }, () => { });
 }
+
+export async function terminateHSVM(_hsvm: HareScriptVM, terminationValue: unknown) {
+  _hsvm.terminationValue = terminationValue;
+  _hsvm.shutdown();
+}

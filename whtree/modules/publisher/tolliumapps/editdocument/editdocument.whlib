@@ -182,7 +182,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
         OBJECT newsection := this->CreateTolliumComponent("section");
         newsection->title := section.title;
-        newsection->open := TRUE;
+        newsection->open := FALSE;
 
         FOREVERY(RECORD line FROM section.lines) {
           newsection->panel->layout := line.layout;
@@ -230,7 +230,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       OBJECT newsection := this->CreateTolliumComponent("section");
       //Copy only tab's title unless its just the General tab
       newsection->title := tabs->type = "server" AND maintab->visible = FALSE? visiblepages[0]->title : GetTid(ext.title);
-      newsection->open := TRUE;
+      newsection->open := FALSE;
       newsection->panel->InsertComponentAfter(tabs, DEFAULT OBJECT, TRUE);
       ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
 

@@ -782,7 +782,7 @@ export function getUCPacketHash(packet: Uint8Array, useExtension: string): strin
   return hash2.digest("hex").substring(0, 8);
 }
 
-export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetadata, dataType: number, useExtension: string): string {
+export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: Pick<ResourceMetadata, "dbLoc" | "hash" | "refPoint">, dataType: number, useExtension: string): string {
   if (!fileData.dbLoc)
     throw new Error("Cannot use toResize on a resource not backed by a supported database location");
 
@@ -835,7 +835,7 @@ export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: 
   return getUCPacketHash(packet, useExtension) + Buffer.from(packet).toString("hex");
 }
 
-function getUnifiedCacheURL(dataType: number, metadata: ResourceMetadata, options?: ResourceResizeOptions): string {
+function getUnifiedCacheURL(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "fileName" | "hash" | "dbLoc">, options?: ResourceResizeOptions): string {
   if (dataType === 1 && !options?.method)
     throw new Error("A scalemethod is required for images");
   if (dataType === 2 && options?.method)
@@ -898,6 +898,24 @@ function getUnifiedCacheURL(dataType: number, metadata: ResourceMetadata, option
   const url = `/.wh/ea/uc/` + suffix;
   return options?.baseURL ? new URL(url, options?.baseURL).href : url;
 }
+
+export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod) {
+  const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
+  const processing = explainImageProcessing(metadata, { ...method, format: setFormat });
+
+  const objectPosition = metadata.refPoint && metadata.width && metadata.height ?
+    (metadata.refPoint.x * 100 / metadata.width).toFixed(4) + "% " + (metadata.refPoint.y * 100 / metadata.height).toFixed(4) + "%"
+    : null;
+
+  return {
+    link: getUnifiedCacheURL(dataType, metadata, method),
+    width: processing.outWidth,
+    height: processing.outHeight,
+    dominantColor: metadata.dominantColor,
+    objectPosition: objectPosition
+  };
+}
+
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
   a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
@@ -1088,20 +1106,7 @@ export class ResourceDescriptor implements ResourceMetadata {
   }
 
   toResized(method: ResizeMethod) {
-    const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
-    const processing = explainImageProcessing(this.getMetadata(), { ...method, format: setFormat });
-
-    const objectPosition = this.refPoint && this.width && this.height ?
-      (this.refPoint.x * 100 / this.width).toFixed(4) + "% " + (this.refPoint.y * 100 / this.height).toFixed(4) + "%"
-      : null;
-
-    return {
-      link: getUnifiedCacheURL(1, this, method),
-      width: processing.outWidth,
-      height: processing.outHeight,
-      dominantColor: this.dominantColor,
-      objectPosition: objectPosition
-    };
+    return fromMetaDatatoResized(1, this, method);
   }
 
   async export(options?: ExportOptions): Promise<ExportedResource> {

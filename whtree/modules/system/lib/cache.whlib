@@ -13,7 +13,7 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/whlibs/dbase/postgresql.whlib";
-LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib" EXPORT ExportTSDescriptor;
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";

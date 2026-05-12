@@ -10,6 +10,7 @@ export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID, isValidWRDGuid } from 
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound, lowerBound, upperBound, recordRange } from "./algorithms";
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime, utcToLocal, localToUTC } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
+export { resizeTSDescriptor, type ExportedTSDescriptor } from "./resources";
 export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, importHSResourceDescriptor, type HareScriptRTD, type HareScriptResourceDescriptor } from "./richdocument";
 export { type HareScriptColumnFile, getSpreadsheetDataFromHareScript } from "./formats";
 
