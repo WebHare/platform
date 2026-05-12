@@ -1005,6 +1005,7 @@ async function testRegressions() {
 
 async function testRTDOutput() {
   for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
+    ////////////// Tables
     const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
     const table = tabledRTD.body.getElementsByTagName("table")[0];
     test.assert(table);
@@ -1218,6 +1219,107 @@ async function testRTDOutput() {
       ],
       textContent: 'Met een captie!R1C1R1C2R1C3R2C1R2C2R2C3R2D1 rowspan 2R2D2 colspan 2cell1 stylescell2 styled'
     }, xmlToJS(table));
+
+    ////////////// Lists
+    const listedRTD = await fetchPreviewAsDoc(`site::${site}/testpages/lists`);
+    // console.dir(xmlToJS(listedRTD.body), { depth: null });
+    test.eqPartial([
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: ['Test list'],
+        textContent: 'Test list'
+      },
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'ul',
+        attributes: { class: 'unordered' },
+        children: [
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: ['simple'],
+            textContent: 'simple'
+          },
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: [
+              'bullet',
+              {
+                ns: 'http://www.w3.org/1999/xhtml',
+                tag: 'ul',
+                attributes: {},
+                children: [
+                  {
+                    ns: 'http://www.w3.org/1999/xhtml',
+                    tag: 'li',
+                    attributes: {},
+                    children: [
+                      'deeper bullet',
+                      {
+                        ns: 'http://www.w3.org/1999/xhtml',
+                        tag: 'ul',
+                        attributes: {},
+                        children: [
+                          {
+                            ns: 'http://www.w3.org/1999/xhtml',
+                            tag: 'li',
+                            attributes: {},
+                            children: ['deepest bullet'],
+                            textContent: 'deepest bullet'
+                          }
+                        ],
+                        textContent: 'deepest bullet'
+                      }
+                    ],
+                    textContent: 'deeper bulletdeepest bullet'
+                  }
+                ],
+                textContent: 'deeper bulletdeepest bullet'
+              }
+            ],
+            textContent: 'bulletdeeper bulletdeepest bullet'
+          }
+        ],
+        textContent: 'simplebulletdeeper bulletdeepest bullet'
+      },
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'ol',
+        attributes: { class: 'ordered' },
+        children: [
+          {
+            ns: 'http://www.w3.org/1999/xhtml',
+            tag: 'li',
+            attributes: {},
+            children: [
+              'numbered list',
+              {
+                ns: 'http://www.w3.org/1999/xhtml',
+                tag: 'ol',
+                attributes: {},
+                children: [
+                  {
+                    ns: 'http://www.w3.org/1999/xhtml',
+                    tag: 'li',
+                    attributes: {},
+                    children: ['level 2 (so number 1.1)'],
+                    textContent: 'level 2 (so number 1.1)'
+                  }
+                ],
+                textContent: 'level 2 (so number 1.1)'
+              }
+            ],
+            textContent: 'numbered listlevel 2 (so number 1.1)'
+          }
+        ],
+        textContent: 'numbered listlevel 2 (so number 1.1)'
+      }
+    ], listedRTD.contentElements);
   }
 }
 

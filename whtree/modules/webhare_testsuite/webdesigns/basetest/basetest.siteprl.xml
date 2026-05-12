@@ -605,6 +605,7 @@
 
   <apply>
     <to type="file" pathmask="*tables*" />
+    <to type="file" pathmask="*lists*" />
     <rtddoc rtdtype="http://www.webhare.dev/xmlns/basetestjs/defaultrtdtype" />
   </apply>
 
