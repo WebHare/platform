@@ -18,6 +18,7 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 
 RECORD FUNCTION GetCloneTestFields(INTEGER id) {
   RETURN CELL[
@@ -71,6 +72,8 @@ MACRO Prep()
   TestEq(['a','b','d'], newfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
 
   testfw->CommitWork();
+
+  VerifyTSHistory(newfile->id);
 }
 
 RECORD FUNCTION AnalyzeURL(STRING url) {
@@ -147,6 +150,7 @@ MACRO DraftingTest() {
   TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
 
   testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
 
   TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
@@ -227,6 +231,7 @@ MACRO DraftingTest() {
   TestEq("This just went into a temporary draft", BlobToString(OpenWHFSObject(history[1].snapshot)->data), "Content of autosave is still updated");
 
   testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
 
   // Grab a previewlink to the saved draft
   STRING thisversionlink := GetPreviewLink(history[1].snapshot);
@@ -309,6 +314,8 @@ MACRO DraftingTest() {
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
   testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
+
   TestEqMembers(expect_analyze_thisversion, AnalyzeURL(thisversionlink), "*", "Locked to its draft");
   TestEqMembers([
     title := "An even newer title",
@@ -497,6 +504,7 @@ MACRO DraftingTest() {
   //FIXME verify we can to 'thisversion' links to both 1.0 and 2.0
 
   testfw->CommitWork();
+  VerifyTSHistory(testfile->id);
 
 }
 
@@ -548,6 +556,8 @@ ASYNC MACRO AutosaveClockTest() {
 
 ASYNC MACRO NamingTest() {
   OBJECT testfolder := GetTestsuiteTempFolder()->OpenByName("sub");
+  INTEGER ARRAY tocheck;
+
   testfw->BeginWork();
 
   { // Naming scenarios 1: Create a file with just a title. Save it. Publish it. Only then a name is recorded in metadata
@@ -568,6 +578,7 @@ ASYNC MACRO NamingTest() {
                   ,[ type := "final",    version := "1.0", name := "an-unnamed-file.txt" ]
                 ], ListObjectHistory(testfile->id), "*");
     TestEqMembers([ name := "an-unnamed-file.txt" ], workflowmgr->GetMetadata(), "*", "Name should persist after a final publication");
+    INSERT testfile->id INTO tocheck AT END;
   }
 
   { // Naming scenarios 2: Create a file with just a title. Save it. Then name it. It should persist from there on. Publish it.
@@ -596,6 +607,7 @@ ASYNC MACRO NamingTest() {
                   ,[ type := "final",    version := "1.0", name := "new-name-during-draft.txt" ]
                 ], ListObjectHistory(testfile->id), "*");
     TestEqMembers([ name := "new-name-during-draft.txt" ], workflowmgr->GetMetadata(), "*", "Name should persist after a final publication");
+    INSERT testfile->id INTO tocheck AT END;
   }
 
   { // Naming scenario 3: Create a file with just a title. Name it. Save it. It should have persisted. Name it again. Publish it. It should persist.
@@ -618,6 +630,7 @@ ASYNC MACRO NamingTest() {
                   ,[ type := "final",    version := "1.0", name := "naming-twice-draft.dat" ]
                 ], ListObjectHistory(testfile->id), "*");
     TestEq("naming-twice-draft.dat", OpenWHFSObject(testfile->id)->name, "Name should persist after a final publication");
+    INSERT testfile->id INTO tocheck AT END;
   }
 
   { // Naming scenario 4: Create a file with neither name or title. Title it, save it. Lack of name persists. Publish it. Only now is a name recorded based on the title
@@ -638,6 +651,7 @@ ASYNC MACRO NamingTest() {
                   ,[ type := "saved",    version := "0.2", name := "" ]
                   ,[ type := "final", version := "1.0", name := "new-ascii.txt" ]
                 ], ListObjectHistory(testfile->id), "*");
+    INSERT testfile->id INTO tocheck AT END;
   }
 
   { // Naming scenario 5: Duplicate new-ascii.txt. See if it won't conflict against itself
@@ -654,9 +668,12 @@ ASYNC MACRO NamingTest() {
     TestEqMembers([[ type := "created",  version := "0.1", name := "new-ascii-2.txt", user := testfw->GetUserAuthobjectId("sysop") ]
                   ,[ type := "final",    version := "1.0", name := "new-ascii-2.txt", user := testfw->GetUserAuthobjectId("marge") ]
                   ], ListObjectHistory(testfile->id), "*");
+    INSERT testfile->id INTO tocheck AT END;
   }
 
   testfw->CommitWork();
+  FOREVERY(INTEGER fileid FROM tocheck)
+    VerifyTSHistory(fileid);
 }
 
 ASYNC MACRO UnpublishedSavesTest()
@@ -710,6 +727,8 @@ ASYNC MACRO UnpublishedSavesTest()
   BOOLEAN clicked := AWAIT ExpectNoScreenChange(PTR TTClick("publish", [ allowfailure := TRUE ]));
   TestEq(FALSE, clicked);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  VerifyTSHistory(unpublishedfile->id);
 }
 
 //Test whether files that receive updates but had no history at all, properly get an import entry
@@ -755,6 +774,7 @@ ASYNC MACRO ImportTest() {
   TestEq([ no_clone_string := "import_0_1", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(importfile->id), "The final snapshot should have ALL data");
 
   testfw->CommitWork();
+  VerifyTSHistory(importfile->id);
 }
 
 
