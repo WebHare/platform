@@ -4,7 +4,7 @@ import type { ApplicationBase } from './application';
 import { debugFlags } from '@webhare/env';
 import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
 import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
-import"../common.lang.json";
+import "../common.lang.json";
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -119,7 +119,7 @@ export function ResetCachedTextSizes() {
 }
 
 let calcsizenode: HTMLDivElement | undefined;
-export function CalculateSize(node: HTMLElement): Size {
+export function CalculateSize(node: HTMLElement, options?: { noContentCollapse?: boolean }): Size {
   // if(@canvas)
 
   if (!calcsizenode) {
@@ -134,6 +134,10 @@ export function CalculateSize(node: HTMLElement): Size {
     });
     dompack.qR('#todd-measurements').appendChild(calcsizenode);
   }
+  const wantWidth = node.style.width || options?.noContentCollapse ? "auto" : "1px";
+  if (calcsizenode.style.width !== wantWidth)
+    calcsizenode.style.width = wantWidth; //Encourage content collapsing (shrink-wrap)
+
   calcsizenode.appendChild(node);
   const size = node.getBoundingClientRect();
   node.remove();
