@@ -59,8 +59,7 @@ wh_runjs()
 
   wh_getnodeconfig
 
-  # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  "${RUNPREFIX[@]}" node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" node $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"

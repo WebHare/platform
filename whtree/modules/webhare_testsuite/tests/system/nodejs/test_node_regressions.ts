@@ -79,8 +79,6 @@ async function testWasmSpawn() {
 
 /* Tests that the AsyncLocalStore store is retained when WASM resumes
    after calling a JS function that returns a promise.
-   Currently, the commandline switch `--experimental-wasm-stack-switching` is
-   needed to run this code.
 */
 
 async function testAsyncContextLoss() {
