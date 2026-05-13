@@ -1,7 +1,16 @@
 <?wh
+
+/* mod::platform/lib/graphics.whlib is a wasm/native compatibility library for wh::graphics/ libraries
+   The APIs here should remain available for HareScript code whether it runs on the native or wasm engine
+   Switching from wh::graphics/ to mod::platform/lib/graphics.whlib allows you to avoid future deprecations
+   and makes it easier to find code still depending on native(drawlib)-only APIs */
+
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/qrcode.whlib";
+LOADLIB "wh::internal/graphics.whlib" EXPORT GfxCreateColor, GfxCreateColorFromCSS, GfxColorAlpha, GfxRGB2HSV, GfxHSV2RGB,
+                                             GfxHSL2RGB, GfxUnpackColor;
+LOADLIB "wh::graphics/canvas.whlib" EXPORT ColorBlackTransparent, ColorWhiteTransparent, ColorBlack, ColorWhite;
 
 PUBLIC RECORD FUNCTION GenerateQRCode(STRING intext, RECORD options) {
   //which can we support cross platform?

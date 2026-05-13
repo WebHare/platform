@@ -72,8 +72,6 @@ PUBLIC BLOB FUNCTION __DRAWLIB_V2_CREATERAWBLOBFROMCANVAS(INTEGER drawid, STRING
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATECANVASFROMRAWBLOB(BLOB raw, INTEGER width, INTEGER height, STRING FORMAT, BOOLEAN premultiplied) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC INTEGER FUNCTION __DRAWLIB_V2_CREATEDIFFERENCECANVAS(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC FLOAT   FUNCTION __DRAWLIB_V2_COMPARECANVASES(INTEGER drawid1, INTEGER drawid2) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC RECORD FUNCTION __DRAWLIB_V2_RGBTOHSV(INTEGER rgb) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
-PUBLIC INTEGER FUNCTION __DRAWLIB_V2_HSVTORGB(FLOAT h, FLOAT s, FLOAT v) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 PUBLIC MACRO __DRAWLIB_V2_SETCANVASMARSHALLER(OBJECT canvasobj) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 
 /**
@@ -103,6 +101,8 @@ PUBLIC CONSTANT STRING ARRAY __haligns := ["LEFT","CENTER","RIGHT"];
 
 @param RGB  HareScript colour
 @return the colour in HSV as a RECORD of the FLOATs H, S and V
+@public
+@loadlib mod::platform/lib/graphics.whlib
 */
 
 PUBLIC RECORD FUNCTION GfxRGB2HSV(INTEGER rgb)
@@ -147,6 +147,8 @@ PUBLIC RECORD FUNCTION GfxRGB2HSV(INTEGER rgb)
 @param S Saturation from 0.0 to 1.0
 @param V Value from 0.0 to 1.0
 @return the HareScript colour
+@public
+@loadlib mod::platform/lib/graphics.whlib
 */
 PUBLIC INTEGER FUNCTION GfxHSV2RGB(FLOAT h, FLOAT s, FLOAT v)
 {
@@ -187,6 +189,8 @@ PUBLIC INTEGER FUNCTION GfxHSV2RGB(FLOAT h, FLOAT s, FLOAT v)
 @param S Saturation from 0.0 to 1.0
 @param L Lightness from 0.0 to 1.0
 @return the HareScript color
+@public
+@loadlib mod::platform/lib/graphics.whlib
 */
 PUBLIC INTEGER FUNCTION GfxHSL2RGB(FLOAT h, FLOAT s, FLOAT l)
 {
@@ -250,6 +254,8 @@ INTEGER FUNCTION Hue2RGB(FLOAT m1, FLOAT m2, FLOAT h)
     @cell(integer) return.g Green channel value, 0-255
     @cell(integer) return.b Blue channel value, 0-255
     @cell(integer) return.a Alpha channel value, 0-255
+    @public
+    @loadlib mod::platform/lib/graphics.whlib
 */
 PUBLIC RECORD FUNCTION GfxUnpackColor(INTEGER color)
 {
@@ -261,6 +267,10 @@ PUBLIC RECORD FUNCTION GfxUnpackColor(INTEGER color)
       ];
 }
 
+/**
+@public
+@loadlib mod::platform/lib/graphics.whlib
+ */
 PUBLIC INTEGER FUNCTION GfxColorAlpha(INTEGER color, INTEGER alpha)
 {
         IF ((alpha<0) OR (alpha>255)) Abort("Alpha value out-of-range");
@@ -277,6 +287,8 @@ PUBLIC INTEGER FUNCTION GfxColorAlpha(INTEGER color, INTEGER alpha)
       @param blue     The value of the blue channel (must be in the range 0-255)
       @param alpha    The optional value of the alpha channel (must be in the range 0-255)
       @return         The calculated color integer.
+      @public
+      @loadlib mod::platform/lib/graphics.whlib
 */
 PUBLIC INTEGER FUNCTION GfxCreateColor(INTEGER red, INTEGER green, INTEGER blue, INTEGER alpha DEFAULTSTO 255)
 {
@@ -294,6 +306,8 @@ PUBLIC INTEGER FUNCTION GfxCreateColor(INTEGER red, INTEGER green, INTEGER blue,
                       about the supported values.
       @param value    The CSS value to use for creating the color
       @return         The calculated color integer.
+      @public
+      @loadlib mod::platform/lib/graphics.whlib
 */
 PUBLIC INTEGER FUNCTION GfxCreateColorFromCSS(STRING value)
 {

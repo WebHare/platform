@@ -1,6 +1,6 @@
 <?wh
 LOADLIB "wh::money.whlib";
-LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::platform/lib/graphics.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

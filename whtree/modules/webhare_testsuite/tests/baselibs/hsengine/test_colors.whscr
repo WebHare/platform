@@ -1,6 +1,6 @@
 <?wh
 LOADLIB "wh::internal/hsselftests.whlib";
-LOADLIB "wh::graphics/core.whlib";
+LOADLIB "mod::platform/lib/graphics.whlib";
 
 STRING FUNCTION FormatColor(INTEGER color)
 {
