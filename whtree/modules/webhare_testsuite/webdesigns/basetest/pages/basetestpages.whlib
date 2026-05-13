@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
@@ -16,6 +17,13 @@ PUBLIC OBJECTTYPE WebStaticPage EXTEND StaticPageBase
 
 PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase <
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody() {
+    IF(GetWebVariable("setmetadata") = "1") {
+      this->webdesign->canonicalurl := this->webdesign->targetobject->link || "?canonical=true";
+      INSERT CELL [ title := "Custom entry", link := this->webdesign->canonicalurl || "#custom" ] INTO this->webdesign->structuredbreadcrumb AT END;
+      this->webdesign->pagetitle := "dynamic page";
+      this->webdesign->pagedescription := "A dynamic page";
+    }
+
     this->webdesign->structured_data := [
         [
           "@type" := "FAQPage",

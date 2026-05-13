@@ -9,7 +9,7 @@ import type { WebRequest } from "./request";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import type { PageBuilderDataTypes } from "@webhare/router";
 import type { DataLayerEntry, FrontendDataTypes } from "@webhare/frontend";
-import type { Thing } from "schema-dts";
+import type { ListItem, Thing } from "schema-dts";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
@@ -38,6 +38,10 @@ export type RunPageResultContent = {
   datalayer_pushes: Array<DataLayerEntry>;
   htmlclasses: string[];
   htmldata: Record<string, unknown>;
+  canonicalurl: string;
+  structuredbreadcrumb: Array<{ link: string; title: string }>;
+  pagetitle: string;
+  pagedescription: string;
 };
 
 type RunPageResultFile = {
@@ -96,6 +100,11 @@ export function setupRequestFromResult(contReq: ContentPageRequest, result: RunP
     appendToArray(contReq.pageMetadata.htmlClasses, result.htmlclasses);
   if (result.htmldata)
     Object.assign(contReq.pageMetadata.htmlDataSet, Object.fromEntries(Object.entries(result.htmldata).map(([k, v]) => [toCLocaleLowercase(k), v])));
+  contReq.pageMetadata.canonicalUrl = result.canonicalurl;
+  contReq.pageMetadata.breadcrumb.splice(0, contReq.pageMetadata.breadcrumb.length);
+  contReq.pageMetadata.breadcrumb.push(...result.structuredbreadcrumb.map(bc => ({ "@type": "ListItem", item: bc.link, name: bc.title } satisfies ListItem)));
+  contReq.pageMetadata.title = result.pagetitle;
+  contReq.pageMetadata.description = result.pagedescription;
 }
 
 export async function runHareScriptPage(contReq: ContentPageRequest, how:

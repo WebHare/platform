@@ -38,7 +38,11 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
     webdesign->structured_data,
     datalayer_pushes,
     webdesign->htmlclasses,
-    webdesign->htmldata
+    webdesign->htmldata,
+    webdesign->canonicalurl,
+    webdesign->structuredbreadcrumb,
+    webdesign->pagetitle,
+    webdesign->pagedescription
   ];
 }
 
