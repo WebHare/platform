@@ -78,7 +78,7 @@
     <body>
       <textedit name="outside_textedit" title="textedit" />
       <textarea name="outside_textarea" title="textarea" />
-      <section title="section 1" name="section1">
+      <section title="section 1 (has a very long title but truncating it so we don't have to consider wordwrapping of section headers - you really shouldn't use such long names anyway)" name="section1">
         <text value="subitem 1 of section 1" />
         <text value="subitem 2 of section 1" />
       </section>
@@ -181,7 +181,12 @@
                   <textedit name="texteditstack2" title="Textedit stackedtab 2" />
                 </tab>
                 <tab name="stackedtab3" title="Stacked tab 3">
-                  <textedit name="texteditstack3" title="Textedit stackedtab 2" />
+                  <section title="Section in stacked tab with an otherwise very long name that might not even fit on Extreme Ultrawide 89inch Screens" open="true">
+                    <textedit name="texteditstack3" title="Textedit stackedtab 3" />
+                  </section>
+                  <section title="Second section" open="true">
+                    <textedit name="texteditstack3b" title="Textedit stackedtab 3b" />
+                  </section>
                 </tab>
               </tabs>
               </panel>

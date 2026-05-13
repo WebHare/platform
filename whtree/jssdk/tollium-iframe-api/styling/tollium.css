@@ -57,7 +57,7 @@
   --tollium-font: var(--tollium-font-size) var(--tollium-font-family);
   /** The font definition for headings */
   --tollium-heading-font: 500 13px/120% var(--tollium-font-family);
-  /** The font definition for headings */
+  /** The font definition for section headings */
   --tollium-section-summary-font: 700 15px/120% var(--tollium-font-family);
   /** The heading text color */
   --tollium-heading-color: var(--tollium-color-accent);

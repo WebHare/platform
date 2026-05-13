@@ -6,17 +6,17 @@ t-section {
   }
 
   & > details > summary {
+    position: relative;
     color: var(--tollium-color-accent);
     font: var(--tollium-section-summary-font);
     background-color: var(--tollium-background-details-summary);
     padding: 9px;
-    display: flex;
     align-items: baseline;
     cursor: pointer;
-
-    &::marker {
-      display: none;
-    }
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    list-style: none; /* hide the marker (original code used display:flex but that breaks ellipsis) */
 
     &::before {
       content: "";

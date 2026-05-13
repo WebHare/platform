@@ -9,6 +9,7 @@ export { runTests } from './testrunner';
 
 export {
   assert,
+  cmp,
   eq,
   eqMatch,
   eqPartial,

@@ -13,9 +13,29 @@ async function testChecks() {
   test.throws(/Expected function to throw/i, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
 
+  //test.compare
+  test.cmp(1, "<=", 1);
+  test.cmp("a", "<=", "b");
+  test.cmp("a", ">", "B");
+  test.cmp(1, "<=", 2);
+  test.throws(/Expected 1 <= 0/, () => test.cmp(1, "<=", 0));
+  test.cmp(2, ">=", 1);
+  test.cmp(1, "==", 1);
+  //@ts-expect-error -- TS should also reject invalid operators. we do not implement strict equality yet (confusing if test.eq exists) and for object identity compare ... just use test.assert for now? we can't print much useful about objects anyway
+  test.throws(/Invalid operator/, () => test.cmp(1, "===", 1));
+  test.throws(/Expected 1 == 0/, () => test.cmp(1, "==", 0));
+  test.throws(/number.*string/, () => test.cmp(1, "==", "1"));
+  //@ts-expect-error -- TS also rejects null/undefined
+  test.throws(/is null/, () => test.cmp(null, "==", null));
+  //@ts-expect-error -- TS also rejects null/undefined
+  test.throws(/is undefined/, () => test.cmp(undefined, "==", null));
+  //@ts-expect-error -- TS also rejects null/undefined
+  test.throws(/is null/, () => test.cmp(null, "<", 1));
+
   //test JS native Date type
   test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
   test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.cmp(new Date("2023-01-01"), "<", new Date("2023-01-02"));
   test.eqPartial({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
   test.throws(/Expected Date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
   test.throws(/Expected Date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));

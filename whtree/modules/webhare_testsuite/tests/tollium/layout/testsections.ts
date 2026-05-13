@@ -9,8 +9,8 @@ test.runTests([
     const s1 = tt.comp("section1");
     const s2 = tt.comp("section2");
     const s3 = tt.comp("section3");
-    test.eq(tt.metrics.gridRowHeight, getRelativeBounds(s2.node, s1.node).top, "Height should match with S1 being closed (currently the row height of 28)");
-    test.eq(tt.metrics.gridRowHeight, getRelativeBounds(s3.node, s2.node).top, "Height should match with S2 being closed (currently the row height of 28)");
+    test.eq(tt.metrics.sectionHeightOverhead, getRelativeBounds(s2.node, s1.node).top, "Height should match with S1 being closed");
+    test.eq(tt.metrics.sectionHeightOverhead, getRelativeBounds(s3.node, s2.node).top, "Height should match with S2 being closed");
     test.eq(false, s1.querySelector("details")?.open);
     test.eq(false, s2.querySelector("details")?.open);
     test.eq(true, s3.querySelector("details")?.open);
@@ -19,5 +19,6 @@ test.runTests([
     test.click(s2.querySelector("summary")!);
     test.eq(tt.comp("outside_textedit").node.getBoundingClientRect().width, tt.comp("s2_textedit").node.getBoundingClientRect().width, "Textedit inside section should match width outside");
     test.eq(tt.comp("outside_textarea").node.getBoundingClientRect().width, tt.comp("s2_textarea").node.getBoundingClientRect().width, "Textarea inside section should match width outside");
+    test.cmp(tt.comp("s2_textarea").node.getBoundingClientRect().bottom, "<", tt.comp("section3").node.getBoundingClientRect().top, "Textarea should not overlap into next section");
   }
 ]);

@@ -505,7 +505,9 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   checkActionEnablers() {
     this.getVisibleChildren().forEach(child => child.checkActionEnablers());
   }
-  /** Recalculate the specified dimensions of any dimension-dirty part of the tree */
+  /** Recalculate the specified dimensions of any dimension-dirty part of the tree.
+   *  Is invoked after adding the node to the DOM so CSS variables/metrics should be available
+  */
   calculateDimension(horizontal: boolean) {
     const prop = this.dim(horizontal);
     if (!this.isDimensionDirty(horizontal)) {

@@ -16,11 +16,23 @@ interface SectionAttributes extends ComponentStandardAttributes {
 }
 
 export default class ObjSection extends ToddCompBase {
+  static cachedDimensions?: {
+    overheadHeight: number;
+  };
+
+  static getCachedDimensions(sample: ObjSection) {
+    this.cachedDimensions = {
+      overheadHeight: sample.summaryNode.offsetHeight + parseInt(getComputedStyle(sample.detailsNode).paddingTop) + parseInt(getComputedStyle(sample.detailsNode).paddingBottom)
+    };
+    return this.cachedDimensions;
+  }
+
   componenttype = "section";
   panel: ToddCompBase;
   open = false;
   private detailsNode!: HTMLDetailsElement;
-  overheadHeight = 28; //FIXME align with section.css
+  private summaryNode!: HTMLElement;
+  private panelNode!: HTMLElement;
 
   constructor(parentcomp: ToddCompBase, data: SectionAttributes) {
     super(parentcomp, data);
@@ -38,14 +50,23 @@ export default class ObjSection extends ToddCompBase {
           open: this.open,
         },
           [
-            dompack.create('summary', {
-              on: { click: evt => this.onClick(evt) },
+            this.summaryNode = dompack.create('summary', {
+              on: {
+                click: evt => this.onClick(evt),
+                mouseenter: () => this.onMouseEnter()
+              },
+              title: this.title
             }, [this.title]),
-            this.panel.getNode()
+            this.panelNode = this.panel.getNode()
           ],
 
         )
       ]);
+  }
+
+  onMouseEnter(): void {
+    //apply title= if we're overflowing
+    this.summaryNode.title = this.summaryNode.offsetWidth < this.summaryNode.scrollWidth ? this.summaryNode.textContent || '' : '';
   }
 
   getVisibleChildren(): ToddCompBase[] {
@@ -67,22 +88,25 @@ export default class ObjSection extends ToddCompBase {
   }
 
   calculateDimWidth() {
+    ObjSection.cachedDimensions ||= ObjSection.getCachedDimensions(this);
+
     this.width.calc = this.panel.width.calc;
     this.width.min = this.panel.width.min;
   }
 
   applySetWidth(): void {
+    this.summaryNode.style.width = `${this.width.set}px`;
     this.panel.setWidth(this.width.set);
     this.panel.applyDimension(true);
   }
 
   calculateDimHeight() {
-    this.height.min = this.overheadHeight + (this.detailsNode.open ? this.panel.height.min : 0);
-    this.height.calc = this.overheadHeight + (this.detailsNode.open ? this.panel.height.calc : 0);
+    this.height.min = ObjSection.cachedDimensions!.overheadHeight + (this.detailsNode.open ? this.panel.height.min : 0);
+    this.height.calc = ObjSection.cachedDimensions!.overheadHeight + (this.detailsNode.open ? this.panel.height.calc : 0);
   }
 
   applySetHeight(): void {
-    this.panel.setHeight(this.detailsNode.open ? this.height.set - this.overheadHeight : this.panel.height.calc);
+    this.panel.setHeight(this.detailsNode.open ? this.height.set - ObjSection.cachedDimensions!.overheadHeight : this.panel.height.calc);
     this.panel.applySetHeight();
   }
 }
