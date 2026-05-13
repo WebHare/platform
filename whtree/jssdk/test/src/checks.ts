@@ -1,6 +1,6 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
-import { Money, isError, isPromise, sleep, stdTypeOf, type MaybePromise } from "@webhare/std";
+import { Money, isError, isPromise, sleep, stdTypeOf, compare as stdCompare, type ComparableType, type MaybePromise } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 import { flagWait } from "./monitor";
 
@@ -320,6 +320,37 @@ function testStringify(val: unknown, maxDepth = 4): string {
     default:
       return JSON.stringify(val);
   }
+}
+
+type TestComparableType = Exclude<ComparableType, null>;
+
+/** Compare two values using the given operator.
+ * @param lhs - The left-hand side value
+ * @param operator - The comparison operator to use ("<", "<=", "==", ">", ">=")
+ * @param rhs - The right-hand side value
+ * @throws If either parameter is null or undefined, if the comparison fails or if the types of lhs and rhs are not comparable
+ */
+export function cmp(lhs: TestComparableType, operator: "<" | "<=" | "==" | ">" | ">=", rhs: TestComparableType, options?: Annotation | TestOptions) {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
+  if (lhs === null || lhs === undefined)
+    throw new TestError(`Left-hand side value is ${lhs}, which is not comparable`, options);
+  if (rhs === null || rhs === undefined)
+    throw new TestError(`Right-hand side value is ${rhs}, which is not comparable`, options);
+
+  const result = stdCompare(lhs, rhs);
+  const success = operator === "<" ? result < 0 :
+    operator === "<=" ? result <= 0 :
+      operator === ">" ? result > 0 :
+        operator === ">=" ? result >= 0 :
+          operator === "==" ? result === 0 :
+            (() => { throw new Error("Invalid operator " + operator); })();
+
+  if (success)
+    return;
+
+  throw new TestError(`Expected ${lhs} ${operator} ${rhs}`, options);
 }
 
 /** Verify deep equality of two values (to compare object identity, you need to use {@link assert} with ===)
