@@ -909,16 +909,6 @@ void    DrawlibInterfaceState::ApplyColorMapping(DrawID cid, DrawLib::ColorMappi
         DrawLib::ApplyColorMapping(&dptr.GetBitmap(), colormap);
 }
 
-void DrawlibInterfaceState::RGBtoHSV(Pixel32 rgb, double *h, double *s, double *v)
-{
-        DrawLib::RGBtoHSV(rgb, h, s, v);
-}
-
-void DrawlibInterfaceState::HSVtoRGB(Pixel32 *rgb, double h, double s, double v)
-{
-        DrawLib::HSVtoRGB(h, s, v, rgb);
-}
-
 void DrawlibInterfaceState::CalculateKMeansQuantizedPalette(DrawID id, uint32_t clustercount, uint8_t minimum_alpha, int32_t max_iters, float initialpoint, std::vector< Pixel32 > *result)
 {
         DrawInfo const& drawinfo = GetDrawInfoForRead(id);
@@ -2343,9 +2333,6 @@ extern "C" BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void*
 
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_COMPARECANVASES:WHMOD_GRAPHICS:F:II", DLv2_CompareCanvases);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_CREATEDIFFERENCECANVAS:WHMOD_GRAPHICS:I:II", DLv2_CreateDifferenceCanvas);
-
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_RGBTOHSV:WHMOD_GRAPHICS:R:I", DLv2_RGBtoHSV);
-        HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_HSVTORGB:WHMOD_GRAPHICS:I:FFF", DLv2_HSVtoRGB);
 
         HSVM_RegisterMacro(regdata, "__DRAWLIB_V2_SETCANVASMARSHALLER:WHMOD_GRAPHICS::O", DLv2_SetCanvasMarshaller);
         HSVM_RegisterFunction(regdata, "__DRAWLIB_V2_GETREFCOUNT:WHMOD_GRAPHICS:I:I", DLv2_GetRefCount);
