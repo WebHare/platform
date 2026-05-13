@@ -655,7 +655,7 @@ PUBLIC RECORD FUNCTION ExportTSDescriptor(RECORD wrappedblob) {
     THROW NEW Exception("Unrecognized blob source type");
 
   RECORD objinfo := GetObjInfo(source, id);
-  RETURN CELL[ __ts_resource_descriptor :=
+  RETURN CELL[ ts$resourcedescriptor :=
              CELL[ source,
                    id,
                    cc := GetUnifiedCC(objinfo.creationdate),

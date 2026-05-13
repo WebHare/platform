@@ -379,8 +379,9 @@ export class CPageRequest {
     //only stub what we need for backwards compatibility
     let html = '';
     return {
-      insertAt: (where: ResponseInsertPoints, what: ResponseInsertable) => {
-        this.insertAt(where, what as Litty);
+      insertAt: (where: ResponseInsertPoints, what: LegacyResponseInsertable | ResponseInsertable) => {
+        //Using 'as' to work around insertAt not publishing an overload accepting both types
+        this.insertAt(where, what as ResponseInsertable);
       },
       appendHTML: (data: string) => {
         html += data;
