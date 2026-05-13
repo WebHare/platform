@@ -1,5 +1,5 @@
 import type { HareScriptVM, LoadedLibrariesInfo, MessageList } from "./wasm-hsvm";
-import { type IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableRecord, VariableType, getTypedArray, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { log, logError } from "@webhare/services/src/logging.ts";
@@ -7,7 +7,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, recompileHarescriptLibrary } from "@webhare/harescript/src/wasm-modulesupport";
-import { generateRandomId, isPromise, sleep } from "@webhare/std";
+import { generateRandomId, isPromise, sleep, wrapInTimeout } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
@@ -34,6 +34,8 @@ import { setHareScriptType } from "@webhare/hscompat/src/hson";
 import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
 import { lockMutex } from "./syscalls";
+import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
+import { getScriptName } from "@webhare/system-tools";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 let syscalls: SysCallsModule | null = null;
@@ -460,8 +462,38 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
     id_set.setJSValue(bridge.systemconfig);
   });
-  wasmmodule.registerExternalMacro("__SYSTEM_SETSYSTEMCONFIG:::R", (vm) => {
-    //ignore attempts up date the system config from WASM. if we really want this, we should probably just forward it to a Native HS Helper API somewhere
+  wasmmodule.registerAsyncExternalMacro("__SYSTEM_SETSYSTEMCONFIG:::R", async (vm, var_data) => {
+    const data = writeMarshalData(var_data.getJSValue(), { onlySimple: true });
+
+    /* Use a direct connection to WHManager to set the config, instead of
+       plumbing this through the bridge (which would have trouble keeping
+       the HS type annotations intact)
+    */
+    const conn = new WHManagerConnection;
+    await wrapInTimeout(new Promise<void>(resolve => conn.on("online", resolve)), 5000, "Timeout while connecting to WHManager");
+    conn.send({
+      opcode: WHMRequestOpcode.RegisterProcess,
+      pid: 0, // dummy pid to avoid confusion with the real process registration
+      type: WHMProcessType.TypeScript,
+      name: getScriptName(),
+      parameters: {
+        interpreter: process.argv[0] || '',
+        script: process.argv[1] || '',
+        arguments: JSON.stringify([`__SYSTEM_SETSYSTEMCONFIG`, process.pid.toString()]),
+        started: new Date().toISOString(),
+      }
+    });
+    conn.send({
+      opcode: WHMRequestOpcode.SetSystemConfig,
+      systemconfigdata: data
+    });
+    await wrapInTimeout(new Promise<void>((resolve) => {
+      conn.on("data", (response) => {
+        if (response.opcode === WHMResponseOpcode.SystemConfig)
+          resolve();
+      });
+    }), 5000, "Timeout while waiting for WHManager response");
+    conn.close();
   });
   wasmmodule.registerAsyncExternalMacro("__SYSTEM_FENCEEVENTS:::", async () => {
     await bridge.fenceEvents();

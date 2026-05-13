@@ -10,6 +10,7 @@
   <jstest file="testbody.ts" />
   <jstest file="testbutton.ts" />
   <jstest file="testcheckboxradio.ts" />
+  <jstest file="testchips.ts" />
   <jstest file="testcodeedit.ts" />
   <jstest file="testdatetime.ts" />
   <jstest file="testfocus.ts" />

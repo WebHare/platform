@@ -1947,6 +1947,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="button" type="Button" />
       <xs:element name="buttongroup" type="ButtonGroup" />
       <xs:element ref="checkbox" />
+      <xs:element ref="chips" />
       <xs:element name="combobox" type="ComboBox" />
       <xs:element name="date" type="Date" />
       <xs:element ref="datetime" />
@@ -5816,6 +5817,8 @@ To change a <xs:attribute /> for adding descriptions
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="chips" type="Chips" />
+
   <xs:element name="line" type="Line" />
 
   <xs:element name="list" type="List">
@@ -6336,6 +6339,74 @@ To change a <xs:attribute /> for adding descriptions
   </xs:element>
   -->
   </xs:complexType>
+
+  <!--
+    ## Chips ##
+  -->
+  <xs:complexType name="Chips">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent objecttype="/lib/components/chips.whlib#TolliumChips" placement="inline" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attribute name="flags" type="tc:Flags" />
+    <xs:attributeGroup ref="Onchange" />
+    <xs:attributeGroup ref="RowKeyType" />
+    <xs:attributeGroup ref="ComposableComponentBase" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attributeGroup ref="sc:Errorlabel" />
+    <xs:attributeGroup ref="Gid" />
+    <xs:attribute name="ondelete" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:callbacksignature arguments="recordarray" />
+        </xs:appinfo>
+        <xs:documentation>
+          Function that is executed when the user deletes a chip.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="selectcontextmenu" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the menu to show when right-clicking on events (as defined in a &lt;menu&gt;).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="newcontextmenu" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+          The name of the menu to show when right-clicking on an empty cell (as defined in a &lt;menu&gt;).
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="openaction" type="ComponentRef">
+      <xs:annotation>
+        <xs:documentation>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="icons" type="sc:ImageSrcList">
+      <xs:annotation>
+        <xs:documentation>
+            Contains a list of iconnames, separated by a space.
+            Each iconname is written in this format: modulename:category/iconname.
+            The icon itself must be a PNG picture with the path/filename: modulename/web/img/category/iconname.16x16.png.
+            Icons can be used by using the 'iconname'-attribute in a list &lt;column&gt;.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="deletableflags" type="CheckFlags">
+      <xs:annotation>
+        <xs:documentation>
+            Only rows with these flags set to TRUE will be deletable. Make sure that these flags are specified in the flags property.
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+
+  </xs:complexType>
+
 
   <xs:group name="ScreenParts">
     <xs:sequence>
