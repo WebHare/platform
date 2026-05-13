@@ -448,7 +448,7 @@ export class ObjFrame extends ToddCompBase {
     createdcomp.afterConstructor(newcomp as any);
 
     if (savedState && savedState[0] === createdcomp.componenttype)
-      createdcomp.applyStateFromReadd(savedState[1]);
+      createdcomp.applyStateAfterReadd(savedState[1]);
 
     return createdcomp;
   }
