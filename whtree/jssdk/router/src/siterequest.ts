@@ -208,15 +208,15 @@ export class CPageRequest {
     // Initialize the breadcrumb
     const breadcrumb = this.pageMetadata.breadcrumb;
     for (const pathEntry of this.targetPath) {
-      // Skip the target object if it's the index document of the target folder
-      if (pathEntry.id === this.targetFolder.indexDoc) {
+      // Skip the target object if it's the index document of the target folder. And skip unlinked items which the web thinks Google may not like
+      if (pathEntry.id === this.targetFolder.indexDoc || !pathEntry.link)
         continue;
-      } else
-        breadcrumb.push({
-          "@type": "ListItem",
-          item: pathEntry.link || undefined,
-          name: pathEntry.title || pathEntry.name || undefined,
-        });
+
+      breadcrumb.push({
+        "@type": "ListItem",
+        item: pathEntry.link || undefined,
+        name: pathEntry.title || pathEntry.name || undefined,
+      });
     }
   }
 

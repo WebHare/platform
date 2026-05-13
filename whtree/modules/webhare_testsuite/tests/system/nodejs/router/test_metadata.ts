@@ -27,10 +27,6 @@ async function testBreadCrumbs() {
       name: "webhare_testsuite.testsitejs",
     }, {
       "@type": "ListItem",
-      name: "TestPages"
-      //has no index and thus no url
-    }, {
-      "@type": "ListItem",
       item: testSiteRoot + "TestPages/StaticPage/",
       name: "StaticPage"
     }
