@@ -21,7 +21,7 @@ export async function generateServicesDefs(context: GenerateContext, mods: strin
 
     const [library, object] = service.api.split("#");
 
-    const servicename = `${module}$${object}`;
+    const servicename = `${service.name.replaceAll(":", "$")}`;
     imports.push(`import type { ${object} as ${servicename} } from "${hsResourceToTsResource(library)}";`);
     types.push(`    ${JSON.stringify(service.name)}: typeof ${servicename};`);
   }
