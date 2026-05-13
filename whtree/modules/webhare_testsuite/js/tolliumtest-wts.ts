@@ -11,7 +11,8 @@ import * as test from "@webhare/test-frontend";
 export * from "@mod-tollium/js/tolliumtest";
 
 export const metrics = {
-  gridRowHeight: 28
+  gridRowHeight: 28,
+  sectionHeightOverhead: 40 //36 for the section's summary (18 text + 9 padding) + 4 px height padding for the whole block
 };
 
 export async function getTestPortal() {
