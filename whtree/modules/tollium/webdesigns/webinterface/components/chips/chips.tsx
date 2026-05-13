@@ -35,8 +35,12 @@ interface ChipsAttributes extends ComponentStandardAttributes {
   icons: string[];
 }
 
+type ChipsSavedState = {
+  activeValue: string | number | null;
+  cursorOrigin: { value: string | number; x: number; y: number } | null;
+};
 
-export default class ObjChips extends ToddCompBase {
+export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedState> {
   /****************************************************************************************************************************
    * Initialization
    */
@@ -67,6 +71,7 @@ export default class ObjChips extends ToddCompBase {
           if (!this.enablecomponents.includes(comp))
             this.enablecomponents.push(comp);
     });
+    this.activeValue = this.options.find(opt => opt.selected)?.value ?? this.options[0]?.value ?? null;
     this.deletableflags = data.deletableflags;
     this.iconnames = data.icons;
 
@@ -81,6 +86,19 @@ export default class ObjChips extends ToddCompBase {
       this.owner.addComponent(this.owner, data.selectcontextmenu);
     if (this.newcontextmenu)
       this.owner.addComponent(this.owner, data.newcontextmenu);
+  }
+
+  getStateForReadd(): ChipsSavedState | null {
+    return { activeValue: this.activeValue, cursorOrigin: this.cursorOrigin };
+  }
+
+  applyStateAfterReadd(state: ChipsSavedState): void {
+    if (this.options.find(opt => opt.value === state.activeValue)) {
+      const focus = this.node.contains(document.activeElement);
+      this.setActiveValue(state.activeValue, { focus, updateOrigin: false });
+    }
+    if (state.cursorOrigin && this.options.find(opt => opt.value === state.cursorOrigin!.value))
+      this.cursorOrigin = state.cursorOrigin;
   }
 
   getValue() {
@@ -115,7 +133,9 @@ export default class ObjChips extends ToddCompBase {
     for (const opt of this.options) {
       const meta = this.optionsMeta.get(opt)!;
       const isActive = opt.value === value;
-      meta.node.classList.toggle("t-chips__chip--active", isActive);
+      if (isActive)
+        this.activeValue = opt.value;
+      meta.node.tabIndex = isActive && this.enabled ? 0 : -1;
       if (isActive) {
         if (options.focus && !meta.node.contains(document.activeElement))
           meta.node.focus();
@@ -129,6 +149,8 @@ export default class ObjChips extends ToddCompBase {
       this.setValue(value);
       this.onSelect();
     }
+    if (this.activeValue !== value)
+      this.activeValue = null;
   }
 
   getBoxOfValue(value: string | number | null): DOMRect | null {
@@ -188,7 +210,7 @@ export default class ObjChips extends ToddCompBase {
         "t-chips__chip--selected": opt.selected,
         "t-chips__chip--active": opt.value === this.activeValue,
         "t-chips__chip--invertcolor": opt.invertcolor,
-      }} tabIndex={this.enabled ? 0 : null}
+      }} tabIndex={this.enabled ? (opt.value === this.activeValue ? 0 : -1) : null}
         ariaSelected={opt.selected ? "true" : "false"}
         onFocus={(event: FocusEvent) => this.onFocus(event)}
         onMousedown={(event: MouseEvent) => this.onMouseDown(event)}
