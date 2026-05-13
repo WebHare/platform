@@ -24,5 +24,5 @@ An experimental pattern for this, see section.ts:
 ```
 
 TODO:
-- generalize pattern (if it owrks)
+- generalize pattern (if it works)
 - can we work around the need for `!` when accessing cachedDimensions without having to do the `ObjSection.cachedDimensions ||=` at the top of every function?
