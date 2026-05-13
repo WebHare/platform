@@ -1089,7 +1089,7 @@ async function testBadValues() {
     //we want to see at least the attribute name and the words 'invalid' and 'value' in an error:
     const failregex = new RegExp(`Invalid\\b.*\\bvalue\\b.*${step.field}`, "i");
     for (const badVal of step.badVals)
-      await test.throws(failregex, schema.update("wrdPerson", testperson, { [step.field]: badVal }), () => `Expected ${step.field} to fail with ${JSON.stringify(badVal)}`);
+      await test.throws(failregex, schema.update("wrdPerson", testperson, { [step.field]: badVal }), `Expected ${step.field} to fail with ${badVal?.toString() ?? typeof badVal}`);
   }
 
   await whdb.rollbackWork();

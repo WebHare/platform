@@ -41,7 +41,7 @@ let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
 //We want to make clear ('assert') that wait will not return falsy values (unless waiting for a promise)
 export type PositiveWaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
-export type WaitOptions<T> = Annotation | {
+export type WaitOptions<T> = string | {
   /** Maximum time to wait in milliseconds (default: 60 seconds) */
   timeout?: number;
   /** Time after which to log a warning that we're still waiting, in milliseconds (default: 5 seconds) */
@@ -322,6 +322,12 @@ function testStringify(val: unknown, maxDepth = 4): string {
   }
 }
 
+function fixupOptions(options?: string | TestOptions): TestOptions {
+  if (typeof options === "function")
+    throw new Error(`Test annotation can no longer be a callback. Replace it with a string or with { annotation: callback }`);
+  return typeof options === "string" ? { annotation: options } : options || {};
+}
+
 type TestComparableType = Exclude<ComparableType, null>;
 
 /** Compare two values using the given operator.
@@ -330,9 +336,8 @@ type TestComparableType = Exclude<ComparableType, null>;
  * @param rhs - The right-hand side value
  * @throws If either parameter is null or undefined, if the comparison fails or if the types of lhs and rhs are not comparable
  */
-export function cmp(lhs: TestComparableType, operator: "<" | "<=" | "==" | ">" | ">=", rhs: TestComparableType, options?: Annotation | TestOptions) {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+export function cmp(lhs: TestComparableType, operator: "<" | "<=" | "==" | ">" | ">=", rhs: TestComparableType, options?: string | TestOptions) {
+  options = fixupOptions(options);
 
   if (lhs === null || lhs === undefined)
     throw new TestError(`Left-hand side value is ${lhs}, which is not comparable`, options);
@@ -360,12 +365,11 @@ export function cmp(lhs: TestComparableType, operator: "<" | "<=" | "==" | ">" |
  * @param actual - The actual value
  * @throws If the values are not equal
  */
-export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, options?: Annotation | TestOptions): void {
+export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, options?: string | TestOptions): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+  options = fixupOptions(options);
 
   try {
     testDeepEq(expected, actual, '', options);
@@ -391,9 +395,8 @@ export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, option
 /* TypeScript requires assertions to return void, so we can't just "asserts actual" here if we return the original value.
    assert's returnvalue isn't that useful so it seems worth giving up the return value for cleaner testcode
 */
-export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, options?: Annotation | TestOptions): asserts actual {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, options?: string | TestOptions): asserts actual {
+  options = fixupOptions(options);
 
   if (isPromise(actual))
     throw new TestError(`You cannot assert on a promise. Did you forget to await it?`, options);
@@ -471,14 +474,13 @@ function verifyThrowsException(expect: RegExp | ((error: Error) => boolean), exc
  * @param func_or_promise - A function to call, or a promise to await
  *  @param options - Test compare options or annotation
  * @returns The Error object thrown */
-export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => never, options?: Annotation | TestOptions): Error; // only picks up always-throwing functions
-export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
-export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
-export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => unknown, options?: Annotation | TestOptions): Error;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => never, options?: string | TestOptions): Error; // only picks up always-throwing functions
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown>, options?: string | TestOptions): Promise<Error>;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => Promise<unknown>, options?: string | TestOptions): Promise<Error>;
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: () => unknown, options?: string | TestOptions): Error;
 
-export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown> | (() => unknown), options?: Annotation | TestOptions): Error | Promise<Error> {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+export function throws(expect: RegExp | ((error: Error) => boolean), func_or_promise: Promise<unknown> | (() => unknown), options?: string | TestOptions): Error | Promise<Error> {
+  options = fixupOptions(options);
 
   let retval;
   try {
@@ -503,18 +505,16 @@ export function throws(expect: RegExp | ((error: Error) => boolean), func_or_pro
  *  @param actual - Actual value
  *  @param options - Test compare options or annotation
  * */
-export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, options?: Annotation | TestOptions) {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, options?: string | TestOptions) {
+  options = fixupOptions(options);
 
   eqPropsRecurse(expect, actual, "root", [], options);
   return actual;
 }
 
 /** @deprecated use test.eqPartial instead */
-export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], options?: Annotation | TestOptions) {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], options?: string | TestOptions) {
+  options = fixupOptions(options);
 
   eqPropsRecurse(expect, actual, "root", ignore, options);
   return actual;
@@ -682,8 +682,7 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
   using waitState = flagWait("wait");
   const waitStack = new Error().stack;
 
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+  options = fixupOptions(options);
   if (options?.test && typeof waitfor !== "function")
     throw new Error("The test option can only be used together with function waits");
 
@@ -742,9 +741,8 @@ export async function wait<T>(waitfor: (() => T | Promise<T>) | Promise<T>, opti
 export async function waitToggled<T>({ test, run }: {
   test: () => T | Promise<T>;
   run: () => unknown | Promise<unknown>;
-}, options?: Annotation | { timeout?: number; annotation?: Annotation }): PositiveWaitRetVal<T> {
-  if (typeof options === "string" || typeof options === "function")
-    options = { annotation: options };
+}, options?: string | { timeout?: number; annotation?: Annotation }): PositiveWaitRetVal<T> {
+  options = fixupOptions(options);
 
   //Evaluate immediately
   let result = test();
