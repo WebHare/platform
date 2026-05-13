@@ -2,11 +2,11 @@ import { fromMetaDatatoResized, type ResizeMethod } from "@webhare/services/src/
 import type { HareScriptResourceDescriptor } from "./richdocument";
 
 export type ExportedTSDescriptor = {
-  __ts_resource_descriptor: unknown;
+  ts$resourcedescriptor: unknown;
 };
 
 export type ExportedTSDescriptorExplained = {
-  __ts_resource_descriptor: {
+  ts$resourcedescriptor: {
     id: bigint;
     source: number;
     setting: Omit<HareScriptResourceDescriptor, "data" | "blobsource" | "mirrored" | "rotation">;
@@ -16,7 +16,7 @@ export type ExportedTSDescriptorExplained = {
 
 /** Resize a wrapped blob exported using mod::system/lib/cache.whlib#ExportTSDescriptor */
 export async function resizeTSDescriptor(descriptor: ExportedTSDescriptor, resize: ResizeMethod) {
-  const d = (descriptor as ExportedTSDescriptorExplained).__ts_resource_descriptor;
+  const d = (descriptor as ExportedTSDescriptorExplained).ts$resourcedescriptor;
   return fromMetaDatatoResized(1, {
     refPoint: d.setting.refpoint,
     dominantColor: d.setting.dominantcolor,
