@@ -456,7 +456,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
     IF(id = 0)
     {
-      ^screenshot->src := this->contexts->controller->baseurl || ".wh/common/preview/nopreview.html";
+      ^screenshot->src := "x-webhare:placeholder";
       ^urlpanel->visible := FALSE;
       ^comment->enabled := FALSE;
       RETURN;

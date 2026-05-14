@@ -192,6 +192,18 @@ test.runTests(
       }
     },
 
+    "verify x-webhare:placeholder works",
+    async function () {
+      test.click(test.getMenu(['I09', 'IA04'])); //sets the placeholder
+      await test.waitForUI();
+
+      //now see if the rabbit-placeholder is loading into the iframe, ensuring nopreview is not a 404
+      const bgDiv = await test.waitForElement([tt.comp("iframe").node, "iframe", "#bg"]);
+      test.eq(/^url\(".*rabbit-placeholder.png"\)$/, getComputedStyle(bgDiv).backgroundImage);
+      const img = await loadImage(getComputedStyle(bgDiv).backgroundImage.slice(5, -2));
+      test.eq(411, img.naturalWidth);
+    },
+
     {
       name: 'assetpack',
       test: async function () {

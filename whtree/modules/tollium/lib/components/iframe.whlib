@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -142,8 +143,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         ];
   }
 
-  PUBLIC STRING FUNCTION __GetContentURL()
-  {
+  PUBLIC STRING FUNCTION __GetContentURL() {
+    IF(this->pvt_src = "x-webhare:placeholder")
+      RETURN "/.wh/common/preview/nopreview.html";
     RETURN this->pvt_src ?? this->mainpagelink;
   }
 
