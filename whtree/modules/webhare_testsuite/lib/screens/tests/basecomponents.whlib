@@ -420,6 +420,9 @@ PUBLIC STATIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   {
     ^iframe->UpdateInitData([ my_init_info := "another greeting" ]);
   }
+  MACRO DoLoadPlaceholder() {
+    ^iframe->src := "x-webhare:placeholder";
+  }
   BOOLEAN FUNCTION OnIframeEnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
   {
     RETURN this->selected;

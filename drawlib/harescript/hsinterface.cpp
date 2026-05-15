@@ -1936,47 +1936,6 @@ void  DLv2_MakeCanvasFromCanvas(HSVM *vm, HSVM_VariableId id_set)
         CLOSE_WRAPPER
 }
 
-void  DLv2_HSVtoRGB(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-
-        double h = HSVM_FloatGet(vm,HSVM_Arg(0));
-        double s = HSVM_FloatGet(vm,HSVM_Arg(1));
-        double v = HSVM_FloatGet(vm,HSVM_Arg(2));
-
-        Pixel32 rgb;
-
-        context->HSVtoRGB(&rgb, h, s, v);
-
-        HSVM_IntegerSet(vm, id_set, DrawlibtoHSPixel(rgb));
-
-        CLOSE_WRAPPER
-}
-
-void  DLv2_RGBtoHSV(HSVM *vm, HSVM_VariableId id_set)
-{
-        OPEN_WRAPPER
-
-        double h, s, v;
-
-        Pixel32 rgb = HStoDrawlibPixel(HSVM_IntegerGet(vm,HSVM_Arg(0)));
-
-        context->RGBtoHSV(rgb, &h, &s, &v);
-
-        HSVM_ColumnId col_h = HSVM_GetColumnId(vm, "H");
-        HSVM_ColumnId col_s = HSVM_GetColumnId(vm, "S");
-        HSVM_ColumnId col_v = HSVM_GetColumnId(vm, "V");
-
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-        HSVM_FloatSet(vm, HSVM_RecordCreate(vm, id_set, col_h), h);
-        HSVM_FloatSet(vm, HSVM_RecordCreate(vm, id_set, col_s), s);
-        HSVM_FloatSet(vm, HSVM_RecordCreate(vm, id_set, col_v), v);
-
-        CLOSE_WRAPPER
-}
-
-
-
 
 /*******************************************************************************
         Blob saving stuff....
