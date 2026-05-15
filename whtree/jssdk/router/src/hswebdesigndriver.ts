@@ -11,6 +11,7 @@ import type { PageBuilderDataTypes } from "@webhare/router";
 import type { DataLayerEntry, FrontendDataTypes } from "@webhare/frontend";
 import type { ListItem, Thing } from "schema-dts";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
+import type { PageMetadata } from "./metadata";
 
 const hshostComments = true; //enable indicators to verify HS/TS routes taken
 
@@ -42,6 +43,7 @@ export type RunPageResultContent = {
   structuredbreadcrumb: Array<{ link: string; title: string }>;
   pagetitle: string;
   pagedescription: string;
+  consiliofields: PageMetadata["consilioFields"];
 };
 
 type RunPageResultFile = {
@@ -105,6 +107,7 @@ export function setupRequestFromResult(contReq: ContentPageRequest, result: RunP
   contReq.pageMetadata.breadcrumb.push(...result.structuredbreadcrumb.map(bc => ({ "@type": "ListItem", item: bc.link, name: bc.title } satisfies ListItem)));
   contReq.pageMetadata.title = result.pagetitle;
   contReq.pageMetadata.description = result.pagedescription;
+  Object.assign(contReq.pageMetadata.consilioFields, result.consiliofields);
 }
 
 export async function runHareScriptPage(contReq: ContentPageRequest, how:

@@ -42,7 +42,8 @@ RECORD FUNCTION EncodeWebdesignResponse(OBJECT webdesign, BLOB content, RECORD A
     webdesign->canonicalurl,
     webdesign->structuredbreadcrumb,
     webdesign->pagetitle,
-    webdesign->pagedescription
+    webdesign->pagedescription,
+    webdesign->consiliofields
   ];
 }
 

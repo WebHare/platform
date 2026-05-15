@@ -449,23 +449,16 @@ export class CPageRequest {
 
   private async renderBodyFinale(): Promise<Litty> {
     const schemaOrgItems = this.getFinalStructuredData();
+    // IF (IsRequest() AND IsWHDebugOptionSet("win"))
+    //   PrintInvokedWitties();
+    //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
+
     return litty`
       ${this.__insertions["body-bottom"] ? await this.__renderInserts("body-bottom") : ''}
-      ${
-
-      //TODO
-      // IF(RecordExists(this->consiliofields))
-      // {
-      //   //NOTE: we do not consider this format 'stable', format may change or maybe we try to store it outside the HTML itself
-      //   Print(`<script type="application/x-hson" id="wh-consiliofields">${EncodeHSON(this->consiliofields)}</script>`);
-      // }
-
-      // IF (IsRequest() AND IsWHDebugOptionSet("win"))
-      //   PrintInvokedWitties();
-      //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
-      ""}
-        ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}
-        <script type="application/ld+json">${rawLitty(stringify(schemaOrgItems, { target: "script" }))}</script>`;
+      ${this.pageMetadata.consilioFields && Object.keys(this.pageMetadata.consilioFields).length > 0 ?
+        litty`<script type="application/x-hson" id="wh-consiliofields">${rawLitty(stringify(this.pageMetadata.consilioFields, { target: "script" }))}</script>` : ''}
+      ${this.__insertions["body-devbottom"] ? await this.__renderInserts("body-devbottom") : ''}
+      <script type="application/ld+json">${rawLitty(stringify(schemaOrgItems, { target: "script" }))}</script>`;
   }
 
   private async buildPage(head: Litty | undefined, body: Litty, settings: SiteResponseSettings): Promise<Litty> {

@@ -200,7 +200,7 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
     {
       parsed_page.isdynamic := parsed_page.isdynamic OR ToUppercase(content) = "NO-CACHE";
     }
-    ELSE IF(name LIKE "CONSILIO-*")
+    ELSE IF(name LIKE "CONSILIO-*" OR name LIKE "CONSILIO.*")
     {
       STRING fieldname := ToLowercase(Substring(name,9));
 
@@ -327,7 +327,8 @@ MACRO Text(STRING text)
   {
     TRY
     {
-      FOREVERY(RECORD newfield FROM UnpackRecord(DecodeHSON(text)))
+      RECORD decoded := text LIKE "hson:*" ? DecodeHSON(text) : DecodeJSON(text);
+      FOREVERY(RECORD newfield FROM UnpackRecord(decoded))
       {
         STRING fieldname := ToLowercase(newfield.name);
         DELETE FROM parsed_page.extrafields WHERE name = fieldname;
