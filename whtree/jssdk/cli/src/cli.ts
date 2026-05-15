@@ -6,5 +6,5 @@ export { setAnsiCmdMode, ansiCmd, type AnsiCommand } from "./ansi";
 export { inferRunCliTypes, runCli, enumOption, intOption, floatOption, CLIRuntimeError, CLISyntaxError, type CLIArgumentType } from "./run";
 
 import { runCli } from "./run";
-/** @deprecated - use cliRun instead, run is too generic a name. Deprecated in WH 6.0 */
+/** @deprecated - use runCli instead, run is too generic a name. Deprecated in WH 6.0, backported to WH 5.9.5 */
 export const run = runCli;
