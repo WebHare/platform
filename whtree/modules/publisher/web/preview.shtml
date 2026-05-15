@@ -136,7 +136,7 @@ MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN isp
     IF (rtdtype = "")
       THROW NEW Exception("An RTD type is required to preview a widget, please set an <rtddoc rtdtype=...>");
 
-    webdesign->RunAsWidgetPreview(PTR webdesign->RenderWidgetInstance(instancedata));
+    webdesign->__RunAsWidgetPreview(PTR webdesign->RenderWidgetInstance(instancedata));
     RETURN;
   }
 
