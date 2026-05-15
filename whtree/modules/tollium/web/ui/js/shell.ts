@@ -11,6 +11,7 @@ import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import type { ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
 
 //We need to configure window extensions for the debuginterface
 import type { } from "@mod-tollium/js/internal/debuginterface";
