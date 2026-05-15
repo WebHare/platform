@@ -5,10 +5,9 @@ import * as whfs from "@webhare/whfs";
 import type { Document } from "@xmldom/xmldom";
 import { createContentPageRequest, type CPageRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
-import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import { elements, parseDocAsXML, xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { attempt, throwError } from "@webhare/std";
-import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -26,12 +25,14 @@ export function parseResponse(responsetext: string) {
   //eliminate empty toplevel nodes:
   const contentElements = contentdiv ? xmlToJS(contentdiv).children.filter(child => typeof child === "object" || child.trim()) : [];
   const bodyElements = body ? xmlToJS(body).children.filter(child => typeof child === "object" || child.trim()) : [];
-
   const metaTags = new Map(elements(doc.getElementsByTagName("meta")).filter(m => m.getAttribute("name")).map(m => [m.getAttribute("name") || "", m.getAttribute("content") || ""]));
+  const linkTags = elements(doc.getElementsByTagName("link")).map(m => ({ rel: m.getAttribute("rel") || '', href: m.getAttribute("href") || '' }));
+  const linkMap = Map.groupBy(linkTags, tag => tag.rel);
   const openGraph = test.extractOpenGraphData(doc);
   const schemaOrg = test.extractSchemaOrgData(doc);
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, };
+
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, linkTags, linkMap };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */

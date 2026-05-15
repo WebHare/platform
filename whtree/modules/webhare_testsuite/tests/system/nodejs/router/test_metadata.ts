@@ -1,5 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import { fetchAsDoc, fetchPreviewAsDoc, getAsDoc } from "@mod-webhare_testsuite/js/whfs";
+import { openSite } from "@webhare/whfs/src/sites";
 
 async function testBreadCrumbs() {
   const testSiteRoot: string = (await test.getTestSiteJS()).webRoot!;
@@ -25,10 +26,6 @@ async function testBreadCrumbs() {
       "@type": "ListItem",
       item: testSiteRoot,
       name: "webhare_testsuite.testsitejs",
-    }, {
-      "@type": "ListItem",
-      name: "TestPages"
-      //has no index and thus no url
     }, {
       "@type": "ListItem",
       item: testSiteRoot + "TestPages/StaticPage/",
@@ -69,10 +66,11 @@ async function testGTM() {
   }
 }
 
-async function testCustomStructuredData() {
+async function testPageMetadata() {
   //HS generated, HS and TS rendered
   for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
-    const dynamicPage = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage`);
+    const siteObj = await openSite(site);
+    const dynamicPage = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage`, { setmetadata: "1" });
     const faq = dynamicPage.schemaOrg.find(_ => _["@type"] === "FAQPage");
     test.eqPartial({
       "mainEntity": [
@@ -87,6 +85,29 @@ async function testCustomStructuredData() {
     const htmlClasses = dynamicPage.doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
     test.assert(htmlClasses.includes("html--dynamicpage"), "HS generated class should be present in " + site);
     test.eq("asxd-8231", dynamicPage.doc.documentElement?.getAttribute("data-test_data_field"));
+
+    test.eqPartial([{ href: siteObj.webRoot + "TestPages/dynamicpage/?canonical=true" }], dynamicPage.linkMap.get("canonical"), `Canonical link should be present in ${site}`);
+
+    const breadcrumbs = dynamicPage.schemaOrg.filter(_ => _["@type"] === "BreadcrumbList");
+    test.eqPartial([
+      {
+        itemListElement: [
+          {
+            item: siteObj.webRoot!,
+            name: siteObj.name,
+          }, {
+            item: siteObj.webRoot + "TestPages/dynamicpage/",
+            name: "dynamicpage"
+          }, {
+            item: siteObj.webRoot + "TestPages/dynamicpage/?canonical=true#custom",
+            name: "Custom entry"
+          }
+        ]
+      }
+    ], breadcrumbs, `Breadcrumbs should be present in ${site} and contain the custom entry added by the page's GetPageBody macro`);
+
+    test.eq("dynamic page", dynamicPage.doc.getElementsByTagName("title")[0]?.textContent, `Page title should be rendered in ${site}`);
+    test.eq("A dynamic page", dynamicPage.metaTags.get("description"), `Page description should be present in meta tags in ${site}`);
   }
 }
 
@@ -152,6 +173,6 @@ async function testOpenGraph() {
 test.runTests([
   testBreadCrumbs,
   testGTM,
-  testCustomStructuredData,
+  testPageMetadata,
   testOpenGraph
 ]);
