@@ -12,13 +12,25 @@ OBJECT ARRAY allocated_canvasses;
 
 //ADDME Is there a nicer way to implement colors? Perhaps add a HS primitive, constants?
 
-/// Transparent (with black RGB channels)
+/** Transparent (with black RGB channels)
+    @public
+    @loadlib mod::platform/lib/graphics.whlib
+*/
 PUBLIC CONSTANT INTEGER ColorBlackTransparent := 0x00000000;
-/// Transparent (with white RGB channels)
+/** Transparent (with white RGB channels)
+    @public
+    @loadlib mod::platform/lib/graphics.whlib
+*/
 PUBLIC CONSTANT INTEGER ColorWhiteTransparent := 0x00FFFFFF;
-/// Fully opaque black
+/** Fully opaque black
+    @public
+    @loadlib mod::platform/lib/graphics.whlib
+*/
 PUBLIC CONSTANT INTEGER ColorBlack := 0xFF000000;
-/// Fully opaque white
+/** Fully opaque white
+    @public
+    @loadlib mod::platform/lib/graphics.whlib
+*/
 PUBLIC CONSTANT INTEGER ColorWhite := 0xFFFFFFFF;
 
 /** This object contains a drawable canvas.

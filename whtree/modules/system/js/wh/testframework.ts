@@ -152,7 +152,7 @@ function logExplanation(explanation: Annotation) {
   testfw?.log("* " + explanation + "\n");
 }
 
-export function eqHTML(expected: string, actual: string, explanation?: Annotation) {
+export function eqHTML(expected: string, actual: string, explanation?: string) {
   const fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again

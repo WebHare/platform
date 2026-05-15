@@ -310,6 +310,26 @@ MACRO FilterTest()
   CloseTest("TestGraphics: FilterTest");
 }
 
+MACRO ColorTest() {
+  TestEq([ h := 0f, s := 1f, v := 1f ], GfxRGB2HSV(0xFFFF0000));
+  TestEq([ h := 120f, s := 1f, v := 1f ], GfxRGB2HSV(0xFF00FF00));
+  TestEq([ h := 240f, s := 1f, v := 1f ], GfxRGB2HSV(0xFF0000FF));
+
+  TestEq([ h := 240f, s := 1f, v := 0.5019f ], GfxRGB2HSV(0xFF000080));
+  TestEq([ h := 120f, s := 1f, v := 0.5019f ], GfxRGB2HSV(0xFF008000));
+
+  TestEq([ h := 220f, s := 0.75f, v := 0.8f ], GfxRGB2HSV(0xFF3366CC));
+
+  TestEq(0xFFFF0000, GfxHSV2RGB(0,1,1));
+  TestEq(0xFF00FF00, GfxHSV2RGB(120,1,1));
+  TestEq(0xFF0000FF, GfxHSV2RGB(240,1,1));
+
+  //we accept small rounding errors
+  TestEq(TRUE, GfxHSV2RGB(0,1,0.5018) IN [0xFF800000, 0xFF7F0000], `Unexpected value: ${ToString(GfxHSV2RGB(0,1,0.5018),16)}`);
+  TestEq(TRUE, GfxHSV2RGB(240,1,0.5018) IN [0xFF000080, 0xFF00007F], `Unexpected value: ${ToString(GfxHSV2RGB(240,1,0.5018),16)}`);
+  TestEq(TRUE, GfxHSV2RGB(220,0.75f,0.8f) IN [0xFF3366CC, 0xFF32CCCC], `Unexpected value: ${ToString(GfxHSV2RGB(220,0.75f,0.8f),16)}`);
+}
+
 MACRO NoForceTest()
 {
   OpenTest("TestGraphics: NoForceTest");
@@ -489,6 +509,7 @@ MACRO TestRegressions()
 
 MethodPacking();
 FilterTest();
+ColorTest();
 IF(NOT IsWASM())
 {
   //These tests directly work with canvasses and will never be supported without DrawLib
