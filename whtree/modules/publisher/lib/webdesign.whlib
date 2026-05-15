@@ -688,9 +688,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     RETURN this->DoOpenWebtoolForm(formobject, FALSE, formobject->id);
   }
 
-  /** Render specified function as body for a widget preview
-      @param instancerender Render function */
-  PUBLIC MACRO RunAsWidgetPreview(MACRO PTR instancerender)
+  /** Used by the HareScript preview to render a widget. Not supported for TS webdesigns so now marked as internal */
+  PUBLIC MACRO __RunAsWidgetPreview(MACRO PTR instancerender)
   {
     this->pvt_renderwidgetpreview := TRUE;
     this->__renderwidgetpreview := instancerender;

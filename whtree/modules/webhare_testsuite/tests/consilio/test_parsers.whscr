@@ -54,6 +54,27 @@ MACRO TestParserHtml()
          ,[ name := "pagekeywords", value := ["by-name testfile6.rtd","</script>","by-id 60039"]]
          ], parsed.extrafields);
 
+  // consilio fields (legacy and new)
+  // TODO: we should move towards the <meta name="consilio. notation - easier read, built from litty and matches `dc.` and other metatag names using dots as a prefix
+  parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
+    <html>
+      <head>
+        <meta name="consilio.firstfield" content="first" />
+        <meta name="consilio.firstfield" content="keepme" />
+        <meta name="consilio.pagekeywords" content="overwriteme" />
+      </head>
+      <body>
+        <ul>
+          <li>aap</li><li>noot</li><li>mies</li>
+        </ul>
+        <script type="application/json" id="wh-consiliofields">{"pagekeywords":["by-name testfile6.rtd","<\\/script>","by-id 60039"]}</script>
+      </body>
+    </html>`),TRUE);
+  TestEq("aap noot mies", parsed.text);
+  TestEq([[ name := "firstfield", value := "keepme" ]
+         ,[ name := "pagekeywords", value := ["by-name testfile6.rtd","</script>","by-id 60039"]]
+         ], parsed.extrafields);
+
   // Regression: Consilio returned the text of all 'title' texts as title instead of only html>head>title
   parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
     <html>

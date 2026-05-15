@@ -22,6 +22,8 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase <
       INSERT CELL [ title := "Custom entry", link := this->webdesign->canonicalurl || "#custom" ] INTO this->webdesign->structuredbreadcrumb AT END;
       this->webdesign->pagetitle := "dynamic page";
       this->webdesign->pagedescription := "A dynamic page";
+
+      INSERT CELL test_consilio := "consilio </script> value" INTO this->webdesign->consiliofields;
     }
 
     this->webdesign->structured_data := [

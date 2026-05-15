@@ -128,11 +128,6 @@ public:
         int32_t ValidateDrawId(DrawID id) const;
         int32_t ValidateFontId(FontID id) const;
 
-        //Path stuff here
-
-        void RGBtoHSV(DrawLib::Pixel32 rgb, double *h, double *s, double *v);
-        void HSVtoRGB(DrawLib::Pixel32 *rgb, double h, double s, double v);
-
         void CalculateKMeansQuantizedPalette(DrawID id, uint32_t clustercount, uint8_t minimum_alpha, int32_t max_iters, float initialpoint, std::vector< Pixel32 > *result);
 
         int32_t RegisterDrawInfo(std::unique_ptr<DrawLib::Bitmap32> &to_adopt);

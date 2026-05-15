@@ -8,6 +8,8 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 import { elements, parseDocAsXML, xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { attempt, throwError } from "@webhare/std";
+import { decodeHSONorJSONRecord } from "@webhare/hscompat";
+import type { PageMetadata } from "@webhare/router/src/metadata";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -31,8 +33,11 @@ export function parseResponse(responsetext: string) {
   const openGraph = test.extractOpenGraphData(doc);
   const schemaOrg = test.extractSchemaOrgData(doc);
 
+  const consilioFieldElement = doc.getElementById("wh-consiliofields");
+  //TODO HS & TS should both switch to <meta name="consilio.xxx" /> fields and avoid HSON in JS paths
+  const consilioFields = consilioFieldElement ? decodeHSONorJSONRecord(consilioFieldElement.textContent || "") as PageMetadata["consilioFields"] : {};
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, linkTags, linkMap };
+  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, linkTags, linkMap, consilioFields };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */

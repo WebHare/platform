@@ -47,6 +47,9 @@ export class PageMetadata {
   /** OpenGraph metadata; usually preferred by social media sharing */
   openGraph: OpenGraphMetadata = {};
 
+  /** Additional consilio fields to index with frontend content */
+  readonly consilioFields: Record<string, string | number | boolean | string[]> = {}; //TODO investigate which further types to support here, shouldn't consilio offer a type? (although records may be too complex)
+
   //mapping from lowercased prefix to [prefix,namespace] pairs for case-insensitive lookups
   #htmlPrefixes: Map<string, [string, string]> = new Map();
   get htmlPrefixes(): ReadonlyArray<[string, string]> {

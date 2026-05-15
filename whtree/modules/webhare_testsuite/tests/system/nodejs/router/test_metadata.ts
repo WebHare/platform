@@ -108,6 +108,8 @@ async function testPageMetadata() {
 
     test.eq("dynamic page", dynamicPage.doc.getElementsByTagName("title")[0]?.textContent, `Page title should be rendered in ${site}`);
     test.eq("A dynamic page", dynamicPage.metaTags.get("description"), `Page description should be present in meta tags in ${site}`);
+
+    test.eq("consilio </script> value", dynamicPage.consilioFields.test_consilio, `Custom consilio field should be present in ${site}`);
   }
 }
 
