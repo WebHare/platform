@@ -13,6 +13,7 @@ LOADLIB "mod::devkit/lib/internal/deploy/git.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "onlystaged", type := "switch" ]
+    , [ name := "debug", type := "switch" ]
     , [ name := "file", type := "param" ]
     ]);
 
@@ -112,6 +113,7 @@ IF (IsDefaultValue(allchanged))
 
 OBJECT proc := CreateProcess(GetWebhareConfiguration().installationroot || "bin/wh",
   [ "checkmodule"
+  , ...(args.debug ? [ "--debug" ] : STRING[])
   , "--async"
   , "--hidehints"
   , "--nowarnings"
