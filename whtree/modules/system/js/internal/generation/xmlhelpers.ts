@@ -19,10 +19,10 @@ export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): x
 }
 
 //Build an elements API that accepts both xmldom nodes and true HTML nodes
-export function elements<T extends xmldom.Element>(collection: xmldom.NodeList<xmldom.Node>): T[];
+export function elements<T extends xmldom.Element>(collection: xmldom.NodeList<xmldom.Node> | xmldom.NodeList<xmldom.Element>): T[];
 export function elements<T extends Element>(collection: HTMLCollectionBase): T[];
 
-export function elements<T extends xmldom.Element | Element>(collection: xmldom.NodeList<xmldom.Node> | HTMLCollectionBase): T[] {
+export function elements<T extends xmldom.Element | Element>(collection: xmldom.NodeList<xmldom.Node> | xmldom.NodeList<xmldom.Element> | HTMLCollectionBase): T[] {
   const items: T[] = [];
   for (let i = 0; i < collection.length; ++i)
     if (collection[i].nodeType === collection[i].ELEMENT_NODE)
