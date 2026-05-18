@@ -88,7 +88,7 @@ WEBHARE_NO_CONFIG=1 wh apply --nodb --offline config.base
 
 # verify the binary works. depends on 'wh node' working
 logWithTime "Verifying the browser"
-BROWSER="$(wh node -e 'console.log(require("puppeteer").executablePath())')"
+BROWSER="$(wh node -e 'require("puppeteer").executablePath().then(_=>console.log(_))')"
 if [ -z "$BROWSER" ]; then
   echo "Puppeteer executablePath() failed, cannot find browser"
   exit 1
