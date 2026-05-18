@@ -51,7 +51,8 @@ if [ -n "$WHBUILD_NODE_URL" ]; then
   popd
 else
   curl -fsSL https://rpm.nodesource.com/setup_${WEBHARE_NODE_MAJOR}.x | bash -
-  PACKAGES+=(nodejs-26.0.0) #26.1.0 breaks puppeteer, see https://github.com/puppeteer/puppeteer/issues/14957
+  # PACKAGES+=(nodejs-26.0.0) #26.1.0 breaks puppeteer, see https://github.com/puppeteer/puppeteer/issues/14957
+  PACKAGES+=(nodejs)
 fi
 
 # Modify root to live in /opt/whdata/root/ so data there is preserved between restarts

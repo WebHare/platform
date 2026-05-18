@@ -61,7 +61,7 @@ export async function launchPuppeteer(options?: Puppeteer.LaunchOptions): Promis
     puppeteerpromise = import("puppeteer");
 
   const puppeteer = await puppeteerpromise;
-  process.env.CHROMIUM_PATH = puppeteer.executablePath();
+  process.env.CHROMIUM_PATH = await puppeteer.executablePath();
   options = { executablePath: __dirname + "/../bin/start-chromium.sh", ...options };
 
   const puppet = await puppeteer.launch(options) as Puppeteer.Browser & AsyncDisposable;

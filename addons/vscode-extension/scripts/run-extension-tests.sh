@@ -6,7 +6,8 @@ cd "${BASH_SOURCE%/*}/../../.."
 WEBHARE_CHECKEDOUT_TO="$(pwd)"
 
 cd "$WEBHARE_CHECKEDOUT_TO/whtree"
-npm install
+# don't run eg. puppeteer download scripts
+npm install --ignore-scripts
 cd "$WEBHARE_CHECKEDOUT_TO/addons/vscode-extension"
 
 mkdir -p node_modules/@webhare
