@@ -6,7 +6,7 @@ import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
-import { Issuer, generators } from 'openid-client';
+import { allowInsecureRequests, authorizationCodeGrant, buildAuthorizationUrl, discovery, fetchUserInfo, randomNonce } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { registerRelyingParty, initializeIssuer, type WRDAuthLoginSettings } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
@@ -74,11 +74,11 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { user?: stri
   return recorder.urls;
 }
 
-async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string) {
+async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string | URL) {
   const page = await context.newPage();
 
   console.log("Oauth starting on", authorizeURL);
-  await page.goto(authorizeURL);
+  await page.goto(authorizeURL.toString());
 
   await page.setRequestInterception(true);
 
@@ -106,7 +106,7 @@ async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, auth
   return { path, finalurl };
 }
 
-async function runAuthorizeFlow(authorizeURL: string) {
+async function runAuthorizeFlow(authorizeURL: string | URL) {
   const context = await puppeteer!.createBrowserContext(); //separate cookie storage
   try {
     return await runAuthorizeFlowInContext(context, authorizeURL);
@@ -301,17 +301,11 @@ async function verifyOpenIDClient() {
   await commitWork();
 
   //verify using openid-client
-  const issuer = await Issuer.discover(testsite.webRoot + '.well-known/openid-configuration');
-  test.assert('https://beta.webhare.net/', issuer.metadata.issuer);
+  const config = await discovery(new URL(testsite.webRoot + '.well-known/openid-configuration'), clientId, clientSecret, undefined, {
+    execute: [allowInsecureRequests],
+  });
 
-  const client = new issuer.Client({
-    client_id: clientId,
-    client_secret: clientSecret,
-    redirect_uris: [callbackUrl],
-    response_types: ['code'],
-    // id_token_signed_response_alg (default "RS256") FIXME - test both!
-    // token_endpoint_auth_method (default "client_secret_basic")
-  }); // => Client
+  test.assert('https://beta.webhare.net/', config.serverMetadata().issuer);
 
   //FIXME code_verifier (PKCS?) support
   // const code_verifier = generators.codeVerifier();
@@ -319,8 +313,9 @@ async function verifyOpenIDClient() {
   // it should be httpOnly (not readable by javascript) and encrypted.
   // const code_challenge = generators.codeChallenge(code_verifier);
 
-  const authorizeurl = client.authorizationUrl({
+  const authorizeurl = buildAuthorizationUrl(config, {
     scope: 'openid email invalidscope',
+    redirect_uri: callbackUrl,
     // response_mode
 
     // TODO make code work
@@ -329,33 +324,30 @@ async function verifyOpenIDClient() {
   });
 
   const { finalurl } = await runAuthorizeFlow(authorizeurl);
-  const params = client.callbackParams(finalurl);
-
-  const tokenSet = await client.callback(callbackUrl, params); // , { code_verifier });
-  test.eq("Bearer", tokenSet.token_type);
+  const tokenSet = await authorizationCodeGrant(config, new URL(finalurl)); // , { code_verifier });
+  test.eq("bearer", tokenSet.token_type);
   const accesTokenClaims = JSON.parse(Buffer.from(tokenSet.access_token!.split(".")[1], "base64url").toString());
   test.eq("openid email", accesTokenClaims.scope);
 
-  test.eq("Sysop", tokenSet.claims().sub);
+  test.eq("Sysop", tokenSet.claims()?.sub);
 
   test.assert(tokenSet.id_token);
-  await test.throws(/Token is invalid/, client.userinfo(tokenSet.id_token), "Shouldn't accept id_token");
-  const userinfo = await client.userinfo(tokenSet.access_token!);
+  await test.throws(/unexpected HTTP response status code/, fetchUserInfo(config, tokenSet.id_token, tokenSet.claims()!.sub!), "Shouldn't accept id_token");
+  const userinfo = await fetchUserInfo(config, tokenSet.access_token!, tokenSet.claims()!.sub!);
 
   test.eqPartial({ "sub": "Sysop", "name": "Sysop McTestsuite", "given_name": "Sysop", "family_name": "McTestsuite", answer: 43 }, userinfo);
 
   //Now with a nonce
-  const nonce = generators.nonce();
-  const authorizeurl2 = client.authorizationUrl({
+  const nonce = randomNonce();
+  const authorizeurl2 = buildAuthorizationUrl(config, {
     scope: 'openid email',
+    redirect_uri: callbackUrl,
     nonce
   });
 
   const { finalurl: finalurl2 } = await runAuthorizeFlow(authorizeurl2);
-  const params2 = client.callbackParams(finalurl2);
-
-  const tokenSet2 = await client.callback(callbackUrl, params2, { nonce });
-  test.eq("Sysop", tokenSet2.claims().sub);
+  const tokenSet2 = await authorizationCodeGrant(config, new URL(finalurl2), { expectedNonce: nonce });
+  test.eq("Sysop", tokenSet2.claims()?.sub);
 }
 
 //delete the cookeies associated with /portal1-oidc/ but not our parent portal
