@@ -10,6 +10,7 @@
 set -eo pipefail
 
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
+# shellcheck source=../../../../lib/wh-functions.sh
 source "lib/wh-functions.sh"
 
 wh_getnodeconfig
