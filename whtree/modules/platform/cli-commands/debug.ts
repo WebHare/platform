@@ -261,6 +261,13 @@ run({
         }
       }
     },
+    "list-global-ports": {
+      description: "Get the currently registered global IPC ports",
+      main: async () => {
+        const ports = await bridge.getPortList();
+        console.table(ports);
+      }
+    },
     "get-compiled-version": {
       description: "Get the compiled version of a script",
       arguments: [{ name: "<scriptpath>", description: "Path to the script" }],
