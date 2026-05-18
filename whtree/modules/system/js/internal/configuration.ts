@@ -89,10 +89,9 @@ export function isRestoredWebHare(): boolean {
   return Boolean(process.env["WEBHARE_ISRESTORED"]);
 }
 
-const extractsCache = new Map<string, {
-  lastUpdate: number;
+let extractsCache: Map<string, {
   data: unknown;
-}>();
+}> | null = null;
 
 function deepFreeze(object: Record<string | symbol, unknown>) {
   for (const value of Object.values(object)) {
@@ -102,23 +101,21 @@ function deepFreeze(object: Record<string | symbol, unknown>) {
   return Object.freeze(object);
 }
 
+export function invalidateGeneratedFilesCache() {
+  extractsCache = null;
+}
+
 function getCacheableJSONConfig(diskpath: string) {
-  const file = fs.openSync(diskpath, 'r');
-  try {
-    const stats = fs.fstatSync(file);
-    const entry = extractsCache.get(diskpath);
-    if (entry?.lastUpdate === stats.mtimeMs)
-      return entry.data;
+  if (!extractsCache)
+    extractsCache = new Map<string, { lastUpdate: number; data: unknown }>();
+  const entry = extractsCache.get(diskpath);
+  if (entry)
+    return entry.data;
 
-    const buffer = Buffer.alloc(stats.size);
-    fs.readSync(file, buffer, 0, stats.size, 0);
-    const data = deepFreeze(JSON.parse(buffer.toString('utf8')));
-
-    extractsCache.set(diskpath, { lastUpdate: stats.mtimeMs, data });
-    return data;
-  } finally {
-    fs.closeSync(file);
-  }
+  const fileStr = fs.readFileSync(diskpath, 'utf8');
+  const data = deepFreeze(JSON.parse(fileStr));
+  extractsCache.set(diskpath, { data });
+  return data;
 }
 
 export function isInvalidWebHareUpgrade(from: string, to: string): string | null {
