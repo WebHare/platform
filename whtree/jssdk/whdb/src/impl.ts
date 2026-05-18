@@ -482,8 +482,6 @@ export class WHDBConnectionImpl implements WHDBConnection {
   }
 
   passthroughQuery(query: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback): void {
-    if (debugFlags["usepostgrejs"])
-      throw new Error(`passthroughQuery is not supported with postgrejs driver`);
     const client = this.waitConnected();
     if (!isPromise(client))
       client.passthroughQuery(query, callback);
