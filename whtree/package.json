@@ -57,7 +57,7 @@
     "openapi-typescript": "^7.13.0",
     "puppeteer": "^25.0.3",
     "sass": "^1.99.0",
-    "schema-dts": "^1.1.5",
+    "schema-dts": "^2.0.0",
     "semver": "^7.8.0",
     "sharp": "^0.34.5",
     "stacktrace-js": "^2.0.2",
