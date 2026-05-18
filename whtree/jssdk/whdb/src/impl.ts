@@ -269,6 +269,7 @@ class Work implements WorkObject {
 
 class WHDBPostgresPool implements PostgresPool {
   conn: WHDBConnectionImpl;
+  options = {};
 
   constructor(conn: WHDBConnectionImpl) {
     this.conn = conn;
