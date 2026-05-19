@@ -13,7 +13,8 @@ import path from "path";
 
 interface HSImgCacheRequest {
   pgblobid: string;
-  path: string;
+  sourcepath?: string;
+  path?: string;
   mimetype: string;
   width: number;
   height: number;
@@ -97,7 +98,7 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetadata, "width" | "
   throw new Error("Unsupported output format: " + outputformat);
 }
 
-async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Promise<Buffer> {
+async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> {
   const resource = {
     ...request,
     mediaType: request.mimetype,
@@ -116,7 +117,7 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
     method: request.item.resizemethod.method,
   };
 
-  const sourceimage = __getBlobDiskFilePath(request.pgblobid);
+  const sourceimage = request.sourcepath || __getBlobDiskFilePath(request.pgblobid);
   const img = await resizeImage(resource, sourceimage, method);
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
@@ -161,13 +162,13 @@ async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" |
 }
 
 //used for images.shtml testpage
-export async function returnImageForCache(request: Omit<HSImgCacheRequest, "path">): Promise<string> {
+export async function returnImageForCache(request: HSImgCacheRequest): Promise<string> {
   return (await renderImageForCache(request)).toString("base64");
 }
 
 const workerPool = new RestAPIWorkerPool("restapi", 5, 100);
 
-export async function __generateImageForCacheInternal(request: HSImgCacheRequest): Promise<void> {
+export async function __generateImageForCacheInternal(request: Required<HSImgCacheRequest>): Promise<void> {
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
@@ -177,7 +178,7 @@ let scheduledShutdown = false, service: WebHareService | undefined;
 const restartInterval = 15 * 60 * 1000; //restart every 15 minutes. when lowering this during tests, wait at least a second as it's important that we're alive long enough that unifiedcachehost.whlib's Connect - Sleep - Connect can't wind up in a second already shutting down imgcache
 
 class UnifiedCacheServer extends BackendServiceConnection {
-  async generateImageForCache(request: HSImgCacheRequest): Promise<void> {
+  async generateImageForCache(request: Required<HSImgCacheRequest>): Promise<void> {
     await ((async () => {
       if (!debugFlags["imgcache-noworkers"]) {
         return workerPool.runInWorker((worker) => {

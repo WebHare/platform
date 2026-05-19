@@ -93,15 +93,13 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
         mimetype := GetImageMimetype(analyzed.extension);
         IF(IsWasm() OR mimetype IN ["image/webp","image/avif"])
         {
-          STRING diskpath := GetBlobDiskPath(info.data);
-          IF(diskpath = "")
+          IF(GetBlobDiskPath(info.data) = "")
             THROW NEW Exception("Blob data is not yet stored on disk, cannot process image");
           STRING jsresulttxt :=
                   CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
                   CELL[ ...info
                       , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
                       , analyzed.item
-                      , path := diskpath
                       ]);
           content := StringToBlob(DecodeBase64(jsresulttxt));
         }

@@ -7,6 +7,7 @@ LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/graphics.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "wh::os.whlib";
@@ -408,11 +409,12 @@ PUBLIC RECORD FUNCTION LookupDataForUnifiedURL(RECORD blobinfo)
     IF(Length(lookupresult.data) = 0)
       THROW NEW Exception(`Image lookup failed: object #${blobinfo.id} of type #${blobinfo.type}  has no data`);
 
+    STRING sourcepath := GetBlobDiskPath(lookupresult.data);
     STRING pgblobid := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, lookupresult.data) ;
     IF(lookupresult.metadata = "") //it's missing ? preconversion fs_objects...
-      RETURN CELL[ ...WrapBlob(lookupresult.data, ""), pgblobid ];
+      RETURN CELL[ ...WrapBlob(lookupresult.data, ""), pgblobid, sourcepath ];
     ELSE
-      RETURN CELL[ ...SplitBlobSetting(lookupresult.metadata, lookupresult.data, lookupresult.fs_object), pgblobid ];
+      RETURN CELL[ ...SplitBlobSetting(lookupresult.metadata, lookupresult.data, lookupresult.fs_object), pgblobid, sourcepath ];
   }
   FINALLY
   {
