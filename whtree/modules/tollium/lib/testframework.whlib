@@ -1303,7 +1303,7 @@ PUBLIC ASYNC MACRO TTLaunchStartedApp()
   AWAIT TTLaunchApp(applaunchinstructions[END-1].app, CELL[applaunchinstructions[END-1].target]);
 }
 
-OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen_or_comp)
+OBJECT ARRAY FUNCTION GetAllComponents(OBJECT screen_or_comp, BOOLEAN includeinvisible)
 {
   OBJECT ARRAY allcomps;
   IF (screen_or_comp EXTENDSFROM TolliumScreenBase)
@@ -1313,21 +1313,23 @@ OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen_or_comp)
   ELSE
     allcomps := screen_or_comp->GetSubcomponentsRecursive() CONCAT screen_or_comp->GetTopDownAllComponents();
 
-  OBJECT ARRAY visible;
-  FOREVERY (OBJECT comp FROM allcomps)
-  {
-    //Ignore invisible objects, remove duplicates
-    IF (comp->isnowvisible AND comp NOT IN visible)
-      INSERT comp INTO visible AT END;
+  IF(NOT includeinvisible) {
+    OBJECT ARRAY visible;
+    FOREVERY (OBJECT comp FROM allcomps)
+    {
+      //Ignore invisible objects, remove duplicates
+      IF (comp->isnowvisible AND comp NOT IN visible)
+        INSERT comp INTO visible AT END;
+    }
+    allcomps := visible;
   }
 
-  RETURN visible;
+  RETURN allcomps;
 }
 
-OBJECT FUNCTION LookupByCellname(OBJECT screen, STRING name, RECORD options)
-{
+OBJECT FUNCTION LookupByCellname(OBJECT screen, STRING name, RECORD options) {
   OBJECT ARRAY matches;
-  OBJECT ARRAY comps := GetAllVisibleComponents(screen);
+  OBJECT ARRAY comps := GetAllComponents(screen, options.findinvisible);
 
   IF (name LIKE "*!*") // lookup fragments by name
   {
@@ -1362,10 +1364,10 @@ OBJECT FUNCTION LookupByCellname(OBJECT screen, STRING name, RECORD options)
   RETURN matches[0];
 }
 
-OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING pathstr, RECORD options)
-{
+OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING originaltext, BOOLEAN islast, STRING pathstr, RECORD options) {
   OBJECT ARRAY matches;
   OBJECT ARRAY comps;
+  STRING text := originaltext;
 
   STRING matchelementtype;
   IF(text LIKE "{?*}:?*")
@@ -1374,8 +1376,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
     text := Substring(text,SearchSubstring(text,'}:')+2);
 
     STRING ARRAY alltypes;
-    FOREVERY(OBJECT comp FROM GetAllVisibleComponents(screen))
-    {
+    FOREVERY(OBJECT comp FROM GetAllComponents(screen, options.findinvisible)) {
       IF(comp->elementtype NOT IN alltypes)
         INSERT comp->elementtype INTO alltypes AT END;
 
@@ -1383,17 +1384,14 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
         INSERT comp INTO comps AT END;
     }
 
-    IF(Length(comps) = 0)
-    {
+    IF(Length(comps) = 0) {
       IF (options.allowmissing)
         RETURN DEFAULT OBJECT;
 
       THROW NEW Exception(`No objects of type '${matchelementtype}' - we only have: ${Detokenize(alltypes,', ')})`);
     }
-  }
-  ELSE
-  {
-    comps := GetAllVisibleComponents(screen);
+  } ELSE {
+    comps := GetAllComponents(screen, options.findinvisible);
     text := Substring(text,1);
   }
 
@@ -1464,6 +1462,18 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
     IF (options.allowmissing)
       RETURN DEFAULT OBJECT;
 
+    IF(NOT options.findinvisible) {
+      //Could we have found the object if we looked for visible objects?
+      OBJECT invisible_match;
+      TRY {
+        invisible_match := LookupByTitle(screen, originaltext, islast, pathstr, CELL[ ...options, findinvisible := TRUE, allowmissing := TRUE ]);
+      } CATCH(OBJECT e) {
+        //ignore
+      }
+      IF(ObjectExists(invisible_match))
+        THROW NEW Exception(`No visible objects with title '${text}' in '${pathstr}', but found an invisible one. If you want to select invisible objects, set the 'findinvisible' option to true.`);
+    }
+
     STRING ARRAY alltexts :=
         SELECT AS STRING ARRAY obj->title
           FROM ToRecordArray(comps, "OBJ")
@@ -1511,12 +1521,12 @@ PUBLIC BOOLEAN FUNCTION TTIsVisible(STRING compname, RECORD options DEFAULTSTO D
   RETURN ObjectExists(target) and target->isnowvisible;
 }
 
-PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions( [ chaseaction := FALSE
                               , menuitem := FALSE
                               , allowmissing := FALSE
                               , findinvisible := FALSE
+                              , dumpoutline := TRUE
                               ], options);
 
   IF (compname LIKE "*[menuitem]")
@@ -1576,7 +1586,8 @@ PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING co
   CATCH(OBJECT e)
   {
     Print(`\n** Lookup of '${compname}' in '${pathstr}' failed: ${e->what}\n\n`);
-    DumpValue((curcomp ?? topscreen->frame)->GetComponentOutline(),'tree');
+    IF(options.dumpoutline)
+      DumpValue((curcomp ?? topscreen->frame)->GetComponentOutline(),'tree');
     THROW;
   }
 }
