@@ -304,27 +304,17 @@ PUBLIC BOOLEAN FUNCTION IsValidURL(STRING url)
   RETURN TRUE;
 }
 
-RECORD FUNCTION SplitURLForVars(STRING url)
-{
+RECORD FUNCTION SplitURLForVars(STRING url) {
   STRING hash;
   INTEGER hashstart := SearchSubstring(url,'#');
-  IF(hashstart!=-1)
-  {
+  IF(hashstart!=-1) {
     hash:=Substring(url,hashstart);
     url:=Left(url,hashstart);
   }
 
   INTEGER startvars := SearchSubstring(url, '?');
-  INTEGER nextamp := SearchSubstring(url, '&');
-  INTEGER nextsemi := SearchSubstring(url, ';');
 
-  IF(nextamp != -1 AND (nextamp < startvars OR startvars = -1))
-    startvars  := nextamp;
-  IF(nextsemi != -1 AND (nextsemi < startvars OR startvars = -1))
-    startvars := nextsemi;
-
-  IF(startvars=-1)
-  {
+  IF(startvars=-1) {
     RETURN [ baseurl := url
            , vars := DEFAULT STRING ARRAY
            , hash := hash
@@ -332,9 +322,6 @@ RECORD FUNCTION SplitURLForVars(STRING url)
   }
 
   STRING vars := Substring(url, startvars+1);
-  vars := Substitute(vars,';','&');
-  vars := Substitute(vars,'?','&');
-
   RETURN [ baseurl := Left(url, startvars)
          , vars := Tokenize(vars,'&')
          , hash := hash

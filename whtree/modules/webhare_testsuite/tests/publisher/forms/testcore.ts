@@ -4,7 +4,7 @@ import * as datetime from 'dompack/types/datetime';
 import type { AddressValue } from "@webhare/address";
 import { getFormData, getFormHandler, type FormBase } from '@webhare/forms';
 
-const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';
+const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? 'dompackpulldown=1&' : '';
 
 function quickFillDefaultRequiredFields() {
   //fill required fields so we can submit
@@ -36,7 +36,7 @@ test.runTests(
     {
       test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
-        await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
+        await test.load(test.getTestSiteRoot() + 'testpages/formtest/?' + urlappend);
         await test.waitForElement("#coreform.wh-form--allowsubmit");
 
         test.eq(0, (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_")).length, "Should be no PXL events yet");
@@ -652,7 +652,7 @@ test.runTests(
 
     'Test unlocking disabled fields',
     async function () {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?' + urlappend);
 
       quickFillDefaultRequiredFields();
 
@@ -667,7 +667,7 @@ test.runTests(
 
     "Test URL preload and slow submission",
     async function () {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?${urlappend}email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000`);
       const start = new Date;
 
       /* URL based prefills -especially on static pages- cannot complete before the JS code is ready. We need to wait for that
@@ -705,7 +705,7 @@ test.runTests(
     "Test hidden field",
     async function () {
       // Hidden field gets value from XML source
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/" + urlappend);
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?" + urlappend);
       test.eq("value-xml", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
@@ -713,7 +713,7 @@ test.runTests(
       test.eq("value-xml", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is prefilled by url
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/?hidden=value-url" + urlappend.replace("?", "&"));
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?hidden=value-url&${urlappend}`);
       test.eq("value-url", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
@@ -721,7 +721,7 @@ test.runTests(
       test.eq("value-url", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is set dynamically server-side
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/?sethiddenfield=harescript" + urlappend.replace("?", "&"));
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?sethiddenfield=harescript&${urlappend}`);
       test.eq("value-harescript", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");
@@ -729,7 +729,7 @@ test.runTests(
       test.eq("value-harescript", JSON.parse(test.qR("#coreformsubmitresponse").textContent!).form.hidden);
 
       // Hidden field is set dynamically client-side
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/?sethiddenfield=javascript" + urlappend.replace("?", "&"));
+      await test.load(`${test.getTestSiteRoot()}testpages/formtest/?sethiddenfield=javascript&${urlappend}`);
       test.eq("value-javascript", test.qR("[name=hidden]").value);
       quickFillDefaultRequiredFields();
       test.click("#submitbutton");

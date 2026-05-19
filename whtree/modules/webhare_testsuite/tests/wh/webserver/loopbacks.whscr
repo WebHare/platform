@@ -1132,7 +1132,8 @@ redirect stuk
   TestEq(TRUE, browser->GotoWebpage(betabaseurl || "redirectbase3/;var=x&var=y"));
   TestEq(301, browser->GetHTTPStatus().code);
   dest := SELECT AS STRING value FROM browser->responseheaders WHERE ToUppercase(field)="LOCATION";
-  TestEq(betabaseurl || "redirectdest3/?x=1&y=2;var=x&var=y", dest);
+  //new URL treats semicolon as just text, and so should we
+  TestEq(betabaseurl || "redirectdest3/%3Bvar%3Dx%26var%3Dy?x=1&y=2", dest);
 
   TestEq(TRUE, browser->GotoWebpage(betabaseurl || "addbang/"));
   TestEq(301, browser->GetHTTPStatus().code);

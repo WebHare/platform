@@ -18,9 +18,6 @@ const unsigned MaxVarLength = 4096;
 
 const unsigned MaxMemoryTempStore=32768; //start flushing to disk after 32K
 
-const char url_separators[] = "?&;";
-const char *url_separators_end = url_separators + (sizeof url_separators) - 1;
-
 /** Parse a HTTP token, returning the end of the parse */
 char const*  ParseToken(char const*  begin, char const*  end, std::string *output)
 {
@@ -422,7 +419,7 @@ bool RequestParser::TryParseRequestLine(std::string const &requestline)
         received_url.assign(first_space+1,proto);
 
         //Do we have a url variable separator in the url?
-        received_url_separator = std::find_first_of(received_url.begin(), received_url.end(), url_separators,url_separators_end);
+        received_url_separator = std::find(received_url.begin(), received_url.end(), '?');
 
         //Decode web variables, if any (they appear after the '?')
         if (received_url_separator != received_url.end())
@@ -939,7 +936,7 @@ void RequestParser::ParseEncodedVars(const char* variable_start, const char* var
         while (variable_start != variables_end)
         {
                 //Find the end of the current variable (end of URL, or a '&')
-                const char* this_variable_end = std::find_first_of(variable_start,variables_end,url_separators,url_separators_end);
+                const char* this_variable_end = std::find(variable_start,variables_end,'&');
 
                 //Find the assignment opreator (a '=' sign)
                 const char* this_variable_assign = std::find(variable_start,this_variable_end,'=');
