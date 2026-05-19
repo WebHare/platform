@@ -6,6 +6,7 @@ import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 */
 
+import { getTolliumDebugVariables } from "@mod-tollium/js/testframework";
 import * as test from "@webhare/test-frontend";
 export * from "@mod-tollium/js/tolliumtest";
 
@@ -17,4 +18,8 @@ export async function getTestPortal() {
 export async function loadYamlScreen(name: string): Promise<void> {
   await test.load(`${await getTestPortal()}?app=webhare_testsuite:runyamlscreen(${encodeURIComponent(name)})`);
   await test.waitForUI();
+}
+
+export async function loadWTSTestScreen(testscreen: string) {
+  await test.load(`${await getTestPortal()}?app=webhare_testsuite:runscreen(${encodeURIComponent(testscreen)})&${getTolliumDebugVariables()}`);
 }
