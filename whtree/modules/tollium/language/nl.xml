@@ -709,7 +709,7 @@
   <textgroup gid="tilde">   <!-- tilde -->
     <text tid="accessibility">Toegankelijkheid</text>
     <text tid="add">Toevoegen</text>
-    <text tid="addtostartmenu">Toon in favorieten</text>
+    <text tid="addtostartmenu">In favorieten tonen</text>
     <text tid="advanced">Geavanceerd</text>
     <text tid="apikey">API sleutel</text>
     <text tid="apply">Toepassen</text>
@@ -809,7 +809,7 @@
     <text tid="setordering">Volgorde instellen</text>
     <text tid="settings">Instellingen</text>
     <text tid="showhistory">Geschiedenis weergeven</text>
-    <text tid="showinfavorites">Toon in favorieten</text>
+    <text tid="showinfavorites">In favorieten tonen</text>
     <text tid="status">Status</text>
     <text tid="subject">Onderwerp</text>
     <text tid="submit">Versturen</text>
