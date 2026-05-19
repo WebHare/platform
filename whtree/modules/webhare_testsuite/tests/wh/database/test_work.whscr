@@ -59,8 +59,31 @@ OBJECTTYPE CommitHandlerObj EXTEND TransactionFinishHandlerBase
     WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
     INSERT "h-rollback" INTO handlerresult AT END;
   }
+>;
+
+MACRO SyncCommitHandler(BOOLEAN iscommit)
+{
+  INSERT `synccommithandler-${iscommit?"commit":"rollback"}` INTO handlerresult AT END;
+}
 
 
+OBJECTTYPE SyncCommitHandlerObj EXTEND TransactionFinishHandlerBase <
+  UPDATE PUBLIC MACRO OnPreCommit(OBJECT localtrans) {
+    INSERT "h-precommit" INTO handlerresult AT END;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION OnCommitBroadcasts() {
+    INSERT "h-commitbroadcasts" INTO handlerresult AT END;
+    RETURN TRUE;
+  }
+
+  UPDATE PUBLIC MACRO OnCommit() {
+    INSERT "h-commit" INTO handlerresult AT END;
+  }
+
+  UPDATE PUBLIC MACRO OnRollback() {
+    INSERT "h-rollback" INTO handlerresult AT END;
+  }
 >;
 
 MACRO TestAutoTransaction()
@@ -106,7 +129,7 @@ MACRO TestAutoTransaction()
   trans->RegisterCommitHandler("", PTR CommitHandler(trans, "1", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "2", #1));
   trans->RegisterCommitHandler("1", PTR CommitHandler(trans, "3", #1)); // ignored due to same tag
-  trans->SetFinishHandler("x", NEW CommitHandlerObj);
+  trans->SetFinishHandler("x", NEW SyncCommitHandlerObj);
   trans->BroadcastOnCommit("webhare_testsuite:worktest.1", DEFAULT RECORD);
 
   IF(NOT IsWasm()) { //we're currently not bothering fixing this for WASM, it only works for HS anyway because it does a commit immediately after a failling statement (doing a select would also crash things)
@@ -117,6 +140,20 @@ MACRO TestAutoTransaction()
     TestEQ([ "h-precommit", "rollback-1", "rollback-2", "h-rollback" ], handlerresult);
   } ELSE {
     trans->RollbackWork();
+  }
+
+  // Test event processing order in WASM
+  IF (IsWasm()) {
+    trans->BeginWork();
+    handlerresult := DEFAULT STRING ARRAY;
+    __EM_SyncSyscall("executeInline", [ func := `require("@webhare/whdb").broadcastOnCommit("webhare_testsuite:worktest.1");`, param := DEFAULT RECORD ]);
+    __EM_SyncSyscall("executeInline", [ func := `require("@webhare/whdb").onFinishWork({
+    onCommitEvents() { require("@webhare/services/src/backendevents").broadcast("webhare_testsuite:worktest.2"); },
+    })`, param := DEFAULT RECORD ]);
+    trans->RegisterCommitHandler("", PTR SyncCommitHandler(#1));
+    trans->SetFinishHandler("x", NEW SyncCommitHandlerObj);
+    trans->CommitWork();
+    TestEQ([ "h-precommit", "webhare_testsuite:worktest.1", "webhare_testsuite:worktest.2", "h-commitbroadcasts", "synccommithandler-commit", "h-commit" ], handlerresult);
   }
 
   UnregisterCallback(cb);
