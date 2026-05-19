@@ -6,6 +6,7 @@ import action from './action/action';
 import button from './button/button';
 import buttongroup from './buttongroup/buttongroup';
 import { ObjCheckbox } from './checkbox/checkbox';
+import chips from './chips/chips';
 import codeedit from './codeedit/codeedit';
 import customhtml from './customhtml/customhtml';
 import datetime from './datetime/datetime';
@@ -57,6 +58,7 @@ export function getComponents(): Record<string, { new(parentcomp: ToddCompBase, 
     iframe,
     image,
     inlineblock,
+    chips,
     list,
     menuitem,
     panel: ObjPanel,

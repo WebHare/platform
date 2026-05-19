@@ -424,8 +424,13 @@ export class ObjFrame extends ToddCompBase {
       return existingcomp;
     }
 
+    let savedState: [string, object] | undefined;
     if (existingcomp) {
       this.debugLog("messages", "addComponent: Recreating '" + name + "' (" + existingcomp.componenttype + ") for parent '" + parentcomp.name + "'");
+
+      const state = existingcomp.getStateForReadd();
+      if (state)
+        savedState = [existingcomp.componenttype, state];
 
       // Add '(replaced)' to component name. Need to unregister first, because that needs the original name.
       this.unregisterComponent(existingcomp);
@@ -441,6 +446,9 @@ export class ObjFrame extends ToddCompBase {
     //console.log('addComponent: Constructing ' + xmlcomp.xml.base.type + ' ' + name + ' for parent ' + parentcomp.name);
     const createdcomp = getIndyShell().createComponent(newcomp.type, parentcomp, newcomp);
     createdcomp.afterConstructor(newcomp as any);
+
+    if (savedState && savedState[0] === createdcomp.componenttype)
+      createdcomp.applyStateAfterReadd(savedState[1]);
 
     return createdcomp;
   }

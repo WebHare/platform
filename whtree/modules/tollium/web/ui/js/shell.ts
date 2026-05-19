@@ -11,6 +11,7 @@ import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import type { ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
 
 //We need to configure window extensions for the debuginterface
 import type { } from "@mod-tollium/js/internal/debuginterface";
@@ -767,6 +768,20 @@ export function getIndyShell() {
     throw new Error(`IndyShell not yet initialized. Ordering issue?`);
   return indyshellinstance;
 }
+
+async function startRequiredFontsDownload() {
+  return Promise.all([
+    document.fonts.load("12px Roboto"), // normal font
+    document.fonts.load("italic 12px Roboto"), // italic font
+    document.fonts.load("500 12px Roboto"), // headings, dashboard tabs
+    document.fonts.load("bold 12px Roboto"), // bold
+    document.fonts.load("bold italic 12px Roboto"), // bold italic
+    document.fonts.load("normal normal normal 14px/1 FontAwesome") // form errors
+  ]);
+}
+
+// Wait will happen in onDomReady with document.fonts.ready, but start the loading as soon as possible
+void startRequiredFontsDownload().catch(err => console.error("Error loading fonts", err));
 
 export default IndyShell;
 export type { IndyShell };

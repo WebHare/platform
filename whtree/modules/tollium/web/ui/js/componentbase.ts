@@ -55,7 +55,7 @@ export type ToddCompClass<T extends ToddCompBase> = {
  *  COMPONENT BASE                                                                                                          *
  *                                                                                                                          *
  ****************************************************************************************************************************/
-export class ToddCompBase<Attributes extends ComponentStandardAttributes = ComponentStandardAttributes> {
+export class ToddCompBase<Attributes extends ComponentStandardAttributes = ComponentStandardAttributes, SavedState extends object = object> {
   action = '';
   name = '';
   componenttype = 'component';
@@ -167,6 +167,13 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   afterConstructor(data: ComponentStandardAttributes) { //needed to run actions that affect buildNode
     if (data.defaultbutton)
       this.node!.dataset.toddDefaultButton = data.defaultbutton;
+  }
+  /// Save state to reapply after a component replace
+  getStateForReadd(): SavedState | null {
+    return null;
+  }
+  /// Reapply state after a component replace.
+  applyStateAfterReadd(state: SavedState): void {
   }
   getTitle() {
     return this.title;
