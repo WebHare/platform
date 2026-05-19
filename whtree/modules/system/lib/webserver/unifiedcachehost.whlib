@@ -213,7 +213,11 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
       AddHTTPHeader("Cache-Control", "no-cache", FALSE);
       LogWebserverError(e->what);
       IF(this->trace)
+      {
         Print("Final error: " || e->what ||"\n");
+        FOREVERY (RECORD rec FROM e->trace)
+          PRINT(`${rec.filename}:${rec.line}:${rec.col}): Called from ${rec.func}\n`);
+      }
       ELSE
       {
         AddHTTPHeader("Status", "404", FALSE);
