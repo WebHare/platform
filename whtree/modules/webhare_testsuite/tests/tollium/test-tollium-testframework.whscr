@@ -44,6 +44,18 @@ ASYNC MACRO TestTTLookup()
   img := TT(":I have a hint");
   TestEq("img1", img->name);
 
+  //Verify APIs can properly find an invisible component, or report this is why you can't find it
+  Print("This test should print 2 'Lookup of ... failed' messages. Ignore those, they are expected\n");
+  img->visible := FALSE;
+
+  TestEq(FALSE, TTIsVisible("img1"), "TTIsVisible should work by name");
+  TestThrowsLike("*is not visible", PTR TT("img1", [ dumpoutline := FALSE ]), "but TT should still throw on invisible components");
+  TestEq(FALSE, TT("img1", [ findinvisible := TRUE ])->visible);
+
+  TestEq(FALSE, TTIsVisible(":I have a title"), "*and* by title!");
+  TestThrowsLike("*found an invisible one*", PTR TT(":I have a title", [ dumpoutline := FALSE ]), "but TT should still throw on invisible components");
+  TestEq(FALSE, TT(":I have a title", [ findinvisible := TRUE ])->visible);
+
   // Test TTIsActionEnabled
   TestEQ(FALSE, TTIsActionEnabled("done"));
   TTFillByTitle("select1", "Option 2");
