@@ -12,6 +12,7 @@ import { newWebRequestFromInfo } from "./request";
 import { isLitty, litty, littyToString } from "@webhare/litty";
 import { runHareScriptPage } from "./hswebdesigndriver";
 import { whfsType } from "@webhare/whfs";
+import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -121,6 +122,9 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   errorcode?: number;
   webreq?: WebRequestInfo;
 }): Promise<WebResponseInfo> {
+  const timings = new Timings();
+  using prepRenderTimer = timings.startTimer("prepPageRender");
+
   const webRequest = options?.webreq ? await newWebRequestFromInfo(options.webreq) : undefined;
 
   if (options?.webreq) {
@@ -134,7 +138,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
   const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile, { allowHistoric: true }) : undefined;
-  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject });
+  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject, timings });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
     const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);
@@ -142,7 +146,14 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   }
 
   const renderer = await whfsreq.getPageRenderer();
-  return (await renderer(whfsreq)).asWebResponseInfo();
+  prepRenderTimer.stop();
+
+  using pageRenderTimer = timings.startTimer("pageRender");
+  const renderResult = await renderer(whfsreq);
+  pageRenderTimer.stop();
+
+  renderResult.headers.append("server-timing", asServerTimingHeader(timings));
+  return renderResult.asWebResponseInfo();
 }
 
 /** Renders TypeScript based widgets for HareScript widget embedders */

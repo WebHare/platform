@@ -3,6 +3,7 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::float.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -87,15 +88,29 @@ RECORD FUNCTION GenerateCacheablePage(RECORD redirectinfo, RECORD options) //FIX
              ];
 }
 
+VARIANT FUNCTION UpdateHeaders(DATETIME start, VARIANT headers) {
+  INTEGER timespent := GetMsecsDifference(start, GetCurrentDatetime());
+
+  FOREVERY(VARIANT header FROM headers)
+    IF(header[0] = "server-timing") { //append callJs overhead here
+      INTEGER existingtime;
+      //figure out the sum of known timings, and take responsibility for the remaining time
+      FOREVERY(STRING tok FROM Tokenize(header[1],",")) {
+        STRING ARRAY durtoks := Tokenize(tok,";dur=");
+        IF(Length(durtoks) = 2)
+          existingtime := existingtime + INTEGER(ToFloat(durtoks[1],0));
+      }
+
+      headers[#header][1] := "callJs;dur=" || (timespent - existingtime) || "," || header[1] || ",total;dur=" || timespent;
+      BREAK;
+    }
+  RETURN headers;
+}
+
 PUBLIC MACRO DoWHFSExecuteJS(INTEGER targetfile, RECORD options DEFAULTSTO DEFAULT RECORD) {
   DATETIME start := GetCurrentDatetime();
   RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", targetfile, CELL[ ...options, webreq := EncodeWebRequestForJS() ]);
-  //x-hs-host, if present, is always the last header
-  IF(Length(response.headers) > 0 AND response.headers[END-1][0]="x-hs-host") {
-    INTEGER timespent := GetMsecsDifference(start, GetCurrentDatetime());
-    response.headers[END-1][1] := response.headers[END-1][1] || " whfsexecute=" || timespent;
-  }
-
+  response.headers := UpdateHeaders(start, response.headers);
   ExecuteWebResponse(response);
 }
 
@@ -144,12 +159,7 @@ PUBLIC MACRO RunDynamicPageInWebdesign(STRING funcname, STRING webdesignurl, REC
     DATETIME start := GetCurrentDatetime();
 
     RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, options);
-    //x-hs-host, if present, is always the last header
-    IF(Length(response.headers) > 0 AND response.headers[END-1][0]="x-hs-host") {
-      INTEGER timespent := GetMsecsDifference(start, GetCurrentDatetime());
-      response.headers[END-1][1] := response.headers[END-1][1] || " whfsexecute=" || timespent;
-    }
-
+    response.headers := UpdateHeaders(start, response.headers);
     ExecuteWebResponse(response);
   }
 }

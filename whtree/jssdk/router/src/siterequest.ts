@@ -25,6 +25,7 @@ import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { dtapStage } from "@webhare/env";
 import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
+import type { Timings } from "@mod-platform/js/logging/timings";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -56,6 +57,8 @@ export type ContentPageRequestOptions = {
   contentObject?: WHFSObject;
   /** If set, the request is being made in the context of an editor preview. Widgets often change rendering or become non-interactive when being shown in a RTD editor */
   isEditorPreview?: boolean;
+  /** Timings object to measure performance */
+  timings?: Timings;
 };
 
 /** Convert a camelCaseName to corresponding kebab-case-name
@@ -116,6 +119,9 @@ export class CPageRequest {
   private _statusCode: number;
   private _isEditorPreview: boolean;
 
+  /** If set, Timings can be used to record performance metrics for a Server-Timing header */
+  public readonly timings?: Timings;
+
   /** Did we initialize the plugins yet? */
   private didInitializePlugins = false;
 
@@ -136,6 +142,7 @@ export class CPageRequest {
     this._contentObject = options?.contentObject || targetObject;
     this._statusCode = options?.statusCode || 200;
     this._isEditorPreview = options?.isEditorPreview || false;
+    this.timings = options?.timings;
 
     this.frontendConfig = {
       siteRoot: this.targetSite.webRoot || "",
@@ -345,8 +352,11 @@ export class CPageRequest {
   async buildWebPage(page: Litty): Promise<WebResponse> {
     //FIXME wrap with content-top/content-bottom insert points
     this._page = page;
-    if (this._publicationSettings.objectName)
-      return wrapHSWebdesign(this);
+    if (this._publicationSettings.objectName) {
+      using timer = this.timings?.startTimer("wrapHSWebdesign");
+      void (timer);
+      return await wrapHSWebdesign(this);
+    }
 
     // Now that we're pretty sure we'll be generating HTML, initialize plugins
     await this.initializePlugins();
@@ -371,7 +381,9 @@ export class CPageRequest {
 
     //TODO this is a bit of a hack to get the data for the new renderer
     const pageBuilder = await importJSFunction<PageBuilderFunction>(this._publicationSettings.pageBuilder);
-    return pageBuilder(this);
+    using timer = this.timings?.startTimer("pageBuilder");
+    void (timer);
+    return await pageBuilder(this);
   }
 
   /** @deprecated createComposer is going away after WH6 */
@@ -620,7 +632,7 @@ export async function createContentPageRequest(targetObject: WHFSObject, options
 
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
-type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata">;
+type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
 export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;

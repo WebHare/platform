@@ -51,3 +51,7 @@ export class Timings {
     return this.timers;
   }
 }
+
+export function asServerTimingHeader(timings: Timings) {
+  return Object.entries(timings.getTimers()).map(([name, duration]) => `${name};dur=${duration.toFixed(3)}`).join(",");
+}
