@@ -21,7 +21,7 @@ import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_
 import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
-import { backendConfig, importJSFunction, toFSPath } from "@webhare/services";
+import { backendConfig, broadcast, importJSFunction, toFSPath } from "@webhare/services";
 import { appliesToModule, getGeneratedFilePath, getMyApplicabilityInfo, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { readFile } from "fs/promises";
 import { join } from "node:path";
@@ -192,6 +192,8 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', deleteOpts);
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', deleteOpts);
   await rm(backendConfig.dataRoot + 'storage/system/js/publicconfig.json', { force: true });
+
+  broadcast("platform:generated-files-updated");
   return;
 }
 

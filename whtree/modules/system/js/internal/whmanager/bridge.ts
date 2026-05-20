@@ -13,7 +13,7 @@ import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type PortLi
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
-import { reloadBackendConfig } from "../configuration";
+import { invalidateGeneratedFilesCache, reloadBackendConfig } from "../configuration";
 import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/codecontexts";
 import { isMainThread, type TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
@@ -1520,6 +1520,10 @@ function handleGlobalEvent(data: { name: string }) {
   switch (data.name) {
     case "system:configupdate": {
       reloadBackendConfig();
+    } break;
+    case "platform:generated-files-updated":
+    case "system:sites": {
+      invalidateGeneratedFilesCache();
     } break;
   }
 }

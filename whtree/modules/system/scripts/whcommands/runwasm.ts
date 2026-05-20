@@ -6,6 +6,15 @@ import { HSVMSymbol } from "@webhare/harescript/src/wasm-support";
 import { setScopedResource } from "@webhare/services/src/codecontexts";
 
 async function runWasmScript(script: string, params: string[]) {
+  let finished = false;
+
+  process.on("beforeExit", () => {
+    if (!finished) {
+      console.error("Script process exited before the script finished, eventloop wasn't kept alive properly");
+      process.exitCode ||= 1;
+    }
+  });
+
   if (!script.startsWith("mod::"))
     script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
 
@@ -15,6 +24,7 @@ async function runWasmScript(script: string, params: string[]) {
     await vm.done;
     process.exitCode = vm.vm?.deref()?.exitCode ?? 254;
   } finally {
+    finished = true;
     await bridge.ensureDataSent();
   }
 }

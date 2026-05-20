@@ -69,7 +69,7 @@
         <part height="2pr">
           <split type="horizontal" height="1pr">
             <part name="profilelistpart" width="1pr">
-              <select name="session" type="pulldown" />
+              <select name="session" type="pulldown" onchange="GotSessionChange" />
               <list name="profileslist" borders="top left" onselect="onprofileselected" selectmode="single">
                 <column name="when" type="time" width="13x" precision="milliseconds" />
 

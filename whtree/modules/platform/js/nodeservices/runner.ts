@@ -7,9 +7,10 @@ async function createServiceClient(service: BackendServiceDescriptor, args: unkn
   return client;
 }
 
-export async function launchService(service: BackendServiceDescriptor, options?: { debug?: boolean }): Promise<WebHareService | null> {
+export async function launchService(service: BackendServiceDescriptor, options?: { debug?: boolean; alt?: boolean }): Promise<WebHareService | null> {
   const runnerOptions: BackendServiceOptions = {
-    protocols: ["bridge", "unix-socket"]
+    protocols: ["bridge", "unix-socket"],
+    alt: options?.alt,
   };
 
   try {
@@ -22,7 +23,7 @@ export async function launchService(service: BackendServiceDescriptor, options?:
     throw new Error(`Don't know how to start service ${service.name}`);
   } catch (e) {
     console.error("Error starting service " + service.name, e);
-    setTimeout(() => void launchService(service), 3000);
+    setTimeout(() => void launchService(service, options), 3000);
     return null;
   }
 }

@@ -54,6 +54,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   STRING profiledir;
 
+  BOOLEAN initializing;
+
   // ---------------------------------------------------------------------------
   //
   // Init
@@ -92,6 +94,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
     ELSE
     {
+      this->initializing := TRUE;
+
       STRING session := Detokenize(data.params, " ") ?? "live";
       IF(session = "live" AND TestExclusiveLocked([ systemprofiles := portname ])) //live is not available so go for default (Perhaps we should show a profile session selector instead? or 'live' shouldn't require locking)
         session := "default";
@@ -107,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
         ^session->value := session = "live" ? "live" : `session:${session}`;
       }
 
-      ^session->onchange := PTR this->GotSessionChange; //not set earlier to prevent it triggering an exclusive lock in ReloadSessions
+      this->initializing := FALSE;
       this->GotSessionChange();
     }
   }
@@ -135,12 +139,16 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO GotSessionChange()
   {
-    this->GotUnload();
+    IF (this->initializing)
+      RETURN;
 
     IF (^session->value = "live")
     {
       IF (NOT this->GetExclusiveAccess([ systemprofiles := portname ], [ onbeforesteal := PTR this->GotUnload ]))
+      {
+        ^session->value := "default";
         RETURN;
+      }
 
       this->port := CreateIPCPort(portname);
       this->whmanagerconn := ConnectToIPCPort("system:whmanager");

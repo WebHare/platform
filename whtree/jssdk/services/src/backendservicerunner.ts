@@ -76,6 +76,8 @@ export interface BackendServiceOptions {
   onClose?: () => void;
   /** Protocols to listen on */
   protocols?: BackendServiceProtocol[];
+  /** Append "-alt" to the service name */
+  alt?: boolean;
 }
 
 
@@ -337,6 +339,9 @@ class WebHareService implements Disposable { //EXTEND IPCPortHandlerBase
     @param options - Service options
 */
 export async function runBackendService<Constructor extends ConnectionFactory>(servicename: string, constructor: Constructor, options?: BackendServiceOptions): Promise<WebHareService> {
+  if (options?.alt)
+    servicename += "-alt";
+
   // Max path length 108, subtract '/tmp/whsock.FYZtwasn8B8cUQ2qIpmv_w/' (35) leaves 73, round down to 70.
   if (servicename.length > 70)
     throw new Error(`Service name '${servicename}' is too long, must be up to 70 characters but is ${servicename.length} characters`); //socket paths may become too long
@@ -364,7 +369,7 @@ export async function runBackendService<Constructor extends ConnectionFactory>(s
   }
 
   //HareScript uses this event if waiting for service to come online. FIXME TS should too (it now spins in openBackendService)
-  broadcast(`system: webhareservice.${servicename}.start`);
+  broadcast(`system:webhareservice.${servicename}.start`);
   return service;
 }
 

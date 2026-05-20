@@ -20,6 +20,7 @@ const pickedV8HeapStats = [
 
 export type CallJSOptions = {
   camelcase: boolean;
+  runinline?: boolean;
 };
 
 type SelectedHeapStats = ToCamelCase<Pick<ReturnType<typeof v8.getHeapStatistics>, typeof pickedV8HeapStats[number]>>;
@@ -42,7 +43,7 @@ export function filterObject<T extends object>(obj: T, filterFunc: (data: TypedE
 }
 
 
-export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, options }: { lib: string; name: string; stringifiedArgs: string; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
+export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, options }: { lib: string; name: string; stringifiedArgs: unknown; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
   await using context = new CodeContext(`CallJSService ${lib}#${name}`, { lib, name });
   if (hscontext.auth)
     context.setScopedResource("platform:authcontext", toAuthAuditContext(hscontext.auth));
@@ -95,7 +96,24 @@ export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, 
 
 let workerPool: RestAPIWorkerPool | undefined = undefined;
 class CallJSService extends BackendServiceConnection {
+  #runInline: boolean;
+
+  constructor(alt: boolean) {
+    super();
+    this.#runInline = alt;
+  }
+
   async invoke(lib: string, name: string, args: unknown[], hscontext: HarescriptJSCallContext, options: CallJSOptions) {
+    if (this.#runInline) {
+      if (options.camelcase)
+        args = toCamelCase(args);
+
+      const retval = await workerHandleCall({ lib, name, stringifiedArgs: (await encodeforMessageTransfer(args)).value, hscontext, options });
+      const decodedRetval = decodeFromMessageTransfer(retval.value.returnValue);
+
+      return options.camelcase && typeof decodedRetval === 'object' ? toSnakeCase(decodedRetval) : decodedRetval;
+    }
+
     workerPool ??= new RestAPIWorkerPool("CallJSService", 5, 1000);
     return await workerPool.runInWorker(async (worker) => {
       if (options.camelcase)
@@ -121,6 +139,6 @@ class CallJSService extends BackendServiceConnection {
   }
 }
 
-export async function getCallJSService(servicename: string) {
-  return new CallJSService;
+export async function getCallJSService(options: { alt: boolean }) {
+  return new CallJSService(options.alt);
 }

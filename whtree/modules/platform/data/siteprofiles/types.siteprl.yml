@@ -466,6 +466,8 @@ apply:
             title: Testframework
           wud:
             title: Webserver url debugging
+          calljs-alt:
+            title: Use alternative CallJS service
   - to: all
     intercept:
       checkabtestpublish:

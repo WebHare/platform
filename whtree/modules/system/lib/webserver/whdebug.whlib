@@ -82,6 +82,15 @@ PUBLIC MACRO ProcessWHDebugVariablesUnchecked()
   ProcessWHDebugVariables(TRUE);
 }
 
+PUBLIC MACRO ProcessMockedWHDebugVariables() {
+  ProcessWHDebugVariables(FALSE);
+}
+
+PUBLIC MACRO HandleEndOfMockedRequest() {
+  didsetupprofiling := FALSE;
+  __DestroyProfiling();
+}
+
 /** Test whether the specific debug option is set */
 PUBLIC BOOLEAN FUNCTION IsWHDebugOptionSet(STRING opt)
 {

@@ -6,7 +6,7 @@ import { launchService } from '@mod-platform/js/nodeservices/runner';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
 import { openBackendService, type GetBackendServiceInterface } from '@webhare/services';
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { spawn } from 'child_process';
 import { kill } from 'process';
 import { compareProperties } from '@webhare/std';
@@ -25,12 +25,14 @@ async function stopService(smservice: ServiceManagerClient, service: string) {
     throw new CLIRuntimeError(result.errorMessage);
 }
 
-async function runBackendServiceInDebug(service: string, serviceinfo: BackendServiceDescriptor) {
-  const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices" as const;
-  const nodeservices = await openBackendService(servicename);
+async function runBackendServiceInDebug(service: string, serviceinfo: BackendServiceDescriptor, options: { alt: boolean }) {
+  if (!options.alt) {
+    const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices" as const;
+    const nodeservices = await openBackendService(servicename);
+    await nodeservices.suppress(service);
+  }
 
-  await nodeservices.suppress(service);
-  void launchService(serviceinfo, { debug: true });
+  void launchService(serviceinfo, { debug: true, alt: options.alt });
 }
 
 async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition) {
@@ -71,7 +73,7 @@ async function runServiceInDebug(service: string, serviceinfo: ServiceDefinition
   }
 }
 
-run({
+runCli({
   description: 'Control the WebHare service manager',
   subCommands: {
     "list": {
@@ -116,18 +118,23 @@ run({
     },
     "debug": {
       description: "Debug a service",
-      arguments: [{ name: "<service>", description: "Service name" }],
+      flags: { alt: "Use an alternative serviceport, to reroute specific request to the debugged service" },
+      arguments: [
+        { name: "<service>", description: "Service name" },
+      ],
       mixedFlags: false,
       main: async ({ opts, args }) => {
         const serviceinfo = (await getAllServices())[args.service];
         if (serviceinfo) {
+          if (opts.alt)
+            throw new CLIRuntimeError("The --alt flag is not supported for service debugging yet");
           await runServiceInDebug(args.service, serviceinfo);
           return;
         }
 
         const backendservice = getExtractedConfig("services").backendServices.find((s) => s.name === args.service);
         if (backendservice) {
-          await runBackendServiceInDebug(args.service, backendservice);
+          await runBackendServiceInDebug(args.service, backendservice, { alt: opts.alt });
           return;
         }
 

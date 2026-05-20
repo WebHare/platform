@@ -11,6 +11,7 @@ LOADLIB "mod::publisher/lib/internal/webdesign/webcontext.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 INTEGER capturing_stream;
 
@@ -80,6 +81,7 @@ MACRO MockUsingClientInfo(RECORD clientinfo) {
     resetresponse := PTR MyResetResponse,
     sendwebfile := PTR MySendWebFile
   ]);
+  ProcessMockedWHDebugVariables();
 }
 
 MACRO MySendWebFile(BLOB data) {
@@ -162,6 +164,7 @@ PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how
   RECORD result := RunInstantiatedDynHSPage(webdesign, pageobject);;
   result.headers := sendhttpheaders;
   sendhttpheaders := RECORD[];
+  HandleEndOfMockedRequest();
   RETURN result;
 }
 

@@ -1106,12 +1106,16 @@ PUBLIC OBJECTTYPE ExtCommitHandler <
   PUBLIC BOOLEAN FUNCTION RunBroadcasts() {
     IF (ObjectExists(this->uploadedblobs))
       this->trans->SetUploadedBlobPaths(this->uploadedblobs);
+    // ensure all broadcastOnCommits from JS are processed first, just as in HS
+    __HS_ProcessCurrentBroadcasts();
     RECORD rec := __BroadcastCommitEvents(this->handlers);
     this->firstexception := rec.firstexception;
     RETURN rec.anybroadcast;
   }
 
   PUBLIC MACRO RunHandlers(BOOLEAN iscommit) {
+    // Ensure JS broadcasts are processed before calling the handlers, just as in HS
+    __HS_ProcessCurrentBroadcasts();
     RECORD rec := __CallFinishHandlers(this->handlers, iscommit ? "onCommit" : "onRollback");
 
     OBJECT firstexception := this->firstexception ?? rec.firstexception;

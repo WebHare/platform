@@ -480,6 +480,8 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   }
 
   async activate() {
+    using lock = this.refs.getLock("activate");
+    void lock;
     try {
       await this.defer.promise;
       void Promise.resolve(true).then(() => this.emitQueue());
