@@ -388,7 +388,10 @@ export function subtest(name: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-shadow
-export async function load(page: string, { waitUI = true } = {}): Promise<void> {
+export async function load(page: string | URL, { waitUI = true } = {}): Promise<void> {
+  if (page instanceof URL)
+    page = page.toString();
+
   if (typeof page !== "string") {
     console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);

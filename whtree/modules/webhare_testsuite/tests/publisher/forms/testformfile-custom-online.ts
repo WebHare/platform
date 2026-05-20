@@ -146,9 +146,11 @@ test.runTests(
 
     'Test cancellation',
     async function () {
-      await test.load(editlink + "?cancel=1");
+      const gotoURL = new URL(editlink);
+      gotoURL.searchParams.set("cancel", "1");
+      await test.load(gotoURL);
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
-      test.assert(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should  see thankyou_cancelled text");
+      test.assert(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should see thankyou_cancelled text");
     }
   ]);

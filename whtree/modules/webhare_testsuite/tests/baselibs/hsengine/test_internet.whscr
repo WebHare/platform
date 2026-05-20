@@ -44,6 +44,14 @@ MACRO UrlTest()
   TestEq("",      GetVariableFromUrl("http://testurl/?&&mmyvar=blaat&asd&gd&myvar=&testvar=test","myvar"));
 
   TestEq("test",  GetVariableFromUrl("http://testurl/?myvar=test#fragment","myvar"));
+
+  //Follow URLSearchParams. incorrectly placed ? and & are interpreted as text
+  TestEq("test;var2=bla",  GetVariableFromUrl("http://testurl/?myvar=test;var2=bla#fragment","myvar"));
+  TestEq("test?var2=bla",  GetVariableFromUrl("http://testurl/?myvar=test?var2=bla#fragment","myvar"));
+  TestEq("test=var2=bla",  GetVariableFromUrl("http://testurl/?myvar=test=var2=bla#fragment","myvar"));
+  TestEq("",  GetVariableFromUrl("http://testurl/&myvar=test?var2=bla#fragment","myvar"));
+  TestEq("bla",  GetVariableFromUrl("http://testurl/&myvar=test?var2=bla#fragment","var2"));
+
   TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test#fragment","myvar"));
   TestEq("test",  GetVariableFromUrl("http://testurl/?mmyvar=blaat&myvar=test&testvar=test#fragment","myvar"));
   TestEq("blaat", GetVariableFromUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment","myvar"));
@@ -55,8 +63,8 @@ MACRO UrlTest()
 
   TestEq([[name := "myvar", value := "blaat"],[name := "mmyvar", value:="test"]], GetAllVariablesFromUrl("http://testurl/?myvar=blaat&mmyvar=test#fragment"));
   TestEq([[name := "a", value := "1"],[name := "a", value:="2"]], GetAllVariablesFromUrl("http://testurl/?a=1&a=2#fragment"));
-  TestEq([[name := "a", value := "1"],[name := "a", value:="2"]], GetAllVariablesFromUrl("http://testurl/&a=1&a=2#fragment"));
-  TestEq([[name := "a", value := "1"],[name := "a", value:=""]], GetAllVariablesFromUrl("http://testurl/&a=1&a=#fragment"));
+  TestEq(RECORD[], GetAllVariablesFromUrl("http://testurl/&a=1&a=2#fragment"));
+  TestEq(RECORD[], GetAllVariablesFromUrl("http://testurl/&a=1&a=#fragment"));
   TestEq([[name := "myvar", value := "bob de beagle"]], GetAllVariablesFromUrl("http://testurl/?myvar=bob+de+beagle#fragment"));
   TestEq([[name := "my var", value := "bob de beagle"]], GetAllVariablesFromUrl("http://testurl/?my+var=bob+de+beagle#fragment"));
   TestEq(DEFAULT RECORD ARRAY, GetAllVariablesFromUrl("http://testurl/?=1&=2#fragment"));
@@ -176,9 +184,9 @@ MACRO UrlTest()
   FOREVERY (RECORD rec FROM testdata.internet.testlinks.unpackrepack)
     TestUnRePack(rec.url);
 
-  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/&testvar=test&myvar=blaat", [testvar:=""]));
-  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/;testvar=test;myvar=blaat", [testvar:=""]));
-  TestEq("http://testurl/?myvar=blaat", UpdateURLVariables("http://testurl/?testvar=test?myvar=blaat", [testvar:=""]));
+  TestEq("http://testurl/&testvar=test&myvar=blaat", UpdateURLVariables("http://testurl/&testvar=test&myvar=blaat", [testvar:=""]));
+  TestEq("http://testurl/;testvar=test;myvar=blaat", UpdateURLVariables("http://testurl/;testvar=test;myvar=blaat", [testvar:=""]));
+  TestEq("http://testurl/", UpdateURLVariables("http://testurl/?testvar=test?myvar=blaat", [testvar:=""]));
 
   //Survive very odd usernames
   RECORD torepack := [ scheme := "http"

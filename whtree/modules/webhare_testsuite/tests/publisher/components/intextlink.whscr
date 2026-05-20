@@ -81,7 +81,7 @@ ASYNC MACRO TestIntExtLink()
   // Verify canonicalization
   topscreen->comp->SetLinkType("external");
   topscreen->comp->^external->value := "https://www.google.com/url?q=https://us02web.zoom.us/j/12345678?pwd%3Dxxxx&sa=D&source=calendar&ust=1689417590895063&usg=AOvVaw2EoUXIyukNNpLwZ_6YHZdz";
-  TestEQ([ append := "", externallink := "https://us02web.zoom.us/j/12345678", internallink := 0 ], topscreen->comp->value);
+  TestEQ([ append := "", externallink := "https://us02web.zoom.us/j/12345678?pwd=xxxx", internallink := 0 ], topscreen->comp->value);
 
   TestEq(["No link","External link","Internal link"], SELECT AS STRING ARRAY title FROM topscreen->comp->^linktype->options);
   topscreen->comp->required := TRUE;

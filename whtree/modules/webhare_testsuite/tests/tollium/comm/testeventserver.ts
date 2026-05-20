@@ -12,7 +12,7 @@ test.runTests(
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });
 
-      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
+      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}&app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
       await test.waitForUI();
     },
     {
@@ -55,7 +55,7 @@ test.runTests(
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });
 
-      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
+      await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}&app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
       await test.waitForUI();
       await test.sleep(3000);//wait 3 secs for any notes to appear.. there's no safe duration
     },
