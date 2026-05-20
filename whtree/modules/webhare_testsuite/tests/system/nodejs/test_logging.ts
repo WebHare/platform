@@ -6,6 +6,15 @@ import { loadlib } from "@webhare/harescript";
 import { addDuration, isTemporalInstant } from "@webhare/std";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
+import { Timings } from "@mod-platform/js/logging/timings";
+
+/** A sleep is not guaranteed to last at least as long as requested. This is: */
+async function spinAtLeast(ms: number) {
+  const start = performance.now();
+  await test.sleep(ms);
+  while (performance.now() - start < ms)
+    await test.sleep(1);
+}
 
 async function gatherAsyncIterable<T>(itr: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];
@@ -53,6 +62,48 @@ class MiniChunkBlob implements Blob {
 
 async function readLog(name: string): Promise<GenericLogLine[]> {
   return readJSONLogLines(name, test.startTime, null);
+}
+
+async function testTimings() {
+  const timingContext = new Timings;
+
+  const tc1_start = performance.now();
+  using tc1 = timingContext.startTimer("tc1");
+  test.throws(/already started/, () => timingContext.startTimer("tc1"));
+
+  await spinAtLeast(30);
+
+  using tc1_1 = timingContext.startTimer("tc1_1");
+  await spinAtLeast(20);
+  using tc1_1_1 = timingContext.startTimer("tc1_1_1"); //level 3!
+  test.throws(/is not the most recently started timer/, () => tc1.stop());
+  await spinAtLeast(9);
+  tc1_1_1.stop();
+  await spinAtLeast(20);
+  tc1_1.stop();
+
+  await spinAtLeast(20);
+
+  tc1.stop();
+  const tc1_stop = performance.now();
+
+  {
+    using tc2 = timingContext.startTimer("tc2");
+    void (tc2);
+    await spinAtLeast(15);
+  }
+
+  test.throws(/has already run/, () => timingContext.startTimer("tc1"));
+
+  const result = timingContext.getTimers();
+  const totalTimeForTc1 = tc1_stop - tc1_start;
+  test.cmp(totalTimeForTc1, ">", result.tc1 + result.tc1_1 + result.tc1_1_1, "tc1 should NOT include the time spent in tc1.1 or tc 1.1.1");
+
+  test.cmp(result.tc1, ">=", 30 + 20);
+  test.cmp(result.tc1_1, ">=", 20 + 20);
+  test.cmp(result.tc1_1_1, ">=", 9);
+  test.cmp(result.tc2, ">=", 15);
+  test.eq(["tc1", "tc1_1", "tc1_1_1", "tc2"], Object.keys(result), "Should have the timers we created in creation order");
 }
 
 async function testLogs() {
@@ -220,5 +271,6 @@ async function testLogs() {
 
 test.runTests(
   [
+    testTimings,
     testLogs
   ]);
