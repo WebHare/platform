@@ -21,7 +21,7 @@ managedServices:
     script: mod::tollium/scripts/internal/applicationstarter.whscr
     run: on-demand
     engine: wasm
-  nodeservices: # Implements JS-based <backendservice>s
+  nodeservices: # Implements JS-based backendServices for serviceClass node
     script: js/nodeservices/nodeservices.ts
     run: always
   unifiedcache: # Temporarily split off due to memory usage

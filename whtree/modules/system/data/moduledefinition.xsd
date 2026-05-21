@@ -2465,22 +2465,6 @@
     </xs:annotation>
 
     <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element name="backendservice">
-        <xs:complexType>
-          <xs:attribute name="name" type="sc:Name" use="required" />
-          <xs:attribute name="controllerfactory" type="xs:string">
-            <xs:annotation>
-              <xs:documentation>Async JS function to create the service controller</xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="clientfactory" type="xs:string">
-            <xs:annotation>
-              <xs:documentation>Async JS function to create the client/connection objects if the service has no controller</xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-        </xs:complexType>
-      </xs:element>
-
       <xs:element name="openapiservice">
         <xs:complexType>
           <xs:attribute name="name" type="sc:Name" use="required">

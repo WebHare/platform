@@ -271,18 +271,6 @@ export async function gatherServices(context: GenerateContext) {
     if (!services)
       continue;
 
-    for (const backendservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backendservice"))) {
-      if (!isNodeApplicableToThisWebHare(backendservice, ""))
-        continue;
-
-      retval.backendServices.push({
-        name: `${mod.name}:${getAttr(backendservice, "name")}`,
-        coreService: false,
-        clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
-        controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
-      });
-    }
-
     for (const openapiservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiservice"))) {
       if (!isNodeApplicableToThisWebHare(openapiservice, ""))
         continue;
