@@ -25,9 +25,9 @@ async function gatherAsyncIterable<T>(itr: AsyncIterable<T>): Promise<T[]> {
 
 // Blob that streams buffers of 1 byte at a time, useful for testing of chunk boundaries handling
 class MiniChunkBlob implements Blob {
-  data: Uint8Array<ArrayBuffer>;
-  constructor(content: Uint8Array<ArrayBuffer> | string) {
-    this.data = typeof content === "string" ? new TextEncoder().encode(content) as Uint8Array<ArrayBuffer> : content;
+  data: Uint8Array;
+  constructor(content: Uint8Array | string) {
+    this.data = typeof content === "string" ? new TextEncoder().encode(content) as Uint8Array : content;
   }
 
   get size() { return this.data.length; }
