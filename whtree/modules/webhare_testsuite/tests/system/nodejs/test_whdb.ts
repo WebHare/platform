@@ -393,12 +393,12 @@ async function testCodeContexts() {
   test.eq("inserted 41", (await c2.next()).value);
   test.eqPartial([{ id: 41, harescript: false }], (await c2.next()).value, "context2 sees only 41");
   test.eqPartial([{ id: 40, harescript: false }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-4: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, "context2 sees only 41");
 
   //Now HS will update it, then JS will return it
-  test.eqPartial([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, "context1 sees only 40");
-  test.eqPartial([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-4: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, "context2 sees only 41");
+  test.eqPartial([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, "context1 sees only 40");
+  test.eqPartial([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, "context2 sees only 41");
 
   //and that, once committed, they see each other's changes:
   test.eq("committed", (await c1.next()).value);

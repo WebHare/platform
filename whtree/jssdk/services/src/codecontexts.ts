@@ -4,7 +4,7 @@
 */
 
 import { type StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stacktrace";
-import { debugFlags } from "@webhare/env";
+import { debugFlags, addToDebugRegistry } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 import { type DebugFlags, registerDebugConfigChangedCallback, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
@@ -15,6 +15,12 @@ import { registerAsNonReloadableLibrary } from "@webhare/services/src/hmrinterna
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   var whDebug: any;
+}
+
+declare module "@webhare/env" {
+  interface DebugRegistry {
+    "codeContexts": { [key in string]: WeakRef<CodeContext> };
+  }
 }
 
 let contextcounter = 0;
@@ -32,6 +38,7 @@ const activecontexts = new Map<string, ActiveContextData>;
 /// Finalization registry to clean up the active contexts
 const activecontexts_finalizationregistry = new FinalizationRegistry<string>(id => activecontexts.delete(id));
 
+//FIXME phase out whDebug, replace with $wh and registries
 (globalThis.whDebug ??= {}).activeCodeContexts = activecontexts;
 
 class WrappedGenerator<G extends Generator<T, TReturn, TNext>, T = unknown, TReturn = unknown, TNext = unknown> extends Iterator<T, TReturn, TNext> implements Generator<T, TReturn, TNext> {
@@ -81,7 +88,7 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
 
   constructor(title: string, metadata: CodeContextMetadata = {}) {
     super();
-    this.id = `whcontext-${++contextcounter}: ${title}`;
+    this.id = title === "root" ? "root" : `whcontext-${++contextcounter}: ${title}`;
     if (debugFlags.cclifecycle)
       console.trace(`[${this.id}] CodeContext created`);
     this.title = title;
@@ -92,6 +99,8 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
     };
     activecontexts.set(this.id, data);
     activecontexts_finalizationregistry.register(this, this.id);
+
+    addToDebugRegistry("codeContexts", this.id, this);
   }
 
   static wrap<R>(callback: (...args: unknown[]) => R): (...args: unknown[]) => R {
