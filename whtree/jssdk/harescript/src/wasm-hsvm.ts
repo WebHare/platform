@@ -12,7 +12,7 @@ import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObjec
 import { type Mutex, JSLibraryImporter } from "@webhare/services";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support";
@@ -432,7 +432,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.abortController.signal.addEventListener("abort", waiter.cancel);
     if (waiter.timer)
       clearTimeout(waiter.timer);
-    waiter.timer = rootstorage.run(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); this.mainTimer = undefined; }, wait_ms));
+    waiter.timer = runOutsideCodeContext(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); this.mainTimer = undefined; }, wait_ms));
     const isMainTimer = !this.permissionSystem.anyRequestsInFlight();
     if (isMainTimer) {
       this.mainTimer = waiter.timer;
