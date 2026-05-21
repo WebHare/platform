@@ -75,11 +75,11 @@ class NodeServiceManager {
     this.backendservices = getExtractedConfig("services").backendServices;
   }
 
-  async main(opts: { core: boolean }) {
+  async main(opts: { serviceClass: BackendServiceDescriptor["serviceClass"] }) {
     void runBackendService(this.servicename, () => new NodeServicesClient(this), { dropListenerReference: true });
 
     for (const service of this.backendservices) {
-      if (service.coreService === Boolean(opts.core)) {
+      if (service.serviceClass === opts.serviceClass) {
         const srv = await launchService(service);
         if (srv)
           activeServices[service.name] = srv;
@@ -92,11 +92,18 @@ export type { NodeServicesClient };
 
 run({
   flags: {
-    "core": "Run core services"
+    "core": "Run core services",
+    "web": "Run web services (dynamic page handling)"
   },
   async main({ opts }) {
     activateHMR();
-    const mgr = new NodeServiceManager(opts.core ? "platform:coreservices" : "platform:nodeservices");
-    await mgr.main(opts);
+    if (opts.web && opts.core) {
+      console.error("Cannot specify both --core and --web");
+      return 1;
+    }
+    const serviceClass: BackendServiceDescriptor["serviceClass"] = opts.web ? "web" : opts.core ? "core" : "node";
+    const mgr = new NodeServiceManager(`platform:services.${serviceClass}`);
+    await mgr.main({ serviceClass });
+    return 0;
   }
 });

@@ -17,8 +17,9 @@ declare module "@webhare/services" {
     };
     "platform:assetpacks": AssetPackControlClient;
     "platform:configuration": ConfigClient;
-    "platform:coreservices": NodeServicesClient;
-    "platform:nodeservices": NodeServicesClient;
+    "platform:services.core": NodeServicesClient;
+    "platform:services.node": NodeServicesClient;
+    "platform:services.web": NodeServicesClient;
     "platform:servicemanager": ServiceManagerClient;
     "platform:webserver": WebServerClient;
     "publisher:publication": PublicationService;

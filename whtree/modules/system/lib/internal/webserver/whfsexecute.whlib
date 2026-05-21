@@ -109,7 +109,7 @@ VARIANT FUNCTION UpdateHeaders(DATETIME start, VARIANT headers) {
 
 PUBLIC MACRO DoWHFSExecuteJS(INTEGER targetfile, RECORD options DEFAULTSTO DEFAULT RECORD) {
   DATETIME start := GetCurrentDatetime();
-  RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeContentPageRequestHS", targetfile, CELL[ ...options, webreq := EncodeWebRequestForJS() ]);
+  RECORD response := CallJS([ service := "platform:webjs"] , "@webhare/router/src/corerouter.ts#executeContentPageRequestHS", targetfile, CELL[ ...options, webreq := EncodeWebRequestForJS() ]);
   response.headers := UpdateHeaders(start, response.headers);
   ExecuteWebResponse(response);
 }
@@ -158,7 +158,7 @@ PUBLIC MACRO RunDynamicPageInWebdesign(STRING funcname, STRING webdesignurl, REC
   } CATCH(OBJECT<RequiresJSRouterException> e) {
     DATETIME start := GetCurrentDatetime();
 
-    RECORD response := CallJS("@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, options);
+    RECORD response := CallJS([ service := "platform:webjs"] , "@webhare/router/src/corerouter.ts#executeSHTMLRequestHS", EncodeWebRequestForJS(), webdesignurl, funcname, options);
     response.headers := UpdateHeaders(start, response.headers);
     ExecuteWebResponse(response);
   }

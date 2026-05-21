@@ -36,7 +36,7 @@ export interface AssetPack {
 
 export interface BackendServiceDescriptor {
   name: string;
-  coreService: boolean;
+  serviceClass: "web" | "core" | "node";
   clientFactory: string;
   controllerFactory: string;
 }
@@ -234,7 +234,7 @@ export async function gatherServices(context: GenerateContext) {
     for (const [servicename, servicedef] of Object.entries(mod.modYml?.backendServices ?? [])) {
       retval.backendServices.push({
         name: `${mod.name}:${servicename}`,
-        coreService: servicedef.coreService || false,
+        serviceClass: servicedef.serviceClass || "node",
         clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
         controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
       });
