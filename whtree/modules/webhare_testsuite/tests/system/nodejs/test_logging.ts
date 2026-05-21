@@ -44,7 +44,7 @@ class MiniChunkBlob implements Blob {
   }
 
   async arrayBuffer(): Promise<ArrayBuffer> {
-    return this.data.buffer;
+    return this.data.slice().buffer;
   }
 
   async bytes(): Promise<Uint8Array> {
