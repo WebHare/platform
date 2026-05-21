@@ -160,9 +160,7 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
   RETURN lib;
 }
 
-STRING calljsservicename;
-OBJECT calljsservice;
-OBJECT calljseventmgr;
+RECORD calljs_services;
 
 /** Invoke a specific JavaScript function. Through a central service in Native mode and
     directly in WASM mode (with reentrancy disallowed)
@@ -170,15 +168,14 @@ OBJECT calljseventmgr;
     @param name lib#name to call. Case sensitive!
     @return The result of the function call. Promises are evaluated immediately
     */
-PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
-{
+PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG) {
   RECORD options;
   IF(Length(args) > 1 AND TYPEID(args[0]) = TYPEID(RECORD)) {
     options := args[0];
     DELETE FROM args AT 0;
   }
 
-  options := ValidateOptions([ camelcase := FALSE ], options);
+  options := ValidateOptions([ camelcase := FALSE, service := "platform:calljs" ], options);
 
   IF(Length(args) < 1)
     THROW NEW Exception("CallJS requires a library#name path to invoke");
@@ -197,24 +194,37 @@ PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
   IF(IsWasm())
     RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args, hscontext, options ]));
 
-  IF (calljsservicename = "")
-    calljsservicename := IsDebugTagEnabled("calljs-alt") ? "platform:calljs-alt" : "platform:calljs";
+  STRING calljsservicename := IsDebugTagEnabled("calljs-alt") ? "platform:calljs-alt" : options.service;
+  OBJECT eventmanager, service;
 
-  IF(NOT ObjectExists(calljseventmgr)) {
-    calljseventmgr := NEW EventManager; //RegisterEventCallback won't do, that one waits for microtasks but CallJS avoids running those
-    calljseventmgr->RegisterInterest(`system:webhareservice.${calljsservicename}.start`);
-  } ELSE IF(calljseventmgr->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"]) {
-    //calljs has restarted, reconnect it
-    calljsservice->CloseService();
-    calljsservice := DEFAULT OBJECT;
+  IF(CellExists(calljs_services, calljsservicename)) {
+    RECORD s := GetCell(calljs_services, calljsservicename);
+    eventmanager := s.eventmanager;
+    service := s.service;
 
-    WHILE(calljseventmgr->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"])
-      /* Flush any other pending events */;
+    IF(eventmanager->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"]) {
+      //calljs has restarted, reconnect it
+      service->CloseService();
+      service := DEFAULT OBJECT;
+      calljs_services := CellUpdate(calljs_services, calljsservicename, CELL[ eventmanager, service ]);
+
+      WHILE(eventmanager->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"])
+        /* Flush any other pending events */;
+
   }
-  IF(NOT ObjectExists(calljsservice))
-    calljsservice := __OpenSynchronousWebHareService(calljsservicename, [ arguments := VARIANT[ [ alt := calljsservicename LIKE "*-alt" ] ] ]);
+  } ELSE {
+    eventmanager := NEW EventManager; //RegisterEventCallback won't do, that one waits for microtasks but CallJS avoids running those
+    eventmanager->RegisterInterest(`system:webhareservice.${calljsservicename}.start`);
 
-  RETURN calljsservice->Invoke(lib,name,args,hscontext,options);
+    calljs_services := CellInsert(calljs_services, calljsservicename, CELL[ eventmanager, service := DEFAULT OBJECT]);
+  }
+
+  IF(NOT ObjectExists(service)) {
+    service := __OpenSynchronousWebHareService(calljsservicename, [ arguments := VARIANT[ [ alt := calljsservicename LIKE "*-alt" ] ] ]);
+    calljs_services := CellUpdate(calljs_services, calljsservicename, CELL[ eventmanager, service ]);
+  }
+
+  RETURN service->Invoke(lib,name,args,hscontext,options);
 }
 
 /** @private */

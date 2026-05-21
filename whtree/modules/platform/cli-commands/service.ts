@@ -28,7 +28,7 @@ async function stopService(smservice: ServiceManagerClient, service: string) {
 
 async function runBackendServiceInDebug(service: string, serviceinfo: BackendServiceDescriptor, options: { alt: boolean }) {
   if (!options.alt) {
-    const servicename = serviceinfo.coreService ? "platform:coreservices" : "platform:nodeservices" as const;
+    const servicename = `platform:services.${serviceinfo.serviceClass}` as const;
     const nodeservices = await openBackendService(servicename);
     await nodeservices.suppress(service);
   }

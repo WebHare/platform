@@ -21,8 +21,13 @@ managedServices:
     script: mod::tollium/scripts/internal/applicationstarter.whscr
     run: on-demand
     engine: wasm
-  nodeservices: # Implements JS-based <backendservice>s
+  nodeservices: # Implements JS-based backendServices for serviceClass node
     script: js/nodeservices/nodeservices.ts
+    run: always
+  webservices: # Implements JS-based backendServices for serviceClass web
+    script: js/nodeservices/nodeservices.ts
+    arguments:
+      - "--web"
     run: always
   unifiedcache: # Temporarily split off due to memory usage
     script: js/nodeservices/imgcache.ts
@@ -48,9 +53,12 @@ backendServices:
     controllerFactory: js/assetpacks/control.ts#createAssetPackManager
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
-    coreService: true
+    serviceClass: core
   calljs:
     clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
+  webjs: # like calljs but for dynamic pages
+    clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
+    serviceClass: web
 
 openApiServices:
   api:

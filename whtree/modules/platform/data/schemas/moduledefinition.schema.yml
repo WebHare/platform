@@ -207,9 +207,14 @@ $defs:
           controllerFactory:
             description: "Function to create a controller for this service which will create the clients. Must satisfy ServiceControllerFactoryFunction"
             type: string
-          coreService:
-            description: "Core services start up during WebHare bootup (and may find database and other configuration to still be incomplete!)"
-            type: boolean
+          serviceClass:
+            description: "Classify core, web and generic node services. Each has a separate runner"
+            type: string
+            oneOf:
+              - description: Core services start up during WebHare bootup (and may find database and other configuration to still be incomplete!)
+                const: core
+              - description: Web services scheduled separately from other node services
+                const: web
 
   OpenApiServices:
     description: Specifies an OpenAPI service

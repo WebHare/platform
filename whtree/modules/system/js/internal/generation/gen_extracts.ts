@@ -36,7 +36,7 @@ export interface AssetPack {
 
 export interface BackendServiceDescriptor {
   name: string;
-  coreService: boolean;
+  serviceClass: "web" | "core" | "node";
   clientFactory: string;
   controllerFactory: string;
 }
@@ -234,7 +234,7 @@ export async function gatherServices(context: GenerateContext) {
     for (const [servicename, servicedef] of Object.entries(mod.modYml?.backendServices ?? [])) {
       retval.backendServices.push({
         name: `${mod.name}:${servicename}`,
-        coreService: servicedef.coreService || false,
+        serviceClass: servicedef.serviceClass || "node",
         clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
         controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
       });
@@ -270,18 +270,6 @@ export async function gatherServices(context: GenerateContext) {
     const services = mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")[0];
     if (!services)
       continue;
-
-    for (const backendservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backendservice"))) {
-      if (!isNodeApplicableToThisWebHare(backendservice, ""))
-        continue;
-
-      retval.backendServices.push({
-        name: `${mod.name}:${getAttr(backendservice, "name")}`,
-        coreService: false,
-        clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
-        controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
-      });
-    }
 
     for (const openapiservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiservice"))) {
       if (!isNodeApplicableToThisWebHare(openapiservice, ""))

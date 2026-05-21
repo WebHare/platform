@@ -147,7 +147,7 @@ const runData = run({
     restart: {
       description: "Restart assetpack control",
       async main({ opts: options }) {
-        const nodeservices = await openBackendService("platform:nodeservices");
+        const nodeservices = await openBackendService("platform:services.node");
         await nodeservices.restart("platform:assetpacks");
 
         if (!options.quiet)

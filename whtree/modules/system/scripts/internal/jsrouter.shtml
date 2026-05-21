@@ -18,4 +18,4 @@ STRING pathstart := Left(unp.urlpath, Length(routerrule.data.path) - 1);
 //encode url hoping this wasn't too ambiguous
 pathstart := "/" ||EncodeURL(pathstart);
 
-ExecuteWebResponse(CallJS("mod::platform/js/webserver/jsrouterservice.ts#jsRouterCall", routerrule.data.ruledata.router, EncodeWebRequestForJS(), pathstart));
+ExecuteWebResponse(CallJS([ service := "platform:webjs"] , "mod::platform/js/webserver/jsrouterservice.ts#jsRouterCall", routerrule.data.ruledata.router, EncodeWebRequestForJS(), pathstart));
