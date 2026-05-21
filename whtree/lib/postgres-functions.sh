@@ -96,6 +96,12 @@ function generate_config_file() {
   fi
 }
 
+function ensure_postgres_keys() {
+  if [ ! -f "$1/server.key" ] || [ ! -f "$1/server.crt" ]; then
+    echo "Generating SSL key and certificate files for PostgreSQL..."
+    openssl req -new -x509 -days 365 -nodes -text -out "$1/server.crt" -keyout "$1/server.key" -subj "/CN=my.webhare.dev" -batch -quiet
+  fi
+}
 
 init_webhare_pg_db()
 {
@@ -155,6 +161,9 @@ init_webhare_pg_db_2()
       exit 1
     fi
   done
+
+  # Generate SSL keys
+  ensure_postgres_keys "$DATAROOTDIR"
 
   # Bootstrap the database
   rc=0

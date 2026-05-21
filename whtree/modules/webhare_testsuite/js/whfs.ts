@@ -78,7 +78,7 @@ export async function fetchPreviewAsDoc(whfspath: string, urlVars: Record<string
   const fetchResult = await fetch(link);
   test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
 
-  return parseResponse(await fetchResult.text());
+  return { ...parseResponse(await fetchResult.text()), headers: fetchResult.headers, url: link.toString() };
 }
 
 export async function listObjHistory(id: number) {

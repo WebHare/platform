@@ -13,8 +13,6 @@ import type { ListItem, Thing } from "schema-dts";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import type { PageMetadata } from "./metadata";
 
-const hshostComments = true; //enable indicators to verify HS/TS routes taken
-
 type RunPageResultCommon = {
   headers: Array<{ header: string; data: string; always_add: boolean }>;
 };
@@ -114,8 +112,6 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
   { dynamicExecution: CSPDynamicExecution } |
   { hsPageObjectType: string } |
   { pageRouter: { funcname: string; funcarg: unknown } }): Promise<WebResponse> {
-
-  const start = Date.now();
   let result: RunPageResult;
   if ("dynamicExecution" in how || "pageRouter" in how) {
     if (!contReq.webRequest)
@@ -154,15 +150,13 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
     result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunStaticHarescriptPage(how.hsPageObjectType, contReq.targetObject.id);
   }
 
-  const contentTime = Date.now() - start;
   const statusSetValue = result.headers.find(h => h.header.toLowerCase() === "status")?.data.split(" ")[0];
   const statusCode = statusSetValue ? parseInt(statusSetValue) : 200;
 
   let response: WebResponse;
   if ("content" in result) {
-    const content = hshostComments ? `\n<!-- HS Page Host: ${contReq.targetObject.id}, content=${contentTime} -->\n${result.content}\n<!-- /HS Page Host -->` : result.content;
     setupRequestFromResult(contReq, result);
-    response = await contReq.buildWebPage(rawLitty(content)); //FIXME statuscode
+    response = await contReq.buildWebPage(rawLitty(result.content)); //FIXME statuscode
   } else {
     response = createWebResponse(result.sendfile, { status: statusCode });
   }
@@ -170,8 +164,7 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
   for (const header of result.headers)
     if (header.header.toLowerCase() !== "status") //handled by statusCode above
       response.headers.set(header.header, header.data);
-  if (hshostComments) //some extra timings
-    response.headers.set("X-HS-Host", `content=${contentTime.toString()} render=${(Date.now() - start).toString()}`);
+
   return response;
 }
 

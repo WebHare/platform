@@ -10,6 +10,7 @@ import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { spawn } from 'child_process';
 import { kill } from 'process';
 import { compareProperties } from '@webhare/std';
+import { activateHMR } from '@webhare/services/src/hmr';
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
@@ -131,6 +132,8 @@ runCli({
           await runServiceInDebug(args.service, serviceinfo);
           return;
         }
+
+        activateHMR(); //pick up code changes to debugged service, eg so alt-CallJS can get updated code
 
         const backendservice = getExtractedConfig("services").backendServices.find((s) => s.name === args.service);
         if (backendservice) {
