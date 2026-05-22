@@ -106,8 +106,7 @@ INTEGER FUNCTION GetTypeByTag(RECORD ARRAY types, STRING tag)
   RETURN id;
 }
 
-RECORD ARRAY FUNCTION SetAttributeDefaults(RECORD ARRAY types, RECORD ARRAY attrs, STRING tagbase)
-{
+RECORD ARRAY FUNCTION SetAttributeDefaults(RECORD ARRAY types, RECORD ARRAY attrs, STRING tagbase) {
   FOREVERY (RECORD attr FROM attrs)
   {
     attr := InsertDefaultFields(attr, wrdattr_default, wrdattr_allowed);
@@ -131,8 +130,7 @@ RECORD ARRAY FUNCTION SetAttributeDefaults(RECORD ARRAY types, RECORD ARRAY attr
   RETURN attrs;
 }
 
-RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tagidmapping)
-{
+RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tagidmapping) {
   //Get the highest in-use id
   INTEGER last_id := SELECT AS INTEGER MAX(id) FROM (tagidmapping CONCAT types) AS row WHERE CellExists(row,"ID");
 
@@ -183,8 +181,7 @@ RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tag
   RETURN types;
 }
 
-MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_parent, RECORD ARRAY remote_types, RECORD ARRAY remote_attrs, STRING baseattr, STRING attrtagbase)
-{
+MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_parent, RECORD ARRAY remote_types, RECORD ARRAY remote_attrs, STRING baseattr, STRING attrtagbase) {
   RECORD ARRAY local_attrs := local_type->ListAttributes(local_parent);
 
   RECORD adiff := GetDiff(local_attrs, remote_attrs, "LOCALTAG");
@@ -399,8 +396,7 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @param options
     @cell(boolean) options.fromexternal Set to true if the source is an external server
 */
-PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(
       [ fromexternal :=   FALSE
       , skipmigrations := FALSE
@@ -421,8 +417,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   RECORD ARRAY runmigrations;
   RECORD ARRAY completedmigrations;
   BOOLEAN updatemigrations;
-  IF(NOT options.skipmigrations AND NOT options.fromexternal)
-  {
+  IF(NOT options.skipmigrations AND NOT options.fromexternal) {
     completedmigrations := local_schema->ListMigrations();
     IF(Length(completedmigrations) = 0) { //process classic migrations
       completedmigrations := SELECT tag := DecodeBase16(Substring(name,15))
@@ -444,9 +439,12 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   IF (options.isprimaryschema)
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
 
-  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")
-  {
-    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes") {
+    RECORD result;
+    IF(migration.shouldrun) {
+      Print(`Running migration '${migration.updatefunction}' revision '${migration.revision}' on schema '${local_schema->tag}' before updating types\n`);
+      result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    }
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
@@ -547,8 +545,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   local_types := local_schema->ListTypes();
   diff := GetDiff(local_types, remote_types, "TAG");
 
-  IF (RecordExists(schemadef.metadata)) //This is still a metadata update so it should run before entity creation/update
-  {
+  IF (RecordExists(schemadef.metadata)) { //This is still a metadata update so it should run before entity creation/update
     IF (CellExists(schemadef.metadata, "ACCOUNTTYPE"))
     {
       IF ((ObjectExists(local_schema->accounttype) ? local_schema->accounttype->tag : "") != ToUppercase(schemadef.metadata.accounttype))
@@ -587,17 +584,19 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     }
   }
 
-  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities")
-  {
-    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities") {
+    RECORD result;
+    IF(migration.shouldrun) {
+      Print(`Running migration '${migration.updatefunction}' revision '${migration.revision}' on schema '${local_schema->tag}' before updating entities\n`);
+      result:= MakeFunctionPtr(migration.updatefunction)(local_schema);
+    }
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
   }
 
   //Create/update entities
-  FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
-  {
+  FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) { //HACK: process them in source order, giving more chance to resolve dependencies
     STRING syncattr := r.right.domvalsyncattr;
 
     OBJECT local_type := local_schema->GetType(r.left.tag);
@@ -642,9 +641,12 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
   }
 
-  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "afterEntities")
-  {
-    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "afterEntities") {
+    RECORD result;
+    IF(migration.shouldrun) {
+      Print(`Running migration '${migration.updatefunction}' revision '${migration.revision}' on schema '${local_schema->tag}' after updating entities\n`);
+      result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    }
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
@@ -665,8 +667,7 @@ VARIANT ARRAY FUNCTION GetSyncAttrValuesRecursive(RECORD ARRAY rightvalues, STRI
   RETURN vals;
 }
 
-STRING FUNCTION FormatValueList(VARIANT ARRAY vals)
-{
+STRING FUNCTION FormatValueList(VARIANT ARRAY vals) {
   STRING res := "[";
   FOREVERY (VARIANT v FROM vals)
   {
@@ -682,8 +683,7 @@ STRING FUNCTION FormatValueList(VARIANT ARRAY vals)
   RETURN res || "]";
 }
 
-MACRO UpdateValuesRecursive(OBJECT local_type, RECORD ARRAY local_domvals, RECORD ARRAY rightvalues, INTEGER parent, STRING syncattr, RECORD rconfig)
-{
+MACRO UpdateValuesRecursive(OBJECT local_type, RECORD ARRAY local_domvals, RECORD ARRAY rightvalues, INTEGER parent, STRING syncattr, RECORD rconfig) {
   RECORD ARRAY remote_domvals;
   FOREVERY(RECORD domval FROM rightvalues)
   {
