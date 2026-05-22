@@ -967,17 +967,10 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
     NEW WHPostgreSQLWASMTransaction(transresult, transinfo.isprimary, transinfo.blobhandler) :
     NEW WHPostgreSQLTransaction(transresult, transinfo.isprimary, transinfo.blobhandler);
 
-  IF (IsDebugTagEnabled("pg-auto_explain"))
+  IF (IsDebugTagEnabled("pg-auto_explain") AND NOT IsWasm())
   {
     trans->__ExecSQL("LOAD 'auto_explain'");
     trans->__ExecSQL("SET auto_explain.log_min_duration = 0");
-    trans->__ExecSQL("SET auto_explain.log_analyze = true");
-    trans->__ExecSQL("SET auto_explain.log_timing = true");
-    trans->__ExecSQL("SET auto_explain.log_level = NOTICE");
-    trans->__ExecSQL("SET auto_explain.log_format = json");
-    trans->__ExecSQL("SET auto_explain.log_verbose = true");
-    trans->__ExecSQL("SET auto_explain.log_triggers = true");
-    trans->__ExecSQL("SET auto_explain.log_nested_statements = true");
   }
 
   RETURN trans;
@@ -1014,8 +1007,13 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 {
   OBJECT trans := GetTransactionObjectByIdInternal(transid); // is privileged pointer
 
-  IF (message.severity = "NOTICE")
-    LogDebug("wh:postgresql.notice", CELL[ message, stacktrace := GetAsyncStackTrace() ]);
+  IF (message.severity = "NOTICE") {
+    BOOLEAN is_auto_explain_notice := message.message_primary LIKE "NOTICE:  duration: * ms  plan:\n*";
+    IF (NOT IsWasm() OR NOT is_auto_explain_notice) {
+      // in WASM mode, auto_explain is handled by JS
+      LogDebug("wh:postgresql.notice", CELL[ message, stacktrace := GetAsyncStackTrace() ]);
+    }
+  }
 
   // FIXME: Delaying errors for queries other than commits is disabled until we have worked out a consistent model
   IF (NOT trans->pvt_committing)

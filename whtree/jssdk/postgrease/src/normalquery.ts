@@ -29,6 +29,7 @@ export class NormalQuery implements Query {
   writeIdx?: number;
   paramCodecs: AnyCodec[] = [];
   queryKey: string;
+  queryStart: number;
 
   constructor(conn: QueryInterface, sql: string, params?: unknown[], options?: PGQueryOptions) {
     this.conn = conn;
@@ -37,6 +38,7 @@ export class NormalQuery implements Query {
     this.options = options ?? {};
     this.response = Promise.withResolvers<PGQueryResult>();
     this.haveRowDescription = false;
+    this.queryStart = performance.now();
 
     this.codecRegistry = options?.codecRegistry ?? this.conn["defaultCodecRegistry"];
 
@@ -246,8 +248,7 @@ export class NormalQuery implements Query {
       } else if (packet.code === 78 satisfies Code.CodeNoticeResponse) {
         processedAny = true;
         const notice = parseNoticeResponse(packet);
-        // FIXME: what to do with the notice?
-        void notice;
+        this.conn.gotNotice(this, notice);
         { const res = socket.readPacket(); if (res) await res; }
       } else if (packet.code === 83 satisfies Code.CodeParameterStatus) {
         processedAny = true;

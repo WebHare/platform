@@ -1,9 +1,11 @@
 import type { CodecRegistry } from "../codec-registry";
 import type { RowDecoderData } from "../codec-support";
+import type { NoticeResponse } from "../response-parser";
 import type { SocketQueryInterface } from "../socket";
 import type { AnyCodec, CodecContext } from "./codec-types";
 
 export interface Query {
+  queryStart: number;
   writeQuery(): undefined | Promise<undefined>;
   procesQuery(): Promise<void>;
   gotConnectionClose(err: Error): void;
@@ -23,4 +25,5 @@ export interface QueryInterface {
   codecContext: CodecContext;
 
   registerSentQuery(query: Query): void;
+  gotNotice(query: Query, notice: NoticeResponse): void;
 }

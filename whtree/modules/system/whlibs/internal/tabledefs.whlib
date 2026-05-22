@@ -39,6 +39,10 @@ STRING FUNCTION GetHarescriptType(STRING schemaname, STRING tablename, STRING co
     {
       RETURN "BOOLEAN";
     }
+    CASE "uuid"
+    {
+      RETURN "STRING";
+    }
     DEFAULT
     {
       RETURN "";
