@@ -481,7 +481,7 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
 
     FOREVERY(STRING icon FROM Tokenize(iconname,'+'))
       IF(NOT RecordExists(GetImage(icon, 24, 24, "", colors, [ nobroken := TRUE ])))
-        this->AddErrorForScope(scope, `No such icon '${icon}'`);
+        this->AddErrorForScope(scope, `No such icon '${icon}' - looking for colors: ${colors}`);
   }
 
   PUBLIC MACRO ValidateLocalHandler(RECORD handlerrec, STRING attributename, RECORD tolliumscope, STRING objtype)

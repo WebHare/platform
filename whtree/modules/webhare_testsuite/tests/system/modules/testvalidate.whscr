@@ -417,10 +417,10 @@ MACRO TestIconValidation()
         </screen>
      </screens>`) ]);
 
-  TestEq([[ line := 4, message := 'No such icon \'webhare_testsuite:badicon\'' ]
-         ,[ line := 4, message := 'No such icon \'webhare_testsuite:badoverlay\'' ]
-         ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_1\'' ]
-         ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_2\'' ]
+  TestEq([[ line := 4, message := "No such icon 'webhare_testsuite:badicon' - looking for colors: b,w" ]
+         ,[ line := 4, message := "No such icon 'webhare_testsuite:badoverlay' - looking for colors: b,w" ]
+         ,[ line := 4, message := "No such icon 'webhare_testsuite:nosuchicon_1' - looking for colors: b,w" ]
+         ,[ line := 4, message := "No such icon 'webhare_testsuite:nosuchicon_2' - looking for colors: b,w" ]
          ], SELECT line, message FROM res.messages);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := StringToBlob(
