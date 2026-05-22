@@ -758,8 +758,7 @@ PUBLIC STATIC OBJECTTYPE WindowOpenActionBase EXTEND ActionBase
   }
 >;
 
-PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
-<
+PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase <
   STRING ARRAY pvt_mimetypes;
   BOOLEAN pvt_multiple;
 
@@ -818,8 +817,7 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
   }
 
   //Simulate an upload
-  PUBLIC MACRO ExecuteUpload(RECORD ARRAY files)
-  {
+  PUBLIC MACRO ExecuteUpload(RECORD ARRAY files) {
     files := SELECT *, mimetype := ScanBlob(data, filename).mimetype FROM files;
     RECORD ARRAY items := CallJS("@mod-tollium/js/internal/tolliumcalls.ts#mockUpload", files);
 
@@ -827,8 +825,7 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
     this->OnRequestUpload(CELL[ rule := 0, items ]);
   }
 
-  ASYNC MACRO OnRequestUpload(RECORD msgdata)
-  {
+  ASYNC MACRO OnRequestUpload(RECORD msgdata) {
     MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
     IF(handler = DEFAULT MACRO PTR)
       RETURN;
