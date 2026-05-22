@@ -99,7 +99,7 @@ run({
       baseDir: root
     });
 
-    if (repoinfo.branch.startsWith("feature/")) {
+    if (repoinfo.branch.startsWith("feature/") || repoinfo.branch.startsWith("release/")) {
       // auto-create upstream branch if it doesn't exist yet
 
       const upstreamCmd = await executeGitCommand(["rev-parse", "--abbrev-ref", `${repoinfo.branch}@{upstream}`], { workingdir: root });
