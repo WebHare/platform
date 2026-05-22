@@ -98,7 +98,7 @@ MACRO RunPublisherPreview(RECORD targetobject, RECORD contentobject, BOOLEAN isp
 
   RECORD sourceinfo := GetSystemRedirectInfo(targetobject.id); //TODO this one redoes applytester?
   IF(CellExists(sourceinfo,'js') AND sourceinfo.js) {
-    DoWHFSExecuteJS(targetobject.id, CELL[ contentfile := contentobject.id ]);
+    DoWHFSExecuteJS(targetobject.id, CELL[ contentfile := contentobject.id, ispublisherpreview := TRUE ]);
     RETURN; //for clarity, never reached - ExecuteWebResponse in DoWHFSExecuteJS implies SendWebFile and terminates
   }
   IF(sourceinfo.success)

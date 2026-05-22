@@ -121,6 +121,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   contentfile?: number;
   errorcode?: number;
   webreq?: WebRequestInfo;
+  ispublisherpreview?: boolean;
 }): Promise<WebResponseInfo> {
   const timings = new Timings();
   using prepRenderTimer = timings.startTimer("prepPageRender");
@@ -138,7 +139,7 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
   const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile, { allowHistoric: true }) : undefined;
-  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject, timings });
+  const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject, isPublisherPreview: options?.ispublisherpreview, timings });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?
     const resp = await whfsreq.buildWebPage(litty`Errorcode ${options.errorcode}`);

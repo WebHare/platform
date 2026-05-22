@@ -57,6 +57,8 @@ export type ContentPageRequestOptions = {
   contentObject?: WHFSObject;
   /** If set, the request is being made in the context of an editor preview. Widgets often change rendering or become non-interactive when being shown in a RTD editor */
   isEditorPreview?: boolean;
+  /** If set, the request is being made in the context of a publisher preview */
+  isPublisherPreview?: boolean;
   /** Timings object to measure performance */
   timings?: Timings;
 };
@@ -118,6 +120,7 @@ export class CPageRequest {
   private _publicationSettings!: Awaited<ReturnType<WHFSApplyTester["getWebDesignInfo"]>>;
   private _statusCode: number;
   private _isEditorPreview: boolean;
+  private _isPublisherPreview: boolean;
 
   /** If set, Timings can be used to record performance metrics for a Server-Timing header */
   public readonly timings?: Timings;
@@ -142,6 +145,7 @@ export class CPageRequest {
     this._contentObject = options?.contentObject || targetObject;
     this._statusCode = options?.statusCode || 200;
     this._isEditorPreview = options?.isEditorPreview || false;
+    this._isPublisherPreview = options?.isPublisherPreview || false;
     this.timings = options?.timings;
 
     this.frontendConfig = {
@@ -242,6 +246,9 @@ export class CPageRequest {
   }
   get isEditorPreview(): boolean {
     return this._isEditorPreview;
+  }
+  get isPublisherPreview(): boolean {
+    return this._isPublisherPreview;
   }
 
   get siteLanguage() {
