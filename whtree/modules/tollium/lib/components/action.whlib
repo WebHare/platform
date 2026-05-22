@@ -3,6 +3,7 @@
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::javascript.whlib";
+LOADLIB "mod::system/whlibs/internal/callbacks.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/internal/components.whlib";
@@ -822,13 +823,15 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase <
     RECORD ARRAY items := CallJS("@mod-tollium/js/internal/tolliumcalls.ts#mockUpload", files);
 
     //ADDME how to select the rule properly?
-    this->OnRequestUpload(CELL[ rule := 0, items ]);
+    RECORD result := this->OnRequestUpload(CELL[ rule := 0, items ]);
+    IF(TYPEID(result) = TYPEID(RECORD) AND CellExists(result, "after_response"))
+      result.after_response();
   }
 
-  ASYNC MACRO OnRequestUpload(RECORD msgdata) {
+  RECORD FUNCTION OnRequestUpload(RECORD msgdata) {
     MACRO PTR handler := this->GetCurrentActionHandler(msgdata);
     IF(handler = DEFAULT MACRO PTR)
-      RETURN;
+      RETURN DEFAULT RECORD;
 
     RECORD ARRAY files := this->ProcessUpload(msgdata).items;
     IF (LENGTH(this->pvt_mimetypes) != 0)
@@ -855,8 +858,15 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase <
       }
     }
 
-    IF (LENGTH(files) != 0)
-      this->owner->__ExecuteCallback(handler, files);
+    IF (LENGTH(files) != 0) {
+      /* Callbacks which respond to the upload (and may open dialogs etc) should execute after handling any exception/response from the upload itself - or any exceptions
+         thrown by them will be handled by the tollium client side upload handler which will just ignore it
+
+         after_response is executed by ProcessInboundAsyncRequest outside of the try/catch block but still inside the current tick (important for CI tests) */
+      RETURN CELL[ after_response := PTR this->owner->__ExecuteCallback(handler, files) ];
+    }
+
+    RETURN DEFAULT RECORD;
   }
 >;
 
