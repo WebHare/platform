@@ -264,8 +264,8 @@ PUBLIC OBJECTTYPE TolliumTabsExtensionBase EXTEND TolliumFragmentBase
 /** @short The object for Tollium <screen> nodes
     @long The TolliumScreenBase is the base object for every screen in tollium and gives you access to the Tollium framework
 */
-PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -559,7 +559,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   }
 
   /** @short Request a predefined message box (avoid - use ShowMessageBox in new applications)
- */
+  */
   PUBLIC STRING FUNCTION RunMessageBox(STRING name, STRING p1 DEFAULTSTO "", STRING p2 DEFAULTSTO "", STRING p3 DEFAULTSTO "", STRING p4 DEFAULTSTO "")
   {
     OBJECT screenowner := GetTopLevelScreen(this);
@@ -577,8 +577,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       @cell(record) options.contexts Record with contexts to set (use [ "^name" := ... ] for hatted contexts)
       @return The data returned by Submit
   */
-  PUBLIC VARIANT FUNCTION RunScreen(STRING screen, RECORD initdata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC VARIANT FUNCTION RunScreen(STRING screen, RECORD initdata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD) {
     IF(IsOldStyleScreenReference(screen))
       THROW NEW Exception("Old-style screenpaths are not supported by RunScreen. Use '#<local screenname>'");
 
@@ -1113,8 +1112,7 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
   /** Sets the result value of the screen, closing it after the current handler returns
       @param returnvalue Value to return. If a Submit handler is present, the type must agree with the return type of that handler
   */
-  PUBLIC MACRO __SetScreenResult(VARIANT returnvalue)
-  {
+  PUBLIC MACRO __SetScreenResult(VARIANT returnvalue) {
     RECORD submitresult;
     IF (MemberExists(this, "SUBMIT"))
     {
@@ -1138,15 +1136,11 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
 
   /** Runs component callbacks, handles closing exclusive access for actions
   */
-  PUBLIC VARIANT FUNCTION __ExecuteCallback(FUNCTION PTR handler, VARIANT ARRAY ...args)
-  {
+  PUBLIC VARIANT FUNCTION __ExecuteCallback(FUNCTION PTR handler, VARIANT ARRAY ...args) {
     OBJECT org_handler := this->tollium_action_exclusivity_handler;
-    TRY
-    {
+    TRY {
       RETURN CallAnyPtrVA(handler, args);
-    }
-    FINALLY
-    {
+    } FINALLY {
 
       // Opened a new exclusivity handler for actions? Close it
       IF (org_handler != this->tollium_action_exclusivity_handler)

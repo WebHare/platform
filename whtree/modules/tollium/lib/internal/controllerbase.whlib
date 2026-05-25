@@ -155,8 +155,7 @@ STRING FUNCTION DescribeAccessCheck(RECORD accesscheck)
 }
 
 /* The screenbuilder holds our state for screen construction */
-PUBLIC STATIC OBJECTTYPE __ScreenBuilder
-<
+PUBLIC STATIC OBJECTTYPE __ScreenBuilder <
   PUBLIC BOOLEAN allpublic;
   PUBLIC OBJECT validator;
 
@@ -576,21 +575,18 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
     RETURN data;
   }
 
-  FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
-  {
+  FUNCTION PTR FUNCTION LookupAndValidateGlobalHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope) {
     IF(ObjectExists(this->validator))
     {
       this->validator->ValidateGlobalHandler(handlerrec, attributename, tolliumscope);
       RETURN DEFAULT FUNCTION PTR;
     }
 
-    TRY
-    {
+    TRY {
       FUNCTION PTR handler := MakeFunctionPtr(handlerrec.name);
       INTEGER ARRAY expectargs := [TYPEID(OBJECT)] CONCAT handlerrec.req_args;
 
-      IF(NOT ValidateFunctionPtr(handler, handlerrec.req_retval, expectargs))
-      {
+      IF(NOT ValidateFunctionPtr(handler, handlerrec.req_retval, expectargs)) {
         THROW NEW TolliumException(obj,
                 `The '${attributename}' handler points to function '${handlerrec.name}'`
                 ||" which has the wrong function signature. Expected " ||
@@ -606,9 +602,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
       }
 
       RETURN __HS_REBINDFUNCTIONPTR(handler, argpos, args);
-    }
-    CATCH(OBJECT e)
-    {
+    } CATCH(OBJECT e) {
       this->AddError(tolliumscope, `Handler '${handlerrec.name}' cannot be found: ${e->what}`);
       RETURN DEFAULT FUNCTION PTR;
     }
@@ -2556,7 +2550,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
       RECORD ARRAY data :=
         SELECT DISTINCT
                source_var,
-//                   source_obj,
                source_type,
                source_name,
                total_elts,
@@ -2787,8 +2780,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
     RETURN DEFAULT OBJECT;
   }
 
-  RECORD FUNCTION ExecuteDownloadRequest(RECORD request)
-  {
+  RECORD FUNCTION ExecuteDownloadRequest(RECORD request) {
     OBJECT comp := this->LookupFileTransferComponent(request);
     IF (NOT ObjectExists(comp))
       RETURN DEFAULT RECORD;
@@ -3257,8 +3249,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
     this->ControllerLoop(screen, DEFAULT RECORD);
   }
 
-  STRING FUNCTION ControllerLoop(OBJECT newscreen, RECORD options)
-  {
+  STRING FUNCTION ControllerLoop(OBJECT newscreen, RECORD options) {
     // Time between sending data & accepting callbacks
     INTEGER callback_time := CellExists(options, "CALLBACK_TIME") ? options.callback_time : 1;
     BOOLEAN run_intervals := NOT CellExists(options, "NOINTERVAL") OR NOT options.nointerval;
@@ -3285,15 +3276,13 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
     DATETIME nextinterval := MAX_DATETIME;
     DATETIME now := GetCurrentDateTime();
     DATETIME lastinterval := now;
-    WHILE (TRUE)
-    {
+    WHILE (TRUE) {
       // Handle all messages, timeouts and events (timeouts & event only for 200ms, to prevent starvation). ADDME: make configurable
       IF(debug_logcontroller)
         LogDebug("tollium:controller", "Enter event loop for frame " || modalframe->instancename);
 
       DATETIME sync_callbacks_limit := AddTimeToDate(200, now);
-      WHILE (TRUE)
-      {
+      WHILE (TRUE) {
         BOOLEAN didanything := FALSE;
 
         // Do pending events and app events
@@ -3396,8 +3385,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase <
         }
 
         // Are there any path actions ?
-        IF(Length(this->pvt_inapppath)>0)
-        {
+        IF(Length(this->pvt_inapppath)>0) {
           //Be careful to dequeue before processing, as the next commands may be processed by deeper control loops
           STRING action := this->pvt_inapppath[0];
           DELETE FROM this->pvt_inapppath AT 0;

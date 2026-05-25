@@ -561,8 +561,7 @@ BLOB FUNCTION MapBlob(RECORD ARRAY blobmapping, RECORD change, RECORD setting)
 
 
 
-PUBLIC STATIC OBJECTTYPE WRDTypeBase
-<
+PUBLIC STATIC OBJECTTYPE WRDTypeBase <
   OBJECT pvt_wrdschema;
   RECORD __typerec;
   BOOLEAN domainvalues_cached;
@@ -1467,12 +1466,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN [ isdom := TRUE, vals := typeobj->__GetAndCacheDomvals() ];
   }
 
-  INTEGER ARRAY FUNCTION __GetDomVals(STRING attribute_tag, STRING ARRAY valtags)
-  {
+  INTEGER ARRAY FUNCTION __GetDomVals(STRING attribute_tag, STRING ARRAY valtags) {
     RECORD res := this->GetAllDomVals(attribute_tag);
     INTEGER ARRAY value;
-    IF(NOT res.isdom)
-    {
+    IF(NOT res.isdom) {
       FOREVERY(STRING valtag FROM valtags)
       {
         INTEGER curval := res.type->Search("WRD_TAG", valtag, [matchcase := FALSE]);
@@ -1996,16 +1993,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN val;
   }
 
-  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode, BOOLEAN jsmode)
-  {
+  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode, BOOLEAN jsmode) {
     RECORD ARRAY newsets;
     RECORD ARRAY subs;
 
     IF(TYPEID(val) = TYPEID(STRING) AND NOT IsValidUTF8(val))
       val := HandleInvalidUTF8(attr.tag, val, decodeinvalidutf8as);
 
-    SWITCH(attr.attributetype)
-    {
+    SWITCH(attr.attributetype) {
       CASE wrd_attributetype_address
       {
         IF(TypeId(val) != TYPEID(RECORD))
@@ -2129,8 +2124,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val!=0)
           INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE wrd_attributetype_domain
-      {
+      CASE wrd_attributetype_domain {
         IF (jsmode)
         {
           IF (TypeId(val) = TypeId(RECORD))
@@ -2220,8 +2214,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           THROW NEW Exception(`Value must be of type INTEGER ARRAY or STRING ARRAY, got ${GetTypeName(TYPEID(val))}`);
         }
       }
-      CASE wrd_attributetype_array
-      {
+      CASE wrd_attributetype_array {
         // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
         IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
           RETURN CELL[ attr, newsets, subs ];
@@ -2229,8 +2222,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) != TYPEID(RECORD ARRAY))
           THROW NEW Exception(`Value must be of type RECORD ARRAY, got ${GetTypeName(TYPEID(val))}`);
 
-        FOREVERY(RECORD row FROM val)
-        {
+        FOREVERY(RECORD row FROM val) {
           RECORD outputrow := [ settings := DEFAULT RECORD ARRAY, orgsettingid := 0i64 ];
           FOREVERY(RECORD subval FROM UnpackRecord(row))
           {
@@ -2669,8 +2661,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN NOT anyerror;
   }
 
-  RECORD FUNCTION DoSplitEntityData(RECORD fieldsdata, STRING typetag, RECORD ARRAY __final_attrs, BOOLEAN isv2api, RECORD options)
-  {
+  RECORD FUNCTION DoSplitEntityData(RECORD fieldsdata, STRING typetag, RECORD ARRAY __final_attrs, BOOLEAN isv2api, RECORD options) {
     //ADDME: Beter samenwerken met de __final_attrs array, daar staat veel info waardoor we special cases weg kunnen halen
     //FIXME: Controleer bij een nieuw object ook isrequired op base attributes, ook als ze niet in fieldsdata zitten
 
@@ -2692,8 +2683,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       fieldsdata := CELL[...fieldsdata, wrdauth_account_status := EncodeAccountStatus(fieldsdata.wrdauth_account_status)];
 
     FOREVERY(RECORD attr FROM SELECT * FROM this->__final_attrs WHERE parent=0)
-      IF(attr.base = TRUE AND CellExists(fieldsdata, attr.tag))
-      {
+      IF(attr.base = TRUE AND CellExists(fieldsdata, attr.tag)) {
         IF (attr.isreadonly)
           THROW NEW Exception("Trying to set attribute '" || attr.tag || "', which is readonly");
 
@@ -2701,17 +2691,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(attr.tag != "WRD_GUID" AND TYPEID(toset) = TYPEID(STRING) AND NOT IsValidUTF8(toset))
           toset := HandleInvalidUTF8(attr.tag, toset, options.decodeinvalidutf8as);
 
-        IF (attr.attributetype = wrd_attributetype_date OR attr.attributetype = wrd_attributetype_datetime)
-        {
-          IF (options.jsmode)
-          {
+        IF (attr.attributetype = wrd_attributetype_date OR attr.attributetype = wrd_attributetype_datetime) {
+          IF (options.jsmode) {
             IF (TypeID(toset) = TypeID(RECORD) AND IsDefaultValue(toset))
               toset := attr.tag = "WRD_CREATIONDATE" OR attr.tag = "WRD_LIMITDATE" ? MAX_DATETIME : DEFAULT DATETIME;
             ELSE IF (toset = DEFAULT DATETIME OR toset = MAX_DATETIME)
               THROW NEW Exception(`Not allowed to use DEFAULT DATETIME or MAX_DATETIME, use null`);
-          }
-          ELSE
-          {
+          } ELSE {
             IF (attr.tag != "WRD_CREATIONDATE" AND attr.tag != "WRD_LIMITDATE" AND toset = MAX_DATETIME)
               THROW NEW Exception(`Not allowed to store MAX_DATETIME in field ${attr.tag}`);
           }
@@ -2726,27 +2712,22 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     // Construct entity record (for base fields)
     RECORD pos_rec;
-    FOREVERY (RECORD field FROM base_fields)
-    {
+    FOREVERY (RECORD field FROM base_fields) {
       entityrec := CellInsert(entityrec, field.cellname, field.value);
       pos_rec := CellInsert(pos_rec, field.tag, #field);
     }
 
     // Process custom attributes
-    FOREVERY(RECORD attr FROM __final_attrs)
-    {
+    FOREVERY(RECORD attr FROM __final_attrs) {
       IF(attr.ishiddenbyparent)
         CONTINUE;
 
-      IF (CellExists(pos_rec, attr.tag))
-      {
+      IF (CellExists(pos_rec, attr.tag)) {
         RECORD rec := base_fields[GetCell(pos_rec, attr.tag)];
         RECORD ARRAY newsets;
 
-        SWITCH (attr.attributetype)
-        {
-          CASE wrd_attributetype_domain
-          {
+        SWITCH (attr.attributetype) {
+          CASE wrd_attributetype_domain {
             RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode, options.jsmode);
             entityrec := CellDelete(entityrec, attr.cellname);
             //make sure any string in eg wrd_leftentity is converted to integer
@@ -2824,8 +2805,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN result;
   }
 
-  PUBLIC OBJECT FUNCTION __DoCreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC OBJECT FUNCTION __DoCreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     RECORD res := this->__internal_updentity(entitydata, 0, TRUE, options);
     this->domainvalues_cached := FALSE;
     IF(res.entityid=0)
@@ -2889,8 +2869,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell options.changeset @includecelldef #__internal_updentity.options.changeset
       @cell options.decodeinvalidutf8as @includecelldef #__internal_updentity.options.decodeinvalidutf8as
   */
-  PUBLIC MACRO UpdateEntity(INTEGER entityid, RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO UpdateEntity(INTEGER entityid, RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     IF(entityid <= 0)
       THROW NEW Exception(`Trying to update non-existing entity #${entityid}`);
 
@@ -3115,8 +3094,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN changes;
   }
 
-  RECORD FUNCTION ParseSettings(RECORD ARRAY attrs, RECORD ARRAY settings, RECORD ARRAY whfslinks, OBJECT linkgetter, RECORD rowdata)
-  {
+  RECORD FUNCTION ParseSettings(RECORD ARRAY attrs, RECORD ARRAY settings, RECORD ARRAY whfslinks, OBJECT linkgetter, RECORD rowdata) {
     settings :=
         SELECT *
           FROM settings
@@ -3145,8 +3123,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(integer) options.changeset If set, add this update to the specific changeset
       @cell(string) options.decodeinvalidutf8as Character set to use for decoding invalid UTF-8 characters
   */
-  PUBLIC RECORD FUNCTION __internal_updentity(RECORD entitydata, INTEGER entityid, BOOLEAN isv2api, RECORD options)
-  {
+  PUBLIC RECORD FUNCTION __internal_updentity(RECORD entitydata, INTEGER entityid, BOOLEAN isv2api, RECORD options) {
     this->EnsureTypeInfoLoaded();
     options := ValidateOptions([ errorcallback := PTR OnThrowEntityError
                                , onmapdomvalue := PTR this->GetDomVal(#1,#2)
@@ -4001,8 +3978,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     @topic wrd/api
     @public
 */
-PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
-<
+PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase <
   UPDATE OBJECT FUNCTION __CreateEntityObject(RECORD entityrec)
   {
     RETURN NEW WRDEntity2017(this, entityrec);
@@ -4030,8 +4006,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
       @cell(boolean) options.temp Create a temporary entity (expires after up to 24 hours, never returned in queries)
       @return(object %WRDEntity2017) The newly created entity
   */
-  PUBLIC OBJECT FUNCTION CreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC OBJECT FUNCTION CreateEntity(RECORD entitydata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     RETURN this->__DoCreateEntity(entitydata, options);
   }
 
@@ -4050,8 +4025,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
       @cell return.removed IDs of entities removed (or were candidates for removal if no deletemode was specified)
       @cell return.matched IDs of entities matched but not changed
   */
-  PUBLIC RECORD FUNCTION ImportEntities(STRING joincell, RECORD ARRAY inrows, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC RECORD FUNCTION ImportEntities(STRING joincell, RECORD ARRAY inrows, RECORD options DEFAULTSTO DEFAULT RECORD) {
     RECORD retval := [ created := INTEGER[]
                      , updated := INTEGER[]
                      , removed := INTEGER[]
@@ -4090,8 +4064,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
                                          [ rightouterjoin := TRUE
                                          , leftouterjoin := [ wanted := DEFAULT RECORD ]
                                          , presentfield := "present"
-                                         ]))
-    {
+                                         ])) {
       IF(todo.present = "left")
       {
         IF(options.debug)
@@ -4125,9 +4098,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
 
         IF(NOT this->GetEntity(todo.wrd_id)->RemoveEntity(options.deletemode))
           THROW NEW Exception(`Unable to remove entity ${todo.wrd_id}, it is still referred`);
-      }
-      ELSE
-      {
+      } ELSE {
         RECORD wanted;
         IF(have_wanted_data)
           wanted := todo.wanted;
@@ -4135,8 +4106,7 @@ PUBLIC STATIC OBJECTTYPE WRDType2017 EXTEND WRDTypeBase
         IF(NOT CellExists(wanted, 'WRD_LIMITDATE') AND todo.wrd_limitdate <= now ) // closed!
           INSERT CELL wrd_limitdate := MAX_DATETIME INTO wanted; //resurrect then!
 
-        IF(RecordExists(wanted))
-        {
+        IF(RecordExists(wanted)) {
           //FIXME optimize? predetect arrays and skip if unneeded? support file/image/rtd types safely?
           todo.current := RemoveSettingIds(todo.current);
 

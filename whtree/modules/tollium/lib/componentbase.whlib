@@ -1517,22 +1517,26 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
     this->owner->tolliumscreenmanager->QueueEvent(this, "inboundmessage", [ type := type, data := msgdata ]);
   }
 
-  ASYNC MACRO ProcessInboundAsyncRequest(RECORD msgdata)
-  {
+  ASYNC MACRO ProcessInboundAsyncRequest(RECORD msgdata) {
     STRING handler := "OnRequest" || msgdata.type;
+    MACRO PTR after_response;
 
-    TRY
-    {
+    TRY {
       IF(NOT MemberExists(this,handler))
         THROW NEW TolliumException(this, `Missing handler '${handler}'`);
 
       VARIANT result := AWAIT GetObjectMethodPtr(this, handler)(msgdata.data);
+      IF(TYPEID(result) = TYPEID(RECORD) AND CellExists(result, "after_response")) {
+        after_response := result.after_response;
+        DELETE CELL after_response FROM result;
+      }
       this->owner->frame->QueueOutboundMessage("AsyncResponse", CELL [msgdata.promiseid, resolve := result ]);
-    }
-    CATCH(OBJECT e)
-    {
+    } CATCH(OBJECT e) {
       this->owner->frame->QueueOutboundMessage("AsyncResponse", CELL [msgdata.promiseid, reject := e->what ]);
     }
+
+    IF (after_response != DEFAULT MACRO PTR)
+      after_response();
   }
 
   PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata)
