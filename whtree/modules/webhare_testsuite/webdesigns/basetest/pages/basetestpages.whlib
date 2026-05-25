@@ -40,6 +40,10 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase <
         ]
     ];
 
+    IF(GetWebVariable("nobreadcrumb") = "1") {
+      this->webdesign->structuredbreadcrumb := RECORD[];
+    }
+
     //TODO test more property forwarding ? update corresponding test in test_metadata.ts
     INSERT "html--dynamicpage" INTO this->webdesign->htmlclasses AT END;
     INSERT CELL test_data_field := "asxd-8231" INTO this->webdesign->htmldata;

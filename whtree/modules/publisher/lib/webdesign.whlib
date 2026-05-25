@@ -71,7 +71,7 @@ RECORD FUNCTION GetSiteLanguageRecord(STRING assetpack, STRING matchlang) {
 
 
 PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
- // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -731,8 +731,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     pagerenderfunc(pageconfig);
   }
 
-  PUBLIC RECORD FUNCTION __GetFinalPageConfig(MACRO PTR contents)
-  {
+  PUBLIC RECORD FUNCTION __GetFinalPageConfig(MACRO PTR contents) {
     /* We wrap the user's page renderer inside a witty call, so that we can push a few 'higher level' variables */
     STRING designroot    := this->designrooturl;
     STRING imgroot       := this->imgrooturl ?? this->designcdnrooturl || "img/";
@@ -1223,6 +1222,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
                                         , name := title
                                      FROM this->structuredbreadcrumb
                                     WHERE title != "" AND link != ""; //eliminate unnamed items, only gives errors...
+      IF(Length(listelements) = 0)
+        RETURN; //don't print empty breadcrumbs, useless and fails google's webmaster console
 
       RECORD data := [ "@context" := "https://schema.org"
                      , "@type" := "BreadcrumbList"

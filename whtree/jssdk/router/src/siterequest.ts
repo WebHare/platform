@@ -460,7 +460,9 @@ export class CPageRequest {
   }
 
   private getFinalStructuredData() {
-    return this.pageMetadata.structuredData.map(item => ({
+    return this.pageMetadata.structuredData.filter(
+      item => item["@type"] !== "BreadcrumbList" || (Array.isArray(item.itemListElement) && item.itemListElement.length > 0) //don't print empty breadcrumbs, useless and fails google's webmaster console
+    ).map(item => ({
       "@context": "https://schema.org",
       ...item
     }));
@@ -515,27 +517,6 @@ export class CPageRequest {
     ${ogData.map(item => litty`<meta property="${item.property}" content="${item.content}">`)}
     ${head ?? ''}
     ${this.renderRobotsTag()}
-    ${
-      //FIXME
-      // IF(Length(this->structuredbreadcrumb) > 0)
-      //   this->__PrintStructuredData();
-
-      //FIXME this->_PrintRobotTag();
-
-      /*
-              IF (this->pvt_renderwidgetpreview)
-              {
-                data.contents := this->__renderwidgetpreview;
-
-                IF (this->pagewitty->HasComponent("htmlwidgetbody"))
-                  this->pagewitty->RunComponent("htmlwidgetbody", data);
-                ELSE
-                  this->pagewitty->CallWithScope(data.contents, data);
-              }
-              ELSE
-              {*/
-      ''
-      }
     </head>
     <body>
       ${this.__insertions["body-top"] ? await this.__renderInserts("body-top") : ''}
