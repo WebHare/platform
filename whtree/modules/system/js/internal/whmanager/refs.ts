@@ -2,7 +2,7 @@ import type { Socket } from "net";
 import EventSource from "../eventsource";
 import { type StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
 import { debugFlags } from "@webhare/env";
-import { rootstorage } from "@webhare/services/src/codecontexts";
+import { runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 
 const reftrackersymbol = Symbol("refTracker");
 
@@ -70,7 +70,7 @@ export class RefTracker extends EventSource<RefTrackerEvents> {
         (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
       }
       // use an interval for references instead, one with few callbacks
-      const timer = rootstorage.run(() => setInterval(function () { return false; }, 86400000));
+      const timer = runOutsideCodeContext(() => setInterval(function () { return false; }, 86400000));
       this.referencedObject = timer;
       if (initialref) //trackedObject is still referenced
         this.trackedObject?.unref();

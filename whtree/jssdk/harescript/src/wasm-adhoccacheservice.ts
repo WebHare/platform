@@ -4,6 +4,7 @@ import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/brid
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { emplace, SortedMultiSet, regExpFromWildcards, compareProperties } from "@webhare/std";
 import { defaultDateTime } from "@webhare/hscompat";
+import { runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 
 /* The adhoc cache service is hosted by a local service together with the mainbridge of a
    process.
@@ -116,8 +117,6 @@ class AdhocCacheData {
     if (expires) {
       const pos = this.expiries.add({ libraryUri, expires, hash });
       if (pos === 0) { //item is next to expire, reschedule expiry timer
-        if (this.expireCB)
-          clearTimeout(this.expireCB);
         this.updateExpireCB();
       }
     }
@@ -157,19 +156,24 @@ class AdhocCacheData {
   }
 
   private updateExpireCB() {
+    if (this.expireCB) {
+      clearTimeout(this.expireCB);
+      this.expireCB = undefined;
+    }
+
     if (this.expiries.size) {
       //Clamp timeout to 1 day as adhoc cache values without ttl have infinite expiry, but timeout must stay within 31bits
       //But also minimum of 1 sec, as the item might already have expired
-      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.max(1, Math.min(86400 * 1000, this.expiries.at(0)!.expires.getTime() - Date.now())));
+      this.expireCB = runOutsideCodeContext(() => setTimeout(() => this.gotExpiryTimeout(), Math.max(1, Math.min(86400 * 1000, this.expiries.at(0)!.expires.getTime() - Date.now()))));
       this.expireCB.unref();
-    } else
-      this.expireCB = undefined;
+    }
   }
 
   clearCache() {
-    if (this.expireCB)
+    if (this.expireCB) {
       clearTimeout(this.expireCB);
-    this.expireCB = undefined;
+      this.expireCB = undefined;
+    }
     this.libraries.clear();
     this.expiries.clear();
     this.hits = 0;

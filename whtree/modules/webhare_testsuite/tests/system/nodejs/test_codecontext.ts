@@ -2,7 +2,7 @@ import { getCodeContext, CodeContext, isRootCodeContext, ensureScopedResource } 
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { loadlib } from "@webhare/harescript";
-import { debugFlags } from "@webhare/env";
+import { debugFlags, type DebugRegistry } from "@webhare/env";
 import { registerDebugConfigChangedCallback, updateDebugConfig, type DebugFlags } from "@webhare/env/src/envbackend";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { spawnSync } from "child_process";
@@ -133,8 +133,26 @@ async function testContextHSVM() {
   await context2.close();
 }
 
+async function testDebugRegistry() {
+  const debugRegistry = globalThis.$wh as unknown as DebugRegistry;
+  async function buildTempContext() { //separate function so GC will do its work
+    const cc = new CodeContext("test_codecontext:debug registry");
+    test.eq(cc, debugRegistry!.codeContexts![cc.id]!.deref());
+    await cc.close();
+    return cc.id;
+  }
+
+  test.assert(getCodeContext() === debugRegistry?.codeContexts?.["root"]?.deref());
+
+  const contextid = await buildTempContext();
+  await test.triggerGarbageCollection();
+  test.eq(undefined, debugRegistry?.codeContexts?.[contextid]?.deref());
+  await test.wait(() => !(contextid in debugRegistry!.codeContexts!), "Debug registry entry should eventually go away completely");
+}
+
 test.runTests([
   testContextSetup,
   testContextStorage,
-  testContextHSVM
+  testContextHSVM,
+  testDebugRegistry
 ]);

@@ -666,6 +666,8 @@ export class WASMModule extends WASMModuleBase {
         const timeoutCb = setTimeout(() => timeoutPromise.resolve(null), timeoutSecs * 1000);
         const query = await Promise.race([queryP, timeoutPromise.promise]);
         clearTimeout(timeoutCb);
+        timeoutPromise.resolve(null);
+
         if (!query) {
           void this.runInPgTransactionContext(transactionId, async (conn) => {
             await conn.cancelQuery();
