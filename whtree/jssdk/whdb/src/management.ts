@@ -1,41 +1,7 @@
 
 import { getConnection, query, type WHDBConnectionImpl } from "./impl";
+import { decodePostgreSQLWHLogInfo } from "./loginfo";
 import { escapePGIdentifier } from "./metadata";
-
-function decodePostgreSQLWHLogInfo(logline: string): {
-  debuginfo: string;
-  debuginfohint: string;
-  debuginfotrace: { filename: string; line: number; col: number; func: string }[];
-} {
-  const retval = {
-    debuginfo: "",
-    debuginfohint: "",
-    debuginfotrace: [] as { filename: string; line: number; col: number; func: string }[],
-  };
-
-  const r = new RegExp("^([^#]*)#([0-9]*)#([0-9]*)\\(([^)]*)\\)$");
-  switch (logline.charAt(0)) {
-    case "t": {
-      const parts = logline.substring(2, logline.length - 1).split(",");
-      retval.debuginfo = parts.find(p => p !== "mod::system/lib/database.whlib" && !p.startsWith("wh::dbase/") && !p.startsWith("wh::internal/trans")) ?? "";
-      retval.debuginfohint = "Stack trace:\n" + parts.join("\n");
-      for (const p of parts) {
-        const matches = r.exec(p);
-        if (matches) {
-          retval.debuginfotrace.push({
-            filename: matches[1],
-            line: parseInt(matches[2], 10) || 1,
-            col: parseInt(matches[3], 10) || 1,
-            func: matches[4],
-          });
-        }
-      }
-      break;
-    }
-  }
-
-  return retval;
-}
 
 export async function getDatabaseMonitorInfo() {
   const translist = (await query<{

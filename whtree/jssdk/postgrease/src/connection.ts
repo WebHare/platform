@@ -3,11 +3,11 @@ import type * as tls from "tls";
 import { connectSocket, type PGPacketSocket, type SocketQueryInterface, type SocketResponse } from "./socket";
 import * as net from "net";
 import type * as Code from "./types/protocol-codes";
-import { parseAuthentication, parseBackendKeyData, parseErrorResponse, parseNegotiateProtocolVersion, parseNoticeResponse, parseParameterStatus, type BackendKeyData } from "./response-parser";
+import { parseAuthentication, parseBackendKeyData, parseErrorResponse, parseNegotiateProtocolVersion, parseNoticeResponse, parseParameterStatus, type BackendKeyData, type NoticeResponse } from "./response-parser";
 import { defaultCodecs } from "./codecs";
 import type { Codec, CodecContext } from "./types/codec-types";
 import { CodecRegistry } from "./codec-registry";
-import type { CachedDescription, Query } from "./types/conn-types";
+import type { CachedDescription, Query, QueryInterface } from "./types/conn-types";
 import { DatabaseError } from "./error";
 import { NormalQuery } from "./normalquery";
 import { PGBoundParam } from "./boundparam";
@@ -24,6 +24,7 @@ export type PGConnectionOptions = {
   codecRegistry?: CodecRegistry;
   codecContext?: CodecContext;
   applicationName?: string;
+  onAutoExplain?: (data: { durationMs: number; jsDurationMs: number; plan: any }) => void;
 };
 
 export type PGExecuteOptions = {
@@ -132,7 +133,7 @@ export interface PGQueryResult<R = any> {
   fields: { fieldName: string; dataTypeId: number; codec: Codec<any, any> }[];
 }
 
-class PGQueryInterface {
+class PGQueryInterface implements QueryInterface {
   conn: PGConnection;
   socket: SocketQueryInterface;
   defaultCodecRegistry: CodecRegistry;
@@ -152,6 +153,10 @@ class PGQueryInterface {
     this.conn["queries"].push(query);
     if (this.conn["queries"].length === 1)
       this.conn["querySignal"].resolve();
+  }
+
+  gotNotice(query: Query, notice: NoticeResponse) {
+    this.conn["gotNotice"](query, notice);
   }
 }
 
@@ -216,6 +221,20 @@ export class PGConnection {
         if (this.waitWriteQuery === currentWait)
           this.waitWriteQuery = undefined;
       }, () => 0);
+    }
+  }
+
+  private gotNotice(query: Query, notice: NoticeResponse) {
+    if (notice.message && this.connectionOptions.onAutoExplain) {
+      const autoExplainPrefix = /^duration: ([0-9.]*) ms {2}plan:\n/m.exec(notice.message);
+      if (autoExplainPrefix) {
+        const plan = JSON.parse(notice.message.substring(autoExplainPrefix[0].length));
+        this.connectionOptions.onAutoExplain({
+          durationMs: parseFloat(autoExplainPrefix[1]),
+          jsDurationMs: performance.now() - query.queryStart,
+          plan,
+        });
+      }
     }
   }
 

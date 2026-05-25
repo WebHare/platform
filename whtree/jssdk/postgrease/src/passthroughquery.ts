@@ -12,6 +12,7 @@ export class PassthroughQuery implements Query {
   expectedReadyForQueries = 0;
   maybeMoreIncomingSyncs: PromiseWithResolvers<boolean> | null = null;
   callback?: PGPassthroughQueryCallback;
+  queryStart: number;
 
   constructor(conn: QueryInterface, queryBuffers: Buffer | AsyncIterable<Buffer>, callback: PGPassthroughQueryCallback) {
     this.conn = conn;
@@ -19,6 +20,7 @@ export class PassthroughQuery implements Query {
     this.callback = callback;
     if (!this.callback)
       throw new Error("PassthroughQuery requires a callback");
+    this.queryStart = performance.now();
   }
 
   checkQueryBuffer(queryBuffer: Buffer) {
@@ -151,8 +153,7 @@ export class PassthroughQuery implements Query {
         }
       } else if (packet.code === 78 satisfies Code.CodeNoticeResponse) {
         const notice = parseNoticeResponse(packet);
-        // FIXME: what to do with the notice?
-        void notice;
+        this.conn.gotNotice(this, notice);
       } else if (packet.code === 83 satisfies Code.CodeParameterStatus) {
         const parsed = parseParameterStatus(packet);
         this.conn["parameters"][parsed.key] = parsed.value;

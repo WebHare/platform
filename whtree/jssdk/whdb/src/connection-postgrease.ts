@@ -16,6 +16,11 @@ import { RefTracker } from '@mod-system/js/internal/whmanager/refs';
 import { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { __getBlobDatabaseId } from './blobs';
 import { isError } from '@webhare/std';
+import type { PGConnectionOptions } from '@webhare/postgrease/src/connection';
+import { getCodeContext } from '@webhare/services/src/codecontexts';
+import { logDebug } from '@webhare/services/src/logging';
+import { buildLogInfoPrefix, decodePostgreSQLWHLogInfo } from './loginfo';
+import type { StackTraceItem } from '@webhare/js-api-tools';
 export { DatabaseError, type PGPassthroughQueryCallback } from "@webhare/postgrease";
 
 let configurationPromise: Promise<void> | undefined;
@@ -110,6 +115,29 @@ export interface FullPostgresQueryResult<R> extends PostgresQueryResult<R> {
 //}
 
 export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
+  let onAutoExplain: PGConnectionOptions["onAutoExplain"] | undefined = undefined;
+  let stackTrace: StackTraceItem[] | undefined;
+  if (debugFlags["pg-auto_explain"]) {
+    const codeContext = getCodeContext().id;
+    onAutoExplain = (data) => {
+      if (data.plan["Query Text"]) {
+        const match = /^\/\*whlog:(.*)\*\//.exec(data.plan["Query Text"] ?? "");
+        if (match) {
+          const loginfo = decodePostgreSQLWHLogInfo(match[1]);
+          stackTrace = loginfo.debuginfotrace;
+          data.plan["Query Text"] = data.plan["Query Text"].slice(match[0].length);
+        }
+      }
+      logDebug(`platform:pg-auto_explain`, {
+        codeContext,
+        durationMs: data.durationMs,
+        jsDurationMs: data.jsDurationMs,
+        plan: data.plan,
+        stackTrace,
+      });
+    };
+  }
+
   const pgclient = await connect({
     port: parseInt(process.env.PGPORT!) || 5432,
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST ?? ""),
@@ -117,7 +145,15 @@ export async function getPGConnection(uploadTracker: BlobUploadTracker | null) {
     user: "postgres",
     codecContext: { uploadTracker },
     applicationName: `${process.pid}:${bridge.getGroupId()}`,
+    onAutoExplain,
   });
+
+  if (debugFlags["pg-auto_explain"]) {
+    await Promise.all([
+      pgclient.query(`LOAD 'auto_explain'`),
+      pgclient.query(`SET auto_explain.log_min_duration = 0`),
+    ]);
+  }
 
   //if (debugFlags["pg-logcommands"])
   //  pgclient.on("debug", onDebug);
@@ -144,6 +180,10 @@ export class WHDBPgClient implements WHDBClientInterface, PoolClient {
   private async executeSqlQuery<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<FullPostgresQueryResult<R>> {
     using lock = this.reftracker.getLock("postgresql query");
     void lock;
+
+    if (debugFlags["pg-logstacktraces"] || debugFlags["postgresql:pg-auto_explain"]) {
+      sqlquery = buildLogInfoPrefix() + sqlquery;
+    }
 
     const params = [];
     const queryoptions: PGQueryOptions = {

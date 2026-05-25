@@ -25,6 +25,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSPublish, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import type { EventCompletionLink } from "@webhare/whfs/src/finishhandler";
 import { deleteModules } from "@mod-platform/js/devsupport/modules";
+export { profileCPU } from "./profiling";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -360,6 +361,21 @@ export function expectIntExtLink(target: number | string, options?: { append?: s
     test.eq(options?.append ?? "", link.append);
     return true;
   });
+}
+
+export function guardEventLoop() {
+  const start = new Error;
+  const retval = {
+    gotEventLoopEnd: () => {
+      console.log(`eventloop ended while being guarded!`, start.stack);
+      process.exitCode ??= 1;
+    },
+    [Symbol.dispose]() {
+      process.off("beforeExit", retval.gotEventLoopEnd);
+    }
+  };
+  process.on("beforeExit", retval.gotEventLoopEnd);
+  return retval;
 }
 
 //By definition we re-export all of whtest and @webhare/test
