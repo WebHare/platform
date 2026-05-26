@@ -2,6 +2,7 @@
        tags="nodejs">
   <test script="test_whfs.ts" />
   <test script="test_whfs_list.ts" />
+  <test script="test_whfs_lookup.ts" />
   <test script="test_whfs_types.ts" />
   <test script="test_whfs_siteprofiles.ts" />
   <test script="test_whfs_harescript.ts" />
