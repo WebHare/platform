@@ -4,7 +4,8 @@ import { excludeKeys, isPublish } from "./support";
 import { db } from "@webhare/whdb";
 import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { describeWHFSType } from "./describe";
-import { isDate } from "@webhare/std";
+import { appendToArray, isDate } from "@webhare/std";
+import type { WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 
 /// Public version with expected javascript mixed casing
 export interface ListableFsObjectRow {
@@ -107,10 +108,12 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
 export interface ListFSOptions {
   /** Filter list result by these object ids */
   ids?: number[];
+  /** Select only files with one of these types */
+  types?: WHFSTypeName[];
 }
 
 export interface ListFSRecursiveOptions extends ListFSOptions {
-  //How deep to list items recursively. Infinite if not set
+  /** How deep to list items recursively. Infinite if not set */
   maxDepth?: number;
 }
 
@@ -125,6 +128,10 @@ export type ListFSRecursiveResult<K extends keyof ListableFsObjectRow> = Pick<Li
 export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   getkeys: Set<keyof ListableFsObjectRow>;
   selectkeys = new Set<keyof FsObjectRow>;
+  prepped = false;
+  private limitTypeIds?: Set<number>;
+  private allowNullTypes?: Set<boolean>;
+  private addTypeColumn = false;
 
   constructor(keys?: K[], public options?: ListFSOptions) {
     this.getkeys = new Set(["id", "name", "isFolder", ...(keys || [])]);
@@ -137,12 +144,39 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
     }
   }
 
+  private async prep() {
+    if (this.options?.types) { //filter by type
+      this.limitTypeIds = new Set<number>();
+      this.allowNullTypes = new Set<boolean>();
+
+      for (const type of this.options.types) {
+        const descr = await describeWHFSType(type); //TODO optimize, getType and we can do lookups synchronously
+        if (descr.id)
+          this.limitTypeIds.add(descr.id);
+        else
+          this.allowNullTypes.add(descr.metaType === "folderType");
+      }
+
+      this.addTypeColumn = !this.selectkeys.has("type");
+    }
+    this.prepped = true;
+  }
+
   async list(parents: number[] | null | "*"): Promise<Array<ListFSResult<K>>> {
+    if (!this.prepped)
+      await this.prep();
+
     const retval = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .$if(parents !== "*", qb => qb.where(qb2 => parents ? qb2.eb("parent", "in", parents as number[]) : qb2.eb("parent", "is", null)))
       .$if(Boolean(this.options?.ids), qb => qb.where("id", "in", this.options!.ids!))
+      //Filter by types. unknown files/normal folders are both 'null' types and require special handling:
+      .$if(Boolean(this.limitTypeIds), qb => qb.where(eb => eb.or([
+        eb("type", "in", [...this.limitTypeIds!]),
+        ...this.allowNullTypes ? [eb("type", "is", null)] : []
+      ])))
       .select(excludeKeys([...this.selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
+      .$if(this.addTypeColumn, qb => qb.select("type"))
       .$if(this.getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
       .$if(this.getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
       .$if(this.getkeys.has("whfsPath"), qb => qb.select(selectFSWHFSPath().as("whfspath")))
@@ -152,6 +186,10 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
 
     const mappedrows = [];
     for (const row of retval) {
+      //if type === null, this may be unknownfile or normalfolder, allow onlyu the one(s) we want
+      if (this.limitTypeIds && row.type === null && !this.allowNullTypes?.has(row.isfolder))
+        continue;
+
       const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
       for (const k of this.getkeys) {
         if (k === 'type') { //remap to string
@@ -202,6 +240,13 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
       }
       rows.push({ ...item, path: itemPath });
     }
+
+    if (options?.types && levelsLeft >= 2) { //if we're type filtering, we might miss some folders so recheck for that (TODO
+      const justTheIdsQuery = new ListingContext(["id"]);
+      const justTheIds = (await justTheIdsQuery.list(workList)).filter(_ => _.isFolder && !newWorkList.includes(_.id)).map(_ => _.id);
+      appendToArray(newWorkList, justTheIds);
+    }
+
     workList = newWorkList.length ? newWorkList : null;
   }
 

@@ -94,6 +94,24 @@ async function testListObjects() {
   const photoalbum = listDepth2.filter(_ => _.name === "photoalbum");
   test.eqPartial([{ parent: testsitejs.id, path: "photoalbum", name: "photoalbum" }], photoalbum);
   test.eqPartial([{ parent: photoalbum[0].id, path: "photoalbum/landscape_5.jpg", name: "landscape_5.jpg" }], listDepth2.filter(_ => _.name === "landscape_5.jpg"));
+
+  //List by type
+  const folderImages = await (await whfs.openFolder(photoalbum[0].id)).list([], { types: ["platform:filetypes.image"] });
+  test.eq(["goudvis.png", "homersbrain.bmp", "landscape_5.jpg", "portrait_4.jpg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp"], folderImages.map(_ => _.name).toSorted());
+
+  const unknownFiles = await testpagesfolder.list([], { types: ["platform:filetypes.unknown"] });
+  test.eq(["unknownfile"], unknownFiles.map(_ => _.name).toSorted());
+  test.assert(!("type" in unknownFiles[0]), "should not have returned type unless explicitly requested");
+
+  test.eqPartial([{ name: "unknownfile", type: "platform:filetypes.unknown" }], await testpagesfolder.list(["type"], { types: ["platform:filetypes.unknown"] }));
+
+  //List by type recursive. Needs to be smart enough to descend into folders that don't match its type
+  const siteImages = await testsitejs.listRecursive([], { maxDepth: 2, types: ["platform:filetypes.image"] });
+  test.eq(["goudvis.png", "homersbrain.bmp", "imgeditfile.jpeg", "landscape_5.jpg", "portrait_4.jpg", "rangetestfile.jpeg", "snowbeagle.avif", "snowbeagle.jpg", "snowbeagle.webp"], siteImages.map(_ => _.name).toSorted());
+
+  //List globally by type
+  const allImages = await whfs.listWHFSObjects(["parent", "type"], { types: ["platform:filetypes.image"] });
+  test.assert(allImages.find(_ => _.parent === photoalbum[0].id && _.name === "landscape_5.jpg"), "Should find landscape_5.jpg in global list by type");
 }
 
 test.runTests([
