@@ -1,11 +1,14 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { UserRightDefinition } from "@mod-system/js/internal/generation/gen_extract_userrights";
-import { UUIDToWrdGuid } from "@webhare/hscompat";
+import { defaultDateTime, UUIDToWrdGuid, wrdGuidToUUID } from "@webhare/hscompat";
 import { checkModuleScopedName, type ModuleQualifiedName } from "@webhare/services/src/naming";
 import { appendToArray, throwError } from "@webhare/std";
 import { db, query, escapePGIdentifier } from "@webhare/whdb";
-import { encodeWRDGuid } from "@webhare/wrd/src/accessors";
+import { getGuidForEntity } from "@webhare/wrd/src/accessors";
+import { getAuthSettings } from "./support";
+import type { AnySchemaType } from "@webhare/wrd/src/types";
+import type { WRDSchemaType } from "@webhare/wrd";
 
 export type GlobalRight = "system:sysop" | "system:supervisor" | ModuleQualifiedName;
 export type TargettedRight = "system:fs_fullaccess" | ModuleQualifiedName;
@@ -15,6 +18,9 @@ type RightsDB = any;
 
 const authobjectTypeUser = 1;
 // const authobjectTypeRole = 3;
+
+type AuthObjectType = typeof authobjectTypeUser | 2 | 3; //TODO add constants for the others too as soon was we use them
+type AuthObjectRef = { id: number; type: AuthObjectType };
 
 export interface InformationSchema {
   "information_schema.table_constraints": {
@@ -196,8 +202,58 @@ async function gatherParents(tableRef: string, parentColumn: string, objectId: n
   return path.rows.map(row => row.id);
 }
 
+async function getOrEnsureAuthObject(wrdHexGuid: string, create: boolean): Promise<AuthObjectRef | null> {
+  if (create) {
+    const insertResult =
+      await db<PlatformDB>()
+        .insertInto("system.authobjects")
+        .returning("id")
+        .values({
+          name: wrdGuidToUUID(wrdHexGuid), //TODO there isn't a reason to store names here as a user's name or login can be different in different WRD schemas. and potentially violates AVG retention anyway
+          guid: wrdHexGuid,
+          type: authobjectTypeUser,
+          creationdate: new Date(),
+          deletiondate: defaultDateTime,
+          deactivated: false
+        }).onConflict((oc) => oc
+          .column("guid")
+          .doNothing()).executeTakeFirst();
+    if (insertResult?.id)
+      return { id: insertResult.id, type: authobjectTypeUser };
+  }
+  //Newly inserted rows are visible using standard isolation levels so we can just query after conflict
+  const match = await db<PlatformDB>().selectFrom("system.authobjects").where("guid", "=", wrdHexGuid).select(["id", "type"]).executeTakeFirst();
+  if (create && !match)
+    throw new Error(`Failed to create authobject for guid ${wrdHexGuid}`);
+  return match as AuthObjectRef || null;
+}
+
 class WRDEntityAuthorization implements AuthorizationInterface {
-  constructor(private entityId: number) {
+  /** Entity associated with the object. Undefined if not known */
+  private entityId: number | undefined;
+  /** Authobject associated with the object. Undefined if not known, null we know it's not created yet */
+  private authObject: AuthObjectRef | undefined | null;
+
+  constructor(entityId: number | undefined, authObject: AuthObjectRef | null | undefined) {
+    if (!entityId && !authObject)
+      throw new Error("WRDEntityAuthorization must be constructed with at least an entityId or an authObjectId");
+
+    this.entityId = entityId;
+    this.authObject = authObject;
+  }
+
+  private async getPrimaryAuthObject(create: true): Promise<{ id: number; type: AuthObjectType }>;
+  private async getPrimaryAuthObject(create: false): Promise<{ id: number; type: AuthObjectType } | null>;
+
+  private async getPrimaryAuthObject(create: boolean): Promise<{ id: number; type: AuthObjectType } | null> {
+    if (this.authObject || (this.authObject === null && !create))
+      return this.authObject;
+
+    if (!this.entityId)
+      throw new Error("Should not invoke getPrimaryAuthObject without an entityId");
+
+    const wrdHexGuid = UUIDToWrdGuid((await getGuidForEntity(this.entityId)) ?? throwError(`Entity with ID ${this.entityId} not found`));
+    return await getOrEnsureAuthObject(wrdHexGuid, create);
   }
 
   private async expandAuthObjects(authobject: number) {
@@ -209,14 +265,12 @@ class WRDEntityAuthorization implements AuthorizationInterface {
   }
 
   private async getMyAuthObjects(): Promise<number[]> {
-    const userguid = await db<PlatformDB>().selectFrom("wrd.entities").where("id", "=", this.entityId).select("guid").executeTakeFirst() ?? throwError(`Entity with ID ${this.entityId} not found`);
-    const wrdHexGuid = UUIDToWrdGuid(encodeWRDGuid(userguid.guid));
-
-    const authobject = await db<PlatformDB>().selectFrom("system.authobjects").where("guid", "=", wrdHexGuid).select(["id", "type"]).executeTakeFirst();
-    if (!authobject)
+    if (this.authObject === undefined)
+      this.authObject = await ((this as WRDEntityAuthorization)["getPrimaryAuthObject"](false));
+    if (!this.authObject)
       return [];
 
-    const expanded: number[] = authobject.type === authobjectTypeUser ? await this.expandAuthObjects(authobject.id) : [authobject.id];
+    const expanded: number[] = this.authObject.type === authobjectTypeUser ? await this.expandAuthObjects(this.authObject.id) : [this.authObject.id];
     return expanded;
   }
 
@@ -336,7 +390,56 @@ class WRDEntityAuthorization implements AuthorizationInterface {
   }
 }
 
-/** Create the authorization interface for a given user entity to check/modify rights and roles*/
-export function getAuthorizationInterface(id: number): AuthorizationInterface {
-  return new WRDEntityAuthorization(id);
+export async function ensureAuthObject(auth: AuthorizationInterface): Promise<number> {
+  const authObj = await ((auth as WRDEntityAuthorization)["getPrimaryAuthObject"](true));
+  return authObj.id;
 }
+
+/** Create the authorization interface for a given user entity to check/modify rights and roles
+ * @param entityId - The ID of the user entity to create the interface for
+*/
+export function getAuthorizationInterface(entityId: number): AuthorizationInterface {
+  return new WRDEntityAuthorization(entityId, undefined);
+}
+
+export function __getAuthorizationInterfaceForUser(authObjectId: number) {
+  return new WRDEntityAuthorization(undefined, { id: authObjectId, type: authobjectTypeUser });
+}
+
+/** Gather information about users based on the current WRD Schema */
+export async function getAuthorizationUsers(wrdSchema: WRDSchemaType<AnySchemaType>, auths: AuthorizationInterface[]): Promise<Map<AuthorizationInterface, number>> {
+  const authSettings = await getAuthSettings(wrdSchema);
+  if (!authSettings)
+    throw new Error(`WRD Schema ${wrdSchema.getId()} does not have authentication settings, cannot get user information`);
+
+  //TODO a lot can be optimized here, especially by doing database calls in bulk
+  const result = new Map<AuthorizationInterface, number>();
+
+  for (const auth of auths) {
+    if (result.get(auth))
+      continue; //we've already looked this one up (users passing list() output to us easily trigger this)
+
+    const authobjectid = (await (auth as WRDEntityAuthorization)["getPrimaryAuthObject"](false))?.id;
+    if (!authobjectid)
+      continue; //a user without an authobject wasn't stored to the database yet, skip it
+
+    //Map authobject to a userid in the current schema
+    const guid = await db<PlatformDB>().selectFrom("system.authobjects").where("id", "=", authobjectid).select("guid").executeTakeFirst();
+    if (!guid)
+      continue; //shouldn't happen, but if the authobject disappeared from the database for some reason, skip it
+
+    const entity = await wrdSchema.find(authSettings.accountType, { wrdGuid: wrdGuidToUUID(guid.guid) });
+    if (!entity)
+      continue; //not present in this schema (anymore)
+
+    result.set(auth, entity);
+  }
+
+  return result;
+}
+
+export async function getAuthorizationUser(wrdSchema: WRDSchemaType<AnySchemaType>, auth: AuthorizationInterface): Promise<number | undefined> {
+  return (await getAuthorizationUsers(wrdSchema, [auth])).get(auth);
+}
+
+export type { WRDEntityAuthorization };
