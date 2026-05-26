@@ -8,7 +8,7 @@
 */
 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { FileTypeInfo, FolderTypeInfo, WHFSTypeBaseInfo, WHFSTypeInfo, WHFSTypeMember } from "./contenttypes";
+import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSMetaTypeInfo, WHFSTypeMember } from "./contenttypes";
 import { db, type Selectable } from "@webhare/whdb";
 import type { MemberType } from "./codecs";
 import type { CSPContentType } from "./siteprofiles";
@@ -45,6 +45,40 @@ export function getType(type: string | number, kind?: "fileType" | "folderType")
   return types.find(_ => _.id === type);
 }
 
+function explainCSPContentType(matchtype: CSPContentType): WHFSMetaTypeInfo {
+  const baseinfo: WHFSMetaTypeInfo = {
+    id: matchtype.id || null,
+    namespace: matchtype.namespace,
+    scopedType: matchtype.scopedtype || null,
+    title: matchtype.title,
+    clone: matchtype.cloneoncopy ? "onCopy" : matchtype.cloneonarchive ? "onArchive" : "never",
+  };
+
+  if (matchtype.filetype)
+    if (matchtype.isembeddedobjecttype) {
+      return {
+        ...baseinfo,
+        metaType: "widgetType"
+      };
+    } else {
+      return {
+        ...baseinfo,
+        metaType: "fileType",
+        isWebPage: Boolean(matchtype.filetype.needstemplate),
+        isPublishable: Boolean(matchtype.filetype.ispublishable),
+        hasData: Boolean(matchtype.filetype.blobiscontent),
+      };
+    }
+
+  if (matchtype.foldertype)
+    return {
+      ...baseinfo,
+      metaType: "folderType"
+    };
+
+  return baseinfo;
+}
+
 //splitting off a keyof WHFSTypes only version for improved intellisense and type autocompletion
 export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
 export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
@@ -79,40 +113,15 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
   const allmembers = await db<PlatformDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
   const members = mapRecurseMembers(allmembers);
 
-  const baseinfo: WHFSTypeBaseInfo = {
-    id: matchtype.id || null,
-    namespace: matchtype.namespace,
-    scopedType: matchtype.scopedtype || null,
-    title: matchtype.title,
-    clone: matchtype.cloneoncopy ? "onCopy" : matchtype.cloneonarchive ? "onArchive" : "never",
-    members: members //mapMembers(matchtype.members)
-  };
-
-  if (matchtype.filetype)
-    if (matchtype.isembeddedobjecttype) {
-      return {
-        ...baseinfo,
-        metaType: "widgetType"
-      };
-    } else {
-      return {
-        ...baseinfo,
-        metaType: "fileType",
-        isWebPage: Boolean(matchtype.filetype.needstemplate),
-        isPublishable: Boolean(matchtype.filetype.ispublishable),
-        hasData: Boolean(matchtype.filetype.blobiscontent),
-      };
-    }
-
-  if (matchtype.foldertype)
-    return {
-      ...baseinfo,
-      metaType: "folderType"
-    };
-
-  return baseinfo;
+  const baseinfo = explainCSPContentType(matchtype);
+  return { ...baseinfo, members };
 }
 
+/** List available WHFS types */
+export async function listWHFSTypes(): Promise<WHFSMetaTypeInfo[]> {
+  const types = getExtractedHSConfig("siteprofiles").contenttypes;
+  return types.map(type => explainCSPContentType(type));
+}
 
 function memberNameToJS(tag: string): string {
   tag = tag.toLowerCase();
