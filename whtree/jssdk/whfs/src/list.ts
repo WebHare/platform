@@ -4,8 +4,10 @@ import { excludeKeys, isHistoricWHFSSpace, isPublish } from "./support";
 import { db } from "@webhare/whdb";
 import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { describeWHFSType } from "./describe";
-import { appendToArray, isDate } from "@webhare/std";
+import { appendToArray, emplace, isDate } from "@webhare/std";
 import type { WHFSTypeName } from "@webhare/whfs/src/contenttypes";
+import type { AuthorizationInterface } from "@webhare/auth";
+import { __getAuthorizationInterfaceForUser } from "@webhare/auth/src/userrights";
 
 /// Public version with expected javascript mixed casing
 export interface ListableFsObjectRow {
@@ -49,8 +51,8 @@ export interface ListableFsObjectRow {
   // lastPublishTime: number;
   /// File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)
   // scanData: string;
-  /// The id of the user that modified this item last.
-  // modifiedBy: number | null;
+  /// User who last modified the file
+  modifiedBy: AuthorizationInterface | null;
   /// The date and time when any file (meta)data was last modified
   modified: Temporal.Instant;
   /// The date and time when this file's content was last modified
@@ -93,6 +95,7 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
   "isFolder": "isfolder",
   "keywords": "keywords",
   "modified": "modificationdate",
+  "modifiedBy": "modifiedby",
   "name": "name",
   "ordering": "ordering",
   "parent": "parent",
@@ -135,6 +138,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   private allowNullTypes?: Set<boolean>;
   private addTypeColumn = false;
   private addWHFSPathColumn = false;
+  private modfiedByAuthInterfaces = new Map<number, AuthorizationInterface>();
 
   constructor(keys?: K[], public options?: ListFSOptions) {
     this.getkeys = new Set(["id", "name", "isFolder", ...(keys || [])]);
@@ -207,6 +211,10 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
           result.type = type?.scopedType || type?.namespace || "#" + row.type;
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);
+        } else if (k === 'modifiedBy') {
+          //Make sure the authobjects are shared for faster remapping using getAuthorizationUsers
+          const modifiedBy = row.modifiedby ? emplace(this.modfiedByAuthInterfaces, row.modifiedby, { insert: () => __getAuthorizationInterfaceForUser(row.modifiedby!) }) : null;
+          (result as unknown as { modifiedBy: AuthorizationInterface | null }).modifiedBy = modifiedBy;
         } else {
           const dbkey: keyof typeof row = fsObjects_js_to_db[k] as keyof typeof row;
           if (dbkey in row) {

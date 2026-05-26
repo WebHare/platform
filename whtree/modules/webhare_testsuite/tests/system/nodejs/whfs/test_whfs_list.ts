@@ -1,4 +1,6 @@
+import { getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
+import { getAuthorizationUsers } from "@webhare/auth";
 import { isTemporalInstant } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
@@ -116,7 +118,18 @@ async function testListObjects() {
 
   await beginWork();
   //Pick an uncommon filetype so we can realistically globally list
-  const newobj = await (await test.getTestSiteJSTemp()).createFile("testfile", { type: "platform:filetypes.xml" });
+  const newobj = await (await test.getTestSiteJSTemp()).createFile("testfile", { modifiedBy: test.getUser("marge").auth, type: "platform:filetypes.xml" });
+  const newobj2 = await (await test.getTestSiteJSTemp()).createFile("testfile2", { modifiedBy: test.getUser("marge").auth });
+  const newobjLisa = await (await test.getTestSiteJSTemp()).createFile("testfile-lisa", { modifiedBy: test.getUser("lisa").auth });
+
+  const listWithModifiedBy = await whfs.listWHFSObjects(["modifiedBy"], { ids: [newobj.id, newobj2.id] });
+  const newobjModBy = listWithModifiedBy[0].modifiedBy;
+  test.assert(newobjModBy, "modifiedBy should be present in list when requested");
+  test.eq(test.getUser("marge").wrdId, (await getAuthorizationUsers(await getWRDSchema(), [newobjModBy])).get(newobjModBy));
+  test.assert(listWithModifiedBy[0].modifiedBy === listWithModifiedBy[1].modifiedBy, "Both modifiedBys should be the same object as they're the same user");
+
+  const listWithModifiedBy2 = await whfs.listWHFSObjects(["modifiedBy"], { ids: [newobj.id, newobjLisa.id] });
+  test.assert(listWithModifiedBy2[0].modifiedBy !== listWithModifiedBy2[1].modifiedBy, "modifiedBy should be present in list when requested");
 
   await newobj.recycle();
   await commitWork();
@@ -132,7 +145,12 @@ async function testListObjects() {
 }
 
 test.runTests([
-  test.resetWTS,
+  () => test.resetWTS({
+    users: {
+      marge: {},
+      lisa: {},
+    }
+  }),
   testListSites,
   testListObjects
 ]);

@@ -17,6 +17,8 @@ import { listInstances, type ListInstancesOptions, type ListInstancesResult } fr
 import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
+import type { AuthorizationInterface } from "@webhare/auth";
+import { __getAuthorizationInterfaceForUser, ensureAuthObject } from "@webhare/auth/src/userrights";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
 
@@ -64,6 +66,7 @@ type BaseFSObjectMetadata = {
   isUnlisted?: boolean;
   order?: number;
   modified?: Temporal.Instant;
+  modifiedBy?: AuthorizationInterface | null;
 };
 
 type CreateFSObjectMetadata = {
@@ -191,6 +194,9 @@ abstract class WHFSBaseObject {
   get modified(): Temporal.Instant {
     return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime());
   }
+  get modifiedBy(): AuthorizationInterface | null {
+    return this.dbrecord.modifiedby ? __getAuthorizationInterfaceForUser(this.dbrecord.modifiedby) : null;
+  }
 
   /** Re-read cached data from the database, returns whether the object still exists */
   async refresh(options: { allowMissing: true }): Promise<boolean>;
@@ -289,6 +295,10 @@ abstract class WHFSBaseObject {
         throw new Error(`No such type: ${metadata.type}`);
 
       storedata.type = type.id || null; //#0 can't be stored so convert to null
+    }
+
+    if ("modifiedBy" in metadata) { //TODO should we reset it if not explicitly passed? or only for 'silent' updates not updating moddate?
+      storedata.modifiedby = metadata.modifiedBy ? await ensureAuthObject(metadata.modifiedBy) : null;
     }
 
     if (this.isFile) {
@@ -577,6 +587,7 @@ export class WHFSFolder extends WHFSBaseObject {
         id: metadata?.id || undefined,
         creationdate,
         modificationdate,
+        modifiedby: metadata?.modifiedBy ? await ensureAuthObject(metadata.modifiedBy) : null,
         parent: this.id,
         name,
         title: metadata?.title || "",
