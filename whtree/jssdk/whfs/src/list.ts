@@ -121,55 +121,62 @@ export type ListFSRecursiveResult<K extends keyof ListableFsObjectRow> = Pick<Li
   path: string;
 };
 
-export async function list<K extends keyof ListableFsObjectRow = never>(parents: number[] | null | "*", keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
-  const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
-  const selectkeys = new Set<keyof FsObjectRow>;
+/** Save state/context between potentially recursive listing operators */
+export class ListingContext<K extends keyof ListableFsObjectRow = never> {
+  getkeys: Set<keyof ListableFsObjectRow>;
+  selectkeys = new Set<keyof FsObjectRow>;
 
-  for (const k of getkeys) {
-    const dbkey = fsObjects_js_to_db[k];
-    if (!dbkey)
-      throw new Error(`No such listable property '${k}'`); //TODO didyoumean
-    selectkeys.add(dbkey);
+  constructor(keys?: K[], public options?: ListFSOptions) {
+    this.getkeys = new Set(["id", "name", "isFolder", ...(keys || [])]);
+
+    for (const k of this.getkeys) {
+      const dbkey = fsObjects_js_to_db[k];
+      if (!dbkey)
+        throw new Error(`No such listable property '${k}'`); //TODO didyoumean
+      this.selectkeys.add(dbkey);
+    }
   }
 
-  const retval = await db<PlatformDB>()
-    .selectFrom("system.fs_objects")
-    .$if(parents !== "*", qb => qb.where(qb2 => parents ? qb2.eb("parent", "in", parents as number[]) : qb2.eb("parent", "is", null)))
-    .$if(Boolean(options?.ids), qb => qb.where("id", "in", options!.ids!))
-    .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
-    .$if(getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
-    .$if(getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
-    .$if(getkeys.has("whfsPath"), qb => qb.select(selectFSWHFSPath().as("whfspath")))
-    .$if(getkeys.has("parentSite"), qb => qb.select(selectFSHighestParent().as("parentsite")))
-    .$if(getkeys.has("publish"), qb => qb.select("published"))
-    .execute();
+  async list(parents: number[] | null | "*"): Promise<Array<ListFSResult<K>>> {
+    const retval = await db<PlatformDB>()
+      .selectFrom("system.fs_objects")
+      .$if(parents !== "*", qb => qb.where(qb2 => parents ? qb2.eb("parent", "in", parents as number[]) : qb2.eb("parent", "is", null)))
+      .$if(Boolean(this.options?.ids), qb => qb.where("id", "in", this.options!.ids!))
+      .select(excludeKeys([...this.selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
+      .$if(this.getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
+      .$if(this.getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
+      .$if(this.getkeys.has("whfsPath"), qb => qb.select(selectFSWHFSPath().as("whfspath")))
+      .$if(this.getkeys.has("parentSite"), qb => qb.select(selectFSHighestParent().as("parentsite")))
+      .$if(this.getkeys.has("publish"), qb => qb.select("published"))
+      .execute();
 
-  const mappedrows = [];
-  for (const row of retval) {
-    const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
-    for (const k of getkeys) {
-      if (k === 'type') { //remap to string
-        const type = await describeWHFSType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
-        result.type = type?.scopedType || type?.namespace || "#" + row.type;
-      } else if (k === 'publish') { //remap from published
-        (result as unknown as { publish: boolean }).publish = isPublish(row.published);
-      } else {
-        const dbkey: keyof typeof row = fsObjects_js_to_db[k] as keyof typeof row;
-        if (dbkey in row) {
-          const curvalue = row[dbkey];
-          if (isDate(curvalue))
-            ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
-            result[k] = Temporal.Instant.fromEpochMilliseconds(curvalue);
-          else
-            ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
-            result[k] = row[dbkey];
+    const mappedrows = [];
+    for (const row of retval) {
+      const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
+      for (const k of this.getkeys) {
+        if (k === 'type') { //remap to string
+          const type = await describeWHFSType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
+          result.type = type?.scopedType || type?.namespace || "#" + row.type;
+        } else if (k === 'publish') { //remap from published
+          (result as unknown as { publish: boolean }).publish = isPublish(row.published);
+        } else {
+          const dbkey: keyof typeof row = fsObjects_js_to_db[k] as keyof typeof row;
+          if (dbkey in row) {
+            const curvalue = row[dbkey];
+            if (isDate(curvalue))
+              ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
+              result[k] = Temporal.Instant.fromEpochMilliseconds(curvalue);
+            else
+              ///@ts-expect-error Too complex for typescript to figure out apparently. We'll rely on our test coverage
+              result[k] = row[dbkey];
+          }
         }
       }
+      mappedrows.push(result);
     }
-    mappedrows.push(result);
-  }
 
-  return mappedrows;
+    return mappedrows;
+  }
 }
 
 export async function listRecursive<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
@@ -181,9 +188,11 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
     getKeys.push("parent");
 
   const prefixMap = new Map<number, string>();
+  const ctx = new ListingContext(getKeys, options);
+
   for (let levelsLeft = Math.min(options?.maxDepth ?? Infinity, 32); levelsLeft >= 1; --levelsLeft) {
     const newWorkList: number[] = [];
-    const curLevel = await list(workList, getKeys, options);
+    const curLevel = await ctx.list(workList);
     for (const item of curLevel) {
       const parentPath = item.parent ? prefixMap.get(item.parent) ?? "" : "";
       const itemPath = parentPath + item.name;
@@ -200,6 +209,7 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
 }
 
 export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
-  const listresults = await list("*", keys, options);
+  const ctx = new ListingContext(keys, options);
+  const listresults = await ctx.list("*");
   return listresults;
 }

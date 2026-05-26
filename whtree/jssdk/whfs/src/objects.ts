@@ -15,7 +15,7 @@ import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
 import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
-import { list, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
+import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
@@ -527,7 +527,8 @@ export class WHFSFolder extends WHFSBaseObject {
   get isFolder(): true { return true; }
 
   list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
-    return list(this.id ? [this.id] : null, keys, options);
+    const ctx = new ListingContext(keys, options);
+    return ctx.list(this.id ? [this.id] : null);
   }
 
   listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
