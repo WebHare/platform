@@ -210,12 +210,7 @@ PUBLIC OBJECTTYPE RoleDrag EXTEND DragTypeDescriber
 PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
 {
   OBJECT trans := OpenPrimary();
-  RECORD ARRAY apps :=
-      [ [ name :=     "system:poststart"
-        , cmdline :=  "wh run mod::system/scripts/internal/post-start.whscr"
-        , runatsoftreset := TRUE
-        ]
-      ];
+  RECORD ARRAY apps;
 
   IF (NOT ReadRegistryKey("system.backend.development.manualdebugmgr"))
   {

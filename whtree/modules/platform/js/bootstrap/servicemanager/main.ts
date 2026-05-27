@@ -53,7 +53,8 @@ let logfile: RotatingLogFile | undefined;
 const stagetitles: Record<Stage, string> = {
   [Stage.Bootup]: "Booting critical proceses",
   [Stage.StartupScript]: "Running startup scripts", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
-  [Stage.Active]: "Online",
+  [Stage.Online]: "Online",
+  [Stage.PostStartDone]: "Post-start scripts completed",
   [Stage.Terminating]: "Terminating subprocesses",
   [Stage.ShuttingDown]: "Shutting down bridge and database"
 };
@@ -232,7 +233,7 @@ class ProcessManager {
     }
 
     const exitreason = signal ?? exitCode ?? "unknown";
-    if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Active) {
+    if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Online) {
       this.log(`Exit is considered fatal, shutting down service manager`);
       this.servicemgr.shutdown();
     }
@@ -653,7 +654,7 @@ class ServiceManagerManager {
     if (!mgr.shuttingDown)
       await mgr.startStage(Stage.StartupScript);
     if (!mgr.shuttingDown)
-      await mgr.startStage(Stage.Active); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
+      await mgr.startStage(Stage.Online); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
   }
 
   async relaunch() {

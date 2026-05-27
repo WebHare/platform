@@ -2,7 +2,7 @@ import { pick, stringify } from "@webhare/std";
 
 /** This enum must be ordered in the normal order (so we can say a service must be running when service.startIn &lt;= current stage &lt;= service.stopIn ?? DefaultStopStage).
  */
-export enum Stage { Bootup, StartupScript, Active, Terminating, ShuttingDown }
+export enum Stage { Bootup, StartupScript, Online, PostStartDone, Terminating, ShuttingDown }
 
 export const defaultShutDownStage = Stage.Terminating;
 
