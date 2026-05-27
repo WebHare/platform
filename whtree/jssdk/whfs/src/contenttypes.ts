@@ -68,22 +68,21 @@ export interface WHFSTypeMember {
 }
 
 /** Properties implemented by all WHFS Types */
-export interface WHFSTypeBaseInfo {
+export interface WHFSMetaTypeBase {
   id: number | null;
   title?: string;
   namespace: string;
   scopedType: string | null;
-  members: WHFSTypeMember[];
   clone: WHFSCloneMode;
 }
 
 /** The interface used for WHFS Types that only contain fields but don't explicitly implement a file, folder or widget type */
-export interface FieldsTypeInfo extends WHFSTypeBaseInfo {
+interface FieldsMetaTypeInfo extends WHFSMetaTypeBase {
   metaType?: never;
 }
 
 //TODO mark inwebdesign etc as present..
-export interface FileTypeInfo extends WHFSTypeBaseInfo {
+export interface FileMetaTypeInfo extends WHFSMetaTypeBase {
   metaType: "fileType";
 
   /** When rendered, render inside a webdesign (formerly 'needstemplate') */
@@ -94,16 +93,28 @@ export interface FileTypeInfo extends WHFSTypeBaseInfo {
   isPublishable: boolean;
 }
 
-export interface WidgetTypeInfo extends WHFSTypeBaseInfo {
+export interface WidgetMetaTypeInfo extends WHFSMetaTypeBase {
   metaType: "widgetType";
 }
 
-export interface FolderTypeInfo extends WHFSTypeBaseInfo {
+export interface FolderMetaTypeInfo extends WHFSMetaTypeBase {
   metaType: "folderType";
 }
 
+export type WHFSMetaTypeInfo = FieldsMetaTypeInfo | FileMetaTypeInfo | FolderMetaTypeInfo | WidgetMetaTypeInfo;
+
+type WHFSTypeMemberInfo = {
+  members: WHFSTypeMember[];
+};
+
+type WHFSTypeBase = WHFSMetaTypeInfo & WHFSTypeMemberInfo;
+
+export type FileTypeInfo = FileMetaTypeInfo & WHFSTypeMemberInfo;
+export type FolderTypeInfo = FolderMetaTypeInfo & WHFSTypeMemberInfo;
+export type WidgetTypeInfo = WidgetMetaTypeInfo & WHFSTypeMemberInfo;
+
 /** A type representing all possible WHFS Type interfaces */
-export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
+export type WHFSTypeInfo = WHFSMetaTypeInfo & WHFSTypeMemberInfo;
 
 interface InstanceSetOptions extends ImportOptions {
   ///How to handle readonly fsobjects. fail (the default), skip or actually update
@@ -193,7 +204,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", this.descr.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
-  private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBaseInfo, keysToSet?: readonly string[]) {
+  private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBase, keysToSet?: readonly string[]) {
     const dbsettings: FSSettingsRow[] = [];
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")

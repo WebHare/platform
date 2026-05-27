@@ -110,6 +110,9 @@ async function testPageMetadata() {
     test.eq("A dynamic page", dynamicPage.metaTags.get("description"), `Page description should be present in meta tags in ${site}`);
 
     test.eq("consilio </script> value", dynamicPage.consilioFields.test_consilio, `Custom consilio field should be present in ${site}`);
+
+    const dynamicPageNoBreadcrumb = await fetchPreviewAsDoc(`site::${site}/TestPages/dynamicpage`, { setmetadata: "1", nobreadcrumb: "1" });
+    test.eq([], dynamicPageNoBreadcrumb.schemaOrg.filter(_ => _["@type"] === "BreadcrumbList"), `Breadcrumbs should not be present in ${site} when nobreadcrumb is set`);
   }
 }
 

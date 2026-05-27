@@ -48,6 +48,13 @@ async function testCodecs() {
 }
 
 async function testMockedTypes() {
+  const allTypes = await whfs.listWHFSTypes();
+  test.assert(allTypes.some(_ => _.namespace === "http://www.webhare.net/xmlns/publisher/normalfolder"));
+  test.eqPartial({
+    metaType: "fileType",
+    hasData: true
+  }, allTypes.find(_ => _.namespace === "http://www.webhare.net/xmlns/publisher/unknownfile"));
+
   const builtin_normalfoldertype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/normalfolder");
   test.eq("http://www.webhare.net/xmlns/publisher/normalfolder", builtin_normalfoldertype.namespace);
   test.eq("folderType", builtin_normalfoldertype.metaType);

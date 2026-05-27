@@ -16,7 +16,7 @@ export type {
   TypedInstanceSource,
   WHFSTypeMember,
 } from "./contenttypes";
-export { describeWHFSType } from "./describe";
+export { describeWHFSType, listWHFSTypes } from "./describe";
 export { openTagManager } from "./tagmanager";
 export type { TagManager, Tag } from "./tagmanager";
 export { isValidName } from "./support";
