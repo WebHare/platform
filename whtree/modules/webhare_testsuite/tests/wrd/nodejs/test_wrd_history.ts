@@ -1,4 +1,4 @@
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -10,7 +10,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { generateRandomId, throwError } from "@webhare/std";
 import { UUIDToWrdGuid, maxDateTime } from "@webhare/hscompat";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
+type WRD_TestschemaSchemaType = WRDSchemaLike["wrd:testschema"];
 
 const keepHistoryDays = 1;
 

@@ -1,4 +1,4 @@
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import type { RTDExport } from "@webhare/services/src/richdocument";
 import { omit } from "@webhare/std";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
+type WRD_TestschemaSchemaType = WRDSchemaLike["wrd:testschema"];
 
 async function testWRDCli() { //  tests
   type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;

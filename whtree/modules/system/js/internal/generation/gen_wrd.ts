@@ -366,7 +366,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
 
     const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
-    let fulldef = `export type ${wrddef.schemaTypeName} = { //To modernize: replace with WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
+    let fulldef = `export type ${wrddef.schemaTypeName} = { //To modernize: replace with WRDSchemaLike[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
 
     // Process the types sorted on tag
     for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
@@ -388,7 +388,7 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
     }
     fulldef += `};\n\n`;
 
-    let fulldefModern = `export type ${wrddef.schemaTypeNameModern} = { //Refer to this schema type using WRDSchemaDefinitions[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
+    let fulldefModern = `export type ${wrddef.schemaTypeNameModern} = { //Refer to this schema type using WRDSchemaLike[${JSON.stringify(schemaptr.wrdSchema)}]\n`;
 
     // Process the types sorted on tag
     for (const [tag, type] of Object.entries(wrddef.types).sort((a, b) => a[0] < b[0] ? -1 : 1)) {
@@ -513,7 +513,7 @@ declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" :
 ${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
 
 declare module "@mod-platform/generated/ts/wrd.ts" {
-  export interface WRDSchemaDefinitions {
+  export interface WRDSchemaLike {
     ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
   }
 }

@@ -1,4 +1,4 @@
-import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaDefinitions, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
@@ -184,7 +184,7 @@ export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaTyp
 
 export async function getExtendedWRDSchema() {
   //FIXME ModernizeWRDSchemaDefinition shouldn't be an API. WE need it now because CustomExtensions uses WRDTypeBaseSettings and that one isn't modernized
-  type Combined = Combine<[WRDSchemaDefinitions["wrd:testschema"], CustomExtensionsModern]>;
+  type Combined = Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensionsModern]>;
 
   const wrdschema = wrd<AnySchemaType>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
   if (!await wrdschema.exists())

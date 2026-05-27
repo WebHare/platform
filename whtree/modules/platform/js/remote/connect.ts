@@ -4,7 +4,7 @@ import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { backendConfig, subscribe, type BackendEvent, type BackendEvents } from "@webhare/services";
 import { generateRandomId } from "@webhare/std";
 import { runInSeparateWork } from "@webhare/whdb";
-import { wrd, type WRDSchemaDefinitions, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
 
 async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -14,12 +14,12 @@ async function getUserApiSchemaName(opts?: { schema?: string }): Promise<string>
   return await (await primaryPlugin.$get<HSVMObject>("wrdschema")).$get<string>("tag");
 }
 
-async function getUserMgmtSchema(): Promise<WRDSchemaType<WRDSchemaDefinitions["system:usermgmt"]>> {
+async function getUserMgmtSchema(): Promise<WRDSchemaType<WRDSchemaLike["system:usermgmt"]>> {
   const userSchema = await getUserApiSchemaName();
-  return wrd<WRDSchemaDefinitions["system:usermgmt"]>(userSchema);
+  return wrd<WRDSchemaLike["system:usermgmt"]>(userSchema);
 }
 
-async function lookupCLIUser(wrdSchema: WRDSchemaType<WRDSchemaDefinitions["system:usermgmt"]>): Promise<number> {
+async function lookupCLIUser(wrdSchema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>): Promise<number> {
   const cliuser = process.env.WEBHARE_CLI_USER;
   if (!cliuser)
     throw new Error(`WEBHARE_CLI_USER environment variable not set`);
@@ -37,7 +37,7 @@ async function lookupCLIUser(wrdSchema: WRDSchemaType<WRDSchemaDefinitions["syst
 }
 
 export async function getPeerServerToken(remoteHost: string, options?: {
-  userSchema?: WRDSchemaType<WRDSchemaDefinitions["system:usermgmt"]>;
+  userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   userEntity?: number;
 }): Promise<{ token: string; expires: Date; scopes: string[] }> {
   const userSchema = options?.userSchema ?? await getUserMgmtSchema();
@@ -70,7 +70,7 @@ class TokenPromise {
     public resolve: (value: { token: string; expires: Date; scopes: string[] }) => void,
     public reject: (reason?: Error) => void,
     public url: string,
-    public wrdschema: WRDSchemaType<WRDSchemaDefinitions["system:usermgmt"]>,
+    public wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>,
     public wrdentity: number) {
 
     this.sub = subscribe("tollium:oauth_response", (events, sub) => void this.gotOauthResponse(events));
@@ -114,7 +114,7 @@ class TokenPromise {
 }
 
 export async function getPeerServerTokenURL(remoteHost: string, options?: {
-  userSchema?: WRDSchemaType<WRDSchemaDefinitions["system:usermgmt"]>;
+  userSchema?: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
   userEntity?: number;
   /** URL to return to (eg to stay on the proper host and avoid cross-origin issues) */
   baseUrl?: string;

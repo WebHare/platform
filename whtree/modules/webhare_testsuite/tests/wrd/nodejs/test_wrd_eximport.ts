@@ -1,4 +1,4 @@
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -9,7 +9,7 @@ import type { ExportedResource } from "@webhare/services/src/descriptor";
 import { buildInstance } from "@webhare/services/src/richdocument";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
+type WRD_TestschemaSchemaType = WRDSchemaLike["wrd:testschema"];
 
 async function testExport() { //  tests
   type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;

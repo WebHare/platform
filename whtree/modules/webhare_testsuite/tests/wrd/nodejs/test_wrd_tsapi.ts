@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettingsModern, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
-import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaDefinitions, type AnySchemaType } from "@webhare/wrd";
+import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
@@ -20,9 +20,9 @@ import type { HSVMObject } from "@webhare/harescript";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
 const wrdTestschemaSchema = wrd("wrd:testschema");
-type TestschemaSchemaType = WRDSchemaDefinitions["webhare_testsuite:testschema"];
-type WRD_TestschemaSchemaType = WRDSchemaDefinitions["wrd:testschema"];
-type Platform_BasewrdschemaSchemaType = WRDSchemaDefinitions["platform:basewrdschema"];
+type TestschemaSchemaType = WRDSchemaLike["webhare_testsuite:testschema"];
+type WRD_TestschemaSchemaType = WRDSchemaLike["wrd:testschema"];
+type Platform_BasewrdschemaSchemaType = WRDSchemaLike["platform:basewrdschema"];
 
 function cmp(a: unknown, condition: string, b: unknown) {
   if (condition === "in") {
@@ -246,10 +246,18 @@ async function testNewAPI() {
   //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
   wrd("webhare_testsuite:unknownschema");
 
+  //should be allowed to refer by name to a schemalike
+  const x1 = wrd("wrd:testschema");
+  void (x1);
+  wrd<"wrd:testschema">("system:usermgmt") satisfies typeof x1;
+
   //this should be fine:
   wrd<AnySchemaType>("webhare_testsuite:unknownschema");
 
   const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
+  // FIXME: make this work:
+  // wrd<Combine<["wrd:testschema", CustomExtensionsModern, Extensions]>>(testSchemaTag) satisfies typeof schema;
+
   const schemaById = await openSchemaById<AnySchemaType>(await schema.getId());
 
   //@ts-expect-error -- we want type to be explicit if you refer to an unknown schema:
@@ -1563,7 +1571,7 @@ async function testComparisons() {
   }
 }
 
-type System_Usermgmt_WRDAuthdomainSamlIdp = WRDSchemaDefinitions["system:usermgmt"]["wrdAuthdomainSamlIdp"];
+type System_Usermgmt_WRDAuthdomainSamlIdp = WRDSchemaLike["system:usermgmt"]["wrdAuthdomainSamlIdp"];
 
 function testGeneratedWebHareWRDAPI() {
   // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
