@@ -238,6 +238,7 @@ async function testWHFS() {
   test.eq(setCreated, (await whfs.openFile(newindex.id)).created, "Attempt to update 'created' will have been ignored");
   test.eq(setModified2, (await whfs.openFile(newindex.id)).modified);
 
+  //@ts-expect-error TS recognizes the type as invalid but it should still work for legacy support
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.created, ensuredfile.modified);
   test.eq("platform:filetypes.plaintext", ensuredfile.type);

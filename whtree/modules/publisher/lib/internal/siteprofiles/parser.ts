@@ -11,6 +11,7 @@ import { loadlib } from "@webhare/harescript";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { TargettedRight } from "@webhare/auth/src/userrights";
+import type { WHFSTypeName } from "@webhare/whfs";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedSiteProfile = {
@@ -502,7 +503,7 @@ function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserCont
     line: 0,
     workflow: false,
     scopedtype: "",
-    namespace: isValidScopedType(ns) ? `${context.module}:${ns}` : ns,
+    namespace: isValidScopedType(ns) ? `${context.module}:${ns}` as WHFSTypeName : ns as WHFSTypeName,
     isrtdtype: true,
     orphan: false,
     previewcomponent: "",
@@ -1092,8 +1093,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
     const typeParser = rootParser.addGid(settings, { fallback: isValidScopedType(type) ? '.' + type : undefined });
-    const scopedtype = `${baseScope}${type}`;
-    const ns = settings.namespace ?? scopedtype;
+    const scopedtype = `${baseScope}${type}` as WHFSTypeName;
+    const ns = (settings.namespace as WHFSTypeName ?? scopedtype);
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!),

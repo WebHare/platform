@@ -2,6 +2,7 @@ import * as test from "@webhare/test-backend";
 import { readAndParseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { CSPMemberType } from "@webhare/whfs/src/siteprofiles";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import type { WHFSTypeName } from "@webhare/whfs";
 
 async function parseSP(content: string) {
   return await readAndParseSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml", { overridetext: content });
@@ -17,8 +18,8 @@ async function testSPYaml() {
   test.eqPartial({
     contenttypes: [
       {
-        namespace: 'webhare_testsuite:my_types.test_type',
-        scopedtype: 'webhare_testsuite:my_types.test_type',
+        namespace: 'webhare_testsuite:my_types.test_type' as WHFSTypeName,
+        scopedtype: 'webhare_testsuite:my_types.test_type' as WHFSTypeName,
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.test_type.test_type",
         yaml: true,
@@ -72,8 +73,8 @@ async function testSPYaml() {
           ]
       },
       {
-        namespace: 'https://www.webhare.net/xmlns/webhare_testsuite/my_types/test_type2',
-        scopedtype: 'webhare_testsuite:my_types.test_type2',
+        namespace: 'https://www.webhare.net/xmlns/webhare_testsuite/my_types/test_type2' as WHFSTypeName,
+        scopedtype: 'webhare_testsuite:my_types.test_type2' as WHFSTypeName,
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.tt2.test_type2",
         members:
@@ -123,7 +124,7 @@ types:
   test.eqPartial({
     contenttypes: [
       {
-        namespace: 'webhare_testsuite:my_types.test_type',
+        namespace: 'webhare_testsuite:my_types.test_type' as WHFSTypeName,
         title: "",
         members:
           [
@@ -250,14 +251,14 @@ types:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:my_types.test_type',
+        scopedtype: 'webhare_testsuite:my_types.test_type' as WHFSTypeName,
       }
     ],
     applyrules: [
       {
         tos: [
           {
-            whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile',
+            whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' as WHFSTypeName,
             whfspathmask: "*seofiles*"
           }
         ],
@@ -314,7 +315,7 @@ apply:
   test.eqPartial({
     rtdtypes: [
       {
-        namespace: 'webhare_testsuite:my.type'
+        namespace: 'webhare_testsuite:my.type' as WHFSTypeName
       }
     ]
   }, await parseSP(`---
@@ -333,7 +334,7 @@ rtdTypes:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:my_types.test_type',
+        scopedtype: 'webhare_testsuite:my_types.test_type' as WHFSTypeName,
         members:
           [
             {
@@ -399,7 +400,7 @@ apply:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:my_types.sub.test_type',
+        scopedtype: 'webhare_testsuite:my_types.sub.test_type' as WHFSTypeName,
         members:
           [
             {
@@ -531,7 +532,7 @@ types:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:widgets.coolblock',
+        scopedtype: 'webhare_testsuite:widgets.coolblock' as WHFSTypeName,
         filetype: {
           generatepreview: true
         },

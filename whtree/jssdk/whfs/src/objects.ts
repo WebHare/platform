@@ -14,7 +14,7 @@ import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
-import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
@@ -57,7 +57,7 @@ type HistoryEntry = {
 type BaseFSObjectMetadata = {
   id?: number;
   name?: string;
-  type?: string;
+  type?: WHFSTypeName;
   title?: string;
   description?: string;
   isPinned?: boolean;
@@ -105,7 +105,7 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
   return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
 }
 
-function decodeTarget(target: IntExtLink | null, type: string | null, explicitType: boolean): { externallink: string; filelink: number | null; forceType?: string } {
+function decodeTarget(target: IntExtLink | null, type: string | null, explicitType: boolean): { externallink: string; filelink: number | null; forceType?: WHFSTypeName } {
   if (!target)
     return { externallink: "", filelink: null };
   if (type === "platform:filetypes.contentlink") {
