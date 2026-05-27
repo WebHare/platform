@@ -8,7 +8,7 @@
 */
 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSMetaTypeInfo, WHFSTypeMember } from "./contenttypes";
+import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSMetaTypeInfo, WHFSTypeMember, WHFSTypeName } from "./contenttypes";
 import { db, type Selectable } from "@webhare/whdb";
 import type { MemberType } from "./codecs";
 import type { CSPContentType } from "./siteprofiles";
@@ -22,8 +22,8 @@ export const membertypenames: Array<MemberType | null> =
 export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 
-export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
-export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
+export const unknownfiletype: WHFSTypeName = "platform:filetypes.unknown";
+export const normalfoldertype: WHFSTypeName = "platform:foldertypes.default";
 
 //WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
@@ -39,7 +39,7 @@ export function getType(type: string | number, kind?: "fileType" | "folderType")
       return undefined;
 
     const fallbackns = kind === "fileType" ? unknownfiletype : normalfoldertype;
-    return types.find(_ => _.namespace === fallbackns);
+    return types.find(_ => _.scopedtype === fallbackns);
   }
 
   return types.find(_ => _.id === type);

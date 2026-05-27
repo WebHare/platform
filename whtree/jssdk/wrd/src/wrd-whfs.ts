@@ -1,6 +1,6 @@
 import { whconstant_whfsid_wrdstore } from "@mod-system/js/internal/webhareconstants";
 import type { RichTextDocument, Instance } from "@webhare/services";
-import { nextWHFSObjectId, openFolder, openType, type WHFSFolder } from "@webhare/whfs";
+import { nextWHFSObjectId, openFolder, whfsType, type WHFSFolder } from "@webhare/whfs";
 import type { InstanceSource } from "@webhare/whfs/src/contenttypes";
 
 const cachefolders = new Map<number, WHFSFolder>;
@@ -25,20 +25,20 @@ export async function storeRTDinWHFS(schemaId: number, rtd: RichTextDocument): P
   const schemafolder = await ensureWHFSFolderForWRDSchema(schemaId);
   const fileid = await nextWHFSObjectId();
   const rtdfile = await schemafolder.createFile(fileid.toString(), {
-    type: "http://www.webhare.net/xmlns/publisher/richdocumentfile",
+    type: "platform:filetypes.richdocument",
     id: fileid
   });
-  await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(rtdfile.id, { data: rtd });
+  await whfsType("platform:filetypes.richdocument").set(rtdfile.id, { data: rtd });
   return fileid;
 }
 
 export async function getRTDFromWHFS(whfsId: number): Promise<RichTextDocument | null> {
-  const result = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(whfsId);
+  const result = await whfsType("platform:filetypes.richdocument").get(whfsId);
   return result.data as RichTextDocument | null;
 }
 
 export async function getInstanceFromWHFS(whfsId: number): Promise<Instance> {
-  return openType("http://www.webhare.net/xmlns/wrd/instancefile").get(whfsId).then(_ => _.instance as Instance);
+  return whfsType("platform:wrd.instance").get(whfsId).then(_ => _.instance as Instance);
 }
 
 export async function storeInstanceInWHFS(schemaId: number, instance: Instance | InstanceSource): Promise<number> {
@@ -46,10 +46,10 @@ export async function storeInstanceInWHFS(schemaId: number, instance: Instance |
   const schemafolder = await ensureWHFSFolderForWRDSchema(schemaId);
   const fileid = await nextWHFSObjectId();
   await schemafolder.createFile(fileid.toString(), {
-    type: "http://www.webhare.net/xmlns/wrd/instancefile",
+    type: "platform:wrd.instance",
     id: fileid
   });
 
-  await openType("http://www.webhare.net/xmlns/wrd/instancefile").set(fileid, { instance });
+  await whfsType("platform:wrd.instance").set(fileid, { instance });
   return fileid;
 }

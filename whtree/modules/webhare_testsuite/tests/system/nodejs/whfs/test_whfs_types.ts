@@ -758,7 +758,7 @@ async function testInstanceData() {
 
 async function testExportImport() {
   await beginWork();
-  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "platform:filetypes.richdocument" });
   const theActualFish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true });
   await whfs.whfsType("platform:filetypes.richdocument").set(aboutAFish.id,
     {
@@ -802,7 +802,7 @@ async function testExportImport() {
 
 async function testVisitor() {
   await beginWork();
-  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "platform:filetypes.richdocument" });
   const theActualFish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true });
   await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(aboutAFish.id,
     {

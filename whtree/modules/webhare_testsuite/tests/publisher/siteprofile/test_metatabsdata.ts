@@ -192,7 +192,7 @@ async function testMetadataReader() {
 async function testOverrides() {
   await beginWork();
   const tmpfolder = await test.getTestSiteJSTemp();
-  const metaoverride1 = await tmpfolder.createFile("metaoverride1", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const metaoverride1 = await tmpfolder.createFile("metaoverride1", { type: "platform:filetypes.richdocument" });
   await commitWork();
 
   { //metaoverride1

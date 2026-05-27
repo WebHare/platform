@@ -29,9 +29,9 @@ async function testBeforeSite() { //port of HS TestBeforeSite
   await whdb.beginWork();
 
   const siteroot2 = await (await test.getWHFSTestRoot()).ensureFolder("webhare_testsuite.site2");
-  const aSystemFolder = await (await test.getTestSiteHSTemp()).createFolder("systemfolder", { type: "http://www.webhare.net/xmlns/publisher/systemfolder" });
-  const aSlotsFolder = await aSystemFolder.createFolder("slotsfolder", { type: "http://www.webhare.net/xmlns/publisher/contentlibraries/slots" });
-  const aBeaconFolder = await aSlotsFolder.createFolder("beaconsfolder", { type: "http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" });
+  const aSystemFolder = await (await test.getTestSiteHSTemp()).createFolder("systemfolder", { type: "platform:foldertypes.system" });
+  const aSlotsFolder = await aSystemFolder.createFolder("slotsfolder", { type: "platform:contentlibraries.slots" });
+  const aBeaconFolder = await aSlotsFolder.createFolder("beaconsfolder", { type: "platform:contentlibraries.beacons" });
   const subFile = await aBeaconFolder.createFile("subfile");
 
   await whdb.commitWork();
