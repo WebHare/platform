@@ -13,12 +13,13 @@ import { decodeBMP } from "./bmp-to-raw";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
-import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
+import { lookupWHFSObject } from "@webhare/whfs/src/objects";
 import { getWHType } from "@webhare/std/src/quacks";
 import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
 import { __getBlobDatabaseId, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { decryptForThisServer, encryptForThisServer } from "./secrets";
 import { SetDataError } from "./codec-support";
+import { isHistoricWHFSSpace } from "@webhare/whfs/src/support";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {

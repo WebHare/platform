@@ -5,7 +5,7 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
+import { convertToWillPublish, formatPathOrId, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -91,17 +91,6 @@ export type UpdateFileMetadata = BaseFSObjectMetadata & BaseFileMetadata;
 export type UpdateFolderMetadata = BaseFSObjectMetadata & BaseFolderMetadata;
 
 const ensureObjectLock = new std.LocalMutex;
-
-export function isHistoricWHFSSpace(path: string) {
-  path = path.toUpperCase();
-  if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/")
-  )
-    return true;
-  return false;
-}
 
 async function isStripExtension(type: number, name: string): Promise<boolean> {
   const ext = extname(name);

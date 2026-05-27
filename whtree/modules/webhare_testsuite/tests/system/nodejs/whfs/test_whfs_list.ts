@@ -1,5 +1,6 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { isTemporalInstant } from "@webhare/std";
+import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 
 async function testListSites() {
@@ -112,6 +113,22 @@ async function testListObjects() {
   //List globally by type
   const allImages = await whfs.listWHFSObjects(["parent", "type"], { types: ["platform:filetypes.image"] });
   test.assert(allImages.find(_ => _.parent === photoalbum[0].id && _.name === "landscape_5.jpg"), "Should find landscape_5.jpg in global list by type");
+
+  await beginWork();
+  //Pick an uncommon filetype so we can realistically globally list
+  const newobj = await (await test.getTestSiteJSTemp()).createFile("testfile", { type: "platform:filetypes.xml" });
+
+  await newobj.recycle();
+  await commitWork();
+
+  test.eq(0, (await whfs.listWHFSObjects([], { ids: [newobj.id] })).length, "Recycled object should not appear in list");
+  test.eq(1, (await whfs.listWHFSObjects([], { ids: [newobj.id], allowHistoric: true })).length, "Recycled object should appear when opting in");
+  test.eq(0, (await whfs.listWHFSObjects([], { types: ["platform:filetypes.xml"] })).filter(_ => _.id === newobj.id).length, "Recycled object should not appear in list-by-type");
+  test.eq(1, (await whfs.listWHFSObjects([], { types: ["platform:filetypes.xml"], allowHistoric: true })).filter(_ => _.id === newobj.id).length, "Recycled object should appear in list-by-type when opting in");
+
+  const deletedParent = await whfs.openFolder((await whfs.openFile(newobj.id, { allowHistoric: true })).parent!, { allowHistoric: true });
+  test.eq(0, (await deletedParent.list([])).length, "Recycled object should not appear in list of its parent when not allowing historic");
+  test.eq(1, (await deletedParent.list([], { allowHistoric: true })).filter(_ => _.id === newobj.id).length, "Recycled object should appear in list of its parent when allowing historic");
 }
 
 test.runTests([

@@ -1,6 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { FsObjectRow } from "./objects";
-import { excludeKeys, isPublish } from "./support";
+import { excludeKeys, isHistoricWHFSSpace, isPublish } from "./support";
 import { db } from "@webhare/whdb";
 import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { describeWHFSType } from "./describe";
@@ -110,6 +110,8 @@ export interface ListFSOptions {
   ids?: number[];
   /** Select only files with one of these types */
   types?: WHFSTypeName[];
+  /** Allow listing of historic versions */
+  allowHistoric?: boolean;
 }
 
 export interface ListFSRecursiveOptions extends ListFSOptions {
@@ -132,6 +134,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   private limitTypeIds?: Set<number>;
   private allowNullTypes?: Set<boolean>;
   private addTypeColumn = false;
+  private addWHFSPathColumn = false;
 
   constructor(keys?: K[], public options?: ListFSOptions) {
     this.getkeys = new Set(["id", "name", "isFolder", ...(keys || [])]);
@@ -159,6 +162,11 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
 
       this.addTypeColumn = !this.selectkeys.has("type");
     }
+
+    if (!this.options?.allowHistoric) {
+      this.addWHFSPathColumn = true; //TODO if we're searching in a limited set of parents, checking they are in/outside historic space is often enough
+    }
+
     this.prepped = true;
   }
 
@@ -179,7 +187,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
       .$if(this.addTypeColumn, qb => qb.select("type"))
       .$if(this.getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
       .$if(this.getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
-      .$if(this.getkeys.has("whfsPath"), qb => qb.select(selectFSWHFSPath().as("whfspath")))
+      .$if(this.getkeys.has("whfsPath") || this.addWHFSPathColumn, qb => qb.select(selectFSWHFSPath().as("whfspath")))
       .$if(this.getkeys.has("parentSite"), qb => qb.select(selectFSHighestParent().as("parentsite")))
       .$if(this.getkeys.has("publish"), qb => qb.select("published"))
       .execute();
@@ -188,6 +196,8 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
     for (const row of retval) {
       //if type === null, this may be unknownfile or normalfolder, allow onlyu the one(s) we want
       if (this.limitTypeIds && row.type === null && !this.allowNullTypes?.has(row.isfolder))
+        continue;
+      if (!this.options?.allowHistoric && this.addWHFSPathColumn && isHistoricWHFSSpace(row.whfspath!))
         continue;
 
       const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
