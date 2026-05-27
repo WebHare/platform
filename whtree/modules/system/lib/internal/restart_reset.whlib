@@ -314,12 +314,7 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
     RECORD event := eventmgr->ReceiveEvent(waitlimit);
     IF (event.status = "timeout")
       ABORT("Module upgrade tasks are taking more than 5 minutes to complete");
-    IF(CellExists(event.msg,'finished'))
-    {
-      IF (debug)
-        Print("Got poststartdone event\n");
-      BREAK;
-    }
+    BREAK;
   }
   eventmgr->Close();
 

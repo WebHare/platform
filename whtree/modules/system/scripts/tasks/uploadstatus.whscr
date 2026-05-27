@@ -11,7 +11,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 
 OpenPrimary();
@@ -22,10 +21,7 @@ RECORD ARRAY receivers := OpenWRDschema("system:config")->^statusupload->RunQuer
 
 OBJECT browser := NEW WebBrowser;
 receivers := ShuffleArray(receivers); //in case one of the receivers crashes us
-FOREVERY(RECORD receiver FROM receivers)
-{
-  RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
-
+FOREVERY(RECORD receiver FROM receivers) {
   /* The base set (ie no further reports) of information should be something that's safe to share to a party that will treat
      your information confidentially and would only use to report potential compatibility or security issues */
   RECORD serverinfo :=

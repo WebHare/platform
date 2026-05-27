@@ -178,10 +178,9 @@ IF (IsDatabaseWritable())
     }
   }
 
-  RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
-  FLOAT startuptime := GetDatetimeDifference(startupdata.start, GetCurrentDateTime()).msecs / 1000f;
+  FLOAT startuptime := GetDatetimeDifference(GetWebHareStartupTime(), GetCurrentDateTime()).msecs / 1000f;
   LogDebug("system:poststart", CELL[ state := "finished", startuptime ]);
   Print(`All post start tasks completed, ${formatFloat(startuptime,3)} seconds from launch\n`);
 }
 
-SetWHServiceState("poststartdone", [ start := start, finished := GetCurrentDatetime() ]);
+SetWHServiceState("poststartdone");
