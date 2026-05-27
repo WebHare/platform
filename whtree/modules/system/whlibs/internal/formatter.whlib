@@ -239,7 +239,7 @@ PUBLIC OBJECTTYPE ConverterType
           CASE TYPEID(OBJECT), TYPEID(WEAKOBJECT)
           {
             STRING weak := TYPEID(field.value) = TYPEID(WEAKOBJECT) ? "WEAK" : "";
-            field.value := OBJECT(field.value);
+            field := CELL[ ...field, value := OBJECT(field.value) ];
             IF (field.value = DEFAULT OBJECT)
               retval := CellInsert(retval, field.name, "DEFAULT "||weak||"OBJECT");
             ELSE
