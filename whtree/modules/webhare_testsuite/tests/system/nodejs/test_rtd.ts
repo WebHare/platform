@@ -1194,6 +1194,17 @@ async function testRTDOutput() {
       ],
     }, xmlToJS(table));
 
+    test.eqPartial({
+      tag: "div",
+      attributes: {
+        class: "wh-rtd__tablewrap table",
+      },
+      children: [{
+        tag: "table"
+      }]
+    }, xmlToJS(table.parentElement!));
+
+
     ////////////// Lists
     const listedRTD = await fetchPreviewAsDoc(`site::${site}/testpages/lists`);
     // console.dir(xmlToJS(listedRTD.body), { depth: null });

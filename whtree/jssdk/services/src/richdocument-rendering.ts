@@ -126,8 +126,9 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
     const colgroups = table.colGroups.map(colgroup => litty`<colgroup>${colgroup.cols.map(col => litty`<col style="width:${col.width}px">`)}</colgroup>`);
     const rowgroups = (await maybePromiseAll(table.rowGroups.map(rowgroup => maybePromiseAll(rowgroup.rows.map(buildTableRow))))).flat();
 
+    const wrapperClassName = `wh-rtd__tablewrap ${table.className || "table"}`;
     const className = `wh-rtd__table ${table.className || "table"}`;
-    return litty`<table class="${className}">${table.caption ? litty`<caption class="wh-rtd__tablecaption">${table.caption}</caption>` : ""}${colgroups}<tbody>${rowgroups}</tbody></table>`;
+    return litty`<div class="${wrapperClassName}"><table class="${className}">${table.caption ? litty`<caption class="wh-rtd__tablecaption">${table.caption}</caption>` : ""}${colgroups}<tbody>${rowgroups}</tbody></table></div>`;
   }
 
   return await buildBlocks(rtd.blocks);
