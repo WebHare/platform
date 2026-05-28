@@ -228,6 +228,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.integrateEvents();
     this.onScriptDone = startupoptions.onScriptDone || null;
 
+    this.abortController.signal.addEventListener("abort", () => {
+      for (const elt of this.pipeWaiters.values())
+        elt.cancel();
+    });
+
     //by default a HSVM will write to stdout but not stderr, that always requires setup
     this.captureErrors(this.writeToStderr.bind(this));
 
@@ -419,29 +424,32 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (!waiter)
       throw new Error(`Could not find pipewaiter`);
 
+    if (this.abortController.signal.aborted)
+      waiter.cancel();
 
     // Ensure a query for run permission breaks the timer
     const ctxt = this.runContextStore.getStore();
     if (!ctxt)
       throw new Error(`No run context available`);
-    using callbackRegistration = ctxt.shortTimerOnRequest ?
+    // Don't use 'using', this is a hot path and it has too much overhead
+    const callbackRegistration = ctxt.shortTimerOnRequest ?
       ctxt.onPermissionRequest(() => waiter.resolve(0)) :
       null;
-    void callbackRegistration;
-
-    this.abortController.signal.addEventListener("abort", waiter.cancel);
-    if (waiter.timer)
-      clearTimeout(waiter.timer);
-    waiter.timer = runOutsideCodeContext(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); this.mainTimer = undefined; }, wait_ms));
-    const isMainTimer = !this.permissionSystem.anyRequestsInFlight();
-    if (isMainTimer) {
-      this.mainTimer = waiter.timer;
-      if (this.implicitLifetime && !this.keepAliveLocks.size)
-        waiter.timer.unref();
+    try {
+      if (waiter.timer)
+        clearTimeout(waiter.timer);
+      waiter.timer = runOutsideCodeContext(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); this.mainTimer = undefined; }, wait_ms));
+      const isMainTimer = !this.permissionSystem.anyRequestsInFlight();
+      if (isMainTimer) {
+        this.mainTimer = waiter.timer;
+        if (this.implicitLifetime && !this.keepAliveLocks.size)
+          waiter.timer.unref();
+      }
+      const res = await waiter.promise;
+      return res;
+    } finally {
+      callbackRegistration?.[Symbol.dispose]();
     }
-    const res = await waiter.promise;
-    this.abortController.signal.removeEventListener("abort", waiter.cancel);
-    return res;
   }
 
   __pipewaiterDelete(pipewaiter: number) {
@@ -449,7 +457,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (waiter) {
       if (waiter.timer)
         clearTimeout(waiter.timer);
-      this.abortController.signal.removeEventListener("abort", waiter.cancel);
     }
     this.pipeWaiters.delete(pipewaiter);
   }
