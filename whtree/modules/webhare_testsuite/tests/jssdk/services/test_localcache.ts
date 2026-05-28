@@ -5,7 +5,7 @@ import * as test from "@webhare/test-backend";
 
 
 async function localCacheTest() {
-  const cache = new LocalCache<string>();
+  const cache = new LocalCache<string>({ masks: ["webhare_testsuite:globaltest"] });
 
   let itr = 0;
   // STORY: caches values
@@ -66,6 +66,16 @@ async function localCacheTest() {
     };
   }));
   test.eq(null, cache.get({ f: 1 }));
+
+  // STORY: clears on global event too
+  cache.reset();
+  itr = 0;
+
+  test.eq(`1-1`, await cache.get({ a: 1 }, () => ({ value: `1-${++itr}`, masks: ["webhare_testsuite:test"] })));
+  test.eq(`1-1`, await cache.get({ a: 1 }, () => ({ value: `1-${++itr}`, masks: ["webhare_testsuite:test"] })));
+
+  broadcast("webhare_testsuite:globaltest");
+  await test.wait(() => cache.get({ a: 1 }) === null);
 }
 
 test.runTests([localCacheTest]);
