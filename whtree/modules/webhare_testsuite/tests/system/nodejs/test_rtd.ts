@@ -1293,6 +1293,27 @@ async function testRTDOutput() {
         ],
       }
     ], listedRTD.contentElements);
+
+    ////////////// Images
+    const imageRTD = await fetchPreviewAsDoc(`site::${site}/testpages/images`);
+    // console.dir(xmlToJS(listedRTD.body), { depth: null });
+    test.eqPartial([
+      {
+        ns: 'http://www.w3.org/1999/xhtml',
+        tag: 'p',
+        attributes: { class: 'normal' },
+        children: [
+          {
+            tag: 'img',
+            attributes: {
+              class: 'wh-rtd__img wh-rtd__img--floatleft',
+              width: "240",
+              height: /^14[78]$/ //slight rounding differencea between HS/TS
+            },
+          }, "Next to a floating image"
+        ]
+      }
+    ], imageRTD.contentElements);
   }
 }
 
