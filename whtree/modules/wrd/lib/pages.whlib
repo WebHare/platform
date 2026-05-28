@@ -6,7 +6,33 @@
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
+
+STRING ARRAY available_languages := [ "en", "nl"];
+
+MACRO InitLanguage(OBJECT webdesign, OBJECT authplugin) {
+  // If the user is known, use their language (if set)
+  STRING lang := webdesign->languagecode;
+  OBJECT user := authplugin->GetCurrentWebhareUser();
+  IF (NOT ObjectExists(user)) {
+    RECORD session := GetIncompleteAccountSessionData();
+    IF(RecordExists(session) AND session.user != 0)
+      user := authplugin->userapi->GetTolliumUserFromEntityId(session.user);
+  }
+  IF (ObjectExists(user) AND user->language IN available_languages)
+    lang := user->language;
+
+  IF (GetWebVariable("wrd_authlang") IN available_languages)
+    lang := GetWebVariable("wrd_authlang");
+
+  IF (lang != webdesign->languagecode) {
+    webdesign->languagecode := lang;
+    SetTidLanguage(webdesign->languagecode);
+  }
+}
 
 /** Implement standard login/passwordreset etc pages
     @param(object %WebdesignBase) webdesign Webdesign
@@ -39,7 +65,8 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   IF(NOT ObjectExists(authplugin))
     THROW NEW Exception("No wrdauth plugin available");
 
-
+  // If the user is known, use their language (if set)
+  InitLanguage(webdesign, authplugin);
 
   STRING action := GetWebVariable("wrd_pwdaction");
   IF(action IN ["forgotpassword"])

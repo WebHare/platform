@@ -11,13 +11,16 @@ export async function prepareWRDAuthTest(mailpart: string, options?: {
   jsPage?: boolean;
   /** Set password requirements */
   passwordValidationChecks?: string[];
+  /** User language for user pietje */
+  pietje_lang?: string;
 }) {
   const starturl = `${test.getTestSiteRoot()}testpages/wrdauthtest${options?.jsPage ? "-jspage" : options?.multisite ? '-multisite' : ''}/`;
   const mailsuffix = `-${mailpart}@beta.webhare.net`;
   const testdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', starturl, mailsuffix, {
     multisite: Boolean(options?.multisite),
     js: Boolean(options?.js),
-    password_validation_checks: options?.passwordValidationChecks
+    password_validation_checks: options?.passwordValidationChecks,
+    pietje_lang: options?.pietje_lang,
   }); //executes TestInvoke_SetupWRDAuth
   await test.load(starturl);
 

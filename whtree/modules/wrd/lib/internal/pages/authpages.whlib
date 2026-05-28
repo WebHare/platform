@@ -22,7 +22,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
-RECORD FUNCTION GetIncompleteAccountSessionData() {
+PUBLIC RECORD FUNCTION GetIncompleteAccountSessionData() {
   /* identity.ts:
   "platform:incomplete-account": {
       user: number;

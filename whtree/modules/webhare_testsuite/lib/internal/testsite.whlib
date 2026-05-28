@@ -1605,6 +1605,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
   options := ValidateOptions([ multisite := FALSE
                              , js := FALSE
                              , password_validation_checks := STRING["minlength:5", "symbols:1"]
+                             , pietje_lang := ""
                              ], options);
 
   //Clear out any _e ecookies to make the accessrule test repeatable
@@ -1618,7 +1619,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     //logout failed, but we don't care in tests
   }
 
-  RunTestFramework([ PTR DoSetupWRDAuth(CELL[...options, DELETE password_validation_checks]) ], [wrdauth := FALSE]);
+  RunTestFramework([ PTR DoSetupWRDAuth(CELL[...options, DELETE password_validation_checks, DELETE pietje_lang ]) ], [wrdauth := FALSE]);
 
   testfw->BeginWork();
   OBJECT wrdschema := options.js ? OpenWRDSchema("webhare_testsuite:testschema")
@@ -1626,7 +1627,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
   SetWRDSetting(wrdschema, "password_validation_checks", Detokenize(options.password_validation_checks,' '));
   INTEGER unit := options.js ? wrdschema->^whuser_unit->Search("WRD_TAG", "UNIT1") : testfw->testunit;
 
-  wrdschema->^wrd_person->CreateEntity(
+  OBJECT pietje := wrdschema->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"
     , wrd_lastname := "Tester"
     , wrd_contact_email := "pietje" || emailsuffix
@@ -1635,6 +1636,12 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , whuser_unit :=            unit
     , wrdauth_account_status := [ status := "active" ]
     ]);
+
+  IF (options.pietje_lang != "") {
+    OBJECT user := GetWRDAuthUserAPI(wrdschema)->GetUser(pietje->id);
+    user->SetLocale(CELL[ ...user->GetLocale(), language := options.pietje_lang ] );
+  }
+
   wrdschema->^wrd_person->CreateEntity(
     CELL[ wrd_firstname := "Jantje"
         , wrd_lastname := "Tester"

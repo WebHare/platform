@@ -873,7 +873,6 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
   STRING uselanguage :=
     GetWebVariable("lang") //explicit URL variable wins
     ?? (ObjectExists(currentuser) ? currentuser->language : "") //follow user's choice
-    ?? ReadRegistryKey("system.userrights.newuserdefaults_language") //should system language should be per portal or schema? but then this key should move there too
     ?? webdesign->languagecode; //take whatever the webdesign had configured
 
   IF(uselanguage != GetTidLanguage()) { //switch language if needed
