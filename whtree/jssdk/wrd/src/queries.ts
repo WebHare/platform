@@ -3,7 +3,7 @@ export { type SchemaTypeDefinition } from "./types";
 import type { HistoryModeData, WRDType } from "./schema";
 import { type AnyWRDAccessor, getAccessor } from "./accessors";
 import { type AttrRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
-import { db } from "@webhare/whdb";
+import { db, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/src/algorithms";
 import { maxDateTime } from "@webhare/hscompat/src/datetime";
@@ -253,7 +253,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       .select(selectEntitySettingColumns)
       .orderBy("entity")
       .orderBy("attribute")
-      .orderBy("parentsetting")
+      .orderBy("parentsetting", sql.raw(`ASC NULLS FIRST`))
       .orderBy("ordering")
       .execute() :
     [];

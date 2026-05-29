@@ -832,7 +832,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .where("entity", "=", result.entityId)
         .where("attribute", "in", splitData.relevantAttrIds)
         .orderBy("attribute")
-        .orderBy("parentsetting")
+        .orderBy("parentsetting", sql.raw(`ASC NULLS FIRST`))
         .orderBy("ordering")
         .execute());
 
