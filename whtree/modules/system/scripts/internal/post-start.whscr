@@ -97,9 +97,9 @@ MACRO RunPostStartRunOnceScripts()
 
 debug := IsDebugTagEnabled("startup");
 DATETIME start := GetCurrentDatetime();
+BOOLEAN isfirststart := NOT RecordExists(PollWHServiceState("poststartdone"));
 
-IF (IsDatabaseWritable())
-{
+IF (IsDatabaseWritable()) {
   LogDebug("system:poststart", "Database is writable, start preparing");
   trans := OpenPrimary();
 
@@ -178,9 +178,12 @@ IF (IsDatabaseWritable())
     }
   }
 
-  FLOAT startuptime := GetDatetimeDifference(GetWebHareStartupTime(), GetCurrentDateTime()).msecs / 1000f;
-  LogDebug("system:poststart", CELL[ state := "finished", startuptime ]);
-  Print(`All post start tasks completed, ${formatFloat(startuptime,3)} seconds from launch\n`);
+  IF(isfirststart) {
+    FLOAT startuptime := GetDatetimeDifference(GetWebHareStartupTime(), GetCurrentDateTime()).msecs / 1000f;
+    LogDebug("system:poststart", CELL[ state := "finished", startuptime ]);
+    Print(`All post start tasks completed, ${formatFloat(startuptime,3)} seconds from launch\n`);
+  }
 }
 
-SetWHServiceState("poststartdone");
+IF(isfirststart)
+  SetWHServiceState("poststartdone");

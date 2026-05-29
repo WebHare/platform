@@ -240,14 +240,16 @@ class ProcessManager {
 
     this.stopDefer.resolve(exitreason);
 
-    if (this.service.run === "once")
+    const servicesettings = this.servicemgr.expectedServices.get(this.name);
+    const shouldRestart = servicesettings && !this.servicemgr.shuttingDown && !this.toldToStop && (servicesettings.run === "always" || exitCode || signal);
+
+    if (this.service.run === "once" && !shouldRestart)  //we expect 'once' scripts to complete before moving to the next stage. but retry if they fail
       this.servicemgr.finishedWaitForCompletionServices.add(this.name);
     this.servicemgr.processes.unregister(this);
 
-    const servicesettings = this.servicemgr.expectedServices.get(this.name);
-    if (!this.servicemgr.shuttingDown && servicesettings?.run === "always" && !this.toldToStop) {
-      if (!this.started || Date.now() < this.started + (servicesettings?.minRunTime ?? MinimumRunTime)) {
-        this.startDelay = Math.min(this.startDelay * 2 || 1000, servicesettings?.maxThrottleMsecs ?? MaxStartupDelay);
+    if (shouldRestart) {
+      if (!this.started || Date.now() < this.started + (servicesettings.minRunTime ?? MinimumRunTime)) { //throttle restarts unless service stayed up for at least MinimumRunTime
+        this.startDelay = Math.min(this.startDelay * 2 || 1000, servicesettings.maxThrottleMsecs ?? MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
       } else {
         this.startDelay = 0;
@@ -531,7 +533,7 @@ class ServiceManager {
         subpromises.push(process.stop());
       } else if (shouldRunNow) {
         if (process && service.run !== "once" && shouldRestartService(process.service, service)) {
-          // Wait for it to stap, don't want to overlap with the new service instance
+          // Wait for it to stop, don't want to overlap with the new service instance
           await process.stop();
           process = undefined;
         }
