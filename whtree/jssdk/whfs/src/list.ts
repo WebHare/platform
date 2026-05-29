@@ -194,7 +194,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
 
     const mappedrows = [];
     for (const row of retval) {
-      //if type === null, this may be unknownfile or normalfolder, allow onlyu the one(s) we want
+      //if type === null, this may be unknownfile or normalfolder, allow only the one(s) we want
       if (this.limitTypeIds && row.type === null && !this.allowNullTypes?.has(row.isfolder))
         continue;
       if (!this.options?.allowHistoric && this.addWHFSPathColumn && isHistoricWHFSSpace(row.whfspath!))
