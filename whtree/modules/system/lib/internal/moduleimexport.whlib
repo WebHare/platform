@@ -451,8 +451,7 @@ PUBLIC RECORD FUNCTION ActivateInstalledModule(STRING modulename, STRING install
   RETURN __ActivateInstalledModule(modulename, installpath);
 }
 
-RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
-{
+RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath) {
   RECORD retval := [ warnings := DEFAULT STRING ARRAY ];
 
   //Updates platform.json, updates symlinks, regenerates dependencies for java/typescript
