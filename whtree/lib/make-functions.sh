@@ -25,7 +25,7 @@ if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
 fi
 
 function generatebuildinfo() {
-  local BUILDINFO_DIR BUILDINFO_FILE COMMITTAG ORIGIN BRANCH
+  local BUILDINFO_DIR BUILDINFO_FILE COMMITTAG COMMITTIME ORIGIN BRANCH
 
   [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
   [ -n "$WEBHARE_VERSION" ] || die WEBHARE_VERSION not set
@@ -36,6 +36,7 @@ function generatebuildinfo() {
   mkdir -p "$BUILDINFO_DIR"
 
   COMMITTAG="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
+  COMMITTIME="$(git -C "$WEBHARE_CHECKEDOUT_TO" show -s --format=%cI)"
 
   ORIGIN="$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url | sed -E 's#(https://[^:/]+):[^@]+@#\1@#')"
 
@@ -52,6 +53,7 @@ function generatebuildinfo() {
   # Strip any password from the 'origin'
   cat > "${BUILDINFO_FILE}.tmp" << HERE
 committag="${COMMITTAG}"
+committime="${COMMITTIME}"
 version="${WEBHARE_VERSION}"
 branch="${BRANCH}"
 origin="${ORIGIN}"

@@ -12,6 +12,7 @@ export type WebHareVersionFile = {
   branch: string;
   builddatetime: string;
   committag: string;
+  committime: string;
   docker: boolean;
   installationroot: string;
   moduledirs: readonly string[];

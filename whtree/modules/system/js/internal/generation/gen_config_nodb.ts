@@ -28,6 +28,7 @@ type ModuleScanMap = Map<string, ModuleScanData>;
 export function getBuildInfo() {
   const buildinfo = {
     committag: "",
+    committime: "",
     version: "",
     branch: "",
     origin: "",
