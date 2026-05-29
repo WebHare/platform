@@ -253,7 +253,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       .select(selectEntitySettingColumns)
       .orderBy("entity")
       .orderBy("attribute")
-      .orderBy("parentsetting")
+      .orderBy("parentsetting", o => o.nullsFirst())
       .orderBy("ordering")
       .execute() :
     [];
