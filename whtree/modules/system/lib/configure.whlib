@@ -58,6 +58,7 @@ PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
                             , builddatetime := ""
                             , branch := ""
                             , committag := ""
+                            , committime := ""
                             , ...GetWebhareBuildInfo()
                             , docker := GetEnvironmentVariable("WEBHARE_IN_DOCKER") != ""
                             ];

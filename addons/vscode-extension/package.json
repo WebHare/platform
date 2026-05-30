@@ -12,7 +12,7 @@
 		"url": "https://gitlab.com/webhare/platform"
 	},
 	"engines": {
-		"vscode": "^1.108.1"
+		"vscode": "^1.120.0"
 	},
 	"activationEvents": [
 		"onStartupFinished",
@@ -349,7 +349,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^20.11.7",
-		"@types/vscode": "^1.108.1",
-		"@vscode/vsce": "^3.7.1"
+		"@types/vscode": "^1.120.0",
+		"@vscode/vsce": "^3.9.1"
 	}
 }

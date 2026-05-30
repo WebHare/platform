@@ -1,0 +1,19 @@
+type: platform:filetypes.richdocument
+instances:
+  - whfsType: platform:virtual.objectdata
+    data:
+      title: Images
+      publish: true
+  - whfsType: platform:filetypes.richdocument
+    data:
+      data:
+        - tag: p
+          items:
+            - image:
+                file:
+                  resource: "mod::system/web/tests/goudvis.png"
+              width: 240
+              height: 120
+              alt: "Goudvis floating left"
+              float: left
+            - text: "Next to a floating image"
