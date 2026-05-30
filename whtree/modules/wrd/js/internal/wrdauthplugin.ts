@@ -3,7 +3,7 @@ import { getAuthSettings } from "@webhare/auth/src/support";
 import type { PagePluginRequest, PagePluginInit, PagePluginFunction } from "@webhare/router";
 import type { CPageRequest } from "@webhare/router/src/siterequest";
 import { getWRDPlugindata } from "@webhare/whfs/src/applytester";
-import { wrd, type WRDSchemaDefinitions } from "@webhare/wrd";
+import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 
 class WRDAuthPluginAPI {
   private state: Awaited<ReturnType<typeof WRDAuthPluginAPI.prototype.getDynamicState>> | null = null;
@@ -17,7 +17,7 @@ class WRDAuthPluginAPI {
       throw new Error(`Logged in state can only be requested for dynamic page requests`);
 
     const settings = await (this.req as CPageRequest)._applyTester.getWRDAuth();
-    const wrdSchema = settings.wrdSchema ? wrd<WRDSchemaDefinitions["wrd:idp"]>(settings.wrdSchema) : null;
+    const wrdSchema = settings.wrdSchema ? wrd<WRDSchemaLike["wrd:idp"]>(settings.wrdSchema) : null;
     const user = wrdSchema && settings.cookieName ? await getCookieBasedUser(this.req.webRequest, wrdSchema, settings) : null;
 
     return {

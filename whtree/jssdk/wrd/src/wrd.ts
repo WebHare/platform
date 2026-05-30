@@ -25,7 +25,7 @@ import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
-import type { WRDSchemaDefinitions } from "@mod-platform/generated/ts/wrd.ts";
+import type { WRDSchemaLike } from "@mod-platform/generated/ts/wrd.ts";
 
 //TODO this should become the wrd() compatible schema
 export type { AnySchemaType };
@@ -33,7 +33,7 @@ export type { AnySchemaType };
 import type { } from "wh:ts/wrd.ts";
 
 //because old code refers directly to the generated types, we can't modernize those in the generator. we'll convert them for now
-export type { WRDSchemaDefinitions };
+export type { WRDSchemaLike };
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;
@@ -170,7 +170,7 @@ export async function createSchema(tag: string, options?: CreateSchemaOptions): 
   const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchemaById(newschema.id);
   await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isPrimarySchema: true, isCreate: true });
   //TODO we need a true 'base' wrd schema type as domainsecret always exists
-  await updateSchemaSettings(wrd<WRDSchemaDefinitions["system:usermgmt"]>(tag), { domainSecret: generateRandomId() + generateRandomId() });
+  await updateSchemaSettings(wrd<WRDSchemaLike["system:usermgmt"]>(tag), { domainSecret: generateRandomId() + generateRandomId() });
 
   broadcastOnCommit("wrd:schema.list");
 
@@ -186,7 +186,8 @@ export async function extendSchema(tag: string, options: { schemaDefinitionXML: 
 }
 
 /** Open a WRD schema by tag */
-export function wrd<T extends keyof WRDSchemaDefinitions>(tag: T): WRDSchemaType<WRDSchemaDefinitions[T]>;
+export function wrd<T extends keyof WRDSchemaLike>(tag: T): WRDSchemaType<WRDSchemaLike[T]>;
+
 /** Open a WRD schema by tag
  * @typeParam S - Specify the schema structure. Use AnySchemaType to disable type checking
 */
@@ -195,6 +196,9 @@ export function wrd<S extends SchemaTypeDefinitionModern = never>(tag: [S] exten
 
 export function wrd<S extends AnySchemaType = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
   : WRDSchemaType<S>;
+
+export function wrd<S extends keyof WRDSchemaLike = never>(tag: [S] extends [never] ? "You must provide a type argument <T> for custom tags" : string)
+  : WRDSchemaType<WRDSchemaLike[S]>;
 
 export function wrd(tag: string): WRDSchemaType {
   return new WRDSchemaType(tag);
