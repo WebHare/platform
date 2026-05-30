@@ -58,8 +58,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   }
   ELSE
   {
-    RECORD startupdata := EnforceStructure([ start := DEFAULT DATETIME], PollWHServiceState("startup"));
-    DATETIME boottime := startupdata.start;
+    DATETIME boottime := GetWebHareStartupTime();
     //if the server recently booted consider that the last run time to prevent this check during startup. Ideally we could consider most-recent-wake time too
     INTEGER64 lastrun := GetDatetimeDifference(MAX[]([boottime, lastintervalrun.lastrun]), GetCurrentDatetime()).totalmsecs;
 

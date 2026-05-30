@@ -294,6 +294,9 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
 
   RunRestartReset(debug, TRUE);
 
+  //Invoke poststart. appservices used to do that after seeing a softreset event
+  InvokeOnServiceManager("startService", VARIANT[ "platform:poststart" ]);
+
   DATETIME waitlimit := AddTimeToDate(5 * 60 * 1000,GetCurrentDatetime());
 
   // Wait for validation to finish
@@ -314,12 +317,7 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
     RECORD event := eventmgr->ReceiveEvent(waitlimit);
     IF (event.status = "timeout")
       ABORT("Module upgrade tasks are taking more than 5 minutes to complete");
-    IF(CellExists(event.msg,'finished'))
-    {
-      IF (debug)
-        Print("Got poststartdone event\n");
-      BREAK;
-    }
+    BREAK;
   }
   eventmgr->Close();
 

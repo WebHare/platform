@@ -1,4 +1,10 @@
 managedServices:
+  poststart:
+    script: mod::system/scripts/internal/post-start.whscr
+    run: at-post-start
+  update-proxies:
+    script: mod::system/scripts/tasks/update_proxies.whscr
+    run: at-post-start
   apprunner:
     script: mod::system/scripts/internal/apprunner.whscr
     run: always

@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -67,11 +68,7 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
 
   //Do NOT just blindly talk to proxies when restarting - they should already be working from our previous config
   IF(isuptodate)
-  {
-    GetPrimary()->BeginWork();
-    ScheduleTimedTask("system:update_proxies", [ allowmissing := TRUE]); //allowmissing as we may be invoked during WebHare's bootstrap
-    GetPrimary()->CommitWOrk();
-  }
+    RestartService("platform:update-proxies");
 
   BroadcastEvent("system:internal.webserver.didconfigreload", DEFAULT RECORD);
   RETURN CELL [...configuration, version := GetWebhareVersionNumber(), reloadstatus];

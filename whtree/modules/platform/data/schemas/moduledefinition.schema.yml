@@ -127,6 +127,7 @@ $defs:
             enum: # "once" is not exposed, you should use tasks instead
               - always
               - on-demand
+              - at-post-start # Services that run once when we've entered the Online phase
           arguments:
             description: "Command line arguments for script"
             type: array

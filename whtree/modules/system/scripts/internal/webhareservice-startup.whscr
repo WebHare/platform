@@ -50,7 +50,7 @@ IF(showinfo)
   Print("We have a database!\n");
 
 DATETIME start := GetCurrentDatetime();
-SetWHServiceState("startup", [ start := start ]);
+SetWHServiceState("startup");
 
 // WH5.3 prestart fix: move system.webharebackend to path under output/
 STRING old_webharebackend_dir := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "system.webharebackend");
@@ -66,4 +66,4 @@ RunRestartReset(showinfo, FALSE);
 FOREVERY(STRING err FROM GetModuleDependencyIssues())
   Print(err||"\n");
 
-SetWHServiceState("started", [ start := start, finished := GetCurrentDatetime() ]);
+SetWHServiceState("started");

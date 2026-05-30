@@ -103,8 +103,7 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
   RETURN AddInterval(task.nexttime, task.repeatinterval, task.repeatintervaltype);
 }
 
-MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
-{
+MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime) {
   Debug("Task '" || task.tag || "' has finished, id: " || task.id || (allerrors!=""?", " || allerrors:""));
   LogDebug("system:executetasks", "taskfinished", [ tag := task.tag, id := task.id, allerrors := allerrors, runtime := GetMsecsDifference(starttime, GetCurrentDatetime()) ]);
 
@@ -197,7 +196,8 @@ MACRO RunStartupScripts(STRING modulename)
                                    FROM system_internal.tasks
                                   WHERE enabled
                                         AND inapplicable = ""
-                                        AND runatstartup;
+                                        AND runatstartup
+                                        AND (modulename = "" ? TRUE : tag LIKE modulename || ".*"); //note that task tags use a 'dot' as separator between module name and script name, not :
 
   LogDebug("system:executetasks", "runstartupscripts", CELL [ modulename, last_uncompleted_startup_scripts, uncompleted_startup_scripts ]);
 

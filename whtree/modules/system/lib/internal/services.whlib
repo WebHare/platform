@@ -286,7 +286,7 @@ PUBLIC BOOLEAN FUNCTION IsServiceRunning(STRING servicename) {
 
 PUBLIC MACRO RestartService(STRING servicename) {
   RECORD result := InvokeOnServiceManager("restartService", VARIANT[ servicename ]);
-  IF(result.errormessage)
+  IF(CellExists(result,"errormessage"))
     THROW NEW Exception(result.errormessage);
 }
 

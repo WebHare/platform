@@ -128,8 +128,8 @@ export function gatherManagedServicesFromModDef(mod: ModDefYML): Record<string, 
       if (servicedef?.script) {
         services[`${mod.module}:${name}`] = {
           cmd: getServiceCommand(mod, servicedef),
-          startIn: Stage.Active,
-          run: servicedef.run,
+          startIn: Stage.Online,
+          run: servicedef.run === "at-post-start" ? "once" : servicedef.run,
           ...pick(servicedef, ["minRunTime", "maxThrottleMsecs"])
         };
       }
