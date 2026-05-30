@@ -4,7 +4,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
 import { emplace, nameToSnakeCase, omit, pick, slugify, toCamelCase } from "@webhare/std";
 import { getExtractedConfig, getExtractedHSConfig } from "@mod-system/js/internal/configuration";
-import { isHistoricWHFSSpace, openFileOrFolder, openFolder, type WHFSFolder, type WHFSObject } from "./objects";
+import { openFileOrFolder, openFolder, type WHFSFolder, type WHFSObject } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
@@ -16,6 +16,7 @@ import { resolveResource } from "@webhare/services";
 import type { ApplyAuth, ApplySetMetadata } from "@mod-platform/generated/schema/siteprofile";
 import { openType, whfsType } from "@webhare/whfs/src/contenttypes";
 import { lookupURL, type LookupURLOptions } from "./lookupurl";
+import { isHistoricWHFSSpace } from "./support";
 
 export interface WebDesignInfo {
   objectname: string;

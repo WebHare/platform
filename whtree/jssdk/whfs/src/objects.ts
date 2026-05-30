@@ -5,7 +5,7 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
+import { convertToWillPublish, formatPathOrId, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -14,8 +14,8 @@ import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
-import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
-import { list, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
+import type { FileTypeInfo, FolderTypeInfo, WHFSTypeInfo, WHFSTypeName } from "@webhare/whfs/src/contenttypes";
+import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
 export type WHFSObject = WHFSFile | WHFSFolder;
@@ -57,7 +57,7 @@ type HistoryEntry = {
 type BaseFSObjectMetadata = {
   id?: number;
   name?: string;
-  type?: string;
+  type?: WHFSTypeName;
   title?: string;
   description?: string;
   isPinned?: boolean;
@@ -92,17 +92,6 @@ export type UpdateFolderMetadata = BaseFSObjectMetadata & BaseFolderMetadata;
 
 const ensureObjectLock = new std.LocalMutex;
 
-export function isHistoricWHFSSpace(path: string) {
-  path = path.toUpperCase();
-  if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/")
-  )
-    return true;
-  return false;
-}
-
 async function isStripExtension(type: number, name: string): Promise<boolean> {
   const ext = extname(name);
   if (!ext)
@@ -116,7 +105,7 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
   return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
 }
 
-function decodeTarget(target: IntExtLink | null, type: string | null, explicitType: boolean): { externallink: string; filelink: number | null; forceType?: string } {
+function decodeTarget(target: IntExtLink | null, type: string | null, explicitType: boolean): { externallink: string; filelink: number | null; forceType?: WHFSTypeName } {
   if (!target)
     return { externallink: "", filelink: null };
   if (type === "platform:filetypes.contentlink") {
@@ -527,7 +516,8 @@ export class WHFSFolder extends WHFSBaseObject {
   get isFolder(): true { return true; }
 
   list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
-    return list(this.id ? [this.id] : null, keys, options);
+    const ctx = new ListingContext(keys, options);
+    return ctx.list(this.id ? [this.id] : null);
   }
 
   listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {

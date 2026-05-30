@@ -131,7 +131,7 @@ export async function createWHFSObject(req: TypedRestRequest<AuthorizedWRDAPIUse
         return req.createErrorResponse(400, { error: `Type is neither a file nor a folder type: ${req.body.type}` });
 
       const newObj = await parentFolder[typeinfo.foldertype ? "createFolder" : "createFile"](req.body.name, {
-        type: req.body.type,
+        type: typeinfo.scopedtype || typeinfo.namespace,
         ...virtualMetadata && await mapVirtualMetadata(null, virtualMetadata) || {}
       });
       await applyInstanceUpdates(newObj, req.body.instances);

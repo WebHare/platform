@@ -375,9 +375,9 @@ export async function requestCertificateTask(req: TaskRequest<ToSnakeCase<Certif
       const keystore = await openFolder("/webhare-private/system/keystore");
       certFolder = await keystore.createFolder(`certbot-${requestDomains[0]}`.replaceAll("*", "_wildcard") + "-" + new Date().toISOString().slice(0, -5).replaceAll(/[-:]/g, "").replace("T", "-"));
     }
-    const certFile = await certFolder.ensureFile("certificatechain.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
+    const certFile = await certFolder.ensureFile("certificatechain.pem", { type: "platform:filetypes.plaintext" });
     await certFile.update({ data: await ResourceDescriptor.from(certificate) });
-    const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
+    const certKeyPairFile = await certFolder.ensureFile("privatekey.pem", { type: "platform:filetypes.plaintext" });
     await certKeyPairFile.update({ data: await ResourceDescriptor.from(certKeyPair.privateKey) });
 
     // Store the account private key if new or updated

@@ -170,7 +170,7 @@ async function testLookup() {
   test.eq({ folder: null, file: null, site: lookupresult.site, webServer: root.outputWeb, append: "testfolder/test.html%C1%AC" }, lookupresult);
 
   // test with ignored extension extension
-  const testfile2 = await testfolder.createFile('test-ignoreext.rtd', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const testfile2 = await testfolder.createFile('test-ignoreext.rtd', { /*published: PublishedFlag_StripExtension, */type: "platform:filetypes.richdocument" });
   await whdb.db<PlatformDB>().updateTable("system.fs_objects").set({ published: PublishedFlag_StripExtension }).where("id", "=", testfile2.id).execute();
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext.rtd"));
   test.eq(testfolder.id, lookupresult.folder);
@@ -182,7 +182,7 @@ async function testLookup() {
   test.eq(testfile2.id, lookupresult.file);
   test.eq("", lookupresult.append);
 
-  const testIgnoreAmpFile = await testfolder.createFile('test&ignore-amp', { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const testIgnoreAmpFile = await testfolder.createFile('test&ignore-amp', { type: "platform:filetypes.richdocument" });
   lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test&ignore-amp")); //& is not a separator before ?, so should just match no file at all
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testIgnoreAmpFile.id, lookupresult.file);
@@ -302,7 +302,7 @@ async function testLookup() {
 
   test.eq(testfile.id, lookupresult.file, "Looking up testdata.arraytest[1].blobcell.link");
 
-  testfile = await rootfolder.createFile("def.rtd", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish: true });
+  testfile = await rootfolder.createFile("def.rtd", { type: "platform:filetypes.richdocument", publish: true });
   test.assert(testfile.link);
   test.assert(!testfile.link.includes(".rtd")); //shouldn't contain .rtd anymore, given our strip code
   lookupresult = await whfs.lookupURL(new URL(testfile.link));

@@ -20,6 +20,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import { rewriteResource } from "@mod-devkit/js/validation/rewrite";
+import type { WHFSTypeName } from "@webhare/whfs";
 
 type ImportContext = {
   topLevelGid: string;
@@ -821,7 +822,7 @@ run({
       //remove all local prefix from the remapTypes list
       for (const [k, v] of remapTypes)
         if (v.startsWith(`${args.module}:`))
-          remapTypes.set(k, v.substring(args.module.length + 1));
+          remapTypes.set(k, v.substring(args.module.length + 1) as WHFSTypeName);
 
       //Fix type references.
       checkSp.result = fixAllTypeRefs(checkSp.result, remapTypes);

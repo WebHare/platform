@@ -108,7 +108,7 @@ async function testWHFSEvents() {
     const beforeCreate = Temporal.Now.instant();
     await whdb.beginWork();
     const testFile = await rootFolder.createFile("testfile.txt", {
-      type: "http://www.webhare.net/xmlns/publisher/richdocumentfile",
+      type: "platform:filetypes.richdocument",
       publish: true,
     });
     await whdb.commitWork();

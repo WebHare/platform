@@ -120,7 +120,7 @@ async function testWHFS() {
   const tmpfolder = await testsite.openFolder("tmp");
 
   await whdb.beginWork();
-  const newFile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File", data: null });
+  const newFile = await tmpfolder.createFile("testfile", { type: "platform:filetypes.markdown", title: "My MD File", data: null });
   const openNewFile = await tmpfolder.openFile("testfile");
   test.eq(false, newFile.isPinned);
   test.eq(false, newFile.isUnlisted);
@@ -179,7 +179,7 @@ async function testWHFS() {
   test.eq(600, portrait6.data.height);
   test.eq(test.wellKnownHashes.portrait6, portrait6.data.hash);
 
-  const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
+  const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "platform:filetypes.plaintext", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
   test.eq("This is a test", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
@@ -238,6 +238,7 @@ async function testWHFS() {
   test.eq(setCreated, (await whfs.openFile(newindex.id)).created, "Attempt to update 'created' will have been ignored");
   test.eq(setModified2, (await whfs.openFile(newindex.id)).modified);
 
+  //@ts-expect-error TS recognizes the type as invalid but it should still work for legacy support
   const ensuredfile = await tmpfolder.ensureFile("file1", { type: "http://www.webhare.net/xmlns/publisher/plaintextfile" });
   test.eq(ensuredfile.created, ensuredfile.modified);
   test.eq("platform:filetypes.plaintext", ensuredfile.type);

@@ -6,6 +6,7 @@ import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugi
 import type { Rule } from "@mod-platform/js/webserver/webconfig";
 import type { ToSnakeCase } from "@webhare/std/src/types";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
+import type { WHFSTypeName } from "@webhare/whfs";
 
 export enum CSPMemberType {
   String = 2,
@@ -109,8 +110,10 @@ export interface CSPContentType {
   isrtdtype: boolean;
   line: number;
   members?: CSPMember[]; //optional in RTD types
-  namespace: string;
-  scopedtype: string;
+  /** XML namespace, usually something like http://www.webhare.net/xmlns/type... - scopedType if no separate XML namespace is known */
+  namespace: WHFSTypeName;
+  /** Shorter name for the type, usually <module>:[group.]<type>. Empty for types that only have a XML namespace */
+  scopedtype: WHFSTypeName | "";
   orphan: boolean;
   previewcomponent: string;
   siteprofile: string;

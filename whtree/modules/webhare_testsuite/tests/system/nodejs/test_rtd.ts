@@ -54,7 +54,7 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
   //Test roundtrip through WHFS
   await beginWork();
-  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "platform:filetypes.richdocument" });
   await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
   const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
   test.eq(doc.blocks, doc3.blocks, { onCompare: compareRDIgnoreFilename });
@@ -84,7 +84,7 @@ async function verifyWidgetRoundTrip(widget: Instance) {
   test.eq(await widget.export(), await (await buildInstance(await widget.export())).export());
 
   await beginWork();
-  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "platform:filetypes.richdocument" });
   await testtype.set(tempfile.id, { anInstance: widget });
   await commitWork();
   // console.log(await widget.export());
@@ -174,7 +174,7 @@ async function testReader() {
 
 async function testHSReader() {
   await beginWork();
-  const tempBeagleWidgets = await (await test.getTestSiteJSTemp()).ensureFile("beagle-widgets", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const tempBeagleWidgets = await (await test.getTestSiteJSTemp()).ensureFile("beagle-widgets", { type: "platform:filetypes.richdocument" });
   await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleWidgetTestDoc(tempBeagleWidgets.id);
   await commitWork();
 
@@ -244,7 +244,7 @@ async function testHSReader() {
 
 async function testHSReaderTables() {
   await beginWork();
-  const tempBeagleTables = await (await test.getTestSiteJSTemp()).ensureFile("beagle-tables", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  const tempBeagleTables = await (await test.getTestSiteJSTemp()).ensureFile("beagle-tables", { type: "platform:filetypes.richdocument" });
   await loadlib("mod::webhare_testsuite/lib/publisher/testsupport.whlib").SetSnowBeagleTabledTestDoc(tempBeagleTables.id);
   await commitWork();
 

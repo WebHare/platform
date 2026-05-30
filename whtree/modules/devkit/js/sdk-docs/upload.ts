@@ -24,13 +24,13 @@ async function uploadReplace(srcdocdir: string, targetdocdir: WHFSFolder) {
       await uploadReplace(item.fullPath, folder);
     } else if (item.type === "file") {
       if (existing?.isFolder === true)
-        throw new Error(`Cannot replace a folder with a file  trying to upload ${item.fullPath}`);
+        throw new Error(`Cannot replace a folder with a file trying to upload ${item.fullPath}`);
 
       //TOOD leave unchanged files alone
       await targetdocdir.ensureFile(item.name,
         {
           data: await ResourceDescriptor.fromDisk(item.fullPath),
-          type: item.name.endsWith(".html") ? "http://www.webhare.net/xmlns/publisher/htmlfile" : "http://www.webhare.net/xmlns/publisher/plaintextfile",
+          type: item.name.endsWith(".html") ? "platform:filetypes.html" : "platform:filetypes.plaintext",
           publish: true
         });
     }
