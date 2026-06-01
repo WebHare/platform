@@ -6,7 +6,7 @@ import { type ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web
 
 /****************************************************************************************************************************
  *                                                                                                                          *
- *  SPLIT                                                                                                                   *
+ *  SECTION                                                                                                                 *
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
@@ -77,10 +77,7 @@ export default class ObjSection extends ToddCompBase {
     //We're intercepting onClick as onToggle runs *after* opening/closing and our relayout will cause flicker
 
     dompack.stop(evt);
-    this.detailsNode.open = !this.detailsNode.open;
-    this.height.dirty = true;
-    this.owner.recalculateDimensions();
-    this.owner.relayout();
+    this.toggleOpen();
   }
 
   relayout() {
@@ -108,5 +105,18 @@ export default class ObjSection extends ToddCompBase {
   applySetHeight(): void {
     this.panel.setHeight(this.detailsNode.open ? this.height.set - ObjSection.cachedDimensions!.overheadHeight : this.panel.height.calc);
     this.panel.applySetHeight();
+  }
+
+  toggleOpen(open?: boolean, callback = true) {
+    this.detailsNode.open = open !== undefined ? open : !this.detailsNode.open;
+    this.height.dirty = true;
+    this.owner.recalculateDimensions();
+    this.owner.relayout();
+    if (callback)
+      this.queueMessage("ToggleOpen", { open: this.detailsNode.open }, false);
+  }
+
+  onMsgToggleOpen(data: { open: boolean }) {
+    this.toggleOpen(data.open, false);
   }
 }
