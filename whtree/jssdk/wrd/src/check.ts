@@ -115,8 +115,23 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
 
     for (const setting of settings) {
       if (setting.setting && !validEntities.has(setting.setting)) {
-        onIssue({ message: `Setting #${setting.id} of attribute ${setting.attribute} refers to entity #${setting.setting} which is not in the same schema` });
+        onIssue({ message: `Setting #${setting.id} of attribute #${setting.attribute} in entity #${setting.entity} refers to entity #${setting.setting} which is not in the same schema` });
       }
+    }
+  }
+
+  //Find array settings that have lost their parentsetting (it's a SET DEFAULT so it may but shouldn't happen)
+  for (const attr of attrs.filter(_ => _.parent)) {
+    //One query per attribute to cut back on DB/memory usage
+    const settings = await db<PlatformDB>().
+      selectFrom("wrd.entity_settings")
+      .select(["id", "entity", "attribute", "setting"])
+      .where("attribute", "=", attr.id)
+      .where("parentsetting", "is", null)
+      .execute();
+
+    for (const setting of settings) {
+      onIssue({ message: `Setting #${setting.id} of attribute #${setting.attribute} in entity #${setting.entity} has no parentsetting (is orphaned)` });
     }
   }
 }
