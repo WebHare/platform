@@ -1,7 +1,8 @@
 import { db } from "@webhare/whdb";
-import type { WHFSObject } from "./objects";
+import type { FsObjectRow, WHFSObject } from "./objects";
 import * as crypto from "node:crypto";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit } from "@webhare/services/src/descriptor";
 
 function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
   return !excludes.includes(t as unknown as K);
@@ -186,4 +187,16 @@ export function isHistoricWHFSSpace(path: string) {
   )
     return true;
   return false;
+}
+
+export function getFSObjectData(rec: Pick<FsObjectRow, "id" | "name" | "creationdate" | "data" | "scandata" | "isfolder">): ResourceDescriptor | null {
+  if (rec.isfolder || !rec.data)
+    return null;
+
+  const meta: ResourceMetadataInit = {
+    ...decodeScanData(rec.scandata),
+    dbLoc: { source: 1, id: rec.id, cc: getUnifiedCC(rec.creationdate) },
+    fileName: rec.name
+  };
+  return new ResourceDescriptor(rec.data, meta);
 }

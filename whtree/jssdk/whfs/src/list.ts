@@ -1,6 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { FsObjectRow } from "./objects";
-import { excludeKeys, isHistoricWHFSSpace, isPublish } from "./support";
+import { excludeKeys, getFSObjectData, isHistoricWHFSSpace, isPublish } from "./support";
 import { db } from "@webhare/whdb";
 import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { describeWHFSType } from "./describe";
@@ -9,6 +9,7 @@ import type { WHFSTypeName } from "@webhare/whfs/src/contenttypes";
 import type { AuthorizationInterface } from "@webhare/auth";
 import { __getAuthorizationInterfaceForUser, getAuthorizationUser } from "@webhare/auth/src/userrights";
 import type { AnyWRDSchema } from "@webhare/wrd";
+import type { ResourceDescriptor } from "@webhare/services";
 
 /// Public version with expected javascript mixed casing
 export interface ListableFsObjectRow {
@@ -17,7 +18,7 @@ export interface ListableFsObjectRow {
   /// The date and time when this file was created
   created: Temporal.Instant;
   /// The content of the file, for file types which have physical content (all file types except profiles and link files)
-  // data: WHDBBlob | null;
+  data: ResourceDescriptor | null;
   /// A description for this file
   description: string;
   /// Contains additional error information for some publication status codes
@@ -84,7 +85,7 @@ export interface ListableFsObjectRow {
   isUnlisted: boolean;
 }
 
-const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
+const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow | Array<keyof FsObjectRow>> = {
   "created": "creationdate",
   "contentModified": "contentmodificationdate",
   "description": "description",
@@ -107,7 +108,8 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
   "title": "title",
   "type": "type",
   "isPinned": "ispinned",
-  "isUnlisted": "isunlisted"
+  "isUnlisted": "isunlisted",
+  "data": ["scandata", "data", "creationdate"]
 };
 
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
@@ -154,7 +156,10 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
       const dbkey = fsObjects_js_to_db[k];
       if (!dbkey)
         throw new Error(`No such listable property '${k}'`); //TODO didyoumean
-      this.selectkeys.add(dbkey);
+      if (Array.isArray(dbkey))
+        dbkey.forEach(key => this.selectkeys.add(key));
+      else
+        this.selectkeys.add(dbkey);
     }
 
     if (keys?.includes("modifiedByEntity" as K) && !options?.userSchema)
@@ -219,6 +224,8 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
         if (k === 'type') { //remap to string
           const type = await describeWHFSType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
           result.type = type?.scopedType || type?.namespace || "#" + row.type;
+        } else if (k === 'data') { //synthesize from data + scanned
+          (result as unknown as { data: ResourceDescriptor | null }).data = getFSObjectData(row);
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);
         } else if (k === 'modifiedBy') {
