@@ -163,8 +163,13 @@ function tryReusePassedSettings(encodedSettings: EncodedSetting[], current: Arra
       currentIdMap.delete(enc.id);
       if (enc.sub)
         tryReusePassedSettings(enc.sub, current, currentIdMap, enc.id);
-    } else
+    } else {
       enc.id = undefined;
+      if (enc.sub) {
+        for (const sub of enc.sub)
+          sub.parentsetting = undefined;
+      }
+    }
   }
 }
 
@@ -180,8 +185,11 @@ function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<Ent
         if (!item.used) {
           item.used = true;
           enc.id = item.id;
-          if (enc.sub)
+          if (enc.sub) {
+            for (const sub of enc.sub)
+              sub.parentsetting = enc.id;
             reuseFreeSettings(enc.sub, current, currentIdMap, item.id);
+          }
 
           break;
         }
@@ -283,6 +291,10 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
         const useItem = unused[upos++];
         useItem.used = true;
         item.id = useItem.id;
+        if (item.sub) {
+          for (const sub of item.sub)
+            sub.parentsetting = item.id;
+        }
         reusedIds.push(useItem.id);
         reusedAttributes.add(useItem.attribute);
         if (upos === unused.length)
