@@ -12,6 +12,7 @@ export type LocalCacheValueRecord<T> = {
 
 export type LocalCacheOptions = {
   maxSize?: number;
+  masks?: string[];
 };
 
 
@@ -27,9 +28,11 @@ export class LocalCache<T> {
   private nextInvalidation: [number, NodeJS.Timeout] | undefined;
   private waitMap = new Map<string, PromiseWithResolvers<void>>();
   private bridgeListenerId: number | null = null;
+  private globalMasks: RegExp;
 
   constructor(options?: LocalCacheOptions) {
     this.options = options ?? {};
+    this.globalMasks = regExpFromWildcards(["system:clearcaches", ...this.options.masks ?? []]);
   }
 
   private calcDataKey(key: LocalCacheKey): string {
@@ -41,6 +44,10 @@ export class LocalCache<T> {
   private handleEvent(data: BridgeEvent<SimpleMarshallableRecord>) {
     for (const events of this.recordEvents)
       events.add(data.name);
+    if (this.globalMasks.test(data.name)) {
+      this.dataMap.clear();
+      return;
+    }
     for (const [k, v] of this.dataMap.entries())
       if (v.masks.test(data.name))
         this.dataMap.delete(k);
@@ -107,7 +114,7 @@ export class LocalCache<T> {
           };
 
           // ignore when the data was invalidated during calculation. Try recalc a few times to avoid internal inconsistency
-          if (events.values().some(event => rec.masks.test(event))) {
+          if (events.values().some(event => rec.masks.test(event) || this.globalMasks?.test(event))) {
             if (iter < 10)
               continue;
             return rec.value;

@@ -2,7 +2,6 @@ import { isTruthy } from "@webhare/std";
 import { nextVals } from "@webhare/whdb";
 
 export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentsetting?: number | null; id?: number }> {
-  parentMap = new Map<SettingType, SettingType>;
   flattened = new Array<SettingType & { parentsetting?: number | null }>;
 
   constructor(toEncode: SettingType[]) {
@@ -11,9 +10,8 @@ export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentset
 
   private recurseIntoFlattened(settings: SettingType[], parent: SettingType | null) {
     for (const item of settings) {
-      if (parent)
-        this.parentMap.set(item, parent);
-
+      if (parent?.id)
+        item.parentsetting = parent.id;
       this.flattened.push(item);
       if (item.sub?.length)
         this.recurseIntoFlattened(item.sub, item);
@@ -25,11 +23,12 @@ export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentset
     let newIds: number[] = [];
     if (rowsWithoutId.length > 0) {
       newIds = await getIds(rowsWithoutId.length);
-      rowsWithoutId.forEach((row, idx) => row.id = newIds[idx]);
-    }
-
-    for (const [child, parent] of this.parentMap) {
-      child.parentsetting = parent.id;
+      rowsWithoutId.forEach((row, idx) => {
+        row.id = newIds[idx];
+        if (row.sub)
+          for (const sub of row.sub)
+            sub.parentsetting = row.id;
+      });
     }
 
     return newIds;
@@ -51,6 +50,10 @@ export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentset
       const existingItem = existingItems.find(item => (item[parentField] ?? null) === (row.parentsetting ?? null) && item[memberField] === row[memberField]);
       if (existingItem?.id && !usedIds.has(existingItem.id)) {
         row.id = existingItem.id;
+        if (row.sub) {
+          for (const sub of row.sub)
+            sub.parentsetting = row.id;
+        }
         usedIds.add(existingItem.id);
         reused.push(existingItem.id);
       }

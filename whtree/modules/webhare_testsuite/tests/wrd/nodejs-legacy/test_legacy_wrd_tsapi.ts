@@ -183,11 +183,6 @@ async function testSettingsHelpers() {
       { title: "Other" }
     ], storer.flattened);
 
-    test.assert(storer.parentMap.get(storer.flattened[1]) === storer.flattened[0]);
-    test.assert(storer.parentMap.get(storer.flattened[2]) === storer.flattened[1]);
-    test.assert(storer.parentMap.get(storer.flattened[3]) === storer.flattened[0]);
-    test.eq(3, storer.parentMap.size);
-
     //Add ids and parents
     const alllocated = await storer.__addIdsAndParents(storer.flattened, generateIds);
     test.eq(5, alllocated.length);
@@ -213,9 +208,9 @@ async function testSettingsHelpers() {
     test.eq([51, 55], storer.reuseExistingSettings("parentsetting", "attr", earlierRows));
     test.eqPartial([
       { id: 51, title: "Root" },
-      { id: undefined, title: "Sub1", parentsetting: undefined },
+      { id: undefined, title: "Sub1", parentsetting: 51 },
       { id: undefined, title: "Sub1.1", parentsetting: undefined },
-      { id: undefined, title: "Sub2", parentsetting: undefined },
+      { id: undefined, title: "Sub2", parentsetting: 51 },
       { id: 55, title: "Other" },
     ], storer.flattened);
 

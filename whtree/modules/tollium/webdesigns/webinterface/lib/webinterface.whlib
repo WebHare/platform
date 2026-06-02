@@ -4,6 +4,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
@@ -29,6 +30,9 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
 
     this->robotstag.noindex := TRUE;
     this->robotstag.nofollow := TRUE;
+
+    this->languagecode := ReadRegistryKey("system.userrights.newuserdefaults_language") ?? this->languagecode; //should system language should be per portal or schema? but then this key should move there too
+    SetTidLanguage(this->languagecode);
   }
   UPDATE PUBLIC RECORD FUNCTION GetPageConfig()
   {

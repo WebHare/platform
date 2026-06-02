@@ -5,7 +5,12 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::publisher/lib/forms/base.whlib";
+
 LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 
 /** Implement standard login/passwordreset etc pages
@@ -39,7 +44,8 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   IF(NOT ObjectExists(authplugin))
     THROW NEW Exception("No wrdauth plugin available");
 
-
+  // If the user is known, use their language (if set)
+  InitLanguage(webdesign, authplugin);
 
   STRING action := GetWebVariable("wrd_pwdaction");
   IF(action IN ["forgotpassword"])

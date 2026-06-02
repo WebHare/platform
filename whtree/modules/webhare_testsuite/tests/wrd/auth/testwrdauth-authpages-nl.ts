@@ -11,7 +11,7 @@ const baseurl = test.getTestSiteRoot() + "testpages/wrdauthtest-router-nl/";
 test.runTests(
   [
     async function () {
-      await prepareWRDAuthTest("authpages-js", { js: true, multisite: false, passwordValidationChecks: ["minlength:3", "require2fa"] });
+      await prepareWRDAuthTest("authpages-js", { js: true, multisite: false, passwordValidationChecks: ["minlength:3", "require2fa"], pietje_lang: "nl" });
       // await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     },
 

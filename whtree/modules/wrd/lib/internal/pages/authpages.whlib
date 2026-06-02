@@ -22,7 +22,30 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
-RECORD FUNCTION GetIncompleteAccountSessionData() {
+STRING ARRAY available_languages := [ "en", "nl"];
+
+PUBLIC MACRO InitLanguage(OBJECT webdesign, OBJECT authplugin) {
+  // If the user is known, use their language (if set)
+  STRING lang := webdesign->languagecode;
+  OBJECT user := authplugin->GetCurrentWebhareUser();
+  IF (NOT ObjectExists(user)) {
+    RECORD session := GetIncompleteAccountSessionData();
+    IF(RecordExists(session) AND session.user != 0)
+      user := authplugin->userapi->GetTolliumUserFromEntityId(session.user);
+  }
+  IF (ObjectExists(user) AND user->language IN available_languages)
+    lang := user->language;
+
+  IF (GetFormWebVariable("wrd_authlang") IN available_languages)
+    lang := GetFormWebVariable("wrd_authlang");
+
+  IF (lang != webdesign->languagecode) {
+    webdesign->languagecode := lang;
+    SetTidLanguage(webdesign->languagecode);
+  }
+}
+
+PUBLIC RECORD FUNCTION GetIncompleteAccountSessionData() {
   /* identity.ts:
   "platform:incomplete-account": {
       user: number;
@@ -387,6 +410,8 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    InitLanguage(this->formcontext, this->formcontext->GetWRDAuthPlugin());
+
     OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
     OBJECT work := this->BeginWork( [ database := FALSE ] );
 
@@ -671,6 +696,8 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    InitLanguage(this->formcontext, this->formcontext->GetWRDAuthPlugin());
+
     OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
 
     OBJECT work := this->BeginWork();
@@ -735,6 +762,8 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    InitLanguage(this->formcontext, this->formcontext->GetWRDAuthPlugin());
+
     RECORD totpsetup := DecodeHSON(^setup->value);
     OBJECT work := this->BeginWork();
 

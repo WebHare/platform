@@ -3,6 +3,8 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { ResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
+import { fenceEvents } from "@webhare/services/src/backendevents";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 async function testSettingReuse() {
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
@@ -86,6 +88,20 @@ async function testSettingReuse() {
   test.eqPartial([{ testInt: 4 }, { testInt: 2 }, { testInt: 4 }, { testInt: 2 }], (await schema.getFields("wrdPerson", newPerson, "testArray")));
 
   await whdb.commitWork();
+
+  // STORY: same array update should not trigger change event
+  {
+    await fenceEvents();
+    let gotEvent = false;
+    const r = bridge.on("event", (evt) => gotEvent = true);
+    await whdb.beginWork();
+    const data = await schema.getFields("wrdPerson", newPerson, "testArray");
+    await schema.update("wrdPerson", newPerson, { testArray: data });
+    await whdb.commitWork();
+    await fenceEvents();
+    bridge.off(r);
+    test.assert(!gotEvent, "Should not have gotten an event for a same-value update");
+  }
 }
 
 
