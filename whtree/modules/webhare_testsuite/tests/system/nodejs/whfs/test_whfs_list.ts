@@ -4,6 +4,7 @@ import { getAuthorizationUsers } from "@webhare/auth";
 import { isTemporalInstant } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
+import { wrd } from "@webhare/wrd";
 
 async function testListSites() {
   const testsite = await test.getTestSiteHS();
@@ -130,6 +131,13 @@ async function testListObjects() {
 
   const listWithModifiedBy2 = await whfs.listWHFSObjects(["modifiedBy"], { ids: [newobj.id, newobjLisa.id] });
   test.assert(listWithModifiedBy2[0].modifiedBy !== listWithModifiedBy2[1].modifiedBy, "modifiedBy should be present in list when requested");
+
+  await test.throws(/userSchema/, whfs.listWHFSObjects(["modifiedByEntity"], { ids: [newobj.id] }));
+  const listWithModifiedByEntity = await whfs.listWHFSObjects(["modifiedByEntity"], { ids: [newobj.id], userSchema: await getWRDSchema() });
+  test.eq(test.getUser("marge").wrdId, listWithModifiedByEntity[0].modifiedByEntity);
+  const listWithModifiedByEntity_WrongSchema = await whfs.listWHFSObjects(["modifiedByEntity"], { ids: [newobj.id], userSchema: wrd("system:usermgmt") });
+  test.eq(null, listWithModifiedByEntity_WrongSchema[0].modifiedByEntity);
+  test.eq(false, "modifiedBy" in listWithModifiedByEntity[0]);
 
   await newobj.recycle();
   await commitWork();
