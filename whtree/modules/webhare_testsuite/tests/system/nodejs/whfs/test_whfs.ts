@@ -98,13 +98,14 @@ async function testWHFS() {
 
   //Read a 'fs_objects.data' cell
   const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
-  test.eq(11, await wittytestfile.data.resource.size);
-  test.eq(`[wittytest]`, await wittytestfile.data.resource.text());
+  test.eq(11, wittytestfile.data?.resource.size);
+  test.eq(`[wittytest]`, await wittytestfile.data?.resource.text());
 
   test.eq(testpagesfolder.id, (await wittytestfile.openParent()).id);
   test.eq(testpagesfolder.parent!, (await testpagesfolder.openParent()).id);
 
   const imgfile = await testpagesfolder.openFile("imgeditfile.jpeg");
+  test.assert(imgfile.data);
   test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', imgfile.data.hash);
   test.eq('image/jpeg', imgfile.data.mediaType);
   test.eq('.jpg', imgfile.data.extension);
@@ -147,10 +148,10 @@ async function testWHFS() {
   test.eq(true, goldFish.isPinned);
   test.eq(true, goldFish.isUnlisted);
   test.eq(goldFishId, goldFish.id);
-  test.eq("image/png", goldFish.data.mediaType);
-  test.eq(385, goldFish.data.width);
-  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data.hash);
-  test.eq("goldfish.png", goldFish.data.fileName);
+  test.eq("image/png", goldFish.data?.mediaType);
+  test.eq(385, goldFish.data?.width);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data?.hash);
+  test.eq("goldfish.png", goldFish.data?.fileName);
   test.eq(true, goldFish.publish);
   test.eq(goldFish.created, goldFish.firstPublish);
   test.eq(goldFish.created, goldFish.contentModified);
@@ -160,10 +161,10 @@ async function testWHFS() {
   const openedGoldFish = await openFile(goldFish.id);
   test.eq(false, openedGoldFish.isPinned);
   test.eq(false, openedGoldFish.isUnlisted);
-  test.eq("image/jpeg", openedGoldFish.data.mediaType);
-  test.eq(428, openedGoldFish.data.width);
-  test.eq(test.wellKnownHashes.snowbeagleJPG, openedGoldFish.data.hash);
-  test.eq("goldfish.png", openedGoldFish.data.fileName, "a file's resource name is fixed to its fsobject");
+  test.eq("image/jpeg", openedGoldFish.data?.mediaType);
+  test.eq(428, openedGoldFish.data?.width);
+  test.eq(test.wellKnownHashes.snowbeagleJPG, openedGoldFish.data?.hash);
+  test.eq("goldfish.png", openedGoldFish.data?.fileName, "a file's resource name is fixed to its fsobject");
   test.eq(null, openedGoldFish.modifiedBy);
 
   const goldFish2 = await tmpfolder.createFile("goldfish2.png", {
@@ -175,18 +176,24 @@ async function testWHFS() {
   test.eq(new Date(2021, 1, 1).toTemporalInstant(), goldFish2.contentModified);
   test.eq(new Date(2020, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
   await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), firstPublish: new Date(2022, 1, 1).toTemporalInstant() });
+  test.eq(new Date(2022, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
   await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModified: new Date(2023, 1, 1).toTemporalInstant() });
   test.eq(new Date(2022, 1, 1).toTemporalInstant(), goldFish2.firstPublish);
   test.eq(new Date(2023, 1, 1).toTemporalInstant(), goldFish2.contentModified);
 
   //verify we properly write rotated images metadata
   const portrait6 = await tmpfolder.createFile("portrait6.jpg", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/portrait_6.jpg"), publish: true });
-  test.eq(450, portrait6.data.width);
-  test.eq(600, portrait6.data.height);
-  test.eq(test.wellKnownHashes.portrait6, portrait6.data.hash);
+  test.eq(450, portrait6.data?.width);
+  test.eq(600, portrait6.data?.height);
+  test.eq(test.wellKnownHashes.portrait6, portrait6.data?.hash);
+
+  await goldFish2.update({ data: null });
+  test.eq(null, goldFish2.data);
+  await goldFish2.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), contentModified: new Date(2023, 1, 1).toTemporalInstant() });
 
   const newFile2 = await tmpfolder.createFile("testfile2.txt", { type: "platform:filetypes.plaintext", title: "My plain File", data: await ResourceDescriptor.from("This is a test") });
   const openNewFile2 = await openFile(newFile2.id);
+  test.assert(openNewFile2.data);
   test.eq("This is a test", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
   test.eq("text/plain", openNewFile2.data.mediaType);
@@ -197,8 +204,8 @@ async function testWHFS() {
   await openNewFile2.update({ data: await ResourceDescriptor.from("Updated text") });
   test.eq("Updated text", await openNewFile2.data.resource.text());
   test.eq("testfile2.txt", openNewFile2.data.fileName);
-  test.eq("Updated text", await (await openFile(newFile2.id)).data.resource.text());
-  test.eq("text/plain", (await openFile(newFile2.id)).data.mediaType);
+  test.eq("Updated text", await (await openFile(newFile2.id)).data?.resource.text());
+  test.eq("text/plain", (await openFile(newFile2.id)).data?.mediaType);
   test.assert(openNewFile2.modified.epochMilliseconds > newFile2.modified.epochMilliseconds);
   test.eq(openNewFile2.modified, openNewFile2.contentModified);
 
@@ -218,7 +225,7 @@ async function testWHFS() {
   test.eq(newFile2.id, (await openFile(newFile2.id, { allowHistoric: true })).id);
 
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
-  test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data.mediaType);
+  test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data?.mediaType);
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);

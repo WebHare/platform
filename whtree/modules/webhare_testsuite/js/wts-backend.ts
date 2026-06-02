@@ -113,13 +113,13 @@ export async function createTestWebserverConfig() {
     },
     {
       port: port_https,
-      certificatechain: await fallback_certificate.data.resource.text(),
+      certificatechain: await fallback_certificate.data?.resource.text() || "",
       ciphersuite: "",
       id: -2,
       ip: "127.0.0.1",
       istrustedport: true,
       keypair: 0,
-      privatekey: await fallback_privatekey.data.resource.text(),
+      privatekey: await fallback_privatekey.data?.resource.text() || "",
       virtualhost: true
     }
   ];

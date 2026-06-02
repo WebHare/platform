@@ -440,6 +440,8 @@ async function testImgCache() {
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const snowbeagleAvifFile = await testsitejs.openFile("photoalbum/snowbeagle.avif");
   const snowBeagleWebpFile = await testsitejs.openFile("photoalbum/snowbeagle.webp");
+  const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
+  test.assert(snowbeagle.data && snowbeagleAvifFile.data && snowBeagleWebpFile.data && goldfishpng.data);
   const snowbeaglewithrefpoint = snowbeagle.data;
   snowbeaglewithrefpoint.refPoint = { x: 107, y: 142 }; // Set refPoint in horizontal 1/4 and vertical middle of the image
   const wrappedBeagle = snowbeaglewithrefpoint.toResized({ method: "none", format: "keep" });
@@ -453,7 +455,6 @@ async function testImgCache() {
   const snowBeagleAvif = await createSharpImage(await snowbeagleAvifFile.data.resource.arrayBuffer());
   const snowBeagleWebp = await createSharpImage(await snowBeagleWebpFile.data.resource.arrayBuffer());
 
-  const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
   const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none", format: "keep" });
   const dlFishPng = await fetchUCLink(wrappedGoldfishPng.link, "image/png");
   const imgFishPng = await createSharpImage(dlFishPng.fetchBuffer);
@@ -501,8 +502,8 @@ async function testImgCache() {
 
   //test BMP to WEBP
   const homersbrainBMP = await testsitejs.openFile("photoalbum/homersbrain.bmp");
-  const wrappedHomersbrainWebp = homersbrainBMP.data.toResized({ method: "none", format: "image/webp" });
-  const dlHomersbrainWebp = await fetchUCLink(wrappedHomersbrainWebp.link, "image/webp");
+  const wrappedHomersbrainWebp = homersbrainBMP.data?.toResized({ method: "none", format: "image/webp" });
+  const dlHomersbrainWebp = await fetchUCLink(wrappedHomersbrainWebp!.link, "image/webp");
 
   const homersbrainPNG = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.png", { getImageMetadata: true });
   const homersbrainSharp = await createSharpImage(await homersbrainPNG.resource.arrayBuffer());
@@ -510,8 +511,8 @@ async function testImgCache() {
 
   //test rotation fixing
   const landscape5 = await testsitejs.openFile("photoalbum/landscape_5.jpg");
-  const wrappedLandscape5 = landscape5.data.toResized({ method: "none", format: "image/avif" });
-  const dlLandscape5 = await fetchUCLink(wrappedLandscape5.link, "image/avif");
+  const wrappedLandscape5 = landscape5.data?.toResized({ method: "none", format: "image/avif" });
+  const dlLandscape5 = await fetchUCLink(wrappedLandscape5!.link, "image/avif");
   const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_5-fixed.jpg", { getImageMetadata: true });
   const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
   await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), { maxMSE: 50 });
@@ -525,6 +526,7 @@ async function testFileCache() {
   const extensionless = await tmpfolder.createFile("extensionless", { data: await ResourceDescriptor.from(Buffer.from("\x00\x01\x02\x03")) });
   const oddity = await tmpfolder.createFile("Bowie Space!.oddity", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
   const oddity2 = await tmpfolder.createFile("Bowie Space!.oddity 2!", { data: await ResourceDescriptor.from(Buffer.from("Space?")) });
+  test.assert(docxje.data && oddity.data && oddity2.data && extensionless.data);
 
   await commitWork();
 

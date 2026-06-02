@@ -13,7 +13,7 @@ import { commonFlags, commonOptions, resolveWHFSPathArgument, resolveWHFSPathArr
 import { readFileSync } from 'fs';
 import { loadlib } from '@webhare/harescript';
 import { join } from 'path';
-import { exportFileAsFetch } from '@webhare/services';
+import { exportFileAsFetch, WebHareBlob } from '@webhare/services';
 
 
 async function displayUsage(opts: { threshold: number; maxDepth?: number; versionsInSite?: boolean; format: "table" | "json" }) {
@@ -177,10 +177,12 @@ run({
           throw new CLIRuntimeError("Not a file");
         if (!typeinfo.hasData)
           throw new CLIRuntimeError("Not a downloadable file");
+
+        const resource = (target as WHFSFile).data?.resource || WebHareBlob.from("");
         if (opts.json)
-          process.stdout.write(JSON.stringify({ data: Buffer.from(await (target as WHFSFile).data.resource.arrayBuffer()).toString("base64") }));
+          process.stdout.write(JSON.stringify({ data: Buffer.from(await resource.arrayBuffer()).toString("base64") }));
         else
-          process.stdout.write(Buffer.from(await (target as WHFSFile).data.resource.arrayBuffer()));
+          process.stdout.write(Buffer.from(await resource.arrayBuffer()));
       }
     },
     "get-object": {

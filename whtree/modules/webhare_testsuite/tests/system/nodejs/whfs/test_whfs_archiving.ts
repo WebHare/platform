@@ -17,7 +17,7 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
 
   //FIXME verify file types, but TS WebHare should do type detection of files without metadata!
   const snowBeagle = await importTree.openFile("no-meta-dir/no-meta-subdir/snowbeagle.webp");
-  test.eq(22060, snowBeagle.data.resource.size);
+  test.eq(22060, snowBeagle.data?.resource.size);
 
   //Verify the RTD in the root appeared
   const rootfile = await importTree.openFile("rootfile");
@@ -63,7 +63,7 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
   const goudvis = await subdir.openFile("goudvis.png");
   test.eq("Een goudvis", goudvis.title);
   test.eq(true, goudvis.publish);
-  test.eq(75125, goudvis.data.resource.size);
+  test.eq(75125, goudvis.data?.resource.size);
   test.eq(1, goudvis.order);
   test.eq(subdirIndex.modified, rootfile.modified, "All items touched by a single import should have matching modificationdates");
 

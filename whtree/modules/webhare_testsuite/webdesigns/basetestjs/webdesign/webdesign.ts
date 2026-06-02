@@ -78,7 +78,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?
 
   const bobimage = await req.targetSite.openFile("bob.jpg", { allowMissing: true });
-  const bobimagelink = bobimage?.data.toResized({ method: "none" });
+  const bobimagelink = bobimage?.data?.toResized({ method: "none" });
   const widget = null;
 
   const wrdauthplugin = await req.getPlugin("platform:wrdauth")?.getWittyData() || null;

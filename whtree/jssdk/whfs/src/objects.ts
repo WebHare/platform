@@ -333,7 +333,7 @@ abstract class WHFSBaseObject {
         }
       }
 
-      if (fileMetadata?.data) { //FIXME how exactly do we clear data ?
+      if ("data" in fileMetadata) {
         const resdescr = fileMetadata?.data;
         if (resdescr) {
           storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
@@ -458,7 +458,11 @@ export class WHFSFile extends WHFSBaseObject {
     else
       return null;
   }
-  get data(): ResourceDescriptor {
+  /** Get file data if available */
+  get data(): ResourceDescriptor | null {
+    if (!this.dbrecord.data)
+      return null;
+
     const meta: ResourceMetadataInit = {
       ...decodeScanData(this.dbrecord.scandata),
       dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) },
