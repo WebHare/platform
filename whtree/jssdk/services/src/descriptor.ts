@@ -1007,6 +1007,40 @@ export class ResourceDescriptor implements ResourceMetadata {
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
   }
 
+  private static async importBlob(file: SourceBlobReference, options?: ImportOptions): Promise<WebHareBlob> {
+    if (WebHareBlob.isWebHareBlob(file))
+      return file;
+
+    if ("base64" in file && file.base64 !== undefined)
+      return WebHareBlob.from(Buffer.from(file.base64, 'base64'));
+
+    if ("resource" in file && file.resource) {
+      if (!options?.allowResourceImports)
+        throw new SetDataError(`Cannot import resource '${file.resource}' without allowResourceImports enabled`, { path: ["file", "resource"] });
+
+      return await WebHareBlob.fromDisk(toFSPath(file.resource));
+    }
+
+    if ("fetch" in file && file.fetch !== undefined) {
+      if (file.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
+        const url = new URL(file.fetch);
+        const ref = url.searchParams.get("ref");
+        const decoded = decryptForThisServer("platform:blob", ref || "");
+        return createPGBlobByBlobRec(decoded.db, null);
+      }
+
+      throw new SetDataError("External fetching of resources is not enabled", { path: ["file", "fetch"] });
+      /* TODO once we allow external fetching through an importOption:
+      const response = await fetch(file.fetch);
+      if (!response.ok)
+        throw new Error(`Failed to fetch resource from '${file.fetch}', status ${response.status}`);
+      blob = WebHareBlob.fromBlob(await response.blob());
+      */
+    }
+
+    throw new SetDataError(`Not sure how to import file from ExportedBlobReference, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
+  }
+
   static async import(resource: ResourceSource, options?: ImportOptions): Promise<ResourceDescriptor> {
     if (isResourceDescriptor(resource))
       return resource;
@@ -1014,36 +1048,8 @@ export class ResourceDescriptor implements ResourceMetadata {
     const file = resource.file ??
       (options?.sourceIsHareScript && (resource as unknown as { data: ResourceSource["file"] }).data) ??
       throwError(new SetDataError("Resource must have a 'file' property containing a file reference"));
-    let blob;
-    if ("base64" in file && file.base64 !== undefined) {
-      blob = WebHareBlob.from(Buffer.from(file.base64, 'base64'));
-    } else if ("resource" in file && file.resource) {
-      if (!options?.allowResourceImports)
-        throw new SetDataError(`Cannot import resource '${file.resource}' without allowResourceImports enabled`, { path: ["file", "resource"] });
 
-      blob = await WebHareBlob.fromDisk(toFSPath(file.resource));
-    } else if ("fetch" in file && file.fetch !== undefined) {
-      if (file.fetch.startsWith(backendConfig.backendURL + ".wh/common/download/blob.shtml?ref=")) {
-        const url = new URL(file.fetch);
-        const ref = url.searchParams.get("ref");
-        const decoded = decryptForThisServer("platform:blob", ref || "");
-        blob = createPGBlobByBlobRec(decoded.db, null);
-      } else {
-        throw new SetDataError("External fetching of resources is not enabled", { path: ["file", "fetch"] });
-      }
-      /* TODO once we allow external fetching through an importOption:
-      const response = await fetch(file.fetch);
-      if (!response.ok)
-        throw new Error(`Failed to fetch resource from '${file.fetch}', status ${response.status}`);
-      blob = WebHareBlob.fromBlob(await response.blob());
-      */
-    } else if (WebHareBlob.isWebHareBlob(file)) {
-      //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
-      blob = file;
-    } else {
-      throw new SetDataError(`Not sure how to import file from exportedresource, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
-    }
-
+    const blob = await ResourceDescriptor.importBlob(file, options);
     const importData: ResourceMetadataInit = {
       ...resource,
       sourceFile: typeof resource.sourceFile === "string" ? await unmapExternalWHFSRef(resource.sourceFile, options) : resource.sourceFile,

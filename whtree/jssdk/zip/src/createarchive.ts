@@ -25,6 +25,11 @@ class CreateArchiveController {
   async addFile(name: string, data: string | Blob | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>, modTime: ValidZipDateTimeSources | null, options?: { compressionLevel?: number }): Promise<void> {
     return await this.#writer.addFile(name, data, modTime, options).written;
   }
+
+  /** Test if an entry with the given path has already been added to the archive */
+  hasEntry(fullpath: string): boolean {
+    return this.#writer.hasEntry(fullpath);
+  }
 }
 
 export { type CreateArchiveController, type ValidZipDateTimeSources, type CreateArchiveSource };

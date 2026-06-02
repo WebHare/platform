@@ -83,6 +83,8 @@ export class ZipArchiveWriter {
 
   #entries: WriteEntry[] = [];
 
+  #addedEntries = new Set<string>;
+
   #requireZip64: boolean;
 
   #options: Required<ZipArchiveWriterOptions> = { compressionLevel: 6, useZip64: false };
@@ -313,6 +315,10 @@ export class ZipArchiveWriter {
     if (isDirectory && !fullPath.endsWith("/"))
       fullPath += "/";
 
+    if (this.#addedEntries.has(fullPath))
+      throw new Error(`An entry with the path ${fullPath} has already been added to the archive`);
+    this.#addedEntries.add(fullPath);
+
     const convertres = convertFileName(fullPath);
     modTime = convertValidDateTimeSourceToDate(modTime);
 
@@ -391,6 +397,10 @@ export class ZipArchiveWriter {
       compressionDone: compressionDoneDefer.promise,
       written,
     };
+  }
+
+  hasEntry(fullPath: string): boolean {
+    return this.#addedEntries.has(this.#normalizePath(fullPath));
   }
 
   async finalize(options?: { comment?: string }): Promise<void> {
