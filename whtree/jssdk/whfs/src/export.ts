@@ -2,7 +2,7 @@ import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
 import type { ReadableStream } from "node:stream/web";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
 import { backendConfig, toFSPath, toResourcePath } from "@webhare/services";
@@ -35,6 +35,8 @@ import { Readable } from 'node:stream';
 export interface ExportWHFSOptions {
   /** A list of resource paths that may contain resources to be linked to. */
   linkResourcesFrom?: string[];
+  /** Callback on progress change. May be invoked multiple times for the same path to add other progress information */
+  onProgress?: (progress: { subPath: string }) => void;
 }
 
 type WHFSExportTarget = Pick<CreateArchiveController, "addFile" | "addFolder">;
@@ -88,6 +90,7 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
     if (instance.orphan || instance.clone === "never")
       continue;
 
+
     const data = await whfsType(instance.scopedType || instance.namespace).get(obj.id, exportOptions);
     exportMeta.instances.push({
       whfsType: instance.scopedType || instance.namespace,
@@ -99,8 +102,30 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
 }
 
 class WHFSExportContext {
-  constructor(public target: WHFSExportTarget, public options?: ExportWHFSOptions) {
+  /** Counters per exported filename to give each file a unique name */
+  assetCounters = new Map<string, number>();
+  /** Resources indexed from disk for use with linkResourcesFrom */
+  availableResources?: Map<string, string>;
 
+  constructor(public target: WHFSExportTarget, public options?: ExportWHFSOptions) {
+  }
+
+  async exportFileAsAsset(storePath: string, file: WebHareBlob, info: { extension: string | null }): Promise<ExportedBlobReference | undefined> {
+    if (this.options?.linkResourcesFrom) {
+      this.availableResources ||= await buildResourceMap(this.options.linkResourcesFrom);
+      const match = this.availableResources.get(await hashStream(file.stream()));
+      if (match)
+        return { resource: toResourcePath(match) };
+    }
+
+    if (file.size <= 1024) //over 1KB we'll assume it's not worth embedding as base64, and we don't want to bloat the metadata files with large data
+      return undefined;
+
+    const counter = (this.assetCounters.get(storePath || "") || 0) + 1;
+    this.assetCounters.set(storePath || "", counter);
+    const assetPath = `${storePath}^${counter}${info.extension ?? ".dat"}`;
+    await this.target.addFile(assetPath, file.stream(), new Date());
+    return { asset: basename(assetPath) };
   }
 
   async exportWHFS(sources: WHFSObject | WHFSObject[]) {
@@ -117,16 +142,20 @@ class WHFSExportContext {
 
   async exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string) {
     const entryPath = `${basePath}/${item.name}`;
+    if (this.options?.onProgress)
+      this.options.onProgress({ subPath: entryPath });
+
+    const storeBasePath = item.isFolder ? `${entryPath}/^folder` : entryPath;
+
     const exportOptions: ExportOptions & { export: true } = {
       export: true,
+      exportFile: (file, info) => this.exportFileAsAsset(storeBasePath, file, info),
       mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
     };
-    if (this.options?.linkResourcesFrom)
-      exportOptions.exportFile = await makeExportFileAsResource(this.options.linkResourcesFrom);
 
     const meta = await buildExportMetadata(item, exportOptions);
     const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
-    const metadataPath = item.isFolder ? `${entryPath}/^folder.whfs.yml` : `${entryPath}.whfs.yml`;
+    const metadataPath = `${storeBasePath}.whfs.yml`;
     await this.target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
 
     if (item.isFolder) {
@@ -152,23 +181,16 @@ function mapWhfsLink(start: WHFSFolder, sourcePath: string, link: ExportMapWhfsL
   return link.defaultMapping;
 }
 
-
-async function makeExportFileAsResource(linkResourcesFrom: string[]) {
-  const availableResources = new Map<string, string>;
-  for (const sourcePath of linkResourcesFrom) {
+async function buildResourceMap(linkResourcesFrom: string[]) {
+  const availableResources = new Map<string, string>();
+  for (const sourcePath of linkResourcesFrom!) {
     const items = await listDirectory(toFSPath(sourcePath), { recursive: true });
     for (const res of items)
       if (res.type === "file")
         availableResources.set(await hashStream(Readable.toWeb(createReadStream(res.fullPath))), res.fullPath);
   }
-
-  return async function exportFileAsResource(file: WebHareBlob): Promise<ExportedBlobReference | undefined> {
-    const match = availableResources.get(await hashStream(file.stream()));
-    if (match)
-      return { resource: toResourcePath(match) };
-  };
+  return availableResources;
 }
-
 
 /** Export WHFS objects as zip file
  @param source A WHFS object or array of objects to export.

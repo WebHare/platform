@@ -209,6 +209,9 @@ run({
     },
     "export": {
       description: "Export files or folders from WHFS",
+      flags: {
+        "v,verbose": "Verbose output during export"
+      },
       options: {
         "link-resources-from": { description: "Additional paths to search for resources (for export)", multiple: true },
       },
@@ -217,9 +220,17 @@ run({
         { name: "<target>", description: "Target file or folder" },
       ],
       main: async ({ opts, args }) => {
+        let lastpath = '';
         const bases = await resolveWHFSPathArrayArgument(args.source);
         const options: ExportWHFSOptions = {
-          linkResourcesFrom: opts.linkResourcesFrom
+          linkResourcesFrom: opts.linkResourcesFrom,
+          onProgress: (progress: { subPath: string }) => {
+            if (opts.verbose) {
+              if (lastpath !== progress.subPath)
+                console.log(progress.subPath);
+              lastpath = progress.subPath;
+            }
+          }
         };
         if (args.target.endsWith("/")) {
           await storeWHFSExport(args.target, bases, options);

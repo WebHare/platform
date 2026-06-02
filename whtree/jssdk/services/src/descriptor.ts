@@ -68,12 +68,14 @@ export type ExportMapWhfsLinkInfo = {
 export type ExportOptions = {
   export?: boolean;
   /** Callback that should attempt to store/refer blobs outside the export structure */
-  exportFile?: (file: WebHareBlob) => MaybePromise<ExportedBlobReference | undefined>;
+  exportFile?: (file: WebHareBlob, info: Pick<ResourceBaseMetadata, "fileName" | "extension" | "hash" | "mediaType">) => MaybePromise<ExportedBlobReference | undefined>;
   mapWhfsLink?: (data: ExportMapWhfsLinkInfo) => string | null | Promise<string | null>;
 };
 
 export type ImportOptions = {
   unmapWhfsLink?: (mappedPath: string) => number | null | undefined | Promise<number | null | undefined>;
+  /** Generic file import callback. This callback gets the first shot at importing files to process eg `asset:` resource references */
+  importFile?: (file: ExportedBlobReference) => MaybePromise<WebHareBlob | undefined>;
   /** Set to allow resource: references to be imported where a blob is expected */
   allowResourceImports?: boolean;
   /** We're receiving data from HareScript? This allows us to accept 'data' in resource members */
@@ -171,6 +173,9 @@ export type ExportedBlobReference = {
 } | {
   /** Reference to a resource shipped with a module */
   resource: string;
+} | {
+  /** Reference to an asset file shipped with eg a ZIP file or on-disk folder tree */
+  asset: string;
 };
 
 export type ExportedResource = Partial<ExportedResourceMetadata> & { file: ExportedBlobReference };
@@ -1011,6 +1016,12 @@ export class ResourceDescriptor implements ResourceMetadata {
     if (WebHareBlob.isWebHareBlob(file))
       return file;
 
+    if (options?.importFile) {
+      const blob = await options.importFile(file);
+      if (blob)
+        return blob;
+    }
+
     if ("base64" in file && file.base64 !== undefined)
       return WebHareBlob.from(Buffer.from(file.base64, 'base64'));
 
@@ -1037,6 +1048,9 @@ export class ResourceDescriptor implements ResourceMetadata {
       blob = WebHareBlob.fromBlob(await response.blob());
       */
     }
+
+    if ("asset" in file)
+      throw new SetDataError(`Importing from asset reference '${file.asset}' requires an importFile option to handle it`);
 
     throw new SetDataError(`Not sure how to import file from ExportedBlobReference, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
   }
@@ -1120,7 +1134,7 @@ export class ResourceDescriptor implements ResourceMetadata {
     let file: ExportedBlobReference | undefined;
     if (this.file.size > 0) {
       if (options?.exportFile)
-        file = await options.exportFile(this.file);
+        file = await options.exportFile(this.file, this.getMetadata());
     }
 
     if (file === undefined) //no out-of-line storage? base64 it...
