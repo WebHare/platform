@@ -37,6 +37,8 @@ export interface ExportWHFSOptions {
   linkResourcesFrom?: string[];
 }
 
+type WHFSExportTarget = Pick<CreateArchiveController, "addFile" | "addFolder">;
+
 type VirtualObjectData = {
   indexDoc?: string;
   publish?: boolean;
@@ -96,15 +98,49 @@ async function buildExportMetadata(obj: WHFSObject, exportOptions: ExportOptions
   return exportMeta;
 }
 
-async function exportWHFS(sources: WHFSObject | WHFSObject[], target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
-  if (!Array.isArray(sources))
-    sources = [sources];
+class WHFSExportContext {
+  constructor(public target: WHFSExportTarget, public options?: ExportWHFSOptions) {
 
-  for (const source of sources) {
-    if (!source.isFolder)
-      throw new Error(`Source '${source.whfsPath}' is not a folder`);
+  }
 
-    await exportWHFSTree(source, source, dirname(source.name), target, options);
+  async exportWHFS(sources: WHFSObject | WHFSObject[]) {
+    if (!Array.isArray(sources))
+      sources = [sources];
+
+    for (const source of sources) {
+      if (!source.isFolder)
+        throw new Error(`Source '${source.whfsPath}' is not a folder`);
+
+      await this.exportWHFSTree(source, source, dirname(source.name));
+    }
+  }
+
+  async exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string) {
+    const entryPath = `${basePath}/${item.name}`;
+    const exportOptions: ExportOptions & { export: true } = {
+      export: true,
+      mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
+    };
+    if (this.options?.linkResourcesFrom)
+      exportOptions.exportFile = await makeExportFileAsResource(this.options.linkResourcesFrom);
+
+    const meta = await buildExportMetadata(item, exportOptions);
+    const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
+    const metadataPath = item.isFolder ? `${entryPath}/^folder.whfs.yml` : `${entryPath}.whfs.yml`;
+    await this.target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
+
+    if (item.isFolder) {
+      await this.target.addFolder(entryPath, item.modified);
+      for (const entry of await item.list()) {
+        await this.exportWHFSTree(start, await openFileOrFolder(entry.id), entryPath);
+
+      }
+    } else {
+      const typeinfo = await describeWHFSType(item.type);
+      if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
+        await this.target.addFile(entryPath, item.data?.file.stream() ?? "", item.modified);
+      }
+    }
   }
 }
 
@@ -133,39 +169,13 @@ async function makeExportFileAsResource(linkResourcesFrom: string[]) {
   };
 }
 
-async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: string, target: Pick<CreateArchiveController, "addFile" | "addFolder">, options?: ExportWHFSOptions) {
-  const exportOptions: ExportOptions & { export: true } = {
-    export: true,
-    mapWhfsLink: link => mapWhfsLink(start, item.isFolder ? item.whfsPath : dirname(item.whfsPath), link)
-  };
-  if (options?.linkResourcesFrom)
-    exportOptions.exportFile = await makeExportFileAsResource(options.linkResourcesFrom);
-
-  const entryPath = `${basePath}/${item.name}`;
-  const meta = await buildExportMetadata(item, exportOptions);
-  const header = `# Export of ${item.isFolder ? "folder" : "file"} "${item.sitePath}" from WebHare v${backendConfig.whVersion} on ${backendConfig.serverName} at ${new Date().toISOString()}\n`;
-  const metadataPath = item.isFolder ? `${entryPath}/^folder.whfs.yml` : `${entryPath}.whfs.yml`;
-  await target.addFile(metadataPath, header + YAML.stringify(meta), item.modified);
-
-  if (item.isFolder) {
-    await target.addFolder(entryPath, item.modified);
-    for (const entry of await item.list()) {
-      await exportWHFSTree(start, await openFileOrFolder(entry.id), entryPath, target, options);
-    }
-  } else {
-    const typeinfo = await describeWHFSType(item.type);
-    if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-      await target.addFile(entryPath, item.data?.file.stream() ?? "", item.modified);
-    }
-  }
-}
 
 /** Export WHFS objects as zip file
  @param source A WHFS object or array of objects to export.
 */
 export function createWHFSExportZip(source: WHFSObject | WHFSObject[], options?: ExportWHFSOptions): ReadableStream<Uint8Array<ArrayBuffer>> {
   const archive = createArchive({
-    build: out => exportWHFS(source, out, options),
+    build: out => new WHFSExportContext(out, options).exportWHFS(source)
   });
   return archive;
 }
@@ -174,11 +184,12 @@ export function createWHFSExportZip(source: WHFSObject | WHFSObject[], options?:
  @param source A WHFS object or array of objects to export.
 */
 export async function storeWHFSExport(target: string, source: WHFSObject | WHFSObject[], options?: ExportWHFSOptions): Promise<void> {
-  await exportWHFS(source, {
+  const out: WHFSExportTarget = {
     addFile: async (path, content, modified) => {
       await storeDiskFile(join(target, path), content, { overwrite: true, mkdir: true });
     }, addFolder: async (path) => {
       await mkdir(join(target, path), { recursive: true });
     }
-  }, options);
+  };
+  await new WHFSExportContext(out, options).exportWHFS(source);
 }
