@@ -429,10 +429,10 @@ export async function waitForToddComponent(name) {
   return compByName(name);
 }
 
-export async function runTolliumLogout() {
+export async function runTolliumLogout({ expectLang = "" } = {}) {
   test.click(await test.waitForElement("#dashboard-logout"));
   await test.waitForUI();
-  clickToddButton('Yes');
+  clickToddButton(expectLang === "nl" ? 'Ja' : 'Yes');
 
   await test.wait('load');
   await test.waitForUI();

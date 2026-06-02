@@ -59,10 +59,10 @@ test.runTests(
       await test.wait('load');
 
       // password reset window should open immediately
-      await test.waitForElement([".wh-form__page--visible", /does not comply/]);
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
+      await test.waitForElement([".wh-form__page--visible", /voldoet niet aan/]);
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret", { expectLang: "nl" });
 
-      await test.runTolliumLogout();
+      await test.runTolliumLogout({ expectLang: "nl" });
     },
     "test logging in with non-compliant password AND 2FA",
     async function () {
@@ -92,11 +92,11 @@ test.runTests(
       await test.wait('load');
 
       // expect set password window
-      await test.waitForElement([".wh-form__page--visible", /does not comply/]);
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
+      await test.waitForElement([".wh-form__page--visible", /voldoet niet aan/]);
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret", { expectLang: "nl" });
 
       // should be logged in, so logout should work
-      await test.runTolliumLogout();
+      await test.runTolliumLogout({ expectLang: "nl" });
     },
 
     "forgot password checks",
@@ -179,13 +179,13 @@ test.runTests(
       await test.wait('load');
 
       // should open 2FA setup screen
-      const { totpSecret } = await testwrd.run2FAEnrollment();
-      await test.runTolliumLogout();
+      const { totpSecret } = await testwrd.run2FAEnrollment({ expectLang: "nl" });
+      await test.runTolliumLogout({ expectLang: "nl" });
 
       // login again, now with TOTP code
       await testwrd.runLogin("pietje@allow2fa.test.webhare.net", "secret", { totpSecret });
 
       // should be logged in
-      await test.runTolliumLogout();
+      await test.runTolliumLogout({ expectLang: "nl" });
     }
   ]);
