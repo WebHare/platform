@@ -1,11 +1,11 @@
 import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit, type WebHareDBLocation } from "@webhare/services/src/descriptor";
+import { addMissingScanData, getUnifiedCC, type ResourceDescriptor, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
 import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, formatPathOrId, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
+import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSpace, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, PubPrio_Scheduled, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
@@ -333,7 +333,7 @@ abstract class WHFSBaseObject {
         }
       }
 
-      if (fileMetadata?.data) { //FIXME how exactly do we clear data ?
+      if ("data" in fileMetadata) {
         const resdescr = fileMetadata?.data;
         if (resdescr) {
           storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
@@ -458,13 +458,9 @@ export class WHFSFile extends WHFSBaseObject {
     else
       return null;
   }
-  get data(): ResourceDescriptor {
-    const meta: ResourceMetadataInit = {
-      ...decodeScanData(this.dbrecord.scandata),
-      dbLoc: { source: 1, id: this.id, cc: getUnifiedCC(this.dbrecord.creationdate) },
-      fileName: this.dbrecord.name
-    };
-    return new ResourceDescriptor(this.dbrecord.data, meta);
+  /** Get file data if available */
+  get data(): ResourceDescriptor | null {
+    return getFSObjectData(this.dbrecord);
   }
 
   async describeType(): Promise<FileTypeInfo> {

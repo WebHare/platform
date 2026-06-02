@@ -60,7 +60,7 @@ export async function getVirtualObjectData(obj: WHFSObject, { includeData }: { i
     order: obj.order,
     ...obj.isUnlisted ? { isUnlisted: true } : {},
     ...obj.isFile ? { keywords: (obj as WHFSFile).keywords } : {},
-    ...includeData && obj.isFile && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data } : {},
+    ...includeData && obj.isFile && (obj as WHFSFile).data && (typeinfo as FileTypeInfo).hasData ? { data: (obj as WHFSFile).data as ResourceDescriptor } : {},
     ...obj.isFile && (typeinfo as FileTypeInfo).isPublishable ? { publish: (obj as WHFSFile).publish } : {},
     ...obj.isFolder && obj.indexDoc ? { indexDoc: (await openFile(obj.indexDoc)).name } : {},
     ...whconstant_linktypes.includes(obj.type) ? {
@@ -155,7 +155,7 @@ async function exportWHFSTree(start: WHFSFolder, item: WHFSObject, basePath: str
   } else {
     const typeinfo = await describeWHFSType(item.type);
     if (typeinfo.metaType === "fileType" && typeinfo.hasData) {
-      await target.addFile(entryPath, item.data.resource.stream(), item.modified);
+      await target.addFile(entryPath, item.data?.file.stream() ?? "", item.modified);
     }
   }
 }

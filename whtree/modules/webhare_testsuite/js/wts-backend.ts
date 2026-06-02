@@ -14,7 +14,9 @@ import { openFile, openFileOrFolder, openFolder, openSite } from "@webhare/whfs"
 export const wellKnownHashes = {
   snowbeagleJPG: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw",
   emptyFile: "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
-  portrait6: "Mjzg1xQL52y-ZRHiaHZiQd_nTt3zS3Pyf0Y35VLI2CQ"
+  portrait6: "Mjzg1xQL52y-ZRHiaHZiQd_nTt3zS3Pyf0Y35VLI2CQ",
+  kikkerJPG: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q",
+  goudvisPNG: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY"
 };
 
 /// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)
@@ -113,13 +115,13 @@ export async function createTestWebserverConfig() {
     },
     {
       port: port_https,
-      certificatechain: await fallback_certificate.data.resource.text(),
+      certificatechain: await fallback_certificate.data?.resource.text() || "",
       ciphersuite: "",
       id: -2,
       ip: "127.0.0.1",
       istrustedport: true,
       keypair: 0,
-      privatekey: await fallback_privatekey.data.resource.text(),
+      privatekey: await fallback_privatekey.data?.resource.text() || "",
       virtualhost: true
     }
   ];

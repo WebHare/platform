@@ -18,8 +18,9 @@ run({
 
     for (let size = 1000; size < 2000; ++size) {
       //FIXME why can't I set baseurl ?
-      const webpBeagle = snowbeagle.data.toResized({ method: "scale", format: "image/webp", width: size, height: size });
-      const avifBeagle = snowbeagle.data.toResized({ method: "scale", format: "image/avif", width: size, height: size });
+      const webpBeagle = snowbeagle.data?.toResized({ method: "scale", format: "image/webp", width: size, height: size });
+      const avifBeagle = snowbeagle.data?.toResized({ method: "scale", format: "image/avif", width: size, height: size });
+      test.assert(webpBeagle && avifBeagle, `Resizing to ${size}x${size} should succeed`);
 
       test.eq(size, webpBeagle.width);
 

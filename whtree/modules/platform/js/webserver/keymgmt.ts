@@ -85,7 +85,7 @@ class StoredKeyPair {
     const chain = await this.keyFolder.openFile("certificatechain.pem", { allowMissing: true });
     if (!chain)
       return [];
-    const content = await chain.data.resource.text();
+    const content = await chain.data?.resource.text() ?? "";
     return splitPEMCertificateBundle(content);
   }
 

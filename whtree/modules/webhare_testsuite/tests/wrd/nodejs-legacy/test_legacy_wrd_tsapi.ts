@@ -678,7 +678,7 @@ async function testNewAPI() {
 
   {
     const snowbeagle = await (await test.getTestSiteJS()).openFile("photoalbum/snowbeagle.jpg");
-    const snowbeagleImage = await snowbeagle.data.clone({ sourceFile: snowbeagle.id });
+    const snowbeagleImage = await snowbeagle.data?.clone({ sourceFile: snowbeagle.id });
     await schema.update("wrdPerson", newperson, { testFile: snowbeagle.data, testImage: snowbeagleImage });
     const { testFile: asFile, testImage: asImage } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
     test.eq('image/jpeg', asFile?.mediaType);
