@@ -6,6 +6,8 @@ import { openFile, openFileOrFolder, openFolder } from "@webhare/whfs";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { whconstant_whfsid_private } from "@mod-system/js/internal/webhareconstants";
+import { getAuthorizationUser } from "@webhare/auth";
+import { getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -130,16 +132,18 @@ async function testWHFS() {
   test.eq(false, newFile.publish);
   test.eq(null, newFile.firstPublish);
   test.eq(null, newFile.contentModified);
+  test.eq(null, newFile.modifiedBy);
 
-  await newFile.update({ publish: true });
+  await newFile.update({ publish: true, modifiedBy: test.getUser("lisa").auth });
   const openNewFile_state2 = await openFile(newFile.id);
   test.assert(openNewFile_state2.modified.epochMilliseconds > openNewFile.modified.epochMilliseconds);
   test.eq(openNewFile_state2.modified, openNewFile_state2.firstPublish);
   test.eq(openNewFile_state2.modified, openNewFile_state2.contentModified);
   test.eq(true, openNewFile_state2.publish);
+  test.eq(test.getUser("lisa").wrdId, await getAuthorizationUser(await getWRDSchema(), openNewFile_state2.modifiedBy!));
 
   const goldFishId = await whfs.nextWHFSObjectId();
-  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true, isUnlisted: true });
+  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true, isUnlisted: true, modifiedBy: test.getUser("marge").auth });
   test.eq(true, goldFish.isPinned);
   test.eq(true, goldFish.isUnlisted);
   test.eq(goldFishId, goldFish.id);
@@ -150,8 +154,9 @@ async function testWHFS() {
   test.eq(true, goldFish.publish);
   test.eq(goldFish.created, goldFish.firstPublish);
   test.eq(goldFish.created, goldFish.contentModified);
+  test.eq(test.getUser("marge").wrdId, await getAuthorizationUser(await getWRDSchema(), goldFish.modifiedBy!));
 
-  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false, isUnlisted: false });
+  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false, isUnlisted: false, modifiedBy: null });
   const openedGoldFish = await openFile(goldFish.id);
   test.eq(false, openedGoldFish.isPinned);
   test.eq(false, openedGoldFish.isUnlisted);
@@ -159,6 +164,7 @@ async function testWHFS() {
   test.eq(428, openedGoldFish.data.width);
   test.eq(test.wellKnownHashes.snowbeagleJPG, openedGoldFish.data.hash);
   test.eq("goldfish.png", openedGoldFish.data.fileName, "a file's resource name is fixed to its fsobject");
+  test.eq(null, openedGoldFish.modifiedBy);
 
   const goldFish2 = await tmpfolder.createFile("goldfish2.png", {
     data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"),
@@ -394,7 +400,12 @@ async function testGenerateUniqueName() {
 }
 
 test.runTests([
-  test.resetWTS,
+  () => test.resetWTS({
+    users: {
+      marge: {},
+      lisa: {}
+    }
+  }),
   testWHFS,
   testLinkTypes,
   testGenerateUniqueName,
