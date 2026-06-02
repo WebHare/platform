@@ -85,7 +85,12 @@ async function archiveTest() {
     // port of the HS code below
     const archive = await streamIntoBlob(createArchive({
       async build(newArchive) {
-        await newArchive.addFile("file1", "File nummer 1", Temporal.Instant.from(("2002-01-01T00:00:00Z")));
+        test.eq(false, newArchive.hasEntry("file1"));
+
+        const addFile1Promise = newArchive.addFile("file1", "File nummer 1", Temporal.Instant.from(("2002-01-01T00:00:00Z")));
+        test.eq(true, newArchive.hasEntry("file1"), "Should be come true immediately after adding, not after promise resolution");
+        await addFile1Promise;
+
         await newArchive.addFolder("folder1", Temporal.Instant.from(("2003-04-05T00:00:00Z")));
         await newArchive.addFile("folder1/file2", "File nummer 2", Temporal.Instant.from(("2004-05-06T00:00:00Z")));
         await newArchive.addFolder("folder2", Temporal.Instant.from(("2004-05-06T00:00:00Z")));
