@@ -281,7 +281,7 @@ export async function handleOAuth2AuthorizeLanding(clientScope: string, oauth2Se
       verifyIssuer = verifyIssuer.replace("{tenantid}", decoded.payload.tid);
     }
 
-    idPayload = await verifyJWT(matchKey, verifyIssuer, sessdata.tokeninfo.id_token);
+    idPayload = await verifyJWT(matchKey, verifyIssuer, sessdata.tokeninfo.id_token, { audience: sessdata.oauthconfig.clientid });
   }
 
   return {
