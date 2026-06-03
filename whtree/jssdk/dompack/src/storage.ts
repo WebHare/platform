@@ -73,3 +73,17 @@ export function getLocal<T>(key: string): T | null {
 export function setLocal<T>(key: string, value: T | null) {
   set("localStorage", key, value);
 }
+export function listSessionKeys() {
+  try {
+    return Object.keys(window.sessionStorage);
+  } catch (e) {
+    return Object.keys(backup.sessionStorage || {});
+  }
+}
+export function listLocalKeys() {
+  try {
+    return Object.keys(window.localStorage);
+  } catch (e) {
+    return Object.keys(backup.localStorage || {});
+  }
+}
