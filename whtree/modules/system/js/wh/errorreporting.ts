@@ -45,12 +45,12 @@ function installHandlers() {
   // and won't work in ie<=10 and safari anyways
 
   saved_onerror = root.onerror;
+  //TODO switch to addEventListener but format of parameters to handler will change then
   root.onerror = handleOnError;
 
-  root.addEventListener('unhandledrejection', event => {
+  root.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
     console.log("unhandled rejection", event);
-    if (debugFlags.pro && (event.promise as Promise<unknown> & { error: Error }).error)
-      void reportException((event.promise as Promise<unknown> & { error: Error }).error);
+    void reportException(event.reason);
   });
 }
 
