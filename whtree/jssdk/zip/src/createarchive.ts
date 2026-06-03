@@ -1,6 +1,4 @@
-import { ZipArchiveWriter, type ZipArchiveWriterOptions, type ValidZipDateTimeSources } from "./writer";
-import { ReadableStream } from "node:stream/web";
-
+import { ZipArchiveWriter, type ZipArchiveWriterOptions, type ValidZipDateTimeSources, type DataSource } from "./writer";
 
 
 type CreateArchiveSource = {
@@ -22,7 +20,7 @@ class CreateArchiveController {
   }
 
   /** Adds a file to the archive, returns when the file data has been streamed to the archive stream */
-  async addFile(name: string, data: string | Blob | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>, modTime: ValidZipDateTimeSources | null, options?: { compressionLevel?: number }): Promise<void> {
+  async addFile(name: string, data: DataSource, modTime: ValidZipDateTimeSources | null, options?: { compressionLevel?: number }): Promise<void> {
     return await this.#writer.addFile(name, data, modTime, options).written;
   }
 

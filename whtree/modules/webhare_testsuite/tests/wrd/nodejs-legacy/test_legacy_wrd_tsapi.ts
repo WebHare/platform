@@ -4,7 +4,6 @@ import { createWRDTestSchema, getLegacyExtendedWRDSchema, getLegacyWRDSchema, te
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { WRDSchema, describeEntity, listSchemas, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDUpdatable } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
-import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";

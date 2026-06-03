@@ -131,7 +131,7 @@ run({
 
       //Prepare tsconfig.json
       const tsconfig = {
-        include: [packagejson.main],
+        include: [packagejson.main, join(backendConfig.installationRoot, "node_modules/temporal-spec/global.d.ts")],
         compilerOptions: {
           target: "es2024",
           lib: ["es2024", "dom", "dom.iterable"],
@@ -139,7 +139,7 @@ run({
           declaration: true,
           strict: true,
           module: "commonjs",
-          types: [join(backendConfig.installationroot, "node_modules/@types/node")],
+          types: [join(backendConfig.installationRoot, "node_modules/@types/node")],
           paths: { ["@webhare/" + pkgname]: ["."] } as Record<string, string[]>
         }
       };

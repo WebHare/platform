@@ -7,7 +7,7 @@ import { readableToWeb, writableToWeb } from "./nodestreamsupport";
 
 
 const platformSupport = {
-  createCompressTransform({ compressionLevel }: { compressionLevel: number }): TransformStream<Uint8Array, Uint8Array> {
+  createCompressTransform({ compressionLevel }: { compressionLevel: number }): TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>> {
     const str = createDeflateRaw({ level: compressionLevel });
     return {
       readable: readableToWeb(str),
@@ -15,7 +15,7 @@ const platformSupport = {
     };
   },
 
-  createDecompressTransform(): TransformStream<Uint8Array, Uint8Array> {
+  createDecompressTransform(): TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>> {
     const str = createInflateRaw();
     return {
       readable: readableToWeb(str),
@@ -49,7 +49,7 @@ const platformSupport = {
     return fileHandle;
   },
 
-  async writeStreamToHandle(fileHandle: FileHandle, stream: ReadableStream<Uint8Array>): Promise<void> {
+  async writeStreamToHandle(fileHandle: FileHandle, stream: ReadableStream<Uint8Array<ArrayBuffer>>): Promise<void> {
     for await (const buffer of stream) {
       let offset = 0;
       while (offset < buffer.byteLength) {

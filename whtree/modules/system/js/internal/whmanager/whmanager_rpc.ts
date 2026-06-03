@@ -2,7 +2,7 @@ import * as defs from "./whmanager_rpcdefs";
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 
 class ReadIOBuffer extends LinearBufferReader {
-  constructor(_buffer: Buffer) {
+  constructor(_buffer: Buffer<ArrayBuffer>) {
     super(_buffer);
     this.readpos = 4;
   }
@@ -25,7 +25,7 @@ class WriteIOBuffer extends LinearBufferWriter {
   }
 }
 
-export function parseRPC(data: Buffer): defs.WHMResponse {
+export function parseRPC(data: Buffer<ArrayBuffer>): defs.WHMResponse {
   const iobuf = new ReadIOBuffer(data);
   const opcode = iobuf.getOpcode() as defs.WHMResponseOpcode;
 

@@ -1582,7 +1582,7 @@ function hookConsoleLog() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function interceptConsoleLog(data: string | Uint8Array, encoding: any, cb: ((err?: Error) => void) | undefined, oldcall: Socket["write"], oldstream: NodeJS.WriteStream) {
+  function interceptConsoleLog(data: string | Uint8Array<ArrayBuffer>, encoding: any, cb: ((err?: Error | null) => void) | undefined, oldcall: Socket["write"], oldstream: NodeJS.WriteStream) {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.workerid})` : ``;
       oldcall.call(oldstream, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}:${source.method === "table" ? "\n" : " "}`, "utf-8");
@@ -1606,12 +1606,12 @@ function hookConsoleLog() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+  process.stdout.write = (data: string | Uint8Array<ArrayBuffer>, encoding?: any, cb?: (err?: Error | null) => void): any => {
     return interceptConsoleLog(data, encoding, cb, old_std_writes.stdout, process.stdout);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+  process.stderr.write = (data: string | Uint8Array<ArrayBuffer>, encoding?: any, cb?: (err?: Error | null) => void): any => {
     return interceptConsoleLog(data, encoding, cb, old_std_writes.stderr, process.stderr);
   };
 }

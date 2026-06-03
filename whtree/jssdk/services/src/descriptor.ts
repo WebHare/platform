@@ -1,4 +1,3 @@
-import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType, getHareScriptResourceDescriptor } from "@webhare/hscompat/src/hson";
 import { dateToParts, type ValidDateTimeSources } from "@webhare/hscompat/src/datetime.ts";
 import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
@@ -973,7 +972,7 @@ export class ResourceDescriptor implements ResourceMetadata {
     return newdescr;
   }
 
-  static async from(str: string | Buffer | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+  static async from(str: string | Buffer<ArrayBuffer> | WebHareBlob, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = WebHareBlob.isWebHareBlob(str) ? str : WebHareBlob.from(str);
     const res = buildDescriptorFromResource(blob, options);
     if (options)

@@ -1,7 +1,6 @@
 import { createArchive } from "@webhare/zip";
 import { byteStreamFromStringParts, ColumnTypes, getNameForCell, omitUndefined, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type SpreadsheetData, type WorkbookData, type SpreadsheetColumn, shouldShowCell } from "./support";
 import { encodeString, pick, stdTypeOf, stringify, type Money } from "@webhare/std";
-import type { ReadableStream } from "node:stream/web";
 
 
 /* To further improve styling read https://docs.oasis-open.org/office/v1.2/cd05/OpenDocument-v1.2-cd05-part1.html or
@@ -351,7 +350,7 @@ ${sheet.split?.columns ? `              <config:config-item config:name="CursorP
 </office:document-settings>`;
 }
 
-function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: string }): ReadableStream<Uint8Array> {
+function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: string }): ReadableStream<Uint8Array<ArrayBuffer>> {
   const builder = new ODSBuilder;
   const rows = createSheets(builder, calcColumnStyles(builder, sheets), options);
   return byteStreamFromStringParts([
@@ -386,7 +385,7 @@ export async function generateODS(options: SpreadsheetData | WorkbookData): Prom
   });
 
   // ODS files are small enough to be kept in memory
-  const buffers = new Array<Uint8Array>();
+  const buffers = new Array<Uint8Array<ArrayBuffer>>();
   for await (const chunk of archive)
     buffers.push(chunk);
 

@@ -1,4 +1,4 @@
-import { createPublicKey, type JsonWebKey } from "node:crypto";
+import { createPublicKey } from "node:crypto";
 import jwt, { type VerifyOptions } from "jsonwebtoken";
 
 export async function verifyJWT(keys: string, token: string, clockTimestamp: Date, verifyoptions?: VerifyOptions) {

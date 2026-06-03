@@ -2,10 +2,10 @@
 /** :Linearly read C++ primitive types from a buffer
 */
 export class LinearBufferReader {
-  buffer: Buffer;
+  buffer: Buffer<ArrayBuffer>;
   readpos = 0;
 
-  constructor(_buffer: Buffer | ArrayBuffer) {
+  constructor(_buffer: Buffer<ArrayBuffer> | ArrayBuffer) {
     this.buffer = "length" in _buffer ? _buffer : Buffer.from(_buffer);
   }
 
@@ -57,11 +57,11 @@ export class LinearBufferReader {
   readString(): string {
     return this.readBinary().toString("utf-8");
   }
-  readBinary(): Buffer {
+  readBinary(): Buffer<ArrayBuffer> {
     const size = this.readU32();
     return this.readRaw(size);
   }
-  readRaw(size: number): Buffer {
+  readRaw(size: number): Buffer<ArrayBuffer> {
     if (this.readpos + size > this.buffer.length)
       throw new Error("Invalid RPC data");
     const retval = this.buffer.subarray(this.readpos, this.readpos + size);

@@ -24,7 +24,7 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
   private connected = false;
   private backoff_ms = 1;
   private socket: net.Socket;
-  private incoming: Buffer = Buffer.from("");
+  private incoming: Buffer<ArrayBuffer> = Buffer.from("");
   private writeref?: RefLock;
   private refs;
 
@@ -128,10 +128,10 @@ export class WHManagerConnection extends EventSource<WHManagerConnectionEvents> 
     return lensofar;
   }
 
-  private gotIncoming(newdata: Buffer): void {
+  private gotIncoming(newdata: string | Buffer<ArrayBuffer>): void {
     if (logpackets)
       console.log(`whmconn: connection data`, newdata);
-    this.incoming = Buffer.concat([this.incoming, newdata]);
+    this.incoming = Buffer.concat([this.incoming, typeof newdata === "string" ? Buffer.from(newdata) : newdata]);
     while (this.isComplete()) {
       const len = this.getFirstBufferLength();
       const message = this.incoming.subarray(0, len);

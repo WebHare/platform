@@ -1,6 +1,5 @@
 //TODO can we replace ourselves with nodejs util.types in a pure NodeJS environment?
 
-import type { Temporal } from "temporal-polyfill";
 import type { Money } from "./money";
 
 export function getWHType(obj: unknown): string | null { //not exporting this directly as we hope JS comes up with better solutions for instanceOf not being compatible with realms/reloading

@@ -10,7 +10,7 @@ const platformSupport: typeof import("./platformsupport").default = {
     return new CompressionStream("deflate-raw");
   },
 
-  createDecompressTransform(): TransformStream<Uint8Array, Uint8Array> {
+  createDecompressTransform(): TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>> {
     return new DecompressionStream("deflate-raw");
   },
 

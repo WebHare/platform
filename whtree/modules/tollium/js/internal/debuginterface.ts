@@ -20,4 +20,4 @@ declare global {
   }
 }
 
-export { ToddCompBase, BackendApplication };
+export type { ToddCompBase, BackendApplication };

@@ -45,7 +45,7 @@ export enum WHMProcessType {
 export type WHMRequest_SendEvent = {
   opcode: WHMRequestOpcode.SendEvent;
   eventname: string;
-  eventdata: Buffer | ArrayBuffer;
+  eventdata: Buffer<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_RegisterPort = {
   opcode: WHMRequestOpcode.RegisterPort;
@@ -82,7 +82,7 @@ export type WHMRequest_SendMessageOverLink = {
   msgid: bigint;
   replyto: bigint;
   islastpart: boolean;
-  messagedata: Uint8Array | ArrayBuffer;
+  messagedata: Uint8Array<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;
@@ -128,7 +128,7 @@ export type WHMRequest_FlushLog = {
 };
 export type WHMRequest_SetSystemConfig = {
   opcode: WHMRequestOpcode.SetSystemConfig;
-  systemconfigdata: Buffer | ArrayBuffer;
+  systemconfigdata: Buffer<ArrayBuffer> | ArrayBuffer;
 };
 export type WHMRequest_FenceEvents = {
   opcode: WHMRequestOpcode.FenceEvents;
@@ -163,7 +163,7 @@ export type WHMResponse_AnswerException = {
 export type WHMResponse_IncomingEvent = {
   opcode: WHMResponseOpcode.IncomingEvent;
   eventname: string;
-  eventdata: Buffer;
+  eventdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_RegisterPortResult = {
   opcode: WHMResponseOpcode.RegisterPortResult;
@@ -200,7 +200,7 @@ export type WHMResponse_IncomingMessage = {
   msgid: bigint;
   replyto: bigint;
   islastpart: boolean;
-  messagedata: Buffer;
+  messagedata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_GetProcessListResult = {
   opcode: WHMResponseOpcode.GetProcessListResult;
@@ -226,13 +226,13 @@ export type WHMResponse_SystemConfig = {
   opcode: WHMResponseOpcode.SystemConfig;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
-  systemconfigdata: Buffer;
+  systemconfigdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_RegisterProcessResult = {
   opcode: WHMResponseOpcode.RegisterProcessResult;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
-  systemconfigdata: Buffer;
+  systemconfigdata: Buffer<ArrayBuffer>;
 };
 export type WHMResponse_GetPortListResult = {
   opcode: WHMResponseOpcode.GetPortListResult;

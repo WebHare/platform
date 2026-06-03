@@ -1,6 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as services from "@webhare/services";
-import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";

@@ -452,7 +452,7 @@ export class ZipArchiveReader {
         break;
       case zip_compressionmethod_deflate: {
         // NOTE: in node.js, this seems to keep an infinite queue without applying backpressure
-        retval = compresseddata.pipeThrough<Uint8Array>(new DecompressionStream("deflate-raw"));
+        retval = compresseddata.pipeThrough<Uint8Array<ArrayBuffer>>(new DecompressionStream("deflate-raw") as ReadableWritablePair<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>); //TS5.9 requires the 'as' - TS6.0 might be able to without
       } break;
       default:
         throw new Error(`Unsupported ZIP compression method ${localheader.compmethod} for file ${JSON.stringify(rawentry.name)}`);

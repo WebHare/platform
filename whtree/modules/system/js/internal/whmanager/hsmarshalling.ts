@@ -24,7 +24,7 @@ const MarshalPacketFormatType = 3;
 // Supporting MarshalFormatType_largeblobs is not needed, WASM can't build > 4GB marshal data buffers
 const MarshalFormatType_diskpaths = 6;
 
-export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
+export function readMarshalData(buffer: Buffer<ArrayBuffer> | ArrayBuffer): SimpleMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU8();
   if (version !== MarshalFormatType) // FIXME: support largeblobs mode
@@ -45,7 +45,7 @@ export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallabl
   return retval as SimpleMarshallableData;
 }
 
-export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallableData {
+export function readMarshalPacket(buffer: Buffer<ArrayBuffer> | ArrayBuffer): IPCMarshallableData {
   const buf = new LinearBufferReader(buffer);
   const version = buf.readU32();
   if (version !== MarshalFormatType && version !== MarshalFormatType_diskpaths) // FIXME: support largeblobs mode
@@ -191,7 +191,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, colu
   }
 }
 
-export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: boolean } = {}): Buffer {
+export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: boolean } = {}): Buffer<ArrayBuffer> {
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
@@ -221,7 +221,7 @@ function isWebHareDiskBlob(blob: WebHareBlob): blob is WebHareDiskBlob {
 }
 
 
-export function writeMarshalPacket(value: unknown, options?: { withDiskPaths?: boolean }): Buffer {
+export function writeMarshalPacket(value: unknown, options?: { withDiskPaths?: boolean }): Buffer<ArrayBuffer> {
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();

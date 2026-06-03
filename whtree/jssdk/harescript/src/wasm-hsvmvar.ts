@@ -5,7 +5,6 @@ import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webh
 import { Money } from "@webhare/std";
 import { resurrect } from "./wasm-resurrection";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { ReadableStream } from "node:stream/web";
 
 function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
   if (from === to)
@@ -31,7 +30,7 @@ class HSVMBlob extends WebHareBlob {
     this.hsBlobId = hsBlobId || "";
   }
 
-  __getAsSyncUInt8Array(): Readonly<Uint8Array> {
+  __getAsSyncUInt8Array(): Readonly<Uint8Array<ArrayBuffer>> {
     if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
@@ -51,9 +50,9 @@ class HSVMBlob extends WebHareBlob {
     }
   }
 
-  stream(): ReadableStream<Uint8Array> {
+  stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
     const data = this.__getAsSyncUInt8Array();
-    return new ReadableStream<Uint8Array>({
+    return new ReadableStream<Uint8Array<ArrayBuffer>>({
       start(controller) {
         controller.enqueue(data);
         controller.close();

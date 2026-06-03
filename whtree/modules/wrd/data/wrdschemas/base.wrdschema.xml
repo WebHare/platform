@@ -62,7 +62,7 @@
         <!-- mark as unsafe... syncing keys should be an explicit action -->
         <datetime tag="available_since" required="true" />
         <free tag="key_id" required="true" />
-        <json tag="private_key" required="true" typedeclaration="node:crypto#JsonWebKey" />
+        <json tag="private_key" required="true" typedeclaration="mod::wrd/js/internal/types.ts#JsonWebKeyType" />
       </array>
       <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
       <whfslink tag="whfs_context" description="Base file/folder/site for this schema in WHFS" />

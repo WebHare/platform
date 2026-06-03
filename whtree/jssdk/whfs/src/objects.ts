@@ -9,7 +9,6 @@ import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSp
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
-import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";

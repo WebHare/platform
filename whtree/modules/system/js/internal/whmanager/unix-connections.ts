@@ -45,7 +45,7 @@ export abstract class UnixSocketLineBasedConnection<Client extends boolean> {
     this.#socket.on("close", _ => this.#onClose(_));
   }
 
-  #onData(data: Buffer) {
+  #onData(data: string | Buffer<ArrayBuffer>) {
     if (debugFlags["ipc-unixsockets"])
       console.log(`[ipc-unixsockets:${this.id}] received: ${data.length} bytes`);
 

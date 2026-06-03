@@ -1,12 +1,10 @@
 // as we can't import Blob from libworker
 // we'll have to trigger it through reference to ensure TSC understands Blob here as the MDN Blob (compatible with frontend code) and not the NodeJS Blob (annoyingly using different ReadableStream types)
 
-import { ReadableStream } from "node:stream/web";
 import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
-import "./blob.d.ts";
 import { readableToWeb } from "@webhare/zip/src/nodestreamsupport.ts";
 import { getWHType } from "@webhare/std/src/quacks.ts";
 
@@ -35,7 +33,7 @@ export abstract class WebHareBlob implements Blob {
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
-  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView | ArrayBufferView, { type }: { type?: string } = {}): WebHareBlob {
+  static from(str: string | Buffer<ArrayBuffer> | ArrayBuffer | Uint8Array<ArrayBuffer> | DataView<ArrayBuffer> | ArrayBufferView<ArrayBuffer>, { type }: { type?: string } = {}): WebHareBlob {
     if (typeof str === "string")
       return new WebHareMemoryBlob(new TextEncoder().encode(str), type ?? "");
     if ("readUInt8" in str || str instanceof Uint8Array) // Buffer or Uint8Array
@@ -94,7 +92,7 @@ export abstract class WebHareBlob implements Blob {
   }
 
   ///Get the bytes in this blob
-  async bytes(): Promise<Uint8Array> {
+  async bytes(): Promise<Uint8Array<ArrayBuffer>> {
     const array = new Uint8Array(this.size);
     //convert ReadableStream to uint8array
     let offset = 0;
@@ -112,14 +110,14 @@ export abstract class WebHareBlob implements Blob {
   }
 
   ///Get the contents synchronously, This is needed for the blob to support setJSValue
-  __getAsSyncUInt8Array(): Readonly<Uint8Array> {
+  __getAsSyncUInt8Array(): Readonly<Uint8Array<ArrayBuffer>> {
     throw new Error(`This blob does not support synchronous access`);
   }
 
-  abstract stream(): ReadableStream<Uint8Array>;
+  abstract stream(): ReadableStream<Uint8Array<ArrayBuffer>>;
 
   /** @deprecated Use stream() instead */
-  async getStream(): Promise<ReadableStream<Uint8Array>> {
+  async getStream(): Promise<ReadableStream<Uint8Array<ArrayBuffer>>> {
     return this.stream();
   }
 
@@ -128,14 +126,14 @@ export abstract class WebHareBlob implements Blob {
 
 export class WebHareMemoryBlob extends WebHareBlob {
   private static "__ $whTypeSymbol" = "WebHareMemoryBlob";
-  readonly data: Uint8Array;
+  readonly data: Uint8Array<ArrayBuffer>;
 
-  constructor(data: Uint8Array, type = "") {
+  constructor(data: Uint8Array<ArrayBuffer>, type = "") {
     super(data.length, type);
     this.data = data;
   }
 
-  stream(): ReadableStream<Uint8Array> {
+  stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
     const data = this.data;
     return new ReadableStream({
       start(controller) {
@@ -145,7 +143,7 @@ export class WebHareMemoryBlob extends WebHareBlob {
     });
   }
 
-  __getAsSyncUInt8Array(): Readonly<Uint8Array> {
+  __getAsSyncUInt8Array(): Readonly<Uint8Array<ArrayBuffer>> {
     return this.data;
   }
 
@@ -167,7 +165,7 @@ export class WebHareDiskBlob extends WebHareBlob {
     this._path = path;
   }
 
-  stream(): ReadableStream<Uint8Array> {
+  stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
     // Can't create a Node.js read stream of size 0
     if (!this.size) {
       return new ReadableStream({
@@ -181,7 +179,7 @@ export class WebHareDiskBlob extends WebHareBlob {
     return readableToWeb(createReadStream(this.path, { start: this.offset, end: this.offset + this.size - 1 }));
   }
 
-  __getAsSyncUInt8Array(): Readonly<Uint8Array> {
+  __getAsSyncUInt8Array(): Readonly<Uint8Array<ArrayBuffer>> {
     return readFileSync(this.path).subarray(this.offset, this.offset + this.size);
   }
 
@@ -205,7 +203,7 @@ export class WebHareNativeBlob extends WebHareBlob {
     this.blob = blob;
   }
 
-  stream(): ReadableStream<Uint8Array> {
+  stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
     //@ts-ignore NodeJS is misunderstanding the types
     return this.blob.stream();
   }

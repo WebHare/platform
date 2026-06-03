@@ -85,7 +85,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     // Make sure the port doesn't hold strong references to this object
     const state = this.state;
 
-    this.worker.on("error", (error) => {
+    this.worker.on("error", (error: Error) => {
       state.setError(error);
     });
     this.worker.on("exit", (code) => {

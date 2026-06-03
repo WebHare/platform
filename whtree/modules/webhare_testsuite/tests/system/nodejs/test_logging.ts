@@ -33,7 +33,7 @@ class MiniChunkBlob implements Blob {
   get size() { return this.data.length; }
   get type() { return ""; }
 
-  stream(): ReadableStream<Uint8Array> {
+  stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
     return new ReadableStream({
       start: (controller) => {
         for (const item of this.data)
@@ -47,7 +47,7 @@ class MiniChunkBlob implements Blob {
     return this.data.slice().buffer;
   }
 
-  async bytes(): Promise<Uint8Array> {
+  async bytes(): Promise<Uint8Array<ArrayBuffer>> {
     return this.data.slice();
   }
 

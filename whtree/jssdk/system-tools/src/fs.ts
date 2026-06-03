@@ -3,7 +3,6 @@ import type { Dirent } from "node:fs";
 import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile } from "node:fs/promises";
 import { isAbsolute, join, parse } from "node:path";
 import type { Stream } from "node:stream";
-import type { ReadableStream } from "node:stream/web";
 
 class ListDirectoryEntry {
   readonly type: "file" | "directory" | "symboliclink" | "socket" | null;

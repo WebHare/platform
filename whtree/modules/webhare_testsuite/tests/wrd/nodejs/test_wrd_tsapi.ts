@@ -4,7 +4,6 @@ import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag,
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettingsModern, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
-import type { JsonWebKey } from "node:crypto";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
