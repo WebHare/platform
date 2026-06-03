@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@webhare/gettid";
 import { getFormService } from "@webhare/forms/src/formservice";
-import { isValidEmail, sleep } from '@webhare/std';
+import { isValidEmail, wrapInTimeout } from '@webhare/std';
 import { setFieldError } from './customvalidation';
 import type { EmailValidationResult } from '@webhare/forms/src/types';
 import type FormBase from '../formbase';
@@ -56,7 +56,7 @@ export async function validateField<DataShape extends object = Record<string, un
       : getFormService().validateEmail(getTidLanguage(), checkvalue);
 
     //wrap in timeout
-    cache[key] = Promise.race([rpcCall, sleep(3000).then(() => { throw new Error("Timeout"); })]);
+    cache[key] = wrapInTimeout(rpcCall, 3000, "Timeout");
   }
 
   //TODO should we ever clear the cache? only relevant probably if someone is on the frontend testing emails and doesn't want to refresh
