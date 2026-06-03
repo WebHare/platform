@@ -185,8 +185,8 @@ abstract class WHFSBaseObject {
   get parentSite(): number | null {
     return this.dbrecord.parentsite;
   }
-  get type(): string {
-    return this._typens;
+  get type(): WHFSTypeName {
+    return this._typens as WHFSTypeName;
   }
   get created(): Temporal.Instant {
     return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime());
