@@ -5,14 +5,15 @@ import type { UnpackArchiveResult } from "@webhare/zip";
 import { stat } from "fs/promises";
 import { nextWHFSObjectId, openFileOrFolder, openFolder, type CreateFileMetadata, type CreateFolderMetadata, type WHFSFolder, type WHFSObject } from "./objects";
 import { dirname, join } from "path";
-import { ResourceDescriptor, unmapExternalWHFSRef, type IntExtLink } from "@webhare/services";
+import { ResourceDescriptor, unmapExternalWHFSRef, type IntExtLink, type WebHareBlob } from "@webhare/services";
 import { openAsBlob } from "fs";
 import { getType } from './describe';
 import { whfsType, type ExportedInstance } from '@webhare/whfs/src/contenttypes';
 import type { CSPContentType } from './siteprofiles';
-import { importIntExtLink, type ImportOptions } from '@webhare/services/src/descriptor';
+import { importIntExtLink, type ExportedBlobReference, type ImportOptions } from '@webhare/services/src/descriptor';
 import type { ExportedIntExtLink } from '@webhare/services/src/intextlink';
 import { beginWork, commitWork } from '@webhare/whdb';
+import { WebHareMemoryBlob } from '@webhare/services/src/webhareblob';
 
 export type ImportWHFSProgress = {
   subPath: string;
@@ -190,6 +191,20 @@ class ImportSession {
     return null;
   }
 
+  async importFile(basePath: string, curItem: string, file: ExportedBlobReference, options?: ImportOptions): Promise<WebHareBlob | undefined> {
+    if (!("asset" in file))
+      return undefined;
+
+    const match = this.items.get(toCLocaleLowercase(join(basePath, file.asset)));
+    if (!match?.blob) {
+      this.result.messages.push({ subPath: curItem, type: "error", message: `No item found matching asset reference '${file.asset}'` });
+      return WebHareMemoryBlob.from("");
+    }
+
+    //FIXME "items" should have explicit WebHareDiskBlob or otherwise streaming blobs to avoid memory copies
+    return WebHareMemoryBlob.fromBlob(await match.blob());
+  }
+
   async import(item: CombinedImportItem) {
     const storeFolder = await this.ensureFolder(item.subPath);
     if (!storeFolder)
@@ -218,6 +233,7 @@ class ImportSession {
 
     const importOptions: ImportOptions = {
       unmapWhfsLink: ref => this.unmapWhfsLink(storeFolder.whfsPath + (typeinfo.foldertype ? item.name + "/" : ""), item.subPath, ref),
+      importFile: file => this.importFile(typeinfo.foldertype ? item.subPath : dirname(item.subPath), item.subPath, file, this.options),
       ...pick(this.options || {}, ["allowResourceImports"])
     };
     const objectData = meta?.instances?.find(instance => instance.whfsType === "platform:virtual.objectdata")?.data;
@@ -343,6 +359,8 @@ export async function importIntoWHFS(source: UnpackArchiveResult | string, targe
 
   //TODO when replacing we should figure out all existing IDs
   for (const item of importer.items.values()) {
+    if (item.subPath.includes('^'))
+      continue; //this is an asset belonging to another file. just ignore
     importer.options?.onProgress?.({ subPath: item.subPath });
     await importer.import(item);
   }

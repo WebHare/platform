@@ -19,6 +19,11 @@ async function verifyImportTree(importTree: WHFSFolder, flags?: { isOverwrite?: 
   const snowBeagle = await importTree.openFile("no-meta-dir/no-meta-subdir/snowbeagle.webp");
   test.eq(22060, snowBeagle.data?.resource.size);
 
+  //Verify the root folder instance data appeared
+  const beta1data = await whfsType("http://www.webhare.net/xmlns/beta/test").get(importTree.id);
+  test.eq(10362, beta1data.arraytest[0].blobcell?.file.size);
+  test.eq(test.wellKnownHashes.kikkerJPG, beta1data.arraytest[0].blobcell?.hash);
+
   //Verify the RTD in the root appeared
   const rootfile = await importTree.openFile("rootfile");
   test.eq("Root file", rootfile.title);
@@ -118,7 +123,7 @@ async function testWHFSExportArchive() {
   await storeWHFSExport(join(workdir, "dest1"), [source]);
 
   const rootFileMeta = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree/rootfile.whfs.yml"), "utf-8"));
-  test.eq({ base64: /^\/9j\// }, rootFileMeta.instances[1].data.data[1].widget.data.thumbnail.file);
+  test.eq({ asset: "rootfile^1.jpg" }, rootFileMeta.instances[1].data.data[1].widget.data.thumbnail.file);
 
   //verify the root metadata was created
   const rootMetadata = YAML.parse(readFileSync(join(workdir, "dest1", "import-tree/^folder.whfs.yml"), "utf-8"));
