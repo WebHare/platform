@@ -32,7 +32,7 @@
       <text tid="password_lowercase">Minimum number of lowercase letters</text>
       <text tid="password_maxage">Maximum age of a password</text>
       <text tid="password_minlength">Minimum number of characters</text>
-      <text tid="password_noreuse">No reuse for for</text>
+      <text tid="password_noreuse">No reuse for</text>
       <text tid="password_symbols">Minimum number of other symbols</text>
       <text tid="password_uppercase">Minimum number of uppercase letters</text>
       <text tid="passwordcheckhibp">Check password in HIBP-database</text>
