@@ -201,7 +201,7 @@ class ImportSession {
       return WebHareMemoryBlob.from("");
     }
 
-    //FIXME "items" should have explicit WebHareDiskBlob or otherwise streaming blobs to avoid memory opies
+    //FIXME "items" should have explicit WebHareDiskBlob or otherwise streaming blobs to avoid memory copies
     return WebHareMemoryBlob.fromBlob(await match.blob());
   }
 
