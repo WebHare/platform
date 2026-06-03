@@ -7,7 +7,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "simple-git": "^3.36.0",
     "typedoc": "^0.28.19",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.3",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"

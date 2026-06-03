@@ -240,7 +240,7 @@ export function buildBaseConfig(options) {
       parser: tseslint.parser,
       parserOptions: {
         project: options?.project || true,
-        tsconfigRootDir: options?.tsconfigRootDir || '.'
+        tsconfigRootDir: options?.tsconfigRootDir
       },
     },
     // place all rules that need parser services here
