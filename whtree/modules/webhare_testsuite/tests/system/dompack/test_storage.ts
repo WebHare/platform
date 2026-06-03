@@ -9,10 +9,15 @@ function runSharedTests() {
   test.eq(null, testApi.getLocal("testFwKey"));
   test.eq(null, testApi.getSession("testFwKey"));
   test.eq(null, testApi.getCookie("testFwCookie"));
+  test.eq(false, testApi.listLocalKeys().includes("testFwKey"));
+  test.eq(false, testApi.listSessionKeys().includes("testFwKey"));
   test.assert(!testApi.listCookies().some(_ => _.name === "testFwCookie"));
 
   testApi.setLocal("testFwKey", { x: 42 });
+  test.eq(true, testApi.listLocalKeys().includes("testFwKey"));
+  test.eq(false, testApi.listSessionKeys().includes("testFwKey"));
   testApi.setSession("testFwKey", { x: 32 });
+  test.eq(true, testApi.listSessionKeys().includes("testFwKey"));
   testApi.setCookie("testFwCookie", "x:22");
   test.eq({ x: 42 }, testApi.getLocal("testFwKey"));
   test.eq({ x: 32 }, testApi.getSession("testFwKey"));
@@ -20,6 +25,17 @@ function runSharedTests() {
   test.assert(testApi.listCookies().some(_ => _.name === "testFwCookie"));
   testApi.deleteCookie("testFwCookie");
   test.assert(!testApi.listCookies().some(_ => _.name === "testFwCookie"));
+
+  //test deletions
+  testApi.setLocal("testFwKey", null);
+  test.eq(false, testApi.listLocalKeys().includes("testFwKey"));
+  test.eq(true, testApi.listSessionKeys().includes("testFwKey"));
+  testApi.setSession("testFwKey", null);
+  test.eq(false, testApi.listSessionKeys().includes("testFwKey"));
+
+  //restore keys after deletion for parent tests
+  testApi.setLocal("testFwKey", { x: 42 });
+  testApi.setSession("testFwKey", { x: 32 });
 
   testApi.setLocal("complexKey", { m: new Money("42.42"), d: new Date("2022-04-02") });
   testApi.setSession("complexKey", { m: new Money("32.32"), d: new Date("2022-02-01") });
