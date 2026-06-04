@@ -65,26 +65,35 @@ export type UnpackArchiveResult = Array<UnpackArchiveDirectory | UnpackArchiveFi
 
 export type { UnpackArchiveDirectory, UnpackArchiveFile };
 
-export async function unpackArchive(archiveData: RandomAccessReadStreamSource | RandomAccessReadStream, options: { checkCrc?: boolean } = {}): Promise<UnpackArchiveResult> {
-  const archive = await ZipArchiveReader.from(archiveData, options);
+const finishHandler = new FinalizationRegistry<[number, Set<number>, ZipArchiveReader]>((reader) => {
+  const [idx, activeFiles, archive] = reader;
+  activeFiles.delete(idx);
+  if (activeFiles.size === 0)
+    void archive[Symbol.asyncDispose]();
+});
+
+function constructArray(archive: ZipArchiveReader): UnpackArchiveResult {
   const retval: Array<UnpackArchiveDirectory | UnpackArchiveFile> = [];
-  for (const entry of archive.entries) {
+  const activeFiles = new Set<number>;
+  for (const [idx, entry] of archive.entries.entries()) {
     if (entry.type === "folder")
       retval.push(new UnpackArchiveDirectory(entry));
-    else
-      retval.push(new UnpackArchiveFile(entry, archive));
+    else {
+      const file = new UnpackArchiveFile(entry, archive);
+      activeFiles.add(idx);
+      finishHandler.register(file, [idx, activeFiles, archive]);
+      retval.push(file);
+    }
   }
-  return Promise.all(retval);
+  return retval;
+}
+
+export async function unpackArchive(archiveData: RandomAccessReadStreamSource | RandomAccessReadStream, options: { checkCrc?: boolean } = {}): Promise<UnpackArchiveResult> {
+  const archive = await ZipArchiveReader.from(archiveData, options);
+  return constructArray(archive);
 }
 
 export async function unpackArchiveFromDisk(path: string, options: { checkCrc?: boolean } = {}): Promise<UnpackArchiveResult> {
   const archive = await ZipArchiveReader.fromDisk(path, options);
-  const retval: Array<UnpackArchiveDirectory | UnpackArchiveFile> = [];
-  for (const entry of archive.entries) {
-    if (entry.type === "folder")
-      retval.push(new UnpackArchiveDirectory(entry));
-    else
-      retval.push(new UnpackArchiveFile(entry, archive));
-  }
-  return Promise.all(retval);
+  return constructArray(archive);
 }

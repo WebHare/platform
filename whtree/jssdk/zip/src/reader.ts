@@ -474,4 +474,8 @@ export class ZipArchiveReader {
       return null;
     return streamIntoBlob(stream);
   }
+
+  async [Symbol.asyncDispose]() {
+    await this.#stream[Symbol.asyncDispose]();
+  }
 }
