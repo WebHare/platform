@@ -15,21 +15,22 @@ export function loadImage(imgsrc: string): Promise<HTMLImageElement> {
 
 /** Load a JavaScript file and add it to the DOM
  * @param scriptsrc - The script source URL
- * @param module - Load as module
+ * @param options.module - Load as module
  * @returns A promise resolving to the script node
  */
-export function loadScript(scriptsrc: string, { module = false } = {}): Promise<HTMLScriptElement> {
+export function loadScript(scriptsrc: string, options?: { module?: boolean; doc?: Document }): Promise<HTMLScriptElement> {
   return new Promise((resolve, reject) => {
-    const scripttag = document.createElement('script');
+    const doc = options?.doc ?? document;
+    const scripttag = doc.createElement('script');
     scripttag.onload = () => {
       resolve(scripttag);
     };
     scripttag.onerror = reject;
     scripttag.src = scriptsrc;
-    if (module)
+    if (options?.module)
       scripttag.type = "module";
 
-    document.querySelector('head,body')?.appendChild(scripttag);
+    doc.querySelector('head,body')?.appendChild(scripttag);
   });
 }
 
@@ -37,8 +38,9 @@ export function loadScript(scriptsrc: string, { module = false } = {}): Promise<
  * @param src - The CSS source URL
  * @returns A promise resolving to the link node
 */
-export function loadCSS(src: string): Promise<HTMLLinkElement> {
-  const element = document.createElement('link');
+export function loadCSS(src: string, options?: { doc?: Document }): Promise<HTMLLinkElement> {
+  const doc = options?.doc ?? document;
+  const element = doc.createElement('link');
   element.type = 'text/css';
   element.rel = 'stylesheet';
   element.href = src;
@@ -48,6 +50,6 @@ export function loadCSS(src: string): Promise<HTMLLinkElement> {
     element.onerror = reject;
   });
 
-  document.querySelector('head,body')?.appendChild(element);
+  doc.querySelector('head,body')?.appendChild(element);
   return retval;
 }

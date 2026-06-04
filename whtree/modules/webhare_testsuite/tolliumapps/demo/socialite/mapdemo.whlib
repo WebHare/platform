@@ -263,6 +263,10 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase <
     this->map->maptype := this->maptype->value;
   }
 
+  MACRO OnMapProviderChange() {
+    ^map->provider := ^mapprovider->value;
+  }
+
   MACRO OnClusterOverlaysChange() {
     this->map->clusteroverlays := this->clusteroverlays->value;
   }

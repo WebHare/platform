@@ -10,10 +10,12 @@ import type { FlagSet, SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import ObjMenuItem from '../menuitem/menuitem';
 import { getTheme } from "@webhare/tollium-iframe-api";
 import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tollium-iframe-api/src/host-protocol';
-import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
 import { debugFlags } from '@webhare/env';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { getTid } from '@webhare/gettid';
+import { throwError } from '@webhare/std';
+import { loadAssetPack } from '@webhare/frontend/src/authormode';
+import { devkitDebugPath } from '@mod-platform/js/concepts/frontend';
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -79,6 +81,8 @@ export default class ObjIFrame extends ComponentBase {
   private initdata: unknown = undefined;
   /** Iframe api post queue collecting outgoing messages until we get the requestInit */
   private postQueue: HostRuntimeMessage[] | null = [];
+  /** Abort signal set up by onload events so we can cancel them if we change our mind */
+  private abortLastLoad: AbortController | null = null;
 
   constructor(parentcomp: ToddCompBase, data: IframeAttributes) {
     super(parentcomp, data);
@@ -242,6 +246,9 @@ export default class ObjIFrame extends ComponentBase {
         this.unmasked_events = data.unmasked_events;
         return;
       case 'content':
+        this.abortLastLoad?.abort(); //prevent initAssetPack from talking to wrong iframe
+        this.abortLastLoad = null;
+
         this.iframe.src = this.calcFrameSourceUri(data);
         this.loaded = false;
         return;
@@ -515,9 +522,43 @@ export default class ObjIFrame extends ComponentBase {
       this.postTypedMessage(msg);
   }
 
+  loadIframe(targetUrl: string, onLoad: () => void) {
+    const finalUrl = new URL(targetUrl, window.location.href);
+
+    this.abortLastLoad?.abort(); //abort any previous onload handler
+
+    /* iframes will not reload if the actual source doesn't change - eg just setting the same source may not work.
+       So see if the URL (not considering hash) changed, and if not, go to about:blank first */
+    const finalUrlWithoutHash = new URL(finalUrl.href);
+    finalUrlWithoutHash.hash = "";
+    if (finalUrlWithoutHash.toString() === this.iframe.src) { //is the URL the same (sans hash)
+      this.iframe.src = 'about:blank'; //clear it to force a reload
+    }
+
+    this.abortLastLoad = new AbortController();
+    //Keep our loader attached until loadIframe is called again, without moveBefore we can't prevent random iframe reloads due to reparenting
+    this.iframe.addEventListener("load", onLoad, { signal: this.abortLastLoad.signal });
+    this.iframe.src = finalUrl.toString();
+  }
+
   onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean; finaljsconfig: Record<string, unknown> }) {
     this.initdata = data.initdata;
-    this.iframe.srcdoc = `<html lang="${data.finaljsconfig.locale}"><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.wh/mod/devkit/public/debug.mjs" type="module"></script>` : ''}<script type="application/json" id="wh-config">${JSON.stringify(data.finaljsconfig)}</script></head><body></body></html>`;
+    this.loadIframe('/.wh/common/tollium/ap-iframe.html', () => console.log("init"));
+
+    // Although srcdoc might be more efficient (saves a hit) it breaks services checking your referrer (eg google maps)
+    this.loadIframe('/.wh/common/tollium/ap-iframe.html', () => {
+      const doc = this.iframe.contentDocument ?? throwError("Iframe has no contentDocument");
+      const whConfig = doc.createElement("script");
+      whConfig.type = "application/json";
+      whConfig.id = "wh-config";
+      whConfig.textContent = JSON.stringify(data.finaljsconfig);
+      doc.head.appendChild(whConfig);
+
+      if (data.devmode)
+        void dompack.loadScript(devkitDebugPath, { module: true, doc });
+
+      void loadAssetPack(data.assetpack, { doc });
+    });
   }
 
   onMsgUpdateInitData(data: { initdata: unknown }) {

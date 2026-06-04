@@ -10,14 +10,8 @@
       <text tid="title">Locatie kiezen</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
-      <text tid="confirmclear">Weet u zeker dat u de locatie wilt leegmaken?</text>
       <text tid="noresults">Er zijn geen resultaten gevonden.</text>
       <text tid="queryfailed">Google API verzoek mislukt - we ontvingen foutcode '<param p="1"/>' met als toelichting '<param p="2"/>'</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="components">   <!-- components -->
-    <textgroup gid="map">   <!-- components.map -->
-      <text tid="loading">De Google-kaart wordt geladen...</text>
     </textgroup>
   </textgroup>
   <textgroup gid="config">   <!-- config -->
@@ -61,15 +55,6 @@
       <text tid="terms">Voordat je gebruikt kunt maken van de YouTubediensten in dit videocomponent vereist YouTube dat je akkoord gaat met met de <html:a href="https://www.youtube.com/t/terms">YouTube Terms of Service</html:a>. <br/><br/>Voor meer informatie over hoe jouw en YouTube's data wordt verwerkt, zie de relevante <html:a href="https://www.webhare.nl/voorwaarden-privacy/webhare-services/">[Voorwaarden en Privacy Statements]</html:a>.<br/><br/>Ga je hiermee akkoord?</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="linkbuilder">   <!-- linkbuilder -->
-    <text tid="apptitle">Link builder</text>
-    <textgroup gid="main">   <!-- linkbuilder.main -->
-      <text tid="generatelinks">Genereer links</text>
-      <text tid="main">Linkbuilder</text>
-      <text tid="taburl">URL naar FB tab</text>
-      <text tid="utmtags">Lijst van links met UTM tags</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="module">   <!-- module -->
     <textgroup gid="forms">   <!-- module.forms -->
       <text tid="gtmdatalayer">Doorsturen naar GTM Datalayer</text>
@@ -100,30 +85,6 @@
           <text tid="tabtitle">SEO</text>
         </textgroup>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
-    <textgroup gid="googleapikeys">   <!-- sysmgmt.googleapikeys -->
-      <text tid="apikey">API-sleutel</text>
-      <text tid="apitab">API sleutels</text>
-      <text tid="confirmdeleteapikeys">Weet u zeker dat u de geselecteede sleutel(s) wil verwijderen ?</text>
-      <text tid="defaultprovider">Standaardprovider voor kaarten in de WebHare backend</text>
-      <text tid="defaultprovider-googlemap">Google Map</text>
-      <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
-      <text tid="domain">Domein</text>
-      <text tid="editapikey">API sleutel</text>
-      <text tid="googleapikeys">Socialite-instellingen</text>
-      <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
-      <text tid="keytype">Sleuteltype</text>
-      <text tid="keytype-google">Google cloud APIs</text>
-      <text tid="keytype-google-recaptcha">Google Recaptcha</text>
-      <text tid="maps">Kaarten</text>
-      <text tid="nokeys">Er zijn nog geen sleutels ingevoerd</text>
-      <text tid="privatekey">Prive sleutel</text>
-      <text tid="scopetype">Scope</text>
-      <text tid="scopetype-any">Elke</text>
-      <text tid="scopetype-client">Client</text>
-      <text tid="scopetype-server">Server</text>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->

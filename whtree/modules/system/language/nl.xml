@@ -1192,7 +1192,7 @@
         <text tid="defaultprovider-googlemap">Google Map</text>
         <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
         <text tid="editapikey">API sleutel</text>
-        <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
+        <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein</text>
         <text tid="maps">Kaarten</text>
         <text tid="masks">Maskers</text>
         <text tid="masks-placeholder">Eén URL masker per regel, bv https://example.com/*</text>

@@ -58,8 +58,8 @@ CONSTANT RECORD defaultclustericon :=
 /////////////////////////////////////////////////////////////////////
 // The map component
 
-PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -132,7 +132,7 @@ PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
   /** The map provider to use (read-only). Possible providers are "leaflet" (the Leaflet rendering of OpenStreepMap) and
       "googlemap" (Google Map).
   */
-  PUBLIC PROPERTY provider(pvt_provider, -);
+  PUBLIC PROPERTY provider(pvt_provider, SetProvider);
 
   /** The map type to show. Possible map types are "map" (show street map), "satellite" (show satellite imagery), "hybrid"
       (show imagery with street names), and "physical" (show street map with terrain). Only supported for the "googlemap"
@@ -411,7 +411,7 @@ PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
     }
   }
 
-  MACRO InitializeMapFrame()
+  PUBLIC MACRO InitializeMapFrame()
   {
     RECORD ARRAY icons :=
         SELECT name
@@ -624,6 +624,13 @@ PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
       this->pvt_maptype := maptype;
       ^mapframe->Post("update", CELL[ map_type := maptype ]);
     }
+  }
+
+  MACRO SetProvider(STRING provider) {
+    IF(provider = this->pvt_provider)
+      RETURN;
+    this->pvt_provider := provider;
+    this->InitializeMapFrame();
   }
 
   RECORD FUNCTION GetCenter()

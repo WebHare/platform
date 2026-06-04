@@ -71,6 +71,10 @@
           <option rowkey="hybrid" tid=".h" />
           <option rowkey="physical" tid=".p" />
         </select>
+        <select name="mapprovider" type="pulldown" onchange="OnMapProviderChange" title="">
+          <option rowkey="leaflet" title="Leaflet" />
+          <option rowkey="googlemap" title="Google Maps" />
+        </select>
         <checkbox name="clusteroverlays" label="Cluster" onchange="onclusteroverlayschange" title="" />
       </line>
       <split type="horizontal">
