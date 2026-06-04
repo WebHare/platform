@@ -536,7 +536,8 @@ export default class ObjIFrame extends ComponentBase {
     }
 
     this.abortLastLoad = new AbortController();
-    this.iframe.addEventListener("load", onLoad, { once: true, signal: this.abortLastLoad.signal });
+    //Keep our loader attached until loadIframe is called again, without moveBefore we can't prevent random iframe reloads due to reparenting
+    this.iframe.addEventListener("load", onLoad, { signal: this.abortLastLoad.signal });
     this.iframe.src = finalUrl.toString();
   }
 
