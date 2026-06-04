@@ -69,7 +69,7 @@ async function runRawAutoComplete(cwd: string, words: string[]): Promise<string[
         return [];
       return autoCompleteCLIRunScript(cwd, fsPath, words.slice(2), { debug: debugFlags.autocomplete });
     } else {
-      let fsPath = `${backendConfig.module.platform.root}/scripts/whcommands/${command}.ts`;
+      let fsPath = `${backendConfig.module.platform.root}/cli-commands/${command}.ts`;
       if (existsSync(fsPath))
         return autoCompleteCLIRunScript(cwd, fsPath, words.slice(2), { debug: debugFlags.autocomplete });
       fsPath = `${backendConfig.module.system.root}/scripts/whcommands/${command}.ts`;
@@ -159,7 +159,6 @@ run({
          get an empty argument if the cursor is at the end of the line, with whitespace after the last argument.
       */
       const params = parseCommandLine(process.env.COMP_SLICED_LINE);
-
 
       const completes = await runAutoComplete(process.cwd(), params);
       for (const complete of completes) {

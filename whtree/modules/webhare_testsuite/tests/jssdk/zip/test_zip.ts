@@ -347,6 +347,26 @@ async function archiveTest() {
     const unpackedHash = unpackedHashStream.digest("hex");
     test.eq(randomDataStreamAndHash.hash.digest("hex"), unpackedHash, "The unpacked file should have the same hash as the original data");
   }
+
+  // STORY: garbage collection of zip archive reader when all refs to files have been dropped
+  {
+    let testFileWeakRef: WeakRef<WebHareBlob> | null = null;
+    {
+      // run this in a function to make sure no refs remain to the archive files in the generator locals
+      await (async () => {
+        const testFile = await getTestFile("ziptest.zip");
+        testFileWeakRef = new WeakRef(testFile);
+        const archive = await unpackArchive(testFile);
+        const anyFile = archive.find(e => e.type === "file");
+        test.assert(anyFile, "There should be at least one file in the archive");
+      })();
+    }
+
+    await test.wait(async () => {
+      await test.triggerGarbageCollection();
+      return testFileWeakRef?.deref() === undefined;
+    });
+  }
 }
 
 test.runTests([archiveTest]);
