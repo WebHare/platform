@@ -23,6 +23,7 @@
     <task runat="10  0 * * 7" runtz="maintenance" script="scripts/tasks/integritycheck.ts" tag="integritycheck" timeout="240" />
 
     <runonce script="migrations/6.0/scripts/import_api_keys.ts" tag="import_api_keys" when="poststart" />
+    <runonce script="migrations/6.0/scripts/migrate_language.ts" tag="migrate_language" when="poststart" />
 
     <managedtask type="requestcertificate"
                  priority="background"

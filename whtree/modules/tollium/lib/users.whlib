@@ -434,12 +434,11 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
   {
     RECORD locale := ValidateOptions([ thousandseparator := "---"
                                      , decimalseparator := ""
-                                     , language := ""
                                      , timezone := ""
                                      , longdateformat := "" //not currently used!
                                      , shortdateformat := "" //not currently used!
                                      , timemilitary := TRUE //not currently used!
-                                     ], this->GetRegistryKey("tollium.locale", DEFAULT RECORD));
+                                     ], CELL[ ...this->GetRegistryKey("tollium.locale", DEFAULT RECORD), DELETE language ]);
     IF(locale.thousandseparator = "---")
       locale.thousandseparator := ReadRegistryKey("system.userrights.newuserdefaults_thousandsep");
     IF(locale.decimalseparator = "")
@@ -449,19 +448,26 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
     IF(locale.decimalseparator NOT IN [ ".", ",", ":" ] OR locale.decimalseparator = locale.thousandseparator)
       locale.decimalseparator := locale.thousandseparator = "." ? "," : ".";
 
-    IF(locale.language = "")
-      locale.language := ReadRegistryKey("system.userrights.newuserdefaults_language") ?? "en";
     IF(locale.timezone = "")
       locale.timezone := ReadRegistryKey("system.userrights.newuserdefaults_timezone")  ?? "Europe/Amsterdam";
+
+    locale := CELL[ ...locale
+                  , language := (ObjectExists(this->entity) ? this->entity->GetField("wrd_language") : "")
+                                ?? ReadRegistryKey("system.userrights.newuserdefaults_language")
+                                ?? "en"
+                  ];
+
+
     RETURN locale;
   }
 
   /** Updates locale settings for a user
       @param newsettings Setting updates @includecelldef #GetLocale.return
   */
-  PUBLIC MACRO SetLocale(RECORD newsettings)
-  {
-    this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), newsettings));
+  PUBLIC MACRO SetLocale(RECORD newsettings) {
+    this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), CELL[...newsettings, DELETE language]));
+    IF(ObjectExists(this->entity) AND CellExists(newsettings,'language'))
+      this->entity->UpdateEntity(CELL[ "wrd_language" := newsettings.language ]);
   }
 
   RECORD FUNCTION GetCacheableUserSettings()

@@ -10,7 +10,7 @@ import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresour
 import { convertWaitPeriodToDate } from "@webhare/std";
 import { deleteRecursive, listDirectory } from "@webhare/system-tools";
 import { beginWork, commitWork, db, runInWork } from "@webhare/whdb";
-import { listSchemas, wrd, type AnySchemaType } from "@webhare/wrd";
+import { listSchemas, wrd } from "@webhare/wrd";
 import { unlink, rm } from "fs/promises";
 
 async function expireOldUsers() {
@@ -28,7 +28,7 @@ async function expireOldKeys() {
 
   // Walk all schema with usermanagement enabled and an accounttype - gather all guids of the accounts in those schemas
   for (const schema of schemasWithAccounts) {
-    const wrdschema = wrd<AnySchemaType>(schema.tag);
+    const wrdschema = wrd<"*">(schema.tag);
     const authsettings = await getAuthSettings(wrdschema);
     if (authsettings?.accountType) {
       // Get all accounts in the schema
