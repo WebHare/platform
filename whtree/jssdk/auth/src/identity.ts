@@ -95,7 +95,7 @@ export type SetAuthCookies = {
 
   // The value below are needed for prepareLoginCookies
   /** WRD Schema used */
-  wrdSchema: WRDSchemaType<AnySchemaType>;
+  wrdSchema: AnyWRDSchema;
   /** User id logging in */
   userId: number;
   /** Customizer used */
@@ -1106,7 +1106,7 @@ export async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped
     throw new Error(prepped.error);
 
   customizer ||= prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined;
-  const wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
+  const wrdSchema = wrd<"*">(prepped.settings.wrdSchema);
   let userInfo: object | null = null;
 
   if (prepped.settings.cacheFields?.length) { //HS field getter, contains fieldnames such as WRD_FULLNAME
@@ -1136,7 +1136,7 @@ export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAu
     throw new Error(prepped.error);
 
   const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined);
-  const wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
+  const wrdSchema = wrd<"*">(prepped.settings.wrdSchema);
 
   //Create the token
   const idToken = await createFirstPartyToken(wrdSchema, "id", userId, {
@@ -1181,7 +1181,7 @@ export async function prepareLogin(prepped: PrepAuthResult, userId: number, opti
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
-  const authsettings = await getAuthSettings(wrd<AnySchemaType>(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?");
+  const authsettings = await getAuthSettings(wrd<"*">(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?");
   return await prepCookies(authsettings, prepped, userId, options);
 }
 

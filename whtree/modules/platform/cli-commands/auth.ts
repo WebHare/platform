@@ -1,7 +1,7 @@
 // @webhare/cli: Control WebHare users and rights
 
 import jwt from "jsonwebtoken";
-import { type AnyWRDSchema, type WRDSchemaType, getSchemaSettings, isValidWRDTag, wrd, type AnySchemaType } from '@webhare/wrd';
+import { type AnyWRDSchema, type WRDSchemaType, getSchemaSettings, isValidWRDTag, wrd } from '@webhare/wrd';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig, importJSObject, type SessionScopes } from '@webhare/services';
@@ -39,7 +39,7 @@ async function lookupLogin(wrdSchema: AnyWRDSchema | null, username: string, url
     if ("error" in prepped)
       throw new Error(prepped.error);
     if (!wrdSchema)
-      wrdSchema = wrd<AnySchemaType>(prepped.settings.wrdSchema);
+      wrdSchema = wrd<"*">(prepped.settings.wrdSchema);
     else if (prepped.settings.wrdSchema !== wrdSchema.tag)
       throw new Error(`WRD schema mismatch: expected ${wrdSchema.tag}, got ${prepped.settings.wrdSchema} from URL`);
 
@@ -148,7 +148,7 @@ run({
       },
       arguments: [{ name: "<username>", description: "User name" }],
       main: async ({ opts, args }) => {
-        const { entityId } = await lookupLogin(wrd<AnySchemaType>(await getUserApiSchemaName(opts)), args.username, opts.url || null);
+        const { entityId } = await lookupLogin(wrd<"*">(await getUserApiSchemaName(opts)), args.username, opts.url || null);
         console.log(entityId);
         return entityId ? 0 : 1;
       }
@@ -188,7 +188,7 @@ run({
       },
       arguments: [{ name: "<entity>", description: "Entity login or ID" }],
       async main({ opts, args }) {
-        const wrdSchema = wrd<AnySchemaType>(await getUserApiSchemaName(opts));
+        const wrdSchema = wrd<"*">(await getUserApiSchemaName(opts));
         const { entityId } = await lookupLogin(wrdSchema, args.entity, null);
         if (!entityId)
           throw new Error(`User '${args.entity}' not found`);

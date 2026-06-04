@@ -1,4 +1,4 @@
-import { wrd, type AnySchemaType, type WRDSchemaType } from "@webhare/wrd";
+import { wrd, type WRDSchemaType } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -7,7 +7,7 @@ import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBas
 import { throwError } from "@webhare/std";
 
 async function testWRDUntypedApi() { //  tests
-  const nosuchschema = wrd<AnySchemaType>("wrd:nosuchschema");
+  const nosuchschema = wrd<"*">("wrd:nosuchschema");
   await test.throws(/No such WRD schema.*nosuchschema/, () => nosuchschema.getType("wrdPerson").exists());
   test.assert(! await nosuchschema.exists());
 
