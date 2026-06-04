@@ -1382,7 +1382,7 @@
         <text tid="defaultprovider-googlemap">Google Map</text>
         <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
         <text tid="editapikey">API Key</text>
-        <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain that is accessible by the url 'about:srcdoc'</text>
+        <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain</text>
         <text tid="maps">Maps</text>
         <text tid="masks">Masks</text>
         <text tid="masks-placeholder">One URL mask per line, eg https://example.com/*</text>
