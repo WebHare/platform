@@ -239,7 +239,8 @@ export function buildBaseConfig(options) {
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: options?.project || true,
+        // project: options?.project || true,
+        projectService: true,
         tsconfigRootDir: options?.tsconfigRootDir
       },
     },
