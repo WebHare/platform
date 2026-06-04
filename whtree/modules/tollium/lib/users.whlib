@@ -465,9 +465,14 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
       @param newsettings Setting updates @includecelldef #GetLocale.return
   */
   PUBLIC MACRO SetLocale(RECORD newsettings) {
-    this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), CELL[...newsettings, DELETE language]));
-    IF(ObjectExists(this->entity) AND CellExists(newsettings,'language'))
-      this->entity->UpdateEntity(CELL[ "wrd_language" := newsettings.language ]);
+    GetPrimary()->PushWork();
+    TRY {
+      this->SetRegistryKey("tollium.locale", ValidateOptions(this->GetLocale(), CELL[...newsettings, DELETE language]));
+      IF(ObjectExists(this->entity) AND CellExists(newsettings,'language'))
+        this->entity->UpdateEntity(CELL[ "wrd_language" := newsettings.language ]);
+    } FINALLY {
+      GetPrimary()->PopWork();
+    }
   }
 
   RECORD FUNCTION GetCacheableUserSettings()
