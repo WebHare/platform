@@ -10,14 +10,8 @@
       <text tid="title">Choose location</text>
     </textgroup>
     <textgroup gid="messageboxes">   <!-- commondialogs.messageboxes -->
-      <text tid="confirmclear">Are you sure you want to clear the location?</text>
       <text tid="noresults">There are no results found.</text>
       <text tid="queryfailed">Google API request failed - we received error code '<param p="1"/>' with description '<param p="2"/>'</text>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="components">   <!-- components -->
-    <textgroup gid="map">   <!-- components.map -->
-      <text tid="loading">Loading the Google map...</text>
     </textgroup>
   </textgroup>
   <textgroup gid="config">   <!-- config -->
@@ -61,15 +55,6 @@
       <text tid="terms">YouTube requires you to agree to the <html:a href="https://www.youtube.com/t/terms">YouTube Terms of Service</html:a> before using this component. <br/><br/>For more information on how your or YouTube's data is processed please see the <html:a href="https://www.webhare.com/terms-and-conditions/webhare-services/#youtube-search">Terms and Conditions and Privacy Policy</html:a> for WebHare services.<br/><br/>Do you agree with these conditions?</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="linkbuilder">   <!-- linkbuilder -->
-    <text tid="apptitle">Link builder</text>
-    <textgroup gid="main">   <!-- linkbuilder.main -->
-      <text tid="generatelinks">Generate links</text>
-      <text tid="main">Linkbuilder</text>
-      <text tid="taburl">URL to FB tab</text>
-      <text tid="utmtags">List of links with UTM tags</text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="module">   <!-- module -->
     <textgroup gid="forms">   <!-- module.forms -->
       <text tid="gtmdatalayer">Submit to GTM Datalayer</text>
@@ -100,30 +85,6 @@
           <text tid="tabtitle">SEO</text>
         </textgroup>
       </textgroup>
-    </textgroup>
-  </textgroup>
-  <textgroup gid="sysmgmt">   <!-- sysmgmt -->
-    <textgroup gid="googleapikeys">   <!-- sysmgmt.googleapikeys -->
-      <text tid="apikey">API Key</text>
-      <text tid="apitab">API keys</text>
-      <text tid="confirmdeleteapikeys">Are you sure you want to delete the selected key(s) ?</text>
-      <text tid="defaultprovider">Default provider for maps in the WebHare backend</text>
-      <text tid="defaultprovider-googlemap">Google Map</text>
-      <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
-      <text tid="domain">Domain</text>
-      <text tid="editapikey">API Key</text>
-      <text tid="googleapikeys">Socialite settings</text>
-      <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain that is accessible by the url 'about:srcdoc'</text>
-      <text tid="keytype">Keytype</text>
-      <text tid="keytype-google">Google cloud APIs</text>
-      <text tid="keytype-google-recaptcha">Google Recaptcha</text>
-      <text tid="maps">Maps</text>
-      <text tid="nokeys">No keys have been added yet</text>
-      <text tid="privatekey">Private key</text>
-      <text tid="scopetype">Scope</text>
-      <text tid="scopetype-any">Any</text>
-      <text tid="scopetype-client">Client</text>
-      <text tid="scopetype-server">Server</text>
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
