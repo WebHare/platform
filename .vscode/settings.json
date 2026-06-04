@@ -19,10 +19,10 @@
     "./whtree/modules/platform/data/schemas/siteprofile.schema.yml": "*.siteprl.yml"
   },
   //Tell us where the embedded types are and encourage you to switch to those so the editor will match the validator
-  "typescript.tsdk": "./whtree/node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "js/ts.tsdk.path": "./whtree/node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
   //Prefer 'type' imports over default imports so esbuild's transpiler can remove them
-  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "js/ts.preferences.preferTypeOnlyAutoImports": true,
   "files.associations": {
     "*.dbclient-js": "javascript",
     ".dockerignore": "ignore",
@@ -53,5 +53,5 @@
   },
   "chat.promptFilesLocations": {
     "addons/vscode-extension/prompts": true
-  }
+  },
 }

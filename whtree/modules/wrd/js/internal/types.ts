@@ -1,5 +1,7 @@
 import type { MapRecordOutputMap as MapRecordOutputMap3, OutputMap, RecordOutputMap, SchemaTypeDefinition, SelectionResultRow as SelectionResultRow3, TypeDefinition, WRDAttributeType, WRDMetaType, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 
+export type JsonWebKeyType = JsonWebKey;
+
 // Temporary exports for WH 5.7 compat
 
 export type {

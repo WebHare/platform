@@ -1,13 +1,16 @@
 //This preload is invoked for all node scripts executed by WebHare (together with the TS preload support)
 
 import { backendConfig, getFullConfigFile } from '@mod-system/js/internal/configuration';
-import { debugFlags, globalPolyfills, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
+import { debugFlags, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
 import { enableFetchDebugging } from '@webhare/env/src/fetchdebug';
 import { setGetTidHooksFactory } from '@webhare/gettid/src/hooks';
 import { env } from "node:process";
 
-import "@webhare/deps/temporal-polyfill"; //Polyfill Temporal into all backend code
-globalPolyfills.push("@webhare/deps/temporal-polyfill");
+if (typeof Temporal === "undefined") //TODO node26 is supposed to include Temporal but we're not seeing it on brew's 26.0.0
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("@webhare/deps/temporal-polyfill"); //Polyfill Temporal into all backend code
+
+// globalPolyfills.push("@webhare/deps/temporal-polyfill");
 
 initEnv(backendConfig.dtapstage, backendConfig.backendURL);
 updateDebugConfig(getFullConfigFile().debugsettings || null);

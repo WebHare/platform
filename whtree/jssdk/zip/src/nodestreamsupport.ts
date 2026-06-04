@@ -1,11 +1,10 @@
 import { isError } from "@webhare/std";
 import type { FileHandle } from "node:fs/promises";
 import type { Readable, Writable } from "node:stream";
-import { ReadableStream } from "node:stream/web";
 
 /** Reimplementation of Node.js Writable.toWeb, because the Node.js version doesn't handle backpressure correctly */
 export function writableToWeb(stream: Writable) {
-  return new WritableStream<Uint8Array>({
+  return new WritableStream<Uint8Array<ArrayBuffer>>({
     write(chunk) {
       return new Promise<void>((resolve, reject) => stream.write(chunk, res => res instanceof Error ? reject(res) : resolve()));
     },
@@ -21,14 +20,14 @@ export function writableToWeb(stream: Writable) {
 const maxReadableToWebQueuedItems = 4;
 
 /** Reimplementation of Node.js Readable.toWeb, because the Node.js version doesn't handle backpressure correctly */
-export function readableToWeb(stream: Readable): ReadableStream<Uint8Array> {
+export function readableToWeb(stream: Readable): ReadableStream<Uint8Array<ArrayBuffer>> {
   let wait = Promise.withResolvers<void>();
-  const buffers = new Array<Buffer>;
+  const buffers = new Array<Buffer<ArrayBuffer>>;
   let error: Error | undefined;
   let closed = false;
   let paused = false;
 
-  stream.on("data", (chunk: Buffer) => {
+  stream.on("data", (chunk: Buffer<ArrayBuffer>) => {
     buffers.push(chunk);
     wait?.resolve();
     if (buffers.length >= maxReadableToWebQueuedItems) {
@@ -47,7 +46,7 @@ export function readableToWeb(stream: Readable): ReadableStream<Uint8Array> {
     wait?.resolve();
   });
 
-  return new ReadableStream<Uint8Array>({
+  return new ReadableStream<Uint8Array<ArrayBuffer>>({
     async pull(controller) {
       await wait.promise;
       if (error)
@@ -91,7 +90,7 @@ export function blobAlikeFromFileHandle(handle: FileHandle, _size: number, start
     type: contentType,
     arrayBuffer: getArrayBuffer,
     text: async () => new TextDecoder().decode(await getArrayBuffer()),
-    bytes: async () => new Uint8Array(await getArrayBuffer()),
+    bytes: async () => new Uint8Array<ArrayBuffer>(await getArrayBuffer()),
     slice: (start?: number, end?: number, overrideContentType?: string) => {
       const size = endPosition - startPosition;
       start = Math.max(0, Math.min(start ?? 0, size));
@@ -100,7 +99,7 @@ export function blobAlikeFromFileHandle(handle: FileHandle, _size: number, start
     },
     stream: () => {
       let position = startPosition, toRead = endPosition - startPosition;
-      return new ReadableStream<Uint8Array>({
+      return new ReadableStream<Uint8Array<ArrayBuffer>>({
         async pull(controller) {
           while (toRead > 0) {
             const readNow = Math.min(16384, toRead);

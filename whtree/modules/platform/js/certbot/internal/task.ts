@@ -411,11 +411,11 @@ async function updateDnsRecords(acmeChallengeHandler: string, debug: boolean, dn
   try {
     await handler.setupDNSChallenge(dnsRecord);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])) });
+      logDebug("platform:certbot", { "#what": "update dns records", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])) });
   } catch (e) {
     logError(e as Error);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
+      logDebug("platform:certbot", { "#what": "update dns records error", dnsRecords: dnsRecord.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
     throw e;
   }
 }
@@ -426,11 +426,11 @@ async function updateHttpResources(acmeChallengeHandler: string, debug: boolean,
   try {
     await handler.setupHTTPChallenge(httpResource);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])) });
+      logDebug("platform:certbot", { "#what": "update http resources", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])) });
   } catch (e) {
     logError(e as Error);
     if (debug)
-      logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "wildcard", "name"])), error: (e as Error).message });
+      logDebug("platform:certbot", { "#what": "update http resources error", httpResources: httpResource.map(_ => pick(_, ["domain", "name"])), error: (e as Error).message });
   }
 }
 

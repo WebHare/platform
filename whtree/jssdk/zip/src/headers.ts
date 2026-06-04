@@ -235,7 +235,7 @@ export function readStructFields<S extends StructDef>(struct: S, buf: Uint8Array
   return result;
 }
 
-export function writeStructFields<S extends StructDef>(struct: S, value: StructRes<S>): Uint8Array {
+export function writeStructFields<S extends StructDef>(struct: S, value: StructRes<S>): Uint8Array<ArrayBuffer> {
   // First calculate the size
   let size = 0;
   for (const field of struct) {

@@ -18,8 +18,8 @@ class MessageParser {
     this.authenticated = !frontend;
   }
 
-  parse(data: Buffer, cb: (msg: ParsedMessage) => void) {
-    this.buf = Buffer.from([...this.buf, ...data]);
+  parse(data: string | Buffer<ArrayBuffer>, cb: (msg: ParsedMessage) => void) {
+    this.buf = Buffer.from([...this.buf, ...(typeof data === "string" ? Buffer.from(data) : data)]);
 
     for (; ;) {
       if (this.requestedSSL && this.buf.length && (this.buf[0] === 0x53 || this.buf[0] === 0x4e)) {
@@ -222,8 +222,8 @@ run({
       let connected = false;
       const id = ++ctr;
 
-      function dumpBuffer(buf: Buffer) {
-        log(formatBufferDump(buf, { linePrefix: `PG conn ${id}:     ` }));
+      function dumpBuffer(buf: Buffer<ArrayBuffer> | string) {
+        log(formatBufferDump(typeof buf === "string" ? Buffer.from(buf) : buf, { linePrefix: `PG conn ${id}:     ` }));
       }
 
       let clientBytes = 0;
@@ -272,7 +272,7 @@ run({
         log(`PG conn ${id}: Received ${data.length} bytes from client socket`);
         dumpBuffer(data);
         if (!connected)
-          pending.push(data);
+          pending.push(typeof data === "string" ? Buffer.from(data) : data);
         else
           dbConn.write(data as unknown as Uint8Array);
         clientParser.parse(data, (msg) => {

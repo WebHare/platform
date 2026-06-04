@@ -100,8 +100,8 @@ function getOriginalSymbolName(sourceMap: Module.SourceMap, t: NodeJS.CallSite):
 
   // First check for a symbol name associated with the enclosing function: (name isn't declared on Module.SourceMapping, but is actually present)
   const enclosingEntry = sourceMap.findEntry(
-    t_e.getEnclosingLineNumber() - 1,
-    t_e.getEnclosingColumnNumber() - 1,
+    ((t_e.getEnclosingLineNumber() || 0) - 1),
+    ((t_e.getEnclosingColumnNumber() || 0) - 1),
   ) as Module.SourceMapping & { name?: string };
   if (enclosingEntry.name)
     return enclosingEntry.name;

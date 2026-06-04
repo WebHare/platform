@@ -11,8 +11,9 @@
    */
 
 import { buildStrictConfig } from './whtree/jssdk/eslint-config/eslint.config.mjs';
+import { resolve } from 'node:path';
 
-const whtreeConfig = buildStrictConfig({ tsconfigRootDir: "whtree" });
+const whtreeConfig = buildStrictConfig({ tsconfigRootDir: resolve(process.cwd,"whtree") });
 
 function mapPaths(configArray) {
   for (const item of configArray) {

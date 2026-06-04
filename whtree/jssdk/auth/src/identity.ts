@@ -3,7 +3,7 @@ import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "json
 import type { AnyWRDSchema, SchemaTypeDefinition, WRDSchemaType } from "@webhare/wrd/src/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { compareProperties, convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
-import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
+import { generateKeyPair, type KeyObject, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import { dtapStage, type NavigateInstruction } from "@webhare/env";

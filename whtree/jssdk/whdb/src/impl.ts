@@ -14,7 +14,6 @@ import {
   type Updateable as KUpdateable,
 } from 'kysely';
 
-import type { ReadableStream } from "node:stream/web";
 import { type BackendEvent, type BackendEventData, broadcast, fenceEvents } from '@webhare/services/src/backendevents';
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';

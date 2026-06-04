@@ -238,7 +238,7 @@ export class IncomingWebRequest implements WebRequest {
         });
         busboy.on("file", (fieldname, file, filename, encoding, mimetype): void =>
           void (async function () {
-            const chunks: Uint8Array[] = [];
+            const chunks: Uint8Array<ArrayBuffer>[] = [];
             for await (const chunk of file)
               chunks.push(chunk);
             formData.append(fieldname, new File(chunks, filename, { type: mimetype }));

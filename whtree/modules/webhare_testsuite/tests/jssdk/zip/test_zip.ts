@@ -1,6 +1,5 @@
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, WebHareBlob } from "@webhare/services";
-import { ReadableStream } from "node:stream/web";
 import * as test from "@webhare/test-backend";
 import { createArchive, unpackArchive, unpackArchiveFromDisk } from "@webhare/zip";
 import { existsSync, promises as fs } from "node:fs";
@@ -257,7 +256,7 @@ async function archiveTest() {
     return {
       hash,
       stream:
-        new ReadableStream<Uint8Array>({
+        new ReadableStream<Uint8Array<ArrayBuffer>>({
           pull(controller) {
             if (remaining > 0) {
               //console.log(`written ${(fileSize - remaining).toString().padStart(12, " ")}, remaining: `, remaining.toString().padStart(12, " "));

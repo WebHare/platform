@@ -2,7 +2,7 @@ import platformSupport from "./platformsupport";
 import { streamIntoBlob } from "./utils";
 import type { FileHandle } from "node:fs/promises";
 
-export type RandomAccessReadStreamSource = Uint8Array | ArrayBuffer | Blob | ReadableStream<Uint8Array>;
+export type RandomAccessReadStreamSource = Uint8Array<ArrayBuffer> | ArrayBuffer | Blob | ReadableStream<Uint8Array<ArrayBuffer>>;
 
 export abstract class RandomAccessReadStream {
   size(): Promise<number> {

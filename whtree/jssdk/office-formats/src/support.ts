@@ -1,5 +1,4 @@
 import { isDate, type Money, type stdTypeOf } from "@webhare/std";
-import { ReadableStream } from "node:stream/web";
 
 interface ColumnTypeDef {
   validDataTypes?: Array<ReturnType<typeof stdTypeOf>>;
@@ -150,11 +149,11 @@ export function validateAndFixRowsColumns(options: SpreadsheetData, index: numbe
   return options as FixedSpreadsheetOptions & { title: string }; //cast should be safe, we verified columns exists
 }
 
-export function byteStreamFromStringParts(parts: Iterable<string | Iterator<string> | (() => string | Iterator<string>)>, options?: { minChunkSize?: number }): ReadableStream<Uint8Array> {
+export function byteStreamFromStringParts(parts: Iterable<string | Iterator<string> | (() => string | Iterator<string>)>, options?: { minChunkSize?: number }): ReadableStream<Uint8Array<ArrayBuffer>> {
   const minChunkSize = options?.minChunkSize ?? 32768;
   const iter = parts[Symbol.iterator]();
   let cur: Iterator<string> | undefined;
-  return new ReadableStream<Uint8Array>({
+  return new ReadableStream<Uint8Array<ArrayBuffer>>({
     pull(controller) {
       let toEnqueueLen = 0;
       const toEnqueue: string[] = [];

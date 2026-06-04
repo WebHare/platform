@@ -1,7 +1,6 @@
 import YAML from 'yaml';
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { describeWHFSType, listInstances, openFile, openFileOrFolder, whfsType, type ExportedInstance, type WHFSFile, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
-import type { ReadableStream } from "node:stream/web";
 import { basename, dirname, join, relative } from "node:path";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { mkdir } from "node:fs/promises";
@@ -187,7 +186,7 @@ async function buildResourceMap(linkResourcesFrom: string[]) {
     const items = await listDirectory(toFSPath(sourcePath), { recursive: true });
     for (const res of items)
       if (res.type === "file")
-        availableResources.set(await hashStream(Readable.toWeb(createReadStream(res.fullPath))), res.fullPath);
+        availableResources.set(await hashStream(Readable.toWeb(createReadStream(res.fullPath)) as ReadableStream<Uint8Array<ArrayBuffer>>), res.fullPath);
   }
   return availableResources;
 }

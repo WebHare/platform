@@ -30,7 +30,7 @@ function convertValidDateTimeSourceToDate(value: ValidZipDateTimeSources | null)
 
 type WriteEntry = {
   storeUtf8Name: boolean;
-  cp437Name: Uint8Array;
+  cp437Name: Uint8Array<ArrayBuffer>;
   utf8Name: string;
   isDirectory: boolean;
   minVersion: number;
@@ -63,7 +63,7 @@ type CompressionResult = {
   compressionDone: Promise<CompressionStats>;
 };
 
-type DataSource = string | Blob | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>;
+export type DataSource = string | Blob | Uint8Array<ArrayBuffer> | ArrayBuffer | ReadableStream<Uint8Array<ArrayBuffer>>;
 
 type AddResult = {
   compressionDone: Promise<void>;
@@ -174,8 +174,8 @@ export class ZipArchiveWriter {
     return fileHeader;
   }
 
-  #getExtraFields(entry: WriteEntry, incentraldirectory: boolean): { fields: Uint8Array; minversion: number; entryoverrides: Partial<WriteEntry> } {
-    const encoded: Uint8Array[] = [];
+  #getExtraFields(entry: WriteEntry, incentraldirectory: boolean): { fields: Uint8Array<ArrayBuffer>; minversion: number; entryoverrides: Partial<WriteEntry> } {
+    const encoded: Uint8Array<ArrayBuffer>[] = [];
     const minversion = 0;
     const entryoverrides: Partial<WriteEntry> = {};
 
@@ -257,7 +257,7 @@ export class ZipArchiveWriter {
         data = new TextEncoder().encode(data);
       if (!("stream" in data))
         data = new Blob([data]);
-      data = data.stream();
+      data = (data as Blob).stream();
     }
 
     let curcrc32 = 0;
@@ -265,7 +265,7 @@ export class ZipArchiveWriter {
     let compressedSize = 0;
     const compressionDone = Promise.withResolvers<CompressionStats>();
 
-    const calcCRCAndLength = new TransformStream<Uint8Array, Uint8Array>({
+    const calcCRCAndLength = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
       transform(chunk, controller) {
         size += chunk.length;
         curcrc32 = platformSupport.crc32(chunk, curcrc32);
@@ -282,7 +282,7 @@ export class ZipArchiveWriter {
     if (options?.compressionLevel) {
       data = data.pipeThrough(platformSupport.createCompressTransform({ compressionLevel: options.compressionLevel }));
 
-      const calcCompressedSize = new TransformStream<Uint8Array, Uint8Array>({
+      const calcCompressedSize = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
         transform(chunk, controller) {
           compressedSize += chunk.length;
           controller.enqueue(chunk);
@@ -341,7 +341,7 @@ export class ZipArchiveWriter {
       compressedSize: 0
     };
 
-    let toWrite: ReadableStream<Uint8Array> | undefined;
+    let toWrite: ReadableStream<Uint8Array<ArrayBuffer>> | undefined;
 
     if (data !== null) {
       const toStream = data;
@@ -386,7 +386,7 @@ export class ZipArchiveWriter {
     };
   }
 
-  addFile(name: string, data: string | Blob | Uint8Array | ArrayBuffer | ReadableStream<Uint8Array>, modTime: ValidZipDateTimeSources | null, options?: { compressionLevel?: number; length?: number }): AddResult {
+  addFile(name: string, data: DataSource, modTime: ValidZipDateTimeSources | null, options?: { compressionLevel?: number; length?: number }): AddResult {
     options ??= {};
     options.compressionLevel ??= this.#options.compressionLevel;
 
@@ -416,7 +416,7 @@ export class ZipArchiveWriter {
     if (this.#entries.length > 65535)
       this.#requireZip64 = true;
 
-    const toWrite: Uint8Array[] = [];
+    const toWrite: Uint8Array<ArrayBuffer>[] = [];
 
     for (const entry of this.#entries) {
       const extrafields = this.#getExtraFields(entry, true);

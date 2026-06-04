@@ -105,7 +105,7 @@ export function decodeCP437(data: Uint8Array): string {
   return Array.from(data).map((byte) => String.fromCodePoint(codePage437[byte])).join("");
 }
 
-export function encodeCP437(str: string, options?: { fallback?: string }): Uint8Array {
+export function encodeCP437(str: string, options?: { fallback?: string }): Uint8Array<ArrayBuffer> {
   let fallbackCP = -1;
   if (options?.fallback) {
     if ([...options.fallback].length !== 1)

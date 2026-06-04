@@ -1,6 +1,5 @@
 import { Money } from "./money";
 import { isBlob, isDate, isMoney, isPromise, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalPlainTime, isTemporalZonedDateTime, stdTypeOf } from "./quacks";
-import type { Temporal } from "temporal-polyfill";
 
 /// Returns T or a promise resolving to T
 export type MaybePromise<T> = Promise<T> | T;

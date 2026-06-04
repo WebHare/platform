@@ -7,7 +7,7 @@ export function getCalculateLengthAndCRC32Transform({ calcCrc: calcCrc = true }:
   let curcrc32 = 0;
   const promise = Promise.withResolvers<{ size: number; crc32: number }>();
   return {
-    transformStream: new TransformStream<Uint8Array, Uint8Array>({
+    transformStream: new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
       transform(chunk, controller) {
         size += chunk.length;
         if (calcCrc)
@@ -26,8 +26,8 @@ class MemoryStreamBuffer {
   // Total number of bytes buffered
   inBuffer = 0;
 
-  blobIterators: Array<AsyncIterableIterator<Uint8Array>> = [];
-  buffers: Uint8Array[] = [];
+  blobIterators: Array<AsyncIterableIterator<Uint8Array<ArrayBuffer>>> = [];
+  buffers: Uint8Array<ArrayBuffer>[] = [];
 
   /// Total number of bytes in the buffers array
   bufferBytes = 0;
@@ -35,11 +35,11 @@ class MemoryStreamBuffer {
   closed = false;
   wait: PromiseWithResolvers<void> | null = null;
 
-  readable: ReadableStream<Uint8Array>;
-  writable: WritableStream<Uint8Array>;
+  readable: ReadableStream<Uint8Array<ArrayBuffer>>;
+  writable: WritableStream<Uint8Array<ArrayBuffer>>;
 
   constructor() {
-    this.writable = new WritableStream<Uint8Array>({
+    this.writable = new WritableStream<Uint8Array<ArrayBuffer>>({
       write: (chunk) => {
         this.buffers.push(chunk);
         this.wait?.resolve();
@@ -61,7 +61,7 @@ class MemoryStreamBuffer {
         this.wait?.resolve();
       }
     });
-    this.readable = new ReadableStream<Uint8Array>({
+    this.readable = new ReadableStream<Uint8Array<ArrayBuffer>>({
       pull: async (controller) => {
         while (true) {
           // Is there a blob iterator? Then read from it
@@ -105,7 +105,7 @@ class MemoryStreamBuffer {
 }
 
 export interface StreamsBuffer {
-  getStreamBuffer(): { readable: ReadableStream<Uint8Array>; writable: WritableStream<Uint8Array> };
+  getStreamBuffer(): { readable: ReadableStream<Uint8Array<ArrayBuffer>>; writable: WritableStream<Uint8Array<ArrayBuffer>> };
   [Symbol.asyncDispose](): Promise<void>;
 }
 
@@ -187,13 +187,13 @@ class FileBasedStreamBuffer {
 
   cancelError: Error | undefined;
 
-  readable: ReadableStream<Uint8Array>;
-  writable: WritableStream<Uint8Array>;
+  readable: ReadableStream<Uint8Array<ArrayBuffer>>;
+  writable: WritableStream<Uint8Array<ArrayBuffer>>;
 
   constructor(data: FileBasedStreamsBufferData) {
     data.addStreamRef(this);
     let handle: FileHandle;
-    this.readable = new ReadableStream<Uint8Array>({
+    this.readable = new ReadableStream<Uint8Array<ArrayBuffer>>({
       start: async (controller) => {
         handle = await data.handle;
       },
@@ -219,7 +219,7 @@ class FileBasedStreamBuffer {
         this.cancelError = new Error(error);
       }
     });
-    this.writable = new WritableStream<Uint8Array>({
+    this.writable = new WritableStream<Uint8Array<ArrayBuffer>>({
       start: async (controller) => {
         handle = await data.handle;
       },

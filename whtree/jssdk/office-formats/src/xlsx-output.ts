@@ -2,7 +2,6 @@ import { byteStreamFromStringParts, ColumnTypes, getNameForCell, validateAndFixR
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";
-import type { ReadableStream } from "node:stream/web";
 import { utcToLocal } from "@webhare/hscompat";
 
 function TemporalToExcel(x: Temporal.Instant | Temporal.ZonedDateTime): number {
@@ -208,7 +207,7 @@ export class XLSXDocBuilder {
   }
 }
 
-function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean, options: { timeZone?: string }): ReadableStream<Uint8Array> {
+function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean, options: { timeZone?: string }): ReadableStream<Uint8Array<ArrayBuffer>> {
   const builder = new WorksheetBuilder(doc);
   const rows = builder.createRows(sheetSettings, options);
   const dimensions = getNameForCell(sheetSettings.columns.length || 1, sheetSettings.rows.length + 1);
@@ -297,7 +296,7 @@ export async function generateXLSX(options: SpreadsheetData | WorkbookData): Pro
   });
 
   // XLSX files are small enough to be kept in memory
-  const buffers = new Array<Uint8Array>();
+  const buffers = new Array<Uint8Array<ArrayBuffer>>();
   for await (const chunk of archive)
     buffers.push(chunk);
 
