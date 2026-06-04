@@ -3,12 +3,14 @@ import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support"
 import { runAuthMaintenance } from "@mod-platform/js/auth/support";
 import { cleanupOutdatedHttpResources } from "@mod-platform/js/certbot/internal/task";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
+import { getAuthSettings } from "@webhare/auth/src/support";
+import { wrdGuidToUUID } from "@webhare/hscompat";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
 import { convertWaitPeriodToDate } from "@webhare/std";
 import { deleteRecursive, listDirectory } from "@webhare/system-tools";
-import { beginWork, commitWork, db } from "@webhare/whdb";
-import { listSchemas } from "@webhare/wrd";
+import { beginWork, commitWork, db, runInWork } from "@webhare/whdb";
+import { listSchemas, wrd, type AnySchemaType } from "@webhare/wrd";
 import { unlink, rm } from "fs/promises";
 
 async function expireOldUsers() {
@@ -17,6 +19,38 @@ async function expireOldUsers() {
   for (const schema of schemastofix) {
     await runAccountExpiration(schema.tag);
   }
+}
+
+/** Removes user flatregistry keys that don't point to any existing user */
+async function expireOldKeys() {
+  const schemasWithAccounts = (await listSchemas()).filter(_ => _.userManagement);
+  const allGuids = new Set<string>();
+
+  // Walk all schema with usermanagement enabled and an accounttype - gather all guids of the accounts in those schemas
+  for (const schema of schemasWithAccounts) {
+    const wrdschema = wrd<AnySchemaType>(schema.tag);
+    const authsettings = await getAuthSettings(wrdschema);
+    if (authsettings?.accountType) {
+      // Get all accounts in the schema
+      const accounts = await wrdschema.query(authsettings.accountType).select(["wrdGuid"]).historyMode("all").execute();
+      for (const account of accounts)
+        allGuids.add(account.wrdGuid);
+    }
+  }
+
+  // Get existing userkeys from the flatregistry. These key look like with `<wrd:123abc>...` and that key would belong to the user with guid `wrd:123ABC`
+  const userRegKeys = await db<PlatformDB>().selectFrom("system.flatregistry").select(["id", "name"]).where("name", "like", "<wrd:%>.%").execute();
+  const grouped = Map.groupBy(userRegKeys.map(_ => ({
+    id: _.id,
+    guid: _.name.match(/<wrd:([^>]+)>/)![1] //filter `123abc` from `<wrd:123abc>.something`
+  })), _ => _.guid);
+
+  // Filter the map, keep unused guids and the ids
+  const unreferenced = [...grouped.entries()].filter(([guid]) => !allGuids.has(wrdGuidToUUID(`wrd:${guid.toUpperCase()}`)));
+  const unreferencedIds = unreferenced.flatMap(_ => _[1].map(e => e.id));
+
+  // Delete them
+  await runInWork(() => db<PlatformDB>().deleteFrom("system.flatregistry").where("id", "in", unreferencedIds).execute());
 }
 
 async function cleanupOldSessions() {
@@ -88,6 +122,7 @@ async function runMaintenance() {
   await cleanupOutdatedHttpResources();
 
   await expireOldUsers();
+  await expireOldKeys();
   await rotateLogs();
 }
 
