@@ -103,8 +103,14 @@ run({
         const list = result.processlist.filter(p => p.type === WHMProcessType.TypeScript);
         if (opts.json)
           console.log(JSON.stringify(list));
-        else
-          console.table(list, ["pid", "name"]);
+        else {
+          const showList = list.map(p => ({
+            pid: p.pid,
+            name: p.name,
+            arguments: JSON.parse(p.parameters?.arguments ?? "[]")
+          }));
+          console.table(showList, ["pid", "name", "arguments"]);
+        }
       }
     }, "getenvironment": {
       description: "Get process environment",
