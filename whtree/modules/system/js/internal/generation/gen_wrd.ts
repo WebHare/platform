@@ -512,7 +512,7 @@ declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" :
 
 ${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
 
-declare module "@mod-platform/generated/ts/wrd.ts" {
+declare module "@webhare/wrd" {
   export interface WRDSchemaLike {
     ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
   }

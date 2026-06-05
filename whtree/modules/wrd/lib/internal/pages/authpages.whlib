@@ -27,14 +27,23 @@ STRING ARRAY available_languages := [ "en", "nl"];
 PUBLIC MACRO InitLanguage(OBJECT webdesign, OBJECT authplugin) {
   // If the user is known, use their language (if set)
   STRING lang := webdesign->languagecode;
-  OBJECT user := authplugin->GetCurrentWebhareUser();
-  IF (NOT ObjectExists(user)) {
+
+  // Find relevant entityid for an (almost) loggedin user
+  INTEGER entityid := authplugin->GetLoggedinEntity();
+  IF(entityid = 0) {
     RECORD session := GetIncompleteAccountSessionData();
     IF(RecordExists(session) AND session.user != 0)
-      user := authplugin->userapi->GetTolliumUserFromEntityId(session.user);
+      entityid := session.user;
   }
-  IF (ObjectExists(user) AND user->language IN available_languages)
-    lang := user->language;
+
+  IF(entityid != 0) {
+    OBJECT accounttype := authplugin->wrdschema->accounttype;
+    IF(ObjectExists(accounttype) AND RecordExists(accounttype->GetAttribute("WRD_LANGUAGE"))) {
+      RECORD user := accounttype->GetEntityFields(entityid, [ "WRD_LANGUAGE" ]);
+      IF(user.wrd_language IN available_languages)
+        lang := user.wrd_language;
+    }
+  }
 
   IF (GetFormWebVariable("wrd_authlang") IN available_languages)
     lang := GetFormWebVariable("wrd_authlang");

@@ -35,6 +35,7 @@
 
   <object tag="wrd_person" title="Person">
     <attributes>
+      <free tag="wrd_language" title="Preferred language (eg 'en' or 'nl-NL')" />
       <free tag="whuser_comment" title="Usermanagement app comment" />
       <datetime tag="whuser_lastlogin" title="Last login time" />
       <domainsingle tag="whuser_unit" domain="whuser_unit" required="true" title="Unit" />

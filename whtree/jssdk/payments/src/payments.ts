@@ -2,7 +2,7 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { openPSP } from "@mod-wrd/js/internal/paymentbridge";
 import type { PSPDriver } from "@webhare/psp-base";
 import { throwError } from "@webhare/std";
-import { wrd, type AnySchemaType } from "@webhare/wrd";
+import { wrd } from "@webhare/wrd";
 import type { PaymentProviderValue, PaymentValue } from "@webhare/wrd/src/paymentstore";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
@@ -27,7 +27,7 @@ class PaymentApi {
 
   /** Open a payment provider by id */
   async openPaymentProvider(providerEntityId: number): Promise<PSPDriver> {
-    const wrdschema = wrd<AnySchemaType>(this.wrdschema);
+    const wrdschema = wrd<"*">(this.wrdschema);
     const providerEntity = await wrdschema.getFields(this.config.providerType, providerEntityId, [this.config.providerField]);
     if (!providerEntity)
       throw new Error(`Payment provider with id ${providerEntityId} not found`);
@@ -57,7 +57,7 @@ class PaymentApi {
 
   /** Retrieve a payment value for a specific entity */
   async getPaymentValue(paymentEntityId: number): Promise<PaymentValue | null> {
-    const wrdschema = wrd<AnySchemaType>(this.wrdschema);
+    const wrdschema = wrd<"*">(this.wrdschema);
     const paymentEntity = await wrdschema.getFields(this.config.paymentType, paymentEntityId, [this.config.paymentField]);
     if (!paymentEntity)
       throw new Error(`Payment provider with id ${paymentEntityId} not found`);

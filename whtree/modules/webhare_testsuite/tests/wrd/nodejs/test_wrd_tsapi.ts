@@ -246,7 +246,7 @@ async function testNewAPI() {
   wrd<"wrd:testschema">("system:usermgmt") satisfies typeof x1;
 
   //this should be fine:
-  wrd<AnySchemaType>("webhare_testsuite:unknownschema");
+  wrd<"*">("webhare_testsuite:unknownschema");
 
   const schema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
   // FIXME: make this work:

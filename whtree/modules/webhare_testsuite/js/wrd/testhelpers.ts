@@ -176,7 +176,7 @@ export type CustomExtensionsModern = {
 };
 
 export async function getWRDSchema<T extends SchemaTypeDefinition = AnySchemaType>(): Promise<WRDSchemaType<T>> {
-  const wrdschema = wrd<AnySchemaType>(testSchemaTag);
+  const wrdschema = wrd<"*">(testSchemaTag);
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   return wrdschema as unknown as WRDSchemaType<T>;
@@ -186,7 +186,7 @@ export async function getExtendedWRDSchema() {
   //FIXME ModernizeWRDSchemaDefinition shouldn't be an API. WE need it now because CustomExtensions uses WRDTypeBaseSettings and that one isn't modernized
   type Combined = Combine<[WRDSchemaLike["wrd:testschema"], CustomExtensionsModern]>;
 
-  const wrdschema = wrd<AnySchemaType>(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
+  const wrdschema = wrd<"*">(testSchemaTag); //TODO or something like: extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>(); ?
   if (!await wrdschema.exists())
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   await whdb.beginWork();

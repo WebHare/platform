@@ -25,15 +25,16 @@ import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";
-import type { WRDSchemaLike } from "@mod-platform/generated/ts/wrd.ts";
 
-//TODO this should become the wrd() compatible schema
 export type { AnySchemaType };
+import type { } from "@mod-platform/generated/ts/wrd.ts";
+
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
 import type { } from "wh:ts/wrd.ts";
 
-//because old code refers directly to the generated types, we can't modernize those in the generator. we'll convert them for now
-export type { WRDSchemaLike };
+export interface WRDSchemaLike {
+  "*": AnySchemaType;
+}
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;

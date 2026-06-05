@@ -12,7 +12,7 @@ import { registerRelyingParty, initializeIssuer, type WRDAuthLoginSettings } fro
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
-import { AuthenticationSettings, createSchema, updateSchemaSettings, wrd, type AnySchemaType, type WRDSchemaLike } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oauth2-client";
 import { generateRandomId } from "@webhare/std";
@@ -511,7 +511,7 @@ async function verifyCustomOpenIDFlow() {
   { //Test user autocreation
     const autocreateContext = await puppeteer!.createBrowserContext(); //separate cookie storage
     try {
-      const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
+      const schemaSP = wrd<"*">("webhare_testsuite:oidc-sp");
       test.eq(null, await schemaSP.find("wrdPerson", { wrdContactEmail: test.getUser("bart").login }), "User bart should not exist yet");
 
       const page = await autocreateContext.newPage();
@@ -562,7 +562,7 @@ async function verifySSOAPI() {
       await page.click("#ssobutton");
       await runWebHareLoginFlow(page, { user: "bart", password: "bart$", changePasswordTo: newPassword });
 
-      const schemaSP = wrd<AnySchemaType>("webhare_testsuite:oidc-sp");
+      const schemaSP = wrd<"*">("webhare_testsuite:oidc-sp");
       const targetBart = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("bart").login).select(["wrdId", "wrdLastName", "whuserComment"]).executeRequireExactlyOne();
       test.eq(String(targetBart.wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
 
