@@ -131,6 +131,7 @@
                   name="accountpassword"
                   type="pulldown"
                   rowkeytype="integer" />
+          <textedit name="default_mail_sender" validationchecks="email" />
           <datetime composition="wrdschema"
                     cellname="creationdate"
                     type="datetime"

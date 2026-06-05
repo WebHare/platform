@@ -66,6 +66,7 @@
       </array>
       <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
       <whfslink tag="whfs_context" description="Base file/folder/site for this schema in WHFS" />
+      <email tag="default_mail_sender" description="Default sender for mail sent for this schema" />
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid wrd_limitdate">
       <value>

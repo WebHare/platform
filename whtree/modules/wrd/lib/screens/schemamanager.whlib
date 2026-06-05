@@ -244,6 +244,9 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     //Allow usermgmt only to be modified by sysop, and only to be set if whuser_unit exists (as a quick check whether you applied usermgmt.wrdschema.xml)
     ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop") AND (^usermgmt->value OR ObjectExists(this->contexts->wrdschema->GetType("WHUSER_UNIT")));
 
+    ^default_mail_sender->placeholder := ReadRegistryKey("system.services.smtp.mailfrom");
+    ^default_mail_sender->value := GetWRDSetting(this->contexts->wrdschema, "default_mail_sender");
+
     ^validationsettings->value := GetWRDSetting(this->contexts->wrdschema, "address_verification");
   }
 
@@ -272,6 +275,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     IF(NOT work->HasFailed())
     {
       SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
+      SetWRDSetting(this->contexts->wrdschema, "default_mail_sender", ^default_mail_sender->value);
       this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationdate]);
     }
 

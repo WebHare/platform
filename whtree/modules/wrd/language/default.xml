@@ -895,6 +895,7 @@
       <text tid="accountpassword">Password field</text>
       <text tid="accounttype">Type for logins</text>
       <text tid="addressvalidation">Address validation</text>
+      <text tid="default_mail_sender">Default mail sender</text>
       <text tid="payments">Payments</text>
       <text tid="protect">Protect this schema against imports and deletes</text>
       <text tid="schema">Schema</text>

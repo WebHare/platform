@@ -353,6 +353,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       usewitty := "mod::wrd/witty/authpages.witty";
 
     OBJECT mail := PrepareMailWitty(`${usewitty}:${component}`, CELL[ mailtemplate, this->webcontext ]);
+    mail->mailfrom := this->wrdschema->default_mail_sender;
     RETURN mail;
   }
 

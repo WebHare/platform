@@ -3,6 +3,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -365,6 +366,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   PUBLIC PROPERTY accountpasswordtag(GetAccountpasswordTag, -);
   /// @type(boolean) Whether the password field is of authenticationsettings type
   PUBLIC PROPERTY accountpasswordisauthsettings(GetAccountPasswordIsAuthSettings, -);
+
+  PUBLIC PROPERTY default_mail_sender(GetDefaultMailSender, -);
 
   /** @private Should not be constructed directly
       @param schemarec Contents of database schema record
@@ -885,6 +888,11 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       RETURN FALSE;
 
     RETURN attr.attributetype = wrd_attributetype_authenticationsettings;
+  }
+
+  STRING FUNCTION GetDefaultMailSender()
+  {
+    RETURN GetWRDSetting(this, "default_mail_sender") ?? ReadRegistryKey("system.services.smtp.mailfrom");
   }
 
   PUBLIC INTEGER FUNCTION CreateChangeSet()
