@@ -700,7 +700,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       typeRec?.rootAttrMap.values().toArray() ?? [];
 
     const removeAttributes = this.legacySchema ? Object.keys(legacyTranslations) : Object.values(legacyTranslations);
-    return attrRecs.filter(_ => !removeAttributes.includes(_.fullTag)).map((attrRec): WRDAttributeConfiguration => ({
+    return attrRecs.filter(_ =>
+      !removeAttributes.includes(_.fullTag) &&
+      !(!this.legacySchema && _.fullTag === "wrdTitle" && (this.tag === "wrdPerson" || this.tag === "wrdOrganization"))
+    ).map((attrRec): WRDAttributeConfiguration => ({
       id: attrRec.id || null,
       tag: attrRec.fullTag,
       attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],

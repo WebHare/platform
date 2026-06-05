@@ -349,14 +349,17 @@ async function testNewAPI() {
 
   const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdInitials: "F", wrdLastNamePrefix: "van de", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   test.eq({ wrdLastNamePrefix: "van de" }, await schema.getFields("wrdPerson", firstperson, ["wrdLastNamePrefix"]));
+  //@ts-expect-error -- TS should block wrdTitle
   test.eq({ wrdTitle: "F van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
   test.eq({ wrdFullName: "F van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
 
   await schema.update("wrdPerson", firstperson, { wrdInitials: "", wrdFirstNames: "Jan Pieter" });
+  //@ts-expect-error -- TS should block wrdTitle
   test.eq({ wrdTitle: "Jan Pieter van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
   test.eq({ wrdFullName: "Jan Pieter van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
 
   await schema.update("wrdPerson", firstperson, { wrdFirstName: "first", wrdLastNamePrefix: "", wrdFirstNames: "" });
+  //@ts-expect-error -- TS should block wrdTitle
   test.eq({ wrdTitle: "first lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
   test.eq({ wrdFullName: "first lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
 
@@ -566,15 +569,15 @@ async function testNewAPI() {
 
   // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
   {
-    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
-    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
-    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.eq({ wrdId: firstperson, wrdFullName: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireExactlyOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireExactlyOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireExactlyOne());
 
-    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
-    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
-    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
-    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
-    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null, firstperson]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
+    test.eq({ wrdId: firstperson, wrdFullName: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireAtMostOne());
+    await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireExactlyOne());
+    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireAtMostOne());
+    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null]).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireAtMostOne());
+    test.eq({ wrdId: firstperson, wrdFullName: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null, firstperson]).enrich("wrdPerson", "wrdId", ["wrdFullName"]).executeRequireExactlyOne());
   }
 
   await whdb.beginWork();
@@ -1155,9 +1158,8 @@ async function testOrgs() {
   const org1 = await wrdTestschemaSchema.insert("wrdOrganization", { wrdOrgName: "org1" });
   test.eq(org1, await wrdTestschemaSchema.search("wrdOrganization", "wrdOrgName", "org1"));
   test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdOrgName", "ORG1"));
+  //@ts-expect-error -- wrdTitle is not an attribute of wrdOrganization
   test.eq(org1, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "org1"));
-  test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "org2"));
-  test.eq(null, await wrdTestschemaSchema.search("wrdOrganization", "wrdTitle", "ORG1"));
   await whdb.commitWork();
 }
 
