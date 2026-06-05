@@ -157,6 +157,7 @@ export const baseAttrCells = {
   "wrdFirstName": "firstname",
   "wrdFirstNames": "firstnames",
   "wrdInfix": "infix",
+  "wrdLastNamePrefix": "infix",
   "wrdLastName": "lastname",
   "wrdTitles": "titles",
   "wrdTitlesSuffix": "titles_suffix",

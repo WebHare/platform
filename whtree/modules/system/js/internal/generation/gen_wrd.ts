@@ -306,7 +306,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
       typeinfo.attrdefs.wrdInitials = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdFirstName = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdFirstNames = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
-      typeinfo.attrdefs.wrdInfix = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
+      typeinfo.attrdefs.wrdLastNamePrefix = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdLastName = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdTitlesSuffix = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdDateOfBirth = { attributeType: "plainDate", isGenerated: false, isRequired: false, isBase: false };
@@ -377,7 +377,8 @@ export async function generateWRDDefs(context: GenerateContext, cache: WRDSchema
         if (attrdef.isBase)
           continue; //the ones with null are in WRDTypeBaseSettings
 
-        attrlines.push(`  ${name}: ${createTypeDef(attrdef, "  ", addTypeDeclImport, false)}`);
+        const usename = name === "wrdLastNamePrefix" ? "wrdInfix" : name; //renamed in WH6.0
+        attrlines.push(`  ${usename}: ${createTypeDef(attrdef, "  ", addTypeDeclImport, false)}`);
       }
 
       if (attrlines.length)

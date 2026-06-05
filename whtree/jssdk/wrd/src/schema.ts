@@ -105,7 +105,8 @@ const legacyTranslations = {
   "wrdCreated": "wrdCreationDate",
   "wrdClosed": "wrdLimitDate",
   "wrdModified": "wrdModificationDate",
-  "wrdOrder": "wrdOrdering"
+  "wrdOrder": "wrdOrdering",
+  "wrdLastNamePrefix": "wrdInfix"
 } as const;
 const invalidLegacyFields = Object.values(legacyTranslations);
 

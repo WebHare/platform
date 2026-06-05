@@ -24,6 +24,10 @@ async function testWRDUntypedApi() { //  tests
   test.eqPartial({}, await domainType.describeAttribute("wrdOrder"));
 
   const persontype = wrdschema.getType("wrdPerson");
+  const personAttributes = await persontype.listAttributes();
+  test.eq(false, personAttributes.some(_ => _.tag === "wrdInfix"));
+  test.eq(true, personAttributes.some(_ => _.tag === "wrdLastNamePrefix"));
+
   test.eq(null, await persontype.describeAttribute("noSuchAttribute"));
   await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
   test.eqPartial({ attributeType: "string", isReadOnly: true }, await persontype.describeAttribute("wrdFullName"));

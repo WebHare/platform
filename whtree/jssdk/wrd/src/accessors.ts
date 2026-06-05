@@ -423,7 +423,8 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       case "wrdInitials": baseAttr = !caseInsensitive ? sql`initials` : sql`upper("initials")`; break;
       case "wrdFirstName": baseAttr = !caseInsensitive ? sql`firstname` : sql`upper("firstname")`; break;
       case "wrdFirstNames": baseAttr = !caseInsensitive ? sql`firstnames` : sql`upper("firstnames")`; break;
-      case "wrdInfix": baseAttr = !caseInsensitive ? sql`infix` : sql`upper("infix")`; break;
+      case "wrdInfix":
+      case "wrdLastNamePrefix": baseAttr = !caseInsensitive ? sql`infix` : sql`upper("infix")`; break;
       case "wrdLastName": baseAttr = !caseInsensitive ? sql`lastname` : sql`upper("lastname")`; break;
       case "wrdTitles": baseAttr = !caseInsensitive ? sql`titles` : sql`upper("titles")`; break;
       case "wrdTitlesSuffix": baseAttr = !caseInsensitive ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
@@ -441,7 +442,8 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       case "wrdInitials": return entityRecord.initials || "";
       case "wrdFirstName": return entityRecord.firstname || "";
       case "wrdFirstNames": return entityRecord.firstnames || "";
-      case "wrdInfix": return entityRecord.infix || "";
+      case "wrdInfix":
+      case "wrdLastNamePrefix": return entityRecord.infix || "";
       case "wrdLastName": return entityRecord.lastname || "";
       case "wrdTitles": return entityRecord.titles || "";
       case "wrdTitlesSuffix": return entityRecord.titles_suffix || "";
@@ -471,6 +473,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       "wrdFirstName",
       "wrdFirstNames",
       "wrdInfix",
+      "wrdLastNamePrefix",
       "wrdLastName",
       "wrdTitles",
       "wrdTitlesSuffix"
