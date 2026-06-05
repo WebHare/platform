@@ -40,7 +40,7 @@ PUBLIC MACRO InitLanguage(OBJECT webdesign, OBJECT authplugin) {
     OBJECT accounttype := authplugin->wrdschema->accounttype;
     IF(ObjectExists(accounttype) AND RecordExists(accounttype->GetAttribute("WRD_LANGUAGE"))) {
       RECORD user := accounttype->GetEntityFields(entityid, [ "WRD_LANGUAGE" ]);
-      IF(user.wrd_language != "")
+      IF(user.wrd_language IN available_languages)
         lang := user.wrd_language;
     }
   }
