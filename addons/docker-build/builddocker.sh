@@ -11,6 +11,8 @@ USEPODMAN=""
 NOPULL=""
 DEBUG=""
 ARCH=""
+FINALTAGARGS=()
+TARGETSTAGE="appimage"
 
 # shellcheck source=../../whtree/lib/wh-functions.sh
 source "$WEBHARE_DIR/lib/wh-functions.sh"
@@ -40,6 +42,9 @@ while [[ $1 =~ ^-.* ]]; do
   elif [ "$1" == "--dockerfile" ]; then
     shift
     DOCKERFILE="$1"
+  elif [ "$1" == "--devcontainer" ]; then
+    TARGETSTAGE="devcontainer"
+    FINALTAGARGS+=(--devcontainer)
   else
     echo "Illegal option $1"
     exit 1
@@ -78,7 +83,7 @@ fi
 wh_getnodeconfig
 wh_getemscriptenversion
 
-get_finaltag
+get_finaltag "${FINALTAGARGS[@]}"
 list_finaltag
 
 if [ "$DOCKERSUDO" == "1" ]; then
@@ -142,6 +147,8 @@ DOCKERBUILDARGS+=(--build-arg "WEBHARE_VERSION=$WEBHARE_VERSION")
 DOCKERBUILDARGS+=(--build-arg "WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION")
 DOCKERBUILDARGS+=(--file)
 DOCKERBUILDARGS+=("$DOCKERFILE")
+DOCKERBUILDARGS+=(--target)
+DOCKERBUILDARGS+=("$TARGETSTAGE")
 
 # Grab the main build dirs
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)

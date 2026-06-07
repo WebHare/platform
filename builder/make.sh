@@ -80,7 +80,7 @@ function fixPackages() {
 
   elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
     # FIXME get this list fro setup-builder.sh!
-    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel postgresql17-libs"
+    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel postgresql17"
     if ! which ccache > /dev/null 2>&1 ; then
       REQUIREPACKAGES="$REQUIREPACKAGES ccache"
     fi
@@ -132,7 +132,7 @@ if [ "$?" == "2" ]; then
   exit 1
 fi
 
-if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+if [ -z "$WEBHARE_IN_DOCKER" ] || [ -n "$WHBUILD_DEVCONTAINER" ]; then # Not a docker build, configure for local building
   # TODO find a nice way to share URL and versions with Docker file
   [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
   # Additional dependencies
@@ -146,7 +146,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local b
 fi
 
 # Is emsdk installed?
-if [ -z "$WEBHARE_IN_DOCKER" ]; then
+if [ -z "$WEBHARE_IN_DOCKER" ] || [ -n "$WHBUILD_DEVCONTAINER" ]; then
   [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || git -C "$WEBHARE_CHECKEDOUT_TO" submodule update --init --recursive
   [ -x "$WEBHARE_CHECKEDOUT_TO/vendor/emsdk/emsdk" ] || die "Submodule vendor/emsdk not present"
   # TODO skip if already activated. need to support version checks then

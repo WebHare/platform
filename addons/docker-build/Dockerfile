@@ -2,8 +2,8 @@
 # Updating the #date/timestamp comment on a command can help to force a rebuild
 
 ################# STAGE 0 - base image. shared between builder and runner
-FROM       almalinux:10 AS base
-MAINTAINER WebHare bv <info@webhare.com>
+FROM almalinux:10 AS base
+LABEL maintainer="WebHare bv <info@webhare.com>"
 
 ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
 ARG WHBUILD_NODE_URL
@@ -80,6 +80,51 @@ RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
     /bin/bash -c ". /opt/wh/vendor/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
+
+################# STAGE devcontainer
+FROM       base AS devcontainer
+
+ARG WHBUILD_EMSCRIPTEN_VERSION
+
+# Environment variables
+ENV \
+  WEBHARE_BUILDDIR=/opt/whbuild/ \
+  WHBUILD_ALLOW=1 \
+  WHBUILD_BUILDROOT=/opt/whbuildroot/ \
+  WHBUILD_LTO=1 \
+  WHBUILD_WASMLTO=1 \
+  WEBHARE_CHECKEDOUT_TO=/opt/wh \
+  WHBUILD_EMSCRIPTEN_VERSION=$WHBUILD_EMSCRIPTEN_VERSION \
+  WHBUILD_DEVCONTAINER=1
+
+ARG WHBUILD_ASSETROOT
+
+# Expose usual WebHare hostingports
+EXPOSE 13684
+
+# emscripten, pdfbox and tika installed by makefile (because they write to /opt/wh)
+
+ # Base image setup
+RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
+     --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
+     --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
+     --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
+     /bin/bash /setup-builder.sh --skip-emscripten "$WHBUILD_ASSETROOT" # 2024-08-19
+
+# Install OpenSearch
+RUN --mount=type=bind,source=addons/docker-build/setup-opensearch.sh,target=/setup-opensearch.sh \
+    --mount=type=cache,id=opensearch,target=/tmp/downloads \
+    WEBHARE_CHECKEDOUT_TO=/opt/wh \
+    /bin/bash /setup-opensearch.sh "$WHBUILD_ASSETROOT" 3.2.0
+
+ADD addons/docker-build/dropins /
+
+# pghost can't be placed inside /opt/wh, because that is a mounted directory
+ENV WEBHARE_PGHOST=/tmp/
+
+# Set the run command and an entrypoint that ensures a proper environment even if we go straight to /bin/bash
+ENTRYPOINT [ "/opt/container/entrypoint.sh" ]
+CMD [ "/opt/container/launch.sh" ]
 
 ################# STAGE 2 - application image
 FROM       base AS appimage

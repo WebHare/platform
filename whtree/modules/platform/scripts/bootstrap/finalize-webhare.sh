@@ -81,7 +81,7 @@ logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
 
 # When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
-[ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
+{ [ -z "$WEBHARE_IN_DOCKER" ] || [ -n "$WHBUILD_DEVCONTAINER" ]; } && generatebuildinfo
 
 # We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_HARESCRIPT_OFF=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
 # After this step, 'wh node' should be available.
