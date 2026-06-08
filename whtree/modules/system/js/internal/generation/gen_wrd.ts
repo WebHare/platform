@@ -499,6 +499,7 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
 }
 
 export async function generateWRDPointers(context: GenerateContext, cache: WRDSchemaCache, platform: boolean, mods: string[]): Promise<string> {
+  const fileParts = [generatorBanner];
   const schemas = [];
   for (const mod of mods) {
     for (const schema of await cache.getSchemas(context, mod)) {
@@ -510,19 +511,19 @@ export async function generateWRDPointers(context: GenerateContext, cache: WRDSc
     }
   }
 
-  return `${generatorBanner}
+  fileParts.push(`declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" : "wh:ts/wrd.ts")} {
+}`);
 
-declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/wrd.ts" : "wh:ts/wrd.ts")} {
-}
-
-${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
+  if (schemas.length)
+    fileParts.push(`${schemas.map(s => `import type { ${s.type} } from ${JSON.stringify(s.import)};`).join("\n")}
 
 declare module "@webhare/wrd" {
   export interface WRDSchemaLike {
     ${schemas.map(s => `${JSON.stringify(s.wrdSchema)}: ${s.type};`).join("\n    ")}
   }
 }
-`;
+`);
+  return fileParts.join("\n");
 }
 
 export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
