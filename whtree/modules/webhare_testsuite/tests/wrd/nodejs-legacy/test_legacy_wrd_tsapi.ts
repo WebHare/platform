@@ -319,7 +319,19 @@ async function testNewAPI() {
 
   const basePerson = { whuserUnit: unit_id, wrdauthAccountStatus: { status: "active" } } as const;
 
-  const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdInitials: "F", wrdInfix: "van de", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  test.eq({ wrdInfix: "van de" }, await schema.getFields("wrdPerson", firstperson, ["wrdInfix"]));
+  test.eq({ wrdTitle: "F van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
+  test.eq({ wrdFullName: "F van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
+
+  await schema.update("wrdPerson", firstperson, { wrdInitials: "", wrdFirstNames: "Jan Pieter" });
+  test.eq({ wrdTitle: "Jan Pieter van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
+  test.eq({ wrdFullName: "Jan Pieter van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
+
+  await schema.update("wrdPerson", firstperson, { wrdFirstName: "first", wrdInfix: "", wrdFirstNames: "" });
+  test.eq({ wrdTitle: "first lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
+  test.eq({ wrdFullName: "first lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdFullName"]));
+
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });

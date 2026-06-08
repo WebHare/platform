@@ -93,6 +93,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
       { ...baseEmptyAttrRec, tag: "wrdFirstName", fullTag: "wrdFirstName", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdFirstNames", fullTag: "wrdFirstNames", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdInfix", fullTag: "wrdInfix", attributetype: WRDBaseAttributeTypeId.Base_NameString },
+      { ...baseEmptyAttrRec, tag: "wrdLastNamePrefix", fullTag: "wrdLastNamePrefix", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdLastName", fullTag: "wrdLastName", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdTitlesSuffix", fullTag: "wrdTitlesSuffix", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdDateOfBirth", fullTag: "wrdDateOfBirth", attributetype: WRDBaseAttributeTypeId.Base_Date },
