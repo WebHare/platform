@@ -457,6 +457,9 @@ class TestFramework {
     await this.resetTest();
     this.setStatus(test.name + " loading");
 
+    // Clear wh-debug variables for each test script
+    sessionStorage.removeItem("wh-debug");
+
     // Schedule test script load & test steps
     let result = this.loadTestIframe()
       .then(this.waitForTestSetup.bind(this))

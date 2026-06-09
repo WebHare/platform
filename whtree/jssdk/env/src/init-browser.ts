@@ -16,5 +16,11 @@ export function getBrowserDebugFlags(varname: string): string[] {
     }
   }
 
+  if (typeof sessionStorage !== "undefined") {
+    const sessionDebug = sessionStorage.getItem(varname);
+    if (sessionDebug)
+      flags.push(...sessionDebug.split(','));
+  }
+
   return flags;
 }
