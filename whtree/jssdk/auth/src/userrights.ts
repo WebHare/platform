@@ -2,7 +2,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { UserRightDefinition } from "@mod-system/js/internal/generation/gen_extract_userrights";
 import { defaultDateTime, UUIDToWrdGuid, wrdGuidToUUID } from "@webhare/hscompat";
-import { checkModuleScopedName, type ModuleQualifiedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName, type ModuleQualifiedName } from "@webhare/services/src/naming";
 import { appendToArray, throwError } from "@webhare/std";
 import { db, query, escapePGIdentifier } from "@webhare/whdb";
 import { getGuidForEntity } from "@webhare/wrd/src/accessors";
@@ -102,7 +102,7 @@ async function describeChain(right: ModuleQualifiedName): Promise<{
       throw new Error(`Inconsistent implied-by chain - right '${match.name}' refers to target object type '${match.target}' but right '${right}' refers to target object type '${chain[0].target}'`);
 
     if (!rightsCache.has(match.name)) {
-      const [module, rightname] = checkModuleScopedName(match.name);
+      const [module, rightname] = parseModuleQualifiedName(match.name);
       //TODO we can probably eternally cache a hit
       const matchRightId = await db<PlatformDB>().selectFrom("system.modules").where("system.modules.name", "=", module).
         innerJoin("system.module_rights", "system.module_rights.module", "system.modules.id").where("system.module_rights.name", "=", rightname).

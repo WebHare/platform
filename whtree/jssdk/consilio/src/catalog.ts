@@ -7,7 +7,7 @@
 
 import { broadcastOnCommit, db, nextVal, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { isValidModuleScopedName } from "@webhare/services/src/naming";
+import { isValidModuleQualifiedName } from "@webhare/services/src/naming";
 import { convertWaitPeriodToDate, isTruthy, omit, pick, type WaitPeriod } from "@webhare/std";
 import { whconstant_consilio_catalogtype_managed, whconstant_consilio_catalogtype_unmanaged, whconstant_consilio_default_suffix_mask, whconstant_consilio_osportoffset } from "@mod-system/js/internal/webhareconstants";
 import "@webhare/env";
@@ -363,7 +363,7 @@ export async function listCatalogs(): Promise<CatalogListEntry[]> {
 }
 
 export async function openCatalog<DocType extends object = object>(catalogName: string): Promise<Catalog<DocType>> {
-  if (!isValidModuleScopedName(catalogName)) //blocks mixed/uppercase values too, so we don't need case insensitive lookups
+  if (!isValidModuleQualifiedName(catalogName)) //blocks mixed/uppercase values too, so we don't need case insensitive lookups
     throw new Error(`Illegal catalog name '${catalogName}'`);
 
   const catalog = await db<PlatformDB>().selectFrom("consilio.catalogs").select(["id", "name"]).where("name", '=', catalogName).executeTakeFirst();
@@ -414,7 +414,7 @@ export async function createCatalog<DocType extends object = object>(tag: string
 }
 
 export async function doCreateCatalog(tag: string, options?: CatalogOptions): Promise<void> {
-  if (!tag || !isValidModuleScopedName(tag))
+  if (!tag || !isValidModuleQualifiedName(tag))
     throw new Error(`Invalid catalog tag '${tag}'`);
 
   // Index name should be unique

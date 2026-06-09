@@ -4,7 +4,7 @@ import { broadcastOnCommit, db, isWorkOpen, nextVals, onFinishWork, uploadBlob }
 import { openBackendService } from "@webhare/services/src/backendservice.ts";
 import { subscribeToEventStream } from "@webhare/services/src/backendevents.ts";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
-import { checkModuleScopedName } from "./naming";
+import { parseModuleQualifiedName } from "./naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { decodeHSON, decodeHSONorJSONRecord, defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { logDebug, WebHareBlob } from "@webhare/services";
@@ -218,7 +218,7 @@ async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?
   completed: boolean;
   errorMessage: string;
 }> {
-  checkModuleScopedName(taskname);
+  parseModuleQualifiedName(taskname);
   if (isWorkOpen())
     throw new Error("waitForTimedTask cannot be invoked with open work");
 
@@ -267,7 +267,7 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Fle
   get taskDone(): Promise<void>;
 }> {
   //TODO can we elimienate allowMissing? it's mostly an inconsistency with moduledefs (consult extracts?) or a startup issue (insert it ourselves? fix startup ordering?)
-  checkModuleScopedName(taskname);
+  parseModuleQualifiedName(taskname);
   if (!isWorkOpen())
     throw new Error("scheduleTimedTask must be invoked with open work");
 

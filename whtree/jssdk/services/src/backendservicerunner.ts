@@ -1,6 +1,6 @@
 import bridge, { type IPCMessagePacket, type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import type { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType, ServiceCallResult, ServiceEventMessage } from '@mod-system/js/internal/types';
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
 import { setLink } from "./symbols";
 import { generateRandomId, isPromise, parseTyped, stringify } from "@webhare/std";
@@ -347,7 +347,7 @@ export async function runBackendService<Constructor extends ConnectionFactory>(s
     throw new Error(`Service name '${servicename}' is too long, must be up to 70 characters but is ${servicename.length} characters`); //socket paths may become too long
 
   options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, protocols: ["bridge"], ...options };
-  checkModuleScopedName(servicename);
+  parseModuleQualifiedName(servicename);
 
   let hostport;
   if (options.protocols?.includes("bridge")) {

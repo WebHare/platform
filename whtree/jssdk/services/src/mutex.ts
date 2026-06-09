@@ -2,7 +2,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
 import * as std from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat/src/datetime.ts";
-import { checkModuleScopedName } from "./naming";
+import { parseModuleQualifiedName } from "./naming";
 import { getCodeContext } from "./codecontexts";
 import type { StackTraceItem } from "@webhare/js-api-tools";
 
@@ -137,7 +137,7 @@ export async function lockMutex(name: string, options: { __skipNameCheck?: boole
  */
 export async function lockMutex(name: string, options?: { timeout?: std.WaitPeriod; __skipNameCheck?: boolean }): Promise<Mutex | null> {
   if (!options?.__skipNameCheck) //We're also invoked by WASM HareScript and WASM HareScript doesn't care about mutex name checks (lenient for old code)
-    checkModuleScopedName(name);
+    parseModuleQualifiedName(name);
 
   //convert any non-infinite relative timeout to an absolute one
   const opt_timeout = options?.timeout ?? Infinity; //this ensures that '0' stays 0

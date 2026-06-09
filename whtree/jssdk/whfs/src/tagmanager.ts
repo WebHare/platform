@@ -1,4 +1,4 @@
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import { generateRandomId } from "@webhare/std";
 import { openFile, openFolder } from "./objects.ts";
 
@@ -84,7 +84,7 @@ class TagManager {
 }
 
 export function openTagManager(tagSet: string) {
-  const [module, name] = checkModuleScopedName(tagSet);
+  const [module, name] = parseModuleQualifiedName(tagSet);
   return new TagManager(module, name);
 }
 

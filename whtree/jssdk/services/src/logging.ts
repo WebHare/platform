@@ -3,7 +3,7 @@ import type { LoggableRecord } from "./logmessages";
 import { backendConfig } from "./config.ts";
 import type { LogFormats } from "./services.ts";
 import { WebHareBlob } from "./webhareblob.ts";
-import { checkModuleScopedName } from "./naming";
+import { parseModuleQualifiedName, type ModuleQualifiedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
 import { convertFlexibleInstantToDate, escapeRegExp, isBlob, stringify, type FlexibleInstant } from "@webhare/std";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
@@ -80,12 +80,15 @@ export function logError(error: Error, options?: LogErrorOptions): void {
   bridge.logError(error, options);
 }
 
+type CheckModuleQualified<T extends string> = T extends Lowercase<ModuleQualifiedName> ? T : "Must be a lowercase module qualified name";
+
 /** Log debug information
 */
-export function logDebug(source: string, data: LoggableRecord): void {
-  checkModuleScopedName(source);
+export function logDebug<T extends string>(source: CheckModuleQualified<T>, data: LoggableRecord): void {
+  parseModuleQualifiedName(source);
   bridge.logDebug(source, data);
 }
+
 
 type RPCLogRegistryKeyValue = {
   loguntil: Date | null;
@@ -126,7 +129,7 @@ async function getCachableRPCLogStatus(logtype: string, options?: { autoEnable?:
 const rpcLogStatusCache = new LocalCache<{ loguntil: Date | null; profileuntil?: Date | null }>();
 
 export async function logRPCTraffic(
-  logSource: string,
+  logSource: ModuleQualifiedName,
   transport: string,
   direction: "incoming" | "outgoing",
   data: unknown,
@@ -134,7 +137,7 @@ export async function logRPCTraffic(
     sourceTracker?: string;
     transactionId?: string;
   }) {
-  checkModuleScopedName(logSource);
+  parseModuleQualifiedName(logSource);
   if (!transport)
     throw new Error("A transport must be specified");
 
@@ -179,7 +182,7 @@ export function readLogLines<LogFields = GenericLogFields>(logname: string, opti
 
 /** Read log lines from a specified log between the two given dates. Note that we ONLY support JSON encoded log lines */
 export async function* readLogLines<LogFields = GenericLogFields>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
-  const [module, logfile] = checkModuleScopedName(logname);
+  const [module, logfile] = parseModuleQualifiedName(logname);
   let fileinfo = getModuleDefinition(module).logs[logfile];
   if (!fileinfo) {
     if (module === "platform" && ["servicemanager", "access", "pxl"].includes(logfile)) { // 'builtin' logs

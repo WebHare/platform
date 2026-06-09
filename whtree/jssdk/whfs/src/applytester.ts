@@ -9,7 +9,7 @@ import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import { describeWHFSType, getType } from "./describe";
 import { resolveResource } from "@webhare/services";
@@ -509,7 +509,7 @@ export class WHFSApplyTester {
   async getPluginSettings(name: string): Promise<RawPluginSettings[]> {
     name = nameToSnakeCase(name);
     if (!["auth"].includes(name))
-      checkModuleScopedName(name);
+      parseModuleQualifiedName(name);
 
     const cellname: keyof CSPApplyRule = "yml_" + name as keyof CSPApplyRule;
 

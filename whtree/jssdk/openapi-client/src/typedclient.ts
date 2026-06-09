@@ -3,6 +3,7 @@ import type { DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAnd
 import type { ResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import type { OpenAPIClientFetch, OpenAPIResponse } from "@webhare/openapi-service";
 import { logRPCTraffic } from "@webhare/services/src/logging";
+import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 
 
 // Response when the content-type indicates a JSON response
@@ -77,7 +78,7 @@ type MethodOptions<Paths extends object, Path extends keyof Paths, Method extend
 export class TypedOpenAPIClient<Paths extends object, Components extends object> {
   readonly service: string | OpenAPIClientFetch;
   readonly options: {
-    service?: string;
+    service?: ModuleQualifiedName;
   };
   defaultheaders: Record<string, string> = {};
 
@@ -86,7 +87,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends object>
    */
   constructor(service: string | OpenAPIClientFetch, options: {
     bearerToken?: string;
-    service?: string;
+    service?: ModuleQualifiedName;
   } = {}) {
     this.service = service;
     this.options = options;

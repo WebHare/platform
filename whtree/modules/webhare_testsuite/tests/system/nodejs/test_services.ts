@@ -4,7 +4,7 @@ import { importJSFunction } from "@webhare/services";
 import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
-import { checkModuleScopedName, toHSSnakeCase } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName, toHSSnakeCase } from "@webhare/services/src/naming";
 import type { TestClass } from "./data/calls2";
 import { getVersionInteger } from "@mod-system/js/internal/configuration";
 
@@ -21,32 +21,32 @@ async function testServices() {
   test.eq("_whfscell", toHSSnakeCase("Whfscell"));
   test.throws(/cannot be unambigously converted/, () => toHSSnakeCase("_Faketoplevel"));
 
-  test.assert(checkModuleScopedName("aa:aa"));
-  test.assert(checkModuleScopedName("aa:11"));
-  test.assert(checkModuleScopedName("a_a:a-a"));
-  test.assert(checkModuleScopedName("a_a:a.a"));
-  test.assert(checkModuleScopedName("a_a:a_a"));
+  test.assert(parseModuleQualifiedName("aa:aa"));
+  test.assert(parseModuleQualifiedName("aa:11"));
+  test.assert(parseModuleQualifiedName("a_a:a-a"));
+  test.assert(parseModuleQualifiedName("a_a:a.a"));
+  test.assert(parseModuleQualifiedName("a_a:a_a"));
+  test.assert(parseModuleQualifiedName("11:11"));
 
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("11:11"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a-a"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a.a"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a_a"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("a-a:a-a"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("a-a:a.a"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("a-a:a_a"));
 
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("a:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("Aa:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aA:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:Aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:aA"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("_a:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("a_:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:_a"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a_"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a."));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a-"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:aa:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("system_aa:aa"));
-  test.throws(/Invalid name.*/, () => checkModuleScopedName("wh_aa:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("a:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:a"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("Aa:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aA:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:Aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:aA"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("_a:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("a_:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:_a"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:a_"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:a."));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:a-"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("aa:aa:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("system_aa:aa"));
+  test.throws(/Invalid name.*/, () => parseModuleQualifiedName("wh_aa:aa"));
 
   test.assert(services.backendConfig);
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
