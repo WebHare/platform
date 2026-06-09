@@ -39,7 +39,7 @@ export class IntExtLink {
 
   async resolve() {
     if (this._internal) {
-      const target = await openFileOrFolder(this._internal);
+      const target = await openFileOrFolder(this._internal, { allowMissing: true });
       if (target?.link)
         return target.link + (this._append ? this._append : "");
     } else if (this._external) {
