@@ -25,10 +25,15 @@ function printDataLayerPushes(hookdata: GTMPluginData, response: PagePluginReque
   if (!response.pageMetadata.dataLayer.length)
     return litty``;
 
-  if (hookdata.integration === 'script' && hookdata.launch === 'pagerender') {
-    const pushes = response.pageMetadata.dataLayer.map(entry => stringify(entry, { target: "script" })).join(",");
-    return litty`<script>window.dataLayer.push(${pushes})</script>`;
-  }
+  const pushes = response.pageMetadata.dataLayer.map(entry => stringify(entry, { target: "script" })).join(",");
+  return litty`<script>window.dataLayer.push(${pushes})</script>`;
+}
+
+//wn-socialite-gtm pushes doesn't violate CSP .. but is not allowed in the <head> being a custom element,
+function printInertPushes(hookdata: GTMPluginData, response: PagePluginRequest): Litty {
+  if (!response.pageMetadata.dataLayer.length)
+    return litty``;
+
   return litty`<wh-socialite-gtm push="${JSON.stringify(response.pageMetadata.dataLayer)}"></wh-socialite-gtm>`;
 }
 
@@ -59,7 +64,11 @@ export function hookComposer(init: PagePluginInit, response: PagePluginRequest) 
   }
 
   //Even if no account is configured we'll still process dataLayer pushes. We'll assume you've set up your own integration
-  response.insertAt("dependencies-bottom", () => printDataLayerPushes(hookdata, response));
+  const useScriptPush = hookdata.integration === 'script' && hookdata.launch === 'pagerender';
+  if (useScriptPush)
+    response.insertAt("dependencies-bottom", () => printDataLayerPushes(hookdata, response));
+  else
+    response.insertAt("body-bottom", () => printInertPushes(hookdata, response));
 }
 
 //validate signatures
