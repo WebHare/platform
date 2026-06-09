@@ -17,7 +17,7 @@ if [ -n "$MISINGLIBS" ]; then
   exit 1
 fi
 
-if ! "$BINARY" --headless --no-sandbox --screenshot=/tmp/chrome.png https://www.example.com/ ; then
+if ! "$BINARY" --headless --no-sandbox --screenshot=/tmp/chrome.png chrome://version ; then
   echo "Screenshot failed. Chrome may be broken?"
   exit 1
 fi
