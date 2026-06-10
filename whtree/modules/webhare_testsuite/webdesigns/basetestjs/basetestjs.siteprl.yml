@@ -180,6 +180,14 @@ apply:
         layout: all
 
   - to:
+      #can't minify these, breaks comparison with HS variant
+      or:
+        - whfsPath: "*widgetholder"
+        - whfsPath: "*widgetholder-ts*"
+    webDesign:
+      minify: false
+
+  - to:
       whfsPath: "*manualtabs*"
     editProps:
       - type: base_test_props

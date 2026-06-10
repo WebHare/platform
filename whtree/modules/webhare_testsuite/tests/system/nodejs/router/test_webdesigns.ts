@@ -14,7 +14,7 @@ import { loadlib } from "@webhare/harescript";
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/wts-backend.ts";
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
-  const doc = parseDocAsXML(await response.text(), "text/html");
+  const doc = parseDocAsXML(await response.text(), "text/html", { rewriteHTML: true });
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
 
   const contentdiv = doc.getElementById("content");
@@ -53,7 +53,7 @@ async function testPageResponse() {
 
   const response: WebResponse = await sitereq.buildWebPage(litty`<p>This is a body!</p>`);
   const responsetext = await response.text();
-  const doc = parseDocAsXML(responsetext, 'text/html');
+  const doc = parseDocAsXML(responsetext, 'text/html', { rewriteHTML: true });
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   test.eq("en", doc.documentElement?.getAttribute("lang"));
   const whfspath = doc.getElementById("whfspath");
@@ -191,12 +191,17 @@ async function testDynamicPage() {
   }
 }
 
+function testIsMinified(text: string) {
+  return text.match(/<meta charset="?utf-8"?><title>/);
+}
+
 async function testPageResponseApplies() {
   //test various <apply>s and that they affect the webdesign
   const psAfDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
   test.eq("ps-AF", psAfDoc.doc.documentElement?.getAttribute("lang"));
-  test.eq("width=device-width, initial-scale=1", psAfDoc.metaTags.get("viewport"));
+  test.eq("width=device-width,initial-scale=1", psAfDoc.metaTags.get("viewport"), "minify step removed the space");
   test.eq("ltr", psAfDoc.doc.documentElement?.getAttribute("dir"));
+  test.assert(testIsMinified(psAfDoc.responsetext));
 }
 
 async function testPageResponseMarkdown() {
@@ -441,8 +446,9 @@ async function testPageResponseJSRTD() {
       }
     ] as const;
 
-    const { contentElements: contentElementsTSTS, doc: docTSTS } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
+    const { contentElements: contentElementsTSTS, doc: docTSTS, responsetext: unminifiedDoc } = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-ts");
     test.eqPartial(expectContent, contentElementsTSTS);
+    test.assert(!testIsMinified(unminifiedDoc));
     test.assert(docTSTS.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
 
     const { contentElements: contentElementsHSTS } = await fetchPreviewAsDoc("site::webhare_testsuite.testsite/testpages/widgetholder-ts");
@@ -482,7 +488,7 @@ async function testPublishedJSSite() {
     console.log(`Fetching published version: ${jsrendereddoc.link}`);
     const jsrenderedfetch = await fetch(jsrendereddoc.link!);
     test.assert(jsrenderedfetch.ok);
-    const jsresultdoc = parseDocAsXML(await jsrenderedfetch.text(), 'text/html');
+    const jsresultdoc = parseDocAsXML(await jsrenderedfetch.text(), 'text/html', { rewriteHTML: true });
     test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
     test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
     test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
@@ -497,11 +503,11 @@ async function testCaptureJSRendered() {
   const resultpage = await captureJSPage(markdowndoc.id);
 
   // Note that captureJSPage is designed to be invoked from HareScript therefore it returns a HS Blob
-  test.eq(/<html.* data-test=".*".* data-other-field=".*".*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
+  test.eq(/<html.*data-other-field.*<body.*<div.*id=.?content.*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
 
   const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
   const jsresultpage = await captureJSPage(jsrendereddoc.id);
-  const jsresultdoc = parseDocAsXML(await jsresultpage.body.text(), 'text/html');
+  const jsresultdoc = parseDocAsXML(await jsresultpage.body.text(), 'text/html', { rewriteHTML: true });
   test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
   test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
   test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
