@@ -932,8 +932,14 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
       @param href URL to update
       @return The final URL to use
   */
-  PUBLIC STRING FUNCTION RewriteHyperlink(STRING href)
-  {
+  PUBLIC STRING FUNCTION RewriteHyperlink(STRING href) {
+    RECORD ARRAY handlers := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE ToLowercase(href) LIKE link_types.starts_with || "*";
+    IF(Length(handlers) > 1)
+      THROW NEW Exception(`Multiple link handlers match the URL '${href}': ${Detokenize((SELECT AS STRING ARRAY name FROM handlers),', ')}`);
+    IF(Length(handlers) = 1 AND handlers[0].resolve_function != "")
+      RETURN MakeFunctionPtr(handlers[0].resolve_function)(CELL[ webdesign := this
+                                                               , applytester := this->targetapplytester
+                                                               ], href);
     RETURN href;
   }
 

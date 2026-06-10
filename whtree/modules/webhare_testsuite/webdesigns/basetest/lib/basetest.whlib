@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 
@@ -154,10 +155,8 @@ FIXME
 */
 >;
 
-PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
-<
-  UPDATE PUBLIC STRING FUNCTION RewriteHyperlink(STRING href)
-  {
+PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign <
+  UPDATE PUBLIC STRING FUNCTION RewriteHyperlink(STRING href) {
     IF (href LIKE "x-rewritelink:*")
     {
       SWITCH (Substring(href, 14))
@@ -178,7 +177,7 @@ PUBLIC OBJECTTYPE BaseTestDesign EXTEND BetaWebDesign
     }
     IF (href = "x-go-rewrite:#no-really") //this is passed here to verify RewriteHyperlink ALSO gets a shot at rewriting links
       RETURN "x-webdesign-takes-over-link:";
-    RETURN href;
+    RETURN BetaWebDesign::RewriteHyperlink(href);
   }
 
   UPDATE PUBLIC STRING FUNCTION GetIntExtLinkTarget(RECORD linkrecord)
@@ -281,6 +280,13 @@ PUBLIC STATIC OBJECTTYPE BaseTestProps EXTEND TolliumTabsExtensionBase
     ^librarysource->fslibrary := ^objectlibrary->value;
   }
 >;
+
+PUBLIC STRING FUNCTION ResolveTS1Link(RECORD context, STRING url) {
+  RETURN UpdateURLVariables("https://beta.webhare.net/",
+    CELL [ subpath := Tokenize(url,":")[1]
+         , target := context.webdesign->targetobject->fullpath
+    ]);
+}
 
 PUBLIC BOOLEAN FUNCTION CheckTestpagesURLHistoryAccess(RECORD urlinfo)
 {
