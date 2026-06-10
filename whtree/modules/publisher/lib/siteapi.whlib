@@ -390,10 +390,7 @@ STATIC OBJECTTYPE SiteObject <
     IF(republishsite)
       ScheduleFolderRepublish(this->id, /*recursive=*/TRUE, /*non_template_too=*/TRUE);
 
-    GetWHFSCommitHandler()->SiteUpdated(this->id, [
-      analyze_output := republishsite,
-      site_profile_refs := CellExists(updsettings,'sitedesign') OR CellExists(updsettings,'webfeatures')
-    ]);
+    GetWHFSCommitHandler()->SiteUpdated(this->id, [ analyze_output := republishsite ]);
 
     GetPrimary()->BroadcastOnCommit("system:whfs.sitemeta." || this->siterec.id, DEFAULT RECORD);
   }

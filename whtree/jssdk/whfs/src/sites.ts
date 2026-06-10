@@ -5,7 +5,6 @@ import { excludeKeys, formatPathOrId } from "./support";
 import { openType, whfsType, type TypedInstanceData } from "./contenttypes";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { ListingContext, listRecursive, type ListableFsObjectRow, type ListFSOptions, type ListFSRecursiveOptions, type ListFSRecursiveResult, type ListFSResult } from "./list";
-import { whfsFinishHandler } from "./finishhandler";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -126,9 +125,6 @@ export class Site {
       metadataupdate = { ...metadataupdate, webfeatures: updates.webFeatures?.length ? updates.webFeatures.sort() : [] };
     if (metadataupdate)
       await whfsType("platform:web.sitesettings").set(this.id, metadataupdate);
-    if ("webDesign" in updates || "webFeatures" in updates)
-      whfsFinishHandler().siteUpdated(this.id, { siteProfileRefs: true });
-
   }
 }
 

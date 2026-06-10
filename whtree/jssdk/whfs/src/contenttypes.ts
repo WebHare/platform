@@ -360,8 +360,14 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
       await setter.apply(instanceId);
     }
 
-    if (this.descr.namespace === "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+    if (this.descr.namespace === "http://www.webhare.net/xmlns/publisher/sitesettings") {
+      if ("webdesign" in data || "webfeatures" in data) {
+        //TODO limit to cases where webdesign/webfeatures actually changed - and 'id' is actually a site
+        whfsFinishHandler().siteUpdated(id, { siteProfileRefs: true });
+      }
+      //this might change siteprofile associations or webdesign/webfeatures
       whfsFinishHandler().checkSiteSettings();
+    }
     if (options?.isVisibleEdit ?? this.descr.clone !== "never")
       whfsFinishHandler().triggerEmptyUpdateOnCommit(id);
     else

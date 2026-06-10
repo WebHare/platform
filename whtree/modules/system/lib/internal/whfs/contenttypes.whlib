@@ -1614,8 +1614,14 @@ STATIC OBJECTTYPE WHFSType <
         UPDATE system_internal.fs_instances SET workflow := TRUE WHERE id = instance.id;
     }
 
-    IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+    IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") { //this might change siteprofile associations or webdesign/webfeatures
+      IF(CellExists(newinstancedata,'sitedesign') OR CellExists(newinstancedata,'webfeatures')) {
+        //TODO limit to cases where webdesign/webfeatures actually changed - and objectid is actually a site
+        GetWHFSCommitHandler()->SiteUpdated(objectid, [ site_profile_refs := TRUE ]);
+      }
+
       GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
+    }
 
     IF (options.isvisibleedit)
       GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
