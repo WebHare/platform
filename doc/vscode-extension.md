@@ -12,6 +12,7 @@
 ```bash
 whcd
 cd addons/vscode-extension
+npm version <patch|minor|major>
 ./node_modules/.bin/vsce login webhare
 ./node_modules/.bin/vsce package --no-dependencies
 ./node_modules/.bin/vsce publish --no-dependencies
