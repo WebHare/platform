@@ -51,6 +51,9 @@ properties:
   paymentProviders:
     description: JS-based payment providers
     $ref: "#/$defs/PaymentProviders"
+  linkTypes:
+    description: Form definition files (used in OpenForm calls)
+    $ref: "#/$defs/LinkTypes"
   formDefinitions:
     description: Form definition files (used in OpenForm calls)
     $ref: "#/$defs/FormDefinitions"
@@ -495,6 +498,26 @@ $defs:
           configExtensions:
             type: string
             description: "Screen extensions to add configuration options for this payment provider"
+
+  LinkTypes:
+    type: object
+    description: Declare the location of form definitions in this module
+    additionalProperties: false
+    patternProperties:
+      "^[a-z][-a-z0-9_]*$": # Link handler name
+        type: object
+        additionalProperties: false
+        required: [startsWith]
+        properties:
+          startsWith:
+            type: string
+            description: "What the link should start with to match this handler, eg 'x-mymodule-1:'"
+          resolveFunction:
+            type: string
+            description: "HareScript function to resolve the link"
+          onResolve:
+            type: string
+            description: "JavaScript callback to resolve the link"
 
   FormDefinitions:
     type: object

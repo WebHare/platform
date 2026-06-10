@@ -660,6 +660,11 @@
           <xs:documentation>Show the internal link option (defaults to true)</xs:documentation>
         </xs:annotation>
       </xs:attribute>
+     <xs:attribute name="linktypes">
+        <xs:annotation>
+          <xs:documentation>Space separated list of link types to enable</xs:documentation>
+        </xs:annotation>
+     </xs:attribute>
     </xs:complexType>
   </xs:element>
 

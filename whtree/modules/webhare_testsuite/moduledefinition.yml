@@ -142,6 +142,11 @@ rpcServices:
   authtestsupport:
     api: tests/wrd/auth/authtestsupport.ts#authTestSupportRPC
 
+linkTypes:
+  testhandler1:
+    startsWith: "x-webhare-testsuite-1:"
+    resolveFunction: webdesigns/basetest/lib/basetest.whlib#ResolveTS1Link
+
 formDefinitions:
   customform: webdesigns/basetest/pages/customformdef/customformdef.formdef.xml
   beaconform: tests/publisher/contentlibraries/libs/beaconform.formdef.xml

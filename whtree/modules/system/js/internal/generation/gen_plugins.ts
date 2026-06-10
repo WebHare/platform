@@ -30,13 +30,20 @@ export interface ModulePlugins {
     name: string;
     path: string;
   }>;
+  linkTypes: Array<{
+    name: string;
+    startsWith: string;
+    resolveFunction?: string;
+    onResolve?: string;
+  }>;
 }
 
 export async function generatePlugins(context: GenerateContext): Promise<string> {
   const retval: ModulePlugins = {
     spPlugins: [],
     objectEditors: [],
-    formDefinitions: []
+    formDefinitions: [],
+    linkTypes: []
   };
 
   for (const mod of context.moduledefs) {
@@ -76,6 +83,15 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
         retval.formDefinitions.push({
           name: mod.name + ":" + name,
           path: resolveResource(mod.resourceBase, path)
+        });
+      }
+
+      for (const [name, handler] of Object.entries(mod.modYml.linkTypes || {})) {
+        retval.linkTypes.push({
+          name: mod.name + ":" + name,
+          startsWith: handler.startsWith,
+          ...handler.resolveFunction ? { resolveFunction: resolveResource(mod.resourceBase, handler.resolveFunction || '') } : {},
+          ...handler.onResolve ? { onResolve: handler.onResolve || '' } : {}
         });
       }
     }

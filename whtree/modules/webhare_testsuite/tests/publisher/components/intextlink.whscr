@@ -1,8 +1,11 @@
 <?wh
 
+LOADLIB "wh::xml/dom.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
+LOADLIB "mod::publisher/lib/rtd.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -181,7 +184,31 @@ ASYNC MACRO TestIntExtLink_Tabsextension()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+MACRO TestLinkResolution() {
+  testfw->BeginWork();
+  OBJECT testdoc := GetTestsuiteTempFolder()->CreateFile([
+    name := "linkresolution",
+    typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile"
+    // publish := TRUE
+  ]);
+  testdoc->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [
+    data := BuildRTDFromYAML(`
+- p:
+  - "Try this "
+  - text: link
+    link: x-webhare-testsuite-1:test-link-resolution
+`)]);
+  testfw->CommitWork();
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(GetPreviewLink(testdoc->id)));
+
+  OBJECT ARRAY links := testfw->browser->QSA("a");
+  TestEq("https://beta.webhare.net/?subpath=test-link-resolution&target=/tmp/linkresolution", links[0]->GetAttribute("href"));
+}
+
+
 RunTestframework([ PTR TestIntExtLink
                  , PTR TestIntExtLink_WithLinkHandlers
                  , PTR TestIntExtLink_Tabsextension
+                 , PTR TestLinkResolution
                  ]);
