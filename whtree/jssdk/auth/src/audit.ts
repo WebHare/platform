@@ -129,7 +129,7 @@ export function updateAuditContext(updates: AuthAuditContext) {
   });
 }
 
-/** Writes a audit event to the logs in a separate transction
+/** Logs an audit event
     @param wrdSchema - Target schema
     @param event - Event data
 */
