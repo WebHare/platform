@@ -221,6 +221,11 @@
       <text tid="wrdaudit_account">Account</text>
       <text tid="wrdaudit_login">Login name</text>
       <text tid="wrdaudit_type">Event</text>
+      <textgroup gid="platform">   <!-- commondialogs.auditlog.platform -->
+        <text tid="accountstatus">Account status changed</text>
+        <text tid="createduser">Created user</text>
+        <text tid="updateduser">Updated user</text>
+      </textgroup>
       <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
         <text tid="disabletotp">Disabled two factor authentication</text>
         <text tid="failedvalidationchecks">Failed password validation</text>

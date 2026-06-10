@@ -2339,6 +2339,7 @@
     </textgroup>
     <textgroup gid="dialogues">   <!-- userrights.dialogues -->
       <text tid="actionfailed">Action failed <param p="1"/></text>
+      <text tid="cannoteditsysopasnonsysop">Sysops can only be edited by other sysops.</text>
       <text tid="cannotgetobjecttreeforobjecttype">Failed to get a list of objects for <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/></text>
       <text tid="cannotmoveunittochild">A unit cannot be moved to one of its subunits.</text>
       <text tid="cannotresetunmanageduser">Cannot send a password link for this account, WebHare doesn't manage its password</text>

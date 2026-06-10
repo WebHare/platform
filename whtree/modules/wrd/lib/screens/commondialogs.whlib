@@ -742,6 +742,9 @@ STRING FUNCTION MapAuditLogTypeValue(STRING type, FUNCTION PTR onmaptype)
     CASE "wrd:authsettings.resettotpbackupcodes"{ RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.resettotpbackupcodes"); }
     CASE "wrd:authsettings.setpassword"         { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setpassword"); }
     CASE "wrd:authsettings.setuptotp"           { RETURN GetTid("wrd:commondialogs.auditlog.wrdauth.setuptotp"); }
+    CASE "platform:createuser"                  { RETURN GetTid("wrd:commondialogs.auditlog.platform.createduser"); }
+    CASE "platform:updateuser"                  { RETURN GetTid("wrd:commondialogs.auditlog.platform.updateduser"); }
+    CASE "platform:accountstatus"               { RETURN GetTid("wrd:commondialogs.auditlog.platform.accountstatus"); }
   }
 
   IF (type LIKE "wrdauth:*")

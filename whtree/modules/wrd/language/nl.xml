@@ -221,6 +221,11 @@
       <text tid="wrdaudit_account">Account</text>
       <text tid="wrdaudit_login">Inlogname</text>
       <text tid="wrdaudit_type">Event</text>
+      <textgroup gid="platform">   <!-- commondialogs.auditlog.platform -->
+        <text tid="accountstatus">Account status aangepast</text>
+        <text tid="createduser">Gebruiker aangemaakt</text>
+        <text tid="updateduser">Gebruiker aangepast</text>
+      </textgroup>
       <textgroup gid="wrdauth">   <!-- commondialogs.auditlog.wrdauth -->
         <text tid="disabletotp">Twee-factor-authenticatie uitgeschakeld</text>
         <text tid="failedvalidationchecks">Wachtwoordvalidatie-foutmelding</text>

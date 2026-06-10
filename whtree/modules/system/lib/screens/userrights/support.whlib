@@ -255,9 +255,9 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
     canmanage := tolliumuser->HasRightOnMultiple("system:manageunit", visible_authobjects CONCAT SELECT AS INTEGER ARRAY authobjectparentid FROM userlist);
 
   INTEGER ARRAY allsysops := GetGrantedAuthObjects("system:sysop", 0);
-  userlist := SELECT TEMPORARY candelete := wearesysop OR authobjectparentid IN canmanage
-                   , TEMPORARY canedit := candelete OR authobjectid IN canmanage
-                   , TEMPORARY issysop := authobjectid IN allsysops
+  userlist := SELECT TEMPORARY issysop := authobjectid IN allsysops
+                   , TEMPORARY candelete := wearesysop OR (authobjectparentid IN canmanage AND NOT issysop)
+                   , TEMPORARY canedit := candelete OR (authobjectid IN canmanage AND NOT issysop)
                    , TEMPORARY disabled := NOT (RecordExists(accountstatus) AND accountstatus.status = "active")
                    , issysop :=         issysop
                    , rowkey :=          wrd_id
