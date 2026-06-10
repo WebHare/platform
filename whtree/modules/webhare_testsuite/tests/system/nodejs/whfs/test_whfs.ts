@@ -211,8 +211,16 @@ async function testWHFS() {
 
   //FIXME test proper unwrapped into 'wrapped' of metadata associated with the resource descriptor. eg if given we should also copy/preserve refpoints
 
+  //verify int/extlink safely deal with deleted files
+  const intLinkToNewFile = new IntExtLink(newFile.id);
+  const intLinkToNewFile2 = new IntExtLink(newFile2.id);
+  test.eq(/^http.*testfile\/$/, await intLinkToNewFile.resolve());
   await newFile.delete();
   await newFile2.recycle();
+  test.eq(null, await intLinkToNewFile.resolve());
+  test.eq(null, await intLinkToNewFile2.resolve());
+
+  //verify allowMissing and allowHistoric options
   test.eq(null, await tmpfolder.openFile("testfile", { allowMissing: true }));
   test.eq(null, await tmpfolder.openFile("testfile2.txt", { allowMissing: true }));
   await test.throws(/No such file/, openFile(newFile.id));

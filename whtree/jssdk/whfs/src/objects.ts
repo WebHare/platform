@@ -882,9 +882,14 @@ export async function lookupWHFSObject(startingpoint: number, fullpath: string):
   const res = await resolveWHFSObjectByPath(startingpoint, fullpath);
   return res.leftover ? -1 : res.id;
 }
+
+/** Options supported by openFile/openFolder calls */
 export interface OpenWHFSObjectOptions {
+  /** Return `null` instead of throwing if the requested object doesn't exist or refers to a historic version */
   allowMissing?: boolean;
+  /** Allows opening of historic versions - otherwise they're treated as non-existent */
   allowHistoric?: boolean;
+  /** Allows opening the 'root' folder (a mock WHFSFolder is returned as the root does not actually exist in the database) */
   allowRoot?: boolean;
 }
 
