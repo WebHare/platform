@@ -112,8 +112,8 @@ export class ToolbarWidget {
         classNames.push(className);
         this.toolbar_assetstatus.className = classNames.join(" ");
       }
-
     }
+
     if (changes.fileStatus) {
       const showfilestatus = changes.fileStatus
         ? changes.fileStatus.hasfile
@@ -131,8 +131,7 @@ export class ToolbarWidget {
           : "na"
         : "unknown";
       this.toolbar_filestatus.textContent = showfilestatus;
-      //TODO we don't seem to be copying 'ispreview' out of the fileStatus so this didn't exist?
-      this.toolbar_filestatus.style.display =/* changes.fileStatus && !changes.fileStatus.ispreview ? '' :*/ 'none';
+      this.toolbar_filestatus.style.display = changes.fileStatus && !changes.fileStatus.ispreview ? '' : 'none';
       this.toolbar_pagerepublishreload.style.display = /*changes.fileStatus && !changes.fileStatus.ispreview ? '' :*/ 'none';
 
       const className = "wh-outputtool__filestatus-" + showfilestatus.toLowerCase();

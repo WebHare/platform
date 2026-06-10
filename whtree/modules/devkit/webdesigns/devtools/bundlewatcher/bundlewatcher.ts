@@ -164,7 +164,7 @@ export function handleStatusUpdates(newPacks: SocketBundleStatus[]) {
     if (assetpack.lastCompile && assetpack.activeVersion && assetpack.lastCompile.getTime() < (assetpack.activeVersion).getTime())
       console.error(`Assetpack ${key} actual compilationtime ${assetpack.activeVersion} is newer than lastcompile time ${assetpack.lastCompile.toISOString()} as reported by assetpack service - this may be caused by multiple assetpack controllers (or multiple WebHares) running`);
     else if (debugFlags.devdebug)
-      console.log(`[dev/debugjs] Outdated pack: ${key}, activeversion=${assetpack.activeVersion?.toISOString()}, lastcompile=${assetpack.lastCompile!.toISOString()}`);
+      console.log(`[dev/debugjs] Outdated pack: ${key}, activeversion=${assetpack.activeVersion?.toISOString()}, lastcompile=${assetpack.lastCompile?.toISOString()}`);
   }
 
   const inUnknownState = [...watched.entries()].filter(([key, assetpack]) => !assetpack.gotStatus).map(([key]) => key);

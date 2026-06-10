@@ -19,7 +19,7 @@ export { WRDLegacySchema as WRDSchema, type WRDAttributeType, type WRDMetaType, 
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf, WRDSchemaType };
 
 import type * as customizer from "@webhare/auth/src/customizer";
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
@@ -137,7 +137,7 @@ function getSchemaConfiguration(tag: string) { //Equivalent of HS GetModuleWRDSc
     @param metadata - Metadata
     @returns The created WRD schema's id */
 export async function createSchema(tag: string, options?: CreateSchemaOptions): Promise<number> {
-  checkModuleScopedName(tag);
+  parseModuleQualifiedName(tag);
 
   const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id"]).where("name", "=", tag).executeTakeFirst();
   if (dbschema)

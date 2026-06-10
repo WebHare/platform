@@ -10,7 +10,7 @@ import { renderHSWidget, runHareScriptPage, wrapHSWebdesign } from "./hswebdesig
 import { importJSFunction, type RichTextDocument } from "@webhare/services";
 import { createWebResponse, getAssetPackIntegrationCode, type PageBuilderDataTypes, type WebdesignPluginAPIs, type WebResponse } from "@webhare/router";
 import type { WHConfigScriptData_FromServer } from "@webhare/frontend/src/init";
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { parseModuleQualifiedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { isLitty, litty, littyToString, rawLitty, type Litty } from "@webhare/litty";
@@ -274,7 +274,7 @@ export class CPageRequest {
 
   /** Set data to be sent to the client's browser */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
-    checkModuleScopedName(dataObject);
+    parseModuleQualifiedName(dataObject);
     // TODO why isn't typescript accepting this?
     // this.frontendConfig[dataObject] = data;
     this.frontendConfig = {
@@ -285,13 +285,13 @@ export class CPageRequest {
 
   /** Get data sent to the pagebuilder */
   getPageBuilderData<Type extends keyof PageBuilderDataTypes>(dataObject: Type): PageBuilderDataTypes[Type] | undefined {
-    checkModuleScopedName(dataObject);
+    parseModuleQualifiedName(dataObject);
     return this.pageBuilderData[dataObject] as PageBuilderDataTypes[Type] | undefined;
   }
 
   /** Set data to be sent to the pagebuilder for processing/tweaking the final page */
   setPageBuilderData<Type extends keyof PageBuilderDataTypes>(dataObject: Type, data: PageBuilderDataTypes[Type]) {
-    checkModuleScopedName(dataObject);
+    parseModuleQualifiedName(dataObject);
     this.pageBuilderData[dataObject] = data;
   }
 

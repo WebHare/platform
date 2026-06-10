@@ -172,7 +172,11 @@ async function testLogs() {
   const logreader_1204c = services.readLogLines<{ line: number }>("webhare_testsuite:test", { continueAfter: logreader_1204_line2.value["@id"], limit: new Date("2024-12-06") });
   test.eq(3, (await logreader_1204c.next()).value.line);
 
+  //@ts-expect-error -- misses :
   test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
+  //@ts-expect-error -- no uppercase
+  test.throws(/Invalid/, () => services.logDebug("services_test:Uppercase", { x: 42 }));
+
   services.logDebug("webhare_testsuite:services_test", { test: 42 });
   services.logError(new Error("Broken"));
   ///@ts-ignore we explicitly want to test for the exception when passing an incorrect name

@@ -47,6 +47,7 @@ export type FileStatus = {
   ispublishing: boolean;
   isok: boolean;
   haswarnings: boolean;
+  ispreview: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO needs typing
@@ -142,9 +143,6 @@ function handleToolssocketMessage(event: MessageEvent) {
     return;
   }
   if (msgdata.type === "file") {
-    if (msgdata.ispreview)
-      return;
-
     if (!msgdata.hasfile) {
       console.warn("This page is not associated with a file");
     } else if (msgdata.isdeleted) {
@@ -166,7 +164,7 @@ function handleToolssocketMessage(event: MessageEvent) {
     }
 
     const publishingdone = !msgdata.ispublishing && bundlestatus && !msgdata.haserrors;
-    filestatus = { hasfile: msgdata.hasfile, isdeleted: msgdata.isdeleted, ispublishing: msgdata.ispublishing, isok: !msgdata.haserrors, haswarnings: msgdata.haswarnings };
+    filestatus = { hasfile: msgdata.hasfile, isdeleted: msgdata.isdeleted, ispublishing: msgdata.ispublishing, isok: !msgdata.haserrors, haswarnings: msgdata.haswarnings, ispreview: msgdata.ispreview };
     updateToolbar();
 
     checkReload();
