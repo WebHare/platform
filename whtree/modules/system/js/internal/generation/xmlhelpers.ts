@@ -5,9 +5,14 @@ import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy, throwError } from "@webhare/std";
 import * as xmldom from "@xmldom/xmldom";
+import * as parse5 from "parse5";
 
 /** Build a \@xmldom/xmldom DOCParser that doesn't make noise about broken docs */
-export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): xmldom.Document {
+export function parseDocAsXML(data: string, format: "text/xml" | "text/html", options?: { rewriteHTML?: boolean }): xmldom.Document {
+  if (format === "text/html" && options?.rewriteHTML) {
+    //we need to cleanup minified data for xmldom to have a chance to parse it. would be nice if we could stream the AST to xmldom
+    data = parse5.serialize(parse5.parse(data));
+  }
   const parser = new xmldom.DOMParser({
     onError: w => { } //just ignore
   });

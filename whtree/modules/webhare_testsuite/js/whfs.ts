@@ -19,7 +19,7 @@ export function getWHConfig(parseddoc: Document): WHConfigScriptData {
 }
 
 export function parseResponse(responsetext: string) {
-  const doc = parseDocAsXML(responsetext, 'text/html');
+  const doc = parseDocAsXML(responsetext, 'text/html', { rewriteHTML: true });
   const config = attempt(() => getWHConfig(doc), null);
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];

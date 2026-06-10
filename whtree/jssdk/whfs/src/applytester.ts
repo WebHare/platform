@@ -554,6 +554,7 @@ export class WHFSApplyTester {
       supportsAccessDenied: false,
       siteProfile: "",
       is404: false,
+      minify: true,
       contentNavStops: [] as string[],
 
       plugins: [] as PluginData[]
@@ -575,6 +576,7 @@ export class WHFSApplyTester {
       webDesign.maxContentWidth = apply.webdesign.maxcontentwidth || webDesign.maxContentWidth;
       webDesign.siteProfile = apply.siteprofile;
       webDesign.wittyEncoding = apply.webdesign.wittyencoding || webDesign.wittyEncoding;
+      webDesign.minify = apply.webdesign.minify ?? webDesign.minify;
 
       if (apply.webdesign.has_assetpack) {
         webDesign.assetPack = apply.webdesign.assetpack;

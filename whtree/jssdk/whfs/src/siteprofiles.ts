@@ -284,6 +284,7 @@ export type CSPWebDesign = {
   supportserrors: boolean;
   supportsaccessdenied: boolean;
   contentnavstops: string[];
+  minify?: boolean;
 
   has_assetpack: boolean;
   has_supportserrors: boolean;

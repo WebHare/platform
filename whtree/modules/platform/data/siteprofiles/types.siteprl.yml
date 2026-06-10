@@ -424,6 +424,8 @@ apply:
             requireRight: ""
           win:
             title: Witty invocations
+          no-minify:
+            title: Don't minify HTML
       - groupTitle: RPCs & authentication
         flags:
           aut:

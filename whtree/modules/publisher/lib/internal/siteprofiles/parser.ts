@@ -710,6 +710,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       pagebuilder: context.resolve(apply.webDesign.pageBuilder || ''),
       witty: context.resolve(apply.webDesign.witty || ''),
       wittyencoding: apply.webDesign.wittyEncoding || '',
+      ...("minify" in apply.webDesign) ? { minify: apply.webDesign.minify === true } : null
     };
   }
 

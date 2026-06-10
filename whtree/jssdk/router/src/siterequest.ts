@@ -22,10 +22,11 @@ import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetadata, getOpenGraphData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
-import { dtapStage } from "@webhare/env";
+import { debugFlags, dtapStage } from "@webhare/env";
 import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 import type { Timings } from "@mod-platform/js/logging/timings";
+import { minify } from 'html-minifier-next';
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -390,7 +391,34 @@ export class CPageRequest {
     const pageBuilder = await importJSFunction<PageBuilderFunction>(this._publicationSettings.pageBuilder);
     using timer = this.timings?.startTimer("pageBuilder");
     void (timer);
-    return await pageBuilder(this);
+    let buildResult = await pageBuilder(this);
+
+    if (this._publicationSettings.minify
+      && !debugFlags["no-minify"]
+      && buildResult.headers.get("Content-Type")?.split(';')[0] === "text/html") {
+      //TODO skip for large HTML files (eg over 256KB) as you probably won't care for minification then anyway
+      using minifyTimer = this.timings?.startTimer("minify");
+      void (minifyTimer);
+
+      /* https://github.com/j9t/minifier-benchmarks is interesting.
+         @minify-html/node is fastest but appears unmaintained and has issues, mostly around removing default attribute values, that affect CSS selectors
+         @swc/html is second best in performance. check here https://github.com/swc-project/extra-bindings/blob/main/packages/html/index.ts for options
+                   and see https://github.com/swc-project/swc/blob/a71c8eba7b0ef4280b8866cd8e6eebc5be10f0dc/crates/swc_html_minifier/src/option.rs for some more documentation
+      */
+      const source = await buildResult.text();
+      const minified = await minify(source, {
+        collapseWhitespace: true,
+        minifyCSS: true,
+        minifyJS: true,
+        removeAttributeQuotes: true,
+      });
+      buildResult = createWebResponse(minified, {
+        status: buildResult.status,
+        headers: buildResult.headers,
+      });
+    }
+
+    return buildResult;
   }
 
   /** @deprecated createComposer is going away after WH6 */
