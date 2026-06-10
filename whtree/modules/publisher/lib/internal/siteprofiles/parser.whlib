@@ -932,7 +932,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "baseproperties"
             {
-              apply.baseproperties := [ haslist := GetHasList(node, [ "description", "isunlisted", "keywords", "seotab", "noindex", "nofollow", "noarchive", "requiretitle", "seotitle" ])
+              apply.baseproperties := [ haslist := GetHasList(node, [ "description", "isunlisted", "keywords", "seotab", "noindex", "nofollow", "noarchive", "requiretitle", "seotitle", "pageheading" ])
                                       , description := ParseXSBoolean(node->GetAttribute("description"))
                                       , keywords := ParseXSBoolean(node->GetAttribute("keywords"))
                                       , isunlisted := ParseXSBoolean(node->GetAttribute("isunlisted")) //NOTE not enabled in the XSD (yet?)
@@ -942,6 +942,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                                       , noarchive := ParseXSBoolean(node->GetAttribute("noarchive"))
                                       , requiretitle := ParseXSBoolean(node->GetAttribute("requiretitle")) //NOTE not enabled in the XSD (yet?)
                                       , seotitle := ParseXSBoolean(node->GetAttribute("seotitle"))
+                                      , pageheading := ParseXSBoolean(node->GetAttribute("pageheading")) //NOTE not enabled in the XSD (yet?)
                                       ];
               CONTINUE;
             }

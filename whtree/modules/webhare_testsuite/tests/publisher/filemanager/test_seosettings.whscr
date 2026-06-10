@@ -14,7 +14,7 @@ LOADLIB "mod::consilio/lib/pagelists.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
-OBJECT seotestroot, root, noindeximage, seotitlefile, noindexfolder, forced_noindex_nofollow_yesfollow_file, seotestfile, seoheadertitlefolder, noindexsubfolder, noindexsubfile,
+OBJECT seotestroot, root, noindeximage, seotitlefile, pageheadingfile, noindexfolder, forced_noindex_nofollow_yesfollow_file, seotestfile, seoheadertitlefolder, noindexsubfolder, noindexsubfile,
        noindexsubfolderindex, nofollowfolder, nofollowsubfolder, nofollowsubfile, forced_noindex_file, forced_nofollow_file, forced_noarchive_file, forced_noindex_nofollow_noarchive_file;
 
 MACRO PrepIt()
@@ -36,6 +36,7 @@ ASYNC MACRO TestSeoSettings_AsLisa() {
   seotestroot := GetTestsuiteTempFolder()->CreateFolder([name := "seotab"]);
   seotestfile := seotestroot->CreateFile([name := "seotestfile", type := usetype->id, publish := TRUE ]);
   seotitlefile := seotestroot->CreateFile([name := "seotitlefile", type := usetype->id, publish := TRUE, title := "navtitle seotitlefile" ]);
+  pageheadingfile := seotestroot->CreateFile([name := "pageheadingfile", type := usetype->id, publish := TRUE, title := "navtitle pageheadingfile" ]);
   seoheadertitlefolder := seotestroot->CreateFolder([name := "seotitle-headertitle-folder" ]);
 
   noindexfolder := seotestroot->CreateFolder([name := "noindex"]);
@@ -82,7 +83,18 @@ ASYNC MACRO TestSeoSettings_AsLisa() {
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
   TestEq(TRUE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TestEq(FALSE, TT("page_heading", [ findinvisible := TRUE ])->visible);
   TT("seotitle")->value := "The Seo Title";
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ pageheadingfile->whfspath ] ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
+
+  TestEq(FALSE, TT("seotitle", [ findinvisible := TRUE ])->visible);
+  TestEq(TRUE, TT("page_heading", [ findinvisible := TRUE ])->visible);
+  TT("page_heading")->value := "The Page Heading";
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //exit publisher
@@ -254,14 +266,15 @@ ASYNC MACRO TestSeoSettings_AsSysop() {
   TestEq("Is set", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/");
   TestEq("Is set from /tmp/seotab/nofollow/", SELECT AS STRING nofollow FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
-  TestEqStructure([[ seotitle := "The Seo Title", navigationtitle := "navtitle seotitlefile" ]]
-                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/seotitlefile"
+
+  TestEqMembers([[ "meta title" := "The Seo Title", "navigation title" := "navtitle seotitlefile", "page heading" := "" ]]
+                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/seotitlefile"
                   , "*");
-  TestEqStructure([[ seotitle := "", navigationtitle := "navtitle headertitlefile" ]]
-                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/headertitlefile"
+  TestEqMembers([[ "page heading" := "The Page Heading" , "navigation title" := "navtitle pageheadingfile" ]]
+                  , SELECT * FROM exprows WHERE exprows."site path" = "/tmp/seotab/pageheadingfile"
                   , "*");
   TestEq("> ", SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/noindex/noindexsub/noindexsubfile");
-  TEstEq("> " || noindexsubfile->link, SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
+  TestEq("> " || noindexsubfile->link, SELECT AS STRING "> " || exprows."canonical url" FROM exprows WHERE exprows."site path" = "/tmp/seotab/nofollow/nofollowsub/nofollowsubfile");
 
   //TestEqMembers([ maincategory := "TEST: another of my categories", sub1 := "TEST: A Subcategory" ], testrows[2],"*");
   AWAIT ExpectScreenChange(-1, DEFAULT MACRO PTR); //download self-closes

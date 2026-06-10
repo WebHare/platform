@@ -585,7 +585,7 @@ function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserCo
 function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"] {
   if (Array.isArray(props)) { //these are a 'full reset'
     return {
-      haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB"],
+      haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "PAGEHEADING"],
       description: props.includes("description"),
       isunlisted: props.includes("isUnlisted"),
       keywords: props.includes("keywords"),
@@ -593,6 +593,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       seotitle: props.includes("seotitle") || props.includes("seoTitle"),
       // seotab probably shouldn't be configurable once you switch to YAML. or we make them explicit temporary opt-outs
       seotab: true,
+      pageheading: false,
       //NOTE these don't enable a configurable setting, but enforce it! it should probably not be part of <baseproperties>/baseProps
       noindex: false,
       nofollow: false,
@@ -612,6 +613,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
       noindex: props.noIndex || props.noindex || false,
       nofollow: props.noFollow || props.nofollow || false,
       noarchive: props.noArchive || props.noarchive || false,
+      pageheading: props.pageHeading || false
     };
   }
 }

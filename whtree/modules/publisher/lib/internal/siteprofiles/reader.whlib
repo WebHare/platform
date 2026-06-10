@@ -1927,6 +1927,7 @@ PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester) {
         , noarchive := FALSE
         , requiretitle := FALSE
         , seotitle := FALSE
+        , pageheading := FALSE
     ]);
   RETURN CELL [
     ...baseprops,

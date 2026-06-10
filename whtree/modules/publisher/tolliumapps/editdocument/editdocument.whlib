@@ -110,7 +110,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     //Loads the extensions for the file type and invokes additional editor hooks
     this->SetupForFileEdit(this->itemid, data.objeditor);
-    this->RefreshReadonly();
 
     ^publicationlistener->masks := [ "system:whfs.folder." || this->sourceitem->parent, "publisher:publish.folder." || this->sourceitem->parent ];
 

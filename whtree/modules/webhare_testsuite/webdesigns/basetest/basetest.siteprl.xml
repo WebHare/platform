@@ -347,6 +347,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*pageheading*" />
+    <baseproperties pageheading="true" />
+  </apply>
+
+  <apply>
     <to type="all" pathmask="*noindex*" />
     <baseproperties noindex="true" />
   </apply>

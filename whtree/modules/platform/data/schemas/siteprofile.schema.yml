@@ -694,6 +694,9 @@ $defs:
           seoTitle:
             type: boolean
             description: Enable the SEO title field
+          pageHeading:
+            type: boolean
+            description: Enable the page heading field
           description:
             type: boolean
           keywords:

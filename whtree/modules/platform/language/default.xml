@@ -181,6 +181,8 @@
         </textgroup>
         <textgroup gid="metadata">   <!-- siteprofiles.types.web.metadata -->
           <text tid="metadata">Web/SEO metadata</text>
+          <text tid="page_heading">Page heading</text>
+          <text tid="page_heading-placeholder">Overwrite title used on the page</text>
           <text tid="seo_title">Meta title</text>
           <text tid="seo_title-placeholder">Overwrite title used in search results/browser title</text>
         </textgroup>

@@ -479,6 +479,7 @@ export class WHFSApplyTester {
       noarchive: false,
       requiretitle: false,
       seotitle: false,
+      pageheading: false,
     };
     for (const apply of await this.getMatchingRules('baseproperties'))
       for (const fld of apply.baseproperties.haslist)

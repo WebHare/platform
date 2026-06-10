@@ -150,6 +150,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
   PUBLIC STRING pagetitle;
   ///Error code for which we're running (a 4xx or 5xx code, or 0 for no error)
   PUBLIC INTEGER pageerrorcode;
+  ///The page heading (H1))
+  PUBLIC STRING pageheading;
   ///The navigation title (fs_objects.title)
   PUBLIC STRING navigationtitle;
   ///The page description
@@ -281,6 +283,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
         ...this->GetInstanceData("platform:web.metadata")
       ];
       this->navigationtitle := this->metadata.title ?? this->pvt_targetfolder->title;
+      this->pageheading := this->_seosettings.page_heading ?? this->navigationtitle;
       IF(NOT this->pvt_targetobject->isfolder)
       {
         this->pagetitle := this->_seosettings.seo_title ?? this->navigationtitle;

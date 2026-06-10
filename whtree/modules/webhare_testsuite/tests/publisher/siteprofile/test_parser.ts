@@ -264,7 +264,7 @@ types:
         ],
         applyindex: 0,
         baseproperties: {
-          description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB"]
+          description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "PAGEHEADING"]
         },
         yaml: true,
         extendproperties: [
@@ -355,7 +355,7 @@ rtdTypes:
       {
         tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB"] },
+        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "ISUNLISTED", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "REQUIRETITLE", "SEOTITLE", "SEOTAB", "PAGEHEADING"] },
         yaml: true,
         extendproperties: [
           {

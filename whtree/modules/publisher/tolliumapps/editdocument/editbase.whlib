@@ -119,21 +119,15 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->isobjectprops := isobjectprops;
   }
 
-  MACRO RefreshReadonly()
-  {
+  MACRO RefreshReadonly() {
     BOOLEAN setreadonly := this->workflowmgr->IsReadOnly();
     this->readonly := setreadonly;
-    this->OnReadonlyChange();
+    this->RefreshMetaTabsReadonly();
   }
 
   BOOLEAN FUNCTION CanWriteCurrentItem()
   {
     RETURN this->isnew OR (NOT RecordExists(this->recyclebininfo) AND this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
-  }
-
-  MACRO OnReadonlyChange()
-  {
-    this->RefreshMetaTabsReadonly();
   }
 
   MACRO SetupBaseSettings()
@@ -150,11 +144,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       ^title->onchange := PTR this->SyncNameWithTitle;
       this->SyncNameWithTitle();
     }
-
-    //FIXME restore seotabrequireright. see objectprops.whlib
-    BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
-    //As these are published, only files that go through a webdesign can show something useful
-    ^seotitle->visible := needstemplate AND this->basesettings.seotitle;
 
     //TODO generalize further so metadata.ts also managed SEO settings
     this->renderer->RegisterMetaController(^webmetadata->type, ^webmetadata);
@@ -256,8 +245,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     ^name->value := this->GetSuggestedSlug(0);
   }
 
-  MACRO RefreshMetaTabsReadonly()
-  {
+  MACRO RefreshMetaTabsReadonly() {
     this->renderer->SetControllersEnabled(NOT this->readonly);
 
     // objectprops is not allowed to edit workflow fields when editing existing files which have a true workflow (and document editor)
@@ -265,6 +253,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     BOOLEAN needstemplate := this->isfolder ? FALSE : this->contexts->applytester->IsTypeNeedsTemplate();
     //As these are published, only files that go through a webdesign can show something useful
     ^seotitle->visible := needstemplate AND this->basesettings.seotitle AND edit_workflow_metadata;
+    ^page_heading->visible := needstemplate AND this->basesettings.pageheading AND edit_workflow_metadata;
     ^title->enabled := NOT this->readonly AND ^title->visible AND edit_workflow_metadata;
     ^isunlisted->enabled := NOT this->readonly AND ^isunlisted->visible AND edit_workflow_metadata;
     ^description->enabled := NOT this->readonly AND ^description->visible AND edit_workflow_metadata;
