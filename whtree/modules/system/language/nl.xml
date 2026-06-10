@@ -2148,6 +2148,7 @@
     </textgroup>
     <textgroup gid="dialogues">   <!-- userrights.dialogues -->
       <text tid="actionfailed">De actie is mislukt: <br/><param p="1"/></text>
+      <text tid="cannoteditsysopasnonsysop">De gegevens van systeembeheerders mogen alleen worden aangepast door andere systeembeheerders.</text>
       <text tid="cannotgetobjecttreeforobjecttype">Het is niet gelukt om een lijst van objecten voor <ifparam p="1" value="1">objecttype<else/>objecttypes</ifparam> <param p="2"/> te krijgen.</text>
       <text tid="cannotmoveunittochild">Een eenheid kan niet in een van zijn eigen subeenheden geplaatst worden.</text>
       <text tid="cannotresetunmanageduser">Kan geen wachtwoord reset link sturen voor dit account, WebHare beheert het wachtwoord niet</text>

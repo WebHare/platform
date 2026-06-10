@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
@@ -108,6 +109,16 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
       }
       ^wrd_guid->enabled := FALSE;
 
+      BOOLEAN wearesysop := this->tolliumuser->HasRight("system:sysop");
+      BOOLEAN issysop := this->pvt_user->HasRight("system:sysop");
+
+      IF (issysop AND NOT wearesysop)
+      {
+        this->RunSimpleScreen("error", GetTid("system:userrights.dialogues.cannoteditsysopasnonsysop"));
+        this->tolliumresult := "cancel";
+        RETURN;
+      }
+
       ^enableguidedit->visible := this->tolliumuser->HasRight("system:sysop");
       ^password->visible := FALSE;
     }
@@ -198,6 +209,8 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
     IF(NOT ObjectExists(this->pvt_user))
       extrafields := CellInsert(extrafields, this->contexts->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(^password->value));
 
+    RECORD orgfields := isnew ? DEFAULT RECORD : ^userobj->wrdentity->GetFields([ "*" ]);
+
     INTEGER id := ^userobj->StoreEntity(work, extrafields);
     IF (id != 0) {
       ^screentabs->SubmitExtensions(work);
@@ -205,21 +218,52 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
       // Updating the GUID must run via the v2 api, can't use StoreEntity for that.
       ^userobj->wrdentity->UpdateEntity([ wrd_guid := ^wrd_guid->value ]);
 
+      IF (NOT isnew) {
+        RECORD newupdates := ^userobj->wrdentity->FilterFieldUpdates(orgfields);
+        IF (RecordExists(newupdates)) {
+          STRING ARRAY updatedfields := ArrayDelete(GetSortedSet(SELECT AS STRING ARRAY ToLowercase(name) FROM UnpackRecord(newupdates)), [ "wrd_title", "wrd_fullname", "wrd_modificationdate" ]);
+          IF (IsValueSet(updatedfields)) {
+            STRING ARRAY showfields := SELECT AS STRING ARRAY name FROM ToRecordArray(updatedfields, "NAME") WHERE name IN STRING[ this->contexts->wrdschema->accountlogintag, this->contexts->wrdschema->accountemailtag ];
+            STRING logkey := "platform:updateuser";
+            RECORD logfields;
+            IF (IsValueSet(showfields)) {
+              logfields := CELL[
+                ...logfields,
+                oldlogin := PickCells(orgfields, showfields),
+                newlogin := ^userobj->wrdentity->GetFields(showfields)
+              ];
+            }
+
+            IF ("wrdauth_account_status" IN updatedfields) {
+              logkey := "platform:accountstatus";
+              logfields := CELL[
+                ...logfields,
+                oldstatus := orgfields.wrdauth_account_status,
+                newstatus := ^userobj->wrdentity->GetField("wrdauth_account_status")
+              ];
+            }
+
+            this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent(logkey, [
+              account := ^userobj->entityid,
+              login := ^username->value,
+              message := CELL[ fields := updatedfields, ...logfields ]
+            ]);
+          }
+        }
+      } ELSE {
+        // Need to write the audit event in this transaction, because the new entity hasn't been committed yet
+        this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("platform:createuser", [
+          account := ^userobj->entityid,
+          login := ^username->value,
+          useseparateprimary := FALSE
+        ]);
+      }
+
       this->contexts->userapi->SyncUserAfterUpdate(id);
 
       user := this->contexts->userapi->GetUser(id); //reload user, guid might have changed
     } ELSE {
       user := this->pvt_user;
-    }
-
-    IF(NOT work->HasFailed() AND ^userobj->^wrdauth_account_status->HasChanged()) {
-      this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("platform:accountstatus",
-        [ account := ^userobj->entityid
-        , login := ^username->value
-        , message := [ oldstatus := ^userobj->^wrdauth_account_status->originalvalue
-                     , newstatus := ^userobj->^wrdauth_account_status->value
-                     ]
-        ]);
     }
 
     IF(ObjectExists(user)) //we didn't crash yet ?

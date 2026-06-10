@@ -205,6 +205,7 @@ PUBLIC RECORD FUNCTION UpdateAuthenticationSettings(RECORD curvalue, RECORD newv
     @cell options.login Login name of account that is being modified
     @cell options.isimpersonation Whether this is an impersonation
     @cell(record) options.message Additional data
+    @cell(boolean) options.useseparateprimary Whether to use a separate primary transaction for logging the event, defaults to true.
 */
 PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -214,15 +215,19 @@ PUBLIC MACRO WriteWRDAuditEvent(OBJECT wrdtype, STRING type, RECORD options DEFA
       , message :=    DEFAULT RECORD
       , wrdschema := ""
       , isimpersonation := FALSE
+      , useseparateprimary := TRUE
       ], options,
       [ required := [ "account" ]
       ]);
 
-  RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message, options.wrdschema));
+  IF (options.useseparateprimary)
+    RunInSeparatePrimary(PTR DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message, options.wrdschema, options.useseparateprimary));
+  ELSE
+    DoWriteAuditEvent(wrdtype, type, options.account, options.login, options.isimpersonation, options.message, options.wrdschema, options.useseparateprimary);
 }
 
 // Writes an audit log event to the database in separated transactions
-MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_entityid, STRING affecteduser_login, BOOLEAN isimpersonation, RECORD message, STRING wrdschema)
+MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_entityid, STRING affecteduser_login, BOOLEAN isimpersonation, RECORD message, STRING wrdschema, BOOLEAN inseparateprimary)
 {
   type := ToLowercase(type);
   IF(type NOT LIKE "?*:?*")
@@ -258,13 +263,15 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
       , data :=                 RecordExists(message) ? EncodeHSON(message) : ""
       ];
 
-  GetPrimary()->BeginWork();
+  IF (inseparateprimary)
+    GetPrimary()->BeginWork();
   INSERT toinsert INTO wrd.auditevents;
+  GetPrimary()->BroadcastOnCommit(`wrd:auditlog.${accounttype->wrdschema->id}.${logged.auditcontext.affecteduser_entityid}`, DEFAULT RECORD);
 
   TRY
   {
-    GetPrimary()->CommitWork();
-    BroadcastEvent(`wrd:auditlog.${accounttype->wrdschema->id}.${logged.auditcontext.affecteduser_entityid}`, DEFAULT RECORD);
+    IF (inseparateprimary)
+      GetPrimary()->CommitWork();
     RETURN;
   }
   CATCH(OBJECT e)

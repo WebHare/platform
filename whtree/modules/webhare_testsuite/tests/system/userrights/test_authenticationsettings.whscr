@@ -23,6 +23,21 @@ ASYNC MACRO ManageAuthenticationSettings()
   TT("username")->value := "homer@allow2fa.test.webhare.net";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
+  INTEGER homer := testfw->GetWRDschema()->^wrd_person->Search("wrd_contact_email", "homer@allow2fa.test.webhare.net");
+  TestAuditEvent(
+      [ entity :=           homer
+      , login :=            "homer@allow2fa.test.webhare.net"
+      , byentity :=         testfw->GetUserObject("sysop")->entityid
+      , bylogin :=          "sysop@beta.webhare.net"
+      , browsertriplet :=   ""
+      , ip :=               ""
+      , type :=             "platform:createuser"
+      //HS always sets impersonator to the editing user even when he's not using login-as
+      , impersonator_login  := "sysop@beta.webhare.net"
+      , impersonator_entity := testfw->GetUserObject("sysop")->entityid
+      , data :=             DEFAULT RECORD
+      ]);
+
   topscreen->frame->focused := TT("unitcontents->userandrolelist");
   TTFillByTitle("unitcontents->userandrolelist", "homer@allow2fa.test.webhare.net");
 
@@ -37,7 +52,6 @@ ASYNC MACRO ManageAuthenticationSettings()
   STRING newtotpsecret := GenerateOTPSecret();
   STRING totpurl := GetTOTPUrl(newtotpsecret, "homer@allow2fa.test.webhare.net", "Webhare testsuite");
 
-  INTEGER homer := testfw->GetWRDschema()->^wrd_person->Search("wrd_contact_email", "homer@allow2fa.test.webhare.net");
   testfw->GetWRDschema()->^wrd_person->UpdateEntity(homer,
       [ whuser_password :=
             [ version :=      1
@@ -59,17 +73,30 @@ ASYNC MACRO ManageAuthenticationSettings()
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick(":Disable two-factor authentication"));
 
   TestAuditEvent(
-      [ entity :=           homer
-      , login :=            "homer@allow2fa.test.webhare.net"
-      , byentity :=         testfw->GetUserObject("sysop")->entityid
-      , bylogin :=          "sysop@beta.webhare.net"
-      , browsertriplet :=   ""
-      , ip :=               ""
-      , type :=             "wrd:authsettings.disabletotp"
-      //HS always sets impersonator to the editing user even when he's not using login-as
-      , impersonator_login  := "sysop@beta.webhare.net"
-      , impersonator_entity := testfw->GetUserObject("sysop")->entityid
-      , data :=             DEFAULT RECORD
+      [ [ entity :=           homer
+        , login :=            "homer@allow2fa.test.webhare.net"
+        , byentity :=         testfw->GetUserObject("sysop")->entityid
+        , bylogin :=          "sysop@beta.webhare.net"
+        , browsertriplet :=   ""
+        , ip :=               ""
+        , type :=             "platform:updateuser"
+        //HS always sets impersonator to the editing user even when he's not using login-as
+        , impersonator_login  := "sysop@beta.webhare.net"
+        , impersonator_entity := testfw->GetUserObject("sysop")->entityid
+        , data :=             [ fields := ["whuser_password"] ] // initialized from DEFAULT RECORD to default authentication settings record
+        ],
+        [ entity :=           homer
+        , login :=            "homer@allow2fa.test.webhare.net"
+        , byentity :=         testfw->GetUserObject("sysop")->entityid
+        , bylogin :=          "sysop@beta.webhare.net"
+        , browsertriplet :=   ""
+        , ip :=               ""
+        , type :=             "wrd:authsettings.disabletotp"
+        //HS always sets impersonator to the editing user even when he's not using login-as
+        , impersonator_login  := "sysop@beta.webhare.net"
+        , impersonator_entity := testfw->GetUserObject("sysop")->entityid
+        , data :=             DEFAULT RECORD
+        ]
       ]);
 
   TestEQ("Not configured", TT(":One-time access code")->value);
@@ -143,6 +170,12 @@ ASYNC MACRO TestAuditLog()
     {
       TestEQMembers(
           [ [ bylogin :=              "sysop@beta.webhare.net"
+            , wrdaudit_type :=        "Created user"
+            ]
+          , [ bylogin :=              "sysop@beta.webhare.net"
+            , wrdaudit_type :=        "Updated user"
+            ]
+          , [ bylogin :=              "sysop@beta.webhare.net"
             , wrdaudit_type :=        "Disabled two factor authentication"
             ]
           , [ bylogin :=              "sysop@beta.webhare.net"
