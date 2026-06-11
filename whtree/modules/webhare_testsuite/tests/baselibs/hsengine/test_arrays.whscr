@@ -28,6 +28,7 @@ MACRO DeclareTest()
   TestEQ([1], INTEGER[a]);
   TestEQ([2,1], INTEGER[2,a]);
   TestEQ([1,2], INTEGER[a,2]);
+  TestEQ([1,2,], INTEGER[a,2,]);
   TestEQ(VARIANT ARRAY([1]) CONCAT VARIANT ARRAY([ "2" ]), VARIANT[1,"2"]);
   TestEQ(DEFAULT RECORD ARRAY, RECORD[]);
 

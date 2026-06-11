@@ -50,6 +50,7 @@ MACRO RecordInitializerTest()
 
   TestEQ(CELL[], CELL[]);
   TestEQ([ a := 1 ], CELL[ a := 1]);
+  TestEQ([ a := 1, ], CELL[ a := 1,]);
 
   INTEGER d := 1;
   OBJECT x := NEW objtype;
