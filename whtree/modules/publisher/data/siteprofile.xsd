@@ -134,6 +134,11 @@
     <xs:attribute name="htmlclass" />
     <xs:attribute name="bodyclass" />
     <xs:attribute name="allownewwindowlinks" type="xs:boolean" />
+     <xs:attribute name="linktypes">
+        <xs:annotation>
+          <xs:documentation>Space separated list of link types to enable</xs:documentation>
+        </xs:annotation>
+     </xs:attribute>
     <xs:attribute name="b">
       <!-- we only support b=b and b=strong for now, but we leave the option open to support eg 'b=b.bold' to get <b class="bold" /> -->
       <xs:annotation>
