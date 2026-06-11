@@ -182,6 +182,17 @@ ASYNC MACRO TestIntExtLink_Tabsextension()
   ext := TT("tabs")->LoadTabsextension(screenwithtabsresouce2 || "#tabs").extension;
   TestEq(["External link","Internal link","custom link handler","custom link handler3"], SELECT AS STRING ARRAY title FROM ext->^link->^linktype->options);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // test with YML linkhandler
+  STRING screenwithtabsresource3 := InlineScreens(`
+    <screen name="firstscreen" implementation="none"><compositions><record name="rowcomp"/></compositions><body><tabs name="tabs" /></body></screen>
+    <tabsextension name="tabs"><newtab><textedit composition="row" cellname="rich"/><p:intextlink composition="row" cellname="link" name="link" required="true" linktypes="webhare_testsuite:testhandler1"><linkhandlers><test:customlinkhandler3/></linkhandlers></p:intextlink></newtab></tabsextension>`);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(screenwithtabsresource3));
+  TT("tabs")->extendcomponents := [[ name := "row", component := TT("rowcomp") ]];
+  ext := TT("tabs")->LoadTabsextension(screenwithtabsresource3 || "#tabs").extension;
+  TestEq(["External link","Internal link","custom link handler_yaml","custom link handler3"], SELECT AS STRING ARRAY title FROM ext->^link->^linktype->options);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 MACRO TestLinkResolution() {

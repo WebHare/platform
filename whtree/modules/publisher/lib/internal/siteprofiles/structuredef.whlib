@@ -1529,6 +1529,7 @@ PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT 
   retval.allowedobjects := structuredef->GetAllowedObjects();
   retval.allownewwindowlinks := ParseXSBoolean(startnode->GetAttribute("allownewwindowlinks"));
   retval.ignoresiteprofilewidgets := ObjectExists(widgetsnode) AND ParseXSBoolean(widgetsnode->GetAttribute("ignoresiteprofilewidgets"));
+  retval.linktypes := ParseXSList(startnode->GetAttribute("linktypes"));
 
   OBJECT ARRAY cssnodes := startnode->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/publisher/siteprofile", "css")->GetCurrentElements();
   IF (LENGTH(cssnodes) != 0)
