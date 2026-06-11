@@ -260,6 +260,7 @@ class IndyShell extends TolliumShell {
     if (!document.body) //early termination of load, eg wrdauth redirect
       return;
 
+    this.startuplock = dompack.flagUIBusy();
     await document.fonts.ready;
 
     // Initialize global event handlers
@@ -282,7 +283,6 @@ class IndyShell extends TolliumShell {
 
   executeShell() { //this needs to be a separate entry point for the login app
     //Launch a placeholder app, simply to get 'something' up and running fast, and display the loader (otherwise we'd have to hack a special loader for 'no-apps')
-    this.startuplock = dompack.flagUIBusy();
     this.placeholderapp = this.startFrontendApplication('tollium:builtin.placeholder', null, { onappbar: false });
 
     console.log("launching StartPortal and the shell");
