@@ -256,6 +256,7 @@ export type CSPBaseProperties = {
   noarchive: boolean;
   requiretitle: boolean;
   seotitle: boolean;
+  pageheading: boolean;
 };
 
 export interface CSPMemberOverride extends CSPMemberBasics {

@@ -60,6 +60,14 @@
                         icon="tollium:actions/refresh"
                         tid="tolliumapps.objectprops.objectprops.refreshname" />
               </textedit>
+              <textedit composition="webmetadata"
+                        cellname="page_heading"
+                        name="page_heading"
+                        width="1pr"
+                        maxlength="256"
+                        placeholdertid="platform:siteprofiles.types.web.metadata.page_heading-placeholder"
+                        showcounter="true"
+                        tid="platform:siteprofiles.types.web.metadata.page_heading" />
               <heading name="seotab_heading" doclink="publisher:objectprops/seo" />
               <textedit composition="webmetadata"
                         cellname="seo_title"

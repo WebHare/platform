@@ -153,7 +153,7 @@ MACRO TestApplyRuleTester() {
 
   tester := GetApplyTesterForObject(OpenTestsuiteJSSite()->OpenByPath("testpages/staticpage")->id);
   //yaml baseProps is allowed to reset most settings
-  TestEqMembers([ description := FALSE, seotitle := TRUE ], GetBaseProperties(tester),'*');
+  TestEqMembers([ description := FALSE, seotitle := TRUE, pageheading := FALSE ], GetBaseProperties(tester),'*');
 
   { //Check HS site
     //Check dynamicexecution overrides. We need to be sure that the JS dynamicpage goes through the JS engine

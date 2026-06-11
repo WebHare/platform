@@ -182,6 +182,7 @@ export class CPageRequest {
     if (!this.pageMetadata.title) // Still no title
       this.pageMetadata.title = this.targetSite.name;
     this.pageMetadata.description = this.targetObject.description; //No fallback to folder. a folder's description is unlikely to apply to a file?
+    this.pageMetadata.pageHeading = seoSettings?.pageHeading || this.pageMetadata.title;
     if (this.targetObject.isFile)
       this.pageMetadata.keywords = this.targetObject.keywords;
 

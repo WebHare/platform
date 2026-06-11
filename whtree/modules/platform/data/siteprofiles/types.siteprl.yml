@@ -361,6 +361,9 @@ types:
       seoTitle:
         type: string
         comment: Override the <title> tag to use in the HTML head
+      pageHeading:
+        type: string
+        comment: Override the <h1> tag to use on the page
 
   web.config:
     workflow: false

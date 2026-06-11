@@ -38,6 +38,9 @@ export class PageMetadata {
   keywords = "";
   canonicalUrl: string | null = null;
 
+  /** H1/pageHeading to use for this page */
+  pageHeading = "";
+
   /** schema.org metadata for this page */
   readonly structuredData: StructuredData = []; //readonly to make it harder to overwrite instead of pushing/appending
 

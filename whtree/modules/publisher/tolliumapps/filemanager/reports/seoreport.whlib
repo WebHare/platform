@@ -64,7 +64,7 @@ PUBLIC MACRO RunSEOReport(OBJECT parentscreen, INTEGER startingfolderid)
   RECORD ARRAY rows := SELECT * FROM (files CONCAT folders) ORDER BY fullpath;
   STRING robotprop_isset := GetTid("publisher:tolliumapps.filemanager.seoreport.isset");
   rows := OpenWHFSType("platform:web.config")->Enrich(rows, "id", [ "no_index", "no_follow", "no_archive", "custom_robots", "canonical", "comments" ]);
-  rows := OpenWHFSType("platform:web.metadata")->Enrich(rows, "id", [ "seo_title" ]);
+  rows := OpenWHFSType("platform:web.metadata")->Enrich(rows, "id", [ "seo_title", "page_heading" ]);
   rows := SELECT *
                , no_index := no_index ? robotprop_isset : ""
                , no_follow := no_follow ? robotprop_isset : ""
@@ -95,7 +95,8 @@ PUBLIC MACRO RunSEOReport(OBJECT parentscreen, INTEGER startingfolderid)
                           ,[ name := "link", type := "string", title := GetTid("~url") ]
                           ,[ name := "filefoldertype", type := "string", title := GetTid("publisher:common.publisherfields.filefoldertype") ]
                           ,[ name := "title", type := "string", title := GetTid("publisher:common.seosettings.navigationtitle") ]
-                          ,[ name := "seo_title", type := "string", title := GetTid("publisher:common.seosettings.seotitle") ]
+                          ,[ name := "seo_title", type := "string", title := GetTid("platform:siteprofiles.types.web.metadata.seo_title") ]
+                          ,[ name := "page_heading", type := "string", title := GetTid("platform:siteprofiles.types.web.metadata.page_heading") ]
                           ,[ name := "no_index", type := "string", title := "noindex" ]
                           ,[ name := "no_follow", type := "string", title := "nofollow" ]
                           ,[ name := "no_archive", type := "string", title := "noarchive" ]

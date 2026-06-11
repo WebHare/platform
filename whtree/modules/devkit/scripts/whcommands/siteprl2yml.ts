@@ -275,7 +275,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
 
   if (ar.baseproperties) {
     rule.baseProps = {};
-    for (const binaryprop of ["description", "noarchive", "keywords", "noIndex", "noFollow", "seoTitle", "seoTab"] as const)
+    for (const binaryprop of ["description", "noarchive", "keywords", "noIndex", "noFollow", "seoTitle", "seoTab", "pageHeading"] as const)
       if (ar.baseproperties.haslist.includes(binaryprop.toUpperCase() as Uppercase<typeof binaryprop>))
         rule.baseProps[binaryprop] = (ar.baseproperties)[binaryprop.toLowerCase() as Lowercase<typeof binaryprop>] === true;
   }
