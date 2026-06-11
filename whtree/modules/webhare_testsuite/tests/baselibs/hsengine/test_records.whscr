@@ -50,6 +50,7 @@ MACRO RecordInitializerTest()
 
   TestEQ(CELL[], CELL[]);
   TestEQ([ a := 1 ], CELL[ a := 1]);
+  TestEQ([ a := 1, ], CELL[ a := 1,]);
 
   INTEGER d := 1;
   OBJECT x := NEW objtype;
@@ -100,6 +101,11 @@ MACRO InsertCellTest()
   result := TestCompileAndRun('<?wh RECORD r; r := CellInsert(r, "", "Data1") ; PRINT(GetCell(r,"")); ?>');
   MustContainError(0, result.errors, 34);
 
+  // trailing comma's
+  RECORD a;
+  INSERT CELL b := 1, INTO a;
+  TestEQ([ b := 1 ], a);
+
   CloseTest("TestRecord: InsertCellTest");
 }
 
@@ -130,6 +136,11 @@ MACRO DeleteCellTest()
   DELETE CELL b, c FROM a;
   TestEq(TRUE, RecordExists(a));
   TestEq(0, Length(UnpackRecord(a)));
+
+  // trailing comma's
+  a := [ b := 1, c := 2 ];
+  DELETE CELL b, FROM a;
+  TestEQ([ c := 2 ], a);
 
   CloseTest("TestRecord: DeleteCellTest");
 }

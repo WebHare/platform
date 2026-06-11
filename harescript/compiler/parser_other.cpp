@@ -1235,7 +1235,11 @@ bool Parser::P_Set_Expression_List(SQLDataModifier* modifier)
                             return false;
                         modifier->columns.push_back(pair.first);
                         modifier->values.push_back(pair.second);
+
                         if (!TryParse(Lexer::Comma))
+                            break;
+
+                        if (TokenType() == Lexer::Where || TokenType() == Lexer::Semicolon)
                             break;
                 }
         }
@@ -1289,7 +1293,7 @@ Symbol * Parser::P_Single_Select_Expression(SQLSelect *select, SQLSelect::Select
 
 void Parser::P_Renamed_Expression_List(SQLSelect *select)
 {
-        do
+        while (true)
         {
                 LineColumn pos = lexer.GetPosition();
 
@@ -1307,79 +1311,85 @@ void Parser::P_Renamed_Expression_List(SQLSelect *select)
                         item.name = P_Column_Name();
 
                         select->namedselects.push_back(item);
-                        continue;
                 }
-
-                if (TryParse(Lexer::OpEllipsis))
+                else  if (TryParse(Lexer::OpEllipsis))
                 {
                         Rvalue *expr = P_Expression(false);
                         item.is_spread = true;
                         item.expr = coder->ImCast(expr->position, expr, VariableTypes::Record, false, false);
                         select->namedselects.push_back(item);
-                        continue;
-                }
-
-                bool is_assignment_column_rename = false;
-
-                //Try a <columnname> := single-select-expr
-                Lexer::State selectstate;
-                lexer.SaveState(&selectstate);
-                if (TokenType() == Lexer::Identifier || TokenType() == Lexer::ConstantString)
-                {
-                        NextToken();
-                        bool is_assignment_column_rename = TokenType() == Lexer::OpAssignment;
-                        lexer.RestoreState(&selectstate);
-
-                        if (is_assignment_column_rename)
-                        {
-                                item.name = P_Column_Name();
-                                NextToken(); //eat the Assignment
-                        }
-                }
-
-                // Get the expression
-                Symbol *star_tablesymbol = P_Single_Select_Expression(select, item);
-
-                // If not <column-name> ':=' single-select-expr, try single-select-expr 'AS' <column-name>
-                if (!is_assignment_column_rename && TryParse(Lexer::As))
-                    item.name = P_Column_Name();
-                else if (!item.is_star && item.name.empty())
-                {
-                        AST::RecordColumnConst *co = dynamic_cast<AST::RecordColumnConst *>(item.expr);
-                        if (co)
-                        {
-                                AST::Variable *var= dynamic_cast<AST::Variable*>(co->record);
-                                if (var && select->sources->IsASource(var->symbol))
-                                    item.name = co->name;
-                        }
-                }
-
-                if (item.name.empty() && !item.is_star)
-                    lexer.AddErrorAt(pos, Error::SelectExprMustHaveName);
-                else if (!item.name.empty() && item.is_star)
-                    lexer.AddErrorAt(pos, Error::SelectStarMayHaveNoName);
-
-                // FIXME: doing this might not be good for optimization. Look at it.
-                if (star_tablesymbol && star_tablesymbol->variabledef->substitutedef)
-                {
-                        for (SymbolDefs::TableDef::ColumnsDef::const_iterator it = star_tablesymbol->variabledef->substitutedef->columnsdef.begin();
-                                it != star_tablesymbol->variabledef->substitutedef->columnsdef.end(); ++it)
-                        {
-                                SQLSelect::SelectItem newitem;
-                                newitem.expr = coder->ImColumnOf(pos,
-                                        coder->ImVariable(pos, star_tablesymbol),
-                                        it->name);
-                                newitem.name = it->name;
-                                newitem.is_delete = false;
-                                newitem.is_spread = false;
-                                newitem.is_star = false;
-                                newitem.from_star = true;
-                                select->namedselects.push_back(newitem);
-                        }
                 }
                 else
-                   select->namedselects.push_back(item);
-        } while (TryParse(Lexer::Comma));
+                {
+                        bool is_assignment_column_rename = false;
+
+                        //Try a <columnname> := single-select-expr
+                        Lexer::State selectstate;
+                        lexer.SaveState(&selectstate);
+                        if (TokenType() == Lexer::Identifier || TokenType() == Lexer::ConstantString)
+                        {
+                                NextToken();
+                                bool is_assignment_column_rename = TokenType() == Lexer::OpAssignment;
+                                lexer.RestoreState(&selectstate);
+
+                                if (is_assignment_column_rename)
+                                {
+                                        item.name = P_Column_Name();
+                                        NextToken(); //eat the Assignment
+                                }
+                        }
+
+                        // Get the expression
+                        Symbol *star_tablesymbol = P_Single_Select_Expression(select, item);
+
+                        // If not <column-name> ':=' single-select-expr, try single-select-expr 'AS' <column-name>
+                        if (!is_assignment_column_rename && TryParse(Lexer::As))
+                        item.name = P_Column_Name();
+                        else if (!item.is_star && item.name.empty())
+                        {
+                                AST::RecordColumnConst *co = dynamic_cast<AST::RecordColumnConst *>(item.expr);
+                                if (co)
+                                {
+                                        AST::Variable *var= dynamic_cast<AST::Variable*>(co->record);
+                                        if (var && select->sources->IsASource(var->symbol))
+                                        item.name = co->name;
+                                }
+                        }
+
+                        if (item.name.empty() && !item.is_star)
+                        lexer.AddErrorAt(pos, Error::SelectExprMustHaveName);
+                        else if (!item.name.empty() && item.is_star)
+                        lexer.AddErrorAt(pos, Error::SelectStarMayHaveNoName);
+
+                        // FIXME: doing this might not be good for optimization. Look at it.
+                        if (star_tablesymbol && star_tablesymbol->variabledef->substitutedef)
+                        {
+                                for (SymbolDefs::TableDef::ColumnsDef::const_iterator it = star_tablesymbol->variabledef->substitutedef->columnsdef.begin();
+                                        it != star_tablesymbol->variabledef->substitutedef->columnsdef.end(); ++it)
+                                {
+                                        SQLSelect::SelectItem newitem;
+                                        newitem.expr = coder->ImColumnOf(pos,
+                                                coder->ImVariable(pos, star_tablesymbol),
+                                                it->name);
+                                        newitem.name = it->name;
+                                        newitem.is_delete = false;
+                                        newitem.is_spread = false;
+                                        newitem.is_star = false;
+                                        newitem.from_star = true;
+                                        select->namedselects.push_back(newitem);
+                                }
+                        }
+                        else
+                        select->namedselects.push_back(item);
+                }
+
+                if (!TryParse(Lexer::Comma))
+                    break;
+
+                // SQL renamed expression list always ends at FROM
+                if (TokenType() == Lexer::From)
+                    break;
+        }
 }
 
 void Parser::P_Select_Ordering_List(SQLSelect* select)

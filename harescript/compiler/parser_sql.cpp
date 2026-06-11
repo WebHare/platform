@@ -93,7 +93,7 @@ void Parser::P_Insert_Statement_Record(LineColumn insert_pos)
 
         std::set< std::string > names;
 
-        do
+        while (true)
         {
                 bool iserror;
                 LineColumn pos = lexer.GetPosition();
@@ -110,8 +110,13 @@ void Parser::P_Insert_Statement_Record(LineColumn insert_pos)
                     lexer.AddErrorAt(pos, Error::ColumnNameAlreadyExists, assignment.first);
 
                 assignments.push_back(assignment);
+
+                if (!TryParse(Lexer::Comma))
+                    break;
+
+                if (TokenType() == Lexer::Into)
+                    break;
         }
-        while (TryParse(Lexer::Comma));
 
         if (TokenType()==Lexer::Into)
         {
@@ -175,7 +180,7 @@ void Parser::P_Insert_Statement_Member(LineColumn insert_pos)
 
         std::set< std::string > names;
 
-        do
+        while (true)
         {
                 bool iserror;
                 LineColumn pos = lexer.GetPosition();
@@ -192,8 +197,13 @@ void Parser::P_Insert_Statement_Member(LineColumn insert_pos)
                     lexer.AddErrorAt(pos, Error::MemberAlreadyExists, assignment.first);
 
                 assignments.push_back(assignment);
+
+                if (!TryParse(Lexer::Comma))
+                    break;
+
+                if (TokenType() == Lexer::Into)
+                    break;
         }
-        while (TryParse(Lexer::Comma));
 
         if (TokenType()==Lexer::Into)
         {
@@ -459,13 +469,18 @@ void Parser::P_Delete_Statement_Record(LineColumn delete_pos)
         NextToken(); // Eat CELL
 
         std::vector< std::string > names;
-        do
+        while (true)
         {
                 std::string columnname = P_Column_Name();
 
                 names.push_back(columnname);
+
+                if (!TryParse(Lexer::Comma))
+                    break;
+
+                if (TokenType() == Lexer::From)
+                    break;
         }
-        while (TryParse(Lexer::Comma));
 
         ExpectSQLToken(Lexer::From,"FROM");
 
@@ -493,13 +508,18 @@ void Parser::P_Delete_Statement_Member(LineColumn delete_pos)
         NextToken(); // Eat MEMBER
 
         std::vector< std::string > names;
-        do
+        while (true)
         {
                 std::string columnname = P_Column_Name();
 
                 names.push_back(columnname);
+
+                if (!TryParse(Lexer::Comma))
+                    break;
+
+                if (TokenType() == Lexer::From)
+                    break;
         }
-        while (TryParse(Lexer::Comma));
 
         ExpectSQLToken(Lexer::From,"FROM");
 
@@ -593,7 +613,7 @@ void Parser::P_Delete_Statement_SQL(LineColumn delete_pos, SQLSource *sqlsource,
 
 void Parser::P_Update_Statement()
 {
-        PARSERULE("<update-statement> ::= UPDATE <lvalue> SET <set-expression-list> [ WHERE <expression> ]");
+        PARSERULE("<update-statement> ::= UPDATE <lvalue> SET <set-expression-list> [ WHERE <expression> ] ;");
 
         LineColumn updatepos = lexer.GetPosition();
         NextToken(); // eat the UPDATE
@@ -935,6 +955,9 @@ Rvalue* Parser::P_Select_Expression()
                 item.from_star = false;
 
                 select->namedselects.push_back(item);
+
+                // Allow trailing comma
+                TryParse(Lexer::Comma);
         }
         else
         {

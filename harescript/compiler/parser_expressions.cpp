@@ -33,7 +33,7 @@ ConstantRecord* Parser::P_Record_Constant()
         if (!have_cell || TokenType() != Lexer::CloseSubscript)
         {
                 bool have_normal_elt = false;
-                do
+                while (true)
                 {
                         if (TryParse(Lexer::OpEllipsis))
                         {
@@ -57,7 +57,12 @@ ConstantRecord* Parser::P_Record_Constant()
                                     rec->columns.push_back(std::make_tuple(AST::ConstantRecord::Item, pair.first, pair.second));
                         }
 
-                } while (TryParse(Lexer::Comma));
+                        if (!TryParse(Lexer::Comma))
+                            break;
+
+                        if (TokenType() == Lexer::CloseSubscript)
+                            break;
+                }
 
                 if (!have_cell && !have_normal_elt)
                     lexer.AddError(Error::OneNonEllipsisElementRequired);
@@ -89,7 +94,7 @@ ConstantArray* Parser::P_Array_Constant(VariableTypes::Type elttype)
         if (type == VariableTypes::Uninitialized || TokenType() != Lexer::CloseSubscript)
         {
                 bool have_normal_elt = false;
-                do
+                while (true)
                 {
                         LineColumn pos = lexer.GetPosition();
 
@@ -105,7 +110,13 @@ ConstantArray* Parser::P_Array_Constant(VariableTypes::Type elttype)
 
                                 arr->values.push_back(std::make_tuple(pos, expr, false));
                         }
-                } while (TryParse(Lexer::Comma));
+
+                        if (!TryParse(Lexer::Comma))
+                            break;
+
+                        if (TokenType() == Lexer::CloseSubscript)
+                            break;
+                }
 
                 if (type == VariableTypes::Uninitialized && !have_normal_elt)
                     lexer.AddError(Error::OneNonEllipsisElementRequired);

@@ -134,6 +134,10 @@ MACRO SelectTest()
   result := TestCompileAndRun('<?wh Print(EncodeJSON(SELECT DISTINCT * FROM [[cella:=1],[cella:=1,cellb:=2]]));');
   MustContainError(0, result.errors, 92, "CELLB"); // unknown column cellb
 
+  //Test trailing comma in column list
+  TestEq([[ quack := 5, test := 5, y := DEFAULT RECORD ]], SELECT TEMPORARY a := COLUMN test, *, quack := a, DELETE x, ...y, FROM [[ test := 5, y := DEFAULT RECORD ]]);
+  TestEq(5, SELECT AS INTEGER TEMPORARY a := COLUMN test, a, FROM [[ test := 5 ]]);
+
   CloseTest("TestDatabase: SelectTest");
 }
 
@@ -605,6 +609,11 @@ UPDATE x SET;
 UPDATE x SET WHERE id = 1;
  //          ^ E:34 # Expecting a column name
 `);
+
+  // tailing comma's
+  rs := [ [ a := 4 ] ];
+  UPDATE rs SET a := 5,;
+  UPDATE rs SET a := 6, WHERE a = 5;
 
   CloseTest("TestDatabase: UpdateTest");
 }
