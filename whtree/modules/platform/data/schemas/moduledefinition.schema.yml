@@ -58,7 +58,7 @@ properties:
     description: JS-based payment providers
     $ref: "#/$defs/PaymentProviders"
   linkTypes:
-    description: Form definition files (used in OpenForm calls)
+    description: Define custom link types for RTDs and IntExtLinks (eg a webshop product link type)
     $ref: "#/$defs/LinkTypes"
   formDefinitions:
     description: Form definition files (used in OpenForm calls)
@@ -566,7 +566,7 @@ $defs:
 
   LinkTypes:
     type: object
-    description: Declare the location of form definitions in this module
+    description: Defines a custom link type
     additionalProperties: false
     patternProperties:
       "^[a-z][-a-z0-9_]*$": # Link handler name
