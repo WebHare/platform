@@ -285,6 +285,11 @@ MACRO InsertMemberTest()
   errors := TestCompile('<?wh OBJECTTYPE objtyp < PUBLIC MACRO DoInsert() { INSERT PUBLIC MEMBER test := 1, test := 2 INTO this; } >; OBJECT o := NEW objtyp; o->DoInsert(); PRINT(o->test || o->test); ?>');
   MustContainError(6, errors, 110, "TEST");
 
+  // Trailing comma test
+  OBJECT o := NEW EmptyObjectType;
+  INSERT PUBLIC MEMBER a := 1, INTO __HS_INTERNAL_MakeObjectReferencePrivileged(o);
+  TestEQ(1, o->a);
+
   CloseTest("TestObjects: InsertMemberTest");
 }
 
@@ -772,6 +777,11 @@ MACRO InsertDeleteTest()
 
   INSERT PRIVATE MEMBER t := 1 INTO x;
   DELETE MEMBER t FROM x;
+  TestEq(FALSE, MemberExists(x, "T"));
+
+  // trailing comma test
+  INSERT PRIVATE MEMBER t := 1 INTO x;
+  DELETE MEMBER t, FROM x;
   TestEq(FALSE, MemberExists(x, "T"));
 
   x->InsertDeleteTest();

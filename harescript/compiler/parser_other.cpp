@@ -1235,7 +1235,11 @@ bool Parser::P_Set_Expression_List(SQLDataModifier* modifier)
                             return false;
                         modifier->columns.push_back(pair.first);
                         modifier->values.push_back(pair.second);
+
                         if (!TryParse(Lexer::Comma))
+                            break;
+
+                        if (TokenType() == Lexer::Where || TokenType() == Lexer::Semicolon)
                             break;
                 }
         }
