@@ -580,6 +580,9 @@ $defs:
           resolveFunction:
             type: string
             description: "HareScript function to resolve the link"
+          tolliumComponent:
+            type: string
+            description: "Tollium component to use as link handler, must derive from TolliumLinkHandlerBase"
           onResolve:
             type: string
             description: "JavaScript callback to resolve the link"

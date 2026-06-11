@@ -35,6 +35,7 @@ export interface ModulePlugins {
     startsWith: string;
     resolveFunction?: string;
     onResolve?: string;
+    tolliumComponent?: string;
   }>;
 }
 
@@ -91,7 +92,8 @@ export async function generatePlugins(context: GenerateContext): Promise<string>
           name: mod.name + ":" + name,
           startsWith: handler.startsWith,
           ...handler.resolveFunction ? { resolveFunction: resolveResource(mod.resourceBase, handler.resolveFunction || '') } : {},
-          ...handler.onResolve ? { onResolve: handler.onResolve || '' } : {}
+          ...handler.tolliumComponent ? { tolliumComponent: resolveResource(mod.resourceBase, handler.tolliumComponent || '') } : {},
+          ...handler.onResolve ? { onResolve: handler.onResolve || '' } : {},
         });
       }
     }
