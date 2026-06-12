@@ -116,11 +116,11 @@ export async function listAllModuleWHFSTypeDefs(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "whfs",
       generator: (options: GenerateContext) => generateWHFSDefs(options, whconstant_builtinmodules, whfsCompileContext)
-    }, ...noncoremodules.map((module: string): FileToUpdate => ({
+    }, {
       path: `ts/whfstypes.ts`,
       module: "dummy-installed",
       type: "whfs",
       generator: (options: GenerateContext) => generateWHFSDefs(options, noncoremodules, whfsCompileContext)
-    }))
+    }
   ];
 }
