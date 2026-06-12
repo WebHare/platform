@@ -308,24 +308,13 @@ export default class ObjRTE extends ComponentBase {
     const selstate = this.rte ? this.rte.getSelectionState() : null;
     const actionstate: ActionState = selstate ? selstate.actionstate : {};
 
-    let have_change = false;
-
     const row = this._selectionflags[0];
     Object.keys(actionstate).forEach(key => {
       const available = actionstate[key]?.available || false;
       if (row[key] !== available) {
-        have_change = true;
         row[key] = available;
       }
     });
-
-    if (have_change) {
-      // Update enabled status for actions
-      //FIXME noone is Adding to this.actions ?
-      /*
-      this.actions.forEach(action => action.checkEnabled());
-      */
-    }
 
     if (this._showcounter)
       this._updateCounter();

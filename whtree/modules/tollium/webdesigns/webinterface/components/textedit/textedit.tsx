@@ -275,10 +275,10 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
       return;
 
     this.enabled = value;
-    this.checkActionEnablers();
+    this.onRefreshConditions();
   }
 
-  checkActionEnablers() {
+  onRefreshConditions() {
     const enabled = this.enabled && (this.enabledOn ? this.evaluateCondition(this.enabledOn) : true);
     this.node.classList.toggle("disabled", !enabled);
     this.inputnode.readOnly = !enabled;

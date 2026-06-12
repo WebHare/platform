@@ -163,7 +163,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
       if ((this.isEventUnmasked("set") && this.value) || this.enablecomponents.length)
         this.transferState(true);
 
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
     }
   }
 

@@ -51,6 +51,12 @@ export type ToddCompClass<T extends ToddCompBase> = {
   new(parentcomp: ToddCompBase, data: ComponentStandardAttributes): T;
 };
 
+//Selects suitable callbacks. NonNullable to ensure optional callbacks are present
+type GetVoidCallbacks<ServiceType> = {
+  [K in keyof ServiceType as NonNullable<ServiceType[K]> extends () => void ? K extends `on${string}` ? K : never : never]: ServiceType[K];
+};
+
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  COMPONENT BASE                                                                                                          *
@@ -295,7 +301,8 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     this[sizeproperty].calc = calc + (addspace || 0);
     this[sizeproperty].min = min + (addspace || 0);
   }
-  checkEnabled(): void {
+  /** invoked by refreshConditions when focus/action/enableons may have changed */
+  onRefreshConditions(): void {
   }
   getChildren(): ToddCompBase[] {
     return [];
@@ -508,9 +515,13 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     if (!sizeprop.servermin && isFixedSize(sizeprop.serverset))
       sizeprop.servermin = sizeprop.serverset;
   }
-  /** invoked when focus/action/eanbleons may have changed */
-  checkActionEnablers() {
-    this.getChildren().forEach(child => child.checkActionEnablers());
+  /** Invoke a callback depth-first on our children, recursively */
+  invokeDepthFirst<C extends keyof GetVoidCallbacks<ToddCompBase>>(callback: C) {
+    for (const child of this.getChildren())
+      if (child) {
+        child[callback]?.();
+        child.invokeDepthFirst(callback);
+      }
   }
   /** Recalculate the specified dimensions of any dimension-dirty part of the tree.
    *  Is invoked after adding the node to the DOM so CSS variables/metrics should be available

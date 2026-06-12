@@ -424,7 +424,7 @@ export default class ObjIFrame extends ComponentBase {
 
       case "actionEnabler": {
         this.selectionflags = msg.selectionFlags || [];
-        this.owner.actionEnabler();
+        this.owner.refreshConditions();
         return;
       }
 
@@ -484,7 +484,7 @@ export default class ObjIFrame extends ComponentBase {
 
       case "actionenabler":
         this.selectionflags = data.selectionflags || [];
-        this.owner.actionEnabler();
+        this.owner.refreshConditions();
         break;
 
       case "createimage": {

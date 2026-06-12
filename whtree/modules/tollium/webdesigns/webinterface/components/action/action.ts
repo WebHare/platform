@@ -150,7 +150,7 @@ export default class ObjAction extends ActionForwardBase<ActionAttributes> {
 
   isEnabled() {
     if (this.lastenabled === null)
-      this.checkEnabled();
+      this.onRefreshConditions();
     return this.lastenabled;
   }
 
@@ -171,7 +171,7 @@ export default class ObjAction extends ActionForwardBase<ActionAttributes> {
     return hitrule;
   }
 
-  checkEnabled() {
+  onRefreshConditions() {
     this.debugLog("actionenabler", `Checking action ${this.name}`);
 
     /* An action is enabled when

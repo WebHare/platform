@@ -117,7 +117,7 @@ export default class ObjPulldown extends ToddCompBase {
     if (this.isEventUnmasked("select") || this.enablecomponents.length)
       this.transferState();
     // always call actionEnabled or enableon's and clientside visibleon's won't work correctly
-    this.owner.actionEnabler();
+    this.owner.refreshConditions();
   }
 
   /****************************************************************************************************************************

@@ -755,7 +755,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       case "selection":
         {
           if (this._setSelection(data.selection))
-            this.owner.actionEnabler();
+            this.owner.refreshConditions();
           this.jumpToSelection();
         } break;
 
@@ -1211,7 +1211,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
     if (cellidx === 1) { //changing selected state
       this.sendRow(rownum);
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
 
       if (this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
@@ -1266,7 +1266,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
   _updatedSelection(changed?: boolean) {
     if (!this.selectionupdates) {
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
       if (changed && this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
     }

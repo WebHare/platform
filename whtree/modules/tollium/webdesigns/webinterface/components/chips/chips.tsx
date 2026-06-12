@@ -358,7 +358,7 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
       if (this.isEventUnmasked("select") || this.enablecomponents.length)
         this.transferState(true);
       // always call actionEnabled or enableon's and clientside visibleon's won't work correctly
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
     }
   }
 

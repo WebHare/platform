@@ -12,7 +12,6 @@ import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, throwError, toCamelCase } from '@webhare/std';
-import type { ObjTabs } from '../tabs/tabs';
 import ActionForwardBase, { type ActionForwardAttributes } from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
@@ -98,7 +97,6 @@ export class ObjFrame extends ToddCompBase {
   actionlisteners: Record<string, string[]> = {};
   default_comp: ToddCompBase | null = null;
   toolbar: ToddCompBase | null = null;
-  tabcontrols: ObjTabs[] = [];
 
   componenttype = "frame";
 
@@ -170,7 +168,7 @@ export class ObjFrame extends ToddCompBase {
       this.innerFocusNode?.classList.add("frame--innerfocus");
     }
     this.innerFocusName = node ? getToddOwner(node) : null;
-    this.actionEnabler(); //any change on focus requires a recheck (TODO debounce?)
+    this.refreshConditions(); //any change on focus requires a recheck (TODO debounce?)
     this._updateDefaultButton(node || this.node); //ensures defaultbutton is processed
   }
 
@@ -530,25 +528,17 @@ export class ObjFrame extends ToddCompBase {
       delete this.actionlisteners[actionname];
   }
 
-  actionEnabler() {
+  /** Tell components to refresh conditional aspects (eg focus / enableon / visibleon dependencies) */
+  refreshConditions() {
     if ($todd.IsDebugTypeEnabled("actionenabler"))
       console.group(this.screenname + ": actionEnabler");
 
     // Check if the name of the currently focused component is still the one we want focused.
     // This keeps focus on replaced panels correct (old components are renamed)
 
-    // Loop through all actions
-    this.specials.forEach(specialname => {
-      const special = this.getComponent(specialname);
-      if (!special) {
-        // Should not happen, maybe actionEnabler was called after window destruction or component deinit
-        console.error("No such action '" + specialname + "' in window " + this.screenname);
-        return;
-      }
-      special.checkEnabled();
-    });
-    this.tabcontrols.forEach(tabcontrol => tabcontrol.checkVisibleTabs());
-    this.getChildren().forEach(child => child.checkActionEnablers());
+    // Loop through all actions. TODO can't we add specials to getChildren() ?
+    this.specials.map(name => this.getComponent(name)).filter(isTruthy).forEach(special => special.onRefreshConditions());
+    this.invokeDepthFirst("onRefreshConditions");
 
     if ($todd.IsDebugTypeEnabled("actionenabler"))
       console.groupEnd();
@@ -1538,7 +1528,7 @@ export class ObjFrame extends ToddCompBase {
     this.recalculateDimensions();
 
     //we must not run the enabler before recalculateDimensions, so the tab control can calculate all visible components (actionenabler will display:none stuff)
-    this.actionEnabler();
+    this.refreshConditions();
     this.relayout();
     this.scrollmonitor.fixupPositions(); //fix any scrollopsitions on newly appeared elements
   }

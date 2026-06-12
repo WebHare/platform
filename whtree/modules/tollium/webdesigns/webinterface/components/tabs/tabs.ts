@@ -104,15 +104,13 @@ export class ObjTabs extends ComponentBase {
     };
 
     this.pendingselect = this.pages.find(page => page.name === data.selected) || null;
-    this.owner.tabcontrols.push(this); //register last, to prevent callbacks into unfinished components   //ADDME addEvent?
   }
 
   destroy() {
-    this.owner.tabcontrols = this.owner.tabcontrols.filter(tab => tab !== this); //erase
     super.destroy();
   }
 
-  checkVisibleTabs() {
+  onRefreshConditions() {
     //console.error("Tab control " + this.name + " check visible. selectedtab=" + this.getSubmitValue());
     let anychange = false;
     this.visibletabs = 0;
@@ -263,7 +261,7 @@ export class ObjTabs extends ComponentBase {
     }
 
     if (this.selected)
-      this.selected.comp.owner.actionEnabler();
+      this.selected.comp.owner.refreshConditions();
   }
 
 

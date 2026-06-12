@@ -610,7 +610,7 @@ export default class ObjTable extends ComponentBase {
     // Set the new selection
     if (modified) {
       this.selection = newselection;
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
 
       if (this.isEventUnmasked("select"))
         this.transferState();
@@ -771,7 +771,7 @@ export default class ObjTable extends ComponentBase {
     }
 
     // we might have gotten focus, so always run the action enabler
-    this.owner.actionEnabler();
+    this.owner.refreshConditions();
     evt.stopPropagation();
   }
 
