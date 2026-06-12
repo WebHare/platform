@@ -1,4 +1,6 @@
 <?wh
+LOADLIB "wh::javascript.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/whfs/register.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -66,9 +68,10 @@ PUBLIC STATIC OBJECTTYPE EditRow EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    OBJECT work := this->BeginWork();
     INTEGER setvalue := this->^value->visible ? this->^value->value : (SELECT AS INTEGER id FROM system.sites WHERE ToUppercase(name) = ToUppercase(this->^site->value));
-    SetWHFSRegisterSlot(this->slotname, setvalue);
+    OBJECT work := this->BeginFeedback();
+    IF(NOT work->HasFailed())
+      CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", this->slotname, setvalue);
     RETURN work->Finish();
   }
 >;

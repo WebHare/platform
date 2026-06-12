@@ -593,6 +593,7 @@ PUBLIC RECORD ARRAY FUNCTION GetAppGroups(STRING modulename, OBJECT moddef)
   RETURN groups;
 }
 
+//This API now only exists for CaptureOtherTids as the TS extractors cannot scan TIDs yet
 PUBLIC RECORD ARRAY FUNCTION GetWHFSRegisterSlots(STRING modulename, OBJECT moddef)
 {
   OBJECT publishernode := moddef->documentelement->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "publisher")->Item(0);
