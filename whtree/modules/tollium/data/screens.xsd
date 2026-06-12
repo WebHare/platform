@@ -3384,6 +3384,7 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexContent>
       <xs:extension base="Panel">
         <xs:attributeGroup ref="sc:TidOrTitle" />
+        <xs:attributeGroup ref="Onchange" />
         <xs:attribute name="open" type="xs:boolean" />
       </xs:extension>
     </xs:complexContent>

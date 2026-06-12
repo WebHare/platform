@@ -75,6 +75,10 @@
   </screen>
 
   <screen name="layouttest_sections" title="Layouttest: sections">
+    <actions>
+      <action name="togglesection" onexecute="dotogglesection" />
+    </actions>
+
     <body>
       <textedit name="outside_textedit" title="textedit" />
       <textarea name="outside_textarea" title="textarea" />
@@ -82,7 +86,7 @@
         <text value="subitem 1 of section 1" />
         <text value="subitem 2 of section 1" />
       </section>
-      <section title="section 2" name="section2">
+      <section title="section 2" name="section2" onchange="onsectiontoggle">
         <text value="subitem 1 of section 2" />
         <text value="subitem 2 of section 2" />
         <textedit name="s2_textedit" title="textedit" />
@@ -97,6 +101,7 @@
           <option rowkey="true" title="True" />
         </select>
       </section>
+      <button action="togglesection" title="toggle section" />
     </body>
   </screen>
 

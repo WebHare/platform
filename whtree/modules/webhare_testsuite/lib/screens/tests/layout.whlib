@@ -155,6 +155,14 @@ PUBLIC STATIC OBJECTTYPE LayoutTest_Sections EXTEND TolliumScreenBase <
   MACRO Init() {
     TestEq(^section3->panel, ^isunlisted->parent, "Verify proper parenting of XML added elements");
   }
+
+  MACRO DoToggleSection() {
+    ^section2->open := NOT ^section2->open;
+  }
+
+  MACRO OnSectionToggle() {
+    ^outside_textedit->value := ^section2->open ? "section 2 opened" : "section 2 closed";
+  }
 >;
 
 PUBLIC OBJECTTYPE LayoutTest_tabs EXTEND TolliumScreenBase

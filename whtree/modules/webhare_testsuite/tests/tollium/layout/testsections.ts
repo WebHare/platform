@@ -16,9 +16,22 @@ test.runTests([
     test.eq(true, s3.querySelector("details")?.open);
 
     //elements such as textedit,textarea should have the same width inside and outside of sections
+    test.eq("", tt.comp("outside_textedit").getValue());
     test.click(s2.querySelector("summary")!);
+    test.eq(true, s2.querySelector("details")?.open);
     test.eq(tt.comp("outside_textedit").node.getBoundingClientRect().width, tt.comp("s2_textedit").node.getBoundingClientRect().width, "Textedit inside section should match width outside");
     test.eq(tt.comp("outside_textarea").node.getBoundingClientRect().width, tt.comp("s2_textarea").node.getBoundingClientRect().width, "Textarea inside section should match width outside");
     test.cmp(tt.comp("s2_textarea").node.getBoundingClientRect().bottom, "<", tt.comp("section3").node.getBoundingClientRect().top, "Textarea should not overlap into next section");
+
+    //toggling should have changed the textedit
+    await test.waitForUI();
+    test.eq("section 2 opened", tt.comp("outside_textedit").getValue());
+
+    //explicit action toggles the section, but doesn't trigger onchange
+    const button = tt.comp(":toggle section");
+    button.click();
+    await test.waitForUI();
+    test.eq(false, s2.querySelector("details")?.open);
+    test.eq("section 2 opened", tt.comp("outside_textedit").getValue());
   }
 ]);

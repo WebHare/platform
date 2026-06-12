@@ -543,11 +543,12 @@ export default class ObjIFrame extends ComponentBase {
 
   onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean; finaljsconfig: Record<string, unknown> }) {
     this.initdata = data.initdata;
-    this.loadIframe('/.wh/common/tollium/ap-iframe.html', () => console.log("init"));
 
     // Although srcdoc might be more efficient (saves a hit) it breaks services checking your referrer (eg google maps)
     this.loadIframe('/.wh/common/tollium/ap-iframe.html', () => {
       const doc = this.iframe.contentDocument ?? throwError("Iframe has no contentDocument");
+      doc.documentElement.lang = document.documentElement.lang;
+
       const whConfig = doc.createElement("script");
       whConfig.type = "application/json";
       whConfig.id = "wh-config";

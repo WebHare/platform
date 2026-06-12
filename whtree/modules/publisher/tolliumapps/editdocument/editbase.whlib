@@ -156,6 +156,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
 
     ^name->enabled := NOT pinned AND parentfullaccess AND NOT this->readonly;
+    ^refreshname->enabled := ^name->enabled;
+    ^refreshnamebutton->icon := ^refreshname->enabled ? "tollium:actions/refresh" : "tollium:status/pinned";
 
     RETURN CELL [pinned, parentfullaccess];
   }
