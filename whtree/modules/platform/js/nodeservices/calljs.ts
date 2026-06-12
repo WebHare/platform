@@ -10,6 +10,7 @@ import { createReturnValueWithTransferList } from "@webhare/services/src/localse
 import { omit, pick, toCamelCase, toSnakeCase, typedEntries, typedFromEntries, type ToCamelCase, type TypedEntries, type TypedFromEntries } from "@webhare/std";
 import * as v8 from "node:v8";
 import { decodeFromMessageTransfer, encodeforMessageTransfer } from "./nodeipchelper";
+import { runInSeparateWork } from "@webhare/whdb";
 
 
 const pickedV8HeapStats = [
@@ -21,6 +22,7 @@ const pickedV8HeapStats = [
 export type CallJSOptions = {
   camelcase: boolean;
   runinline?: boolean;
+  runinseparatework?: boolean;
 };
 
 type SelectedHeapStats = ToCamelCase<Pick<ReturnType<typeof v8.getHeapStatistics>, typeof pickedV8HeapStats[number]>>;
@@ -42,7 +44,7 @@ export function filterObject<T extends object>(obj: T, filterFunc: (data: TypedE
   return pick(obj, typedEntries(obj).filter(filterFunc).map(([key, value]) => key));
 }
 
-
+//NOTE: This function runs *INSIDE* the calljs worker
 export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, options }: { lib: string; name: string; stringifiedArgs: unknown; hscontext: HarescriptJSCallContext; options: CallJSOptions }) {
   await using context = new CodeContext(`CallJSService ${lib}#${name}`, { lib, name });
   if (hscontext.auth)
@@ -64,7 +66,8 @@ export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, 
 
     const afterImport = process.hrtime.bigint();
 
-    retval = await context.run(() => func(...args));
+    const call = options.runinseparatework ? () => runInSeparateWork(() => func(...args)) : () => func(...args);
+    retval = await context.run(call);
 
     const durationMs = Number(process.hrtime.bigint() - afterImport) / 1_000_000; // hrtime in in ns, convert to ms
     const importDurationMs = Number(afterImport - start) / 1_000_000; // hrtime in in ns, convert to ms
@@ -85,7 +88,10 @@ export async function workerHandleCall({ lib, name, stringifiedArgs, hscontext, 
     }, encodedRetval.transferList);
   } else {
     const func = await importJSFunction<(...args: unknown[]) => unknown>(`${lib}#${name}`);
-    retval = await context.run(() => func(...args));
+
+    const call = options.runinseparatework ? () => runInSeparateWork(() => func(...args)) : () => func(...args);
+    retval = await context.run(call);
+
     const encodedRetval = await encodeforMessageTransfer(retval);
     return createReturnValueWithTransferList({
       returnValue: encodedRetval.value,

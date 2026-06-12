@@ -175,7 +175,11 @@ PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG) {
     DELETE FROM args AT 0;
   }
 
-  options := ValidateOptions([ camelcase := FALSE, service := "platform:calljs" ], options);
+  options := ValidateOptions([
+    camelcase := FALSE,
+    service := "platform:calljs",
+    runinseparatework := FALSE
+    ], options);
 
   IF(Length(args) < 1)
     THROW NEW Exception("CallJS requires a library#name path to invoke");
