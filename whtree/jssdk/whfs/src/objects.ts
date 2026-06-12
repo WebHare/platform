@@ -522,7 +522,7 @@ export class WHFSFolder extends WHFSBaseObject {
 
   list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
     const ctx = new ListingContext(keys, options);
-    return ctx.list(this.id ? [this.id] : null);
+    return ctx.list([this.id || null]);
   }
 
   listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {

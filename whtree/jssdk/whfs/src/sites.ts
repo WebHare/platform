@@ -96,7 +96,7 @@ export class Site {
 
   list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
     const ctx = new ListingContext(keys, options);
-    return ctx.list(this.id ? [this.id] : null);
+    return ctx.list([this.id]);
   }
 
   listRecursive<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
@@ -115,7 +115,7 @@ export class Site {
   }
 
   /** Update site settings */
-  async update(updates: UpdateableSiteSettings) {
+  async update(updates: Partial<UpdateableSiteSettings>) {
     //TODO support outputWeb/outputFolder changes, and then we need to analyzeOutput in our siteUpdated call too
 
     let metadataupdate: Record<string, unknown> | undefined;

@@ -116,6 +116,7 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow | 
 
 /** Filter list result by these object ids */
 export interface ListFSOptions {
+  /** Select objects by id */
   ids?: number[];
   /** Select only files with one of these types */
   types?: WHFSTypeName[];
@@ -123,6 +124,11 @@ export interface ListFSOptions {
   allowHistoric?: boolean;
   /** WRD Schema to resolve modifiedByEntity in */
   userSchema?: AnyWRDSchema;
+}
+
+export interface ListFSGlobalOptions extends ListFSOptions {
+  /** Select a parent by id. */
+  parent?: number | null | Array<number | null>;
 }
 
 export interface ListFSRecursiveOptions extends ListFSOptions {
@@ -189,13 +195,19 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
     this.prepped = true;
   }
 
-  async list(parents: number[] | null | "*"): Promise<Array<ListFSResult<K>>> {
+  async list(parents: Array<number | null> | "*"): Promise<Array<ListFSResult<K>>> {
     if (!this.prepped)
       await this.prep();
 
+    const nonNullParents: number[] = Array.isArray(parents) ? parents.filter(p => p !== null) : [];
+
     const retval = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
-      .$if(parents !== "*", qb => qb.where(qb2 => parents ? qb2.eb("parent", "in", parents as number[]) : qb2.eb("parent", "is", null)))
+      //If not listing '*', include a parent= filter. but we'll have to remove the null from the filtering list
+      .$if(parents !== "*", qb => qb.where(eb => eb.or([
+        ...(parents as Array<number | null>).includes(null) ? [eb("parent", "is", null)] : [],
+        ...nonNullParents.length ? [eb("parent", "in", nonNullParents)] : []
+      ])))
       .$if(Boolean(this.options?.ids), qb => qb.where("id", "in", this.options!.ids!))
       //Filter by types. unknown files/normal folders are both 'null' types and require special handling:
       .$if(Boolean(this.limitTypeIds), qb => qb.where(eb => eb.or([
@@ -262,7 +274,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
 }
 
 export async function listRecursive<K extends keyof ListableFsObjectRow = never>(start: number, keys?: K[], options?: ListFSRecursiveOptions): Promise<Array<ListFSRecursiveResult<K>>> {
-  let workList: number[] | null = start ? [start] : null;
+  let workList: Array<number | null> = [start];
 
   const rows: ListFSRecursiveResult<K>[] = [];
   const getKeys: Array<K | "parent"> = [...keys || []];
@@ -273,7 +285,7 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
   const ctx = new ListingContext(getKeys, options);
 
   for (let levelsLeft = Math.min(options?.maxDepth ?? Infinity, 32); levelsLeft >= 1; --levelsLeft) {
-    const newWorkList: number[] = [];
+    const newWorkList: Array<number> = [];
     const curLevel = await ctx.list(workList);
     for (const item of curLevel) {
       const parentPath = item.parent ? prefixMap.get(item.parent) ?? "" : "";
@@ -291,14 +303,18 @@ export async function listRecursive<K extends keyof ListableFsObjectRow = never>
       appendToArray(newWorkList, justTheIds);
     }
 
-    workList = newWorkList.length ? newWorkList : null;
+    workList = newWorkList;
+    if (!workList.length)
+      break;
   }
 
   return rows;
 }
 
-export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {
+export async function listWHFSObjects<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSGlobalOptions): Promise<Array<ListFSResult<K>>> {
   const ctx = new ListingContext(keys, options);
-  const listresults = await ctx.list("*");
-  return listresults;
+  if (options?.parent !== undefined)
+    return await ctx.list(Array.isArray(options.parent) ? options.parent : [options.parent]);
+  else
+    return await ctx.list("*");
 }
