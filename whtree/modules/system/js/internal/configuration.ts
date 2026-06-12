@@ -16,6 +16,7 @@ import type { WebDesignsExtract } from "./generation/webdesigns";
 import type { HooksExtract } from "./generation/gen_extract_hooks";
 import type { UserRights } from "./generation/gen_extract_userrights";
 import type { ModulePlugins } from "./generation/gen_plugins";
+import type { WHFSExtract } from "./generation/gen_whfs";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -144,6 +145,7 @@ export function getExtractedConfig(which: "hooks"): HooksExtract;
 export function getExtractedConfig(which: "userrights"): UserRights;
 export function getExtractedConfig(which: "plugins"): ModulePlugins;
 export function getExtractedConfig(which: "debug"): Debug;
+export function getExtractedConfig(which: "whfs"): WHFSExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {
