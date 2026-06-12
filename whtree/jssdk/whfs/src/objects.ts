@@ -241,6 +241,9 @@ abstract class WHFSBaseObject {
     const moddate = metadata.modified || Temporal.Now.instant();
     const finishHandler = whfsFinishHandler();
 
+    if ("fileLink" in metadata)
+      throw new Error(`The 'filelink' property is read only. Update the 'target' property instead.`);
+
     if ("isPinned" in metadata)
       storedata.ispinned = metadata.isPinned;
     if ("order" in metadata)
@@ -552,7 +555,10 @@ export class WHFSFolder extends WHFSBaseObject {
       }
     }
 
-    //FIXME validate whether type is valid for publiaction
+    if (metadata && "fileLink" in metadata) //TODO need to set it for version/reycled files. but that might be a lower level API in the end PLUS consider moving that to a 'version' or 'base' reference so we can actually version int/ext links
+      throw new Error(`The 'filelink' property is read only. Update the 'target' property instead.`);
+
+    //FIXME validate whether type is valid for publication
     const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
     const initialData: boolean = data ? data.size > 0 : false;
 

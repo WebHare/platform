@@ -298,6 +298,8 @@ async function testLinkTypes() {
   await test.throws(/must be an internalLink /, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink("http://example.com") }));
   await test.throws(/must be an internalLink /, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink(goldFish.id, { append: "#vis" }) }));
   await test.throws(/Type.*does not support a target/, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.plaintext", target: new IntExtLink(goldFish.id) }));
+  await test.throws(/The 'filelink' property is read only./, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.contentlink", fileLink: goldFish.id }));
+  await test.throws(/The 'filelink' property is read only./, () => tmpfolder.createFile("bad-clink", { type: "platform:filetypes.internallink", fileLink: goldFish.id }));
   await tmpfolder.createFile("not-a-clink", { type: "platform:filetypes.plaintext", target: null }); //null target is fine for non-clinks
 
   const goldFish_clink = await tmpfolder.createFile("goldfish-clink", { type: "platform:filetypes.contentlink", target: new IntExtLink(goldFish.id), publish: true });
@@ -314,6 +316,7 @@ async function testLinkTypes() {
   test.eq(goldFish.id, goldFish_intlink.target?.internalLink);
   test.eq("platform:filetypes.internallink", goldFish_intlink.type);
 
+  await test.throws(/The 'filelink' property is read only./, () => goldFish_intlink.update({ fileLink: goldFish2.id }));
   await test.throws(/An internallink can't have an externalLink target/, () => tmpfolder.createFile("bad-intlink", { type: "platform:filetypes.internallink", target: new IntExtLink("http://example.com") }));
   await test.throws(/An externallink can't have an internalLink target/, () => tmpfolder.createFile("bad-intlink", { type: "platform:filetypes.externallink", target: new IntExtLink(goldFish.id) }));
 
