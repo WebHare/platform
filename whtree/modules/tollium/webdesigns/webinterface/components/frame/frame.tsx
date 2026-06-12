@@ -548,7 +548,7 @@ export class ObjFrame extends ToddCompBase {
       special.checkEnabled();
     });
     this.tabcontrols.forEach(tabcontrol => tabcontrol.checkVisibleTabs());
-    this.getVisibleChildren().forEach(child => child.checkActionEnablers());
+    this.getChildren().forEach(child => child.checkActionEnablers());
 
     if ($todd.IsDebugTypeEnabled("actionenabler"))
       console.groupEnd();
@@ -1160,10 +1160,10 @@ export class ObjFrame extends ToddCompBase {
 
   applySetWidth() {
     const width = this.width.set;
-    this.getVisibleChildren().forEach(comp => comp.setWidth(width));
+    this.getChildren().forEach(comp => comp.setWidth(width));
   }
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return [this.toolbar, this.bodynode].filter(isTruthy);
   }
   getHeightOverhead() {
@@ -1176,7 +1176,7 @@ export class ObjFrame extends ToddCompBase {
 
   calculateDimHeight() {
     const overhead = this.getHeightOverhead();
-    this.setSizeToSumOf('height', this.getVisibleChildren(), overhead);
+    this.setSizeToSumOf('height', this.getChildren(), overhead);
     this.height.min = Math.max(screen_minheight, this.height.min);
   }
   fixupCalculatedHeights() {

@@ -112,7 +112,7 @@ export default class ObjToolbar extends ComponentBase {
     this.height.dirty = true;
   }
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return this.items.map(item => item.comp).filter(isTruthy);
   }
 

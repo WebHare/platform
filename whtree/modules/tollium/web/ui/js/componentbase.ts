@@ -297,7 +297,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
   checkEnabled(): void {
   }
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return [];
   }
 
@@ -477,7 +477,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   */
 
   beforeRelayout() {
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.beforeRelayout();
   }
 
@@ -488,7 +488,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
       this.gotskinsettings = true;
     }
 
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.updateSkinSettings();
   }
 
@@ -501,7 +501,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
   /** If the specified dimension should be recalculated (because the dimension of this component or any child components is dirty) */
   isDimensionDirty(horizontal: boolean): boolean {
-    return this.dim(horizontal).dirty || this.getVisibleChildren().some(child => child.isDimensionDirty(horizontal));
+    return this.dim(horizontal).dirty || this.getChildren().some(child => child.isDimensionDirty(horizontal));
   }
   // If no minimum is set but an absolute size is given, set the minimum to it. This implements taking a height as minheight, needed to prevent components from suddenly shrinking
   setMinToAbs(sizeprop: SizeObj) {
@@ -510,7 +510,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
   /** invoked when focus/action/eanbleons may have changed */
   checkActionEnablers() {
-    this.getVisibleChildren().forEach(child => child.checkActionEnablers());
+    this.getChildren().forEach(child => child.checkActionEnablers());
   }
   /** Recalculate the specified dimensions of any dimension-dirty part of the tree.
    *  Is invoked after adding the node to the DOM so CSS variables/metrics should be available
@@ -524,7 +524,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
       return;
     }
 
-    const children = this.getVisibleChildren();
+    const children = this.getChildren();
     if (isDebugTypeEnabled("dimensions")) {
       console.group(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " recalculating. " + (children.length ? "(" + children.length + " children) " : ""), this.node);
     }
@@ -591,7 +591,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     else
       this.applySetHeight();
 
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.applyDimension(horizontal);
     this.updateNodeSizeData(); //FIXME make this debugging only
 

@@ -289,7 +289,7 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
   // Dimensions
   //
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return this.buttons;
   }
 

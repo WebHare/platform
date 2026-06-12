@@ -325,7 +325,7 @@ export class ObjPanel extends ComponentBase {
   /****************************************************************************************************************************
   * Dimensions
   */
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     const children = [];
     for (const line of this.lines)
       if (line.titlecomp)
@@ -518,7 +518,7 @@ export class ObjPanelLine extends ComponentBase { //needed by inlineblock too
     this.paddingtop = !this.block && !this.options.removetopmargin ? $todd.gridlineTopMargin : 0;
     this.paddingbottom = !this.block && !this.options.removebottommargin ? $todd.gridlineBottomMargin : 0;
   }
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return [this.titlecomp, ...this.getVisibleItems()].filter(isTruthy);
   }
   getVisibleItems(): ToddCompBase[] {
@@ -535,7 +535,7 @@ export class ObjPanelLine extends ComponentBase { //needed by inlineblock too
   }
   fillNode() {
     // Get a list of currently visible components to check if anything has changed
-    const curcomponents = this.getVisibleChildren().map(comp => comp.name).join("\t");
+    const curcomponents = this.getChildren().map(comp => comp.name).join("\t");
     if (curcomponents === this.fillcomponents)
       return;
 
@@ -572,7 +572,7 @@ export class ObjPanelLine extends ComponentBase { //needed by inlineblock too
   }
 
   calculateDimHeight() {
-    const hcomps = this.getVisibleChildren();
+    const hcomps = this.getChildren();
     this.setSizeToMaxOf('height', hcomps, this.paddingtop + this.paddingbottom);
   }
 

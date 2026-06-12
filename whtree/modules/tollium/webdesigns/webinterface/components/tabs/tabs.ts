@@ -383,7 +383,7 @@ export class ObjTabs extends ComponentBase {
   * Dimensions
   */
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     const comps: ToddCompBase[] = [];
     this.pages.forEach(page => {
       if (page.titlecomp)

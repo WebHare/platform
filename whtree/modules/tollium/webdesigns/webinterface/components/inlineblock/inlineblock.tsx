@@ -95,7 +95,7 @@ export default class ObjInlineBlock extends ComponentBase {
   * Component management
   */
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     const children = [];
     this.lines.forEach(function (line) {
       if (line.titlecomp) {
