@@ -10,6 +10,7 @@ LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -43,7 +44,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
           SELECT AS STRING ToString(filelink)
             FROM system.fs_objects
            WHERE id = objid
-                 AND type = 19;
+                 AND type = VAR whconstant_whfstype_internallink;
       RETURN link;
     }
     CASE "externallink"
@@ -52,7 +53,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objid)
           SELECT AS STRING externallink
             FROM system.fs_objects
            WHERE id = objid
-                 AND type = 18;
+                 AND type = VAR whconstant_whfstype_externallink;
       RETURN link;
     }
   }

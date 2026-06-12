@@ -1155,7 +1155,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
       INTEGER linktype;
       IF(^link->visible) {
         IF (^link->value.internallink != 0) {
-          linktype := 19;
+          linktype := whconstant_whfstype_internallink;
           INSERT CELL filelink := ^link->value.internallink INTO metadata;
           INSERT CELL externallink := ^link->value.append INTO metadata;
         } ELSE {
