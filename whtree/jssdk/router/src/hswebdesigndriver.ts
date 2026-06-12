@@ -127,7 +127,8 @@ export async function runHareScriptPage(contReq: ContentPageRequest, how:
     };
 
     try {
-      result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id);
+      const contentObject = (contReq as CPageRequest)["_contentObject"];
+      result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RunDynamicHarescriptPage(webClientInfo, how, contReq.targetObject.id, contentObject.id);
     } catch (e) {
       const tv = (await getCodeContextHSVM())?._getHSVM().terminationValue as {
         data: WebHareBlob;

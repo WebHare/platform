@@ -24,8 +24,9 @@ PUBLIC OBJECT FUNCTION OpenSiteProfile(STRING name)
 /** @short Open and prepare a webdesign
     @param objectid Target object for which we're opening the webdesign
     @return The webdesign, or a DEFAULT OBJECT if no webdesign applies to the specified object id */
-PUBLIC OBJECT FUNCTION GetWebDesign(INTEGER objectid)
-{
+PUBLIC OBJECT FUNCTION GetWebDesign(INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ contentobject := DEFAULT OBJECT ], options);
+
   OBJECT applytester := GetApplyTesterForObject(objectid);
   IF (NOT ObjectExists(applytester))
     RETURN DEFAULT OBJECT;
@@ -34,7 +35,7 @@ PUBLIC OBJECT FUNCTION GetWebDesign(INTEGER objectid)
   IF(NOT RecordExists(webdesigninfo))
     RETURN DEFAULT OBJECT;
 
-  RETURN InstantiateWebDesign(applytester, webdesigninfo, 0, DEFAULT OBJECT, DEFAULT OBJECT, FALSE);
+  RETURN InstantiateWebDesign(applytester, webdesigninfo, 0, options.contentobject, DEFAULT OBJECT, FALSE);
 }
 
 /** @short Get only the plugin loader for a specific url */

@@ -23,9 +23,10 @@ export function parseResponse(responsetext: string) {
   const config = attempt(() => getWHConfig(doc), null);
   const htmlClasses = doc.documentElement?.getAttribute("class")?.split(" ") ?? [];
   const body = doc.getElementsByTagName("body")[0];
-  const contentdiv = doc.getElementById("content");
+  const contentNode = doc.getElementById("content");
+  const contentDiv = contentNode ? xmlToJS(contentNode) : null;
   //eliminate empty toplevel nodes:
-  const contentElements = contentdiv ? xmlToJS(contentdiv).children.filter(child => typeof child === "object" || child.trim()) : [];
+  const contentElements = contentDiv?.children.filter(child => typeof child === "object" || child.trim()) || [];
   const bodyElements = body ? xmlToJS(body).children.filter(child => typeof child === "object" || child.trim()) : [];
   const metaTags = new Map(elements(doc.getElementsByTagName("meta")).filter(m => m.getAttribute("name")).map(m => [m.getAttribute("name") || "", m.getAttribute("content") || ""]));
   const linkTags = elements(doc.getElementsByTagName("link")).map(m => ({ rel: m.getAttribute("rel") || '', href: m.getAttribute("href") || '' }));
@@ -37,7 +38,7 @@ export function parseResponse(responsetext: string) {
   //TODO HS & TS should both switch to <meta name="consilio.xxx" /> fields and avoid HSON in JS paths
   const consilioFields = consilioFieldElement ? decodeHSONorJSONRecord(consilioFieldElement.textContent || "") as PageMetadata["consilioFields"] : {};
 
-  return { responsetext, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, linkTags, linkMap, consilioFields };
+  return { responsetext, contentDiv, doc, body, contentElements, bodyElements, htmlClasses, config, metaTags, openGraph, schemaOrg, linkTags, linkMap, consilioFields };
 }
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */
@@ -68,13 +69,13 @@ export async function fetchAsDoc(whfspath: string, urlVars: Record<string, strin
 }
 
 /** Fetch the preview for a file */
-export async function fetchPreviewAsDoc(whfspath: string, urlVars: Record<string, string> = {}) {
-  const whfsobj = await whfs.openFile(whfspath);
+export async function fetchPreviewAsDoc(toPreview: string | number, urlVars: Record<string, string> = {}) {
+  const whfsobj = await whfs.openFile(toPreview, { allowHistoric: true });
   const link = new URL(await whfsobj.getPreviewLink());
   for (const [key, value] of Object.entries(urlVars))
     link.searchParams.set(key, value);
 
-  console.log(`Fetching preview link for ${whfspath}: ${link}`);
+  console.log(`Fetching preview link for ${toPreview}: ${link}`);
   const fetchResult = await fetch(link);
   test.assert(fetchResult.ok, `Failed to fetch preview link: ${fetchResult.status} ${fetchResult.statusText}`);
 

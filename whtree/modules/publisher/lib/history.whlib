@@ -143,6 +143,10 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     IF(autosave->id != this->currentautosave->id)
       THROW NEW Exception("Failed to create an autosave object");
   }
+  PUBLIC INTEGER FUNCTION __GetWriteableAutosveId() {
+    this->EnsureAutosave();
+    RETURN this->currentautosave->id;
+  }
   PUBLIC MACRO SetInstanceData(STRING whfstype, RECORD data) {
     IF(NOT RecordExists(SELECT FROM this->workflowtypes WHERE namespace = VAR whfstype OR scopedtype = VAR whfstype))
       THROW NEW Exception(`Type '${whfstype}' is not setup to be tracked in the workflow`);
