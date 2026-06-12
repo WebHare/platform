@@ -326,7 +326,7 @@ export async function describeMetaTabsForHS(obj: { objectid: number; parent: num
   try {
     let applytester;
     if (obj.objectid) {
-      applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowHistoric: true }));
+      applytester = await getApplyTesterForObject(await openFileOrFolder(obj.objectid, { allowVersion: true }));
     } else {
       const typens = getType(obj.type, obj.isfolder ? "folderType" : "fileType")?.namespace ?? '';
       applytester = await getApplyTesterForMockedObject(await openFolder(obj.parent, { allowRoot: true }), obj.isfolder, typens);
