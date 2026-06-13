@@ -111,7 +111,7 @@ async function doSplitEntityData<
       if (isPromise(toSet))
         toSet = await toSet;
 
-      accessor.validateInput(toSet, checker, "");
+      toSet = accessor.validateInput(toSet, checker, "");
       //TODO TS is confused here and doesn't recognize encodeValue's proper returnvalue. without the explicit type it won't expect a promise
       const encoded: AwaitableEncodedValue = accessor.encodeValue(toSet);
 

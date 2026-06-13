@@ -1669,6 +1669,7 @@ async function testImportMode() {
     {
       wrdCreated: null,
       wrdClosed: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       enum: null,
       enumArray: [],
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
