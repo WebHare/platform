@@ -109,6 +109,7 @@ export type CustomExtensionsModern = {
     testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
     testTime: WRDBaseAttributeTypeId.Modern_Time;//", { title: "Time attribute" });
     testDatetime: WRDBaseAttributeTypeId.Modern_DateTime;
+    testUrl: WRDAttr<WRDAttributeTypeId.URL>;
     testArray: WRDAttr<WRDAttributeTypeId.Array, {
       members: {
         testInt: WRDAttributeTypeId.Integer;
@@ -284,6 +285,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { delete
   await persontype.createAttribute("testInteger64", { attributeType: "integer64", title: "Integer64 attribute" });
   await persontype.createAttribute("testRecord", { attributeType: "hson", title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
   await persontype.createAttribute("testJson", { attributeType: "json", title: "JSON attribute" });
+  await persontype.createAttribute("testUrl", { attributeType: "url" });
   await persontype.createAttribute("testStatusrecord", { attributeType: "deprecatedStatusRecord", title: "Status record", allowedValues: ["warning", "error", "ok"] });
   await persontype.createAttribute("testFreeNocopy", { attributeType: "string", title: "Uncopyable free attribute", isUnsafeToCopy: true });
   await persontype.createAttribute("richie", { attributeType: "richTextDocument", title: "Rich document" });

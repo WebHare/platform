@@ -989,6 +989,14 @@ async function testNewAPI() {
     test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "error").executeRequireAtMostOne());
   }
 
+  // STORY: test url
+  {
+    const combinedSchema = wrd<Combine<[WRD_TestschemaSchemaType, CustomExtensionsModern, Extensions]>>(testSchemaTag);
+    await test.throws(/Invalid URL/, () => combinedSchema.update("wrdPerson", newperson, { testUrl: ":https://beta.webhare.net" }));
+    await combinedSchema.update("wrdPerson", newperson, { testUrl: "https://beta.webhare.net/met spatie" });
+    test.eq("https://beta.webhare.net/met%20spatie", await combinedSchema.getFields("wrdPerson", newperson, "testUrl"));
+  }
+
   // STORY: test address
   {
     await schema.update("wrdPerson", newperson, { testAddress: null });

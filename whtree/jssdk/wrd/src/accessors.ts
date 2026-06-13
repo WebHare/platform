@@ -5,7 +5,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
-import { Money, omit, isValidEmail, isValidUrl, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf } from "@webhare/std";
+import { Money, omit, isValidEmail, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf } from "@webhare/std";
 import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
@@ -363,8 +363,13 @@ class WRDDBEmailValue extends WRDDBStringValue {
 class WRDDBUrlValue extends WRDDBStringValue {
   validateInput(value: string, checker: ValueQueryChecker, attrPath: string): string {
     super.validateInput(value, checker, attrPath);
-    if (value && !isValidUrl(value) && !checker.importMode)
-      throw new Error(`Invalid URL ${JSON.stringify(value)} for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value) {
+      const fixedValue = URL.parse(value);
+      if (!fixedValue && !checker.importMode)
+        throw new Error(`Invalid URL ${JSON.stringify(value)} for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+      else if (fixedValue)
+        value = fixedValue.toString();
+    }
     return value;
   }
 }
