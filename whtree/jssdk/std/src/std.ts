@@ -8,7 +8,7 @@ export { attempt, sleep, createDeferred, wrapInTimeout, serialize, wrapSerialize
 export { compare, compareProperties, nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase, maybePromiseAll } from "./types";
 export type { ToSnakeCase, ToCamelCase, ComparableType, MaybePromise } from "./types";
 
-export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringify, parseTyped, slugify, isValidEmail, joinURL, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase, levenshteinDistance, getUTF8Length, limitUTF8Length } from "./strings";
+export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringify, parseTyped, slugify, isValidEmail, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase, levenshteinDistance, getUTF8Length, limitUTF8Length } from "./strings";
 export { generateRandomId, isLikeRandomId, isValidUUID } from "./platformbased";
 
 export { shuffle, emplace, pick, omit, isTruthy, appendToArray, typedEntries, typedFromEntries, typedKeys, SortedMultiSet, SortedMultiMap, type TypedEntries, type TypedFromEntries } from "./collections";
