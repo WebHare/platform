@@ -381,3 +381,20 @@ export function limitUTF8Length(str: string, len: number) {
   // Decode only the actually written bytes
   return new TextDecoder().decode(utf8array.subarray(0, written));
 }
+
+/** Update the search parameters in a URL
+ * @param inUrl - URL to update
+ * @param updates - Updates to apply, use 'null' to delete a variable
+ * @returns Updated URL
+ */
+export function updateURL(inUrl: string | URL, updates: Record<string, string | null>): URL {
+  const u = new URL(inUrl);
+  for (const [k, v] of Object.entries(updates)) {
+    if (v === null) {
+      u.searchParams.delete(k);
+    } else {
+      u.searchParams.set(k, v);
+    }
+  }
+  return u;
+}

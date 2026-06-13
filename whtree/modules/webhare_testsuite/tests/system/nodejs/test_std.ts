@@ -621,6 +621,11 @@ function testEmails() {
 }
 
 function testUrls() {
+  test.eq("https://www.example.com/path?query=string#hash", std.updateURL("https://www.example.com/path?query=bla#hash", { query: "string" }).href);
+  test.eq("https://www.example.com/path?query=string#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: "string" }).href);
+  test.eq("https://www.example.com/path?query=#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: "" }).href);
+  test.eq("https://www.example.com/path#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: null }).href);
+  test.eq("https://www.example.com/path?q2=1#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: null, q2: "1" }).href);
 }
 
 async function testCollections() {

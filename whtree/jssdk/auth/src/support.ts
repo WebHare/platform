@@ -9,6 +9,7 @@ import { getIdCookieName } from "@webhare/auth/src/authfrontend";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
+import { updateURL } from "@webhare/std";
 
 //TODO Export from @webhare/auth? but camelcase first
 export type WRDAuthLoginSettings = {
@@ -177,11 +178,8 @@ export function calculateWRDSessionExpiry(loginSettings: WRDAuthLoginSettings, n
 
 export function getAuthPageURL(url: string, vars?: Record<string, string>): URL {
   const parsed = new URL(url);
-  const authPage = new URL(parsed.origin + "/.wh/common/authpages/");
-  if (parsed.pathname !== '/')
-    authPage.searchParams.set("pathname", parsed.pathname.substring(1));
-  if (vars)
-    for (const [key, value] of Object.entries(vars))
-      authPage.searchParams.set(key, value);
-  return authPage;
+  return updateURL(parsed.origin + "/.wh/common/authpages/", {
+    pathname: parsed.pathname !== '/' ? parsed.pathname.substring(1) : null,
+    ...vars
+  });
 }

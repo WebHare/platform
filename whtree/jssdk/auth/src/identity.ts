@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
 import type { AnyWRDSchema, SchemaTypeDefinition, WRDSchemaType } from "@webhare/wrd/src/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
-import { compareProperties, convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
+import { compareProperties, convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, updateURL, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
@@ -899,9 +899,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         ...(options?.authAuditContext ?? getAuditContext())
       }));
 
-    const link = options?.selfHosted ? new URL(targetUrl) : getAuthPageURL(targetUrl);
-    link.searchParams.set("wrd_pwdaction", "resetpassword");
-    link.searchParams.set("_ed", tok);
+    const link = updateURL(options?.selfHosted ? new URL(targetUrl) : getAuthPageURL(targetUrl),
+      {
+        wrd_pwdaction: "resetpassword",
+        _ed: tok
+      });
 
     return {
       link: link.toString(),
