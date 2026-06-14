@@ -6,8 +6,20 @@ LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 MACRO TestUser()
 {
   OBJECT user := GetTestController()->user;
-  TestEq("1 hour, 25 minutes", user->FormatTimespan(0, 1*60*60000 + 25*60000, "minutes"));
-  TestEq("1:25",               user->FormatTimespan(0, 1*60*60000 + 25*60000, "short-minutes"));
+  TestEq("1 hour, 25 minutes", user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "minutes"));
+  TestEq("1:25",               user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "short-minutes"));
+  // Don't show seconds, milliseconds aren't rounded up
+  TestEq("1 hour, 25 minutes", user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "seconds"));
+  // Show zero seconds, milliseconds aren't rounded up
+  TestEq("1:25:00",            user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "short-seconds"));
+  // Don't show seconds, but show milliseconds
+  TestEq("1 hour, 25 minutes, 789 milliseconds", user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "milliseconds"));
+  // Show milliseconds as fractional part of seconds
+  TestEq("1:25:00.789",        user->FormatTimespan(0, 1*60*60000 + 25*60000 + 789, "short-milliseconds"));
+  // Show days separately
+  TestEq("3 days, 1 hour, 25 minutes", user->FormatTimespan(3, 1*60*60000 + 25*60000 + 789, "minutes"));
+  // Add days to hours
+  TestEq("73:25",              user->FormatTimespan(3, 1*60*60000 + 25*60000 + 789, "short-minutes"));
 }
 
 BOOLEAN FUNCTION IsAccepted(STRING ARRAY checks, STRING value)

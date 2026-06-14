@@ -8,7 +8,9 @@
 #include <unicode/decimfmt.h>
 #include <unicode/dtfmtsym.h>
 #include <unicode/dtptngen.h>
+#include <unicode/listformatter.h>
 #include <unicode/locdspnm.h>
+#include <unicode/measfmt.h>
 #include <unicode/numfmt.h>
 #include <unicode/rbnf.h>
 #include <unicode/smpdtfmt.h>
@@ -22,7 +24,7 @@
 #include <cmath>
 
 // For debugging purposes
-//#include <iostream>
+//#include <iostream> //nocommit
 
 //---------------------------------------------------------------------------
 #include "icu_provider.h"
@@ -390,6 +392,72 @@ void doConvertDateTime(HSVM *hsvm, HSVM_VariableId id_set, UBool local)
         HSVM_DateTimeSetUnicode(hsvm, id_set, value);
 }
 
+// Format one time unit of a duration record
+void formatPart(HSVM *hsvm, HSVM_VariableId record, std::string const &cell, std::string const &style, std::string const &display, bool numeric, Locale locid, UErrorCode &status, UnicodeString &str)
+{
+        // Read the value
+        HSVM_VariableId valueref = HSVM_RecordGetRef(hsvm, record, HSVM_GetColumnId(hsvm, &cell[0]));
+        int value = 0;
+        if (valueref)
+            value = HSVM_IntegerGet(hsvm, valueref);
+        // Nothing to show if there is no value or the empty value should not be shown
+        if (!value && display != "always" && !numeric)
+            return;
+
+        if (style == "numeric" || style == "2-digit")
+        {
+                // For numeric styles, use a number formatter
+                std::unique_ptr<NumberFormat> nf(DecimalFormat::createInstance(locid, status));
+                if (U_FAILURE(status) || !nf.get())
+                    return;
+                if (style == "2-digit")
+                    nf->setMinimumIntegerDigits(2);
+                nf->format(value, str);
+        }
+        else
+        {
+                // For other styles, create a time measure for this part
+                MeasureUnit *unit = NULL;
+                if (cell == "YEARS")
+                    unit = MeasureUnit::createYear(status);
+                if (cell == "MONTHS")
+                    unit = MeasureUnit::createMonth(status);
+                if (cell == "WEEKS")
+                    unit = MeasureUnit::createWeek(status);
+                if (cell == "DAYS")
+                    unit = MeasureUnit::createDay(status);
+                if (cell == "HOURS")
+                    unit = MeasureUnit::createHour(status);
+                if (cell == "MINUTES")
+                    unit = MeasureUnit::createMinute(status);
+                if (cell == "SECONDS")
+                    unit = MeasureUnit::createSecond(status);
+                if (cell == "MILLISECONDS")
+                    unit = MeasureUnit::createMillisecond(status);
+                if (cell == "MICROSECONDS")
+                    unit = MeasureUnit::createMicrosecond(status);
+                if (cell == "NANOSECONDS")
+                    unit = MeasureUnit::createNanosecond(status);
+                if (U_FAILURE(status) || !unit)
+                    return;
+                Measure measure = Measure(value, unit, status); // the new Measure adopts the unit
+                if (U_FAILURE(status))
+                    return;
+
+                // Create a measure formatter and format the time measure
+                UMeasureFormatWidth width = UMEASFMT_WIDTH_SHORT; // default to 'short'
+                if (style == "long")
+                    width = UMEASFMT_WIDTH_WIDE;
+                else if (style == "narrow")
+                    width = UMEASFMT_WIDTH_NARROW;
+                std::unique_ptr<MeasureFormat> mf(new MeasureFormat(locid, width, status));
+                if (U_FAILURE(status) || !mf.get())
+                    return;
+                FieldPosition pos = FieldPosition::DONT_CARE;
+                mf->formatMeasures(&measure, 1, str, pos, status);
+        }
+}
+
 //---------------------------------------------------------------------------
 // HareScript functions
 //
@@ -672,9 +740,169 @@ void FormatNumber(HSVM *hsvm, HSVM_VariableId id_set)
 
 void FormatDuration(HSVM *hsvm, HSVM_VariableId id_set)
 {
-        //ADDME: Durations don't seem to be provided for "nl" locale, so it's pretty useless. Also, it doesn't seem to provide
-        //       localizations for stuff like "3 days, 2 hours en 24 seconds"...
-        doFormatNumber(hsvm, id_set, URBNF_DURATION);
+        ICUContextData &context = *static_cast<ICUContextData *>(HSVM_GetContext(hsvm, ContextId, true));
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_String);
+
+        // Read the locale
+        std::string locale = HSVM_StringGetSTD(hsvm, HSVM_Arg(1));
+        Locale locid = getLocale(context, locale);
+
+        // Read the options
+        std::string style = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "STYLE")));
+        std::string style_years = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "YEARS")));
+        std::string display_years = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "YEARSDISPLAY")));
+        std::string style_months = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MONTHS")));
+        std::string display_months = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MONTHSDISPLAY")));
+        std::string style_weeks = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "WEEKS")));
+        std::string display_weeks = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "WEEKSDISPLAY")));
+        std::string style_days = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "DAYS")));
+        std::string display_days = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "DAYSDISPLAY")));
+        std::string style_hours = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "HOURS")));
+        std::string display_hours = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "HOURSDISPLAY")));
+        std::string style_minutes = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MINUTES")));
+        std::string display_minutes = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MINUTESDISPLAY")));
+        std::string style_seconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "SECONDS")));
+        std::string display_seconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "SECONDSDISPLAY")));
+        std::string style_milliseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MILLISECONDS")));
+        std::string display_milliseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MILLISECONDSDISPLAY")));
+        std::string style_microseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MICROSECONDS")));
+        std::string display_microseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "MICROSECONDSDISPLAY")));
+        std::string style_nanoseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "NANOSECONDS")));
+        std::string display_nanoseconds = HSVM_StringGetSTD(hsvm, HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "NANOSECONDSDISPLAY")));
+
+        // If the time should be shown in a numeric format (i.e. h:mm:ss)
+        bool numeric = style == "digital" || style_hours == "numeric" || style_hours == "2-digit" || style_minutes == "numeric" || style_minutes == "2-digit" || style_seconds == "numeric" || style_seconds == "2-digit";
+
+        UErrorCode status = U_ZERO_ERROR;
+        // Get the time separator symbol for numeric time display
+        UnicodeString time_sep;
+        if (numeric)
+        {
+                std::unique_ptr<DateFormatSymbols> dfs(new DateFormatSymbols(locid, status));
+                if (U_FAILURE(status))
+                    return;
+                dfs->getTimeSeparatorString(time_sep);
+        }
+
+        // Read the duration record arguments and format the parts
+        std::vector<UnicodeString> parts;
+        UnicodeString str = "";
+        formatPart(hsvm, HSVM_Arg(0), "YEARS", style_years, display_years, false, locid, status, str);
+        if (U_SUCCESS(status) && str != "")
+            parts.push_back(str);
+        str = ""; // clear str for the next part
+        formatPart(hsvm, HSVM_Arg(0), "MONTHS", style_months, display_months, false, locid, status, str);
+        if (U_SUCCESS(status) && str != "")
+            parts.push_back(str);
+        str = ""; // clear str for the next part
+        formatPart(hsvm, HSVM_Arg(0), "WEEKS", style_weeks, display_weeks, false, locid, status, str);
+        if (U_SUCCESS(status) && str != "")
+            parts.push_back(str);
+        str = ""; // clear str for the next part
+        formatPart(hsvm, HSVM_Arg(0), "DAYS", style_days, display_days, false, locid, status, str);
+        if (U_SUCCESS(status) && str != "")
+            parts.push_back(str);
+        str = ""; // clear str for the next part
+        formatPart(hsvm, HSVM_Arg(0), "HOURS", style_hours, display_hours, numeric, locid, status, str);
+        if (!numeric)
+        {
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+        }
+        else
+        {
+                // Don't push the result yet, we want to add minutes and seconds first, separated by the time separator
+                str.append(time_sep);
+        }
+        formatPart(hsvm, HSVM_Arg(0), "MINUTES", style_minutes, display_minutes, numeric, locid, status, str);
+        if (!numeric)
+        {
+                // If not displaying numeric time, add the next parts separately
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "SECONDS", style_seconds, display_seconds, numeric, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "MILLISECONDS", style_milliseconds, display_milliseconds, false, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "MICROSECONDS", style_microseconds, display_microseconds, false, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "NANOSECONDS", style_nanoseconds, display_nanoseconds, false, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+        }
+        else
+        {
+                // Create a number formatter for formatting the seconds
+                std::unique_ptr<NumberFormat> nf(DecimalFormat::createInstance(locid, status));
+                if (U_FAILURE(status) || !nf.get())
+                    return;
+
+                if (style_seconds == "2-digit")
+                    nf->setMinimumIntegerDigits(2);
+
+                // If a number of fractional digits is given, show that number of fractional digits, otherwise show all non-zero digits
+                HSVM_VariableId fractionaldigits = HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "FRACTIONALDIGITS"));
+                if (fractionaldigits)
+                {
+                        int digits = HSVM_IntegerGet(hsvm, fractionaldigits);
+                        nf->setMinimumFractionDigits(digits);
+                        nf->setMaximumFractionDigits(digits);
+                }
+                else
+                {
+                        nf->setMinimumFractionDigits(0);
+                        nf->setMaximumFractionDigits(9);
+                }
+                // Truncate towards zero, don't round
+                nf->setRoundingMode(NumberFormat::kRoundDown);
+
+                // Append the time separator
+                str.append(time_sep);
+
+                // Format the seconds, adding smaller units as fraction
+                double value = 0;
+                HSVM_VariableId seconds = HSVM_RecordGetRef(hsvm, HSVM_Arg(0), HSVM_GetColumnId(hsvm, "SECONDS"));
+                if (seconds)
+                    value = HSVM_IntegerGet(hsvm, seconds);
+                HSVM_VariableId milliseconds = HSVM_RecordGetRef(hsvm, HSVM_Arg(0), HSVM_GetColumnId(hsvm, "MILLISECONDS"));
+                if (milliseconds)
+                    value += HSVM_IntegerGet(hsvm, milliseconds) / 1000.0;
+                HSVM_VariableId microseconds = HSVM_RecordGetRef(hsvm, HSVM_Arg(0), HSVM_GetColumnId(hsvm, "MICROSECONDS"));
+                if (microseconds)
+                    value += HSVM_IntegerGet(hsvm, microseconds) / 1000000.0;
+                HSVM_VariableId nanoseconds = HSVM_RecordGetRef(hsvm, HSVM_Arg(0), HSVM_GetColumnId(hsvm, "NANOSECONDS"));
+                if (nanoseconds)
+                    value += HSVM_IntegerGet(hsvm, nanoseconds) / 1000000000.0;
+
+                // Add the formatted seconds to the part
+                nf->format(value, str);
+                parts.push_back(str);
+        }
+        if (!parts.size())
+            return;
+
+        // Create a list formatter to join the parts together
+        UListFormatterWidth width = ULISTFMT_WIDTH_SHORT; // default to 'short'
+        if (style == "long")
+            width = ULISTFMT_WIDTH_WIDE;
+        else if (style == "narrow")
+            width = ULISTFMT_WIDTH_NARROW;
+        std::unique_ptr<ListFormatter> lf(ListFormatter::createInstance(locid, ULISTFMT_TYPE_UNITS, width, status));
+        if (U_FAILURE(status) || !lf.get())
+            return;
+        str = "";
+        lf->format(&parts[0], parts.size(), str, status);
+        if (U_SUCCESS(status))
+            HSVM_StringSetUnicode(hsvm, id_set, str);
 }
 
 void FormatSpellout(HSVM *hsvm, HSVM_VariableId id_set)
@@ -1179,7 +1407,7 @@ BLEXLIB_PUBLIC int ICUEntryPoint(HSVM_RegData *regdata, void *)
         HSVM_RegisterFunction(regdata, "__ICU_GETBESTPATTERN::S:SS", HareScript::ICU::GetBestPattern);
         HSVM_RegisterFunction(regdata, "__ICU_FORMATDATETIME::S:SDSS", HareScript::ICU::FormatDateTime);
         HSVM_RegisterFunction(regdata, "__ICU_GETLANGUAGEDATETIMESTRINGS::SA:S", HareScript::ICU::GetFormatDateTimeString);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATDURATION::S:6S", HareScript::ICU::FormatDuration);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATDURATION::S:RSR", HareScript::ICU::FormatDuration);
 
         HSVM_RegisterFunction(regdata, "__ICU_GETCURRENCYFRACTIONDIGITS::I:S", HareScript::ICU::GetCurrencyFractionDigits);
         HSVM_RegisterFunction(regdata, "__ICU_FORMATNUMBER::S:ISBIIIBVS", HareScript::ICU::FormatNumber);
