@@ -920,6 +920,158 @@ MACRO NumberFormatTest()
   CloseTest("TestLocalization: NumberFormatTest");
 }
 
+MACRO DurationFormatTest()
+{
+  OpenTest("TestLocalization: DurationFormatTest");
+  FUNCTION PTR format;
+  RECORD datevalue := [ years := 5, months := 4, days := 3 ];
+  RECORD timevalue := [ hours := 12, minutes := 34, seconds := 56, milliseconds := 789 ];
+  RECORD combinedvalue := [ years := 5, months := 4, days := 3, hours := 12, minutes := 34, seconds := 56, milliseconds := 789 ];
+  RECORD options;
+
+  // Normally, use 'short' style
+  format := NEW DurationFormat("en")->format;
+  TestEq("5 yrs, 4 mths, 3 days", format(datevalue));
+  TestEq("12 hr, 34 min, 56 sec, 789 ms", format(timevalue));
+  TestEq("5 yrs, 4 mths, 3 days, 12 hr, 34 min, 56 sec, 789 ms", format(combinedvalue));
+  format := NEW DurationFormat("nl")->format;
+  TestEq("5 jr, 4 mnd, 3 dagen", format(datevalue));
+  TestEq("12 uur, 34 min, 56 sec, 789 ms", format(timevalue));
+  TestEq("5 jr, 4 mnd, 3 dagen, 12 uur, 34 min, 56 sec, 789 ms", format(combinedvalue));
+
+  // 'long' style
+  options := [ style := "long" ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("5 years, 4 months, 3 days", format(datevalue));
+  TestEq("12 hours, 34 minutes, 56 seconds, 789 milliseconds", format(timevalue));
+  TestEq("5 years, 4 months, 3 days, 12 hours, 34 minutes, 56 seconds, 789 milliseconds", format(combinedvalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("5 jaar, 4 maanden en 3 dagen", format(datevalue));
+  TestEq("12 uur, 34 minuten, 56 seconden en 789 milliseconden", format(timevalue));
+  TestEq("5 jaar, 4 maanden, 3 dagen, 12 uur, 34 minuten, 56 seconden en 789 milliseconden", format(combinedvalue));
+  // Override default style
+  format := NEW DurationFormat("en")->format;
+  TestEq("5 years, 4 months, 3 days, 12 hours, 34 minutes, 56 seconds, 789 milliseconds", format(combinedvalue, options));
+  // Override base style
+  format := NEW DurationFormat("en", [ style := "digital" ])->format;
+  TestEq("5 years, 4 months, 3 days, 12 hours, 34 minutes, 56 seconds, 789 milliseconds", format(combinedvalue, options));
+
+  // 'short' style
+  options := [ style := "short" ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("5 yrs, 4 mths, 3 days", format(datevalue));
+  TestEq("12 hr, 34 min, 56 sec, 789 ms", format(timevalue));
+  TestEq("5 yrs, 4 mths, 3 days, 12 hr, 34 min, 56 sec, 789 ms", format(combinedvalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("5 jr, 4 mnd, 3 dagen", format(datevalue));
+  TestEq("12 uur, 34 min, 56 sec, 789 ms", format(timevalue));
+  TestEq("5 jr, 4 mnd, 3 dagen, 12 uur, 34 min, 56 sec, 789 ms", format(combinedvalue));
+
+  // 'narrow' style
+  options := [ style := "narrow" ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("5y 4m 3d", format(datevalue)); // Note that the browser's DurationFormat return 'mo' as month abbreviation
+  TestEq("12h 34m 56s 789ms", format(timevalue));
+  TestEq("5y 4m 3d 12h 34m 56s 789ms", format(combinedvalue)); // Note that the browser's DurationFormat return 'mo' as month abbreviation
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("5 jr, 4 m, 3 d", format(datevalue));
+  TestEq("12 u, 34 m, 56 s, 789 ms", format(timevalue));
+  TestEq("5 jr, 4 m, 3 d, 12 u, 34 m, 56 s, 789 ms", format(combinedvalue));
+
+  // 'digital' style
+  options := [ style := "digital" ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("5 yrs, 4 mths, 3 days, 0:00:00", format(datevalue)); // time is always shown in 'digital' style, date parts are formatted as 'short'
+  TestEq("12:34:56.789", format(timevalue));
+  TestEq("5 yrs, 4 mths, 3 days, 12:34:56.789", format(combinedvalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("5 jr, 4 mnd, 3 dagen, 0:00:00", format(datevalue));
+  TestEq("12:34:56,789", format(timevalue));
+  TestEq("5 jr, 4 mnd, 3 dagen, 12:34:56,789", format(combinedvalue));
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 4 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.004", format(timevalue));
+  // Trailing millisecond aren't displayed by default
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 400 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.4", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,4", format(timevalue));
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 0 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03", format(timevalue));
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, microseconds := 1 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.000001", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,000001", format(timevalue));
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, nanoseconds := 1 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.000000001", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,000000001", format(timevalue));
+  // If only hours and minutes are given, the seconds should be displayed as 0s
+  timevalue := [ hours := 1, minutes := 2 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:00", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:00", format(timevalue));
+  // If only minutes and seconds are given, the hours should be displayed as a 0
+  timevalue := [ minutes := 2, seconds := 3 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("0:02:03", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("0:02:03", format(timevalue));
+  // Show 3 millisecond digits
+  options := CELL[ ...options, fractionaldigits := 3 ];
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 400 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.400", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,400", format(timevalue));
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 0 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.000", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,000", format(timevalue));
+  // If only hours and minutes are given, the seconds should be displayed as 0s
+  timevalue := [ hours := 1, minutes := 2 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:00.000", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:00,000", format(timevalue));
+  // If only minutes and seconds are given, the hours should be displayed as a 0
+  timevalue := [ minutes := 2, seconds := 3 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("0:02:03.000", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("0:02:03,000", format(timevalue));
+  // Milliseconds are truncated if there are more digits than are shown
+  options := CELL[ ...options, fractionaldigits := 2 ];
+  timevalue := [ hours := 1, minutes := 2, seconds := 3, milliseconds := 456 ];
+  format := NEW DurationFormat("en", options)->format;
+  TestEq("1:02:03.45", format(timevalue));
+  format := NEW DurationFormat("nl", options)->format;
+  TestEq("1:02:03,45", format(timevalue));
+
+  // Only non-zero values are shown with the default monthsdisplay of 'auto'
+  datevalue := [ years := 5, months := 0, days := 3 ];
+  format := NEW DurationFormat("en")->format;
+  TestEq("5 yrs, 3 days", format(datevalue));
+  // 'months' is shown if it's 0 and monthsdisplay is set to 'always'
+  datevalue := [ years := 5, months := 0, days := 3 ];
+  format := NEW DurationFormat("en", [ monthsdisplay := "always" ])->format;
+  TestEq("5 yrs, 0 mths, 3 days", format(datevalue));
+  // 'months' is shown if not given if monthsdisplay is set to 'always'
+  datevalue := [ years := 5, days := 3 ];
+  format := NEW DurationFormat("en", [ monthsdisplay := "always" ])->format;
+  TestEq("5 yrs, 0 mths, 3 days", format(datevalue));
+
+  CloseTest("TestLocalization: DurationFormatTest");
+}
+
 
 IF (NOT IsWasm())
   VersionTest();
@@ -945,7 +1097,8 @@ WorldInfoTest();
 TransformationTest();
 // Comparison
 ComparisonTest();
-// Intl, Collator, DateTimeFormat, NumberFormat
+// Intl: Collator, DateTimeFormat, NumberFormat, DurationFormat
 CollatorTest();
 DateTimeFormatTest();
 NumberFormatTest();
+DurationFormatTest();

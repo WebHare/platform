@@ -1242,6 +1242,14 @@ PUBLIC RECORD FUNCTION ParseISO8601Duration(STRING duration) {
   RETURN retval;
 }
 
+PUBLIC STRING FUNCTION FormatISO8601Duration(STRING duration, STRING locale, STRING style) {
+  IF (duration = "")
+    RETURN "";
+  // Remove '0' values so they won't be displayed
+  RECORD durationrec := RepackRecord(SELECT * FROM UnpackRecord(ParseISO8601Duration(duration)) WHERE value > 0);
+  RETURN NEW DurationFormat(locale, CELL[ style ])->format(durationrec);
+}
+
 DATETIME FUNCTION AddDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor) {
   FOREVERY (RECORD part FROM UnpackRecord(duration))
   {
