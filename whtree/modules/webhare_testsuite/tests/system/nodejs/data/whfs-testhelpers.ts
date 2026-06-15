@@ -1,4 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { buildInstance, buildRTD, WebHareBlob } from "@webhare/services";
+import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { db } from "@webhare/whdb";
 import { describeWHFSType } from "@webhare/whfs";
 
@@ -58,4 +60,27 @@ export async function dumpSettings(objid: number, ns: string) {
   console.log(`${settings.length} settings found`);
   if (settings.length)
     console.table(settings);
+}
+
+export async function generateForm(content: {
+  text: string;
+}): Promise<ComposedDocument> {
+  const formContent = new ComposedDocument("platform:formdefinition", WebHareBlob.from(`
+      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+        <form name="webtoolform">
+          <page>
+            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="P1" guid="formcomp:9A757BDEF63422BC86F6C5586FDA3508"/>
+          </page>
+        </form>
+      </formdefinitions>`), {
+    instances: {
+      'Yl98JQ8ztbgW3-KdqLzYBA': await buildInstance({
+        whfsType: 'platform:filetypes.richdocument',
+        data: {
+          data: await buildRTD([{ p: content.text }])
+        }
+      })
+    }
+  });
+  return formContent;
 }

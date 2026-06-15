@@ -130,10 +130,10 @@ PUBLIC RECORD FUNCTION RunInstantiatedDynHSPage(OBJECT webdesign, OBJECT pageobj
   RETURN RunAndCaptureHSBody(webdesign, PTR webdesign->CallWithScope(renderfunc));
 }
 
-PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER fileid) {
+PUBLIC RECORD FUNCTION RunDynamicHarescriptPage(RECORD webclientinfo, RECORD how, INTEGER targetid, INTEGER contentid) {
   MockUsingClientInfo(webclientinfo);
 
-  OBJECT webdesign := GetWebDesign(fileid);
+  OBJECT webdesign := GetWebDesign(targetid, CELL[ contentobject := contentid != targetid ? OpenWHFSObject(contentid) : DEFAULT OBJECT]);
 
   RECORD dynamicexecution := CellExists(how, 'dynamicexecution') ? how.dynamicexecution : DEFAULT RECORD;
   RECORD pagerouter := CellExists(how, 'pagerouter') ? how.pagerouter : DEFAULT RECORD;

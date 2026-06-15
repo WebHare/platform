@@ -3,11 +3,10 @@ import { beginWork, commitWork, db } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
-import { verifyNumSettings, dumpSettings } from "../data/whfs-testhelpers";
+import { verifyNumSettings, dumpSettings, generateForm } from "../data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob, buildInstance, type Instance, type TypedInstance, exportFileAsFetch } from "@webhare/services";
-import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, buildInstance, type Instance, type TypedInstance, exportFileAsFetch } from "@webhare/services";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -267,27 +266,8 @@ async function testInstanceData() {
   test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
 
   //Test composed documents
-  const inComposedDoc = new ComposedDocument("platform:formdefinition", WebHareBlob.from(`
-      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
-        <form name="webtoolform">
-          <page>
-            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="asdf def" guid="wtfrm:9A757BDEF63422BC86F6C5586FDA3508"/>
-          </page>
-        </form>
-      </formdefinitions>`), {
-    instances: {
-      'Yl98JQ8ztbgW3-KdqLzYBA': await buildInstance({
-        whfsType: 'platform:filetypes.richdocument',
-        data: {
-          data: await buildRTD([{ p: "asdf def" }])
-        }
-      })
-    }
-  });
-
-  await testtype.set(testfile.id, {
-    aDoc: inComposedDoc
-  });
+  const inComposedDoc = await generateForm({ text: "asdf def" });
+  await testtype.set(testfile.id, { aDoc: inComposedDoc });
   expectNumSettings += 3; //one setting for type+text, one for the instance and one for the data member in the instance
 
   const outComposedDoc = (await testtype.get(testfile.id)).aDoc;
@@ -309,7 +289,7 @@ async function testInstanceData() {
       '      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">\n' +
       '        <form name="webtoolform">\n' +
       '          <page>\n' +
-      '            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="asdf def" guid="wtfrm:9A757BDEF63422BC86F6C5586FDA3508"/>\n' +
+      '            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="P1" guid="formcomp:9A757BDEF63422BC86F6C5586FDA3508"/>\n' +
       '          </page>\n' +
       '        </form>\n' +
       '      </formdefinitions>',
