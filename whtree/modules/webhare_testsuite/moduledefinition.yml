@@ -154,3 +154,7 @@ formDefinitions:
   beaconform: tests/publisher/contentlibraries/libs/beaconform.formdef.xml
   formdefs: webdesigns/basetest/pages/formtest/formtest.formdef.xml
   global:  webdesigns/basetest/pages/formtest/global.formdef.xml
+
+addToAssetPacks:
+  - assetPack: basetest
+    entryPoint: webdesigns/basetest/js/addtopack

@@ -27,6 +27,9 @@ properties:
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/$defs/AssetPacks"
+  addToAssetPacks:
+    description: Add assets to existing bundles
+    $ref: "#/$defs/AddToAssetPacks"
   siteProfiles:
     description: Global Site profiles
     $ref: "#/$defs/SiteProfiles"
@@ -353,6 +356,25 @@ $defs:
 
         required:
           - entryPoint
+
+  AddToAssetPacks:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+      - assetPack
+      - entryPoint
+      properties:
+        assetPack:
+          type: string
+          description: "Asset pack to add the entry point to"
+        entryPoint:
+          type: string
+          description: "Entry point to add to the asset pack"
+        ifWebHare:
+          description: "Restrict addition to specific installations or versions"
+          $ref: "#/$defs/IfWebHare"
 
   SelfChecks:
     description: Add checks to run as part of the automatic checks

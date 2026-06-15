@@ -349,8 +349,6 @@
                hidden="true"
                siteprofile="webdesigns/basetest/neverused_compiletest.siteprl.xml" />
 
-    <addtoassetpack assetpack="webhare_testsuite:basetest" entrypoint="webdesigns/basetest/js/addtopack" />
-
     <addtowebdesign siteprofile="webdesigns/basetest/siteprofiles/addtobasetest.siteprl.xml"
                     webdesign="webhare_testsuite:basetest" />
 
