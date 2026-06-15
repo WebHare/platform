@@ -555,7 +555,7 @@ export class WHFSFolder extends WHFSBaseObject {
       }
     }
 
-    if (metadata && "fileLink" in metadata) //TODO need to set it for version/reycled files. but that might be a lower level API in the end PLUS consider moving that to a 'version' or 'base' reference so we can actually version int/ext links
+    if (metadata && "fileLink" in metadata) //TODO need to set it for version/recycled files. but that might be a lower level API in the end PLUS consider moving that to a 'version' or 'base' reference so we can actually version int/ext links
       throw new Error(`The 'filelink' property is read only. Update the 'target' property instead.`);
 
     //FIXME validate whether type is valid for publication
