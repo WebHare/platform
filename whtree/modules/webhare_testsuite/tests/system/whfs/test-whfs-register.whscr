@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/register.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -29,11 +30,17 @@ MACRO TestRegister()
 
   TestThrowsLike("No such slot*", PTR LookupInWHFSRegister("webhare_testsuite:nosuchslot" || Random(1,65535)));
 
+  TestEq([ name := "webhare_testsuite:testsite"
+         , title := "webhare_testsuite:module.testsite.title"
+         , description := "webhare_testsuite:module.testsite.description"
+         , initialvalue := "site::webhare_testsuite.testsite"
+         , fallback := ""
+         , type := "site"
+         ], DescribeWHFSRegisterSlot("webhare_testsuite:testsite"));
+
   //Make sure the testslot and testsite unset
-  testfw->BeginWork();
-  SetWHFSRegisterSlot("webhare_testsuite:testslot", 0);
-  SetWHFSRegisterSlot("webhare_testsuite:testsite", 0);
-  testfw->CommitWork();
+  CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", "webhare_testsuite:testslot", DEFAULT RECORD);
+  CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", "webhare_testsuite:testsite", DEFAULT RECORD);
 
   //Request testslot - should not be there yet...
   TestThrowsLike("*has not been set*", PTR LookupInWHFSRegister("webhare_testsuite:testslot"));
@@ -49,8 +56,8 @@ MACRO TestRegister()
 
   testfw->BeginWork();
   OBJECT testslotfolder2 := testfw->GetWHFSTestRoot()->CreateFolder([name := "testslot2"]);
-  SetWHFSRegisterSlot("webhare_testsuite:testslot", testslotfolder2->id);
   testfw->CommitWork();
+  CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", "webhare_testsuite:testslot", testslotfolder2->id);
 
   TestEq(testslotfolder2->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
 
@@ -67,8 +74,8 @@ MACRO TestRegister()
 
   testfw->BeginWork();
   OBJECT testslotfile := testfw->GetWHFSTestRoot()->CreateFile([name := "testslotfile"]);
-  TestThrowsLike("*is a file*", PTR SetWHFSRegisterSlot("webhare_testsuite:testslot", testslotfile->id));
   testfw->CommitWork();
+  TestThrowsLike("*is a file*", PTR CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", "webhare_testsuite:testslot", testslotfile->id));
 
   TestEq(testslotfolder2->id, LookupInWHFSRegister("webhare_testsuite:testslot"));
 
@@ -125,7 +132,7 @@ MACRO TestOrphans()
   testfw->CommitWork();
 
   TestEq(testslotfile->id, LookupInWHFSRegister("webhare_testsuite:orphanslot"));
-  TestThrowsLike("No such slot*", PTR SetWHFSRegisterSlot("webhare_testsuite:orphanslot", testslotfolder->id)); //an orphan cannot currently be changed through the API
+  TestThrowsLike("No such slot*", PTR CallJS([ runinseparatework := TRUE ], "@webhare/whfs/src/register.ts#setWHFSRegisterSlot", "webhare_testsuite:orphanslot", testslotfolder->id)); //an orphan cannot currently be changed through the API
 
   RECORD ARRAY slots := GetAllWHFSRegisterSlots();
   TestEq([[ title := ""

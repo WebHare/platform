@@ -4,11 +4,16 @@ import { getAuthorizationUsers } from "@webhare/auth";
 import { isTemporalInstant } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
+import { openFolder } from "@webhare/whfs";
 import { wrd } from "@webhare/wrd";
 
 async function testListSites() {
   const testsite = await test.getTestSiteHS();
   const testsitejs = await test.getTestSiteJS();
+
+  await beginWork();
+  await testsite.update({ webFeatures: [] });
+  await commitWork();
 
   //verify listSites and exact typing of response value
   test.eq({ id: testsite.id, name: "webhare_testsuite.testsite" }, (await whfs.listSites()).find(_ => _.name === "webhare_testsuite.testsite"));
@@ -156,6 +161,23 @@ async function testListObjects() {
   test.eq(1, (await deletedParent.list([], { allowHistoric: true })).filter(_ => _.id === newobj.id).length, "Recycled object should appear in list of its parent when allowing historic");
 }
 
+async function testListRoot() {
+  const throughObject = await (await openFolder("/", { allowRoot: true })).list(["parent"]);
+  test.eq([], throughObject.filter(_ => _.parent !== null).slice(0, 10));
+  test.eq({ id: 10, name: 'webhare-private', isFolder: true, parent: null }, throughObject.find(_ => _.name === "webhare-private"), "Should be able to list the root folder and find webhare-private in it");
+
+  const throughGlobal = await whfs.listWHFSObjects(["parent"], { parent: null });
+  test.eq([], throughGlobal.filter(_ => _.parent !== null).slice(0, 10));
+  test.eq({ id: 10, name: 'webhare-private', isFolder: true, parent: null }, throughGlobal.find(_ => _.name === "webhare-private"), "Should be able to list with parent=null and find webhare-private in it");
+
+  //this is a DB cornercase as it has to build: parent is null OR parent in [1,2,3]
+  const testsitejs = await test.getTestSiteJS();
+  const throughGlobalAndFolder = await whfs.listWHFSObjects(["parent"], { parent: [null, 1, testsitejs.id] });
+  test.eq([], throughGlobalAndFolder.filter(_ => _.parent !== null && _.parent !== 1 && _.parent !== testsitejs.id).slice(0, 10));
+  test.eq({ id: 10, name: 'webhare-private', isFolder: true, parent: null }, throughGlobalAndFolder.find(_ => _.name === "webhare-private" && _.parent === null));
+  test.assert(throughGlobalAndFolder.find(_ => _.name === "TestPages" && _.parent === testsitejs.id));
+}
+
 test.runTests([
   () => test.resetWTS({
     users: {
@@ -164,5 +186,6 @@ test.runTests([
     }
   }),
   testListSites,
-  testListObjects
+  testListObjects,
+  testListRoot,
 ]);

@@ -1,14 +1,21 @@
 import { backendConfig, parseResourcePath } from "@webhare/services";
-import { generatorBanner, type FileToUpdate, type GenerateContext } from "./shared";
+import { generatorBanner, isNodeApplicableToThisWebHare, type FileToUpdate, type GenerateContext } from "./shared";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { CSPMemberType, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { nameToCamelCase, throwError } from "@webhare/std";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import { codecs, type MemberType, type TypeCodec } from "@webhare/whfs/src/codecs";
 import { getOfflineSiteProfiles } from "@mod-publisher/lib/internal/siteprofiles/parser";
+import type { StoredWHFSRegisterSlot } from "@webhare/whfs/src/register";
+import { elements, parseXMLTidPtr } from "./xmlhelpers";
+
+export type WHFSExtract = {
+  slots: StoredWHFSRegisterSlot[];
+};
 
 class WHFSCompileContext {
   private contenttypes?: Promise<CSPContentType[]>;
+  private registerSlots?: Promise<StoredWHFSRegisterSlot[]>;
 
   private async loadContentTypes() {
     //FIXME prepare to write this to an extract, but our extract might cache database ids currently? we might need two extracts, one for the Declared situation (based on modules) and one for the Actual situation (based on database). or just cache in process
@@ -20,6 +27,35 @@ class WHFSCompileContext {
   async getContentTypes() {
     this.contenttypes ||= this.loadContentTypes();
     return await this.contenttypes;
+  }
+
+  private async loadRegisterSlots(context: GenerateContext) {
+    const slots: StoredWHFSRegisterSlot[] = [];
+    for (const mod of context.moduledefs) {
+      if (mod.modXml) {
+        const publisher = mod.modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher")[0];
+        if (!publisher)
+          continue;
+        for (const slot of elements(publisher.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "registerslot"))) {
+          if (!isNodeApplicableToThisWebHare(slot, ""))
+            continue;
+          slots.push({
+            name: `${mod.name}:${slot.getAttribute("name")}`.toLowerCase(),
+            title: parseXMLTidPtr(mod.resourceBase, "", slot, "title"),
+            description: parseXMLTidPtr(mod.resourceBase, "", slot, "description"),
+            initialValue: slot.getAttribute("initialvalue") || undefined,
+            fallback: slot.getAttribute("fallback") || undefined,
+            type: slot.getAttribute("type") as "site" | "file" | "folder" || undefined
+          });
+        }
+      }
+    }
+    return slots;
+  }
+
+  async getRegisterSlots(context: GenerateContext) {
+    this.registerSlots ||= this.loadRegisterSlots(context);
+    return await this.registerSlots;
   }
 }
 
@@ -106,6 +142,12 @@ ${interfaces}
   return fullfile;
 }
 
+async function generateWHFSExtract(context: GenerateContext, whfscc: WHFSCompileContext): Promise<string> {
+  const extract: WHFSExtract = {
+    slots: await whfscc.getRegisterSlots(context)
+  };
+  return JSON.stringify(extract, null, 2) + "\n";
+}
 
 export async function listAllModuleWHFSTypeDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
@@ -116,11 +158,16 @@ export async function listAllModuleWHFSTypeDefs(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "whfs",
       generator: (options: GenerateContext) => generateWHFSDefs(options, whconstant_builtinmodules, whfsCompileContext)
-    }, ...noncoremodules.map((module: string): FileToUpdate => ({
+    }, {
       path: `ts/whfstypes.ts`,
       module: "dummy-installed",
       type: "whfs",
       generator: (options: GenerateContext) => generateWHFSDefs(options, noncoremodules, whfsCompileContext)
-    }))
+    }, {
+      path: `extracts/whfs.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (options: GenerateContext) => generateWHFSExtract(options, whfsCompileContext)
+    }
   ];
 }

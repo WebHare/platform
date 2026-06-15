@@ -3,7 +3,7 @@ import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { popWork, stashWork } from "@webhare/whdb/src/impl";
+import { popWork, runInSeparateWork, stashWork } from "@webhare/whdb/src/impl";
 import { stdTypeOf, throwError, toCamelCase, toSnakeCase } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
@@ -200,7 +200,8 @@ export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: st
   if (calljs.hscontext.auth)
     updateAuditContext(toAuthAuditContext(calljs.hscontext.auth));
 
-  const retval = await func(...calljs.options.camelcase ? toCamelCase(calljs.args) : calljs.args);
+  const args = calljs.options.camelcase ? toCamelCase(calljs.args) : calljs.args;
+  const retval = calljs.options.runinseparatework ? await runInSeparateWork(() => func(...args)) : await func(...args);
   const fixedRetval = await fixBlobs(hsvm, retval); //load blobs into memory as setJSValue is sync
   return calljs.options.camelcase && typeof fixedRetval === 'object' ? toSnakeCase(fixedRetval) : fixedRetval;
 }

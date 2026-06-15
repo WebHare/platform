@@ -30,6 +30,22 @@ function getErrorLength(msg: ValidationMessage) {
   return 0;
 }
 
+function getRange(msg: ValidationMessage, doclines: string[]) {
+  if (msg.line < 1) //global/unassigned error. just give top of file as position
+    return { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+
+  if (msg.col < 1) // libxml gives no columns positions. let's highlight the line without the initial whitespace
+    return {
+      start: { line: msg.line - 1, character: doclines[msg.line - 1]?.match(/^ */)?.[0].length ?? 0 },
+      end: { line: msg.line - 1, character: doclines[msg.line - 1]?.length ?? 1 }
+    };
+
+  return {
+    start: { line: msg.line - 1, character: msg.col - 1 },
+    end: { line: msg.line - 1, character: msg.col - 1 + getErrorLength(msg) } //TODO ? for some erro codes we might be able to deduce length based on msg1 or msg2?
+  };
+}
+
 async function getHSDiagnostics(respath: string, content: string): Promise<Diagnostic[]> {
   //NOTE ValidateHarescriptSource validates more than just HareScript as it wraps ValidateSingleFileAdhoc
   const validation = await loadlib("mod::devkit/lib/lsp/editorsupport.whlib").ValidateHarescriptSource(respath, WebHareBlob.from(content)) as { messages: ValidationMessage[] };
@@ -42,16 +58,7 @@ async function getHSDiagnostics(respath: string, content: string): Promise<Diagn
     severity: msg.type === "error" ? DiagnosticSeverity.Error : msg.type === "warning" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
     message: msg.message,
     data: msg,
-    range: msg.col === 0 ?
-      {
-        // libxml gives no columns positions. let's highlight the line without the initial whitespace
-        start: { line: msg.line - 1, character: doclines[msg.line - 1]?.match(/^ */)?.[0].length ?? 0 },
-        end: { line: msg.line - 1, character: doclines[msg.line - 1]?.length ?? 1 }
-      } :
-      {
-        start: { line: msg.line - 1, character: msg.col - 1 },
-        end: { line: msg.line - 1, character: msg.col - 1 + getErrorLength(msg) } //TODO ? for some erro codes we might be able to deduce length based on msg1 or msg2?
-      },
+    range: getRange(msg, doclines)
   }) satisfies Diagnostic);
   return diagnostics;
 }
