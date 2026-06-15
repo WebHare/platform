@@ -134,6 +134,7 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , ignoresiteprofilewidgets := FALSE
          , applytester := DEFAULT OBJECT
          , linkhandlers := RECORD[]
+         , linktypes := STRING[]
          , margins := ""
          ]);
 }
