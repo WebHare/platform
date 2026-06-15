@@ -52,6 +52,20 @@ const MapBitmapImageTypes: Record<string, string> = {
 
 const metadataFields = ["extension", "mediaType", "width", "height", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
 
+/** The result of a toResized() call */
+export type ResizedImage = {
+  /** Link to the image. May start with `http://`, `https://`, `//` or `/` */
+  link: string;
+  /** Post-resize width in pixels */
+  width: number;
+  /** Post-resize height in pixels */
+  height: number;
+  /** Dominant color as `#RRGGBB` hex code */
+  dominantColor: string | null;
+  /** Object position as `x% y%` (eg 25.0000% 50.0000%) */
+  objectPosition: string | null;
+};
+
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
@@ -904,7 +918,7 @@ function getUnifiedCacheURL(dataType: number, metadata: Pick<ResourceMetadata, "
   return options?.baseURL ? new URL(url, options?.baseURL).href : url;
 }
 
-export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod) {
+export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod): ResizedImage {
   const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
   const processing = explainImageProcessing(metadata, { ...method, format: setFormat });
 
@@ -1125,7 +1139,7 @@ export class ResourceDescriptor implements ResourceMetadata {
     return getUnifiedCacheURL(2, this, method);
   }
 
-  toResized(method: ResizeMethod) {
+  toResized(method: ResizeMethod): ResizedImage {
     return fromMetaDatatoResized(1, this, method);
   }
 
