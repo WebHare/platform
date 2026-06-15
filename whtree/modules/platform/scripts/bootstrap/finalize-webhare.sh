@@ -60,14 +60,15 @@ npm install "${NPMOPTS[@]}" || die "NPM install failure for $CANDIDATE"
 
 # run scripts we trust and need explicitly.
 ## download the esbuild for this platform
-logWithTime "Downloading esbuild"
+logWithTime "Downloading and installing esbuild"
 node node_modules/esbuild/install.js || die "Download failed"
 
 ## generate root tsconfig.json
+logWithTime "Generating root tsconfig.json"
 node_modules/.bin/yaml --json --single --strict < tsconfig.yml | jq > tsconfig.json
 
-## download sharp
-(cd node_modules/sharp && npm run install)
+## test sharp
+logWithTime "Verifying sharp works"
 node -e 'require("sharp")' || die "Sharp failed"
 
 ## download puppeteer

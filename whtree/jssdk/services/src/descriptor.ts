@@ -442,7 +442,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
     } else {
       /* Ignore broken images eg https://github.com/lovell/sharp/issues/1578 - 'Set this flag to false if you'd rather apply a "best effort" to decode images, even if the data is corrupt or invalid. (optional, default true)'
          as we will often be dealing with images from external sources where we generally can't go back and ask for new images, or sensibly deal/report this type of failure? */
-      img = await createSharpImage(data, { failOnError: false });
+      img = await createSharpImage(data, { failOn: "none" });
     }
 
     metadata = await img.metadata();

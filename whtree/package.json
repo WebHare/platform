@@ -61,7 +61,7 @@
     "sass": "^1.100.0",
     "schema-dts": "^2.0.0",
     "semver": "^7.8.1",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.1",
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.11",
     "typeface-roboto": "^1.1.13",
