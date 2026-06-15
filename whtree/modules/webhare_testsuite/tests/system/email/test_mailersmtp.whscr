@@ -93,8 +93,7 @@ MACRO MailSendTest()
   testfw->RollbackWork(); //undo registry change
 }
 
-MACRO MailSendInWorkTest()
-{
+MACRO MailSendInWorkTest() {
   OBJECT composer := PrepareMailWitty("inline::<p>This is the test.. &euro; € ümlaut ßß</p>");
   composer->mailfrom := "A user <info@sender.beta.webhare.net>";
   composer->mailto := "to@smtp.beta.webhare.net";
