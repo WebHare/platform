@@ -199,6 +199,21 @@ function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
   return addto;
 }
 
+function getYMLAddToPacks(modYml: ModDefYML) {
+  const addto = [];
+  if (modYml.addToAssetPacks)
+    for (const addtoassetpack of modYml.addToAssetPacks) {
+      if (addtoassetpack.ifWebHare && !matchesThisServer(addtoassetpack.ifWebHare))
+        continue;
+
+      const assetpack = addModule(modYml.module, addtoassetpack.assetPack);
+      const extraRequire = resolveResource(modYml.baseResourcePath, addtoassetpack.entryPoint);
+      addto.push({ assetpack, extraRequire });
+    }
+  return addto;
+}
+
+
 export async function generateAssetPacks(context: GenerateContext) {
   const assetpacks = new Array<AssetPack>();
   const addto = [];
@@ -210,6 +225,7 @@ export async function generateAssetPacks(context: GenerateContext) {
     }
     if (mod.modYml) {
       assetpacks.push(...getYMLAssetPacks(mod.modYml));
+      addto.push(...getYMLAddToPacks(mod.modYml));
     }
   }
 
