@@ -36,7 +36,7 @@
     "ajv-formats": "^3.0.1",
     "country-list-js": "^3.1.8",
     "diff": "^9.0.0",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "eslint": "^9.32.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
