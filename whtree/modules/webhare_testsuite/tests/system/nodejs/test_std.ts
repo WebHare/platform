@@ -463,29 +463,6 @@ async function testStrings() {
   test.eq("^index.|+html", std.slugify("^index.|+html", { keep: '^|+.' }));
   test.eq("^index-html", std.slugify("^index.|+html", { keep: '^' }));
 
-  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net", "abcdef"));
-  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net/", "abcdef"));
-  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net", "/abcdef"));
-  test.eq("http://beta.webhare.net/abcdef", std.joinURL("http://beta.webhare.net/", "/abcdef"));
-  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net/", ""));
-  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net", ""));
-  test.eq("http://beta.webhare.net/", std.joinURL("http://beta.webhare.net", "/"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "../abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "./abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/../abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/./abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "x/../abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "x/./abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "/.."));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "//abcdef"));
-  test.throws(/Invalid path/, () => std.joinURL("http://beta.webhare.net", "http://x.webhare.net"));
-  test.eq("http://beta.webhare.net/.wh", std.joinURL("http://beta.webhare.net", ".wh"));
-  test.eq("http://beta.webhare.net/.wh", std.joinURL("http://beta.webhare.net", "/.wh"));
-  test.eq("http://beta.webhare.net/abcdef?../ghi", std.joinURL("http://beta.webhare.net/", "/abcdef?../ghi"));
-  test.eq("http://beta.webhare.net/abcdef#../ghi", std.joinURL("http://beta.webhare.net/", "/abcdef#../ghi"));
-  test.eq("http://beta.webhare.net/abcdef?//ghi", std.joinURL("http://beta.webhare.net/", "/abcdef?//ghi"));
-  test.eq("http://beta.webhare.net/?http://example.net", std.joinURL("http://beta.webhare.net/", "?http://example.net"));
-
   test.eq("TéST0-9_()A", std.toCLocaleUppercase("tésT0-9_()a"));
   test.eq("tÉst0-9_()a", std.toCLocaleLowercase("TÉSt0-9_()A"));
 
@@ -644,50 +621,11 @@ function testEmails() {
 }
 
 function testUrls() {
-  const validUrls = [
-    "http://nu.nl/",
-    "HtTp://nu.nl/",
-    "http://nu.nl",
-    "HtTp://nu.nl:65535/",
-    "http://www.b-lex.com/",
-    "http://www.b-lex.com/test/test",
-    "https://www.b-lex.com/",
-    "http://www.b-lex.com",
-    "aaa:aa",
-    "aaa:aa:aa",
-    "aa-a:aa:aa",
-    "http://aa:aa@www.b-lex.com/",
-    "http://aa:aa:@www.b-lex.com/",
-    "http://:aa@www.b-lex.com/",
-    "http://aa:@www.b-lex.com/",
-    "http://aa@www.b-lex.com:8000/",
-  ];
-  const invalidUrls = [
-    "<URL:http://nu.nl/>",
-    "<FTP:http://nu.nl/>",
-    "http:nu.nl/",
-    "http:nu.nl",
-    "http:/nu.nl/",
-    "http:/nu.nl",
-    "http://nu.nl/\t",
-    "http://nu.nl/met spatie",
-    "http://nu.nl:65536/",
-    "http://nu.nl:0/",
-    "http:///",
-    ":",
-    "aaa",
-    "aaa:",
-    "aa_a:aa:aa",
-    "http://aaa:aa:aa/",
-    "http://aa@www.b-lex.com:xx/",
-    "http://aa@www.b-lex.com:/",
-    "http://",
-  ];
-
-  for (const url of validUrls)
-    test.eq(true, std.isValidUrl(url), `testing valid url ${JSON.stringify(url)}`);
-  for (const url of invalidUrls)
-    test.eq(false, std.isValidUrl(url), `testing invalid url ${JSON.stringify(url)}`);
+  test.eq("https://www.example.com/path?query=string#hash", std.updateURL("https://www.example.com/path?query=bla#hash", { query: "string" }).href);
+  test.eq("https://www.example.com/path?query=string#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: "string" }).href);
+  test.eq("https://www.example.com/path?query=#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: "" }).href);
+  test.eq("https://www.example.com/path#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: null }).href);
+  test.eq("https://www.example.com/path?q2=1#hash", std.updateURL("https://www.example.com/path?query=1&query=2#hash", { query: null, q2: "1" }).href);
 }
 
 async function testCollections() {

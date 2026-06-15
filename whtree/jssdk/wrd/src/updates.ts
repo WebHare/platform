@@ -111,7 +111,7 @@ async function doSplitEntityData<
       if (isPromise(toSet))
         toSet = await toSet;
 
-      accessor.validateInput(toSet, checker, "");
+      toSet = accessor.validateInput(toSet, checker, "");
       //TODO TS is confused here and doesn't recognize encodeValue's proper returnvalue. without the explicit type it won't expect a promise
       const encoded: AwaitableEncodedValue = accessor.encodeValue(toSet);
 
@@ -485,7 +485,6 @@ async function validateSettings<
       throw new Error(`Unknown attribute '${fulltag}'`);
 
     /*
-    //FIXME Validate URL fields (HS did IsValidURL)
     if (attr.isunique) {
       //@ts-expect-error lacking 'general' support
       const res = await (new WRDSingleQueryBuilder(type, null, [], null, null)).select(["wrdId"]).where(fulltag, currentSubMember ? "mentions" : "=", value).where("wrdId", "!=", currentEntity).limit(1).execute() as [{ wrdId: number }];

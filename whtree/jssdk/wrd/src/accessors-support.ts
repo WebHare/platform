@@ -154,8 +154,9 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, Ex
 
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
+   * @returns The (possibly modified) input value
    */
-  abstract validateInput(value: In, checker: ValueQueryChecker, attrPath: string): void;
+  abstract validateInput(value: In, checker: ValueQueryChecker, attrPath: string): In;
 
   /** Returns the list of attributes that need to be fetched */
   getAttrIds(): number | number[] {

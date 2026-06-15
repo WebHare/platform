@@ -5,7 +5,6 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
-import { joinURL } from "@webhare/std";
 import { decompressUUID, hashClientSecret, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession } from "@webhare/services";
 import type { AuthCustomizer } from "@webhare/auth";
@@ -59,6 +58,23 @@ type TokenResponse = {
   expires_in?: number;
 };
 
+/** Joins a path to a URL, eliminating any double slash (similar to NodeJS path.join)
+ * @param baseurl - URL to join to
+ * @param path - Path to join. May not contain '.' or '..' segments in the path
+ * @returns Joined URL, with a single slash between both parts
+*/
+export function joinURL(baseurl: string, path: string) {
+  const pathtoks = path.match(/([^?#]*)(.*)/)!; //this will always return something
+  if (pathtoks[1].match(/(\/\/)|:/))
+    throw new Error(`Invalid path to merge with: ${path}`);
+  //look for any . or .. path segments
+  if (("/" + path + "/").match(/\/\.\.?\//))
+    throw new Error(`Invalid path to merge with: ${path}`);
+
+  if (baseurl.endsWith("/"))
+    baseurl = baseurl.substring(0, baseurl.length - 1);
+  return baseurl + (path.startsWith("/") ? path : "/" + path);
+}
 
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));

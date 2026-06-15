@@ -16,6 +16,7 @@ import { AuthenticationSettings, createSchema, updateSchemaSettings, wrd, type W
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import { handleOAuth2AuthorizeLanding, OAuth2Client } from "@webhare/auth/src/oauth2-client";
 import { generateRandomId } from "@webhare/std";
+import { joinURL } from "@mod-platform/js/auth/openid";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["test-showbrowser"];
@@ -112,6 +113,31 @@ async function runAuthorizeFlow(authorizeURL: string | URL) {
   } finally {
     await context.close();
   }
+}
+
+function testJoinURL() {
+  test.eq("http://beta.webhare.net/abcdef", joinURL("http://beta.webhare.net", "abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", joinURL("http://beta.webhare.net/", "abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", joinURL("http://beta.webhare.net", "/abcdef"));
+  test.eq("http://beta.webhare.net/abcdef", joinURL("http://beta.webhare.net/", "/abcdef"));
+  test.eq("http://beta.webhare.net/", joinURL("http://beta.webhare.net/", ""));
+  test.eq("http://beta.webhare.net/", joinURL("http://beta.webhare.net", ""));
+  test.eq("http://beta.webhare.net/", joinURL("http://beta.webhare.net", "/"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "../abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "./abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "/../abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "/./abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "x/../abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "x/./abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "/.."));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "//abcdef"));
+  test.throws(/Invalid path/, () => joinURL("http://beta.webhare.net", "http://x.webhare.net"));
+  test.eq("http://beta.webhare.net/.wh", joinURL("http://beta.webhare.net", ".wh"));
+  test.eq("http://beta.webhare.net/.wh", joinURL("http://beta.webhare.net", "/.wh"));
+  test.eq("http://beta.webhare.net/abcdef?../ghi", joinURL("http://beta.webhare.net/", "/abcdef?../ghi"));
+  test.eq("http://beta.webhare.net/abcdef#../ghi", joinURL("http://beta.webhare.net/", "/abcdef#../ghi"));
+  test.eq("http://beta.webhare.net/abcdef?//ghi", joinURL("http://beta.webhare.net/", "/abcdef?//ghi"));
+  test.eq("http://beta.webhare.net/?http://example.net", joinURL("http://beta.webhare.net/", "?http://example.net"));
 }
 
 async function setupOIDC() {
@@ -598,6 +624,7 @@ async function verifySSOAPI() {
 }
 
 test.runTests([
+  testJoinURL,
   setupOIDC, //implies test.reset
   verifyRoutes_HSClient,
   verifyRoutes_TSClient,

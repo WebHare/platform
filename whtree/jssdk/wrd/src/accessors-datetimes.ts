@@ -91,7 +91,7 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
     if (value === null) {
       if (this.attr.required && !checker.importMode && (!checker.temp || attrPath))
         throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      return;
+      return value;
     }
 
     if (this.type.legacySchema) {
@@ -103,6 +103,7 @@ export class WRDDBDateValue<Required extends boolean, ModernSchema extends boole
       if (!isTemporalPlainDate(value))
         throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
+    return value;
   }
 
   encodeValue(value: (ModernSchema extends true ? Temporal.PlainDate : Date) | NullIfNotRequired<Required>): EncodedValue {
@@ -173,7 +174,7 @@ export class WRDDBBaseDateValue<ModernSchema extends boolean> extends WRDDBPlain
     if (value === null) {
       if (this.attr.required && !checker.importMode && (!checker.temp || attrPath))
         throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      return;
+      return value;
     }
 
     //TODO the wrdDateOfXX checks are probably incorrect for positive time zones that already passed midnight before UTC did
@@ -190,6 +191,7 @@ export class WRDDBBaseDateValue<ModernSchema extends boolean> extends WRDDBPlain
       if (["wrdDateOfDeath", "wrdDateOfBirth"].includes(this.attr.tag) && value.toZonedDateTime("UTC").epochMilliseconds > Date.now() && !checker.importMode)
         throw new Error(`Provided '${this.attr.tag}' in the future for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
+    return value;
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -282,13 +284,14 @@ export class WRDDBDateTimeValue<Required extends boolean, ModernSchema extends b
     if (value === null) {
       if (this.attr.required && !checker.importMode && (!checker.temp || attrPath))
         throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      return;
+      return value;
     }
 
     if (isTemporalInstant(value))
-      return;
+      return value;
     if (!isDate(value) || isNaN(value.getTime()))
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    return value;
   }
 
   encodeValue(value: Date | Temporal.Instant | NullIfNotRequired<Required>): EncodedValue {
@@ -373,6 +376,7 @@ export class WRDDBBaseCreationLimitDateValue<ModernSchema extends boolean> exten
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
     if (!value && this.attr.tag === "wrdCreationDate" && !checker.temp && !checker.importMode)
       throw new Error(`Not allowed to use \`null\` for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} for non-temp entities`);
+    return value;
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -438,6 +442,7 @@ export class WRDDBBaseModificationDateValue<ModernSchema extends boolean> extend
       throw new Error(`Not allowed to use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs)
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    return value;
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
@@ -511,7 +516,7 @@ export class WRDDBTimeValue<Required extends boolean, ModernSchema extends boole
     if (value === null) {
       if (this.attr.required && !checker.importMode && (!checker.temp || attrPath))
         throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      return;
+      return value;
     }
 
     if (this.type.legacySchema) {
@@ -521,6 +526,7 @@ export class WRDDBTimeValue<Required extends boolean, ModernSchema extends boole
       if (!isTemporalPlainTime(value))
         throw new Error(`Invalid time value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
+    return value;
   }
 
   encodeValue(value: (ModernSchema extends true ? Temporal.PlainTime : number) | NullIfNotRequired<Required>): EncodedValue {
