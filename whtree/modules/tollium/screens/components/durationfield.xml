@@ -1,0 +1,13 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="mod::tollium/lib/components/duration.whlib">
+
+  <fragment name="tolliumduration">
+    <contents>
+      <line>
+        <textedit name="amount" width="5x" emptyvalue="0" title="" valuetype="integer" />
+        <select name="unit" type="pulldown" rowkeytype="integer" title="" />
+        <text name="period" title="" visible="false" />  <!-- Used to display the formatted period in readonly mode -->
+      </line>
+    </contents>
+  </fragment>
+
+</screens>
