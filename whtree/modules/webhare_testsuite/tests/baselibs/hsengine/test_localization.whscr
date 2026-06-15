@@ -1082,6 +1082,7 @@ LocalizeDateTimeTest();
 TimeZoneTests();
 CountryListTest();
 
+DurationFormatTest();
 IF (IsWasm())
   RETURN; // We're done with WASM for now
 
@@ -1101,4 +1102,3 @@ ComparisonTest();
 CollatorTest();
 DateTimeFormatTest();
 NumberFormatTest();
-DurationFormatTest();
