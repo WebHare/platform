@@ -1047,6 +1047,7 @@
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
         <text tid="blocked">Geblokkeerd</text>
+        <text tid="cantdeletemailserverinuse">Een mailserver waar nog routes aan gekoppeld zijn kan niet verwijderd worden</text>
         <text tid="correctionsempty">Er zijn nog geen correcties gespecificeerd</text>
         <text tid="correctiontype">Correctietype</text>
         <text tid="correctiontype-block">Blokkeren</text>
@@ -1106,6 +1107,7 @@
         <text tid="smtpserver-use">Gebruik SMTP server</text>
         <text tid="snsendpoint">SNS Endpoint</text>
         <text tid="suggestionfuzz">Suggestie fuzz factor</text>
+        <text tid="suredeletemailserver">Weet je zeker dat je deze mailserver wil verwijderen?</text>
         <text tid="suredontsendemail">Weet je zeker dat je alle e-mails die deze mailroute volgen wilt blokkeren?</text>
         <text tid="target">Doel</text>
         <text tid="testsmtpserver">Test SMTP server</text>
