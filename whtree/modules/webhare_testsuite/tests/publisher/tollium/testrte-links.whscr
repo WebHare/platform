@@ -51,7 +51,19 @@ OBJECT ASYNC FUNCTION InsertLink()
   TestEq("custom link handler", TT("link")->^linktype->selection.title);
   TestEq(15, TT("link")->^linktype->selection.enablecomponents[0]->value);
 
+  //Change it to a linktypes= link
+  TTFillByTitle("link->linktype", "custom link handler_yaml");
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  RECORD updatelinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
+  TestEq(TRUE, RecordExists(updatelinkinstr), "Unable to find the UpdateProps2 instruction in the outgoing instruction stream");
+  TestEq("xx", updatelinkinstr.messages[0].data.actionid);
+  TestEqLike("x-richdoclink-e:*", updatelinkinstr.messages[0].data.settings.link);
+
   //Let's change it to an internal link
+  AWAIT ExpectScreenChange(+1, PTR myrte->ProcessInboundMessage("properties2", [ actionid:="xx", action := "action-properties", affectednodeinfo := [ type := "hyperlink", target := "", link := updatelinkinstr.messages[0].data.settings.link ]]));
+  TestEq("custom link handler_yaml", TT("link")->^linktype->selection.title);
+
   TT("link")->^linktype->value := 2; //2 is always internal link
   TT("link")->^internal->value := testrtd2->id;
   TT("link")->^append->value := "#addme";
@@ -59,7 +71,7 @@ OBJECT ASYNC FUNCTION InsertLink()
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
-  RECORD updatelinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
+  updatelinkinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="UpdateProps2";
   TestEq(TRUE, RecordExists(updatelinkinstr), "Unable to find the UpdateProps2 instruction in the outgoing instruction stream");
   TestEq("xx", updatelinkinstr.messages[0].data.actionid);
   TestEq("_blank", updatelinkinstr.messages[0].data.settings.target);

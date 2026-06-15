@@ -1,7 +1,11 @@
 <?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
@@ -33,6 +37,11 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
 
   OBJECT ARRAY __linkhandlers; //internal link <linkhandlers> object
 
+  STRING ARRAY __linktypes;
+
+  // Objects created to implement the __linktypes
+  RECORD __linktypeshandlers;
+
   RECORD ARRAY originaloptions;
 
   BOOLEAN __internallinks;
@@ -49,6 +58,8 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   UPDATE PUBLIC PROPERTY title(^linktype->title, ^linktype->title);
 
   PUBLIC PROPERTY linkhandlers(__linkhandlers, SetLinkHandlers);
+
+  PUBLIC PROPERTY linktypes(__linktypes, SetLinkTypes);
 
   PUBLIC PROPERTY internallinks(__internallinks, SetInternalLinks);
 
@@ -81,6 +92,8 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(ObjectExists(def.linkhandlers))
       this->linkhandlers := def.linkhandlers->linkhandlers;
 
+    this->__linktypes := ParseXSList(def.linktypes);
+
     this->ConfigureOptions();
   }
 
@@ -101,7 +114,20 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(NOT this->__internallinks)
       DELETE FROM opts WHERE rowkey = 2;
 
-    FOREVERY(OBJECT handler FROM this->linkhandlers)
+    OBJECT ARRAY linktypehandlers;
+    FOREVERY(STRING linktype FROM this->__linktypes) {
+      IF(NOT CellExists(this->__linktypeshandlers, linktype)) {
+        RECORD handler := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE name = linktype;
+        IF(NOT RecordExists(handler))
+          THROW NEW Exception(`Link type '${linktype}' configured for IntExtLink component, but no handler found in configuration`);
+
+        OBJECT handlercomp := this->owner->CreateDynamicComponent(handler.tollium_component);
+        this->__linktypeshandlers := CellInsert(this->__linktypeshandlers, linktype, handlercomp);
+      }
+      INSERT GetCell(this->__linktypeshandlers, linktype) INTO linktypehandlers AT END;
+    }
+
+    FOREVERY(OBJECT handler FROM linktypehandlers CONCAT this->linkhandlers)
     {
       OBJECT ARRAY components := handler->CreateComponents(this->owner);
 
@@ -156,6 +182,13 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
   MACRO SetLinkHandlers(OBJECT ARRAY newlinkhandlers)
   {
     this->__linkhandlers := newlinkhandlers;
+    IF(Length(this->originaloptions) > 0) //need to reconfig?
+      this->ConfigureOptions();
+  }
+
+  MACRO SetLinkTypes(STRING ARRAY newlinktypes)
+  {
+    this->__linktypes := newlinktypes;
     IF(Length(this->originaloptions) > 0) //need to reconfig?
       this->ConfigureOptions();
   }

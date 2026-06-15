@@ -803,6 +803,13 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope <
     RETURN comp;
   }
 
+  PUBLIC OBJECT FUNCTION CreateDynamicComponent(STRING objname, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions( [ namebase := "tollium_d", name := "" ], options);
+    STRING name := options.name ?? this->tolliumscreenmanager->CreateAnonymousName(options.namebase);
+    OBJECT comp := this->tolliumscreenmanager->CreateComponent(objname, name, -1, DEFAULT OBJECT, "", "", "");
+    RETURN comp;
+  }
+
   ////////////////////////////////////////////////////////////////////////
   //
   // TolliumScreenBase

@@ -442,7 +442,8 @@
 
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1"
            allownewwindowlinks="true"
-           htmlclass="gohtml">
+           htmlclass="gohtml"
+           linktypes="webhare_testsuite:testhandler1">
     <css path="css/rtd.css" />
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="HEADING1" containertag="h1" textstyles="" />

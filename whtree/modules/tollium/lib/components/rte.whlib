@@ -167,6 +167,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
   INTEGER valuedirtycount;
   STRING pvt_htmlclass;
   STRING pvt_bodyclass;
+  //Caches the components for the linktypes
+  RECORD __linktypeshandlers;
+  STRING ARRAY pvt_linktypes;
   STRING css;
 
   STRING cssinstance;
@@ -189,6 +192,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
 
   PUBLIC PROPERTY htmlclass(this->pvt_htmlclass, SetHTMLClass);
   PUBLIC PROPERTY bodyclass(this->pvt_bodyclass, SetBodyClass);
+  PUBLIC PROPERTY linktypes(this->pvt_linktypes, SetLinkTypes);
 
   OBJECT editable;
 
@@ -317,6 +321,10 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     this->ExtUpdatedClasses();
   }
 
+  MACRO SetLinkTypes(STRING ARRAY linktypes) {
+    this->pvt_linktypes := linktypes;
+  }
+
   PUBLIC RECORD FUNCTION __Debug_GetCSSState()
   {
     RETURN [ link := this->csslink
@@ -369,8 +377,21 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     IF(ObjectExists(this->internallinkshandler))
       INSERT this->internallinkshandler INTO handlers AT END;
 
+    FOREVERY(STRING linktype FROM this->pvt_linktypes) {
+      IF(NOT CellExists(this->__linktypeshandlers, linktype)) {
+        RECORD handler := SELECT * FROM __GetExtractedConfig("plugins").link_types WHERE name = linktype;
+        IF(NOT RecordExists(handler))
+          THROW NEW Exception(`Link type '${linktype}' configured for IntExtLink component, but no handler found in configuration`);
+
+        OBJECT handlercomp := this->owner->CreateDynamicComponent(handler.tollium_component);
+        this->__linktypeshandlers := CellInsert(this->__linktypeshandlers, linktype, handlercomp);
+      }
+      INSERT GetCell(this->__linktypeshandlers, linktype) INTO handlers AT END;
+    }
+
     IF(ObjectExists(this->rtelinkhandlers))
       handlers := handlers CONCAT this->rtelinkhandlers->linkhandlers;
+
     handlers := handlers CONCAT this->addedlinkhandlers CONCAT this->rtdtypelinkhandlers;
     RETURN handlers;
   }
@@ -1179,6 +1200,7 @@ PUBLIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase < //Cannot use STATIC as Se
     this->css := settings.css;
     this->htmlclass := settings.htmlclass;
     this->bodyclass := settings.bodyclass;
+    this->linktypes := settings.linktypes;
 
     this->editable->structuredef := NEW RichDocumentStructure;
     this->editable->structuredef->LoadFromRTDType(settings);
