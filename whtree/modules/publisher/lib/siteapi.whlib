@@ -303,7 +303,19 @@ STATIC OBJECTTYPE SiteObject <
     IF(NOT RecordExists(currentrec))
       THROW NEW Exception("No site #" || this->id || " in the database");
 
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    IF(NOT ObjectExists(sitesettingstype))
+      THROW NEW Exception("Type 'http://www.webhare.net/xmlns/publisher/sitesettings' not registered!");
+
+    RECORD currentsettings := sitesettingstype->GetInstanceData(this->id);
+
     IF(CellExists(siterecupdate,'LOCKED') AND siterecupdate.locked != currentrec.locked)
+      republishsite := TRUE;
+    IF(CellExists(siterecupdate,'SITEDESIGN') AND siterecupdate.sitedesign != currentsettings.sitedesign)
+      republishsite := TRUE;
+    IF(CellExists(siterecupdate,'WEBDESIGN') AND siterecupdate.webdesign != currentsettings.sitedesign)
+      republishsite := TRUE;
+    IF(CellExists(siterecupdate,'WEBFEATURES') AND EncodeJSON(SortArray(siterecupdate.webfeatures)) != EncodeJSON(SortArray(currentsettings.webfeatures)))
       republishsite := TRUE;
 
     IF(CellExists(siterecupdate,'OUTPUTWEB') OR CellExists(siterecupdate, 'OUTPUTFOLDER')) {
@@ -357,11 +369,6 @@ STATIC OBJECTTYPE SiteObject <
       }
     }
 
-    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    IF(NOT ObjectExists(sitesettingstype))
-      THROW NEW Exception("Type 'http://www.webhare.net/xmlns/publisher/sitesettings' not registered!");
-
-    RECORD currentsettings := sitesettingstype->GetInstanceData(this->id);
     RECORD updsettings;
 
     IF(CellExists(metadata,"SITEDESIGN")/*TO DEPRECATE*/ OR CellExists(metadata,"WEBDESIGN"))
@@ -386,7 +393,6 @@ STATIC OBJECTTYPE SiteObject <
       sitesettingstype->SetInstanceData(this->id, updsettings);
 
     this->Refresh();
-
     IF(republishsite)
       ScheduleFolderRepublish(this->id, /*recursive=*/TRUE, /*non_template_too=*/TRUE);
 
