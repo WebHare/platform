@@ -289,21 +289,25 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
 }
 
 //These entry points are left behind for code that was desperate to invoke them pre WH6.0
+/** @deprecated Switch to ParseISO8601Duration
+*/
 PUBLIC RECORD FUNCTION ParseDuration(STRING duration) {
-  RETURN duration = "" ? DEFAULT RECORD : ParseISO8601Duration(duration);
+  RETURN ParseISO8601Duration(duration);
 }
 
+/** @deprecated Switch to AddDurationToDate
+*/
 PUBLIC DATETIME FUNCTION AddUnpackedDurationToDate(RECORD duration, DATETIME date) {
   RETURN AddDurationToDate(duration, date);
 }
 
+/** @deprecated Switch to SubtractDurationFromDate
+*/
 PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIME date) {
   RETURN SubtractDurationFromDate(duration, date);
 }
 
-/** Get a text describing a duration.
-    @param duration ISO 8601 duration
-    @return Duration string
+/** @deprecated Switch to FormatISO8601Duration
 */
 PUBLIC STRING FUNCTION GetDurationTitle(STRING duration)
 {

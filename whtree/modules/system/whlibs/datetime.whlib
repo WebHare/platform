@@ -1169,6 +1169,9 @@ PUBLIC DATETIME FUNCTION GetYearlyHoliday(INTEGER year, STRING holiday)
     @cell(integer) return.milliseconds Number of milliseconds
 */
 PUBLIC RECORD FUNCTION ParseISO8601Duration(STRING duration) {
+  IF (duration = "")
+    RETURN DEFAULT RECORD;
+
   RECORD retval :=
       [ years :=          0
       , months :=         0

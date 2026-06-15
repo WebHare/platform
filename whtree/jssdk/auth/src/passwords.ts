@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import { parseDuration, subtractDuration } from "@webhare/std";
 import { AuthenticationSettings, type WRDSchemaType } from "@webhare/wrd";
-import { getTid } from "@webhare/gettid";
+import { getTid, getTidLanguage } from "@webhare/gettid";
 import { getUserValidationSettings } from "./support";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { runInWork } from "@webhare/whdb";
@@ -18,6 +18,8 @@ export type PasswordCheckResult = {
 } | {
   success: true;
 };
+
+let durationFormat: Intl.DurationFormat | undefined = undefined;
 
 /** Parse password checks
     @param checks - Password validation checks. Space-separated list of checks. Possible checks:
@@ -303,29 +305,9 @@ function getRequirementTid(check: { check: string; value: number; duration: stri
     @returns Duration string
 */
 function getDurationTitle(duration: string): string {
-  const parts = [];
-  for (const [key, value] of Object.entries(parseDuration(duration))) {
-    if (value === 0)
-      continue;
-    switch (key) {
-      case "years": parts.push(getTid("wrd:site.forms.authpages.passwordcheck.duration.years", value)); break;
-      case "months": parts.push(getTid("wrd:site.forms.authpages.passwordcheck.duration.months", value)); break;
-      case "weeks": parts.push(getTid("wrd:site.forms.authpages.passwordcheck.duration.weeks", value)); break;
-      case "days": parts.push(getTid("wrd:site.forms.authpages.passwordcheck.duration.days", value)); break;
-      default: break; // ignore for now.
-    }
-  }
-
-  switch (parts.length) {
-    case 1:
-      return getTid("wrd:site.forms.authpages.passwordcheck.duration.parts1", parts[0]);
-    case 2:
-      return getTid("wrd:site.forms.authpages.passwordcheck.duration.parts2", parts[0], parts[1]);
-    case 3:
-      return getTid("wrd:site.forms.authpages.passwordcheck.duration.parts3", parts[0], parts[1], parts[2]);
-    default:
-      return getTid("wrd:site.forms.authpages.passwordcheck.duration.parts4", parts[0], parts[1], parts[2], parts[3]);
-  }
+  if (durationFormat?.resolvedOptions().locale !== getTidLanguage())
+    durationFormat = new Intl.DurationFormat(getTidLanguage(), { style: "long" });
+  return durationFormat.format(parseDuration(duration));
 }
 
 export function describePasswordChecks(checks: string, options?: { lang?: string }): string {

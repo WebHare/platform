@@ -68,21 +68,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^docroot->value := docroot ?? "https://docs.webhare.dev/embedded-documentation/";
   }
 
-  STRING FUNCTION GotBrowseMaxAge(STRING value)
-  {
-    RETURN this->RunScreen("#selectduration", CELL[ value, withtime := FALSE ]);
-  }
-
-  STRING FUNCTION GotBrowseNoReuse(STRING value)
-  {
-    RETURN this->RunScreen("#selectduration", CELL[ value, withtime := FALSE ]);
-  }
-
-  STRING FUNCTION MapDuration(STRING duration)
-  {
-    RETURN GetDurationTitle(duration);
-  }
-
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
@@ -180,98 +165,5 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   MACRO DoRegisterGeoIP2(OBJECT handler)
   {
     handler->SendURL("https://www.maxmind.com/en/geolite2/signup");
-  }
->;
-
-PUBLIC STATIC OBJECTTYPE SelectDuration EXTEND TolliumScreenBase
-< RECORD data;
-
-  MACRO Init(RECORD data)
-  {
-    data := ValidateOptions(
-        [ value :=    ""
-        , withtime := TRUE
-        , withweeks := FALSE
-        ], data);
-
-    this->data := data;
-
-    ^duration->value := ParseDuration(data.value);
-    IF (data.withweeks)
-    {
-      IF (^duration->value.days >= 7 AND data.withweeks)
-      {
-        ^duration->value.weeks := ^duration->value.weeks + ^duration->value.days / 7;
-        ^duration->value.days := ^duration->value.days % 7;
-      }
-    }
-    ELSE
-    {
-      ^duration->value.days := ^duration->value.weeks * 7 + ^duration->value.days;
-      ^duration->value.weeks := 0;
-    }
-
-    ^weeks->visible := data.withweeks;
-    ^weeks->enabled := data.withweeks;
-    ^hours->visible := data.withtime;
-    ^hours->enabled := data.withtime;
-    ^minutes->visible := data.withtime;
-    ^minutes->enabled := data.withtime;
-    ^seconds->visible := data.withtime;
-    ^seconds->enabled := data.withtime;
-    ^milliseconds->visible := data.withtime;
-    ^milliseconds->enabled := data.withtime;
-  }
-
-  STRING FUNCTION Submit()
-  {
-    OBJECT work := this->BeginFeedback();
-    RECORD value := ^duration->value;
-
-    BOOLEAN gotweek, gotnonweek;
-    FOREVERY (RECORD rec FROM UnpackRecord(value))
-      IF (rec.value != 0)
-      {
-        IF (rec.name = "WEEKS")
-          gotweek := TRUE;
-        ELSE
-          gotnonweek := TRUE;
-      }
-
-    IF (NOT gotnonweek AND this->data.withweeks)
-      RETURN gotweek ? `P${value.weeks}W` : "P";
-
-    STRING retval := "P";
-    IF (value.years != 0)
-      retval := `${retval}${value.years}Y`;
-    IF (value.months != 0)
-      retval := `${retval}${value.months}M`;
-    IF (value.weeks != 0 OR value.days != 0)
-      retval := `${retval}${value.weeks * 7 + value.days}D`;
-
-    STRING timepart;
-    IF (value.hours != 0)
-      timepart := `${timepart}${value.hours}H`;
-    IF (value.minutes != 0)
-      timepart := `${timepart}${value.minutes}M`;
-    IF (value.seconds != 0)
-    {
-      value.seconds := value.seconds + value.milliseconds / 1000;
-      value.milliseconds := value.milliseconds % 1000;
-      timepart := `${timepart}${value.seconds}${value.milliseconds != 0 ? `.${Right("000" || value.milliseconds, 3)}` : ""}S`;
-    }
-    IF (timepart != "")
-      retval := `${retval}T${timepart}`;
-
-    TRY
-    {
-      ParseDuration(retval);
-    }
-    CATCH(OBJECT e)
-    {
-      work->AddError(this->GetTid(".invalidduration"));
-    }
-
-    RETURN work->Finish() ? retval : "";
   }
 >;

@@ -41,14 +41,6 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase <
     }
   }
 
-  STRING FUNCTION SelectDuration(STRING value)
-  {
-    RETURN this->RunScreen("mod::system/tolliumapps/config/settings.xml#selectduration", CELL[ value, withtime := FALSE ]);
-  }
-  STRING FUNCTION MapDuration(STRING duration)
-  {
-    RETURN GetDurationTitle(duration);
-  }
   INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork( [ mutex := "wrd:usermgmt" ]);

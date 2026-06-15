@@ -33,11 +33,11 @@
                    name="override_expiration"
                    checkbox="true"
                    enablecomponents="expiraton_locknologin" />
-          <browsecustom composition="expiration"
-                        cellname="locknologin"
-                        name="expiraton_locknologin"
-                        onbrowse="selectduration"
-                        onmapvalue="mapduration" />
+          <duration composition="expiration"
+                    cellname="locknologin"
+                    name="expiraton_locknologin"
+                    max_precision="years"
+                    min_precision="days" />
         </tab>
       </tabs>
     </body>
