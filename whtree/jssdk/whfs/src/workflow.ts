@@ -9,7 +9,7 @@ class WorkFlowManager {
   }
 
   async set<const Type extends keyof WHFSTypes>(ns: Type, data: WHFSTypes[Type]["SetFormat"]): Promise<void> {
-    const id = await this.hsMgr.__GetWriteableAutosveId();
+    const id = await this.hsMgr.__GetWriteableAutosaveId();
     return await whfsType(ns).set(id, data, { ifReadOnly: "update" });
   }
 
