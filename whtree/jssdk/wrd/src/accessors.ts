@@ -496,7 +496,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
 }
 
 type WRDDBGuidConditions = {
-  condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string;
+  condition: "=" | "!="; value: string;
 } | {
   condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
 };
@@ -510,8 +510,10 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, s
   checkFilter(cv: WRDDBGuidConditions) {
     if (cv.condition === "in")
       cv.value.forEach(v => this.checkGuid(v));
-    else
+    else if (cv.condition === "=" || cv.condition === "!=")
       this.checkGuid(cv.value);
+    else
+      throw new Error(`Unsupported condition ${JSON.stringify(cv.condition)} for WRDDBGuidConditions`);
   }
   matchesValue(value: string, cv: WRDDBGuidConditions): boolean {
     if (cv.condition === "in")
