@@ -52,6 +52,20 @@ const MapBitmapImageTypes: Record<string, string> = {
 
 const metadataFields = ["extension", "mediaType", "width", "height", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
 
+/** The result of a toResized() call */
+export type ResizedImage = {
+  /** Link to the image. May start with `http://`, `https://`, `//` or `/` */
+  link: string;
+  /** Post-resize width in pixels */
+  width: number;
+  /** Post-resize height in pixels */
+  height: number;
+  /** Dominant color as `#RRGGBB` hex code */
+  dominantColor: string | null;
+  /** Object position as `x% y%` (eg 25.0000% 50.0000%) */
+  objectPosition: string | null;
+};
+
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
@@ -428,7 +442,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
     } else {
       /* Ignore broken images eg https://github.com/lovell/sharp/issues/1578 - 'Set this flag to false if you'd rather apply a "best effort" to decode images, even if the data is corrupt or invalid. (optional, default true)'
          as we will often be dealing with images from external sources where we generally can't go back and ask for new images, or sensibly deal/report this type of failure? */
-      img = await createSharpImage(data, { failOnError: false });
+      img = await createSharpImage(data, { failOn: "none" });
     }
 
     metadata = await img.metadata();
@@ -904,7 +918,7 @@ function getUnifiedCacheURL(dataType: number, metadata: Pick<ResourceMetadata, "
   return options?.baseURL ? new URL(url, options?.baseURL).href : url;
 }
 
-export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod) {
+export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod): ResizedImage {
   const setFormat = method.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT as OutputFormatName || getFullConfigFile().defaultImageFormat; //TODO dupe with getUnifiedCacheURL ?
   const processing = explainImageProcessing(metadata, { ...method, format: setFormat });
 
@@ -1125,7 +1139,7 @@ export class ResourceDescriptor implements ResourceMetadata {
     return getUnifiedCacheURL(2, this, method);
   }
 
-  toResized(method: ResizeMethod) {
+  toResized(method: ResizeMethod): ResizedImage {
     return fromMetaDatatoResized(1, this, method);
   }
 

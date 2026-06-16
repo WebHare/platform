@@ -19,22 +19,22 @@ export type * as SchemaOrg from "schema-dts";
 export { default as YAML } from "yaml";
 
 ////////////////////////////// SHARP //////////////////////////
-import type * as sharp from "sharp";
+import type sharp from "sharp";
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
 
 /** Load Sharp  */
 export async function loadSharp(): Promise<typeof sharp> {
   if (!sharppromise)
-    sharppromise = import("sharp");
+    sharppromise = import("sharp").then(mod => mod.default);
   return await sharppromise;
 }
 
 /** Load an image (loading sharp as needed) */
-export async function createSharpImage(...args: Parameters<typeof sharp.default>): Promise<Sharp> {
+export async function createSharpImage(...args: Parameters<typeof sharp>): Promise<Sharp> {
   const lib = await loadSharp();
-  lib.default.cache(false); //disable sharp's cache
-  lib.default.concurrency(1); //we manage workers
-  return lib.default(...args);
+  lib.cache(false); //disable sharp's cache
+  lib.concurrency(1); //we manage workers
+  return lib(...args);
 }
 
 export type Sharp = sharp.Sharp;

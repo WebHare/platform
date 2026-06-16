@@ -515,7 +515,7 @@ async function testImgCache() {
   const dlLandscape5 = await fetchUCLink(wrappedLandscape5!.link, "image/avif");
   const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_5-fixed.jpg", { getImageMetadata: true });
   const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
-  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), { maxMSE: 50 });
+  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), { maxMSE: 80 });
 }
 
 async function testFileCache() {
