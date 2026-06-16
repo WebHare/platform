@@ -15,6 +15,7 @@ async function testBreadCrumbs() {
       "@type": "ListItem",
       item: testSiteRoot,
       name: "webhare_testsuite.testsitejs",
+      position: 1
     },
   ], breadcrumbs[0].itemListElement);
 
@@ -26,10 +27,12 @@ async function testBreadCrumbs() {
       "@type": "ListItem",
       item: testSiteRoot,
       name: "webhare_testsuite.testsitejs",
+      position: 1
     }, {
       "@type": "ListItem",
       item: testSiteRoot + "TestPages/StaticPage/",
-      name: "StaticPage"
+      name: "StaticPage",
+      position: 2
     }
   ], breadcrumbs[0].itemListElement);
 
