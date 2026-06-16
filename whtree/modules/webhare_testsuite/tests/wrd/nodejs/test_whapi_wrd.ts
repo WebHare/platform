@@ -4,8 +4,9 @@ import { WRDSchema } from "@webhare/wrd";
 import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
-import { omit } from "@webhare/std";
+import { compareProperties, omit } from "@webhare/std";
 import { ResourceDescriptor } from "@webhare/services";
+import { beginWork, commitWork } from "@webhare/whdb";
 
 let apiSysopToken = '';
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
@@ -54,7 +55,6 @@ async function testWRDAPI() {
     test.assert(createResult.status === 201, "Expected to create a new wrdPerson via API");
     test.assert(createResult.body.wrdGuid, "Expected to get a wrdGuid back from API");
 
-    //FIXME verify basic nexttoken/limit support
     const queryResult = await api.post("/wrd/{schema}/type/{type}/query", {
       filters: [{ field: "wrdContactEmail", matchType: "=", value: "apicreated@beta.webhare.net" }],
       fields: ["wrdGuid", "wrdContactEmail", "whuserUnit"]
@@ -68,8 +68,7 @@ async function testWRDAPI() {
           wrdContactEmail: "apicreated@beta.webhare.net",
           whuserUnit: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/ //uuid v4
         }
-      ],
-      nextToken: null, //no next token as we only created one item
+      ]
     }, queryResult.body);
 
     const updateResult = await api.patch("/wrd/{schema}/type/{type}/entity/{entity}", {
@@ -180,6 +179,52 @@ async function testWRDAPIPagination() {
   }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
   test.assert(byUnitQueryResult.status === 200);
   test.eq(["apicreated@beta.webhare.net", "sysop@beta.webhare.net"], byUnitQueryResult.body.results.map((r: any) => r.wrdContactEmail).sort());
+
+  await beginWork();
+  for (let i = 0; i < 250; i++) {
+    await jsAuthSchema.insert("wrdPerson", {
+      wrdContactEmail: `user${i.toString().padStart(3, "0")}@beta.webhare.net`, whuserUnit: "TESTFW_TESTUNIT", wrdauthAccountStatus: { status: "active" }
+    });
+  }
+  await commitWork();
+
+  // Test actual pagination
+  const queryResultPage1 = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "whuserUnit", matchType: "=", value: unitguid }],
+    fields: ["wrdGuid", "wrdContactEmail"],
+    pageSize: 100
+  }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+
+  test.assert(queryResultPage1.status === 200);
+  test.eq(100, queryResultPage1.body.results.length);
+  test.assert(queryResultPage1.body.nextToken, "Expected nextToken for paginated result");
+
+  const queryResultPage2 = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "whuserUnit", matchType: "=", value: unitguid }],
+    fields: ["wrdGuid", "wrdContactEmail"],
+    pageSize: 100,
+    nextToken: queryResultPage1.body.nextToken
+  }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+
+  test.assert(queryResultPage2.status === 200);
+  test.eq(100, queryResultPage2.body.results.length);
+  test.assert(queryResultPage2.body.nextToken, "Expected nextToken for paginated result");
+
+  const queryResultPage3 = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "whuserUnit", matchType: "=", value: unitguid }],
+    fields: ["wrdGuid", "wrdContactEmail"],
+    pageSize: 100,
+    nextToken: queryResultPage2.body.nextToken
+  }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+
+  test.assert(queryResultPage3.status === 200);
+  test.eq(52, queryResultPage3.body.results.length);
+  test.assert(!queryResultPage3.body.nextToken, "Expected no nextToken for the last page");
+
+  const allResults = [...queryResultPage1.body.results, ...queryResultPage2.body.results, ...queryResultPage3.body.results] as Array<{ wrdContactEmail: string }>;
+  allResults.sort(compareProperties("wrdContactEmail"));
+  test.eq(252, allResults.length);
+  test.eq(allResults.length, new Set(allResults.map(r => r.wrdContactEmail)).size, "Expected all results to be unique");
 }
 
 test.runTests([

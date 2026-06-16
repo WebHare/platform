@@ -2,15 +2,27 @@ import { type AuthorizedWRDAPIUser, type OpenAPIResponse, HTTPErrorCode, HTTPSuc
 import type { TypedRestRequest } from "@mod-platform/generated/openapi/platform/api";
 import { createFirstPartyToken, getToken, listTokens } from "@webhare/auth";
 import type { AuthTokenOptions, FirstPartyToken, ListedToken } from "@webhare/auth/src/identity";
-import { omit, pick, throwError, typedFromEntries } from "@webhare/std";
+import { pick, throwError, typedFromEntries } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
 import { listSchemas, WRDSchema } from "@webhare/wrd";
 import type { AllowedFilterConditions } from "@webhare/wrd/src/types";
+import { decryptForThisServer, encryptForThisServer } from "@webhare/services";
 
 /* FIXME for nearly all APIs here:
    - privilege checks
    - audit information
    */
+
+const maxPageSize = 1000;
+
+declare module "@webhare/services" {
+  interface ServerEncryptionScopes {
+    "platform:wrdapi": {
+      lastId: number;
+    };
+  }
+
+}
 
 export async function getSchemas(req: TypedRestRequest<AuthorizedWRDAPIUser, "get /wrd">): Promise<OpenAPIResponse> {
   const schemas = await listSchemas();
@@ -41,17 +53,46 @@ export async function updateEntity(req: TypedRestRequest<AuthorizedWRDAPIUser, "
 }
 
 export async function queryType(req: TypedRestRequest<AuthorizedWRDAPIUser, "post /wrd/{schema}/type/{type}/query">): Promise<OpenAPIResponse> {
+  //We sort/paginate by wrdId but that is not supposed to be a future promise - whatever works for pagination!
   const schema = new WRDSchema(req.params.schema);
-  let query = schema.query(req.params.type).select(["wrdId", ...req.body.fields || []]);
+  let query = schema.query(req.params.type).select("wrdId");
   for (const filter of req.body.filters || [])
     query = query.where(filter.field, filter.matchType as AllowedFilterConditions, filter.value);
 
-  const results = await query.execute({ export: true, exportResources: "fetch" });
-  results.sort((a, b) => a.wrdId - b.wrdId); //sort by wrdId
+  const resultIds = await query.execute();
+  resultIds.sort((a, b) => a - b); //sort by wrdId
+
+  const usePageSize = req.body.pageSize ? Math.min(req.body.pageSize, maxPageSize) : maxPageSize;
+  if (usePageSize < 1)
+    return req.createErrorResponse(HTTPErrorCode.BadRequest, { error: "pageSize must be at least 1" });
+
+  if (req.body.nextToken) {
+    const prevToken = decryptForThisServer("platform:wrdapi", req.body.nextToken, { nullIfInvalid: true });
+    if (!prevToken)
+      return req.createErrorResponse(HTTPErrorCode.BadRequest, { error: "Invalid nextToken" });
+
+    resultIds.splice(0, resultIds.findIndex(id => id > prevToken.lastId));
+  }
+
+  const haveMoreReults = resultIds.length > usePageSize;
+  if (haveMoreReults)
+    resultIds.splice(usePageSize);
+
+  if (!resultIds.length)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, {
+      results: []
+    });
+
+  const nextToken = haveMoreReults ? encryptForThisServer("platform:wrdapi", { lastId: resultIds[resultIds.length - 1] }) : undefined;
+
+  const finalResults = await schema.query(req.params.type).
+    where("wrdId", "in", resultIds).
+    select(req.body.fields || []).
+    execute({ export: true, exportResources: "fetch" });
 
   return req.createJSONResponse(HTTPSuccessCode.Ok, {
-    results: req.body.fields?.includes("wrdId") ? results : omit(results, ["wrdId"]),
-    nextToken: null
+    results: finalResults,
+    ...nextToken ? { nextToken } : {}
   });
 }
 
