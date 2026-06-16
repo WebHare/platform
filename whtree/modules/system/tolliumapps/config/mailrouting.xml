@@ -76,9 +76,9 @@
           <heading tid=".mailservers" />
           <wrd:entitiesedit name="mailservers"
                             height="1pr"
-                            deletemode="delete-denyreferred"
                             emptytid=".serversempty"
                             entityeditscreen="#editmailserver"
+                            onentitydelete="ondeletemailserver"
                             onmaprows="onmapservers"
                             requestcolumns="wrd_tag wrd_title serverurl"
                             wrdtype="mailserver">

@@ -14,10 +14,10 @@ PUBLIC BOOLEAN FUNCTION VerifySNSVerificationKey(STRING keyvalue)
 {
   RETURN DecryptForThisServer("system:mail-sns", keyvalue, [ fallback := "", algorithm := "SHA-1,BLOWFISH+CBC,0" ]) = "endpoint";
 }
-PUBLIC STRING FUNCTION GetSNSEndpoint()
-{
+
+PUBLIC STRING FUNCTION GetSNSEndpoint() {
   RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(),
-                              "/.system/endpoints/mail-sns.shtml?key=" || EncryptForThisServer("system:mail-sns", "endpoint", [ algorithm := "SHA-1,BLOWFISH+CBC,0" ])); //encrypt result is URL safe
+                              "/.wh/endpoints/aws-sns?key=" || EncryptForThisServer("platform:endpoint", CELL[ type := "aws-sns" ]));
 }
 
 PUBLIC STRING FUNCTION GetSendGridEndpoint()

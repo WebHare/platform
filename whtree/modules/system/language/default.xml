@@ -1237,6 +1237,7 @@
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
         <text tid="blocked">Blocked</text>
+        <text tid="cantdeletemailserverinuse">You cannot delete a mailserver that still has routes assigned to it</text>
         <text tid="correctionsempty">No corrections have been specified yet</text>
         <text tid="correctiontype">Correction type</text>
         <text tid="correctiontype-block">Block</text>
@@ -1296,6 +1297,7 @@
         <text tid="smtpserver-use">Use SMTP server</text>
         <text tid="snsendpoint">SNS Endpoint</text>
         <text tid="suggestionfuzz">Suggestion fuzz factor</text>
+        <text tid="suredeletemailserver">Are you sure you want to delete this mail server?</text>
         <text tid="suredontsendemail">Are you sure you want to block all emails that follow this mailroute?</text>
         <text tid="target">Target</text>
         <text tid="testsmtpserver">Test SMTP server</text>

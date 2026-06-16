@@ -52,9 +52,9 @@ export async function promptPassword(question: string): Promise<string> {
 }
 
 export async function resolveWHFSPathArgument(path: string, options?: { allowRoot?: boolean }): Promise<WHFSObject> {
-  return openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowHistoric: true, ...options });
+  return openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowVersion: true, ...options });
 }
 
 export async function resolveWHFSPathArrayArgument(paths: string[], options?: { allowRoot?: boolean }): Promise<WHFSObject[]> {
-  return Promise.all(paths.map(path => openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowHistoric: true, ...options })));
+  return Promise.all(paths.map(path => openFileOrFolder(parseInt(path) > 0 ? parseInt(path) : path, { allowVersion: true, ...options })));
 }

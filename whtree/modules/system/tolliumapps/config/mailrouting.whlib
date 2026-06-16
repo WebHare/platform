@@ -104,6 +104,21 @@ PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase <
                 , target := block ? this->GetTid(".blocked") : rewriteto
              FROM corrections;
   }
+
+  MACRO OnDeleteMailserver(OBJECT wrdtype, INTEGER id) {
+    IF(RecordExists(this->contexts->wrdschema->^mailroute->RunQuery(
+      [ filters := [[ field := "server", value := id ]] ]))) {
+      this->RunSimpleScreen("error", this->GetTid(".cantdeletemailserverinuse"));
+      RETURN;
+    }
+
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".suredeletemailserver")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    this->contexts->wrdschema->^mailserver->CloseEntity(id);
+    work->Finish();
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE SenderConfig EXTEND TolliumScreenBase

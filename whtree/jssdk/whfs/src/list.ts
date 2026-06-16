@@ -121,8 +121,8 @@ export interface ListFSOptions {
   ids?: number[];
   /** Select only files with one of these types */
   types?: WHFSTypeName[];
-  /** Allow listing of historic versions */
-  allowHistoric?: boolean;
+  /** Allows opening of versions (drafts, history, recycled objects) - otherwise they're treated as non-existent */
+  allowVersion?: boolean;
   /** WRD Schema to resolve modifiedByEntity in */
   userSchema?: AnyWRDSchema;
 }
@@ -189,7 +189,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
       this.addTypeColumn = !this.selectkeys.has("type");
     }
 
-    if (!this.options?.allowHistoric) {
+    if (!this.options?.allowVersion) {
       this.addWHFSPathColumn = true; //TODO if we're searching in a limited set of parents, checking they are in/outside historic space is often enough
     }
 
@@ -229,7 +229,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
       //if type === null, this may be unknownfile or normalfolder, allow only the one(s) we want
       if (this.limitTypeIds && row.type === null && !this.allowNullTypes?.has(row.isfolder))
         continue;
-      if (!this.options?.allowHistoric && this.addWHFSPathColumn && isHistoricWHFSSpace(row.whfspath!))
+      if (!this.options?.allowVersion && this.addWHFSPathColumn && isHistoricWHFSSpace(row.whfspath!))
         continue;
 
       const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
