@@ -13,6 +13,7 @@
   <jstest file="testchips.ts" />
   <jstest file="testcodeedit.ts" />
   <jstest file="testdatetime.ts" />
+  <jstest file="testduration.ts" />
   <jstest file="testfocus.ts" />
   <jstest file="testform.ts" />
   <jstest file="testimage.ts" />
@@ -38,6 +39,5 @@
   <jstest file="testtextarea.ts" />
   <jstest file="testtextedit.ts" />
   <jstest file="testwindow.ts" />
-
   <jstest file="testtagedit.ts" />
 </group>

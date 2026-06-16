@@ -45,7 +45,7 @@ BOOLEAN FUNCTION __ICU_GetLocaleHour12(STRING locale) __ATTRIBUTES__(EXTERNAL, C
 STRING ARRAY FUNCTION __ICU_GetLanguageDateTimeStrings(STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 STRING FUNCTION __ICU_GetBestPattern(STRING skeleton, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 STRING FUNCTION __ICU_FormatDateTime(STRING format, DATETIME value, STRING locale, STRING timezone) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-STRING FUNCTION __ICU_FormatDuration(INTEGER64 secs, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+STRING FUNCTION __ICU_FormatDuration(RECORD value, STRING locale, RECORD options) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
 INTEGER FUNCTION __ICU_GetCurrencyFractionDigits(STRING currency) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 STRING FUNCTION __ICU_FormatNumber(INTEGER style, STRING currency, BOOLEAN grouping, INTEGER minintdigits, INTEGER minfracdigits, INTEGER maxfracdigits, BOOLEAN significantdigits, VARIANT value, STRING locale) __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -1044,7 +1044,7 @@ OBJECTTYPE Intl
 
 
 
-PUBLIC OBJECTTYPE Collator EXTEND Intl
+PUBLIC STATIC OBJECTTYPE Collator EXTEND Intl
 < // ------------------------------------------------------------------------------------------------------------------------
   //
   // Variables
@@ -1078,17 +1078,6 @@ PUBLIC OBJECTTYPE Collator EXTEND Intl
   : Intl(locale)
   {
     this->ParseOptions(options);
-  }
-
-
-  // ------------------------------------------------------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-  PUBLIC RECORD FUNCTION ResolvedOptions()
-  {
-    RETURN [ locale := this->pvt_locale ];
   }
 
 
@@ -1148,7 +1137,7 @@ PUBLIC OBJECTTYPE Collator EXTEND Intl
 
 
 
-PUBLIC OBJECTTYPE DateTimeFormat EXTEND Intl
+PUBLIC STATIC OBJECTTYPE DateTimeFormat EXTEND Intl
 < // ------------------------------------------------------------------------------------------------------------------------
   //
   // Variables
@@ -1176,17 +1165,6 @@ PUBLIC OBJECTTYPE DateTimeFormat EXTEND Intl
   : Intl(locale)
   {
     this->ParseOptions(options);
-  }
-
-
-  // ------------------------------------------------------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-  PUBLIC RECORD FUNCTION ResolvedOptions()
-  {
-    RETURN [ locale := this->pvt_locale ];
   }
 
 
@@ -1327,7 +1305,7 @@ PUBLIC OBJECTTYPE DateTimeFormat EXTEND Intl
 
 
 
-PUBLIC OBJECTTYPE NumberFormat EXTEND Intl
+PUBLIC STATIC OBJECTTYPE NumberFormat EXTEND Intl
 < // ------------------------------------------------------------------------------------------------------------------------
   //
   // Variables
@@ -1365,17 +1343,6 @@ PUBLIC OBJECTTYPE NumberFormat EXTEND Intl
   : Intl(locale)
   {
     this->ParseOptions(options);
-  }
-
-
-  // ------------------------------------------------------------------------------------------------------------------------
-  //
-  // Public API
-  //
-
-  PUBLIC RECORD FUNCTION ResolvedOptions()
-  {
-    RETURN [ locale := this->pvt_locale ];
   }
 
 
@@ -1472,4 +1439,233 @@ PUBLIC OBJECTTYPE NumberFormat EXTEND Intl
     RETURN __ICU_FormatNumber(this->pvt_style, this->pvt_currency, this->pvt_grouping, this->pvt_minintdigits, this->pvt_minfracdigits, this->pvt_maxfracdigits, this->pvt_significant, value, this->pvt_locale);
   }
 
+>;
+
+
+PUBLIC STATIC OBJECTTYPE DurationFormat EXTEND Intl
+< // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD pvt_options;
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY format(GetFormatter, -);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(VARIANT locale, RECORD options DEFAULTSTO DEFAULT RECORD)
+  : Intl(locale)
+  {
+    this->pvt_options := this->ValidateOptions(options);
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Getters & setters
+  //
+
+  FUNCTION PTR FUNCTION GetFormatter()
+  {
+    RETURN PTR this->FormatDuration;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Internal helper functions
+  //
+
+  RECORD FUNCTION ValidateOptions(RECORD options)
+  {
+    options := ValidateOptions(
+        [ style := "short"
+        , years := ""
+        , yearsdisplay := ""
+        , months := ""
+        , monthsdisplay := ""
+        , weeks := ""
+        , weeksdisplay := ""
+        , days := ""
+        , daysdisplay := ""
+        , hours := ""
+        , hoursdisplay := ""
+        , minutes := ""
+        , minutesdisplay := ""
+        , seconds := ""
+        , secondsdisplay := ""
+        , milliseconds := ""
+        , millisecondsdisplay := ""
+        , microseconds := ""
+        , microsecondsdisplay := ""
+        , nanoseconds := ""
+        , nanosecondsdisplay := ""
+        , fractionaldigits := 0
+        ], options,
+        [ enums :=
+            [ style := [ "", "long", "short", "narrow", "digital" ]
+            , years := [ "", "long", "short", "narrow" ]
+            , yearsdisplay := [ "", "always", "auto" ]
+            , months := [ "", "long", "short", "narrow" ]
+            , monthsdisplay := [ "", "always", "auto" ]
+            , weeks := [ "", "long", "short", "narrow" ]
+            , weeksdisplay := [ "", "always", "auto" ]
+            , days := [ "", "long", "short", "narrow" ]
+            , daysdisplay := [ "", "always", "auto" ]
+            , hours := [ "", "long", "short", "narrow", "numeric", "2-digit" ]
+            , hoursdisplay := [ "", "always", "auto" ]
+            , minutes := [ "", "long", "short", "narrow", "numeric", "2-digit" ]
+            , minutesdisplay := [ "", "always", "auto" ]
+            , seconds := [ "", "long", "short", "narrow", "numeric", "2-digit" ]
+            , secondsdisplay := [ "", "always", "auto" ]
+            , milliseconds := [ "", "long", "short", "narrow", "numeric" ]
+            , millisecondsdisplay := [ "", "always", "auto" ]
+            , microseconds := [ "", "long", "short", "narrow", "numeric" ]
+            , microsecondsdisplay := [ "", "always", "auto" ]
+            , nanoseconds := [ "", "long", "short", "narrow", "numeric" ]
+            , nanosecondsdisplay := [ "", "always", "auto" ]
+            ]
+        , optional := [ "*" ]
+        ]);
+    IF (CellExists(options, "hours") AND options.hours IN [ "numeric", "2-digit" ] AND CellExists(options, "minutes") AND options.minutes NOT IN [ "", "numeric", "2-digit" ])
+      THROW NEW Exception(`Cannot set 'minutes' to '${options.minutes}' if 'hours' is set to '${options.hours}'`);
+    IF (CellExists(options, "minutes") AND options.minutes IN [ "numeric", "2-digit" ] AND CellExists(options, "seconds") AND options.seconds NOT IN [ "", "numeric", "2-digit" ])
+      THROW NEW Exception(`Cannot set 'seconds' to '${options.seconds}' if 'minutes' is set to '${options.minutes}'`);
+    IF (CellExists(options, "seconds") AND options.seconds IN [ "numeric", "2-digit" ] AND CellExists(options, "milliseconds") AND options.milliseconds NOT IN [ "", "numeric" ])
+      THROW NEW Exception(`Cannot set 'milliseconds' to '${options.milliseconds}' if 'seconds' is set to '${options.seconds}'`);
+    IF (CellExists(options, "milliseconds") AND options.milliseconds IN [ "numeric" ] AND CellExists(options, "microseconds") AND options.microseconds NOT IN [ "", "numeric" ])
+      THROW NEW Exception(`Cannot set 'microseconds' to '${options.microseconds}' if 'milliseconds' is set to '${options.milliseconds}'`);
+    IF (CellExists(options, "microseconds") AND options.microseconds IN [ "numeric" ] AND CellExists(options, "nanoseconds") AND options.nanoseconds NOT IN [ "", "numeric" ])
+      THROW NEW Exception(`Cannot set 'nanoseconds' to '${options.nanoseconds}' if 'microseconds' is set to '${options.microseconds}'`);
+    RETURN options;
+  }
+
+  RECORD FUNCTION ResolveOptions(RECORD options)
+  {
+    options := ValidateOptions(
+        [ style := "short"
+        , years := "",        yearsdisplay := ""
+        , months := "",       monthsdisplay := ""
+        , weeks := "",        weeksdisplay := ""
+        , days := "",         daysdisplay := ""
+        , hours := "",        hoursdisplay := ""
+        , minutes := "",      minutesdisplay := ""
+        , seconds := "",      secondsdisplay := ""
+        , milliseconds := "", millisecondsdisplay := ""
+        , microseconds := "", microsecondsdisplay := ""
+        , nanoseconds := "",  nanosecondsdisplay := ""
+        , fractionaldigits := 0
+        ], options,
+        [ enums :=
+            [ style := [ "long", "short", "narrow", "digital" ]
+            , years := [ "", "long", "short", "narrow" ],                         yearsdisplay := [ "", "always", "auto" ]
+            , months := [ "", "long", "short", "narrow" ],                        monthsdisplay := [ "", "always", "auto" ]
+            , weeks := [ "", "long", "short", "narrow" ],                         weeksdisplay := [ "", "always", "auto" ]
+            , days := [ "", "long", "short", "narrow" ],                          daysdisplay := [ "", "always", "auto" ]
+            , hours := [ "", "long", "short", "narrow", "numeric", "2-digit" ],   hoursdisplay := [ "", "always", "auto" ]
+            , minutes := [ "", "long", "short", "narrow", "numeric", "2-digit" ], minutesdisplay := [ "", "always", "auto" ]
+            , seconds := [ "", "long", "short", "narrow", "numeric", "2-digit" ], secondsdisplay := [ "", "always", "auto" ]
+            , milliseconds := [ "", "long", "short", "narrow", "numeric" ],       millisecondsdisplay := [ "", "always", "auto" ]
+            , microseconds := [ "", "long", "short", "narrow", "numeric" ],       microsecondsdisplay := [ "", "always", "auto" ]
+            , nanoseconds := [ "", "long", "short", "narrow", "numeric" ],        nanosecondsdisplay := [ "", "always", "auto" ]
+            ]
+        , optional := [ "fractionaldigits" ]
+        ]);
+    options.yearsdisplay := options.yearsdisplay ?? options.years = "" ? "auto" : "always";
+    options.years := options.years ?? options.style != "digital" ? options.style : "short";
+    options.monthsdisplay := options.monthsdisplay ?? options.months = "" ? "auto" : "always";
+    options.months := options.months ?? options.style != "digital" ? options.style : "short";
+    options.weeksdisplay := options.weeksdisplay ?? options.weeks = "" ? "auto" : "always";
+    options.weeks := options.weeks ?? options.style != "digital" ? options.style : "short";
+    options.daysdisplay := options.daysdisplay ?? options.days = "" ? "auto" : "always";
+    options.days := options.days ?? options.style != "digital" ? options.style : "short";
+    options.hoursdisplay := options.hoursdisplay ?? options.hours = "" AND options.style != "digital" ? "auto" : "always";
+    options.hours := options.hours ?? options.style != "digital" ? options.style : "numeric";
+    options.minutesdisplay := options.minutesdisplay ?? options.minutes = "" AND options.style != "digital" ? "auto" : "always";
+    IF (options.hours IN [ "numeric", "2-digit" ]) {
+      IF (options.minutes NOT IN [ "", "numeric", "2-digit" ])
+        THROW NEW Exception(`For minutes, only 'numeric' and '2-digit' are allowed if hours is set to 'numeric' or '2-digit'`);
+      options.minutes := options.minutes ?? "numeric";
+      IF (options.minutes = "numeric")
+        options.minutes := "2-digit";
+    } ELSE {
+      options.minutes := options.minutes ?? options.style != "digital" ? options.style : "numeric";
+    }
+    options.secondsdisplay := options.secondsdisplay ?? options.seconds = "" AND options.style != "digital" ? "auto" : "always";
+    IF (options.minutes IN [ "numeric", "2-digit" ]) {
+      IF (options.seconds NOT IN [ "", "numeric", "2-digit" ])
+        THROW NEW Exception(`For seconds, only 'numeric' and '2-digit' are allowed if minutes is set to 'numeric' or '2-digit'`);
+      options.seconds := options.seconds ?? "numeric";
+      IF (options.seconds = "numeric")
+        options.seconds := "2-digit";
+    } ELSE {
+      options.seconds := options.seconds ?? options.style != "digital" ? options.style : "numeric";
+    }
+    IF (options.seconds IN [ "numeric", "2-digit" ]) {
+      IF (options.milliseconds NOT IN [ "", "auto" ])
+        THROW NEW Exception(`For millisecondsdisplay, only 'auto' is allowed if seconds is set to 'numeric' or '2-digit'`);
+      options.millisecondsdisplay := options.millisecondsdisplay ?? "auto";
+      IF (options.milliseconds NOT IN [ "", "numeric" ])
+        THROW NEW Exception(`For milliseconds, only 'numeric' is allowed if seconds is set to 'numeric' or '2-digit'`);
+      options.milliseconds := options.milliseconds ?? "numeric";
+    } ELSE {
+      options.millisecondsdisplay := options.millisecondsdisplay ?? options.milliseconds = "" ? "auto" : "always";
+      options.milliseconds := options.milliseconds ?? options.style != "digital" ? options.style : "numeric";
+    }
+    IF (options.milliseconds IN [ "numeric" ]) {
+      IF (options.microseconds NOT IN [ "", "auto" ])
+        THROW NEW Exception(`For microsecondsdisplay, only 'auto' is allowed if milliseconds is set to 'numeric'`);
+      options.microsecondsdisplay := options.microsecondsdisplay ?? "auto";
+      IF (options.microseconds NOT IN [ "", "numeric" ])
+        THROW NEW Exception(`For microseconds, only 'numeric' is allowed if milliseconds is set to 'numeric'`);
+      options.microseconds := options.microseconds ?? "numeric";
+    } ELSE {
+      options.microsecondsdisplay := options.microsecondsdisplay ?? options.microseconds = "" ? "auto" : "always";
+      options.microseconds := options.microseconds ?? options.style != "digital" ? options.style : "numeric";
+    }
+    IF (options.microseconds IN [ "numeric" ]) {
+      IF (options.nanoseconds NOT IN [ "", "auto" ])
+        THROW NEW Exception(`For nanosecondsdisplay, only 'auto' is allowed if microseconds is set to 'numeric'`);
+      options.nanosecondsdisplay := options.nanosecondsdisplay ?? "auto";
+      IF (options.nanoseconds NOT IN [ "", "numeric" ])
+        THROW NEW Exception(`For nanoseconds, only 'numeric' is allowed if microseconds is set to 'numeric'`);
+      options.nanoseconds := options.nanoseconds ?? "numeric";
+    } ELSE {
+      options.nanosecondsdisplay := options.nanosecondsdisplay ?? options.nanoseconds = "" ? "auto" : "always";
+      options.nanoseconds := options.nanoseconds ?? options.style != "digital" ? options.style : "numeric";
+    }
+    RETURN options;
+  }
+
+  STRING FUNCTION FormatDuration(RECORD value, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    value := ValidateOptions(
+        [ years := 0
+        , months := 0
+        , weeks := 0
+        , days := 0
+        , hours := 0
+        , minutes := 0
+        , seconds := 0
+        , milliseconds := 0
+        , microseconds := 0
+        , nanoseconds := 0
+        ], value,
+        [ optional := [ "*" ]
+        , title := "value"
+        ]);
+    options := this->ResolveOptions(CELL[ ...this->pvt_options, ...this->ValidateOptions(options) ]);
+    RETURN __ICU_FormatDuration(value, this->pvt_locale, options);
+  }
 >;

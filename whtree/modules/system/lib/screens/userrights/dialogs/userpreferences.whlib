@@ -144,7 +144,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
           STRING expire_duration := SELECT AS STRING duration FROM parsedchecks WHERE check = "maxage";
           IF (expire_duration != "")
           {
-            RECORD expiryduration := ParseDuration(expire_duration);
+            RECORD expiryduration := ParseISO8601Duration(expire_duration);
 
             DATETIME expiredate := AddDurationToDate(expiryduration, authsettings.passwords[END-1].validfrom);
             IF (expiredate < GetCurrentDateTime())

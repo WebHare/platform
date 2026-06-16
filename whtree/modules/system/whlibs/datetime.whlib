@@ -1169,6 +1169,9 @@ PUBLIC DATETIME FUNCTION GetYearlyHoliday(INTEGER year, STRING holiday)
     @cell(integer) return.milliseconds Number of milliseconds
 */
 PUBLIC RECORD FUNCTION ParseISO8601Duration(STRING duration) {
+  IF (duration = "")
+    RETURN DEFAULT RECORD;
+
   RECORD retval :=
       [ years :=          0
       , months :=         0
@@ -1240,6 +1243,14 @@ PUBLIC RECORD FUNCTION ParseISO8601Duration(STRING duration) {
     THROW NEW Exception(`Illegal duration specification ${EncodeJSON(duration)}: extra data ${EncodeJSON(parser->remaining_data)}`);
 
   RETURN retval;
+}
+
+PUBLIC STRING FUNCTION FormatISO8601Duration(STRING duration, STRING locale, STRING style) {
+  IF (duration = "")
+    RETURN "";
+  // Remove '0' values so they won't be displayed
+  RECORD durationrec := RepackRecord(SELECT * FROM UnpackRecord(ParseISO8601Duration(duration)) WHERE value > 0);
+  RETURN NEW DurationFormat(locale, CELL[ style ])->format(durationrec);
 }
 
 DATETIME FUNCTION AddDurationToDateInternal(RECORD duration, DATETIME date, INTEGER factor) {

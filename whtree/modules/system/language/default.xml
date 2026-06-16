@@ -1357,18 +1357,6 @@
         <text tid="webhareservices">WebHare services</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Keep WRD audit events</text>
-        <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
-          <text tid="days">Days</text>
-          <text tid="hours">Hours</text>
-          <text tid="invalidduration">The specified duration is invalid</text>
-          <text tid="milliseconds">Milliseconds</text>
-          <text tid="minutes">Minutes</text>
-          <text tid="months">Months</text>
-          <text tid="seconds">Seconds</text>
-          <text tid="selectduration">Select a duration</text>
-          <text tid="weeks">Weeks</text>
-          <text tid="years">Years</text>
-        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->

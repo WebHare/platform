@@ -171,26 +171,4 @@
     </body>
   </screen>
 
-  <screen name="selectduration" footerbuttons="ok cancel" gid=".duration">
-    <compositions>
-      <record name="duration" />
-    </compositions>
-
-    <body>
-      <textedit composition="duration" cellname="years" name="years" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="months" name="months" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="weeks" name="weeks" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="days" name="days" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="hours" name="hours" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="minutes" name="minutes" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration" cellname="seconds" name="seconds" width="8x" minvalue="0" valuetype="integer" />
-      <textedit composition="duration"
-                cellname="milliseconds"
-                name="milliseconds"
-                width="8x"
-                minvalue="0"
-                valuetype="integer" />
-    </body>
-  </screen>
-
 </screens>

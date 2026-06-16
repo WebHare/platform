@@ -10,6 +10,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -117,6 +118,8 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
   STRING pvt_thousandseparator;
 
   RECORD ARRAY pvt_delayedsets;
+
+  OBJECT pvt_timespanformatter;
 
 
   // ---------------------------------------------------------------------------
@@ -641,6 +644,10 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
   */
   PUBLIC STRING FUNCTION FormatTimespan(INTEGER64 days, INTEGER64 msecs, STRING precision DEFAULTSTO "seconds")
   {
+    IF (NOT ObjectExists(this->pvt_timespanformatter))
+    {
+      this->pvt_timespanformatter := NEW DurationFormat(this->language);
+    }
     BOOLEAN short := precision LIKE "short-*";
     IF(short)
       precision := Substring(precision, 6);
@@ -648,8 +655,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
     IF(precision NOT IN ["minutes","seconds","milliseconds"])
       THROW NEW Exception(`Invalid timespan precision '${precision}'`);
 
-    STRING timespan;
-
+    // Overflow milliseconds into days
     IF (msecs<0)
     {
       IF (msecs <= -(24*60*60*1000))
@@ -676,55 +682,61 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
       msecs := 0;
     }
 
+    // Create a duration record
+    INTEGER64 seconds := msecs / 1000;
+    msecs := msecs % 1000;
+    INTEGER64 minutes := seconds / 60;
+    seconds := seconds % 60;
+    INTEGER64 hours := minutes / 60;
+    minutes := minutes % 60;
+
+    RECORD duration;
+    IF (hours > 0)
+      INSERT CELL hours := INTEGER(hours) INTO duration;
+    IF (minutes > 0)
+      INSERT CELL minutes := INTEGER(minutes) INTO duration;
+    IF (seconds > 0 AND precision IN [ "seconds", "milliseconds"])
+      INSERT CELL seconds := INTEGER(seconds) INTO duration;
+    IF (msecs > 0 AND precision = "milliseconds")
+      INSERT CELL milliseconds := INTEGER(msecs) INTO duration;
+
     IF(short)
     {
-      STRING format := GetCell([ minutes := "%#&H:%M", seconds := "%#&H:%M:%S", milliseconds := "%#&H:%M:%S.%Q" ], precision);
-      RETURN FormatTimestamp(format, days * 86400000i64 + msecs);
+      // Add days to hours
+      IF (days > 0)
+      {
+        IF (NOT CellExists(duration, "hours"))
+          INSERT CELL hours := INTEGER(days * 24) INTO duration;
+        ELSE
+          duration.hours := duration.hours + INTEGER(days * 24);
+      }
+      RECORD options := [ style := "digital" ];
+      IF (precision = "milliseconds")
+        INSERT CELL fractionaldigits := 3 INTO options;
+      STRING formatted := this->pvt_timespanformatter->format(duration, options);
+      IF (precision = "minutes")
+      {
+        // DurationFormat always returns seconds in numeric formats, we're only interested in the hours and minutes
+        formatted := Detokenize(ArraySlice(Tokenize(formatted, ":"), 0, 2), ":");
+      }
+      RETURN formatted;
     }
 
-    IF (days>=1)
+    // Add the days to the duration record
+    IF (days > 0)
+      INSERT CELL days := INTEGER(days) INTO duration;
+    RECORD options := [ style := "long" ];
+    // If the duration record is empty, show at least the precision part (values that are not given are not shown)
+    IF (NOT RecordExists(duration))
     {
-      timespan := timespan || ", " || days || " " || (days = 1 ?
-                                                           GetTid('tollium:common.units.day') :
-                                                           GetTid('tollium:common.units.days'));
+      IF (precision = "minutes")
+        INSERT CELL minutesdisplay := "always" INTO options;
+      IF (precision = "seconds")
+        INSERT CELL secondsdisplay := "always" INTO options;
+      IF (precision = "milliseconds")
+        INSERT CELL millisecondsdisplay := "always" INTO options;
     }
-    INTEGER64 numhours := msecs / (60*60*1000);
-    IF (numhours>=1)
-    {
-      timespan := timespan || ", " || numhours || " " || (numhours = 1 ?
-                                                           GetTid('tollium:common.units.hour') :
-                                                           GetTid('tollium:common.units.hours'));
-      msecs := msecs - (numhours*60*60*1000);
-    }
-    INTEGER64 numminutes := msecs / (60*1000);
-    IF (numminutes>=1)
-    {
-      timespan := timespan || ", " || numminutes || " " || (numminutes = 1 ?
-                                                           GetTid('tollium:common.units.minute') :
-                                                           GetTid('tollium:common.units.minutes'));
-      msecs := msecs - (numminutes*60*1000);
-    }
-    IF(precision != "minutes")
-    {
-      INTEGER64 numseconds := msecs / 1000;
-      IF (numseconds>=1 OR timespan="")
-      {
-        timespan := timespan || ", " || numseconds || " " || (numseconds = 1 ?
-                                                             GetTid('tollium:common.units.second') :
-                                                             GetTid('tollium:common.units.seconds'));
-      }
-      IF(precision = "milliseconds")
-      {
-        msecs := msecs % 1000;
-        IF (msecs>=1 OR timespan="")
-        {
-          timespan := timespan || ", " || numseconds || " " || (msecs = 1 ?
-                                                               GetTid('tollium:common.units.millisecond') :
-                                                               GetTid('tollium:common.units.milliseconds'));
-        }
-      }
-    }
-    RETURN Substring(timespan,2,1000); //strip first comma and space..
+    RETURN this->pvt_timespanformatter->format(duration, options);
   }
 
   PUBLIC STRING FUNCTION FormatRecentDateTime(DATETIME value, BOOLEAN stored_utc)

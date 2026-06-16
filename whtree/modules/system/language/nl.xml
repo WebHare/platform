@@ -1167,18 +1167,6 @@
         <text tid="webhareservices">WebHare services</text>
         <text tid="webhareurl">WebHare URL</text>
         <text tid="wrdauditlogdays">Bewaar WRD audit events</text>
-        <textgroup gid="duration">   <!-- tolliumapps.config.settings.duration -->
-          <text tid="days">Dagen</text>
-          <text tid="hours">Uren</text>
-          <text tid="invalidduration">De opgegeven tijdsduur is ongeldig</text>
-          <text tid="milliseconds">Millisecondes</text>
-          <text tid="minutes">Minuten</text>
-          <text tid="months">Maanden</text>
-          <text tid="seconds">Secondes</text>
-          <text tid="selectduration">Kies een tijdsduur</text>
-          <text tid="weeks">Weken</text>
-          <text tid="years">Jaren</text>
-        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="dashboard">   <!-- tolliumapps.dashboard -->

@@ -27,8 +27,8 @@
       <textedit name="password_uppercase" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
       <textedit name="password_digits" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
       <textedit name="password_symbols" width="5x" minvalue="0" emptyvalue="0" valuetype="integer" />
-      <browsecustom name="password_noreuse" onbrowse="GotBrowseNoReuse" onmapvalue="MapDuration" />
-      <browsecustom name="password_maxage" onbrowse="GotBrowseMaxAge" onmapvalue="MapDuration" />
+      <duration name="password_noreuse" max_precision="years" min_precision="days" />
+      <duration name="password_maxage" max_precision="years" min_precision="days" />
       <line layout="left">
         <checkbox name="password_require2fa" labeltid=".passwordcheckrequire2fa" title="" />
       </line>

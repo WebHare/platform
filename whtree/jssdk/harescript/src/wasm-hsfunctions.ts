@@ -627,6 +627,32 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       id_set.copyFrom(var_date);
     }
   });
+  wasmmodule.registerExternalFunction("__ICU_FORMATDURATION::S:RSR", (vm, id_set, var_value, var_locale, var_options) => {
+    const value = var_value.getJSValue() as Record<string, unknown>;
+    const options = var_options.getJSValue() as Record<string, unknown>;
+    for (const [key, val] of Object.entries(options)) {
+      // Remove empty values
+      if (!val)
+        delete options[key];
+      else if (key.endsWith("display")) {
+        // Rewrite 'xxxdisplay' options to 'xxxDisplay'
+        options[key.replace(/display$/, "Display")] = options[key];
+        delete options[key];
+      } else if (key === "fractionaldigits") {
+        // Rewrite 'fractionaldigits' options to 'fractionalDigits'
+        options["fractionalDigits"] = options[key];
+        delete options[key];
+      }
+    }
+
+    try {
+      //@ts-expect-error Requires TS 6.0.2
+      const formatted = new Intl.DurationFormat(var_locale.getString(), options).format(value);
+      id_set.setString(formatted);
+    } catch (e) {
+      id_set.setString("");
+    }
+  });
   wasmmodule.registerExternalFunction("__ICU_TOLOWERCASE::S:SS", (vm, id_set, var_text, var_lang) => {
     id_set.setString(var_text.getString().toLocaleLowerCase(var_lang.getString()));
   });
