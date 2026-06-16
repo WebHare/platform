@@ -182,7 +182,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
   // add more wheres
   const afterchecks: Array<typeof wheres[number] & { accessor: AnyWRDAccessor }> = [];
-  for (const filter of wheres) {
+  for (let filter of wheres) {
     const parts = filter.field.split(".");
     let attr: AttrRec | undefined;
     for (const [idx, part] of parts.entries()) {
@@ -198,6 +198,21 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       throw new Error(`Condition ${JSON.stringify(filter.condition)} not allowed for field ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
 
     const accessor = getAccessor(type, attr, typerec.parentAttrMap);
+    if (filter.condition === "in") { //LHS is a value, but RHS an array. so accessor importValue needs to be invoked for every element
+      if (!Array.isArray(filter.value)) {
+        throw new Error(`Condition type '${filter.condition}' requires an array value for field ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
+      }
+      filter = { ...filter, value: await Promise.all(filter.value.map(v => accessor.importValue(v))) };
+    } else if (filter.condition === "mentions" || filter.condition === "contains") { //'mentions' is a reverse 'in'. LHS is an array (eg domain array) but RHS is a simple entity. importValue will expect an array
+      if (filter.value === null || filter.value === undefined)
+        throw new Error(`Condition type '${filter.condition}' does not allow null value for field ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- too generic to type
+      filter = { ...filter, value: (await accessor.importValue([filter.value] as any) as any)[0] };
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- too generic to type
+      filter = { ...filter, value: await accessor.importValue(filter.value as any) };
+    }
+
     accessor.checkFilter(filter as never);
 
     const queryres = accessor.addToQuery(query, filter as never);

@@ -902,7 +902,7 @@ async function testNewAPI() {
     test.eq([], await schema.getFields("wrdPerson", newperson, "testEnumarray"));
     test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "=", null).execute());
     test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "in", [null]).execute());
-    await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentions", null).execute());
+    await test.throws(/does not allow null /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentions", null).execute());
     await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentionsany", [null]).execute());
 
     await schema.update("wrdPerson", newperson, { testEnum: "enum1", testEnumarray: ["enumarray1", "enumarray2"] });

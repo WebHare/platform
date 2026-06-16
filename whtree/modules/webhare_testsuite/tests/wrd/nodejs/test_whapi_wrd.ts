@@ -131,7 +131,29 @@ async function testWRDAPI() {
   }
 }
 
+async function testWRDAPIPagination() {
+  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: apiurl });
+  const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken });
+
+  const testunit = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "wrdTag", matchType: "=", value: "TESTFW_TESTUNIT" }],
+    fields: ["wrdGuid"]
+  }, { params: { schema: "webhare_testsuite:testschema", type: "whuserUnit" } });
+  test.assert(testunit.status === 200 && testunit.body.results.length === 1);
+  const unitguid = (testunit.body.results[0] as { wrdGuid: string }).wrdGuid;
+
+  //Verify query by guid works
+  const byUnitQueryResult = await api.post("/wrd/{schema}/type/{type}/query", {
+    filters: [{ field: "whuserUnit", matchType: "=", value: unitguid }],
+    fields: ["wrdGuid", "wrdContactEmail"]
+  }, { params: { schema: "webhare_testsuite:testschema", type: "wrdPerson" } });
+  test.assert(byUnitQueryResult.status === 200);
+  test.eq(["apicreated@beta.webhare.net", "sysop@beta.webhare.net"], byUnitQueryResult.body.results.map((r: any) => r.wrdContactEmail).sort());
+}
+
 test.runTests([
   setup,
   testWRDAPI,
+  testWRDAPIPagination,
 ]);
