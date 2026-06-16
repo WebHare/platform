@@ -1,0 +1,208 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+RECORD ARRAY duration_units := [
+  [ unit := "milliseconds", time := TRUE, suffix := ".S" ], // milliseconds are formatted as a fraction of seconds
+  [ unit := "seconds", time := TRUE, suffix := "S" ],
+  [ unit := "minutes", time := TRUE, suffix := "M" ],
+  [ unit := "hours", time := TRUE, suffix := "H" ],
+  [ unit := "days", time := FALSE, suffix := "D" ],
+  [ unit := "weeks", time := FALSE, suffix := "W" ],
+  [ unit := "months", time := FALSE, suffix := "M" ],
+  [ unit := "years", time := FALSE, suffix := "Y" ]
+];
+
+INTEGER FUNCTION GetDurationUnitIdx(STRING unit) {
+  RETURN (SELECT AS INTEGER #duration_units + 1 FROM duration_units WHERE COLUMN unit = VAR unit) - 1;
+}
+
+
+PUBLIC OBJECTTYPE TolliumDuration EXTEND TolliumFragmentBase <
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  INTEGER pvt_min_precision; // index within duration_units
+  INTEGER pvt_max_precision; // index within duration_units
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY min_precision(GetMinPrecision, SetMinPrecision);
+  PUBLIC PROPERTY max_precision(GetMaxPrecision, SetMaxPrecision);
+  UPDATE PUBLIC PROPERTY required(^amount->required, ^amount->required);
+  UPDATE PUBLIC PROPERTY errorlabel(^amount->errorlabel, ^amount->errorlabel);
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+
+  MACRO NEW() {
+    EXTEND this BY TolliumIsComposable;
+    EXTEND this BY TolliumIsDirtyable;
+
+    this->invisibletitle := TRUE;
+    this->pvt_min_precision := GetDurationUnitIdx("seconds");
+    this->pvt_max_precision := GetDurationUnitIdx("years");
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def) {
+    TolliumFragmentBase::StaticInit(def);
+    this->min_precision := def.min_precision;
+    this->max_precision := def.max_precision;
+    this->title := this->pvt_title;
+    this->required := def.required;
+    this->readonly := def.readonly;
+  }
+
+  UPDATE MACRO PreInitComponent() {
+    ^amount->dirtylistener := this->dirtylistener;
+    ^unit->dirtylistener := this->dirtylistener;
+    this->SetUnitOptions();
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  STRING FUNCTION GetValue() {
+    IF (^amount->value = 0)
+      RETURN "";
+
+    RECORD duration_unit := duration_units[^unit->value];
+    STRING period := `P${duration_unit.time ? "T" : ""}`;
+    IF (duration_unit.suffix = ".S") // milliseconds are formatted as a fraction of seconds
+      RETURN period || ^amount->value / 1000 || "." || Right("00" || ^amount->value % 1000, 3) || "S";
+    ELSE
+      RETURN period || ^amount->value || duration_unit.suffix;
+  }
+
+  MACRO SetValue(STRING value) {
+    IF (NOT RecordExists(^unit->options))
+      this->SetUnitOptions();
+    IF (value != "") {
+      RECORD duration := ParseISO8601Duration(value);
+      RECORD ARRAY parts := SELECT amount := COLUMN value, unit := ToLowerCase(name) FROM UnpackRecord(duration) WHERE COLUMN value != 0;
+      IF (Length(parts) = 1) {
+        RECORD part := parts[0];
+        ^amount->value := part.amount;
+
+        INTEGER idx := GetDurationUnitIdx(part.unit);
+        IF (idx < 0)
+          THROW NEW Exception(`Unsupported duration unit '${part.unit}', expected one of '${Detokenize((SELECT AS STRING ARRAY unit FROM duration_units), "', '")}'`);
+        IF (idx < this->pvt_min_precision OR idx > this->pvt_max_precision)
+          this->SetUnitOptions(idx);
+        ^unit->value := idx;
+
+        ^period->value := FormatISO8601Duration(value, this->contexts->user->language, "long");
+        RETURN;
+      } ELSE IF (Length(parts) > 1)
+        THROW NEW Exception("Setting durations with more than one component is not supported yet");
+    }
+    // Just clear the fields
+    this->SetUnitOptions(); // Remove any extra including unit
+    ^amount->value := 0;
+    ^period->value := "";
+  }
+
+  STRING FUNCTION GetMinPrecision() {
+    RETURN duration_units[this->pvt_min_precision].unit;
+  }
+
+  MACRO SetMinPrecision(STRING precision) {
+    IF (precision != "") {
+      INTEGER idx := GetDurationUnitIdx(precision);
+      IF (idx != this->pvt_min_precision) {
+        IF (idx < 0)
+          THROW NEW Exception(`Unsupported precision '${precision}', expected one of '${Detokenize((SELECT AS STRING ARRAY unit FROM duration_units), "', '")}'`);
+        // min_precision should have a smaller unit than max_precision
+        IF (idx > this->pvt_max_precision)
+          THROW NEW Exception(`min_precision should be smaller than max_precision`);
+        this->pvt_min_precision := idx;
+        this->SetUnitOptions();
+      }
+    }
+  }
+
+  STRING FUNCTION GetMaxPrecision() {
+    RETURN duration_units[this->pvt_max_precision].unit;
+  }
+
+  MACRO SetMaxPrecision(STRING precision) {
+    IF (precision != "") {
+      INTEGER idx := GetDurationUnitIdx(precision);
+      IF (idx != this->pvt_max_precision) {
+        IF (idx < 0)
+          THROW NEW Exception(`Unsupported precision '${precision}', expected one of '${Detokenize((SELECT AS STRING ARRAY unit FROM duration_units), "', '")}'`);
+        // max_precision should have a bigger unit than min_precision
+        IF (idx < this->pvt_min_precision)
+          THROW NEW Exception(`max_precision should be bigger than min_precision`);
+        this->pvt_max_precision := idx;
+        this->SetUnitOptions();
+      }
+    }
+  }
+
+  UPDATE MACRO SetTitle(STRING title) {
+    ^amount->title := this->pvt_title;
+    ^period->title := this->pvt_title;
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN enabled) {
+    TolliumFragmentBase::SetEnabled(enabled);
+    ^amount->enabled := enabled;
+    ^unit->enabled := enabled;
+  }
+
+  UPDATE MACRO SetReadonly(BOOLEAN readonly) {
+    TolliumFragmentBase::SetReadonly(readonly);
+
+    ^period->value := FormatISO8601Duration(this->value, this->contexts->user->language, "long");
+    ^amount->visible := NOT this->readonly;
+    ^unit->visible := NOT this->readonly;
+    ^period->visible := this->readonly;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsValidValue(VARIANT value) {
+    TRY
+      RETURN TypeID(value) = TypeID(STRING) AND (value = "" OR RecordExists(ParseISO8601Duration(value)));
+    CATCH;
+    RETURN FALSE;
+  }
+
+
+  // ------------------------------------------------------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  MACRO SetUnitOptions(INTEGER include_option DEFAULTSTO -1) {
+    ^unit->options :=
+      SELECT rowkey := #duration_units
+           , title := GetTid(`tollium:common.units.${unit}`)
+        FROM duration_units
+       WHERE (#duration_units >= this->pvt_min_precision
+              AND #duration_units <= this->pvt_max_precision)
+             OR #duration_units = include_option;
+  }
+>;

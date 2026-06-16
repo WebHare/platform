@@ -301,30 +301,7 @@ PUBLIC DATETIME FUNCTION SubtractUnpackedDurationToDate(RECORD duration, DATETIM
 */
 PUBLIC STRING FUNCTION GetDurationTitle(STRING duration)
 {
-  STRING ARRAY parts;
-  FOREVERY (RECORD part FROM UnpackRecord(ParseDuration(duration)))
-  {
-    IF (part.value = 0)
-      CONTINUE;
-    SWITCH (part.name)
-    {
-      CASE "YEARS"   { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.years", ToString(part.value)) INTO parts AT END; }
-      CASE "MONTHS"  { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.months", ToString(part.value)) INTO parts AT END; }
-      CASE "WEEKS"   { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.weeks", ToString(part.value)) INTO parts AT END; }
-      CASE "DAYS"    { INSERT GetTid("wrd:site.forms.authpages.passwordcheck.duration.days", ToString(part.value)) INTO parts AT END; }
-      CASE "HOURS", "MINUTES", "SECONDS", "MILLISECONDS" { } // ignore for now.
-    }
-  }
-
-  STRING retval;
-  SWITCH (LENGTH(parts))
-  {
-    CASE 1 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts1", parts[0]); }
-    CASE 2 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts2", parts[0], parts[1]); }
-    CASE 3 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts3", parts[0], parts[1], parts[2]); }
-    CASE 4 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts4", parts[0], parts[1], parts[2], parts[3]); }
-  }
-  RETURN retval;
+  RETURN FormatISO8601Duration(duration, GetTidLanguage(), "long");
 }
 
 PUBLIC RECORD FUNCTION GetSchemaUnitPolicy(OBJECT wrdschema, INTEGER unit) {

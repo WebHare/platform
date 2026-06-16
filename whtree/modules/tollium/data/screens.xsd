@@ -233,6 +233,19 @@ To change a <xs:attribute /> for adding descriptions
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="DurationUnit">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="years" />
+      <xs:enumeration value="months" />
+      <xs:enumeration value="weeks" />
+      <xs:enumeration value="days" />
+      <xs:enumeration value="hours" />
+      <xs:enumeration value="minutes" />
+      <xs:enumeration value="seconds" />
+      <xs:enumeration value="milliseconds" />
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="TextLengthMeasureMethods">
     <xs:restriction base="xs:string">
       <xs:enumeration value="bytes" />
@@ -1950,6 +1963,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="combobox" type="ComboBox" />
       <xs:element name="date" type="Date" />
       <xs:element ref="datetime" />
+      <xs:element name="duration" type="Duration" />
       <xs:element name="fileedit" type="FileEdit" />
       <xs:element name="coloredit" type="ColorEdit" />
       <xs:element name="image" type="Image" />
@@ -3232,6 +3246,21 @@ To change a <xs:attribute /> for adding descriptions
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="Duration">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent fragment="components/durationfield.tolliumduration" placement="inline" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="ComposableComponentBase" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attributeGroup ref="Required" />
+    <xs:attributeGroup ref="sc:Errorlabel" />
+    <xs:attribute name="min_precision" type="DurationUnit" />
+    <xs:attribute name="max_precision" type="DurationUnit" />
   </xs:complexType>
 
   <xs:complexType name="BrowseServerPath">
@@ -5771,6 +5800,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="date" type="Date" />
 
   <xs:element name="datetime" type="DateTime" />
+
+  <xs:element name="duration" type="Duration" />
 
   <xs:element name="fileedit" type="FileEdit" />
 
