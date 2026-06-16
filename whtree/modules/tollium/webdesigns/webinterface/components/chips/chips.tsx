@@ -135,7 +135,8 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
       const isActive = opt.value === value;
       if (isActive)
         this.activeValue = opt.value;
-      meta.node.tabIndex = isActive && this.enabled ? 0 : -1;
+      if (this.enabled)
+        meta.node.tabIndex = isActive ? 0 : -1;
       if (isActive) {
         if (options.focus && !meta.node.contains(document.activeElement))
           meta.node.focus();
@@ -208,9 +209,10 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
       const div = <div class={{
         "t-chips__chip": 1,
         "t-chips__chip--selected": opt.selected,
-        "t-chips__chip--active": opt.value === this.activeValue,
+        "t-chips__chip--active": this.enabled && opt.value === this.activeValue,
         "t-chips__chip--invertcolor": opt.invertcolor,
-      }} tabIndex={this.enabled ? (opt.value === this.activeValue ? 0 : -1) : null}
+      }}
+        tabIndex={this.enabled ? (opt.value === this.activeValue ? 0 : -1) : ""}
         ariaSelected={opt.selected ? "true" : "false"}
         onFocus={(event: FocusEvent) => this.onFocus(event)}
         onMousedown={(event: MouseEvent) => this.onMouseDown(event)}
@@ -443,6 +445,7 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
   }
 
   onClick(event: MouseEvent) {
+    console.log(`click event, enabled`, this.enabled, event.target, this.options);
     if (!this.enabled)
       return;
     //event.preventDefault();
@@ -500,6 +503,8 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
   }
 
   onMouseDown(event: MouseEvent) {
+    if (!this.enabled)
+      return;
     if ((event.target as HTMLElement)?.nodeName === "IMG") {
       event.preventDefault();
       event.stopPropagation();
@@ -520,11 +525,15 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
   }
 
   onMouseUp(event: MouseEvent) {
+    if (!this.enabled)
+      return;
     if ((event.target as HTMLElement)?.nodeName === "IMG")
       (event.target as HTMLImageElement).classList.toggle("button--active", false);
   }
 
   onMouseLeave(event: MouseEvent) {
+    if (!this.enabled)
+      return;
     if ((event.target as HTMLElement)?.nodeName === "IMG")
       (event.target as HTMLImageElement).classList.toggle("button--active", false);
   }
