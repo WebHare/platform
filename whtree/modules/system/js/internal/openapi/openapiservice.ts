@@ -181,7 +181,7 @@ export async function describeService(servicename: string) {
   const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
   const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   const swaggerOptions: object = {};
-  const options = { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]), swaggerOptions };
+  const options = { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "onInitService", "onInitHandler"]), swaggerOptions };
 
   // Bundle all external files into one document
   const bundled = await SwaggerParser.bundle(apispec_fs, def as WebHareOpenAPIDocument, {}) as WebHareOpenAPIDocument;
@@ -190,12 +190,12 @@ export async function describeService(servicename: string) {
     mergeIntoBundled(bundled, merge || {}, "");
 
   // Activate hooks (FIXME how to flush them?)
-  if (options.initHook) {
-    await using context = new CodeContext("initHook", { initHook: options.initHook });
-    const importChangeSignal = services.signalOnImportChange(options.initHook, { signal });
-    const tocall = await services.importJSFunction<OpenAPIInitHookFunction>(options.initHook);
+  if (options.onInitService) {
+    await using context = new CodeContext("onInitService", { onInitService: options.onInitService });
+    const importChangeSignal = services.signalOnImportChange(options.onInitService, { signal });
+    const tocall = await services.importJSFunction<OpenAPIInitHookFunction>(options.onInitService);
     whenAborted(importChangeSignal, abort);
-    whenAborted(importChangeSignal, () => console.log(`Import change signal for ${options.initHook} aborted, script uuid: ${localScriptUuid}`));
+    whenAborted(importChangeSignal, () => console.log(`Import change signal for ${options.onInitService} aborted, script uuid: ${localScriptUuid}`));
     const hookContext: OpenAPIServiceInitializationContext = {
       name: servicename,
       spec: bundled,
@@ -207,7 +207,7 @@ export async function describeService(servicename: string) {
     // Copy over any changes the hook made to the swagger options
     options.swaggerOptions = hookContext.swaggerOptions;
 
-    // Invalidate the whole description if initHook's returned signal has aborted
+    // Invalidate the whole description if onInitService's returned signal has aborted
     if (retval?.signal)
       whenAborted(retval.signal, abort);
   }

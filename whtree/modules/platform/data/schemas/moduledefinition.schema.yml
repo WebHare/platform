@@ -237,12 +237,20 @@ $defs:
           spec:
             description: "Path to the OpenAPI V3 specification"
             type: string
-          initHook:
+          onInitService:
             description: "Callback to do runtime modifications to the OpenAPI configuration"
             type: string
-          handlerInitHook:
+          initHook:
+            type: string
+            description: "Replace with 'onInitService'"
+            deprecated: true
+          onInitHandler:
             description: "Callback to do runtime modifications to the OpenAPI call handler"
             type: string
+          handlerInitHook:
+            type: string
+            description: "Replace with 'onInitHandler'"
+            deprecated: true
           merge:
             type: array
             description: "Optional overrides for the specification"

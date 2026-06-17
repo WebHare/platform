@@ -49,8 +49,8 @@ export interface OpenAPIClientDescriptor {
 }
 
 export interface OpenAPIDescriptor extends OpenAPIClientDescriptor {
-  initHook?: string;
-  handlerInitHook?: string;
+  onInitService?: string;
+  onInitHandler?: string;
   merge?: string;
   inputValidation?: OpenAPIValidationMode;
   outputValidation?: OpenAPIValidationMode;
@@ -260,8 +260,8 @@ export async function gatherServices(context: GenerateContext) {
       retval.openAPIServices.push({
         name: `${mod.name}:${servicename}`,
         spec: resolveResource(mod.resourceBase, servicedef.spec),
-        ...(servicedef.initHook ? { initHook: resolveResource(mod.resourceBase, servicedef.initHook) } : {}),
-        ...(servicedef.handlerInitHook ? { handlerInitHook: resolveResource(mod.resourceBase, servicedef.handlerInitHook) } : {}),
+        ...((servicedef.onInitService ?? servicedef.initHook) ? { onInitService: resolveResource(mod.resourceBase, (servicedef.onInitService ?? servicedef.initHook)!) } : {}),
+        ...((servicedef.onInitHandler ?? servicedef.handlerInitHook) ? { onInitHandler: resolveResource(mod.resourceBase, (servicedef.onInitHandler ?? servicedef.handlerInitHook)!) } : {}),
         merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
         crossdomainOrigins: servicedef.crossDomainOrigins || [],
       });
