@@ -145,14 +145,15 @@ async function lookupDomainValues(type: AnyWRDType, attr: AttrRec, vals: Array<s
   let targetType: TypeRec | undefined;
 
   for (const val of vals) {
-    if (typeof val === "number") { //FIXME
+    if (typeof val === "number") {
       output.push(val);
       continue;
     }
 
     if (!targetType) {
       const schemadata = await type.schema.__ensureSchemaData();
-      targetType = schemadata.typeIdMap.get(attr.domain!) ?? throwError(`Type #${attr.domain} not found in schema data`);
+      targetType = attr.tag === "wrdId" ? schemadata.typeTagMap.get(type.tag) ?? throwError(`Type ${type.tag} not found in schema data`)
+        : schemadata.typeIdMap.get(attr.domain!) ?? throwError(`Type #${attr.domain} not found in schema data`);
     }
 
     const query = db<PlatformDB>().selectFrom("wrd.entities").where("type", "in", targetType.childTypeIds);
@@ -496,7 +497,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
 }
 
 type WRDDBGuidConditions = {
-  condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string;
+  condition: "=" | "!="; value: string;
 } | {
   condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
 };
@@ -510,8 +511,10 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, s
   checkFilter(cv: WRDDBGuidConditions) {
     if (cv.condition === "in")
       cv.value.forEach(v => this.checkGuid(v));
-    else
+    else if (cv.condition === "=" || cv.condition === "!=")
       this.checkGuid(cv.value);
+    else
+      throw new Error(`Unsupported condition ${JSON.stringify(cv.condition)} for WRDDBGuidConditions`);
   }
   matchesValue(value: string, cv: WRDDBGuidConditions): boolean {
     if (cv.condition === "in")
@@ -804,6 +807,16 @@ type WRDDBDomainConditions = {
   condition: "mentionsany"; value: readonly number[];
 };
 
+type WRDDBDomainConditionsPlusImport = {
+  condition: "=" | "!="; value: number | string | null;
+} | {
+  condition: "in"; value: ReadonlyArray<string | number | null>;
+} | {
+  condition: "mentions"; value: string | number;
+} | {
+  condition: "mentionsany"; value: ReadonlyArray<string | number | null>;
+};
+
 class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   (number | NullIfNotRequired<Required>),
   (number | null),
@@ -813,7 +826,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 > {
   getDefaultValue(): number | null { return null; }
   isSet(value: number | null) { return Boolean(value); }
-  checkFilter(cv: WRDDBDomainConditions) {
+  checkFilter(cv: WRDDBDomainConditionsPlusImport) {
     if (cv.condition === "mentionsany") {
       if (cv.value.some(v => !v))
         throw new Error(`Not allowed to use 'null' or 0 for matchtype ${JSON.stringify(cv.condition)}`);
@@ -891,7 +904,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     return { settings: { setting: value, attribute: this.attr.id } };
   }
 
-  importValue(value: string | number | NullIfNotRequired<Required>): Promise<number | NullIfNotRequired<Required>> | number | NullIfNotRequired<Required> {
+  importValue(value: string | number | NullIfNotRequired<Required>): MaybePromise<number | NullIfNotRequired<Required>> {
     if (typeof value === "string")
       return lookupDomainValues(this.type, this.attr, [value]).then(val => val[0]);
 
@@ -918,7 +931,7 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
   }
   getDefaultValue(): number | null { return null; }
   isSet(value: number | null) { return Boolean(value); }
-  checkFilter(cv: WRDDBDomainConditions) {
+  checkFilter(cv: WRDDBDomainConditionsPlusImport) {
     if (cv.condition === "mentionsany") {
       if (cv.value.some(v => !v))
         throw new Error(`The value 'null' (or 0) is not allowed for matchtype ${JSON.stringify(cv.condition)}`);

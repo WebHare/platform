@@ -496,6 +496,14 @@ components:
           type: array
           items:
             type: string
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: The number of results to return per page. Defaults to 1000
+        nextToken:
+          type: string
+          description: The token received from your previous query. The rest of the query should be resent unchanged.
 
     TypeQueryResult:
       type: object
@@ -506,8 +514,7 @@ components:
           type: array
         nextToken:
           type: string
-          nullable: true
-          description: A token for pagination, if applicable
+          description: A token to retrieve the next page of results. If not present, there are no more results.
 
     CreateApiTokenBody:
       type: object

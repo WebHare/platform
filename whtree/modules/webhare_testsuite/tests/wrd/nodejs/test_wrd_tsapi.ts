@@ -304,6 +304,7 @@ async function testNewAPI() {
 
   //Ensure empty string wrdTags are fine:
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "" });
+  const unit_guid = (await schema.getFields("whuserUnit", unit_id, ["wrdGuid"])).wrdGuid;
   await schema.update("whuserUnit", unit_id, { wrdTag: "TAG1" });
   await schema.update("whuserUnit", unit_id, { wrdTag: "" });
   await schema.update("whuserUnit", unit_id, { wrdTag: "TAG" });
@@ -318,6 +319,7 @@ async function testNewAPI() {
   }, await describeEntity(unit_id));
 
   const sub_unit_id = await schema.insert("whuserUnit", { wrdTitle: "Sub unit", wrdTag: "SUBTAG", wrdLeftEntity: unit_id });
+  const sub_unit_guid = (await schema.getFields("whuserUnit", sub_unit_id, ["wrdGuid"]))?.wrdGuid;
 
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
@@ -328,11 +330,15 @@ async function testNewAPI() {
   // test searches for null in wrdLeftEntity
   test.eq([unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", null).execute());
   test.eq([sub_unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "!=", null).execute());
+  test.eq([sub_unit_id], await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "=", unit_guid).execute());
   test.eq([unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null]).execute()).sort());
   test.eq([unit_id, sub_unit_id].sort(), (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).execute()).sort());
+  test.eq([sub_unit_id], (await schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [unit_guid]).execute()).sort());
 
   // test executeRequireExactlyOne and executeRequireAtMostOne in simple queries
   test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireExactlyOne());
+  test.eq(sub_unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", sub_unit_guid).executeRequireExactlyOne());
+
   await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").where("wrdLeftEntity", "in", [null, unit_id]).executeRequireExactlyOne());
   await test.throws(/exactly one/, schema.query("whuserUnit").select("wrdId").match({ "wrdId": -1 }).executeRequireExactlyOne());
   test.eq(unit_id, await schema.query("whuserUnit").select("wrdId").where("wrdId", "=", unit_id).executeRequireAtMostOne());
@@ -933,7 +939,7 @@ async function testNewAPI() {
     test.eq([], await schema.getFields("wrdPerson", newperson, "testEnumarray"));
     test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "=", null).execute());
     test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "in", [null]).execute());
-    await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentions", null).execute());
+    await test.throws(/does not allow null /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentions", null).execute());
     await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentionsany", [null]).execute());
 
     await schema.update("wrdPerson", newperson, { testEnum: "enum1", testEnumarray: ["enumarray1", "enumarray2"] });
