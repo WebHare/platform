@@ -1,6 +1,6 @@
 // @webhare/cli: Convert between some file formats
 
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { slugify } from "@webhare/std";
@@ -14,7 +14,7 @@ async function getXLSXRows(path: string): Promise<string[][]> {
   return outrows;
 }
 
-run({
+runCli({
   description: "",
   flags: {
     "v,verbose": "Show more info",

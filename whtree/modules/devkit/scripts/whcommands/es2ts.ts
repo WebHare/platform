@@ -1,6 +1,6 @@
 // @webhare/cli: Convert a module's *.es files to TypeScript (disabling any linting/checking)
 
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { readFile, rename, rm } from "fs/promises";
@@ -26,7 +26,7 @@ function nodeContainsJSX(node: ts.Node): boolean {
   return ts.forEachChild(node, nodeContainsJSX) || false;
 }
 
-run({
+runCli({
   flags: {
     "v,verbose": { description: "Show more information" }
   },

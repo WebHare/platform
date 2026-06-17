@@ -4,13 +4,13 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { listStoredKeyPairs } from "@mod-platform/js/webserver/keymgmt";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { openFolder } from "@webhare/whfs";
 import { runInWork } from "@webhare/whdb";
 
 // TODO tikacache should perhaps be droppable too, but it has little churn and we're not guaranteed to quickly recover opensearch databases right now..
 
-run({
+runCli({
   async main() {
     // Ensure cache dirs are tagged
     for (const cachefolder of [

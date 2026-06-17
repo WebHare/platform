@@ -1,12 +1,12 @@
 import { logValidationResultToConsole } from "@mod-platform/js/cli/output";
 import type { ValidationResult } from "@mod-platform/js/devsupport/validation";
 import { parseSchema } from "@webhare/wrd/src/schemaparser";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
 import path from "path";
 
-run({
+runCli({
   description: "Validate a WebHare resourrce",
   flags: {
     "tids": "Show tids",

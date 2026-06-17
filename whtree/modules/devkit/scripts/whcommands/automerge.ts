@@ -6,7 +6,7 @@ import { GitbeakerRequestError } from '@gitbeaker/requester-utils';
 import { pick, sleep } from '@webhare/std';
 import { logDebug } from '@webhare/services';
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { simpleGit } from 'simple-git';
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -70,7 +70,7 @@ async function getAutomergeConfig(forrepo: string) {
   return { user, apiroot, token: forgesettings.token, project };
 }
 
-run({
+runCli({
   flags: {
     "v,verbose": "Verbose output",
     "no-rebase": "Do not rebase the current branch before merging"

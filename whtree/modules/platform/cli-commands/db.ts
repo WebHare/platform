@@ -1,5 +1,5 @@
 import { readPlatformConf } from "@mod-platform/js/configure/axioms";
-import { enumOption, intOption, run } from "@webhare/cli";
+import { enumOption, intOption, runCli } from "@webhare/cli";
 import { toFSPath } from "@webhare/services";
 import { pick } from "@webhare/std";
 import { db, runInWork, sql } from "@webhare/whdb";
@@ -8,7 +8,7 @@ import { cancelBackend, getCurrentPGVersion, getDatabaseMonitorInfo, getDatabase
 import { spawnSync } from "child_process";
 import type { SelectQueryBuilder } from "kysely";
 
-run({
+runCli({
   description: "Database management commands",
   flags: {
     // "v,verbose": "Show more info",

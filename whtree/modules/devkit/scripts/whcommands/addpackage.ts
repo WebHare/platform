@@ -14,11 +14,11 @@
 */
 
 import { addPackage, parsePackageRef } from "@mod-devkit/js/scaffolding/addpackage";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { CLISyntaxError } from "@webhare/cli/src/run";
 
 
-run({
+runCli({
   description: "Add a package to a module",
   flags: {
     "f,force": { description: "Force installation" }

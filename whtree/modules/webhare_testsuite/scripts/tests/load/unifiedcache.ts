@@ -1,11 +1,11 @@
 /* Load test the image cache */
 
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { rmSync } from "node:fs";
 
-run({
+runCli({
   main: async function () {
     //clean up img cache first
     rmSync(backendConfig.dataRoot + "caches/platform/uc", { recursive: true, force: true });

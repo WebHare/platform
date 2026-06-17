@@ -1,10 +1,10 @@
 import { listStoredKeyPairs, openStoredKeyPair } from "@mod-platform/js/webserver/keymgmt";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { describeTask, listTasks, scheduleTask } from "@webhare/services";
 import { toSnakeCase } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
 
-run({
+runCli({
   flags: {
     staging: { default: false, description: "use the staging server, if available for the certificate provider" },
     force: { default: false, description: "force a certificate update, even if it's not yet up for renewal" },

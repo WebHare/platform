@@ -1,5 +1,5 @@
 import { createModule } from "@mod-devkit/js/scaffolding/module";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
 import { spawnSync } from "node:child_process";
@@ -11,7 +11,7 @@ import path from "node:path";
    - must have a testinfo.xml in the root
 */
 
-run({
+runCli({
   description: "Test an externally managed JS package",
   arguments: [{ name: "<package>", description: "Path to package" }],
   main: async ({ opts, args }) => {

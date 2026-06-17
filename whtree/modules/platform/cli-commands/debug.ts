@@ -6,7 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import { spawn, spawnSync } from "node:child_process";
-import { CLIRuntimeError, CLISyntaxError, intOption, run, type CLIArgumentType } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, intOption, runCli, type CLIArgumentType } from "@webhare/cli";
 import { getInspectorURL, listLocks } from "@mod-platform/js/bridge/tools";
 import { devtoolsProxy } from "@mod-platform/js/bridge/devtools-proxy";
 import { getCachePathForFile } from "@webhare/tsrun/src/resolvehook";
@@ -80,7 +80,7 @@ async function mutateFlags(processid: string | null, mode: "enable" | "disable" 
   return 0;
 }
 
-run({
+runCli({
   subCommands: {
     "list-processes": {
       description: "List all JavaScript processes known to WebHare",

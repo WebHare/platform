@@ -4,7 +4,7 @@ import { WRDSchema, describeEntity, listSchemas } from '@webhare/wrd';
 import { regExpFromWildcards, throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { beginWork, commitWork, runInWork } from '@webhare/whdb';
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { parseSchema } from '@webhare/wrd/src/schemaparser';
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import YAML from 'yaml';
 import { commonFlags, commonOptions } from '@mod-platform/js/cli/cli-tools';
 import { exportFileAsFetch } from '@webhare/services/src/descriptor';
 
-run({
+runCli({
   description: "Manage WRD",
   flags: {
     ...commonFlags.json

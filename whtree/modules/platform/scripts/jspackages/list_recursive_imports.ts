@@ -1,8 +1,8 @@
 import { logValidationMessagesToConsole } from "@mod-platform/js/devsupport/messages";
 import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   async main() {
     console.log(`Listing recursive imports for webhare:\n`);
 

@@ -9,7 +9,7 @@ import { renderDocsProject } from "@mod-devkit/js/sdk-docs/rendering";
 import { setupDocGenerator } from "@mod-devkit/js/sdk-docs/generate";
 import { toFSPath } from "@webhare/services";
 import { join } from "path";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
 async function renderProject(app: TypeDoc.Application, project: TypeDoc.Models.ProjectReflection, { ci = false, upload = false, json = false } = {}) {
   let docsDir = toFSPath("storage::devkit/sdk-docs");
@@ -21,7 +21,7 @@ async function renderProject(app: TypeDoc.Application, project: TypeDoc.Models.P
     await uploadGeneratedDocumentation(docsDir);
 }
 
-run({
+runCli({
   flags: {
     "w,watch": { description: "Watch docs" },
     "json": { description: " Add JSON data" },

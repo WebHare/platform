@@ -9,7 +9,7 @@ import type { WebHareService } from '@webhare/services/src/backendservicerunner'
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
 import { launchService } from './runner';
-import { run } from '@webhare/cli';
+import { runCli } from '@webhare/cli';
 
 const activeServices: Record<string, WebHareService> = {};
 
@@ -90,7 +90,7 @@ class NodeServiceManager {
 
 export type { NodeServicesClient };
 
-run({
+runCli({
   flags: {
     "core": "Run core services",
     "web": "Run web services (dynamic page handling)"

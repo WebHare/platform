@@ -1,6 +1,6 @@
 // @webhare/cli: Convert a module's *.es files to TypeScript (disabling any linting/checking)
 
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { backendConfig, parseResourcePath, resolveResource, toFSPath, WebHareBlob } from "@webhare/services";
 import type { CSPApplyRule, CSPContentType, CSPDynamicExecution, CSPMember, CSPModifyType, CSPSiteSetting, CSPSource, CSPWebRule, CSPWidgetEditor } from "@webhare/whfs/src/siteprofiles";
 import { compareProperties, nameToCamelCase, omit, regExpFromWildcards, throwError, toCamelCase, typedEntries, typedFromEntries } from "@webhare/std";
@@ -536,7 +536,7 @@ function fixAllTypeRefs<T>(topnode: T, remap: Map<string, string>, propertyName?
   return topnode;
 }
 
-run({
+runCli({
   flags: {
     "dump-yaml": { description: "Dump all generated YAML documents" },
     "dry-run": { description: "Don't write any files, just validate the output" },

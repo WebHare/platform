@@ -1,9 +1,9 @@
 import { getPeerServerToken, getPeerServerTokenURL } from "@mod-platform/js/remote/connect";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { attempt, omit } from "@webhare/std";
 import { spawnSync } from "child_process";
 
-run({
+runCli({
   subCommands: {
     "connect": {
       description: "Connect to a remote WebHare instance",

@@ -1,9 +1,9 @@
 // @webhare/cli: Direct access to cryptographic primitives
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { decryptForThisServer } from "@webhare/services";
 
-run({
+runCli({
   flags: {
     "v,verbose": "Show more info",
   },

@@ -1,8 +1,8 @@
 // @webhare/cli: short tool description
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   flags: {
     "j,json": { description: "Output in JSON format" },
     "v,verbose": { description: "Show verbose output" },

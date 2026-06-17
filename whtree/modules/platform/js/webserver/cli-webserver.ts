@@ -5,9 +5,9 @@
 
 import { WebServerConsoleLogger, WebServerFileLogger } from "./logger";
 import * as webserver from "./webserver";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   description: "WebHare Webserver",
   options: {
     "rescueport": { description: "Open only a rescue server at the specified port" },

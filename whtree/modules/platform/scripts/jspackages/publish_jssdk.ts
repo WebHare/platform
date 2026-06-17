@@ -12,7 +12,7 @@ To publish alpha versions to NPM:
 wh run mod::platform/scripts/jspackages/publish_jssdk.ts --publish-alpha --verbose
 */
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { type StdioOptions, spawnSync } from "child_process";
 import { cp, mkdir, rm, readFile, writeFile, mkdtemp } from "fs/promises";
@@ -22,7 +22,7 @@ import { readAxioms } from '@mod-platform/js/configure/axioms';
 import type { PackageJson } from "../../js/devsupport/jspackages";
 import { tmpdir } from "os";
 
-run({
+runCli({
   description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },

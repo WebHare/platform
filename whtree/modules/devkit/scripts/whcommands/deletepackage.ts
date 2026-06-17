@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { existsSync, readFileSync } from "node:fs";
 import { simpleGit } from "simple-git";
 import { isTruthy } from "@webhare/std";
@@ -7,7 +7,7 @@ import { backendConfig, parseResourcePath, toResourcePath } from "@webhare/servi
 import { fixJSPackages, type PackageJson } from "@mod-platform/js/devsupport/jspackages";
 import { storeDiskFile } from "@webhare/system-tools";
 
-run({
+runCli({
   description: "Delete a package from a module",
   flags: {
     "f,force": { description: "Force deletion" },
