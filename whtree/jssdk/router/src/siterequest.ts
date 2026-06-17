@@ -229,6 +229,7 @@ export class CPageRequest {
         "@type": "ListItem",
         item: pathEntry.link || undefined,
         name: pathEntry.title || pathEntry.name || undefined,
+        position: breadcrumb.length + 1 //would seem redundant, but google's rich result validator will complain
       });
     }
   }

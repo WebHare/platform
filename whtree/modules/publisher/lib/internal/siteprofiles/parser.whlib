@@ -993,8 +993,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "allowfoldertype"
             {
+              STRING typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef");
+              IF(typedef = "") {
+                this->AddError(node, `<${node->localname}/> is missing required typedef= or typemask= attribute`);
+                CONTINUE;
+              }
               INSERT [ isallow := TRUE
-                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , typedef := typedef
                      , newonlytemplate := ParseXSBoolean(node->GetAttribute("newonlytemplate"))
                      , setnewonlytemplate := node->HasAttribute("newonlytemplate")
                      ] INTO apply.modifyfoldertypes AT END;
@@ -1002,15 +1007,25 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "denyfoldertype"
             {
+              STRING typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef");
+              IF(typedef = "") {
+                this->AddError(node, `<${node->localname}/> is missing required typedef= or typemask= attribute`);
+                CONTINUE;
+              }
               INSERT [ isallow := FALSE
-                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , typedef := typedef
                      ] INTO apply.modifyfoldertypes AT END;
               CONTINUE;
             }
             CASE "allowfiletype"
             {
+              STRING typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef");
+              IF(typedef = "") {
+                this->AddError(node, `<${node->localname}/> is missing required typedef= or typemask= attribute`);
+                CONTINUE;
+              }
               INSERT [ isallow := TRUE
-                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , typedef := typedef
                      , newonlytemplate := ParseXSBoolean(node->GetAttribute("newonlytemplate"))
                      , setnewonlytemplate := node->HasAttribute("newonlytemplate")
                      ] INTO apply.modifyfiletypes AT END;
@@ -1018,8 +1033,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
             }
             CASE "denyfiletype"
             {
+              STRING typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef");
+              IF(typedef = "") {
+                this->AddError(node, `<${node->localname}/> is missing required typedef= or typemask= attribute`);
+                CONTINUE;
+              }
               INSERT [ isallow := FALSE
-                     , typedef := node->GetAttribute("typemask") ?? node->GetAttribute("typedef")
+                     , typedef := typedef
                      ] INTO apply.modifyfiletypes AT END;
               CONTINUE;
             }
