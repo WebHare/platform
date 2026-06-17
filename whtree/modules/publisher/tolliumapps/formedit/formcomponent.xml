@@ -30,18 +30,23 @@
             <column name="description" type="text" width="2pr" />
           </list>
         </tab>
-        <tab name="custom">
-          <list name="customcomponents" width="1pr" height="1pr" openaction="selectlist" selectmode="single">
-            <column name="name" type="text" width="1pr" iconname="icon" />
-            <column name="description" type="text" width="2pr" />
-          </list>
-        </tab>
+
+        <!-- tabs with custom components will be loaded through 'componentlist' tabs extensions -->
         <tab name="manually" visible="false">
           <textedit name="qname" width="1pr" validationchecks="url" />
         </tab>
       </tabs>
     </body>
   </screen>
+
+  <tabsextension name="componentlist" gid=".selectcomponent" implementation="none">
+    <newtab title="">
+      <list name="customcomponents" width="1pr" height="1pr" openaction="parentscope->selectlist" selectmode="single">
+        <column name="name" type="text" width="1pr" iconname="icon" />
+        <column name="description" type="text" width="2pr" />
+      </list>
+    </newtab>
+  </tabsextension>
 
   <screen name="editcomponent" width="100x" footerbuttons="ok cancel" gid=".editcomponent">
     <body spacers="none">
