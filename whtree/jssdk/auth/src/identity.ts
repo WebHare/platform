@@ -590,10 +590,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
           type: type === "id" ? "platform:login" : "platform:apikey",
           entity: subject,
           ...(options?.authAuditContext ?? getAuditContext()),
-          data: { tokenHash: hash.toString("base64url") }
+          data: {
+            tokenHash: hash.toString("base64url"),
+            tokenId: insertres[0].id,
+            ...(scopes.length ? { scopes } : null),
+          }
         });
       }
-
 
       return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
     });

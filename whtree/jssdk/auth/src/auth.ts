@@ -19,14 +19,14 @@ export type WRDAuthAccountStatus = {
 
 /** Auth audit log event formats */
 export interface AuthEventData {
-  "platform:login": { tokenHash: string };
+  "platform:login": { tokenHash: string; tokenId: number; scopes?: string[] };
   "platform:login-failed": {
     code: LoginErrorCode;
     client?: number;
     error?: string;
   };
-  "platform:logout": { tokenHash: string };
-  "platform:apikey": { tokenHash: string };
+  "platform:logout": { tokenHash: string; tokenId: number };
+  "platform:apikey": { tokenHash: string; tokenId: number; scopes?: string[] };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
   "platform:insufficient-security": { failedChecks: PasswordCheck[]; badPasswordTime: Temporal.Instant | null };
   "platform:resetpassword": void;

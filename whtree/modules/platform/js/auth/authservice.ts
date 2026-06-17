@@ -38,14 +38,14 @@ export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void
 export async function closeAccessToken(wrdSchema: string, accessToken: string, auditContext: AuthAuditContext): Promise<void> {
   const hash = hashSHA256(accessToken);
   await runInWork(async () => {
-    const tokeninfo = await db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).returning(["entity"]).executeTakeFirst();
+    const tokeninfo = await db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).returning(["entity", "id"]).executeTakeFirst();
 
     if (tokeninfo) {
       await writeAuthAuditEvent(new WRDSchema(wrdSchema), {
         type: "platform:logout",
         ...auditContext,
         entity: tokeninfo.entity,
-        data: { tokenHash: hash.toString("base64url") }
+        data: { tokenHash: hash.toString("base64url"), tokenId: tokeninfo.id }
       });
 
     }
