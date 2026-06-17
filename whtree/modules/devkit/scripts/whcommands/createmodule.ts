@@ -1,7 +1,7 @@
 import { createModule } from "@mod-devkit/js/scaffolding/module";
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 
-run({
+runCli({
   description: "Create a new module",
   flags: {
     "nogit": { description: "Do not initialize a git repository" },

@@ -1,11 +1,11 @@
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { storeDiskFile } from "@webhare/system-tools";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 
 
 
-run({
+runCli({
   description: "Generate OID list from PostgreSQL source install pg_type.dat file",
   arguments: [
     {

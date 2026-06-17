@@ -5,7 +5,7 @@ import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/mess
 import { openBackendService, subscribe, writeRegistryKey, type BackendEvents, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
-import { ansiCmd, enumOption, run } from '@webhare/cli';
+import { ansiCmd, enumOption, runCli } from '@webhare/cli';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
@@ -30,7 +30,7 @@ const argv = process.argv.slice(2).map(arg => {
   return arg;
 });
 
-const runData = run({
+const runData = runCli({
   flags: {
     quiet: { default: false, description: "Don't report anything that's not an error" },
     "allow-missing": { default: false, description: "Do not fail if the masks don't match any package" },

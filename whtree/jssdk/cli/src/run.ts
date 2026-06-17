@@ -23,6 +23,8 @@ export class CLIShowHelp extends CLIError {
     super(message, options.command);
   }
 }
+
+/** An error that will be printed to stderr (without a stackrace dump) and return an error code if handled by runCli */
 export class CLIRuntimeError extends CLIError {
   constructor(message: string, public options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
     super(message, options.command);
@@ -35,7 +37,7 @@ export interface CLIArgumentType<ValueType> {
   /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored
    * `cwd` is the current working directory, is filled in from WH 5.9+.
   */
-  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): string[] | Promise<string[]>;
+  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): readonly string[] | Promise<readonly string[]>;
   description?: string;
 }
 
@@ -71,43 +73,41 @@ type Argument<J> = {
   type?: CLIArgumentType<J>;
 };
 
-type SubCommandTemplate = {
-  shortDescription?: string;
-  description?: string;
-  options?: Record<string, OptionsTemplate>;
-  flags?: Record<string, FlagTemplate>;
+type BaseOptionArgflags = {
+  /** Positional arguments */
+  arguments?: readonly [...Array<Argument<unknown>>];
+  /** Flags (boolean options). Key names with dashes are converted to camelcase when passed to main() */
+  flags?: Record<Lowercase<string>, FlagTemplate>;
+  /** Options. Key names with dashes are converted to camelcase when passed to main() */
+  options?: Record<Lowercase<string>, OptionsTemplate>;
   /** Override whether arguments, options and flags can be freely mixed for this subcommand */
   mixedFlags?: boolean;
-  arguments?: readonly [...Array<Argument<unknown>>];
+};
+
+type SubCommandTemplate = BaseOptionArgflags & {
+  shortDescription?: string;
+  description?: string;
   main?: unknown;
 };
 
-export type ParseData = {
+export type ParseData = BaseOptionArgflags & ({
   name?: string;
   description?: string;
-  options?: Record<string, OptionsTemplate>;
-  flags?: Record<string, FlagTemplate>;
-  /** Whether arguments, options and flags can be freely mixed on the command line. This is the default */
-  mixedFlags?: boolean;
-  arguments?: ReadonlyArray<Argument<unknown>>;
 } & ({
   subCommands?: never;
   main?: unknown;
 } | {
   subCommands?: Record<string, SubCommandTemplate>;
-});
+}));
 
-type OptArgBase = {
-  options?: Record<string, OptionsTemplate>;
-  flags?: Record<string, FlagTemplate>;
-  arguments?: readonly [...Array<Argument<unknown>>];
+type OptArgBase = BaseOptionArgflags & {
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
 // Ensures the defaults of options with type are compatible with the return type of the type.
-type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: "default" extends keyof Options[Key] ?
+type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: Key extends Lowercase<string> ? "default" extends keyof Options[Key] ?
   Simplify<Omit<OptionsTemplate & object, "default"> & { default: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> }> :
-  OptionsTemplate;
+  OptionsTemplate : never;
 };
 
 /// Sanitizes the options and arguments of subcommands
@@ -693,7 +693,14 @@ export function runCli<
   return runReturn;
 }
 
-export function intOption({ start, end }: { start?: number; end?: number } = {}): CLIArgumentType<number> {
+/** Accept an integer value
+  * @param settings.start - Minimum accepted value (inclusive)
+  * @param settings.end - Maximum accepted value (inclusive)
+  * @example
+      options: { width: { description: "Target width in pixels", type: intOption() } }
+ */
+export function intOption(settings?: { start?: number; end?: number }): CLIArgumentType<number> {
+  const { start, end } = settings ?? {};
   return {
     parseValue(arg, options) {
       if (!arg.match(/^-?\d+$/))
@@ -717,7 +724,18 @@ export function intOption({ start, end }: { start?: number; end?: number } = {})
   };
 }
 
-export function floatOption({ start, end }: { start?: number; end?: number } = {}): CLIArgumentType<number> {
+/** Accept a floating point value
+  * @param settings.start - Minimum accepted value (inclusive)
+  * @param settings.end - Maximum accepted value (inclusive)
+  * @example
+        threshold: {
+          type: floatOption({ start: 0 }),
+          description: "Threshold percentage of total (Deduplicated) size to report",
+          default: 1
+        }
+ */
+export function floatOption(settings?: { start?: number; end?: number }): CLIArgumentType<number> {
+  const { start, end } = settings ?? {};
   return {
     parseValue(arg, options) {
       let parsed: unknown;
@@ -744,7 +762,12 @@ export function floatOption({ start, end }: { start?: number; end?: number } = {
   };
 }
 
-export function enumOption<const T extends string>(allowedValues: T[]): CLIArgumentType<T> {
+/** Accept a string from a specific set
+  * @param allowedValues - The allowed values
+  * @example
+      arguments: [{ name: "[state]", description: "on/off", type: enumOption(["on", "off"]) }],
+ */
+export function enumOption<const T extends string>(allowedValues: readonly T[]): CLIArgumentType<T> {
   return {
     parseValue(arg, options): T {
       if (!allowedValues.includes(arg as T)) {

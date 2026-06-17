@@ -1,7 +1,7 @@
 // @webhare/cli: Manage WebHare file system (WHFS)
 
 import { createWHFSExportZip, describeWHFSType, lookupURL, openFileOrFolder, openSite, storeWHFSExport, type ExportWHFSOptions, type WHFSFile } from '@webhare/whfs';
-import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, run } from "@webhare/cli";
+import { CLIRuntimeError, CLISyntaxError, enumOption, floatOption, intOption, runCli } from "@webhare/cli";
 import { storeDiskFile } from "@webhare/system-tools";
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
 import { db, runInWork, sql } from '@webhare/whdb';
@@ -161,7 +161,7 @@ async function displayUsage(opts: { threshold: number; maxDepth?: number; versio
     console.log(JSON.stringify(toPrint, null, 2));
 }
 
-run({
+runCli({
   description: '',
   flags: {
     ...commonFlags.json

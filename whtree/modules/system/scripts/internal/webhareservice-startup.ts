@@ -6,7 +6,7 @@
 */
 
 import { updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { debugFlags } from "@webhare/env";
 import { runScript } from "@webhare/harescript";
 import { HSVMSymbol } from "@webhare/harescript/src/wasm-support";
@@ -92,7 +92,7 @@ async function startupHS() {
   }
 }
 
-run({
+runCli({
   flags: {
     "v,verbose": { description: "Enable verbose logging" },
   }, async main({ opts }) {

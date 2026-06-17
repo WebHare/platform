@@ -1,6 +1,6 @@
 import * as net from "node:net";
 import * as fs from "node:fs";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import * as path from "node:path";
 import * as os from "node:os";
 import { spawn } from "node:child_process";
@@ -175,7 +175,7 @@ const encoder: { [K in ParsedMessage as K["type"]]: { len: (msg: K) => number; e
         };
 */
 
-run({
+runCli({
   description: "Proxy for PostgreSQL connections that dumps the protocol messages.\nUsage: wh run protocol-dump-proxy.ts [ --socket-dir unix-socket-dir ] [command...]",
   options: {
     "socket-dir": { description: "Directory to create the Unix socket in. Defaults to /tmp when not specifying a command. Deletes the socket file when already present in the directory!." },

@@ -20,6 +20,15 @@ async function testCLIMainParse() {
     arguments: [],
   }, []));
 
+  parse({
+    //@ts-expect-error Mixed case flags are rejected at compile-time
+    flags: { "dryRun": "dry run" },
+  }, []);
+  parse({
+    //@ts-expect-error Mixed case options are rejected at compile-time
+    options: { "dryRunOpt": { description: "Dry run opt" } },
+  }, []);
+
   // After the first argument flags and options are not parsed
   test.throws(/too many arguments/i, () => parse({
     flags: {

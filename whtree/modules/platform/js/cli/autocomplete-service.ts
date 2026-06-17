@@ -4,7 +4,7 @@ import { activateHMR, registerAsDynamicLoadingLibrary } from "@webhare/services/
 import { autoCompleteCLIRunScript, enableAutoCompleteMode, parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { debugFlags } from "@webhare/env";
 import * as http from "node:http";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import * as path from "node:path";
 import { isError } from "@webhare/std";
 
@@ -137,7 +137,7 @@ async function runServerMode() {
   server.listen(backendConfig.dataRoot + "/.cli-autocomplete.sock");
 }
 
-run({
+runCli({
   flags: {
     "server": { description: "Start a autocomplete server" },
     "try-start-service": { description: "Try to start the service" },

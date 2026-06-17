@@ -7,7 +7,7 @@
    wh run mod::platform/scripts/jspackages/validate_jssdk.ts --fix
 */
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { readFile, writeFile } from "fs/promises";
 import { join } from 'path';
@@ -16,7 +16,7 @@ import { readAxioms } from '@mod-platform/js/configure/axioms';
 import { listDirectory } from '@webhare/system-tools';
 import type { PackageJson } from "../../js/devsupport/jspackages";
 
-run({
+runCli({
   description: "Validate/lint the WebHare JSSDK packages",
   flags: {
     "v,verbose": { description: "Verbose log level" },

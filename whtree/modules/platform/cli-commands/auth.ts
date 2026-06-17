@@ -9,7 +9,7 @@ import { beginWork, commitWork, db } from '@webhare/whdb';
 import { compressUUID, createFirstPartyToken, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer, getDefaultOAuth2RedirectURL } from '@webhare/auth';
 import { prepAuthForURL } from '@webhare/auth/src/support';
 import type { PlatformDB } from '@mod-platform/generated/db/platform';
@@ -56,7 +56,7 @@ async function lookupLogin(wrdSchema: AnyWRDSchema | null, username: string, url
   return { entityId, customizer, wrdSchema };
 }
 
-run({
+runCli({
   /// Global options
   flags: {
     "j,json": { description: "Output in JSON format" }

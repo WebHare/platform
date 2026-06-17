@@ -11,7 +11,7 @@
   kill $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1)
 */
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
@@ -692,7 +692,7 @@ const argv = process.argv.slice(2);
 if (argv.at(-1)?.match(/^ +$/))  // To allow us to rewrite our name in the process tree, we're invoked with a dummy space argument.
   argv.pop(); //strip the spaces argument from the parsed list
 
-run({
+runCli({
   flags: {
     "s,secondary": { description: "Mark us as a secondary service manager" },
     "v,verbose": { description: "Verbose output" },

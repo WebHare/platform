@@ -2,7 +2,7 @@ import { buildPxlParser, type PxlDocType } from '@mod-platform/js/logging/pxllog
 import { openCatalog, type Catalog } from '@webhare/consilio';
 import { lockMutex, readLogLines } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
 async function getContinueAfter(catalog: Catalog<PxlDocType>): Promise<string | undefined> {
   const lastinsertion = await catalog.search({
@@ -20,7 +20,7 @@ function pickFields(logline: PxlDocType) {
   return Object.fromEntries(Object.entries(logline).filter(([key]) => ["@timestamp", "event"].includes(key) || key.startsWith("mod_")));
 }
 
-run({
+runCli({
   description: "Index new pxl log lines",
   flags: {
     "fields": { description: "Show events and fields being indexed" },

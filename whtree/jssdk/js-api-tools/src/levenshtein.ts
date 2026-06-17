@@ -6,7 +6,7 @@ import { levenshteinDistance } from "@webhare/std";
     @param matchCase - Do a case sensitive compare (defaults to FALSE)
     @returns Best match or null if none found
 */
-export function getBestMatch(name: string, alternatives: string[], { matchCase = false } = {}): string | null {
+export function getBestMatch(name: string, alternatives: readonly string[], { matchCase = false } = {}): string | null {
   if (!matchCase)
     name = name.toLowerCase();
 

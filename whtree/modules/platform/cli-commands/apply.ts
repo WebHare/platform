@@ -1,10 +1,10 @@
 // @webhare/cli: Reconfigures part of all of WebHare
 
 import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigurationOptions, executeApply, type ConfigurableSubsystemPart } from '@mod-platform/js/configure/applyconfig';
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { CLISyntaxError } from '@webhare/cli/src/run';
 
-run({
+runCli({
   flags: {
     "v,verbose": { description: "Verbose mode" },
     "show-unchanged": { description: "Show unchanged files" },

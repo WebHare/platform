@@ -1,10 +1,10 @@
 // @webhare/cli: Manage and debug site profiles
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { getApplyTesterForObject } from '@webhare/whfs/src/applytester';
 import { openFileOrFolder } from '@webhare/whfs';
 import { describeMetaTabs } from '@mod-publisher/lib/internal/siteprofiles/metatabs';
 
-run({
+runCli({
   subCommands: {
     "dump-applies": {
       description: "Get rules applicable to the specific object",

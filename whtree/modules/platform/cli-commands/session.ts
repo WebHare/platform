@@ -1,11 +1,11 @@
 // @webhare/cli: Direct access to server session APIs
 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { CLIRuntimeError, run } from "@webhare/cli";
+import { CLIRuntimeError, runCli } from "@webhare/cli";
 import { getServerSession } from "@webhare/services";
 import { db } from "@webhare/whdb";
 
-run({
+runCli({
   flags: {
     "v,verbose": "Show more info",
   },

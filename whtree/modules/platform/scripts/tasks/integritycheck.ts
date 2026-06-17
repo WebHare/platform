@@ -1,5 +1,5 @@
 import { listSchemas } from '@webhare/wrd';
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { checkWRDSchema, type WRDIssue } from '@webhare/wrd/src/check';
 import { loadlib } from '@webhare/harescript';
 import type { CheckResult } from '@webhare/services';
@@ -38,7 +38,7 @@ async function checkWRD() {
   }
 }
 
-run({
+runCli({
   flags: {
     "v,verbose": "Be verbose in output"
   },

@@ -8,9 +8,9 @@
 */
 
 import { runMCPServer } from "@mod-devkit/js/mcp-server/server";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   async main() {
     await runMCPServer();
   }

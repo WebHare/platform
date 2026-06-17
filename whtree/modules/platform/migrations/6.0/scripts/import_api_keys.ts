@@ -1,10 +1,10 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { systemConfigSchema, type System_ConfigSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import type { WRDInsertable } from "@webhare/wrd";
 
-run({
+runCli({
   async main() {
     await beginWork();
     /* keytype: 0 = maps, 1 = recaptcha

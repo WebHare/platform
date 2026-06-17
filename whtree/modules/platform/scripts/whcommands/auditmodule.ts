@@ -5,7 +5,7 @@ import { whconstant_builtinmodules } from '@mod-system/js/internal/webhareconsta
 import { toResourcePath } from '@webhare/services';
 import { spawnSync } from 'node:child_process';
 import { storeDiskFile } from '@webhare/system-tools';
-import { run } from '@webhare/cli';
+import { runCli } from '@webhare/cli';
 
 
 function getPackageDirs(module: string): string[] {
@@ -49,7 +49,7 @@ export interface ModuleAuditFormat {
 
 }
 
-run({
+runCli({
   options: {
     "outputfile": { description: "output file" },
   },

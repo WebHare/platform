@@ -3,7 +3,7 @@ import { getRepoInfo } from '@mod-devkit/lib/internal/deploy/git';
 import process from 'node:process';
 import { Gitlab } from '@gitbeaker/rest';
 import { beginWork, commitWork } from "@webhare/whdb/src/whdb";
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -49,7 +49,7 @@ async function getAutomergeConfig(forrepo: string) {
   return { user, apiroot, token: forgesettings.token, project };
 }
 
-run({
+runCli({
   flags: {
     "v,verbose": "Verbose output",
     "no-rebase": "Do not rebase the current branch before merging"

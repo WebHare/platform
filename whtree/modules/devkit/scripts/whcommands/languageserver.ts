@@ -4,9 +4,9 @@
 
 import { runWebHareLSP } from "@mod-devkit/js/language-server/server";
 
-import { run } from "@webhare/cli";
+import { runCli } from "@webhare/cli";
 
-run({
+runCli({
   flags: {
     stdio: "Launch LSP in stdio mode",
   },
