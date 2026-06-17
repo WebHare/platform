@@ -35,7 +35,7 @@ export interface CLIArgumentType<ValueType> {
   /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored
    * `cwd` is the current working directory, is filled in from WH 5.9+.
   */
-  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): string[] | Promise<string[]>;
+  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): readonly string[] | Promise<readonly string[]>;
   description?: string;
 }
 
@@ -744,7 +744,12 @@ export function floatOption({ start, end }: { start?: number; end?: number } = {
   };
 }
 
-export function enumOption<const T extends string>(allowedValues: T[]): CLIArgumentType<T> {
+/** Accept a string from a specific set
+  * @param allowedValues - The allowed values
+  * @example
+      arguments: [{ name: "[state]", description: "on/off", type: enumOption(["on", "off"]) }],
+ */
+export function enumOption<const T extends string>(allowedValues: readonly T[]): CLIArgumentType<T> {
   return {
     parseValue(arg, options): T {
       if (!allowedValues.includes(arg as T)) {
