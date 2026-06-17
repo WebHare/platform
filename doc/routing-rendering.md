@@ -5,8 +5,8 @@ Basic routing flow once a router (a WebRequest => WebResponse function) decides 
 - The render function is invoked with the ContentPageRequest and is expected to return a WebResponse
 - that renderer function eventually invokes ContentPageRequest.buildWebPage(html)
 - ContentPageRequest.buildWebPage will initialize plugins
-- ContentPageRequest.buildWebPage will then look up the pageBuilder function for the current webdesign
-- The pageBuilder takes a PageBuildRequest (more or less the same ContentPageRequest as above) and returns a WebResponse.
+- ContentPageRequest.buildWebPage will then look up the onRenderPage function for the current webdesign
+- The onRenderPage takes a PageBuildRequest (more or less the same ContentPageRequest as above) and returns a WebResponse.
 - That render function eventually invokes PageBuildRequest.render({head,body})
 - We send the WebResponse
 
@@ -15,7 +15,7 @@ Basic routing flow once a router (a WebRequest => WebResponse function) decides 
 When a page or widget supports both HS and JS we should prefer the one matching the language we're already in. So even when
 HareScript is running under WASM we'll stay inside HareScript if possible.
 
-### pageBuilder (JS) based rendering
+### onRenderPage (JS) based rendering
 `getPageRenderer` supports rendering HareScript pages, both dynamic and static. The aim is to be compatible 'out of the box'
 with pages that don't interface with specific WebDesign implementations or plugins (eg publisher forms).
 

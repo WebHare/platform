@@ -93,7 +93,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
   RECORD typeinfo := described.typeinfo;
   STRING objectname := RecordExists(typeinfo.renderer) ? typeinfo.renderer.objectname : "";
 
-  BOOLEAN widget_supports_js := CellExists(typeinfo, 'widgetbuilder');
+  BOOLEAN widget_supports_js := CellExists(typeinfo, 'onrenderwidget');
   BOOLEAN widget_supports_hs := objectname != "";
 
   IF(widget_supports_js AND NOT widget_supports_hs) { //If available, sse JS under WASM or if no HS available
@@ -121,7 +121,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
           , whfsfileid := RecordExists(instancedata) ? instancedata.whfsfileid : 0
           , context := widgetcontext
           , typeinfo.requiremergefieldscontext
-          , ...CellExists(typeinfo,'widgetbuilder') ? [ widgetbuilder := typeinfo.widgetbuilder ] : CELL[]
+          , ...CellExists(typeinfo,'onrenderwidget') ? [ onrenderwidget := typeinfo.onrenderwidget ] : CELL[]
           ];
   TRY
   {

@@ -30,7 +30,7 @@ export async function lookupPublishedTarget(url: string, options?: whfs.LookupUR
   return {
     lookupresult,
     targetObject,
-    renderer: renderinfo.contentBuilder
+    renderer: renderinfo.onRenderContent
   };
 }
 
@@ -162,7 +162,7 @@ export async function renderTSWidgetHS(context: {
   whfstype: string;
   whfssettingid: bigint;
   whfsfileid: number;
-  widgetbuilder: string;
+  onrenderwidget: string;
   targetobject: number;
   targetfolder: number;
   targetsite: number;
@@ -172,8 +172,8 @@ export async function renderTSWidgetHS(context: {
   const type = whfsType(context.whfstype);
   //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
   const instance = context.whfssettingid ? await type.getBySettingId(Number(context.whfssettingid)) : await type.get(context.whfsfileid);
-  //HareScript will tell us the widgetBuilder so we can avoid doing an applytest
-  const renderFunction = await importJSFunction<WidgetBuilderFunction>(context.widgetbuilder);
+  //HareScript will tell us the onRenderWidget so we can avoid doing an applytest
+  const renderFunction = await importJSFunction<WidgetBuilderFunction>(context.onrenderwidget);
 
   const targetObject = await whfs.openFileOrFolder(context.targetobject);
 
@@ -197,7 +197,7 @@ export async function renderTSWidgetHS(context: {
 
   const result = await renderFunction(pagePartRequest, instance);
   if (!isLitty(result))
-    throw new Error(`Widget renderer '${context.widgetbuilder}' failed to return a proper Litty template`);
+    throw new Error(`Widget renderer '${context.onrenderwidget}' failed to return a proper Litty template`);
 
   return { content: await littyToString(result) };
 }

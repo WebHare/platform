@@ -152,18 +152,18 @@ export class RestAPI {
   inputValidation: OpenAPIValidationMode | null = null;
   outputValidation: OpenAPIValidationMode | null = null;
   crossdomainOrigins: string[] = [];
-  handlerInitHook: string | null = null;
+  onInitHandler: string | null = null;
   defaultErrorMapper: string | null = null;
   swaggerOptions: object = {};
 
   constructor(public bundled: WebHareOpenAPIDocument) {
   }
 
-  async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook, swaggerOptions }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string; swaggerOptions: object }) {
+  async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, onInitService, onInitHandler, swaggerOptions }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; onInitService?: string; onInitHandler?: string; swaggerOptions: object }) {
     this.serviceName = name;
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
-    this.handlerInitHook = handlerInitHook ?? null;
+    this.onInitHandler = onInitHandler ?? null;
     this.swaggerOptions = swaggerOptions;
     if (crossdomainOrigins)
       this.crossdomainOrigins = crossdomainOrigins;
@@ -231,7 +231,7 @@ export class RestAPI {
 
     let res;
     if (debugFlags["openapi-noworkers"]) {
-      const workerHandler = getWorkerRestAPIHandler(this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook);
+      const workerHandler = getWorkerRestAPIHandler(this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.onInitHandler);
       const encodedTransfer = req.encodeForTransfer();
       res = (await workerHandler.handleRequest(encodedTransfer.value, relurl, logger)).value;
     } else {
@@ -239,7 +239,7 @@ export class RestAPI {
         // Get the handler for this worker
         let workerHandler = this.handlers.get(worker);
         if (!workerHandler) {
-          this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook));
+          this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.onInitHandler));
         }
         const encodedTransfer = req.encodeForTransfer();
         return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
@@ -274,15 +274,15 @@ export class WorkerRestAPIHandler {
   routes: Route[];
   defaultErrorSchema: SchemaObject | null;
   defaultErrorMapper: string | null;
-  handlerInitHook: string | null;
+  onInitHandler: string | null;
   calledHandlerInitHook: Promise<void> | null = null;
 
-  constructor(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, handlerInitHook: string | null) {
+  constructor(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, onInitHandler: string | null) {
     this.serviceName = serviceName;
     this.routes = routes;
     this.defaultErrorSchema = defaultErrorSchema;
     this.defaultErrorMapper = defaultErrorMapper;
-    this.handlerInitHook = handlerInitHook;
+    this.onInitHandler = onInitHandler;
   }
 
   /// Build error responses for errors other than operation result errors (method not found, validation failures, etc)
@@ -300,10 +300,10 @@ export class WorkerRestAPIHandler {
   }
 
   private async ensureHandlerInit() {
-    const handlerInitHook = this.handlerInitHook;
-    if (handlerInitHook) {
+    const onInitHandler = this.onInitHandler;
+    if (onInitHandler) {
       await (this.calledHandlerInitHook ??= (async () => {
-        const initFunction = await importJSFunction<OpenAPIInitHandlerHookFunction>(handlerInitHook!);
+        const initFunction = await importJSFunction<OpenAPIInitHandlerHookFunction>(onInitHandler!);
         await initFunction({ name: this.serviceName, ajv: this.ajv });
       })());
     }
@@ -553,6 +553,6 @@ export class WorkerRestAPIHandler {
   }
 }
 
-export function getWorkerRestAPIHandler(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, handlerInitHook: string | null) {
-  return new WorkerRestAPIHandler(serviceName, routes, defaultErrorSchema, defaultErrorMapper, handlerInitHook);
+export function getWorkerRestAPIHandler(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string | null, onInitHandler: string | null) {
+  return new WorkerRestAPIHandler(serviceName, routes, defaultErrorSchema, defaultErrorMapper, onInitHandler);
 }

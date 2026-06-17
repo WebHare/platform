@@ -336,7 +336,7 @@ async function testPageResponseJSRTD() {
     const { contentElements: fetchedContentElements, doc: fetchedDoc, headers } = await fetchPreviewAsDoc("site::webhare_testsuite.testsitejs/testpages/widgetholder-hs");
     test.eqPartial(expectContent, fetchedContentElements);
     test.assert(fetchedDoc.getElementById("isdynamicrequest") === null); //it's a static page, should not see a webRequest even if using preview
-    test.eq(/callJs.*pageRender.*pageBuilder/, headers.get("server-timing"));
+    test.eq(/callJs.*pageRender.*onRenderPage/, headers.get("server-timing"));
   }
 
   {

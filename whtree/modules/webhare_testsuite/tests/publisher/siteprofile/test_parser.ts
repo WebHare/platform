@@ -539,7 +539,7 @@ types:
         isembeddedobjecttype: true,
         type: "widgettype",
         embedtype: "block",
-        widgetbuilder: 'mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidget'
+        onrenderwidget: 'mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidget'
       }
     ],
     applyrules: [
@@ -553,7 +553,7 @@ types:
         setwidget: [
           {
             contenttype: "webhare_testsuite:widgets.coolblock",
-            widgetbuilder: "mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidgetForNews"
+            onrenderwidget: "mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidgetForNews"
           }
         ]
       }
@@ -565,7 +565,7 @@ types:
     metaType: blockWidget
     editor:
       tabsExtension: /tolliumapps/widgets/widget.screens.xml#coolblock
-    widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidget
+    onRenderWidget: /js/widgets/builtin.ts#renderCoolBlockWidget
     members:
       data:
         type: string
@@ -575,7 +575,7 @@ apply:
     comment: Override widget rendering in news section
     setWidget:
       widgets.coolblock:
-        widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidgetForNews
+        onRenderWidget: /js/widgets/builtin.ts#renderCoolBlockWidgetForNews
 
 `));
 

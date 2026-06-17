@@ -44,7 +44,7 @@ async function testWebHareConfig() {
   const services = getExtractedConfig("services");
   const fetchpoolservice = services.backendServices.find(_ => _.name === "platform:fetchpool");
   test.eqPartial({
-    clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
+    onCreateClient: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   }, fetchpoolservice);
 
   const testservice = services.openAPIServices.find(_ => _.name === "webhare_testsuite:testservice");
