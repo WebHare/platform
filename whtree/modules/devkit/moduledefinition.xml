@@ -9,6 +9,11 @@
     </validation>
   </meta>
 
+  <servicemanager>
+    <!-- TODO schedule after we detect a WebHare update, not necesarily daily -->
+    <task runat="0 9 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/generate-sdk-docs.ts" tag="generate_sdk_docs" description="Periodic SDK update" />
+  </servicemanager>
+
   <portal>
     <application name="deploy"
                  engine="wasm"
@@ -48,6 +53,12 @@
         <requireright right="system:sysop" />
       </accesscheck>
     </application>
+    <linkapp name="sdkdocs" group="system:development" link="sdk-docs/" tid="module.sdk-docs">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </linkapp>
+
   </portal>
 
   <consilio>
@@ -69,6 +80,11 @@
 
   <backend>
     <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
+    <webrule path="root:/sdk-docs/" match="initial">
+      <addheader header="x-robots-tag" value="noindex,nofollow"/>
+      <tryfolder path="whdata::storage/devkit/sdk-docs/" />
+      <tryfile path="scripts/web/sdk-notfound.shtml" />
+    </webrule>
   </backend>
 
   <moduleregistry>

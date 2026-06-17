@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <textgroup gid="module">   <!-- module -->
+    <text tid="sdk-docs">WebHare SDK documentation</text>
+  </textgroup>
   <textgroup gid="testtids">   <!-- testtids -->
     <textgroup gid="gid1">   <!-- testtids.gid1 -->
       <textgroup gid="gid2">   <!-- testtids.gid1.gid2 -->
