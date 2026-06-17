@@ -208,12 +208,20 @@ $defs:
         type: object
         additionalProperties: false
         properties:
-          clientFactory:
+          onCreateClient:
             description: "Function to create a client for this service. Must satisfy ServiceClientFactoryFunction"
             type: string
-          controllerFactory:
+          onCreateController:
             description: "Function to create a controller for this service which will create the clients. Must satisfy ServiceControllerFactoryFunction"
             type: string
+          clientFactory:
+            type: string
+            description: "Deprecated, replace with onCreateClient"
+            deprecated: true
+          controllerFactory:
+            type: string
+            description: "Deprecated, replace with onCreateController"
+            deprecated: true
           serviceClass:
             description: "Classify core, web and generic node services. Each has a separate runner"
             type: string

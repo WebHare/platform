@@ -3,7 +3,7 @@ import { importJSFunction, runBackendService, type BackendServiceOptions } from 
 import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction, WebHareService } from "@webhare/services/src/backendservicerunner";
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
-  const client = await (await importJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
+  const client = await (await importJSFunction<ServiceClientFactoryFunction>(service.onCreateClient))(...args);
   return client;
 }
 
@@ -14,10 +14,10 @@ export async function launchService(service: BackendServiceDescriptor, options?:
   };
 
   try {
-    if (service.controllerFactory) {
-      const servicecontroller = await (await importJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))(options);
+    if (service.onCreateController) {
+      const servicecontroller = await (await importJSFunction<ServiceControllerFactoryFunction>(service.onCreateController))(options);
       return runBackendService(service.name, (...args) => servicecontroller.createClient(...args), { onClose: () => servicecontroller.close?.(), ...runnerOptions });
-    } else if (service.clientFactory)
+    } else if (service.onCreateClient)
       return runBackendService(service.name, (...args) => createServiceClient(service, args), runnerOptions);
 
     throw new Error(`Don't know how to start service ${service.name}`);

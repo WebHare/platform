@@ -37,8 +37,8 @@ export interface AssetPack {
 export interface BackendServiceDescriptor {
   name: string;
   serviceClass: "web" | "core" | "node";
-  clientFactory: string;
-  controllerFactory: string;
+  onCreateClient: string;
+  onCreateController: string;
 }
 
 export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "development">;
@@ -251,8 +251,8 @@ export async function gatherServices(context: GenerateContext) {
       retval.backendServices.push({
         name: `${mod.name}:${servicename}`,
         serviceClass: servicedef.serviceClass || "node",
-        clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
-        controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
+        onCreateClient: resolveResource(mod.resourceBase, servicedef.onCreateClient || servicedef.clientFactory || ""),
+        onCreateController: resolveResource(mod.resourceBase, servicedef.onCreateController || servicedef.controllerFactory || "")
       });
     }
 

@@ -40,9 +40,9 @@ backendHooks: # Where this extension hooks into the backend
 
 backendServices:
   demoservice:
-    clientFactory: js/demoservice.ts#openDemoService
+    onCreateClient: js/demoservice.ts#openDemoService
   controlleddemoservice:
-    controllerFactory: js/demoservice.ts#createDemoMain
+    onCreateController: js/demoservice.ts#createDemoMain
 
 openApiServices:
   testservice:

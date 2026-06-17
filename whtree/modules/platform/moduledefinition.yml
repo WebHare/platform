@@ -50,20 +50,20 @@ managedServices:
 
 backendServices:
   openapiservice:
-    clientFactory: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
+    onCreateClient: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
   fetchpool:
-    clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
+    onCreateClient: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:
-    clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
+    onCreateClient: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
   assetpacks:
-    controllerFactory: js/assetpacks/control.ts#createAssetPackManager
+    onCreateController: js/assetpacks/control.ts#createAssetPackManager
   configuration:
-    controllerFactory: js/configure/configservice.ts#createConfigManager
+    onCreateController: js/configure/configservice.ts#createConfigManager
     serviceClass: core
   calljs:
-    clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
+    onCreateClient: "js/nodeservices/calljs.ts#getCallJSService"
   webjs: # like calljs but for dynamic pages
-    clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
+    onCreateClient: "js/nodeservices/calljs.ts#getCallJSService"
     serviceClass: web
 
 openApiServices:
