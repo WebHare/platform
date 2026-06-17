@@ -644,7 +644,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
     }
 
     settings := result.dyn;
-    //both webdesign and a dynamicpage setting contentBuilder trigger JS rendering
+    //both webdesign and a dynamicpage setting onRenderContent trigger JS rendering
     js := js OR result.js;
   }
 

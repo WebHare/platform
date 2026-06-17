@@ -542,7 +542,7 @@ export class WHFSApplyTester {
     const webDesign = {
       objectName: "mod::publisher/lib/webdesign.whlib#WebDesignBase",
       siteResponseFactory: "",
-      pageBuilder: "",
+      onRenderPage: "",
       witty: "mod::publisher/lib/defaultwebdesign.witty",
       assetPack: "",
       designFolder: "",
@@ -566,11 +566,11 @@ export class WHFSApplyTester {
       if (apply.webdesign.objectname) {
         webDesign.objectName = apply.webdesign.objectname;
         webDesign.siteResponseFactory = '';
-        webDesign.pageBuilder = '';
+        webDesign.onRenderPage = '';
       } else if (apply.webdesign.siteresponsefactory || apply.webdesign.pagebuilder) {
         webDesign.objectName = '';
         webDesign.siteResponseFactory = apply.webdesign.siteresponsefactory;
-        webDesign.pageBuilder = apply.webdesign.pagebuilder || '';
+        webDesign.onRenderPage = apply.webdesign.pagebuilder || '';
       }
       webDesign.witty = apply.webdesign.witty || webDesign.witty;
       webDesign.designFolder = apply.webdesign.designfolder || webDesign.designFolder;
@@ -641,20 +641,20 @@ export class WHFSApplyTester {
   }
 
   async getObjRenderInfo() {
-    const baseinfo = { contentBuilder: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
+    const baseinfo = { onRenderContent: "", hsPageObjectType: "", dynamicExecution: null as CSPDynamicExecution | null };
     const typeInfo = getType(this.objinfo.type === "platform:filetypes.dynamicfoldercontents" ? this.objinfo.parent.type : this.objinfo.type);
     if (typeInfo?.dynamicexecution) {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
       if (baseinfo.dynamicExecution.contentbuilder)
-        baseinfo.contentBuilder = baseinfo.dynamicExecution.contentbuilder;
+        baseinfo.onRenderContent = baseinfo.dynamicExecution.contentbuilder;
     }
 
     for (const apply of await this.getMatchingRules('bodyrenderer')) {
-      baseinfo.contentBuilder = apply.bodyrenderer.contentbuilder || "";
+      baseinfo.onRenderContent = apply.bodyrenderer.contentbuilder || "";
       baseinfo.hsPageObjectType = apply.bodyrenderer.objectname || "";
     }
 
-    if (baseinfo.contentBuilder && baseinfo.dynamicExecution) {
+    if (baseinfo.onRenderContent && baseinfo.dynamicExecution) {
       //Clear HS run info - just to be sure
       baseinfo.dynamicExecution = {
         ...baseinfo.dynamicExecution,

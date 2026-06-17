@@ -4,7 +4,7 @@ types:
     workflow: true
     apply:
       bodyRenderer:
-        contentBuilder: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
+        onRenderContent: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
 
   base_test.testsuite_rtd_hs: # Forced use of the HS renderer
     metaType: page
@@ -18,21 +18,21 @@ types:
     workflow: false
     title: WTS JS dynamic page
     dynamicExecution:
-      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
+      onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
 
   base_test.metadata:
     metaType: page
     workflow: false
     title: WTS Page Metadata test page
     dynamicExecution:
-      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderMetadataTestPage
+      onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderMetadataTestPage
 
   wrdauth.testpage:
     metaType: page
     workflow: false
     title: WRD Auth Test Page
     dynamicExecution:
-      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderAuthTestPage
+      onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderAuthTestPage
 
 apply:
   - comment: Configure widgets. We need this rule so basetest webdesign can also run base_test.testsuite_rtd_ts files
@@ -40,12 +40,12 @@ apply:
       all
     setWidget:
       "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock":
-        widgetBuilder: mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderWidgetBlock
+        onRenderWidget: mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderWidgetBlock
   - to:
       type: http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage
       whfsPath: "*/dynamicpage-override-js"
     bodyRenderer:
-      contentBuilder: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
+      onRenderContent: mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage
   - to:
       type: http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage
       whfsPath: "*/dynamicpage-override-hs"

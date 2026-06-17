@@ -565,7 +565,7 @@ types:
     metaType: blockWidget
     editor:
       tabsExtension: /tolliumapps/widgets/widget.screens.xml#coolblock
-    widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidget
+    onRenderWidget: /js/widgets/builtin.ts#renderCoolBlockWidget
     members:
       data:
         type: string
@@ -575,7 +575,7 @@ apply:
     comment: Override widget rendering in news section
     setWidget:
       widgets.coolblock:
-        widgetBuilder: /js/widgets/builtin.ts#renderCoolBlockWidgetForNews
+        onRenderWidget: /js/widgets/builtin.ts#renderCoolBlockWidgetForNews
 
 `));
 

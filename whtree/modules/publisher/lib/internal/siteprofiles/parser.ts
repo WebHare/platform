@@ -691,7 +691,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
       objectname: context.resolve(apply.bodyRenderer.objectName || ''),
-      contentbuilder: context.resolve(apply.bodyRenderer.contentBuilder || '')
+      contentbuilder: context.resolve(apply.bodyRenderer.onRenderContent || apply.bodyRenderer.contentBuilder || ''),
     };
 
   if (apply.webDesign) {
@@ -709,7 +709,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       objectname: context.resolve(apply.webDesign.objectName || ''),
       siteprofile: "",
       siteresponsefactory: context.resolve(apply.webDesign.siteResponseFactory || ''),
-      pagebuilder: context.resolve(apply.webDesign.pageBuilder || ''),
+      pagebuilder: context.resolve(apply.webDesign.onRenderPage || apply.webDesign.pageBuilder || ''),
       witty: context.resolve(apply.webDesign.witty || ''),
       wittyencoding: apply.webDesign.wittyEncoding || '',
       ...("minify" in apply.webDesign) ? { minify: apply.webDesign.minify === true } : null
@@ -780,7 +780,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
       wittycomponent: setWidget.wittyComponent ? context.resolve(setWidget.wittyComponent) : '',
-      ...setWidget.widgetBuilder ? { widgetbuilder: context.resolve(setWidget.widgetBuilder) } : {},
+      ...(setWidget.onRenderWidget ?? setWidget.widgetBuilder) ? { widgetbuilder: context.resolve((setWidget.onRenderWidget ?? setWidget.widgetBuilder)!) } : {},
     });
   }
 
@@ -943,7 +943,7 @@ function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceP
   return {
     cachettl: exec.cacheTtl || 0,
     routerfunction: context.resolve(exec.routerFunction || ''),
-    ...exec.contentBuilder ? { contentbuilder: context.resolve(exec.contentBuilder) } : null,
+    ...(exec.onRenderContent ?? exec.onRenderContent) ? { contentbuilder: context.resolve((exec.onRenderContent ?? exec.onRenderContent)!) } : null,
     startmacro: context.resolve(exec.startMacro || ''),
     webpageobjectname: context.resolve(exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],
@@ -1136,8 +1136,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
         ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
-        if (widgetSettings.widgetBuilder)
-          ctype.widgetbuilder = context.resolve(widgetSettings.widgetBuilder);
+        if (widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)
+          ctype.widgetbuilder = context.resolve((widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)!);
       } else {
         ctype.type = "filetype";
       }

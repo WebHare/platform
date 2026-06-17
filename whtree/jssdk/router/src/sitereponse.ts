@@ -41,7 +41,7 @@ function getDesignRootForAssetPack(assetpack: string): string {
   return `/.publisher/sd/${assetpack.replace(":", "/")}/`;
 }
 
-/** @deprecated WH6.0 will drop this in favor of pageBuilder: */
+/** @deprecated WH6.0 will drop this in favor of onRenderPage: */
 export class SiteResponse<T extends object = object> {
   siteRequest: SiteRequest;
   settings: SiteResponseSettings;

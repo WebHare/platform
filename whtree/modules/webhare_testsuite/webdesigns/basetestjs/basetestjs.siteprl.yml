@@ -114,7 +114,7 @@ types:
   jswidget1:
     comment: Our first TypeScript widget
     metaType: blockWidget
-    widgetBuilder: ./webdesign/webdesign.ts#renderJSWidget1
+    onRenderWidget: ./webdesign/webdesign.ts#renderJSWidget1
     members:
       field1:
         type: string
@@ -125,7 +125,7 @@ types:
 apply:
   - to: all
     webDesign:
-      pageBuilder: webdesign/webdesign.ts#baseTestJSPageBuilder
+      onRenderPage: webdesign/webdesign.ts#baseTestJSPageBuilder
     fileTypes:
       - allowType: http://www.webhare.net/xmlns/webhare_testsuite/pagelist
     folderTypes:

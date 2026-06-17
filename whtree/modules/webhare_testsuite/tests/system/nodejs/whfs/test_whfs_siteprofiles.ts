@@ -62,8 +62,8 @@ async function testBeforeSite() { //port of HS TestBeforeSite
 
   const dynamicOverrideJsTester = await getApplyTesterForObject(await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/dynamicpage-override-js"));
   test.eqPartial({
-    contentBuilder: "mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage",
-    dynamicExecution: { //verify all HS info is reset so we can't accidentally use it anywhere once a contentBuilder is discovered
+    onRenderContent: "mod::webhare_testsuite/webdesigns/basetestjs/pages/jsrendered.ts#renderDynamicPage",
+    dynamicExecution: { //verify all HS info is reset so we can't accidentally use it anywhere once a onRenderContent is discovered
       routerfunction: "",
       startmacro: "",
       webpageobjectname: ""

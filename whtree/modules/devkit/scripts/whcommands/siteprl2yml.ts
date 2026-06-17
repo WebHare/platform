@@ -308,7 +308,7 @@ function importApplyRule(ctxt: ImportContext, ar: CSPApplyRule): ApplyRule {
   if (ar.bodyrenderer) {
     rule.bodyRenderer = ar.bodyrenderer.objectname
       ? { objectName: unresolvePath(ctxt, ar.bodyrenderer.objectname) }
-      : { contentBuilder: unresolvePath(ctxt, ar.bodyrenderer.contentbuilder) };
+      : { onRenderContent: unresolvePath(ctxt, ar.bodyrenderer.contentbuilder) };
   }
 
   for (const lib of ar.setlibrary) {

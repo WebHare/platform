@@ -306,8 +306,8 @@ export class CPageRequest {
   /** Load the function that can actually generate pages for us */
   async getPageRenderer(): Promise<ContentBuilderFunction> {
     //TODO rename 'renderer:' to 'buildPage:' ?  rename ContentBuilderFunction although I see what it's doing there?
-    if (this._renderinfo?.contentBuilder) { //JS renderer is always preferred
-      const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(this._renderinfo.contentBuilder);
+    if (this._renderinfo?.onRenderContent) { //JS renderer is always preferred
+      const renderer: ContentBuilderFunction = await importJSFunction<ContentBuilderFunction>(this._renderinfo.onRenderContent);
       return renderer;
     }
 
@@ -356,7 +356,7 @@ export class CPageRequest {
     }
   }
 
-  /** Render the given HTML using the proper pageBuilder call (aka WebDesign in HareScript)
+  /** Render the given HTML using the proper onRenderPage call (aka WebDesign in HareScript)
    * @param page - Generated HTML to embed (generally into the `<main>` container of the page)
   */
   async buildWebPage(page: Litty): Promise<WebResponse> {
@@ -371,7 +371,7 @@ export class CPageRequest {
     // Now that we're pretty sure we'll be generating HTML, initialize plugins
     await this.initializePlugins();
 
-    if (!this._publicationSettings.pageBuilder) {
+    if (!this._publicationSettings.onRenderPage) {
       if (this._publicationSettings.siteResponseFactory) {
         //legacy support for old-style SiteResponse factories, will be removed after WH6
         const factory = await importJSFunction<WebDesignFunction<object>>(this._publicationSettings.siteResponseFactory);
@@ -390,10 +390,10 @@ export class CPageRequest {
     }
 
     //TODO this is a bit of a hack to get the data for the new renderer
-    const pageBuilder = await importJSFunction<PageBuilderFunction>(this._publicationSettings.pageBuilder);
-    using timer = this.timings?.startTimer("pageBuilder");
+    const onRenderPage = await importJSFunction<PageBuilderFunction>(this._publicationSettings.onRenderPage);
+    using timer = this.timings?.startTimer("onRenderPage");
     void (timer);
-    let buildResult = await pageBuilder(this);
+    let buildResult = await onRenderPage(this);
 
     if (this._publicationSettings.minify
       && !debugFlags["no-minify"]
@@ -579,11 +579,11 @@ export class CPageRequest {
    *
    * @param api - The API type of the plugin to retrieve
    * @returns The plugin implementing the specified API, or null if no such plugin exists.
-   * @throws Error if plugins have not been initialized yet (by calling initializePlugins()). A pageBuilder doesn't need to invoke this, but a contentBuilder should (as we delay initialization until we're sure we'll be building HTML)
+   * @throws Error if plugins have not been initialized yet (by calling initializePlugins()). A onRenderPage doesn't need to invoke this, but a onRenderContent should (as we delay initialization until we're sure we'll be building HTML)
    */
   getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
     if (!this.didInitializePlugins)
-      throw new Error(`A contentBuilder must call initializePlugins() before plugins can be accessed`);
+      throw new Error(`A onRenderContent must call initializePlugins() before plugins can be accessed`);
 
     return this.plugins[api]?.api || null;
   }
@@ -595,7 +595,7 @@ export class CPageRequest {
    */
   addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
     if (!this.didInitializePlugins)
-      throw new Error(`A contentBuilder must call initializePlugins() before plugins can be accessed`);
+      throw new Error(`A onRenderContent must call initializePlugins() before plugins can be accessed`);
 
     this.plugins[api] = { api: plugin };
   }
