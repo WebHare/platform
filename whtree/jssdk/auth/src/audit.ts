@@ -168,7 +168,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     source: "platform:auth",
     wrdSchema: wrdSchema.tag,
     type: toInsert.type,
-    id: inserted[0].id,
+    auditEventId: inserted[0].id,
     ip: toInsert.ip || undefined,
     country: toInsert.country || undefined,
     browserTriplet: toInsert.browsertriplet || undefined,
@@ -180,4 +180,6 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     entityLogin: toInsert.login || undefined,
     data: "data" in event && event.data ? event?.data : undefined
   });
+
+  // FIXME: write retraction of event on rollback
 }
