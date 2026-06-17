@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -113,11 +114,30 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
       WHERE fs_object = objid
    ORDER BY when, id;
 
-  INTEGER lastapproved := SELECT AS INTEGER id FROM historyitems WHERE type IN [ "approved", "created" ] ORDER BY when DESC LIMIT 1;
+  INTEGER lastapproved := SELECT AS INTEGER id FROM historyitems WHERE type IN [ "final", "approved", "created" ] ORDER BY when DESC LIMIT 1;
   RETURN
       SELECT *
            , isactive :=    id = lastapproved
         FROM historyitems;
+}
+
+PUBLIC RECORD FUNCTION GetCurrentVersion(INTEGER objid) {
+  RECORD fileinfo := SELECT whfspath, filelink FROM system.fs_objects WHERE id = objid;
+  IF(NOT RecordExists(fileinfo))
+    THROW NEW Exception(`Object #${objid} does not exist`);
+
+  IF(IsRecycleOrHistoryWHFSPath(fileinfo.whfspath)) {
+    RECORD ARRAY history := ListObjectHistory(fileinfo.filelink);
+    RECORD ARRAY matches := SELECT * FROM history WHERE snapshot = objid;
+    IF(Length(matches) != 1) {
+      dumpvalue(history);
+      abort(`Object #${objid} is a snapshot but no unique history entry was found for it`);
+    }
+    RETURN [ version := matches[0].version, liveversion := fileinfo.filelink ];
+  }
+
+  RECORD ARRAY history := ListObjectHistory(objid);
+  RETURN SELECT version, liveversion := VAR objid FROM history WHERE isactive;
 }
 
 PUBLIC MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEGER ARRAY addworkflowtypes, BOOLEAN isfinal) {

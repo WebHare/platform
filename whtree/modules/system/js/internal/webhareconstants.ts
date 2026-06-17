@@ -118,6 +118,12 @@ export const whconstant_historytype_approved = 5;
 /// fs_history.type autosave
 export const whconstant_historytype_autosave = 6;
 
+/// fs_history.type import - generate when we import a file without a created entry, using the snapshot as the source of truth. it should be an x.0 version with a full snapshot
+export const whconstant_historytype_import = 7;
+
+/// fs_history.type final - generate when a version is finalized, ie applied to the original fsobject. it should be an x.0 version with a full snapshot
+export const whconstant_historytype_final = 8;
+
 /// publisher.schedule start publish/republish event
 export const whconstant_publisherschedule_publish = 1;
 
