@@ -1116,6 +1116,8 @@ $defs:
         type: string
       siteResponseFactory:
         type: string
+        description: "Move to the onRenderPage API in WH6.0"
+        deprecated: true
       onRenderPage:
         type: string
         description: JS Page render function. Receives a PageRenderRequest and returns a WebResponse

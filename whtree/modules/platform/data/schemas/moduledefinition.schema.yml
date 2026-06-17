@@ -571,13 +571,17 @@ $defs:
     patternProperties:
       "^[a-z_][-a-z0-9_]*$": # Handler name
         type: object
-        required:
-          - handlerFactory
+        #required:   # FIXME require handlerFactory as soon as all users are renamed
+        #  - handlerFactory
         additionalProperties: false
         properties:
-          handlerFactory:
+          onCreateHandler:
             type: string
             description: "Function that creates the challenge handler object, must resolve to a ACMEChallengeHandler object"
+          handlerFactory:
+            type: string
+            description: "Deprecated, replace with onCreateHandler"
+            deprecated: true
 
   PaymentProviders:
     type: object

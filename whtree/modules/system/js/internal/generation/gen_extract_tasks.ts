@@ -85,6 +85,7 @@ function parseYMLTasks(context: GenerateContext, mod: string, resourceBase: stri
     out.tasktypes[name] = {
       applyError: task.ifWebHare ? getApplicabilityError(context.versionInfo, task.ifWebHare) || '' : '',
       allowifrestore: task.allowIfRestore ?? false,
+      //FIXME rename to onRunTask - but probably combine that with a cleaner task API (none of this 'let work leak' mess we alreday want to get rid of)
       taskrunner: resolveResource(resourceBase, task.runner),
       objectname: "",
       yaml: true,

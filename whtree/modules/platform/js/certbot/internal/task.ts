@@ -18,7 +18,7 @@ import {
   type TaskResponse,
 } from "@webhare/services";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
-import { addDuration, pick, regExpFromWildcards, toCamelCase, type ToSnakeCase } from "@webhare/std";
+import { addDuration, pick, regExpFromWildcards, throwError, toCamelCase, type ToSnakeCase } from "@webhare/std";
 import { listDirectory } from "@webhare/system-tools";
 import { beginWork, db, onFinishWork } from "@webhare/whdb";
 import { openFolder } from "@webhare/whfs";
@@ -470,7 +470,8 @@ async function createACMEChallengeHandler(acmeChallengeHandler: string, debug: b
   for (const modyml of await getAllModuleYAMLs())
     if (modyml.module === module && modyml.acmeChallengeHandlers)
       if (handler in modyml.acmeChallengeHandlers) {
-        const factory = resolveResource(modyml.baseResourcePath, modyml.acmeChallengeHandlers[handler].handlerFactory);
+        const onCreate = modyml.acmeChallengeHandlers[handler].onCreateHandler || modyml.acmeChallengeHandlers[handler].handlerFactory || throwError(`ACME challenge handler '${acmeChallengeHandler}' must have a handlerFactory or onCreateHandler`);
+        const factory = resolveResource(modyml.baseResourcePath, onCreate);
         return (await importJSFunction<ACMEChallengeHandlerFactory>(factory))({ debug });
       }
   return new ACMEChallengeHandlerBase({ debug });
