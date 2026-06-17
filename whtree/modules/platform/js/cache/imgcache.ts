@@ -122,7 +122,7 @@ async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> 
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
-async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod) {
+export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { ignoreErrors?: boolean }): Promise<ReturnType<typeof createSharpImage> | null> {
   const resizeOptions = getSharpResizeOptions(resource, method);
   if (!resizeOptions)
     return null;
@@ -138,7 +138,7 @@ async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" |
     const decodedBMP = decodeBMP(await readFile(sourceimage));
     img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
   } else {
-    img = await createSharpImage(sourceimage);
+    img = await createSharpImage(sourceimage, { failOn: options?.ignoreErrors ? "none" : "warning" });
   }
   const { extract, extend, resize, format, formatOptions } = resizeOptions;
 
