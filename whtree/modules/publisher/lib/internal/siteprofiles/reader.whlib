@@ -1620,10 +1620,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
             intypedef.editor := setwidget.editor;
           IF(RecordExists(setwidget.renderer))
             intypedef.renderer := setwidget.renderer;
-          IF(CellExists(setwidget, 'widgetbuilder'))
-            intypedef := CELL[...intypedef, setwidget.widgetbuilder];
+          IF(CellExists(setwidget, 'onrenderwidget'))
+            intypedef := CELL[...intypedef, setwidget.onrenderwidget];
           ELSE
-            DELETE CELL widgetbuilder FROM intypedef; //unset any widgetbuilder
+            DELETE CELL onrenderwidget FROM intypedef; //unset any onrenderwidget
 
           IF(setwidget.has_wittycomponent)
           {

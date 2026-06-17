@@ -680,23 +680,23 @@ export class WHFSApplyTester {
 
   async getWidgetSettings(type: string): Promise<{
     renderHS: string; //HareScript renderer
-    renderJS: string; //JS renderer
+    onRenderWidget: string; //JS renderer
   }> {
-    const retval = { renderHS: "", renderJS: "" };
+    const retval = { renderHS: "", onRenderWidget: "" };
     const typeInfo = getType(type);
     if (!typeInfo)
       return retval;
 
     if (typeInfo.renderer?.objectname)
       retval.renderHS = typeInfo.renderer.objectname;
-    if (typeInfo.widgetbuilder)
-      retval.renderJS = typeInfo.widgetbuilder;
+    if (typeInfo.onrenderwidget)
+      retval.onRenderWidget = typeInfo.onrenderwidget;
 
     for (const applyRule of await this.getMatchingRules("setwidget")) {
       for (const set of applyRule.setwidget) {
         if (set.contenttype && (set.contenttype === typeInfo?.namespace || set.contenttype === typeInfo?.scopedtype)) {
           retval.renderHS = set.renderer?.objectname || '';
-          retval.renderJS = set.widgetbuilder || '';
+          retval.onRenderWidget = set.onrenderwidget || '';
         }
       }
     }

@@ -610,7 +610,7 @@ export class CPageRequest {
   //FIXME need a better match for the widget type
   async renderWidget(widget: { whfsType: string; data: InstanceData;[dbLoc]?: WebHareDBLocation | null }): Promise<Litty> {
     const renderer = await this._applyTester.getWidgetSettings(widget.whfsType);
-    if (!renderer.renderJS) {
+    if (!renderer.onRenderWidget) {
       if (renderer.renderHS) {
         if (!(widget[dbLoc]?.source === 2 || widget[dbLoc]?.source === 1))
           throw new Error(`Widget ${widget.whfsType} has a HS renderer but no JS renderer and is not sourced from a database, so we can't render it`);
@@ -621,11 +621,11 @@ export class CPageRequest {
       throw new Error(`Widget ${widget.whfsType} does not have a renderer and cannot be rendered`);
     }
 
-    const renderFunction = await importJSFunction<WidgetBuilderFunction>(renderer.renderJS);
+    const renderFunction = await importJSFunction<WidgetBuilderFunction>(renderer.onRenderWidget);
     //TODO give a minimized interface/proxy as widgets are known to be eager to reach into other details
     const result = await renderFunction(this, widget.data);
     if (!isLitty(result))
-      throw new Error(`Widget renderer '${renderer.renderJS}' failed to return a proper Litty template`);
+      throw new Error(`Widget renderer '${renderer.onRenderWidget}' failed to return a proper Litty template`);
     return result;
   }
 }

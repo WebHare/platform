@@ -159,11 +159,11 @@ async function testSiteProfiles() {
     const tester = await getApplyTesterForObject(testobj);
     test.eq({
       renderHS: "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#Level2Widget",
-      renderJS: ""
+      onRenderWidget: ""
     }, await tester.getWidgetSettings("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"));
     test.eq({
       renderHS: "",
-      renderJS: "mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderJSWidget1"
+      onRenderWidget: "mod::webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign.ts#renderJSWidget1"
     }, await tester.getWidgetSettings("webhare_testsuite:base_test.jswidget1"));
 
     await whdb.beginWork();
@@ -172,7 +172,7 @@ async function testSiteProfiles() {
 
     test.eq({
       renderHS: "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#Level2Widget_OverrideSearch",
-      renderJS: ""
+      onRenderWidget: ""
     }, await dummytester.getWidgetSettings("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2"));
 
     await whdb.rollbackWork();

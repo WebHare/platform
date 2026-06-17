@@ -539,7 +539,7 @@ types:
         isembeddedobjecttype: true,
         type: "widgettype",
         embedtype: "block",
-        widgetbuilder: 'mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidget'
+        onrenderwidget: 'mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidget'
       }
     ],
     applyrules: [
@@ -553,7 +553,7 @@ types:
         setwidget: [
           {
             contenttype: "webhare_testsuite:widgets.coolblock",
-            widgetbuilder: "mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidgetForNews"
+            onrenderwidget: "mod::webhare_testsuite/js/widgets/builtin.ts#renderCoolBlockWidgetForNews"
           }
         ]
       }
