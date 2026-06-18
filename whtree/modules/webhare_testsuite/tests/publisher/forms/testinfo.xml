@@ -1,5 +1,6 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="lib data" tags="forms">
   <test script="testformfile.whscr" />
+  <test script="testformfile-versions.whscr" />
   <test script="testformfile_lowlevel.whscr" />
   <test script="testformfile_conditions.whscr" />
   <test script="testformfile-aswidget.whscr" />

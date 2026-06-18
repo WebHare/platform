@@ -41,6 +41,19 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
   PUBLIC RECORD unavailabletext;
 
   MACRO NEW() {
+    /* __form.webtoolformid is the 'content object' or the actual draft to which we're submitting. it's also the ID that is the source of the actually parsed form definition and is set in the call to ParseFormDef
+       __form.incontext is the target object of the webdeisgn
+       __form.targetid .. is specified as following:
+          'formtargetid is where the answers are routed to and extensions come form. may differ from formobject when previewing/contentobjecting (targetobject will point to final location, but contentobject/formobject to draft)'
+
+      for a contentlink, incontext will be the contentlink file and both targetid and webtoolformid will be the form
+      for a form widget, incontext will be the page and both targetid and webtoolformid will be the widget
+      for a draft, incontext and targetid will be the final version but webtoolformid will be the form
+      for a simple live form file, incontext, targetid and webtoolformid will all be the same
+
+      so we can't merge targetid & webtoolformid
+      but 'targetid' is either equal to webtoolformid (contentlink/form widget) or equal to incontext (live form file or version thereof)
+    */
     this->formvariables := CELL[...this->formvariables, formsubmittype := "new" ];
     this->pvt_statstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formstats");
     this->pvt_formsettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(this->__form.webtoolformid);
@@ -251,8 +264,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     this->__RunPostStorageHandlers(this->__GetActiveHandlers(), results.extradata);
   }
 
-  BOOLEAN FUNCTION __FinalizeResult(STRING confirmguid, STRING formsubmittype)
-  {
+  BOOLEAN FUNCTION __FinalizeResult(STRING confirmguid, STRING formsubmittype) {
     IF(formsubmittype NOT IN ["cancel","confirm"])
       THROW NEW Exception(`Invalid formsubmittype '${formsubmittype}' for confirmation`);
 
@@ -267,8 +279,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
 
     IF(NOT RecordExists(match))
       THROW NEW Exception(`Cannot find entry '${confirmguid}' to confirm`);
-    IF(formsubmittype = "cancel" AND match.status != whconstant_formstatus_pendingconfirmation) //can only cancel something that was pending (5)
-    {
+    IF(formsubmittype = "cancel" AND match.status != whconstant_formstatus_pendingconfirmation) { //can only cancel something that was pending (5)
       IF(match.status = whconstant_formstatus_final) //going back from approved to failed? (eg. payment resubmission but now to 'failed')
         RETURN FALSE; //TODO escalate to form owner or sysop that a payment has suddenly gone to failed. nothing we can really do
       THROW NEW Exception(`Entry #${match.id} ('${confirmguid}') is not pending but in status ${match.status}`);
@@ -279,8 +290,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
     // Update the result's submit type
     IF (CellExists(match.results, "__formmeta")
         AND CellExists(match.results.__formmeta, "submittype")
-        AND match.results.__formmeta.submittype != formsubmittype)
-    {
+        AND match.results.__formmeta.submittype != formsubmittype) {
       match.results.__formmeta.submittype := formsubmittype;
       RECORD storeresults := PrepareAnyForDatabase(match.results);
       UPDATE publisher.formresults
@@ -289,14 +299,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
        WHERE id = match.id;
     }
 
-    IF(formsubmittype = "confirm")
-    {
+    IF(formsubmittype = "confirm") {
       UPDATE publisher.formresults SET confirmed := GetCurrentDatetime()
                                      , status := VAR whconstant_formstatus_final
                                  WHERE id = match.id;
-    }
-    ELSE
-    {
+    } ELSE {
       UPDATE publisher.formresults SET modified := GetCurrentDatetime()
                                      , status := VAR whconstant_formstatus_cancelled
                                  WHERE id = match.id;
@@ -422,7 +429,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
       RECORD upd := [ numresults := stats.numresults + 1];
       IF(stats.firstresult = DEFAULT DATETIME)
         INSERT CELL firstresult := GetCurrentDatetime() INTO upd;
-      this->pvt_statstype->SetInstanceData(this->__form.webtoolformid, upd);
+
+      //FIXME moeten we uberhaupt resultaten tellen in draft mode ?
+      this->pvt_statstype->SetInstanceData(this->__form.webtoolformid, upd, [ ifreadonly := "skip" ]);
 
       // If the store handler hasn't failed, schedule a task for each handler
       this->__RunPostStorageHandlers(activehandlers, extradata);

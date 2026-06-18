@@ -21,7 +21,12 @@ class WorkFlowManager {
 }
 
 export type WorklowOptions = {
+  /** If true, only show workflow-enabled tabs */
   useWorkflow?: boolean;
+  /** Specify the workflow types we intend to update.
+      We need this list as we can't asumme you'll edit *all* workflow supporting types and we need to lock down the actual values of all workflowed types as soon as you save the first draft
+      (even if you're not touching them)
+  */
   workflowTypes?: string[];
   assumeWriteAccess?: boolean;
 };

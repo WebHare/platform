@@ -74,6 +74,7 @@ PUBLIC SCHEMA
     , STRING "results"
     , BLOB "blobresults"
     , STRING "idfield"
+    , STRING "formversion"
     , STRING "wrdguid" __ATTRIBUTES__(BINARY)
     ; KEY id
     > formresults

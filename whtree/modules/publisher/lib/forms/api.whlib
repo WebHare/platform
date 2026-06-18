@@ -123,6 +123,7 @@ PUBLIC OBJECT FUNCTION OpenWebtoolForm(INTEGER formid, RECORD options DEFAULTSTO
                              , __formname := "webtoolform" //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolForm directly
                              , __applycontext := FALSE //Used for the RPC path as some inits need to be done *just* before form opening
                              , __incontext := 0 //TODO not sure if we should make this a parameter OR if OpenFormByTarget should not use OpenWebtoolForm directly
+                             , targetid := 0
                              ], options);
 
   IF(NOT ObjectExists(options.applytester))
@@ -139,7 +140,7 @@ PUBLIC OBJECT FUNCTION OpenWebtoolForm(INTEGER formid, RECORD options DEFAULTSTO
     SetTidLanguage(options.webcontext->languagecode);
   }
 
-  OBJECT form := __DoOpenWebtoolForm(OpenWHFSObject(formid), options.__formname, options.webcontext, options.applytester, formid, options.formref, options.prepareforfrontend);
+  OBJECT form := __DoOpenWebtoolForm(OpenWHFSObject(formid), options.__formname, options.webcontext, options.applytester, options.targetid ?? formid, options.formref, options.prepareforfrontend);
   IF(NOT ObjectExists(form))
     THROW NEW Exception(`Cannot open form for fsobject #${formid}`);
 
@@ -159,5 +160,6 @@ PUBLIC OBJECT FUNCTION OpenFormByTarget(STRING formtarget, RECORD options DEFAUL
                              ], options);
 
   RECORD targetinfo := DecryptForThisServer("publisher:formtarget", formtarget);
-  RETURN OpenWebtoolForm(targetinfo.fsobj, CELL[ ...options, __formname := targetinfo.name, targetinfo.formref, __incontext := targetinfo.incontext ]);
+  INTEGER targetid := CellExists(targetinfo, 'target') ? targetinfo.target : targetinfo.fsobj; //target is introduced in WH6.0+ so may not exist in existing formtargets
+  RETURN OpenWebtoolForm(targetinfo.fsobj, CELL[ ...options, __formname := targetinfo.name, targetinfo.formref, __incontext := targetinfo.incontext, targetid ]);
 }

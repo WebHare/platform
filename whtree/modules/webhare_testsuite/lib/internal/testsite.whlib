@@ -84,6 +84,8 @@ RECORD testformfileoptions := [ js := FALSE
                               , jshandler := ""
                               , formid := ""
                               , maxsignups := 0
+                              , createdby := DEFAULT OBJECT
+                              , firstgrouptitle := ""
                               ];
 
 MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
@@ -198,9 +200,9 @@ MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT em
   rtdmailhandler->SetAttribute("textid", rtdtext);
 }
 
+PUBLIC RECORD FUNCTION GenerateTestForm(OBJECT applytester, RECORD options) {
+  options := ValidateOptions(testformfileoptions, options);
 
-MACRO FillTestFormFile(OBJECT formfile, RECORD options)
-{
   //Create an empty form
   OBJECT formdefs := CreateNewFormdefinitionsFile();
   TestEq(DEFAULT RECORD, formdefs->ExportAsRecord());
@@ -280,6 +282,14 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   IF(options.addmailrestrictions)
   {
     emailfield->SetAttribute("acceptableemailmasks", "*@beta.webhare.net user@example.com");
+  }
+
+  IF(options.firstgrouptitle != "") { //group the above fields into a first group
+    OBJECT firstgroup := formpage->AppendComponent("group");
+    firstgroup->SetAttribute("title", options.firstgrouptitle); //test ampersand
+    firstgroup->SetAttribute("name", "group0");
+    firstgroup->AppendChild(firstnamefield);
+    firstgroup->AppendChild(emailfield);
   }
 
   OBJECT simpleformgroup := formpage->AppendComponent("group");
@@ -864,7 +874,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   mailhandler->SetAttribute("receivers", "mailresult+jstest@beta.webhare.net");
   mailhandler->SetAttribute("subject", "Your Form Was Filled");
   mailhandler->SetAttribute("addresults", "true");
-  mailhandler->SetAttribute("applytemplate", GetApplyTesterForObject(formfile->id)->GetDefaultMailTemplate());
+  mailhandler->SetAttribute("applytemplate", applytester->GetDefaultMailTemplate());
   IF(options.setmailresultsfields)
   {
     mailhandler->SetAttribute("sendernamefield", firstnamefield->GetAttribute("guid"));
@@ -1185,18 +1195,21 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
                                 , emailfieldguid := emailfield->GetAttribute("guid")
                                 ]);
 
+  RepairFormIfNeeded(formdef);
+
   //Validate it - if we can't even pass our own validation...
   RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
   TestEq(RECORD[], validation.messages);
 
-  //Export the form to disk
-  formdefs->SaveToWHFS(formfile);
-  formfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ maxsignups := options.maxsignups ]);
+  RETURN formdefs->ExportAsRecord();
+}
 
-  //Try fixing it. We won't save it, but it shouldn't break anything either
-  RepairFormIfNeeded(formdef);
-  validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
-  TestEq(RECORD[], validation.messages);
+MACRO FillTestFormFile(OBJECT formfile, RECORD options) {
+  OBJECT applytester := GetApplyTesterForObject(formfile->id);
+  RECORD formrec := GenerateTestForm(applytester,options);
+
+  //Export the form to disk
+  formfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ data := formrec, maxsignups := options.maxsignups ]);
 }
 
 PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1217,7 +1230,8 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
                                           , typens := options.iswidget ? "http://www.webhare.net/xmlns/publisher/formwidget"
                                                                        : "http://www.webhare.net/xmlns/publisher/formwebtool"
                                           , publish := options.publish AND NOT options.iswidget
-                                          ]);
+                                          ], CELL[ options.createdby ]);
+
   FillTestFormFile(formfile, options);
 
   OBJECT formholder := formfile;
@@ -1241,18 +1255,22 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
 
   GetPrimary()->PopWork();
 
-  RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
+  OBJECT webtoolform := OpenWebtoolForm(formfile->id);
+  RECORD rendertree := webtoolform->GetRenderTree();
+  RECORD ARRAY fields := webtoolform->ListFields();
+  STRING emailfieldname := SELECT AS STRING name FROM fields WHERE title = ":Email";
   //DumpValue(rendertree, 'tree');
   ValidateFormRenderTree(rendertree);
 
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
-  RETURN [ url := formholder->link
-         , id := formfile->id
-         , formholder_objref := GetWHFSObjRef(formholder)
-         , formfile_objref := GetWHFSObjRef(formfile)
-         ];
+  RETURN CELL[ url := formholder->link
+             , id := formfile->id
+             , formholder_objref := GetWHFSObjRef(formholder)
+             , formfile_objref := GetWHFSObjRef(formfile)
+             , emailfieldname
+             ];
 }
 
 PUBLIC RECORD FUNCTION BuildCustomWebtoolForm2(RECORD options DEFAULTSTO CELL[])

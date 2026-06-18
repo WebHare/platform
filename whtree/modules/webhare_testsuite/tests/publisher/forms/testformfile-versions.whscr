@@ -1,0 +1,142 @@
+<?wh
+
+LOADLIB "mod::platform/lib/applicationlinks.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/preview.whlib";
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+MACRO SubmitAndCheckVersion(RECORD scv) {
+  scv := ValidateOptions([
+    form := DEFAULT RECORD,
+    url := "",
+    expect_version := "",
+    add_address := FALSE,
+  ], scv);
+  TestEq(TRUE, testfw->browser->GotoWebPage(scv.url));
+
+  OBJECT tester := OpenFormsapiFormTester(testfw->browser);
+  RECORD submitrec := [ firstname := `Pietje-${scv.expect_version}`
+                      ];
+  submitrec := CellInsert(submitrec, scv.form.emailfieldname, `testfw+pietje-${scv.expect_version}@beta.webhare.net`);
+  IF(scv.add_address) {
+    submitrec := CELL[ ...submitrec
+                     , "address.country" := "NL"
+                      , "address.street" := "Hengelosestraat"
+                      , "address.nr_detail" := "296"
+                      , "address.zip" := "7521 AM"
+                      , "address.city" := "Enschede"
+                      ];
+  }
+
+  RECORD res := tester->SubmitForm(submitrec);
+  TestEq(TRUE, res.success);
+
+  OBJECT webtoolresults := OpenFormFileResults(OpenWHFSObject(scv.form.id));
+  RECORD submitted := webtoolresults->GetSingleResult(res.result.resultsguid);
+  TestEq(scv.expect_version, submitted.formversion);
+  dumpvalue(submitted,'tree');
+}
+
+PUBLIC MACRO SetupFormVersions() {
+  /////////////////////////
+  //
+  // STORY: Build version 0.1
+  //
+  RECORD form := BuildWebtoolForm( [ createdby := testfw->GetUserObject("sysop"), firstgrouptitle := "Versioned form 0.1" ] );
+
+  //Submit to draft of the form:
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  //to open: https://my.webhare.dev/?app=publisher:edit(/webhare-tests/webhare_testsuite.testsite/webtools/form)
+  Print(`Testing with form ${formfile->id}: ${GetWHFSSApplicationLink(formfile->id)}\n`);
+  SubmitAndCheckVersion(CELL[
+    form,
+    url := GetPreviewLink(formfile->id),
+    expect_version := "0.1"
+  ]);
+
+  /////////////////////////
+  //
+  // STORY: FINALIZE it. this creates version 1.0 and publishes it
+  //
+  { //publish the form using proper versioning calls
+    testfw->BeginWork();
+    OBJECT workflowmgr := NEW WorkflowManager(form.id,
+      [ user := GetEffectiveUser(),
+        useworkflow := TRUE,
+        // workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+      ]);
+    workflowmgr->Save([ finalize := TRUE ]);
+    testfw->CommitWork();
+
+    TestEq(TRUE, OpenWHFSObject(form.id)->publish);
+  }
+
+  RECORD ARRAY history := ListObjectHistory(form.id);
+  TestEqMembers([ [ name := "form", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("sysop")]
+                , [ name := "form", type := "final", version := "1.0", user := testfw->GetUserAuthobjectId("sysop")]
+                ], history, "*");
+  TestEq("1.0", GetCurrentVersion(history[1].snapshot).version);
+
+  SubmitAndCheckVersion(CELL[
+    form,
+    url := GetPreviewLink(formfile->id),
+    expect_version := "1.0"
+  ]);
+
+  /////////////////////////
+  //
+  // STORY: UPDATE IT. first a draft
+  //
+
+  //FIXME think about private drafts
+  { //publish the form using proper versioning calls
+    testfw->BeginWork();
+    OBJECT workflowmgr := NEW WorkflowManager(form.id,
+      [ user := GetEffectiveUser(),
+        useworkflow := TRUE,
+        workflowtypes := ["platform:filetypes.form"]
+      ]);
+
+    OBJECT applytester := GetApplyTesterForObject(form.id);
+    RECORD formrec := GenerateTestForm(applytester, [ addaddressfield := TRUE, firstgrouptitle := "Draft 1.1" ]);
+    workflowmgr->SetInstanceData("platform:filetypes.form", [ data := formrec ]);
+
+    workflowmgr->Save();
+    testfw->CommitWork();
+
+    TestEq(TRUE, OpenWHFSObject(form.id)->publish);
+  }
+
+  history := ListObjectHistory(form.id);
+  TestEqMembers([ [ name := "form", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("sysop")]
+                , [ name := "form", type := "final", version := "1.0", user := testfw->GetUserAuthobjectId("sysop")]
+                , [ name := "form", type := "saved", version := "1.1", user := testfw->GetUserAuthobjectId("sysop")]
+                ], history, "*");
+  TestEq("1.1", GetCurrentVersion(history[2].snapshot).version);
+
+  SubmitAndCheckVersion(CELL[
+    form,
+    url := GetPreviewLink(history[2].snapshot),
+    expect_version := "1.1",
+    add_address := TRUE
+  ]);
+}
+
+
+RunTestframework([ PTR SetupFormVersions
+                 ]
+                ,[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                ]
+                 ]);

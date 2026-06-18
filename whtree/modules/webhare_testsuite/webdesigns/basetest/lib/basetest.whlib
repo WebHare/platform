@@ -41,7 +41,7 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
       this->CreateStaticFile("test.txt", PTR Print(RepeatText("dit was een test\n", 10)));
     }
 
-    IF(this->targetobject->typens = "http://www.webhare.net/xmlns/publisher/formwebtool" AND GetFormWebVariable("getformtarget") = "1") {
+    IF(IsRequest() AND this->targetobject->typens = "http://www.webhare.net/xmlns/publisher/formwebtool" AND GetFormWebVariable("getformtarget") = "1") {
       //only print if requested - OpenWebtoolForm call here on every request complicates debugging
       INSERT CELL rpcformtarget := OpenWebtoolForm(this->targetobject->id)->GetFormTarget() INTO this->htmldata;
     }

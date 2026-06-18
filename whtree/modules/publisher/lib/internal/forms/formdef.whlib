@@ -234,8 +234,7 @@ STATIC OBJECTTYPE FormPage
   }
 >;
 
-STATIC OBJECTTYPE FormDefinition
-<
+STATIC OBJECTTYPE FormDefinition <
   OBJECT pvt_formdefinitions;
   OBJECT pvt_node;
   OBJECT pvt_results;
@@ -243,7 +242,7 @@ STATIC OBJECTTYPE FormDefinition
   PUBLIC PROPERTY node(pvt_node, -);
   PUBLIC PROPERTY name(GetName, -);
   PUBLIC PROPERTY formdefinitions(pvt_formdefinitions, -);
-//  PUBLIC PROPERTY formresults(GetFormResults, -);
+  //  PUBLIC PROPERTY formresults(GetFormResults, -);
   PUBLIC PROPERTY __resourcename(GetResourceName, -);
 
   MACRO NEW(OBJECT formdefinitions, OBJECT node)
@@ -494,11 +493,10 @@ STATIC OBJECTTYPE FormDefinition
     RETURN this->formdefinitions->__resourcename ?? ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->GetResourceName() : "";
   }
 
-  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode, OBJECT applytester)
-  {
-    RECORD formdef := ParseFormDef(this->node, this->name, this->__resourcename, "", this->formdefinitions,
-                                   [ webtoolformid := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->id : 0 ]);
-    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := TRUE, languagecode, applytester, prepareforfrontend := FALSE ]);
+  PUBLIC OBJECT FUNCTION __OpenAsLiveForm(STRING languagecode, OBJECT applytester) {
+    INTEGER webtoolformid := ObjectExists(this->formdefinitions->whfsobject) ? this->formdefinitions->whfsobject->id : 0;
+    RECORD formdef := ParseFormDef(this->node, this->name, this->__resourcename, "", this->formdefinitions, CELL[ webtoolformid ]);
+    OBJECT form := OpenFormByDef(formdef, CELL[ nocustomformbase := TRUE, languagecode, applytester, prepareforfrontend := FALSE, targetid := webtoolformid ]);
     RETURN form;
   }
 

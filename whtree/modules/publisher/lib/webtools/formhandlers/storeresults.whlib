@@ -20,6 +20,8 @@ LOADLIB "mod::publisher/lib/webtools/internal/buildformhandler.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/webtools/internal/formhandlers.whlib";
 
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 //TODO we probably don't need to setup store results as a true handler anymore, as 'submit' is its only real entrypoint
@@ -38,10 +40,8 @@ PUBLIC OBJECT FUNCTION InitializeStoreResultsHandler(OBJECT form, INTEGER formid
   RETURN InstantiateFormHandler(form, storehandler, formid);
 }
 
-PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
-<
-  PUBLIC RECORD FUNCTION Submit(OBJECT form, RECORD extradata, RECORD options)
-  {
+PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase <
+  PUBLIC RECORD FUNCTION Submit(OBJECT form, RECORD extradata, RECORD options) {
     RECORD result :=
         [ result := DEFAULT RECORD
         , errors := DEFAULT RECORD ARRAY
@@ -132,17 +132,19 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     RECORD days := GetFormResultsExpirationDays(form_fsobject);
     DATETIME when := GetCurrentDateTime();
 
+    //take the version from our fields source (webtoolformid)
+    RECORD versioninfo := form->__form.webtoolformid != 0 ? GetCurrentVersion(form->__form.webtoolformid) : DEFAULT RECORD;
     RECORD formdata := [ status := options.ispending ? VAR whconstant_formstatus_pendingconfirmation : VAR whconstant_formstatus_final
                        , expiration    := AddDaysToDate(days.storeresults, when)
                        , deletion      := AddDaysToDate(days.processresults, when)
                        , results       := store.stringpart
                        , blobresults   := store.blobpart
+                       , formversion   := RecordExists(versioninfo) ? versioninfo.version : ""
                        ];
 
     // If these results replace existing results, update the existing results record (before inserting the new one)
     RECORD ARRAY existingattachments;
-    IF (options.isedit)
-    {
+    IF (options.isedit) {
       IF (oldresultid != 0)
       {
         UPDATE publisher.formresults
