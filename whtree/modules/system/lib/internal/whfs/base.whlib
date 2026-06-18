@@ -27,6 +27,7 @@ PUBLIC MACRO CheckWHFSCache()
     whfscache_eventcollector := __HS_EVENT_CREATECOLLECTOR(
         [ "publisher:internal.siteprofiles.recompiled"
         , "publisher:internal.siteprofiles.memberschanged"
+        , "system:whfs.types"
         ]);
   }
   ELSE IF (IsValueSet(__HS_EVENT_COLLECTORREAD(whfscache_eventcollector)))
@@ -36,17 +37,19 @@ PUBLIC MACRO CheckWHFSCache()
 MACRO RefreshWHFSCache()
 {
   RECORD ARRAY new_loadedwhfstypes;
-  FOREVERY (RECORD rec FROM whfscache_loadedwhfstypes)
-  {
-    OBJECT type := OBJECT(rec.obj);
-    IF (ObjectExists(type))
-    {
-       type->__rescan();
-       INSERT rec INTO new_loadedwhfstypes AT END;
+  FOR (INTEGER i := 0, e := Length(whfscache_loadedwhfstypes); i < e; i := i + 1) {
+    /* Objects are refcounted and collected immediately after all strong references are released. If we convert our ref
+       to weak, it will be collected immediately if no other refs exist. If collected, throw away the entry.
+    */
+    WEAKOBJECT weakref := WEAKOBJECT(whfscache_loadedwhfstypes[i].obj);
+    whfscache_loadedwhfstypes[i].obj := DEFAULT OBJECT;
+    OBJECT obj := OBJECT(weakref);
+    IF (ObjectExists(obj)) {
+      obj->__rescan();
+      INSERT CELL[ ...whfscache_loadedwhfstypes[i], obj ] INTO new_loadedwhfstypes AT END;
     }
   }
-  new_loadedwhfstypes := whfscache_loadedwhfstypes;
-
+  whfscache_loadedwhfstypes := new_loadedwhfstypes;
   whfscache_csp := DEFAULT RECORD; //force it to be reloaded next use
 }
 

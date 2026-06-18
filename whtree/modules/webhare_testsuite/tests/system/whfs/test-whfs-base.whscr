@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -861,6 +862,25 @@ MACRO TestWHFSResourceNameMapper()
   TestThrowsLike("Cannot locate object*", PTR mapper->UnMapWHFSRef(`site::${testsuite_site->name}/nowaythisfileexists.4343434`));
 }
 
+MACRO TestTypeCache() {
+  WEAKOBJECT rtdtype := WEAKOBJECT(OpenWHFSType("platform:filetypes.richdocument"));
+
+  // Cache works
+  OBJECT rtdtype2 := OpenWHFSType("platform:filetypes.richdocument");
+  TestEQ(OBJECT(rtdtype), rtdtype2);
+
+  // cache holds a strong reference to the type
+  TestEQ(TRUE, ObjectExists(OBJECT(rtdtype)));
+  BroadcastEvent("publisher:internal.siteprofiles.memberschanged", DEFAULT RECORD);
+  // Strong reference is still kept alive, no immediate refresh
+  WaitUntil(DEFAULT RECORD, DEFAULT DATETIME);
+  TestEQ(TRUE, ObjectExists(OBJECT(rtdtype)));
+
+  // Reopening the type after a broadcast triggers refresh and dropping non-/weakly-referenced objects
+  OBJECT rtdtype3 := OpenWHFSType("platform:filetypes.richdocument");
+  TestEQ(DEFAULT OBJECT, OBJECT(rtdtype));
+}
+
 Runtestframework( [ PTR SimpleTest
                   , PTR WrappedTest
                   , PTR LookupPathTests
@@ -877,4 +897,5 @@ Runtestframework( [ PTR SimpleTest
                   , PTR InsertPropertiesTest
                   , PTR ExtendedZipTest
                   , PTR TestWHFSResourceNameMapper
+                  , PTR TestTypeCache
                   ]);

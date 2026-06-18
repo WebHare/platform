@@ -1872,22 +1872,15 @@ PUBLIC INTEGER FUNCTION RegisterWHFSType(RECORD typeinfo)
     @public
     @loadlib mod::system/lib/whfs.whlib
 */
-PUBLIC OBJECT FUNCTION OpenWHFSTypeById(INTEGER getid)
-{
+PUBLIC OBJECT FUNCTION OpenWHFSTypeById(INTEGER getid) {
   CheckWHFSCache();
 
-  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE id=getid;
-  IF(RecordExists(entry))
-  {
-    OBJECT whfstype := OBJECT(entry.obj);
-    IF(ObjectExists(whfstype))
-      RETURN whfstype;
+  // Check the cache first
+  RECORD pos := RecordLowerBound(whfscache_loadedwhfstypes, [ id := getid ], [ "ID" ]);
+  IF (pos.found)
+    RETURN whfscache_loadedwhfstypes[pos.position].obj;
 
-    //lost the reference. delete it from cache
-    DELETE FROM whfscache_loadedwhfstypes WHERE id=getid;
-  }
-
-  entry := SELECT * FROM system_internal.fs_types WHERE id = getid;
+  RECORD entry := SELECT * FROM system_internal.fs_types WHERE id = getid;
   RETURN FinalizeWHFSType(entry);
 }
 OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
@@ -1896,11 +1889,10 @@ OBJECT FUNCTION FinalizeWHFSType(RECORD entry)
     RETURN DEFAULT OBJECT;
 
   OBJECT rettype := NEW WHFSType(entry);
-
   IF (entry.id != 0)
   {
-    INSERT CELL obj := WEAKOBJECT(rettype) INTO entry;
-    INSERT entry INTO whfscache_loadedwhfstypes AT END;
+    INSERT CELL obj := rettype INTO entry;
+    INSERT entry INTO whfscache_loadedwhfstypes AT RecordUpperBound(whfscache_loadedwhfstypes, entry, [ "ID" ]);
   }
 
   RETURN rettype;
@@ -1941,23 +1933,15 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
 
   CheckWHFSCache();
 
-  RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace OR scopedtype = getnamespace;
-  IF(RecordExists(entry))
-  {
-    OBJECT whfstype := OBJECT(entry.obj);
-    IF(ObjectExists(whfstype))
-      RETURN whfstype;
+  OBJECT obj := SELECT AS OBJECT COLUMN obj FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace OR scopedtype = getnamespace;
 
-    //lost the reference. delete it from cache
-    DELETE FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace OR scopedtype = getnamespace;
-    entry := DEFAULT RECORD;
+  IF (NOT ObjectExists(obj)) {
+    RECORD entry := SelectFSType(getnamespace);
+
+    obj := FinalizeWHFSType(entry);
+    IF(NOT ObjectExists(obj))
+      RETURN DEFAULT OBJECT;
   }
-
-  entry := SelectFSType(getnamespace);
-
-  OBJECT obj := FinalizeWHFSType(entry);
-  IF(NOT ObjectExists(obj))
-    RETURN DEFAULT OBJECT;
 
   IF(options.openorphans = FALSE AND obj->orphan)
     RETURN DEFAULT OBJECT;
