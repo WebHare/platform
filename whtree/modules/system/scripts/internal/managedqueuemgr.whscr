@@ -309,6 +309,17 @@ STATIC OBJECTTYPE ManagedWorker <
     this->RequestShutdown();
   }
 
+  MACRO GotInactivityTimeout()
+  {
+    this->timeoutcb := 0;
+    IF (NOT ObjectExists(this->pvt_activetask))
+    {
+      IF (debug)
+        Print(`Worker #${this->uid} has been inactive for ${restart_workers_after}ms, terminating\n`);
+      this->RequestShutdown();
+    }
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Public API
@@ -444,6 +455,13 @@ STATIC OBJECTTYPE ManagedWorker <
     IF(this->workerfirsttask = DEFAULT DATETIME)
       this->workerfirsttask := GetCurrentDatetime(); //now the countdown for garbage collection starts
 
+    // Cancel the inactivity timeout
+    IF (this->timeoutcb != 0)
+    {
+      UnregisterCallback(this->timeoutcb);
+      this->timeoutcb := 0;
+    }
+
     IF (task->timeout != 0)
     {
       IF (debug)
@@ -530,12 +548,21 @@ STATIC OBJECTTYPE ManagedWorker <
     {
       this->RequestShutdown();
     }
-    ELSE IF(GetMsecsDifference(this->workerfirsttask, GetCurrentDatetime()) > restart_workers_after) //time to restart
+    ELSE
     {
-      IF (debug)
-        PRINT(`Restart long enough running worker ${this->uid} from cluster ${this->cluster}\n`);
-      this->RequestShutdown();
-      ScheduleMicroTask(PTR CheckMoreWorkers);
+      INTEGER time_active := GetMsecsDifference(this->workerfirsttask, GetCurrentDatetime());
+      IF(time_active > restart_workers_after) //time to restart
+      {
+        IF (debug)
+          PRINT(`Restart long enough running worker ${this->uid} from cluster ${this->cluster}\n`);
+        this->RequestShutdown();
+        ScheduleMicroTask(PTR CheckMoreWorkers);
+      }
+      ELSE
+      {
+        // Schedule inactivity timeout, if the worker doesn't get a task in time it will be restarted
+        this->timeoutcb := RegisterTimedCallback(AddTimeToDate(restart_workers_after, this->workerfirsttask), PTR this->GotInactivityTimeout());
+      }
     }
   }
 
@@ -1303,7 +1330,7 @@ IF(NOT RecordExists(args))
   RETURN;
 }
 
-debug := args.debug OR IsRunningInEditor();
+debug := args.debug OR IsRunningInEditor() OR GetEnvironmentVariable("WEBHARE_DEBUG_SERVICE") != "";
 manualhs := args.manualhs;
 profileworkers := args.profileworkers;
 
