@@ -4,7 +4,7 @@ import { type AnySchemaType, type AllowedFilterConditions, type RecordOutputMap,
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag } from "./wrdsupport";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration, isValidWRDSchemaTag, isValidWRDAttributeTag, isValidWRDTypeTag } from "./wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
@@ -338,6 +338,9 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
 
 
   async createType(tag: string, config: Partial<WRDTypeMetadata> & Pick<WRDTypeMetadata, "metaType">): Promise<WRDType<S, string>> {
+    if (!isValidWRDTypeTag(tag))
+      throw new Error(`Invalid type tag ${JSON.stringify(tag)}`);
+
     const hstag = tagToHS(tag);
     const schemaobj = await this.getWRDSchema();
     const left = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.left);
@@ -719,6 +722,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateMetadata(newmetadata: Partial<Omit<WRDTypeMetadata, "id" | "metaType">>) {
+    if (newmetadata.tag !== undefined && !isValidWRDTypeTag(newmetadata.tag))
+      throw new Error(`Invalid type tag ${JSON.stringify(newmetadata.tag)}`);
+
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
@@ -969,6 +975,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
+    if (!isValidWRDAttributeTag(tag, { allowMultiLevel: true }))
+      throw new Error(`Invalid attribute tag ${JSON.stringify(tag)}`);
+
     const typeobj = await this._getType();
     const typetag = configuration.attributeType;
 
@@ -985,6 +994,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
+    if (configuration.tag !== undefined && !isValidWRDAttributeTag(tag))
+      throw new Error(`Invalid attribute tag ${JSON.stringify(tag)}`);
+
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
     await this.schema.__ensureSchemaData({ refresh: true });

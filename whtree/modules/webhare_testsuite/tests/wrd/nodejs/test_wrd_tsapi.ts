@@ -127,6 +127,24 @@ async function testSupportAPI() {
   test.eq(false, wrdsupport.isValidWRDTag("1A"));
   test.eq(true, wrdsupport.isValidWRDTag("A1"));
   test.eq(true, wrdsupport.isValidWRDTag("A"));
+  test.eq(false, wrdsupport.isValidWRDTag("$A")); //explicitly reserve '$' for use for import cross-references
+
+  test.assert(wrdsupport.isValidWRDTypeTag("wrdPerson"));
+  test.assert(wrdsupport.isValidWRDTypeTag("wrdOrganization"));
+  test.assert(!wrdsupport.isValidWRDTypeTag("$wrdOrganization"));
+  test.assert(!wrdsupport.isValidWRDTypeTag("wrd.Person"));
+  test.assert(!wrdsupport.isValidWRDTypeTag("WrdPerson"));
+  test.assert(!wrdsupport.isValidWRDAttributeTag("$wrdOrganization"));
+  test.assert(!wrdsupport.isValidWRDAttributeTag("should.not.have.dots"));
+  test.assert(wrdsupport.isValidWRDAttributeTag("multilevel.may.have.dots", { allowMultiLevel: true }));
+
+  test.assert(wrdsupport.isValidWRDTypeTag("maxlength0123456789012345678901234567890123456789012345678901234")); //exactly 64
+  test.assert(!wrdsupport.isValidWRDTypeTag("maxlength01234567890123456789012345678901234567890123456789012345")); //exactly 65
+  test.assert(!wrdsupport.isValidWRDTypeTag("maxLength01234567890123456789012345678901234567890123456789012345")); //exactly 64 but 65 in snakecase (Due to L in maxLength)
+
+  test.assert(wrdsupport.isValidWRDAttributeTag("maxlength0123456789012345678901234567890123456789012345678901234")); //exactly 64
+  test.assert(!wrdsupport.isValidWRDAttributeTag("maxlength01234567890123456789012345678901234567890123456789012345")); //exactly 65
+  test.assert(!wrdsupport.isValidWRDAttributeTag("maxLength01234567890123456789012345678901234567890123456789012345")); //exactly 64 but 65 in snakecase (Due to L in maxLength)
 
   //address types should match not considering transitional nrDetail field (TODO which we can remove once all are WH5.6)
   test.typeAssert<test.Equals<AddressValue, Omit<PSPAddressFormat, "nrDetail">>>();
