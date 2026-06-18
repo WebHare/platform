@@ -35,9 +35,10 @@ const BlobLinkValidity = 86400_000; //one day
 
 //cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
+export const SupportedPackMethods = ["none", "fit", "scale", "fill", "fitcanvas", "scalecanvas"] as const;
 //List of bitmap formats we support for upload and editing. (image/gif is unsafe to edit as it will generally be used for animation!)
 export const supportedBitmapImages = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-const outputFormats = ["keep", "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const; //outputFormats mirrors graphics.whlib __packformats. Note that the ordering cannot change as this is directly mapped to an integer in the packed format
+export const outputFormats = ["keep", "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const; //outputFormats mirrors graphics.whlib __packformats. Note that the ordering cannot change as this is directly mapped to an integer in the packed format
 
 const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
 const DefaultMediaType = "application/octet-stream";
@@ -66,7 +67,7 @@ export type ResizedImage = {
   objectPosition: string | null;
 };
 
-export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
+export type ResizeMethodName = typeof SupportedPackMethods[number];
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type ExportMapWhfsLinkInfo = {

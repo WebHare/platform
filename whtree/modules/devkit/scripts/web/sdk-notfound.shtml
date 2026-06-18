@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+
+AddHTTPHeader("Status","404",FALSE);
+
+IF(Length(GetWebhareResource("storage::devkit/sdk-docs/index.html", [ allowmissing:=TRUE])) = 0) {
+  Print(`<h2>SDK Documentation Not Found</h2><p>The SDK documentation is not installed. Please run <code>wh devkit:generate-sdk-docs</code></p>`);
+} ELSE {
+  Print(`<h2>Page not found</h2><p>Return to <a href="/sdk-docs/">SDK Documentation</a></p>`);
+}

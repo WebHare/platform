@@ -4,6 +4,10 @@ info:
   title: WebHare API
   version: 0.9.0 # TODO once we're official decide whether this will follow WebHare numbering or be independent
 
+servers:
+- url: "."
+  description: WebHare API
+
 x-webhare-authorization: "meta.ts#verifyUser"
 
 paths:
