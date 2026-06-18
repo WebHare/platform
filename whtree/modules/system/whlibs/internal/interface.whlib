@@ -767,7 +767,9 @@ PUBLIC INTEGER FUNCTION SearchLastSubstring(STRING text, STRING search, INTEGER 
 
 PUBLIC RECORD __auditcontext;
 
-/** Are we running in a WASM (__EMSCRIPTEN__) environment?
+/** @short Are we running in a WASM HareScript engine?
+    @public
+    @topic typescript/calls
     @loadlib wh::javascript.whlib
 */
 PUBLIC BOOLEAN FUNCTION IsWASM() __ATTRIBUTES__(EXTERNAL, CONSTANT);
