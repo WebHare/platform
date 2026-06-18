@@ -23,15 +23,8 @@ apply:
       - type: publisher.lifecycle
         requireRight: system:supervisor
         tabsExtension: mod::publisher/tolliumapps/objectprops/extensions.xml#lifecycle
-    fileTypes:
-      - allowType: http://www.webhare.net/xmlns/publisher/*
-      - denyType: filetypes.richdocument
-      - denyType: filetypes.tag
-      - denyType: filetypes.tagrepository
-      - denyType: filetypes.profile
-      - denyType: http://www.webhare.net/xmlns/publisher/formwebtool
-      - denyType: http://www.webhare.net/xmlns/publisher/formwidget
-    folderTypes:
+    # we won't auto enable any filetypes. about everyone reset the list anyway but this prevents you from creating random files outside sites
+    folderTypes: # we should be able to create folders to group sites, so let's enable default & system
       - allowType: foldertypes.default
       - allowType: foldertypes.system
     republish:
