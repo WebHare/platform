@@ -611,6 +611,9 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
                                      [ optional := [ "commandtimeout", "logstacktraces" ]
                                      ]);
 
+    IF (IsDebugTagEnabled("pg-logstacktraces") AND (NOT CellExists(newconfig, "logstacktraces") OR newconfig.logstacktraces = 0))
+      newconfig := CELL[ ...newconfig, logstacktraces := 16 ];
+
     RECORD cursettings := __PGSQL_GETDEBUGSETTINGS(this->id);
     cursettings := CELL[ ...cursettings, ...newconfig ];
     cursettings.logcommands := this->pvt_keepcommandlog OR IsDebugTagEnabled("pg-logcommands") ? 1 : 0;
