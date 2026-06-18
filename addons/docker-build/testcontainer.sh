@@ -25,7 +25,7 @@ ORIGINALOPTIONS=()
 ORIGINALPARAMS=()
 BASEDIR=$(get_absolute_path "$(dirname "$0")/../..")
 ALLOWSTARTUPERRORS=""
-DOCKERARGS=
+DOCKERARGS=()
 TERSE=--terse
 EXPLICITWEBHAREIMAGE=
 ENTERSHELL=
@@ -131,7 +131,7 @@ create_container()
   set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!. (Also some CI tests are bash scripts and currently require this, but that could otherwise be fixed)
-  CONTAINERID="$(RunDocker create -l webharecitype=$WEBHARECITYPE -p 80 -p 8000 $DOCKERARGS --tmpfs /tmp/ --tmpfs /opt/whdata:exec --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
+  CONTAINERID="$(RunDocker create -l webharecitype=$WEBHARECITYPE -p 80 -p 8000 "${DOCKERARGS[@]}" --tmpfs /tmp/ --tmpfs /opt/whdata:exec --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
 
   if [ -z "$CONTAINERID" ]; then
     echo Container creating failed
@@ -339,7 +339,7 @@ while true; do
   fi
   if [ "$1" == "--containername" ]; then
     FIXEDCONTAINERNAME="$2"
-    DOCKERARGS="$DOCKERARGS --name=${FIXEDCONTAINERNAME}"
+    DOCKERARGS+=("--name=${FIXEDCONTAINERNAME}")
     shift
     ORIGINALOPTIONS+=("$1")
     shift
@@ -367,16 +367,16 @@ while true; do
     RUNTESTARGS+=("$1")
     shift
   elif [ "$1" == "--privileged" ]; then
-    DOCKERARGS="$DOCKERARGS --privileged"
+    DOCKERARGS+=("--privileged")
     shift
   elif [ "$1" == "--env" ]; then # docker env
     shift
-    DOCKERARGS="$DOCKERARGS --env $1"
+    DOCKERARGS+=("--env" "$1")
     ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--port" ]; then
     shift
-    DOCKERARGS="$DOCKERARGS -p $1:13679"
+    DOCKERARGS+=("-p" "$1:13679")
     # shellcheck disable=SC2034
     TESTFW_WEBHARE_RESCUEPORT_BINDIP=0.0.0.0
     shift
@@ -493,7 +493,7 @@ else
   WEBHARECITYPE="testdocker"
 fi
 
-if "${CONTAINERENGINE[@]}" inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
+if [ -n "$FIXEDCONTAINERNAME" ] && "${CONTAINERENGINE[@]}" inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
   if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
     exit_failure_sh Unable to cleanup existing image "$FIXEDCONTAINERNAME"
   fi
