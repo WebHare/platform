@@ -780,7 +780,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
       wittycomponent: setWidget.wittyComponent ? context.resolve(setWidget.wittyComponent) : '',
-      ...(setWidget.onRenderWidget ?? setWidget.widgetBuilder) ? { onrenderwidget: context.resolve((setWidget.onRenderWidget ?? setWidget.widgetBuilder)!) } : {},
+      ...setWidget.onRenderWidget ? { onrenderwidget: context.resolve(setWidget.onRenderWidget!) } : {},
     });
   }
 
@@ -1136,8 +1136,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
         ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
-        if (widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)
-          ctype.onrenderwidget = context.resolve((widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)!);
+        if (widgetSettings.onRenderWidget)
+          ctype.onrenderwidget = context.resolve(widgetSettings.onRenderWidget);
       } else {
         ctype.type = "filetype";
       }
