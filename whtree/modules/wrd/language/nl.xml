@@ -895,7 +895,8 @@
       <text tid="accountpassword">Wachtwoordveld</text>
       <text tid="accounttype">Type voor logins</text>
       <text tid="addressvalidation">Adresvalidatie</text>
-      <text tid="default_mail_sender">Standaard afzenderadres</text>
+      <text tid="default_sender_mail">Standaard e-mailadres afzender</text>
+      <text tid="default_sender_name">Standaard naam afzender</text>
       <text tid="payments">Betalingen</text>
       <text tid="protect">Bescherm dit schema tegen imports en verwijdering</text>
       <text tid="schema">Schema</text>

@@ -367,7 +367,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   /// @type(boolean) Whether the password field is of authenticationsettings type
   PUBLIC PROPERTY accountpasswordisauthsettings(GetAccountPasswordIsAuthSettings, -);
 
-  PUBLIC PROPERTY default_mail_sender(GetDefaultMailSender, -);
+  PUBLIC PROPERTY default_sender_mail(GetDefaultSenderMail, -);
+  PUBLIC PROPERTY default_sender_name(GetDefaultSenderName, -);
 
   /** @private Should not be constructed directly
       @param schemarec Contents of database schema record
@@ -890,9 +891,14 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     RETURN attr.attributetype = wrd_attributetype_authenticationsettings;
   }
 
-  STRING FUNCTION GetDefaultMailSender()
+  STRING FUNCTION GetDefaultSenderMail()
   {
-    RETURN GetWRDSetting(this, "default_mail_sender") ?? ReadRegistryKey("system.services.smtp.mailfrom");
+    RETURN GetWRDSetting(this, "default_sender_mail") ?? ReadRegistryKey("system.services.smtp.mailfrom");
+  }
+
+  STRING FUNCTION GetDefaultSenderName()
+  {
+    RETURN GetWRDSetting(this, "default_sender_name");
   }
 
   PUBLIC INTEGER FUNCTION CreateChangeSet()
