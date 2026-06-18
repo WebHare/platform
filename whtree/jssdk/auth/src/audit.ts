@@ -1,10 +1,10 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { lookupCountryInfo } from "@webhare/geoip";
-import { broadcastOnCommit, db, type Insertable, type Selectable } from "@webhare/whdb/src/impl";
+import { broadcastOnCommit, db, onFinishWork, type Insertable, type Selectable } from "@webhare/whdb/src/impl";
 import { describeEntity, WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { getAuthSettings } from "./support";
-import { convertFlexibleInstantToDate, stringify, type FlexibleInstant } from "@webhare/std";
+import { convertFlexibleInstantToDate, omit, stringify, type FlexibleInstant } from "@webhare/std";
 import { log } from "@webhare/services";
 import type { AuthEventData } from "@webhare/auth";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -163,8 +163,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
 
   const inserted = await db<PlatformDB>().insertInto("wrd.auditevents").values(toInsert).returning("id").execute();
 
-  broadcastOnCommit(`wrd:auditlog.${schemaId}.${event?.entity || 0}`);
-  log("system:audit", {
+  const toLog = {
     source: "platform:auth",
     wrdSchema: wrdSchema.tag,
     type: toInsert.type,
@@ -179,7 +178,18 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     entity: toInsert.entity || undefined,
     entityLogin: toInsert.login || undefined,
     data: "data" in event && event.data ? event?.data : undefined
-  });
+  };
 
-  // FIXME: write retraction of event on rollback
+  broadcastOnCommit(`wrd:auditlog.${schemaId}.${event?.entity || 0}`);
+  log("system:audit", toLog);
+
+  onFinishWork(() => ({
+    toRetract: new Array<typeof toLog>,
+    onRollback() {
+      for (const item of this.toRetract) {
+        // Original auth event can be identified by auditEventId
+        log("system:audit", { ...omit(item, ["data"]), type: "platform:retract-authevent", });
+      }
+    }
+  }), { uniqueTag: "auth:writeauthevent" }).toRetract.push(toLog);
 }

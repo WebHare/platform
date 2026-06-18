@@ -1,11 +1,11 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerRelyingParty, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerRelyingParty, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent, type AuthEventData } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow, type CodeChallengeMethod } from "@mod-platform/js/auth/openid.ts";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
-import { decryptForThisServer, toResourcePath } from "@webhare/services";
+import { decryptForThisServer, readLogLines, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { rpc } from "@webhare/rpc";
@@ -784,6 +784,35 @@ async function testSlowPasswordHash() {
     console.error(`testSlowPasswordHash took only ${timespent} ms!!!`); //TODO retune when we decrypt natively
 }
 
+async function gather<T>(asyncIter: AsyncIterable<T>): Promise<T[]> {
+  const result: T[] = [];
+  for await (const item of asyncIter)
+    result.push(item);
+  return result;
+}
+
+async function testAuditLog() {
+  await test.sleep(1);
+  const start = new Date;
+
+  const testUnit = await oidcAuthSchema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
+  await whdb.beginWork();
+  await writeAuthAuditEvent(oidcAuthSchema, {
+    type: "platform:test-auditlog-entry" as keyof AuthEventData,
+    entity: testUnit,
+  });
+  // rollback to get a retract event in the audit log
+  await whdb.rollbackWork();
+
+  const lines = (await gather(readLogLines("system:audit", { start }))).filter(line => line.wrdSchema === "webhare_testsuite:testschema");
+  test.eqPartial([
+    { source: "platform:auth", type: "platform:test-auditlog-entry", entity: testUnit },
+    { source: "platform:auth", type: "platform:retract-authevent", entity: testUnit },
+  ], lines);
+  test.assert(lines[0].auditEventId);
+  test.eq(lines[0].auditEventId, lines[1].auditEventId, "The retract event should have the same authEventId as the original event");
+}
+
 test.runTests([
   testExpiryCalculation,
   testAuthSettings,
@@ -792,5 +821,6 @@ test.runTests([
   testAuthAPI,
   testAuthStatus,
   testApiTokens,
+  testAuditLog,
   testSlowPasswordHash //placed last so we don't have to wait too long for other test failures
 ]);
