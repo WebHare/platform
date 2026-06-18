@@ -464,20 +464,25 @@ MACRO TestPaymentOverview()
 
 MACRO TestPaymentPersonEntity()
 {
-  testfw->BeginWork();
-  //testdata used as recommend by https://mip.afterpay.nl/en/direct-api-integration/
-  OBJECT testperson := paymentapi->wrdschema->^wrd_person->CreateEntity(
-      [ wrd_gender := 1
-      , wrd_firstname := "Test"
-      , wrd_lastname := "Fraud"
-      , wrd_contact_email := "testfraud@beta.webhare.net"
-      , wrd_dateofbirth := MakeDate(1990,1,1)
-      , wrd_contact_phone := "+3153050003"
-      , whuser_unit := testfw->testunit
-      ]);
+  RECORD importresult := testfw->wrdschema->ImportIntoWRDSchema(`
+types:
+  wrdPerson:
+    entities:
+      - wrdGender: male
+        wrdFirstName: Test
+        wrdLastName: Fraud
+        wrdContactEmail: testfraud@beta.webhare.net
+        wrdDateOfBirth: 1990-01-01
+        wrdContactPhone: "+3153050003"
+        whuserUnit: ${testfw->testunit}
+  paydata:
+    entities:
+      pde1:
+        wrdTag: PDE1
+  `);
 
-  OBJECT pde1 := paymentapi->paymenttype->CreateEntity( [ wrd_tag := "PDE1"]);
-  testfw->CommitWork();
+  OBJECT testperson := testfw->wrdschema->^wrd_person->GetEntity(importresult.by_type.wrd_person[0]);
+  INTEGER pde1 := importresult.by_name.pde1;
 
   DATETIME started := GetCurrentDatetime();
 
@@ -494,7 +499,7 @@ MACRO TestPaymentPersonEntity()
   testfw->RollbackWork();
 
   //Test direct rejection
-  RECORD paymentinstruction := paymentapi->StartPayment(pde1->id, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson ]);
+  RECORD paymentinstruction := paymentapi->StartPayment(pde1, 13.27m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson ]);
   TestEq(FALSE, paymentinstruction.complete);
   TestEq(FALSE, RecordExists(paymentinstruction.submitinstruction));
   TestEq([[DESCRIPTION:= 'User with this email is not trusted'
@@ -502,25 +507,25 @@ MACRO TestPaymentPersonEntity()
          ,FIELD:= 'WRD_CONTACT_EMAIL'
          ]], paymentinstruction.errors);
 
-  RECORD payment := paymentapi->GetPaymentData(pde1->id);
+  RECORD payment := paymentapi->GetPaymentData(pde1);
   TestEq("pending", payment.status);
   TestEq("", payment.paymentref);
   TestEq(0m, payment.amountpayable);
   TestEq(RECORD[], SELECT * FROM wrd.pendingpayments WHERE creationdate >= started, "Payment should not be in the pending list");
 
   //Test 'throwing' - some tests need to test those paths too
-  TestThrowsLike("*triggers a throw*", PTR paymentapi->StartPayment(pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "throw@beta.webhare.net"] ]));
+  TestThrowsLike("*triggers a throw*", PTR paymentapi->StartPayment(pde1, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "throw@beta.webhare.net"] ]));
 
   //This _does_ leave a mark though
-  payment := paymentapi->GetPaymentData(pde1->id);
+  payment := paymentapi->GetPaymentData(pde1);
   TestEq("pending", payment.status);
   TestEqLike("?*", payment.paymentref);
   TestEq(13.28m, payment.amountpayable);
 
   //Test a rejection
-  STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ] ]);
+  STRING gotourl := StartWRDTestPayment(paymentapi, pde1, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "NOISSUER", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ] ]);
   CompleteWRDTestpayment(gotourl, "approved");
-  payment := paymentapi->GetPaymentData(pde1->id);
+  payment := paymentapi->GetPaymentData(pde1);
   TestEq("failed", payment.status);
 
   //Can the provider tell us more ?

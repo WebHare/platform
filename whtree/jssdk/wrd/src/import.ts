@@ -1,5 +1,6 @@
 import { TrackedYAML } from "@mod-platform/js/devsupport/validation";
 import type { AnyWRDSchema } from "./schema";
+import { WRDSchemaType } from "@webhare/wrd/src/schema";
 
 /* Future schema plans/ideas (for which we are reserving room in the structure)
 
@@ -113,4 +114,8 @@ export async function importIntoWRDSchema(wrdSchema: AnyWRDSchema, yamlContent: 
     }
   }
   return retval;
+}
+
+export async function importIntoWRDSchemaForHS(wrdSchema: string, yamlContent: string): Promise<ImportEntitiesResult> {
+  return await importIntoWRDSchema(new WRDSchemaType(wrdSchema), yamlContent);
 }
