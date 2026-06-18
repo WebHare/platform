@@ -586,7 +586,11 @@ export class WRDSchemaType<S extends SchemaTypeDefinition = AnySchemaType> {
     field: EnrichKey,
     mapping: Mapping,
     options: {
+      /** Keep original data records even if no match was found*/
+      allowMissing?: RightOuterJoin;
+      /** @deprecated With the modern wrd() API you should switch to allowMissing: true */
       rightOuterJoin?: RightOuterJoin;
+      /** History mode for matching enriching records */
       historyMode?: SimpleHistoryMode | HistoryModeData;
     } = {}
   ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
@@ -819,7 +823,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     field: EnrichKey,
     mapping: Mapping,
     options: {
+      /** Keep original data records even if no match was found*/
+      allowMissing?: RightOuterJoin;
+      /** @deprecated With the modern wrd() API you should switch to allowMissing: true */
       rightOuterJoin?: RightOuterJoin;
+      /** History mode for matching enriching records */
       historyMode?: SimpleHistoryMode | HistoryModeData;
     } = {}
   ): WRDEnrichResult<
@@ -838,7 +846,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     const historyMode = toHistoryData(options.historyMode ?? "now");
 
-    const rightOuterJoin = (options.rightOuterJoin ?
+    const rightOuterJoin = ((options.allowMissing ?? options.rightOuterJoin) ?
       () => {
         const recordizedOutputMap = recordizeOutputMap(mapping);
         return getDefaultJoinRecord(this, recordizedOutputMap);
@@ -1333,7 +1341,14 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   >(type: EnrichTypeTag,
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightOuterJoin?: RightOuterJoin } = {}
+    options: {
+      /** Keep original data records even if no match was found*/
+      allowMissing?: RightOuterJoin;
+      /** @deprecated With the modern wrd() API you should switch to allowMissing: true */
+      rightOuterJoin?: RightOuterJoin;
+      /** History mode for matching enriching records */
+      historyMode?: SimpleHistoryMode | HistoryModeData;
+    } = {}
   ): WRDSingleQueryBuilderWithEnrich<S,
     Awaited<WRDEnrichResult<
       S,
@@ -1426,7 +1441,14 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
   >(type: EnrichTypeTag,
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightOuterJoin?: RightOuterJoin } = {}
+    options: {
+      /** Keep original data records even if no match was found*/
+      allowMissing?: RightOuterJoin;
+      /** @deprecated With the modern wrd() API you should switch to allowMissing: true */
+      rightOuterJoin?: RightOuterJoin;
+      /** History mode for matching enriching records */
+      historyMode?: SimpleHistoryMode | HistoryModeData;
+    } = {}
   ): WRDSingleQueryBuilderWithEnrich<S,
     Awaited<WRDEnrichResult<
       S,
