@@ -134,6 +134,7 @@ PUBLIC OBJECTTYPE TolliumChips EXTEND TolliumComponentBase <
   UPDATE PUBLIC MACRO StaticInit(RECORD def) {
     TolliumComponentBase::StaticInit(def);
 
+    this->rowkeytype := ParseRowKeyType(def.rowkeytype);
     this->openaction := def.openaction;
     this->deletableflags := def.deletableflags;
     this->flags := def.flags;
@@ -152,17 +153,18 @@ PUBLIC OBJECTTYPE TolliumChips EXTEND TolliumComponentBase <
   UPDATE PUBLIC MACRO ProcessInboundMessage(STRING type, RECORD msgdata) {
     SWITCH(type) {
       CASE "delete" {
+        VARIANT rowkey := DecodeRowkey(msgdata.value, this->storage->rowkeytype);
         IF (IsValueSet(this->ondelete)) {
-          RECORD row := SELECT * FROM this->chips WHERE rowkey = msgdata.value;
+          RECORD row := SELECT * FROM this->chips WHERE COLUMN rowkey = VAR rowkey;
 
           IF (RecordExists(row)) {
-            IF (NOT CheckEnabledFlags([ row ], this->_flags, this->deletableflags, 1, 0, "all"))
+            IF (NOT CheckEnabledFlags([ row ], this->_flags, this->deletableflags, 1, 1, "all"))
               RETURN;
 
             this->ondelete([ row ]);
           }
         } ELSE {
-          DELETE FROM this->chips WHERE rowkey = msgdata.value;
+          DELETE FROM this->chips WHERE COLUMN rowkey = VAR rowkey;
           this->ExtUpdatedComponent();
         }
         RETURN;
@@ -184,14 +186,17 @@ PUBLIC OBJECTTYPE TolliumChips EXTEND TolliumComponentBase <
     IF (this->dirtyflags.fully) {
       RECORD ARRAY rows := this->storage->rows;
 
+      BOOLEAN enabled := this->enabled AND NOT this->readonly;
+
       // delete has default implementation, so always unmasked
       RECORD compinfo := CELL[
+        enabled,
         unmasked_events := GetUnmask(this,["select"]) CONCAT [ "delete" ],
         options := this->TolliumWebPrintOptions(),
         this->deletableflags,
-        newcontextmenu := GetComponentName(this->newcontextmenu),
-        selectcontextmenu := GetComponentName(this->selectcontextmenu),
-        openaction := GetComponentName(this->openaction),
+        newcontextmenu := enabled ? GetComponentName(this->newcontextmenu) : "",
+        selectcontextmenu := enabled ? GetComponentName(this->selectcontextmenu) : "",
+        openaction := enabled ? GetComponentName(this->openaction) : "",
         this->icons
       ];
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
@@ -342,6 +347,17 @@ PUBLIC OBJECTTYPE TolliumChips EXTEND TolliumComponentBase <
     this->ExtUpdatedComponent();
   }
 
+  UPDATE MACRO SetReadonly(BOOLEAN readonly) {
+    BOOLEAN ischanged := this->readonly != readonly;
+    TolliumComponentBase::SetReadonly(readonly);
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN enabled) {
+    BOOLEAN ischanged := this->enabled != enabled;
+    TolliumComponentBase::SetEnabled(enabled);
+    IF (ischanged)
+      this->UpdateComponentsEnabled();
+  }
 
   // ---------------------------------------------------------------------------
   //

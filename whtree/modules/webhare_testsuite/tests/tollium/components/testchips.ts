@@ -40,6 +40,7 @@ test.runTests(
       await test.waitForUI();
       test.eq(`"first"`, tt.comp(":Value").querySelector("input")?.value);
 
+      comp = testpanel.querySelector('t-chips') as HTMLDivElement;
       test.click(test.qSA(comp, "div.t-chips__chip")[1]);
       await test.waitForUI();
       tt.comp("readvaluebutton").click();
@@ -53,6 +54,8 @@ test.runTests(
 
       test.click(test.qSA(comp, "div.t-chips__chip")[2]);
       await test.waitForUI(); // onselect handler triggers modality layer
+
+      comp = testpanel.querySelector('t-chips') as HTMLDivElement;
       test.click(test.qSA(comp, "div.t-chips__chip")[2]);
       await test.waitForUI();
       test.eq("1", tt.comp("opencounter").querySelector("input")?.value);
@@ -118,6 +121,10 @@ test.runTests(
       await test.waitForUI();
 
       test.eq("second", JSON.parse(tt.comp(":Selection").querySelector("input")?.value || "{}").rowkey, "Clicking chip when disabled should not change selection");
+
+      // renable
+      tt.comp(":Enabled").click();
+      await test.waitForUI();
     },
 
     "Set selection",
@@ -155,4 +162,47 @@ test.runTests(
       // no overflow of the chips
       test.assert((comp.querySelector("div.t-chips__chip") as HTMLDivElement).offsetWidth === 200);
     },
+
+    "Load with integer keys",
+    async function () {
+      await test.load(test.getCompTestPage('chips', { rowkeytype: 16, icons: ["tollium:actions/center"] })); // TypeID(STRING) = 34
+      tt.comp(":Visible").click();
+      await test.waitForUI();
+      tt.comp(":Visible").click();
+      await test.waitForUI();
+
+      const testpanel = test.compByName("componentpanel");
+      let comp = testpanel.querySelector('t-chips');
+      test.assert(comp, "Chips component should be present in the cozmponent panel");
+
+      // see if update also works with integer keys
+      tt.comp(":Update chips").click();
+      await test.waitForUI();
+
+      // select the first chip
+      comp = testpanel.querySelector('t-chips');
+      console.warn(`clicking first chip`);
+      test.click(test.qS(comp, "div.t-chips__chip")!);
+      await test.waitForUI();
+      console.warn(`clicking value read`);
+      tt.comp("readvaluebutton").click();
+      await test.waitForUI();
+      test.eq(`1`, tt.comp(":Value").querySelector("input")?.value);
+    },
+
+    "Enableon with readonly",
+    async function () {
+      tt.comp(":included1").click();
+      await test.waitForUI();
+      tt.comp(":included2").click();
+      await test.waitForUI();
+
+      test.assert(tt.comp(":EnableOnTarget1").querySelector<HTMLInputElement>("input")?.readOnly === false);
+      tt.comp(":Value").querySelector("input")!.value = "3";
+      await test.waitForUI();
+      tt.comp("writevaluebutton").click();
+      await test.waitForUI();
+
+      test.assert(tt.comp(":EnableOnTarget1").querySelector<HTMLInputElement>("input")?.readOnly);
+    }
   ]);

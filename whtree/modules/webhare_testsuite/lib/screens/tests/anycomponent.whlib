@@ -451,22 +451,28 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
   }
   MACRO SetChips()
   {
+    VARIANT keys;
+    IF (this->comp->rowkeytype = 34)
+      keys := ["first", "second", "third", "fourth", "fifth"];
+    ELSE
+      keys := [1, 2, 3, 4, 5];
+
     RECORD ARRAY chips;
     IF(this->longoptions)
     {
       chips :=
-          [ [ rowkey := "first",  title := "A very long first option", text := "And also a long text", backgroundcolor := "#000", icon := 1 ]
-          , [ rowkey := "second", title := "Another long option, but the second", text := "And also a long text", backgroundcolor := "#700" ]
-          , [ rowkey := "third", title := "This is the third available option", text := "And also a long text" ]
-          , [ rowkey := "fourth", title := "This is the fourth available option", text := "Mand!", icon := 1, hint := "This is the hint" ]
-          , [ rowkey := "fifth", title := "This is the fifth available option", text := "White", backgroundcolor := "white" ]
+          [ [ rowkey := keys[0],  title := "A very long first option", text := "And also a long text", backgroundcolor := "#000", icon := 1 ]
+          , [ rowkey := keys[1], title := "Another long option, but the second", text := "And also a long text", backgroundcolor := "#700" ]
+          , [ rowkey := keys[2], title := "This is the third available option", text := "And also a long text" ]
+          , [ rowkey := keys[3], title := "This is the fourth available option", text := "Mand!", icon := 1, hint := "This is the hint" ]
+          , [ rowkey := keys[4], title := "This is the fifth available option", text := "White", backgroundcolor := "white" ]
           ];
     }
     ELSE
     {
       chips :=
-          [ [ rowkey := "first",  title := "First option", text := "And text" ]
-          , [ rowkey := "second", title := "Second option", text := "And text" ]
+          [ [ rowkey := keys[0],  title := "First option", text := "And text" ]
+          , [ rowkey := keys[1], title := "Second option", text := "And text" ]
           ];
     }
 
