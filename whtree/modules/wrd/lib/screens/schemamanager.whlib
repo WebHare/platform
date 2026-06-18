@@ -1,8 +1,11 @@
 ﻿<?wh
 
+LOADLIB "wh::internet/mime.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
 LOADLIB "mod::system/lib/internal/webharepeers/remoteserverapi.whlib";
 
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
@@ -222,6 +225,7 @@ PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
   RECORD originalschema;
+  STRING originalsendermail;
   RECORD ARRAY types;
 
   MACRO Init(RECORD data) {
@@ -243,6 +247,11 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     ^wrdschema->value := this->originalschema;
     //Allow usermgmt only to be modified by sysop, and only to be set if whuser_unit exists (as a quick check whether you applied usermgmt.wrdschema.xml)
     ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop") AND (^usermgmt->value OR ObjectExists(this->contexts->wrdschema->GetType("WHUSER_UNIT")));
+
+    ^default_sender_mail->placeholder := ReadRegistryKey("system.services.smtp.mailfrom");
+    this->originalsendermail := GetWRDSetting(this->contexts->wrdschema, "default_sender_mail");
+    ^default_sender_mail->value := this->originalsendermail;
+    ^default_sender_name->value := GetWRDSetting(this->contexts->wrdschema, "default_sender_name");
 
     ^validationsettings->value := GetWRDSetting(this->contexts->wrdschema, "address_verification");
   }
@@ -269,9 +278,15 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
     IF (^usermgmt->value AND NOT this->tolliumuser->HasRight("system:sysop"))
       work->AddError(GetTid("wrd:schemamanager.errors.needsysoptoenableusermgmt"));
 
+    IF (^default_sender_mail->value NOT IN [ "", this->originalsendermail ]) // only check if filled and changed
+      IF (IsAllowedEmailSender(^default_sender_mail->value) = 0)
+        work->AddErrorFor(^default_sender_mail, GetTid("tollium:validation.errors.sender_not_whitelisted", ^default_sender_mail->title, ^default_sender_mail->value));
+
     IF(NOT work->HasFailed())
     {
       SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
+      SetWRDSetting(this->contexts->wrdschema, "default_sender_mail", ^default_sender_mail->value);
+      SetWRDSetting(this->contexts->wrdschema, "default_sender_name", ^default_sender_name->value);
       this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationdate]);
     }
 

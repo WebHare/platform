@@ -1,5 +1,6 @@
-# CUSTOM QUESTION TYPES
+# Custom question types
 You can define your own custom question types for forms. These question types can be found in the "Custom" tab in the form application when adding questions. Naturally, this tab only appears if there's at least one custom question type available.
+To group similar custom question, they can be added to a tab by using the `ingroup(tid)` attribute. Questions with the same `ingroup` title are shown on a tab with that `ingroup` title.
 
 As an example, we're creating a (disabled) textedit field that will generate a unique code.
 
