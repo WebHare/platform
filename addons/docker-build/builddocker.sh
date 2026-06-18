@@ -47,6 +47,10 @@ while [[ $1 =~ ^-.* ]]; do
   shift
 done
 
+if [ -z "$USEPODMAN" ] && ! which docker > /dev/null && which podman > /dev/null; then
+  USEPODMAN="1"
+fi
+
 if [ -n "$USEPODMAN" ] && [[ $(type -t whhook_prepare_podman) == function ]]; then
   whhook_prepare_podman # Allow wh script hooks to prepare the build machine
 fi

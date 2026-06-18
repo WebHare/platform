@@ -436,6 +436,9 @@ while true; do
   fi
 done
 
+if [ -z "$USEPODMAN" ] && ! which docker > /dev/null && which podman > /dev/null; then
+  USEPODMAN="1"
+fi
 
 IMPLICITARGS=()
 if [ -n "$ISMODULETEST" ]; then
