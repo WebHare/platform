@@ -1,5 +1,6 @@
-# CUSTOM HANDLER TYPES
-## FORMDEF.XSD
+# Custom handler types
+
+## XML field definition
 ```xml
   <xs:element name="myhandler">
     <xs:complexType>
@@ -24,7 +25,16 @@ or block form submisison. Alternatively, you can set a `handlerobject` to hook d
 
 Add `editdefaults="condition"` if you want to add the interface for setting a condition.
 
-## MYHANDLER.XML
+To enable the custom handler, tell your site profile about it. This can be done by adding this piece of code to your main site profile:
+
+```xml
+<apply>
+  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
+  <allowformhandler type="http://www.mysite.net/xmlns/forms#*" />
+</apply>
+```
+
+## Configuring custom attributes
 ```xml
   <tabsextension name="settings" implementation="lib">
     <insert position="settings" where="after">
@@ -35,7 +45,6 @@ Add `editdefaults="condition"` if you want to add the interface for setting a co
 
 Valid insert positions are: `settings`, `dependencies`, `advanced`.
 
-## MYHANDLER.WHLIB
 The settings fragment should derive from FormComponentBase and implement LoadData and StoreData.
 
 The handler XML node is passed as 'this->node' to the FormComponentBase
@@ -63,6 +72,7 @@ PUBLIC RECORD FUNCTION MyParser(RECORD fielddef, OBJECT node, RECORD parsecontex
 }
 ```
 
+## Processing form results
 You should use a 'managedtask' for processing form results wherever possible, as this reduces the chances for form submissions to fail due to errors in your task handling. Managedtasks are also easier to restart/debug than online processing.
 
 To link up a form handler to a managed task, add a `handlertask` attribute to its `<formhandler>` node in the formdef.xsd, set up a managedtask in the moduledefinition,
@@ -79,15 +89,6 @@ PUBLIC OBJECTTYPE MailResultsTask EXTEND FormHandlerTaskBase
     */
   }
 >;
-```
-
-To enable the custom handler, tell your site profile about it. This can be done by adding this piece of code to your main site profile:
-
-```xml
-<apply>
-  <to type="file" filetype="http://www.webhare.net/xmlns/publisher/formwebtool" />
-  <allowformhandler type="http://www.mysite.net/xmlns/forms#*" />
-</apply>
 ```
 
 ## Handler objects

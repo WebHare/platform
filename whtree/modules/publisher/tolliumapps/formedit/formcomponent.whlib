@@ -54,18 +54,35 @@ PUBLIC STATIC OBJECTTYPE SelectComponent EXTEND TolliumScreenBase
       value := "";
     }
 
-    ^customcomponents->rows :=
-        SELECT rowkey := qname
-             , name := title
-             , icon := ^customcomponents->GetIcon(icon)
-             , description
-          FROM data.components
-         WHERE NOT builtin;
-    IF (RecordExists(SELECT FROM ^customcomponents->rows WHERE rowkey = value))
+    // Group custom components by 'ingroup'
+    RECORD ARRAY comps := SELECT *, ingroup := ingroup != "" ? GetTid(ingroup) : "" FROM data.components;
+    RECORD ARRAY compgroups :=
+        SELECT ingroup := Any(ingroup)
+             , comps := GroupedValues(comps)
+          FROM comps
+         WHERE NOT builtin
+         GROUP BY ToUppercase(ingroup);
+    // Insert directly after the 'builtin' tab
+    ^type->extendposition := 1;
+    // Add named custom groups first, alphabetically, then the 'other' group
+    FOREVERY (RECORD compgroup FROM SELECT * FROM compgroups ORDER BY ingroup = "", ToUppercase(ingroup))
     {
-      ^customcomponents->value := value;
-      ^type->selectedtab := ^custom;
-      value := "";
+      RECORD result := ^type->LoadTabsExtension(Resolve("formcomponent.xml#componentlist"));
+      OBJECT custom := PickFirst(result.addedtabs);
+      custom->title := compgroup.ingroup ?? this->GetTid(".custom");
+      OBJECT customcomponents := result.components[0]->^customcomponents;
+      customcomponents->rows :=
+          SELECT rowkey := qname
+               , name := title
+               , icon := customcomponents->GetIcon(icon)
+               , description
+            FROM compgroup.comps;
+      IF (RecordExists(SELECT FROM customcomponents->rows WHERE rowkey = value))
+      {
+        customcomponents->value := value;
+        ^type->selectedtab := custom;
+        value := "";
+      }
     }
 
     IF (data.type = "pubsearch")
@@ -77,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE SelectComponent EXTEND TolliumScreenBase
       }
       // Don't switch to 'server' tabs if the 'manually' tab is visible for Publisher search
     }
-    ELSE IF (Length(^customcomponents->rows) = 0)
+    ELSE IF (Length(compgroups) = 0)
     {
       ^intropanel->spacers.bottom := FALSE;
       ^intropanel->borders.bottom := FALSE;
@@ -95,12 +112,17 @@ PUBLIC STATIC OBJECTTYPE SelectComponent EXTEND TolliumScreenBase
   {
     IF (^type->selectedtab = ^builtin)
       RETURN ^builtincomponents->value;
-    IF (^type->selectedtab = ^custom)
-      RETURN ^customcomponents->value;
-    IF (^type->selectedtab = ^manually)
+    ELSE IF (^type->selectedtab = ^manually)
     {
       IF (this->BeginFeedback()->Finish())
         RETURN ^qname->value;
+    }
+    ELSE
+    {
+      // The list in a custom added tab was clicked, find out which tabs extension this was
+      INTEGER idx := SearchElement(^type->pages, ^type->selectedtab) - 1; // idx 0 is the 'builtin' tab
+      IF (idx >= 0)
+        RETURN ^type->ListExtensions()[idx].extension->^customcomponents->value;
     }
     RETURN "";
   }
