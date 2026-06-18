@@ -1,6 +1,49 @@
 <?wh
 LOADLIB "relative::rewritesupport.whlib";
 
+/*
+
+# Rewrites
+
+## rewrite specs
+Quick guide:
+- attributesorder:     Order the specified attributes like this (the rest alphabetically
+- fixmodulelibref:     Attributes that might refer to module:: (ie implicit lib/ or include/)
+- fixfspath:           Fix moduledata::, moduleroot:: paths. Try to avoid mod::<modulename>/ prefixes, use / if possible
+- fixfspath_nomodroot: Like fixpath, but don't return paths starting with / (signifying the module root)
+- groupsiblings:       A list of `namespace#element`s to keep together. Eg [`${publisher_sp}#applysiteprofile`] removes the otherwise empty lines between <applysiteprofile> lines
+- xslistattributes:    Turn attributes content whitespace into linefeeds if it would otherwise wrap
+- semicolonlistattributes: Place a linefeed after every semicolon (eg content-security-policy values)
+
+See platform-rewrites.whlib for examples
+
+To add rewriting rules, add this to your moduledefinition:
+
+```xml
+  <rewriters xmlns="http://www.webhare.net/xmlns/dev/moduledefinition">
+    <xmlrewriter getrulesfunction="lib/rewrites.whlib#GetMyRewriteRules" />
+  </rewriters>
+```
+
+To register additional XML filetypes to rewrite:
+
+```xml
+  <rewriters xmlns="http://www.webhare.net/xmlns/dev/moduledefinition">
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/tollium/screens#screens" />
+  </rewriters>
+```
+
+
+## Tweaking
+You can force a XSD to be rewritten by adding this to its root element:
+
+```
+ xmlns:rewrite="http://www.webhare.net/xmlns/dev/rewrite" rewrite:format="http://www.w3.org/2001/XMLSchema#schema"
+```
+
+*/
+
+
 CONSTANT RECORD ARRAY fixelements :=
   [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
                                                                                ,"type","width","height","minwidth","minheight"]
