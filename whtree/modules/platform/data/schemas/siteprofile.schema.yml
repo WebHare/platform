@@ -449,10 +449,6 @@ $defs:
       onRenderContent:
         description: JS callback to render content
         type: string
-      contentBuilder:
-        type: string
-        description: Replace with 'onRenderContent'
-        deprecated: true
       routerFunction:
         type: string
       cacheTtl:
@@ -825,10 +821,6 @@ $defs:
       onRenderContent:
         description: JS callback to render content
         type: string
-      contentBuilder:
-        type: string
-        description: Replace with 'onRenderContent'
-        deprecated: true
 
   ApplyUserData:
     type: object

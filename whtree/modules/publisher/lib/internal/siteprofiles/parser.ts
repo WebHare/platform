@@ -691,7 +691,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
       objectname: context.resolve(apply.bodyRenderer.objectName || ''),
-      contentbuilder: context.resolve(apply.bodyRenderer.onRenderContent || apply.bodyRenderer.contentBuilder || ''),
+      onrendercontent: context.resolve(apply.bodyRenderer.onRenderContent || ''),
     };
 
   if (apply.webDesign) {
@@ -943,7 +943,7 @@ function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceP
   return {
     cachettl: exec.cacheTtl || 0,
     routerfunction: context.resolve(exec.routerFunction || ''),
-    ...(exec.onRenderContent ?? exec.onRenderContent) ? { contentbuilder: context.resolve((exec.onRenderContent ?? exec.onRenderContent)!) } : null,
+    ...(exec.onRenderContent ? { onrendercontent: context.resolve(exec.onRenderContent) } : null),
     startmacro: context.resolve(exec.startMacro || ''),
     webpageobjectname: context.resolve(exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],

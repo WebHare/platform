@@ -645,12 +645,12 @@ export class WHFSApplyTester {
     const typeInfo = getType(this.objinfo.type === "platform:filetypes.dynamicfoldercontents" ? this.objinfo.parent.type : this.objinfo.type);
     if (typeInfo?.dynamicexecution) {
       baseinfo.dynamicExecution = typeInfo.dynamicexecution;
-      if (baseinfo.dynamicExecution.contentbuilder)
-        baseinfo.onRenderContent = baseinfo.dynamicExecution.contentbuilder;
+      if (baseinfo.dynamicExecution.onrendercontent)
+        baseinfo.onRenderContent = baseinfo.dynamicExecution.onrendercontent;
     }
 
     for (const apply of await this.getMatchingRules('bodyrenderer')) {
-      baseinfo.onRenderContent = apply.bodyrenderer.contentbuilder || "";
+      baseinfo.onRenderContent = apply.bodyrenderer.onrendercontent || "";
       baseinfo.hsPageObjectType = apply.bodyrenderer.objectname || "";
     }
 
