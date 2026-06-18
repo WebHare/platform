@@ -25,7 +25,7 @@ export function rawLitty(str: string): Litty {
   return { strings: [str], values: [] };
 }
 
-/** Insert a value with a specific encoding
+/** Insert a value with a specific encoding. Use this to override encoding, eg the `html` format to encode soft linebreaks as `<br/>`
  * @param data - The string to encode
  * @param encoding - The type of encoding to apply, e "html" to encode `\n` as `<br>`.
 */
