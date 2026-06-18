@@ -208,9 +208,9 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   //Add the custom form field
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
-  TT("type")->selectedtab := TT("custom");
+  TT("type")->selectedtab := TT(":My Custom Group");
   // Test if allowing questions by matchattribute works
-  TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type1"));
+  TestEq(FALSE, RecordExists(SELECT * FROM TT("fragment1!customcomponents")->rows WHERE name = "MatchAttributes Type1"));
   /* TODO if we need this again in the future we'll come up with a cleaner syntax.
      but noone is currently using complex matching in allow/deny for components
       and it would be better to come up with some sort of
@@ -218,7 +218,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TestEq(TRUE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 true"));
   TestEq(FALSE, RecordExists(SELECT * FROM TT("customcomponents")->rows WHERE name = "MatchAttributes Type2 false"));
   */
-  TT("customcomponents")->selection := RECORD(SELECT * FROM TT("customcomponents")->rows WHERE name = "Custom Form Field");
+  TT("fragment1!customcomponents")->selection := RECORD(SELECT * FROM TT("fragment1!customcomponents")->rows WHERE name = "Custom Form Field");
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
   TT("title")->value := "Reverse";
   TT("name")->value := "reverse";

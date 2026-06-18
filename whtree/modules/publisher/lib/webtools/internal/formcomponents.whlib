@@ -92,6 +92,7 @@ RECORD FUNCTION ParseComponent(RECORD element, OBJECT compinfo, STRING modulenam
                   , linecomponent := ParseXSBoolean(compinfo->GetAttribute("linecomponent"))
                   , title := ParseXMLTidPtr(resourcename, "", compinfo, "title")
                   , description := ParseXMLTidPtr(resourcename, "" , compinfo, "description")
+                  , ingroup := ParseXMLTidPtr(resourcename, "" , compinfo, "ingroup")
                   , editextension := ""
                   , editdefaults := DEFAULT STRING ARRAY
                   , supportedvalues := STRING[]
@@ -168,6 +169,7 @@ RECORD FUNCTION ParseHandler(RECORD element, OBJECT handler, STRING modulename, 
                   , icon := handler->GetAttribute("tolliumicon") ?? handler->GetAttribute("icon")
                   , title := ParseXMLTidPtr(resourcename, "", handler, "title")
                   , description := ParseXMLTidPtr(resourcename, "" , handler, "description")
+                  , ingroup := ParseXMLTidPtr(resourcename, "" , handler, "ingroup")
                   , editextension := ""
                   , editdefaults := STRING[]
                   , parserfunc := ""

@@ -7,6 +7,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 
@@ -353,6 +354,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       usewitty := "mod::wrd/witty/authpages.witty";
 
     OBJECT mail := PrepareMailWitty(`${usewitty}:${component}`, CELL[ mailtemplate, this->webcontext ]);
+    mail->mailfrom := MakeEmailAddress(this->wrdschema->default_sender_name, this->wrdschema->default_sender_mail);
     RETURN mail;
   }
 

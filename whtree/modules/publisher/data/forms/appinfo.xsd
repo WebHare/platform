@@ -27,6 +27,8 @@
     </xs:attribute>
     <xs:attribute name="descriptiontid" />
     <xs:attribute name="description" />
+    <xs:attribute name="ingrouptid" />
+    <xs:attribute name="ingroup" />
     <xs:attribute name="matchattribute" />
     <xs:attribute name="linecomponent" type="xs:boolean" />
     <xs:attribute name="editdefaults" />
@@ -64,6 +66,8 @@
     <xs:attribute name="title" />
     <xs:attribute name="descriptiontid" />
     <xs:attribute name="description" />
+    <xs:attribute name="ingrouptid" />
+    <xs:attribute name="ingroup" />
     <xs:attribute name="editextension" />
     <xs:attribute name="editdefaults" />
     <xs:attribute name="parserfunc" />
