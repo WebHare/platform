@@ -119,13 +119,13 @@ export class ObjFrame extends ToddCompBase {
   menubarhandler: menu.MenuBar | null = null;
 
   // names of currently focused components with focusin/focusout handlers
-  focusedcomponentnames: string[] = [];
+  private focusedComponentNames = new Set<string>;
 
   frameid = ++framecounter;
 
   scrollmonitor;
 
-  objectmap: Record<string, ToddCompBase> = {};
+  private readonly objectMap = new Map<string, ToddCompBase>;
 
   bodynode: ToddCompBase | null = null;
   menubarnode: HTMLUListElement | null = null;
@@ -180,7 +180,7 @@ export class ObjFrame extends ToddCompBase {
        ADDME: the constructor isn't cleaned up enough yet to recognize this
        */
     super(null, data);
-    this.objectmap[this.name] = this;
+    this.objectMap.set(this.name, this);
 
     //the app hosting the screen (the one we will communicate with - we're on its screenmap)
     this.hostapp = hostapp;
@@ -248,11 +248,12 @@ export class ObjFrame extends ToddCompBase {
 
       default:
         if (evt.ctrlKey || evt.altKey || validShortcutKeys.includes(evt.key as KeyAttributeValue)) { //possible Tollium modifiers
-          for (const possibleAction of Object.values(this.objectmap))
+          for (const [, possibleAction] of this.objectMap) {
             if (possibleAction instanceof ActionForwardBase && possibleAction.handleShortcut(evt)) {
               dompack.stop(evt);
               return;
             }
+          }
         }
     }
   };
@@ -273,14 +274,16 @@ export class ObjFrame extends ToddCompBase {
     }
 
     ///focusin event support: Enumerate current selected compomnents with focusin handlers.
-    const new_focusedcomponentnames = Object.values(this.objectmap).filter(comp => comp.isEventUnmasked("focusin") && comp.hasfocus()).map(c => c.name);
-    // If a component is added to the set, trigger their focusin handler
-    for (const compname of new_focusedcomponentnames) {
-      const comp = this.objectmap[compname];
-      if (comp && this.focusedcomponentnames.indexOf(compname) === -1 && comp.isEventUnmasked("focusin"))
-        comp.queueMessage("focusin", {});
+    const newFocusedComponentNames = new Set<string>();
+    for (const [compname, comp] of this.objectMap) {
+      if (comp.isEventUnmasked("focusin") && comp.hasfocus()) {
+        newFocusedComponentNames.add(compname);
+
+        if (!this.focusedComponentNames.has(compname)) //not informed yet about focus
+          comp.queueMessage("focusin", {});
+      }
     }
-    this.focusedcomponentnames = new_focusedcomponentnames;
+    this.focusedComponentNames = newFocusedComponentNames;
   }
 
   private onIframeFocus(evt: Event) {
@@ -347,11 +350,9 @@ export class ObjFrame extends ToddCompBase {
     this.isdestroyed = true;
     window.removeEventListener("resize", this.onDesktopResized);
 
-    for (const key of Object.keys(this.objectmap)) {
-      const obj = this.objectmap[key];
-      if (obj && obj !== this) //don't self destruct, we're already running destroy
+    for (const [, obj] of this.objectMap)
+      if (obj !== this) //don't self destruct, we're already running destroy
         obj.destroy();
-    }
 
     for (const leftover of this.pendingRequests.values())
       leftover.reject(new Error("Screen is unloading"));
@@ -451,27 +452,27 @@ export class ObjFrame extends ToddCompBase {
   }
 
   getComponent<T extends ToddCompBase>(name: string): T | undefined {
-    return this.objectmap[name] as T | undefined;
+    return this.objectMap.get(name) as T | undefined;
   }
 
   registerComponent(comp: ToddCompBase) {
-    if (this.objectmap[comp.name])
+    if (this.objectMap.has(comp.name))
       console.error("Multiple elements with name '" + comp.name + "'.\n" +
-        "Already existing element is of type " + this.objectmap[comp.name].componenttype +
+        "Already existing element is of type " + this.objectMap.get(comp.name)?.componenttype +
         ", the new one is of type " + comp.componenttype + ".");
     else {
       // Register component as object within this window
-      this.objectmap[comp.name] = comp;
+      this.objectMap.set(comp.name, comp);
     }
   }
 
   unregisterComponent(comp: ToddCompBase) {
     this.leftovernodes.push(...comp.getDestroyableNodes());
-    if (this.objectmap[comp.name] !== comp)
+    if (this.objectMap.get(comp.name) !== comp)
       return; //this component is replaced
 
     // Delete component from this window's object list
-    delete this.objectmap[comp.name];
+    this.objectMap.delete(comp.name);
   }
 
   /** Get the active (focused) component.
@@ -821,12 +822,13 @@ export class ObjFrame extends ToddCompBase {
     }
 
     // Get variables from all objects
-    for (const i in this.objectmap)
-      if (i !== "frame" && this.objectmap[i] && this.objectmap[i].shouldSubmitValue()) {
-        const val = this.objectmap[i].getSubmitValue();
+    for (const [i, obj] of this.objectMap) {
+      if (i !== "frame" && obj.shouldSubmitValue()) {
+        const val = obj.getSubmitValue();
         if (val !== null)
           allvars[i] = val;
       }
+    }
 
     return allvars;
   }
@@ -1462,7 +1464,7 @@ export class ObjFrame extends ToddCompBase {
 
     const deliverabletargets: string[] = [];
     messages.forEach(msg => {
-      const component = this.objectmap[msg.target];
+      const component = this.objectMap.get(msg.target);
       if (!component) {
         let msglist = this.pendingmessages[msg.target];
         if (!msglist)
@@ -1485,7 +1487,7 @@ export class ObjFrame extends ToddCompBase {
       const msg = this.deliverablemessages[0];
       this.deliverablemessages.splice(0, 1);
 
-      const component = this.objectmap[msg.target];
+      const component = this.objectMap.get(msg.target);
       if (msg.instr === "component") {
         this.debugLog("messages", "Passive update for component " + msg.target, msg);
         if (!component) {
