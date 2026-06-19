@@ -22,6 +22,7 @@ import { debugFlags, dtapStage } from "@webhare/env";
 import type { AppStartResponse } from '@mod-tollium/shell/platform/shell';
 import type { AppMenuItem } from './types';
 import type { ShellInstruction } from '@mod-platform/js/tollium/types';
+import { wrapSerialized } from "@webhare/std";
 
 import "../common.lang.json";
 
@@ -110,6 +111,8 @@ export class ApplicationBase {
   container: HTMLElement | null = null;
 
   appicon = '';
+
+  queuedEvents = [];
 
   constructor(shell: IndyShell, appname: string, apptarget, parentapp: ApplicationBase | null, options?: ApplicationOptions) {
     this.localId = "app#" + appesqnr++;
@@ -469,9 +472,18 @@ export class ApplicationBase {
     this.terminateApplication();
   }
 
+  protected clearQueues() {
+
+    // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks
+    this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
+    this.eventcallbacks = [];
+    this.queuedEvents.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
+    this.queuedEvents = [];
+  }
+
   /** Terminate an application, clearing all its screens (ADDME: what if we're hosting foreign screens?)
-   *
-  */
+*
+*/
   async terminateApplication(): Promise<void> {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
     this.setVisible(false); //also removes us from $todd.applications and informs the shell
@@ -487,10 +499,7 @@ export class ApplicationBase {
       this.getTopScreen()!.terminateScreen();
 
     if (this.appcomm) {
-      // Close busy locks for sync messages - FIXME dangerous, calls should be rejectable promises and that should clear the locks
-      this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-      this.eventcallbacks = [];
-      this.queuedEvents = [];
+      this.clearQueues();
 
       if (this.appcomm)
         this.appcomm.close();
@@ -715,9 +724,6 @@ export class BackendApplication extends ApplicationBase {
 
     this.deferred_close = null;
     this.deferred_metamessage = null;
-
-    this.queuedEvents = [];
-
   }
 
   applyAppInit(node) {
@@ -727,10 +733,7 @@ export class BackendApplication extends ApplicationBase {
     this.timeformat = node.timeformat;
 
     // Remove event callbacks and queued events, won't be activated again
-    this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-    this.eventcallbacks = [];
-    this.queuedEvents.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-    this.queuedEvents = [];
+    this.clearQueues();
 
     this.appcomm = new LinkEndPoint({ linkid: this.whsid, commhost: location.origin, frontendid: this.frontendid });
     this.appcomm.onmessage = this.processMessage.bind(this);
@@ -805,21 +808,24 @@ export class BackendApplication extends ApplicationBase {
     if (!this.appcomm)
       console.error("Trying to send event after the application link closed: ", actionname, param);
 
-    this.queuedEvents.push(
-      {
-        actionname: actionname,
-        param: param,
-        synchronous: synchronous,
-        callback: callback,
-        skipStateTransfer
-      });
+    this.queuedEvents.push({
+      actionname: actionname,
+      param: param,
+      synchronous: synchronous,
+      callback: callback,
+      skipStateTransfer
+    });
 
     this._sendQueuedEvents();
   }
 
-  _sendQueuedEvents() {
-    if (!this.appcomm) // Not shut down already?
+  /** Send the eventqueue. Coalesce multiple calls, especially important for dirtylistener callbacks which can cause a high rate
+   *  of calls and risk server/client desync of state (where the client is sending outdated state to the server as getSubmitValue doesn't skip unchanged values)
+   */
+  _sendQueuedEvents = wrapSerialized(() => {
+    if (!this.appcomm) { // Not shut down already?
       return;
+    }
 
     let sentforms = false;
     while (this.queuedEvents.length) {
@@ -861,7 +867,7 @@ export class BackendApplication extends ApplicationBase {
 
       this.appcomm.queueMessageWithSeqnr(seqnr, response);
     }
-  }
+  }, { coalsece: true });
 
   applyReceivedReplies(replies) {
     // Execute callbacks for the events, and remove them from the callbacks array
@@ -1018,10 +1024,7 @@ export class BackendApplication extends ApplicationBase {
     this.__startAppClose();
 
     // Remove event callbacks and queued events, won't be activated again
-    this.eventcallbacks.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-    this.eventcallbacks = [];
-    this.queuedEvents.forEach(e => { if (e.busylock) e.busylock.release(); if (e.callback) e.callback(); });
-    this.queuedEvents = [];
+    this.clearQueues();
 
     this.deferred_close.resolve(); // wait max 5 secs for official close
     setTimeout(() => this.deferred_metamessage.resolve(null), 5000);
