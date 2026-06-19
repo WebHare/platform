@@ -612,12 +612,13 @@ export default class ObjTable extends ComponentBase {
       this.selection = newselection;
       this.owner.refreshConditions();
 
+      this.pendingValueSubmit = true;
       if (this.isEventUnmasked("select"))
         this.transferState();
     }
   }
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     const sel = [];
     this.selection.forEach(item => {
       if (item.componenttype === "table.cell")

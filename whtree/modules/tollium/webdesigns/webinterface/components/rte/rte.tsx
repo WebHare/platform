@@ -188,6 +188,7 @@ export default class ObjRTE extends ComponentBase {
     this.node.propTodd = this;
     this.node.addEventListener("wh:richeditor-action", evt => this._doExecuteAction(evt));
     this.node.addEventListener("wh:richeditor-dirty", evt => this._gotDirty());
+    this.node.addEventListener("wh:richeditor-change", evt => this._gotChange());
     this.node.addEventListener("wh:richeditor-contextmenu", evt => this._gotContextMenu(evt));
 
     this.setValue(data);
@@ -229,10 +230,8 @@ export default class ObjRTE extends ComponentBase {
     /* We can't become async again unless we figure out how to fix unload-autosave then. */
     const suggestedreturnvalue = this.rte.getValue();
     if (suggestedreturnvalue === this.restructuredcontent && this.untouchedcontent !== null) { //no material change ( FIXME Let the RTD implement this)
-      console.log("Returning untouched value");
       return this.untouchedcontent;
     } else {
-      console.log("Returning updated value");
       return suggestedreturnvalue;
     }
   }
@@ -366,6 +365,11 @@ export default class ObjRTE extends ComponentBase {
     } else {
       console.log("Ignoring stale cleardirty request", data, this.valuegeneration, this.valuedirtycount);
     }
+  }
+
+  _gotChange() {
+    //TODO cam we manage dirtyness ourselves here instead of _gotDirty integration? simplifies RTD's own dirty tracking
+    this.pendingValueSubmit = true;
   }
 
   _gotDirty() {

@@ -116,7 +116,7 @@ export default class ObjDateTime extends ComponentBase {
   * Property getters & setters
   */
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     return this.getValue();
   }
 

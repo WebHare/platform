@@ -394,6 +394,8 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
   }
 
   onAnyChange(selectionChange = false) {
+    this.pendingValueSubmit = true; //we must immediately set this as we're delaying setDirty below
+
     // Run change detect handler 100ms after last successive change
     if (this.reportchange_cb)
       clearTimeout(this.reportchange_cb);

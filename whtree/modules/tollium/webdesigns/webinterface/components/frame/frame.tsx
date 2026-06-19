@@ -264,6 +264,8 @@ export class ObjFrame extends ToddCompBase {
 
     evt.preventDefault();
     this.innerFocus = evt.target as HTMLElement;
+    this.pendingValueSubmit = true;
+
     if (debugFlags["tollium-focus"])
       console.log(`[tollium-focus] Intercepted dompack:takefocus for %o`, this.innerFocus);
   }
@@ -271,6 +273,7 @@ export class ObjFrame extends ToddCompBase {
   private onFocusIn(evt: FocusEvent) {
     if (evt.target instanceof HTMLElement) { //we're leaving this zone
       this.innerFocus = evt.target;
+      this.pendingValueSubmit = true;
     }
 
     ///focusin event support: Enumerate current selected compomnents with focusin handlers.
@@ -288,6 +291,7 @@ export class ObjFrame extends ToddCompBase {
 
   private onIframeFocus(evt: Event) {
     this.innerFocus = evt.target as HTMLElement;
+    this.pendingValueSubmit = true;
     if (debugFlags["tollium-focus"])
       console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
   }
@@ -797,37 +801,27 @@ export class ObjFrame extends ToddCompBase {
       deferred.reject(new Error(response.reject));
   }
 
-  getSubmitVariables() {
-    const framevar: {
-      focused: string;
-      width?: number;
-      height?: number;
-    } = { focused: this.innerFocus ? getToddOwner(this.innerFocus) || "" : "" };
-
-    const allvars: Record<string, unknown> = {
-      frame: framevar
+  getSubmitValue(): {
+    focused: string;
+    width?: number;
+    height?: number;
+  } {
+    const focused = this.innerFocus ? getToddOwner(this.innerFocus) || "" : "";
+    return {
+      focused,
+      ...this.width.set ? { width: Math.floor(this.width.set) } : {},
+      ...this.height.set ? { height: Math.floor(this.height.set) } : {}
     };
+  }
 
-    //      if (this.position_y)
-    //        allvars.frame.top = Math.floor(this.position_y);
-    //      if (this.position_x)
-    //        allvars.frame.left = Math.floor(this.position_x);
-    if (this.width.set) {
-      framevar.width = Math.floor(this.width.set);
-      //        this.width.xml_set = allvars.frame.width + "px";
-    }
-    if (this.height.set) {
-      framevar.height = Math.floor(this.height.set);
-      //        this.height.xml_set = allvars.frame.height + "px";
-    }
+  getSubmitVariables() {
+    const allvars: Record<string, unknown> = {};
 
     // Get variables from all objects
-    for (const [i, obj] of this.objectMap) {
-      if (i !== "frame" && obj.shouldSubmitValue()) {
-        const val = obj.getSubmitValue();
-        if (val !== null)
-          allvars[i] = val;
-      }
+    for (const [key, comp] of this.objectMap) {
+      const toSubmit = comp["retrieveSubmitValue"]();
+      if (toSubmit !== undefined)
+        allvars[key] = toSubmit;
     }
 
     return allvars;
@@ -1300,6 +1294,8 @@ export class ObjFrame extends ToddCompBase {
         console.warn(`[tollium-focus] Wanted to focus %o but it's not in the frame anymore and no new component named '%s' appeared`, this.innerFocus, this.innerFocusName);
       }
     }
+
+    this.pendingValueSubmit = true;
 
     if (this.innerFocus === document.activeElement)
       return; //already focused

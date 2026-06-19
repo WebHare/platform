@@ -36,7 +36,7 @@ export class ObjCheckbox extends ComponentBase { // ----------------------------
   // Property getters & setters
   //
 
-  getSubmitValue() {
+  getSubmitValue(): boolean {
     return this.getValue();
   }
 

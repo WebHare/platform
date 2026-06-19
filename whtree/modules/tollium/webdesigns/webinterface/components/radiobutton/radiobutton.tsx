@@ -11,6 +11,8 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   //
   // Initialization
   //
+  radiobuttonnode: HTMLInputElement!;
+  value: boolean = false;
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
@@ -18,7 +20,6 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
     this.componenttype = "radiobutton";
     this.radiogroup = null;
     this.flags = [];
-    this.radiobuttonnode = null;
 
     this.setValue(data.value);
 
@@ -36,7 +37,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   // Property getters & setters
   //
 
-  getSubmitValue() {
+  getSubmitValue(): boolean {
     return this.getValue();
   }
 

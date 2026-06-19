@@ -270,7 +270,7 @@ class UndoLock {
   _undoitem: EditorUndoItem | null;
   stack: Error | undefined;
 
-  constructor(undoitem: EditorUndoItem | null) {
+  constructor(private editor: EditorBase, undoitem: EditorUndoItem | null) {
     // FIXME: public dom-level undoitem for now - remove when domlevel undoitem is removed
     this.undoitem = null;
 
@@ -282,6 +282,9 @@ class UndoLock {
   }
 
   close() {
+    //fire a change event - closing undoitem is hint of (possible) change
+    dompack.dispatchCustomEvent(this.editor.bodydiv, "wh:richeditor-change", { bubbles: true, cancelable: false });
+
     if (this._undoitem) {
       const closedlock = this._undoitem.locks.pop();
       if (closedlock !== this)
@@ -1354,11 +1357,11 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   */
   getUndoLock() {
     if (!this.options.allowundo)
-      return new UndoLock(null);
+      return new UndoLock(this, null);
 
     const last = this.undostack.length && this.undostack[this.undostack.length - 1];
     if (last && !last.finished)
-      return new UndoLock(last);
+      return new UndoLock(this, last);
 
     // Allocate a new undo item, place it on the undo stack (erase redoable items)
     const item = new EditorUndoItem(this, this.getSelectionRange());
@@ -1369,7 +1372,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       console.warn('[rte] start recording undo item', item);
 
     item.onfinish = (finisheditem) => this._updateUndoNodeForNewUndoItem(finisheditem);
-    return new UndoLock(item);
+    return new UndoLock(this, item);
   }
 
   resetUndoStack() {
@@ -1948,6 +1951,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   async handlePasteDone(preexistingstylenodes: HTMLElement[]) {
+    //we need an onchange event after the paste
+    dompack.dispatchCustomEvent(this.container, "wh:richeditor-change", { bubbles: true, cancelable: false });
+
     //Check for and remove hostile nodes (but allow inside embbedded objects)
     this.qSA("script,style,head")
       .filter(node => !preexistingstylenodes.includes(node))
@@ -2820,6 +2826,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   _detectedInputEvent(event) {
+    dompack.dispatchCustomEvent(this.container, "wh:richeditor-change", { bubbles: true, cancelable: false });
+
     // Currently inside range code, just ignore
     if (this.selectingrange)
       return;

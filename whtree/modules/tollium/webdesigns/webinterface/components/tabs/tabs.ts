@@ -207,9 +207,9 @@ export class ObjTabs extends ComponentBase {
   * Property getters & setters
   */
 
-  getSubmitValue() {
+  getSubmitValue(): string | undefined {
     const s = this.getSelectedTab();
-    return s ? s.name : null;
+    return s ? s.name : undefined;
   }
 
   getSelectedTab() {
@@ -508,6 +508,7 @@ export class ObjTabs extends ComponentBase {
   selectTab(evt: MouseEvent | null, tabname: string) {
     if (evt)
       dompack.stop(evt);
+    this.pendingValueSubmit = true;
     this.setSelected(tabname, true);
   }
 

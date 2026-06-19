@@ -115,6 +115,9 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   wrapinlineblock?: boolean;
   nodewrapper?: HTMLDivElement;
 
+  /** Is a value change pending that needs to be submitted to the server? */
+  pendingValueSubmit = false;
+
   /****************************************************************************************************************************
   * Initialization
   */
@@ -328,9 +331,14 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     this.dirtylistener = dirtylistener;
   }
 
-  /** @returns True if this call made the component transition from clean to dirty and someone was listening to it */
-  setDirty() {
-    return this.dirtylistener?.setDirtyComponent(this);
+  /** Mark this component as dirty to ours and any parent listeners */
+  setDirty(): void {
+    this.pendingValueSubmit = true;
+    this.invokeBubbleUpwards("onMarkAsDirty");
+  }
+  /** invoked by setDirty on every element upwards to the parent */
+  onMarkAsDirty(): void {
+    this.dirtylistener?.setDirtyComponent(this);
   }
 
   doCopyToClipboard() {
@@ -388,9 +396,20 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     return this.enabled;
   }
 
-  // If this function returns null, its value is not submitted
+  // If this function returns undefined, its value is not submitted
   getSubmitValue(): unknown {
-    return null;
+    return undefined;
+  }
+
+  /** Retrieve the value to be submitted for this component if it changed since the server last sent it.
+  */
+  private retrieveSubmitValue() { //Should only be invoked by the frame
+    if (!this.pendingValueSubmit || !this.shouldSubmitValue())
+      return undefined;
+
+    const value = this.getSubmitValue();
+    this.pendingValueSubmit = false;
+    return value;
   }
 
   // Check if the given event is unmasked for this component
@@ -522,6 +541,12 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
         child[callback]?.();
         child.invokeDepthFirst(callback);
       }
+  }
+  /** Invoke a callback on us and all our parents, recursively */
+  invokeBubbleUpwards<C extends keyof GetVoidCallbacks<ToddCompBase>>(callback: C) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    for (let target: ToddCompBase | null = this; target; target = target.parentcomp)
+      target[callback]?.();
   }
   /** Recalculate the specified dimensions of any dimension-dirty part of the tree.
    *  Is invoked after adding the node to the DOM so CSS variables/metrics should be available

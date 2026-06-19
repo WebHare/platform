@@ -71,7 +71,7 @@ export default class ObjPulldown extends ToddCompBase {
     this.node.disabled = !value;
   }
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     return this.getValue();
   }
 

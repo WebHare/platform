@@ -122,7 +122,7 @@ export default class ObjChips extends ToddCompBase<ChipsAttributes, ChipsSavedSt
     this.node?.classList.toggle("t-chips--disabled", !value);
   }
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     return this.getValue();
   }
 
