@@ -526,7 +526,7 @@ async function testNewAPI() {
     ],
       "id",
       { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" },
-      { rightOuterJoin: true }));
+      { allowMissing: true }));
 
   test.eq([
     { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 },
@@ -551,20 +551,38 @@ async function testNewAPI() {
     const doubleEnrich = await schema
       .query("wrdPerson")
       .select(["wrdId"])
-      .where("wrdId", "=", firstperson)
-      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
+      .where("wrdId", "in", [firstperson, deletedperson])
+      .historyMode("all") //allowd deletedperson to appear
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" }) //but it'll be eliminated in this step
       .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" })
       .execute();
 
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrich);
     test.typeAssert<test.Equals<Array<{ wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrich>>();
 
+    const doubleEnrichWithHistory = await schema
+      .query("wrdPerson")
+      .select(["wrdId"])
+      .where("wrdId", "in", [firstperson, deletedperson])
+      .historyMode("all")
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" }, { historyMode: "all" })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { allowMissing: true })
+      .execute();
+
+    test.eq([
+      { wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson },
+      { wrdFirstName: "deleted", lastname: "", wrdId: deletedperson, joinedId: null },
+    ], doubleEnrichWithHistory.sort((a, b) => a.wrdId - b.wrdId));
+
+    // TODO do we want this assert to work?  Rob thinks the union of the rightouterjoin types could be avoided
+    //test.typeAssert<test.Equals<Array<{ wrdFirstName: string; lastname: string; wrdId: number; joinedId: number  }>, typeof doubleEnrichWithHistory>>();
+
     const doubleEnrichWithOuterJoin = await schema
       .query("wrdPerson")
       .select(["wrdId"])
       .where("wrdId", "=", firstperson)
       .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
-      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { rightOuterJoin: true })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { allowMissing: true })
       .execute();
 
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);

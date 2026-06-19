@@ -1,4 +1,6 @@
 <?wh
+/** @topic typescript/calls */
+
 /* This library intends to enables cross engine (eg both native, wasm and native-shared-postgres) JavaScript support and
    is intended to ease the transition from HareScript to JavaScript by allowing you to start building new code in JS and
    still interface from existing HareScript applications.
@@ -136,6 +138,9 @@ STRING FUNCTION ResolvePath(STRING name, STRING caller)
   RETURN name;
 }
 
+/** @short Load a JavaScript library and allows you to access its exported properties
+    @long When running under WASM it will load the library into the JavaScript virtual machine running this HareScript job.
+          When running native it will launch a separate node process to hold the JS objects you're communicating with. */
 PUBLIC OBJECT FUNCTION ImportJS(STRING name)
 {
   IF(IsResolvablePath(name))
@@ -162,11 +167,25 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
 
 RECORD calljs_services;
 
-/** Invoke a specific JavaScript function. Through a central service in Native mode and
-    directly in WASM mode (with reentrancy disallowed)
-    @param(optional) options, eg [ camelcase := TRUE ]
-    @param name lib#name to call. Case sensitive!
+/** @shoret Invoke a JavaScript function by name
+    @long CallJS will directly invoke (and share any open transactions) with the function when running in a WASM HareScript engine or use a remote JS service when running under Native
+         Optionally the lib_and__name parameter can be prefixed with options such as
+         - camelcase := TRUE - camelcase input and output parameters
+         - runinseparatework := TRUE - run the function inside (separate) work, commit unless an exception is thrown.
+    @param args Fuction to invoke and its arguments
     @return The result of the function call. Promises are evaluated immediately
+    @example
+
+//Invoke testAPI("hello", 42) in calls.ts in the same directory as the calling library
+RECORD result := CallJS("./calls.ts#testAPI", "Hello", 42)
+
+//Invoke a @webhare/std API
+STRING uuid := CallJS("@webhare/std#generateRandomId", "uuidv4"));
+
+//Camelcase input and output parameters
+STRING result := CallJS([ camelcase := TRUE ], "@webhare/std#stringify", [ an_object := [[ a_value := 42 ]]]));
+//result will contain: `{"anObject":[{"aValue":42}]}`
+
     */
 PUBLIC VARIANT FUNCTION CallJS(VARIANT ARRAY args) __ATTRIBUTES__(VARARG) {
   RECORD options;
