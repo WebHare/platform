@@ -3,6 +3,7 @@
 
 import * as test from '@mod-tollium/js/testframework';
 import * as testwrd from "@mod-wrd/js/testframework";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 const webroot = test.getTestSiteRoot();
 
@@ -39,7 +40,7 @@ test.runTests(
       name: "Configure IDP - Import SP metadata",
       test: async function () {
         const metadataurl = new URL(webroot + "test-saml/portal-sp/saml-sp-test-sp", location.href).toString();
-        test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
+        tt.comp("metadataurl").set(metadataurl);
         test.clickToddButton("Update metadata");
         await test.waitForUI();
       }
@@ -74,7 +75,7 @@ test.runTests(
       name: "Configure SP - Import IDP metadata",
       test: async function () {
         const metadataurl = webroot + "test-saml/portal-idp/saml-idp";
-        test.getCurrentScreen().getToddElement("metadataurl").querySelector("input").value = metadataurl;
+        tt.comp("metadataurl").set(metadataurl);
         test.clickToddButton("Update metadata");
         await test.waitForUI();
       }

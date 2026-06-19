@@ -136,7 +136,7 @@ test.runTests(
 
         const texteditinput = textedit[0].querySelector('input');
         test.eq('', texteditinput.value);
-        texteditinput.value = 'http://www.example.net/';
+        test.fill(texteditinput, 'http://www.example.net/');
 
         test.clickTolliumButton("OK");
         await test.waitForUI();
@@ -169,7 +169,7 @@ test.runTests(
 
         const texteditinput = textedit[0].querySelector('input');
         test.eq('http://www.example.net/', texteditinput.value);
-        texteditinput.value = 'http://www.example.com/';
+        test.fill(texteditinput, 'http://www.example.com/');
         test.clickTolliumButton("OK");
         await test.waitForUI();
       }

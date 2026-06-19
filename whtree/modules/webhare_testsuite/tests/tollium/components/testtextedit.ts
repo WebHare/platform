@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 test.runTests(
   [
@@ -144,33 +145,33 @@ test.runTests(
       await test.load(test.getCompTestPage('textedit'));
       await test.wait("ui");
 
-      const textedit = test.compByName("componentpanel").querySelector("input");
-      textedit.value = "aap noot mies";
-      textedit.setSelectionRange(4, 8); // select the 4th up until the 8th character, i.e. "noot"
+      const textedit = tt.comp("thecomponent");
+      textedit.set("aap noot mies");
+      textedit.querySelector("input")!.setSelectionRange(4, 8); // select the 4th up until the 8th character, i.e. "noot"
 
       test.eq(0, parseInt(test.compByName("onselectcount").textContent));
       test.click(test.compByName("readselectionbutton"));
       await test.wait("ui");
       test.eq(1, parseInt(test.compByName("onselectcount").textContent));
 
-      const selection = test.compByName("selection").querySelector("input");
-      test.eq(JSON.stringify("noot"), selection.value); // selection is presented as a JSON stringified value
+      const selection = tt.comp("selection");
+      test.eq(JSON.stringify("noot"), selection.getValue()); // selection is presented as a JSON stringified value
 
       // update the selected text
-      selection.value = JSON.stringify("wim");
+      selection.set(JSON.stringify("wim"));
       test.click(test.compByName("writeselectionbutton"));
       await test.wait(() => parseInt(test.compByName("onselectcount").textContent) === 2);
-      test.eq("aap wim mies", textedit.value);
+      test.eq("aap wim mies", textedit.getValue());
       // the replaced text should be selected
-      test.eq(4, textedit.selectionStart);
-      test.eq(7, textedit.selectionEnd);
+      test.eq(4, textedit.querySelector("input")?.selectionStart);
+      test.eq(7, textedit.querySelector("input")?.selectionEnd);
 
       // clear the value
-      textedit.value = "";
+      textedit.set("");
       // set the selection
-      selection.value = JSON.stringify("zus");
+      selection.set(JSON.stringify("zus"));
       test.click(test.compByName("writeselectionbutton"));
       await test.wait(() => parseInt(test.compByName("onselectcount").textContent) === 3);
-      test.eq("zus", textedit.value);
+      test.eq("zus", textedit.getValue());
     },
   ]);
