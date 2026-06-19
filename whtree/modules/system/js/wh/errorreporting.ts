@@ -186,7 +186,7 @@ function handleOnError(errormsg: Event | string, url?: string, linenumber?: numb
   }
 
   if (saved_onerror) {
-    // @ts-ignore -- This works, but TS complains
+    // @ts-expect-error -- This works, but TS complains
     // eslint-disable-next-line @typescript-eslint/no-invalid-this, prefer-rest-params
     return saved_onerror.apply(this, arguments);
   }

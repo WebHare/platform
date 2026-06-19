@@ -11,9 +11,9 @@ import { omit, parseTyped, stringify } from "@webhare/std";
 
 //Preload interface definitions. To solve this cleaner we would have to do some sort of auto-inject but how to robustly do that accross IDEs/Tscs ?
 
-//@ts-ignore Ignore if it doesn't exist
+//@ts-ignore Ignore if it doesn't exist. this line *must* remain a @ts-ignore
 import type { } from "@mod-platform/generated/ts/services.ts";
-//@ts-ignore Ignore if it doesn't exist
+//@ts-ignore Ignore if it doesn't exist. this line *must* remain a @ts-ignore
 import type { } from "wh:ts/services.ts";
 
 function isAbsolute(url: string) {

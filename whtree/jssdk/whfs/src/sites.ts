@@ -193,17 +193,17 @@ export async function listSites<K extends keyof ListableSiteRow = never>(keys: K
     for (const k of getkeys) {
       switch (k) {
         case "webDesign":
-          ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+          ///@ts-expect-error Too complex for typescript to figure out apparently. We'll write a manual test..
           result.webDesign = row.sitedesign;
           break;
         case "webFeatures":
-          ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+          ///@ts-expect-error Too complex for typescript to figure out apparently. We'll write a manual test..
           result.webFeatures = row.webfeatures.length ? row.webfeatures.sort() : null;
           break;
         default: {
           const dbkey = sites_js_to_db[k];
           if (dbkey in row)
-            ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+            ///@ts-expect-error Too complex for typescript to figure out apparently. We'll write a manual test..
             result[k] = row[dbkey];
         }
       }

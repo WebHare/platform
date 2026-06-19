@@ -8,7 +8,7 @@ test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupEmailFieldtest'); //creates a simple blacklist
-      //@ts-ignore expose getFormRPCRequests for test debugging
+      //@ts-expect-error expose getFormRPCRequests for test debugging
       test.getWin().top.getFormRPCRequests = getFormRPCRequests;
     },
 

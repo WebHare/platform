@@ -1141,7 +1141,6 @@ class MenuList extends MenuBase {
     options.forcenooverlap
 */
 export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" | "target"> | HTMLElement, options?: MenuOptions) {
-  ///@ts-ignore -- FIXME fully clean up the options
   options = { ...options };
   if (typeof el !== 'object')
     throw new Error("openAt requires an object, not an #id");
@@ -1153,14 +1152,14 @@ export function openAt(el: HTMLElement, at: Pick<MouseEvent, "pageX" | "pageY" |
     if (!options!.eventnode)
       options!.eventnode = at.target as HTMLElement; //make sure events are injected at the click location
   } else {
-    //@ts-ignore FIXME cleanup calling synatx
+    //@ts-expect-error FIXME cleanup calling synatx
     coords = dompack.getRelativeBounds(at.target || at);
     if (!options!.direction) {
       options!.direction = "right";
       coords = { left: coords.left, right: coords.left, top: coords.top, bottom: coords.bottom, width: 0, height: 0 };
     }
     if (!options!.eventnode)
-      //@ts-ignore FIXME cleanup calling synatx
+      //@ts-expect-error FIXME cleanup calling synatx
       options!.eventnode = at.target || at;
   }
 

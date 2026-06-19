@@ -63,7 +63,7 @@ function applyRegistration<E extends Element>(reg: ComponentRegistration<E>, sta
         if (window.onerror) {
           // Send to onerror to trigger exception reporting
           try {
-            // @ts-ignore: fileName, lineNumber and columnNumber are non-standard
+            // @ts-expect-error: fileName, lineNumber and columnNumber are non-standard
             window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
           } catch (e2) { }
         }

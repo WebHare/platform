@@ -204,7 +204,6 @@ export class WebHareNativeBlob extends WebHareBlob {
   }
 
   stream(): ReadableStream<Uint8Array<ArrayBuffer>> {
-    //@ts-ignore NodeJS is misunderstanding the types
     return this.blob.stream();
   }
 

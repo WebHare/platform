@@ -162,7 +162,7 @@ function onServiceWorkerMessage(event: MessageEvent) {
     return;
   }
   if (event.data.type === "log") {
-    //@ts-ignore TODO ugly, cleanup up
+    //@ts-expect-error TODO ugly, cleanup up
     console[event.data.loglevel]("[From ServiceWorker] " + event.data.message);
     return;
   }

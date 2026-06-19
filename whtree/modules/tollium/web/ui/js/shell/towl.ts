@@ -154,7 +154,7 @@ class TowlNotifications {
       const options: NotificationOptions = {
         body: description,
         tag: notification.id,
-        //@ts-ignore FIXME doesn't exist asscording to TypeScript
+        //@ts-expect-error FIXME doesn't exist asscording to TypeScript
         onerror: n => this._showNotificationInternal(n)
       };
 

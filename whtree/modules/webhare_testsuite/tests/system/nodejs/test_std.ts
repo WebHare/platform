@@ -55,9 +55,9 @@ function testMoney() {
   testEqMoney("-3.33", std.parseTyped(std.stringify(new Money("-3.33"), { typed: true })));
   test.eq({ deep: new Money("-3.34"), deeper: { array: [new Money("-3.35")] } }, std.parseTyped(std.stringify({ deep: new Money("-3.34"), deeper: { array: [new Money("-3.35")] } }, { typed: true })));
 
-  ///@ts-ignore -- we do not allow number casts as mixing number and Money may cause loss of precision/floating point decimal noise. verify runtime checks are in place
+  ///@ts-expect-error -- we do not allow number casts as mixing number and Money may cause loss of precision/floating point decimal noise. verify runtime checks are in place
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(0));
-  ///@ts-ignore -- another throw check
+  ///@ts-expect-error -- another throw check
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(-1));
   test.throws(/Money value '1000000000000' is out of range/, () => new Money("1000000000000"));
   test.throws(/Money value '-1000000000000' is out of range/, () => new Money("-1000000000000"));
@@ -1048,7 +1048,7 @@ function testCaseChanging() {
 }
 
 function testUUIDFallback() {
-  //@ts-ignore - we explicitly want to break stuff so we can verify generateRandomId works without crypto.randomUUID (which is only available in secure contexts)
+  //@ts-expect-error - we explicitly want to break stuff so we can verify generateRandomId works without crypto.randomUUID (which is only available in secure contexts)
   crypto.randomUUID = undefined;
   test.assert(std.isValidUUID(std.generateRandomId("uuidv4", 16)));
 }

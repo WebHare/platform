@@ -1,6 +1,4 @@
-//@ts-ignore migrating
 import StructuredEditor from './internal/structurededitor';
-//@ts-ignore migrating
 import FreeEditor from './internal/free-editor';
 import "./styling";
 import './richeditor.scss';

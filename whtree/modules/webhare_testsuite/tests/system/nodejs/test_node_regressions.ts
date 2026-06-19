@@ -23,14 +23,14 @@ async function testWasmSpawn() {
     testExecSync("main script, before wasm");
 
     const js_import = nodeMajor === 22 ?
-      // @ts-ignore -- WebAssembly.Function is not yet spec (node 22)
+      // @ts-expect-error -- WebAssembly.Function is not yet spec (node 22)
       new WebAssembly.Function({
         parameters: ['externref', 'i32'],
         results: ['i32']
       },
         (v: number) => { return Promise.resolve(v); },
         { suspending: 'first' }) :
-      // @ts-ignore -- WebAssembly.Suspending is not yet spec (node 23+)
+      // @ts-expect-error -- WebAssembly.Suspending is not yet spec (node 23+)
       new WebAssembly.Suspending((v: number) => { return Promise.resolve(v); },);
 
     /* built a module using the WasmModuleBuilder from the v8 source code, used code from test TestStackSwitchGC2
@@ -59,12 +59,12 @@ async function testWasmSpawn() {
     const instance = new WebAssembly.Instance(module, { 'm': { 'import': js_import } });
 
     const wrapper = nodeMajor === 22 ?
-      // @ts-ignore -- WebAssembly.Function is not yet spec (node 22)
+      // @ts-expect-error -- WebAssembly.Function is not yet spec (node 22)
       new WebAssembly.Function({
         parameters: ["i32"],
         results: ["externref"]
       }, instance.exports.test, { promising: 'first' }) :
-      // @ts-ignore -- WebAssembly.promising is not yet spec (node 23+)
+      // @ts-expect-error -- WebAssembly.promising is not yet spec (node 23+)
       WebAssembly.promising(instance.exports.test);
 
     const arg = { valueOf: () => { testExecSync("within wasm"); return 24; } };
@@ -133,7 +133,7 @@ async function testAsyncContextLoss() {
   const als = new AsyncLocalStorage<{ id: number }>;
 
   // Imported asynchronous function, returns the .id value of the data stored in `als`
-  // @ts-ignore -- WebAssembly.Suspending is not spec, but exists in node 23
+  // @ts-expect-error -- WebAssembly.Suspending is not spec, but exists in node 23
   const jsImport = new WebAssembly.Suspending(() => {
     console.log(`AsyncLocalStorage store called from wasm: ` + JSON.stringify(als.getStore()));
     return Promise.resolve(als.getStore()?.id ?? 0);
@@ -142,7 +142,7 @@ async function testAsyncContextLoss() {
   const wasmModule = new WebAssembly.Module(wasmModuleBinaryData);
   const wasmInstance = new WebAssembly.Instance(wasmModule, { 'm': { 'import': jsImport } });
 
-  // @ts-ignore -- WebAssembly.promising is not spec, but exists in node 23
+  // @ts-expect-error -- WebAssembly.promising is not spec, but exists in node 23
   const exportWrapper = WebAssembly.promising(wasmInstance.exports.test);
 
   const retval = await als.run({ id: 1 }, () => exportWrapper());

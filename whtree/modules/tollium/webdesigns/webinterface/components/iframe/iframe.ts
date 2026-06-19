@@ -294,7 +294,7 @@ export default class ObjIFrame extends ComponentBase {
       this.iframe.contentWindow!.addEventListener("keyup", this.forwardKey);
 
       //flag that we've configured the iframe, some tests need this
-      //@ts-ignore -- TODO clean this up. why do we need the flag anyway? make it the frame's problem to install a helper JS script
+      //@ts-expect-error -- TODO clean this up. why do we need the flag anyway? make it the frame's problem to install a helper JS script
       this.iframe.contentWindow.whIframeAttached = true;
     } catch (e) {
       //its okay if it fails... we probably weren't intended to control the dialog (FIXME we should just ensure ALL iframes load todd-iframe.js or just wrap all iframes inside a local parent with which we can postmessage)
@@ -598,11 +598,11 @@ window.addEventListener('message', function (evt) {
     return; // Tollium expects a data RECORD
 
   const matchingiframe = dompack.qSA<HTMLIFrameElement>('iframe').find(iframe => iframe.contentWindow === evt.source);
-  //@ts-ignore -- is there a reason we're not attaching this listener to the iframe instead ?
+  //@ts-expect-error -- is there a reason we're not attaching this listener to the iframe instead ?
   if (!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;
 
   dompack.stop(evt);
-  //@ts-ignore -- we asserted propTodd above
+  //@ts-expect-error -- we asserted propTodd above
   matchingiframe.parentNode.propTodd.handleWindowMessage(evt);
 });

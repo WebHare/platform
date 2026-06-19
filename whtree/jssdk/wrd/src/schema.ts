@@ -886,7 +886,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   private async __closeEntities(ids: number[], closeAt: Date): Promise<void> {
     for (const id of ids) {
-      //@ts-ignore WRD doesn't recognize wrdClosed/wrdLimitDate as existing everywhere
+      //@ts-expect-error WRD doesn't recognize wrdClosed/wrdLimitDate as existing everywhere
       await this.updateEntity(id, this.legacySchema ? { wrdLimitDate: closeAt } : { wrdClosed: closeAt });
     }
   }
@@ -1222,7 +1222,6 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
       currentRowMap.delete(inrowkey);
     }
 
-    //@ts-ignore -- too complex
     const unreferenced = [...currentRowMap.values()].map(_ => _.wrdId);
     retval.unmatched = unreferenced;
     if (retval.unmatched.length && unmatchedCloseMode !== 'keep')

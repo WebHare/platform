@@ -5,7 +5,7 @@ import * as crypto from "node:crypto";
 import { readAnyFromDatabase } from "@webhare/whdb/src/formats";
 
 import type { RegistryKeys } from "@mod-platform/generated/ts/registry.ts";
-// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
+// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig). this line *must* remain a @ts-ignore
 import type { } from "wh:ts/registry.ts";
 import { determineType, encodeHSON, HareScriptType, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { WebHareBlob } from "./webhareblob";

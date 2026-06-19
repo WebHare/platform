@@ -52,9 +52,9 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
     Object.defineProperty(evt, 'relatedTarget', { value: options.relatedTarget, writable: false });
 
   //TODO: Should we keep this code?
-  // @ts-ignore IScroll is a custom Window property set by IScroll
+  // @ts-expect-error IScroll is a custom Window property set by IScroll
   if (eventtype === 'click' && window.IScroll)
-    // @ts-ignore _constructed is a custom Event property used by IScroll
+    // @ts-expect-error _constructed is a custom Event property used by IScroll
     evt._constructed = true; //ensure IScroll doesn't blindly cancel our synthetic clicks
 
   return element.dispatchEvent(evt);

@@ -2,7 +2,6 @@ import * as test from "@mod-tollium/js/testframework";
 import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import { sleep } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
-///@ts-ignore -- not yet ported (and currently being refactored externally)
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 let status_comp: any, clearbutton_node: any, apptab: any;
