@@ -2,7 +2,7 @@
 /** @short   HareScript localization functions
     @long    This library provides an interface to the ICU library containing localization information to for example format
              dates, times and numbers, calculate local times, or provide lists of countries and languages. It also offers a
-             number of Intl-compatible interfaces: Collator, DateTimeFormat and NumberFormat (see
+             number of Intl-compatible interfaces: Collator, DateTimeFormat, NumberFormat and DurationFormat (see
              https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl).
     @topic harescript-utils/localization
 */
@@ -13,7 +13,6 @@ This library offers new versions of these functions:
   GetLanguageDatetimeStrings (wh::datetime.whlib)        => GetLocalizedDatetimeStrings
   FormatMoney (wh::money.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
   FormatFloat (wh::float.whlib)                          => LocalizeNumber, LocalizeCurrency, LocalizePercentage
-  GetCountryList (mod::wrd/lib/worldinfo/worldinfo.whlib)=> GetCountryList
   ToUppercase (wh::system.whlib)                         => LocalizedToUppercase
   ToLowercase (wh::system.whlib)                         => LocalizedToLowercase
   NormalizeText (wh::util/langspecific.whlib)            => LocalizedNormalizeText
@@ -29,8 +28,6 @@ This library offers new versions of these functions:
 The new functions aren't all drop-in replacements, as they may offer new functionalities or changed parameters.
 
 Ideas for further functionality:
-  LocalizeTimeSpan - Format a time span, like "1 day, 2 hours and 34 minutes" (possibly make a difference between historic
-                     and future time spans)
   Support for custom locales, to be able to specify custom date/time notations, decimal separators, etc.
 */
 LOADLIB "wh::system.whlib";
