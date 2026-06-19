@@ -393,7 +393,7 @@ void doConvertDateTime(HSVM *hsvm, HSVM_VariableId id_set, UBool local)
 }
 
 // Format one time unit of a duration record
-void formatPart(HSVM *hsvm, HSVM_VariableId record, std::string const &cell, std::string const &style, std::string const &display, bool numeric, Locale locid, UErrorCode &status, UnicodeString &str)
+void formatPart(HSVM *hsvm, HSVM_VariableId record, std::string const &cell, std::string const &style, std::string const &display, Locale locid, UErrorCode &status, UnicodeString &str)
 {
         // Read the value
         HSVM_VariableId valueref = HSVM_RecordGetRef(hsvm, record, HSVM_GetColumnId(hsvm, &cell[0]));
@@ -401,7 +401,7 @@ void formatPart(HSVM *hsvm, HSVM_VariableId record, std::string const &cell, std
         if (valueref)
             value = HSVM_IntegerGet(hsvm, valueref);
         // Nothing to show if there is no value or the empty value should not be shown
-        if (!value && display != "always" && !numeric)
+        if (!value && display != "always")
             return;
 
         if (style == "numeric" || style == "2-digit")
@@ -788,85 +788,42 @@ void FormatDuration(HSVM *hsvm, HSVM_VariableId id_set)
         // Read the duration record arguments and format the parts
         std::vector<UnicodeString> parts;
         UnicodeString str = "";
-        formatPart(hsvm, HSVM_Arg(0), "YEARS", style_years, display_years, false, locid, status, str);
+        formatPart(hsvm, HSVM_Arg(0), "YEARS", style_years, display_years, locid, status, str);
         if (U_SUCCESS(status) && str != "")
             parts.push_back(str);
         str = ""; // clear str for the next part
-        formatPart(hsvm, HSVM_Arg(0), "MONTHS", style_months, display_months, false, locid, status, str);
+        formatPart(hsvm, HSVM_Arg(0), "MONTHS", style_months, display_months, locid, status, str);
         if (U_SUCCESS(status) && str != "")
             parts.push_back(str);
         str = ""; // clear str for the next part
-        formatPart(hsvm, HSVM_Arg(0), "WEEKS", style_weeks, display_weeks, false, locid, status, str);
+        formatPart(hsvm, HSVM_Arg(0), "WEEKS", style_weeks, display_weeks, locid, status, str);
         if (U_SUCCESS(status) && str != "")
             parts.push_back(str);
         str = ""; // clear str for the next part
-        formatPart(hsvm, HSVM_Arg(0), "DAYS", style_days, display_days, false, locid, status, str);
+        formatPart(hsvm, HSVM_Arg(0), "DAYS", style_days, display_days, locid, status, str);
         if (U_SUCCESS(status) && str != "")
             parts.push_back(str);
         str = ""; // clear str for the next part
-        formatPart(hsvm, HSVM_Arg(0), "HOURS", style_hours, display_hours, numeric, locid, status, str);
-        if (!numeric)
-        {
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-                str = ""; // clear str for the next part
-        }
-        else
-        {
-                // Don't push the result yet, we want to add minutes and seconds first, separated by the time separator
-                str.append(time_sep);
-        }
-        formatPart(hsvm, HSVM_Arg(0), "MINUTES", style_minutes, display_minutes, numeric, locid, status, str);
-        if (!numeric)
-        {
-                // If not displaying numeric time, add the next parts separately
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-                str = ""; // clear str for the next part
-                formatPart(hsvm, HSVM_Arg(0), "SECONDS", style_seconds, display_seconds, numeric, locid, status, str);
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-                str = ""; // clear str for the next part
-                formatPart(hsvm, HSVM_Arg(0), "MILLISECONDS", style_milliseconds, display_milliseconds, false, locid, status, str);
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-                str = ""; // clear str for the next part
-                formatPart(hsvm, HSVM_Arg(0), "MICROSECONDS", style_microseconds, display_microseconds, false, locid, status, str);
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-                str = ""; // clear str for the next part
-                formatPart(hsvm, HSVM_Arg(0), "NANOSECONDS", style_nanoseconds, display_nanoseconds, false, locid, status, str);
-                if (U_SUCCESS(status) && str != "")
-                    parts.push_back(str);
-        }
-        else
-        {
-                // Create a number formatter for formatting the seconds
-                std::unique_ptr<NumberFormat> nf(DecimalFormat::createInstance(locid, status));
-                if (U_FAILURE(status) || !nf.get())
-                    return;
 
-                if (style_seconds == "2-digit")
-                    nf->setMinimumIntegerDigits(2);
-
-                // If a number of fractional digits is given, show that number of fractional digits, otherwise show all non-zero digits
-                HSVM_VariableId fractionaldigits = HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "FRACTIONALDIGITS"));
-                if (fractionaldigits)
+        UnicodeString time_part = "";
+        if (numeric)
+        {
+                // For numeric display, the time is formatted as one part
+                formatPart(hsvm, HSVM_Arg(0), "HOURS", style_hours, display_hours, locid, status, str);
+                bool have_hours = U_SUCCESS(status) && str != "";
+                if (have_hours)
+                    time_part.append(str);
+                str = ""; // clear str for the next part
+                // Always show minutes if hours and seconds are always shown
+                display_minutes = display_hours == "always" && display_seconds == "always" ? "always" : display_minutes;
+                formatPart(hsvm, HSVM_Arg(0), "MINUTES", style_minutes, display_minutes, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
                 {
-                        int digits = HSVM_IntegerGet(hsvm, fractionaldigits);
-                        nf->setMinimumFractionDigits(digits);
-                        nf->setMaximumFractionDigits(digits);
+                        if (time_part != "")
+                            time_part.append(time_sep);
+                        time_part.append(str);
                 }
-                else
-                {
-                        nf->setMinimumFractionDigits(0);
-                        nf->setMaximumFractionDigits(9);
-                }
-                // Truncate towards zero, don't round
-                nf->setRoundingMode(NumberFormat::kRoundDown);
-
-                // Append the time separator
-                str.append(time_sep);
+                str = ""; // clear str for the next part
 
                 // Format the seconds, adding smaller units as fraction
                 double value = 0;
@@ -883,9 +840,82 @@ void FormatDuration(HSVM *hsvm, HSVM_VariableId id_set)
                 if (nanoseconds)
                     value += HSVM_IntegerGet(hsvm, nanoseconds) / 1000000000.0;
 
-                // Add the formatted seconds to the part
-                nf->format(value, str);
-                parts.push_back(str);
+                // Check if we have to actually display seconds
+                if (value || display_seconds != "auto")
+                {
+                        // Append the time separator if we have formatted minutes
+                        if (time_part != "")
+                            time_part.append(time_sep);
+
+                        // Create a number formatter for formatting the seconds
+                        std::unique_ptr<NumberFormat> nf(DecimalFormat::createInstance(locid, status));
+                        if (U_FAILURE(status) || !nf.get())
+                            return;
+
+                        if (style_seconds == "2-digit")
+                            nf->setMinimumIntegerDigits(2);
+
+                        // If a number of fractional digits is given, show that number of fractional digits, otherwise show all non-zero digits
+                        HSVM_VariableId fractionaldigits = HSVM_RecordGetRef(hsvm, HSVM_Arg(2), HSVM_GetColumnId(hsvm, "FRACTIONALDIGITS"));
+                        if (fractionaldigits)
+                        {
+                                int digits = HSVM_IntegerGet(hsvm, fractionaldigits);
+                                nf->setMinimumFractionDigits(digits);
+                                nf->setMaximumFractionDigits(digits);
+                        }
+                        else
+                        {
+                                nf->setMinimumFractionDigits(0);
+                                nf->setMaximumFractionDigits(9);
+                        }
+                        // Truncate towards zero, don't round
+                        nf->setRoundingMode(NumberFormat::kRoundDown);
+
+                        // Add the formatted seconds to the part
+                        nf->format(value, time_part);
+                }
+                if (time_part != "")
+                {
+                        // Specifically when not showing hours, browsers directly append the time after the date parts,
+                        // prepended with the time separator (e.g. "1 day:00" or "1 day:00:00")
+                        if (!have_hours && parts.size())
+                        {
+                                time_part.insert(0, time_sep);
+                                // Not clearing time_part, it will be appended after the list is formatted
+                        }
+                        else
+                        {
+                                parts.push_back(time_part);
+                                time_part = "";
+                        }
+                }
+        }
+        else
+        {
+                // If not displaying numeric time, add the next parts separately
+                formatPart(hsvm, HSVM_Arg(0), "HOURS", style_hours, display_hours, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "MINUTES", style_minutes, display_minutes, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "SECONDS", style_seconds, display_seconds, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "MILLISECONDS", style_milliseconds, display_milliseconds, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "MICROSECONDS", style_microseconds, display_microseconds, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
+                str = ""; // clear str for the next part
+                formatPart(hsvm, HSVM_Arg(0), "NANOSECONDS", style_nanoseconds, display_nanoseconds, locid, status, str);
+                if (U_SUCCESS(status) && str != "")
+                    parts.push_back(str);
         }
         if (!parts.size())
             return;
@@ -901,6 +931,8 @@ void FormatDuration(HSVM *hsvm, HSVM_VariableId id_set)
             return;
         str = "";
         lf->format(&parts[0], parts.size(), str, status);
+        if (time_part != "")
+            str.append(time_part);
         if (U_SUCCESS(status))
             HSVM_StringSetUnicode(hsvm, id_set, str);
 }

@@ -1047,6 +1047,30 @@ MACRO DurationFormatTest()
   format := NEW DurationFormat("nl", options)->format;
   TestEq("1:02:03,45", format(timevalue));
 
+  // Time parts that are explicitly set to 'auto' should not be shown if they're not given in the 'digital' style
+  // ('hoursdisplay', 'minutesdisplay' and 'secondsdisplay' default to 'always' for the 'digital' style)
+  format := NEW DurationFormat("en", CELL[ style := "digital", hoursdisplay := "auto", minutesdisplay := "auto", secondsdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days", format(datevalue)); // all zero, none shown
+  format := NEW DurationFormat("en", CELL[ style := "digital", minutesdisplay := "auto", secondsdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days, 0", format(datevalue)); // show hours
+  format := NEW DurationFormat("en", CELL[ style := "digital", secondsdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days, 0:00", format(datevalue)); // show hours and minutes
+  format := NEW DurationFormat("en", CELL[ style := "digital", minutesdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days, 0:00:00", format(datevalue)); // when hours and seconds are always shown, minutes are also always shown
+
+  // When only showing seconds with other date parts in the 'digital' style, browsers append those directly after the other parts
+  format := NEW DurationFormat("en", CELL[ style := "digital", hoursdisplay := "auto", minutesdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days:00", format(datevalue));
+  format := NEW DurationFormat("en", CELL[ style := "digital", hoursdisplay := "auto", minutesdisplay := "auto" ])->format;
+  TestEq("00", format([ seconds := 0 ])); // Note that Safari formats this as ":, 00" (filed as https://bugs.webkit.org/show_bug.cgi?id=317486)
+
+  // Chome and NodeJS (which we use in our WASM implementation) render this incorrectly, see https://issues.chromium.org/issues/414844450
+  // We'll follow the NodeJS implementation for consistency
+  format := NEW DurationFormat("en", CELL[ style := "digital", hoursdisplay := "auto", secondsdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days:00", format(datevalue));//TestEq("5 yrs, 4 mths, 3 days, 00", format(datevalue));
+  format := NEW DurationFormat("en", CELL[ style := "digital", hoursdisplay := "auto" ])->format;
+  TestEq("5 yrs, 4 mths, 3 days:00:00", format(datevalue));//TestEq("5 yrs, 4 mths, 3 days, 00:00", format(datevalue));
+
   // Only non-zero values are shown with the default monthsdisplay of 'auto'
   datevalue := [ years := 5, months := 0, days := 3 ];
   format := NEW DurationFormat("en")->format;
