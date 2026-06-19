@@ -8,7 +8,7 @@ import { toElement, type CastableToElement } from "dompack/testframework/pointer
 import { getCurrentScreen, getTestScreen, type ScreenProxy } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
-import { changeValue, isFormControl, qSA } from "@webhare/dompack";
+import { changeValue, isFormControl, qSA, type FormControlElement } from "@webhare/dompack";
 import { nameToSnakeCase, throwError } from "@webhare/std";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
@@ -65,12 +65,19 @@ class ComponentProxy implements CastableToElement {
     return this.node.dataset.name ? `'${this.node.dataset.name}'` : `<unnamed ${this.node.tagName.toLowerCase()}>`;
   }
 
+  private getHTMLFormControl(): FormControlElement | null {
+    if (this.node.matches("t-textarea"))
+      return test.qR<FormControlElement>(this.node, "textarea");
+    if (this.node.matches("t-textedit")) //But what if valuetype= is set?  currently not passed to tollium frontend anyway
+      return test.qR<FormControlElement>(this.node, "input");
+
+    return null;
+  }
+
   /** Obtain the text value for components that don't differentiate between their normal and text value */
   private getIfTextValue(): string | undefined {
-    if (this.node.matches("t-textarea"))
-      return this.node.querySelector("textarea")!.value;
-    if (this.node.matches("t-textedit")) //But what if valuetype= is set?  currently not passed to tollium frontend anyway
-      return this.node.querySelector('input')!.value;
+    if (this.node.matches("t-textarea, t-textedit"))
+      return this.getHTMLFormControl()?.value;
   }
 
   /** Obtain the 'natural' value for this component's form control */
@@ -105,41 +112,49 @@ class ComponentProxy implements CastableToElement {
 
   /** Set a value, allowing events to trigger */
   set(value: unknown) {
-    if (isFormControl(this.node)) {
-      if (this.node.matches("input[type=checkbox]")) {
+    const toSet = this.getHTMLFormControl() ?? this.node;
+
+    if (isFormControl(toSet)) {
+      if (toSet.matches("input[type=checkbox]")) {
         if (typeof value !== "boolean")
           throw new Error(`Checkbox input '${this.getCompName()}' expects a boolean value`);
 
-        if ((this.node as HTMLInputElement).checked !== value) {
-          this.node.focus();
-          changeValue(this.node, value);
+        if ((toSet as HTMLInputElement).checked !== value) {
+          toSet.focus();
+          changeValue(toSet, value);
         } else {
-          console.warn("Checkbox", this.node, "already has the value", value);
+          console.warn("Checkbox", toSet, "already has the value", value);
         }
         return;
       }
 
-      if (this.node.matches("select")) {
+      if (toSet.matches("select")) {
         if (typeof value !== "string")
           throw new Error(`Pulldown '${this.getCompName()}' expects a string value`);
 
-        const targets = value.startsWith(':') ? [...(this.node as HTMLSelectElement).options].filter(opt => opt.textContent === value.substring(1)) :
-          [...(this.node as HTMLSelectElement).options].filter(opt => opt.value === value);
+        const targets = value.startsWith(':') ? [...(toSet as HTMLSelectElement).options].filter(opt => opt.textContent === value.substring(1)) :
+          [...(toSet as HTMLSelectElement).options].filter(opt => opt.value === value);
 
         if (targets.length > 1)
           throw new Error(`Multiple options in pulldown '${this.getCompName()}' match '${value}'`);
         if (targets.length === 0)
           throw new Error(`No options in pulldown '${this.getCompName()}' match '${value}'`);
 
-        if ((this.node as HTMLSelectElement).value !== targets[0].value) {
-          this.node.focus();
-          changeValue(this.node, targets[0].value);
+        if ((toSet as HTMLSelectElement).value !== targets[0].value) {
+          toSet.focus();
+          changeValue(toSet, targets[0].value);
         } else {
-          console.warn("Puldown", this.node, "already has the value", targets[0].value);
+          console.warn("Puldown", toSet, "already has the value", targets[0].value);
         }
         return;
       }
+
+      toSet.focus();
+      changeValue(toSet, String(value));
+      return;
     }
+
+    console.error(`Don't know how to set()`, toSet);
     throw new Error(`Don't know how to set() for node '${this.getCompName()}'`);
   }
 
