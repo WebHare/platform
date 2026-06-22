@@ -107,6 +107,8 @@ test.runTests(
       await test.wait("ui");
       textarea.scrollTop = 60;
       textarea.setSelectionRange(12, 15);
+      dompack.dispatchDomEvent("scroll", textarea);
+      dompack.dispatchDomEvent("selectionchange", textarea);
       test.click(test.getMenu(['I06'])); // update status line
       await test.wait("ui");
       test.eq("4: '6\\n7'", test.compByName("status").textContent);

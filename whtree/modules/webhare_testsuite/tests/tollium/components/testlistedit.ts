@@ -24,7 +24,7 @@ test.runTests(
       test: async function () {
         // Enter '4' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
-        elt.value = "4";
+        test.fill(elt, "4");
 
         // press 'ok'
         test.clickTolliumButton("OK");
@@ -58,7 +58,7 @@ test.runTests(
       test: async function () {
         // Enter '3' in textedit
         const elt = test.getCurrentScreen().qS("t-textedit input");
-        elt.value = "3";
+        test.fill(elt, "3");
 
         test.clickTolliumButton("OK");
         await test.waitForUI();

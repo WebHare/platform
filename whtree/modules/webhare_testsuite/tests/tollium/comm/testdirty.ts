@@ -17,7 +17,6 @@ test.runTests(
   [
     async function () {
       await tt.loadWTSTestScreen('tests/dirty.dirtytest');
-      await test.waitForUI();
 
       // Get general components
       status_comp = test.compByName("dirtystatus").propTodd;
@@ -34,14 +33,14 @@ test.runTests(
       await clearState();
 
       // Update textedit value
-      const textedit_node = test.compByName("textedit").querySelector("input");
-      test.fill(textedit_node, "some text");
+      tt.comp("textedit").set("some text");
       // Wait until the state changes (times out if it doesn't work)
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Regression: merely selecting text made the textedit dirty
+      const textedit_node = test.compByName("textedit").querySelector("input");
       textedit_node.selectionStart = 0;
       textedit_node.selectionEnd = textedit_node.value.length;
       // We cannot wait until something hasn't happened, so just wait a second and check the status

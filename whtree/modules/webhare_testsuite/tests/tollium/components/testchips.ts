@@ -131,7 +131,7 @@ test.runTests(
     async function () {
       const testpanel = test.compByName("componentpanel");
 
-      tt.comp(":Value").querySelector("input")!.value = `"third"`;
+      tt.comp(":Value").set(`"third"`);
       tt.comp("writevaluebutton").click();
       await test.waitForUI();
 
@@ -198,7 +198,7 @@ test.runTests(
       await test.waitForUI();
 
       test.assert(tt.comp(":EnableOnTarget1").querySelector<HTMLInputElement>("input")?.readOnly === false);
-      tt.comp(":Value").querySelector("input")!.value = "3";
+      tt.comp(":Value").set(`3`);
       await test.waitForUI();
       tt.comp("writevaluebutton").click();
       await test.waitForUI();

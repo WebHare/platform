@@ -33,7 +33,7 @@ test.runTests(
       await tt.loadWTSTestScreen('tests/dragdrop.multitest');
     },
     async function mainTest() {
-      test.compByName('log').querySelector('textarea').value = '';
+      tt.comp("log").set("");
 
       const clist = test.compByName("clist");
       const ctable = test.compByName("ctable");
@@ -65,7 +65,7 @@ test.runTests(
       await test.wait("ui");
 
       test.eq("list move-local:type1", getLogComponent().value);
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.subtest("table");
       await test.sendMouseGesture([
@@ -83,7 +83,7 @@ test.runTests(
       await test.wait("ui");
 
       test.eq("table move-local:type1", getLogComponent().value);
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.subtest("panel");
       await test.sendMouseGesture([
@@ -100,7 +100,7 @@ test.runTests(
       await test.wait("ui");
 
       test.eq("panel move-local:type1", getLogComponent().value);
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.subtest("droptarget-clear");
 
@@ -138,7 +138,7 @@ test.runTests(
       await test.wait("ui");
 
       test.subtest("panel-copy");
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       await test.sendMouseGesture([
         { el: dragelt, down: 0, ...test.keyboardCopyModifier },
@@ -157,7 +157,7 @@ test.runTests(
       test.eq("panel copy-local:type1", getLogComponent().value);
 
       test.subtest("panel-link");
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       await test.sendMouseGesture([
         { el: dragelt, down: 0, ...test.keyboardLinkModifier },
@@ -182,7 +182,7 @@ test.runTests(
       const cpanel = test.compByName("cpanel");
 
       test.subtest("list");
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.startExternalFileDrag(new File(["test1"], "test1.txt", { type: "text/plain" }));
 
@@ -205,7 +205,7 @@ test.runTests(
       test.eq("list move-file test1.txt text/plain 'test1'", getLogComponent().value);
 
       test.subtest("table");
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.startExternalFileDrag(new File(["test2"], "test2.txt", { type: "text/plain" }));
 
@@ -228,7 +228,7 @@ test.runTests(
       test.eq("table move-file test2.txt text/plain 'test2'", getLogComponent().value);
 
       test.subtest("panel");
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
       test.startExternalFileDrag(new File(["test3"], "test3.txt", { type: "text/plain" }));
 
@@ -249,7 +249,7 @@ test.runTests(
       await test.wait("ui");
 
       test.eq("panel move-file test3.txt text/plain 'test3'", getLogComponent().value);
-      getLogComponent().value = "";
+      tt.comp("log").set("");
 
     }
   ]);
