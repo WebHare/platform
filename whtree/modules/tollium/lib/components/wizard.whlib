@@ -39,7 +39,7 @@ PUBLIC OBJECTTYPE TolliumWizard EXTEND TolliumPanel
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
-    this->TolliumComponentBase_StaticInit(def);
+    this->TolliumComponentBase_StaticInit(CELL[ ...def, dirtylistener := DEFAULT OBJECT ]);
     this->cancelbutton_visible := NOT def.hidecancel;
 
     this->pages := SELECT pagepanel := component

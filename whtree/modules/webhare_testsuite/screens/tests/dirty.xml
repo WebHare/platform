@@ -96,4 +96,34 @@
     </body>
   </screen>
 
+  <screen name="recursivedirty">
+    <compositions>
+      <dirtylistener name="outerpanel_listener" />
+      <dirtylistener name="innerpanel_listener" />
+      <dirtylistener name="innertextedit_listener" />
+      <dirtylistener name="box_listener" />
+      <dirtylistener name="box_textedit_listener" />
+    </compositions>
+    <body>
+      <checkbox name="outerpanel_dirty" title="Outer panel" label="dirty"  />
+      <checkbox name="innerpanel_dirty" title="Inner panel" label="dirty"  />
+      <checkbox name="innertextedit_dirty" title="Inner textedit" label="dirty"  />
+      <checkbox name="box_dirty" title="Box" label="dirty"  />
+      <checkbox name="box_textedit_dirty" title="Box textedit" label="dirty"  />
+      <panel name="outerpanel" dirtylistener="outerpanel_listener">
+        <heading title="Outer panel"/>
+        <panel name="innerpanel" dirtylistener="innerpanel_listener">
+          <heading title="Inner panel"/>
+          <textedit name="innertextedit" dirtylistener="innertextedit_listener" title="Inner textedit" />
+        </panel>
+        <box name="innerbox" dirtylistener="box_listener" title="Inner box" checkbox="true" hr="false">
+          <textedit name="box_textedit" dirtylistener="box_textedit_listener" title="Box textedit" />
+         </box>
+      </panel>
+      <line layout="left">
+        <textarea name="log" height="8gr" enabled="false" />
+      </line>
+    </body>
+  </screen>
+
 </screens>
