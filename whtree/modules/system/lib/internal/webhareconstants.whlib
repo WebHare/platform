@@ -218,13 +218,13 @@ PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_invalidtemplate :=
    17 unused
    18 INSTANCE
    19 URL
-   20 composeddocument
+   20 compounddocument
    21 RECORD
    22 FORMCONDITION
    23 TYPED RECORD
 */
 PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
-[ "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "", "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "", "instance", "url", "composeddocument", "record", "", "typedrecord", "", "date" ];
+[ "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "", "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "", "instance", "url", "compounddocument", "record", "", "typedrecord", "", "date" ];
 
 //ip address reported by the consilio fetcher
 PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";

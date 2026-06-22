@@ -465,7 +465,7 @@ STATIC OBJECTTYPE WHFSType <
         {
           newval := DecodeSPDate(curset);
         }
-        CASE 15,20 //richdocument, composeddocument
+        CASE 15,20 //richdocument, compounddocument
         {
           RECORD root := SELECT * FROM curset WHERE ordering=0;
           BOOLEAN isrtd := memberrec.type = 15; //rtd
@@ -868,7 +868,7 @@ STATIC OBJECTTYPE WHFSType <
           // Delete non-matched old settings
           killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN unmatched_ids;
         }
-        CASE 15,20 { //Rich document, composeddocument
+        CASE 15,20 { //Rich document, compounddocument
           /* Rich documents are stored as follows:
              fs_settings { setting: "RD1" (version indicator, for future use), blobdata: html doc, ordering: 0 }
              embedded images are stored like blobs, but we prefix the setting field with the contentid */

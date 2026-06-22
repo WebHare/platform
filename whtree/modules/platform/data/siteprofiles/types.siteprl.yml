@@ -86,7 +86,7 @@ types:
         type: integer
       data:
         title: Form contents
-        type: composedDocument
+        type: compoundDocument
       unavailable:
         title: The form is unavailable
         type: boolean
@@ -148,7 +148,7 @@ types:
     searchContentProvider: publisher:markdown
     members:
       data:
-        type: composedDocument
+        type: compoundDocument
     apply:
       bodyRenderer:
         onRenderContent: mod::platform/js/pagebuilders/markdown.ts#renderMarkdown

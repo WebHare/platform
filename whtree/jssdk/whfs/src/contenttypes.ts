@@ -384,7 +384,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
 
 export interface VisitedResourceContext {
   fsObject: number;
-  fieldType: MemberType & ("file" | "richTextDocument" | "composedDocument");
+  fieldType: MemberType & ("file" | "richTextDocument" | "compoundDocument");
   fieldName: string;
   fsType: string;
 }
@@ -469,7 +469,7 @@ export async function visitResources(callback: VisitCallback, scope: {
           fsType: typeInfo?.scopedType ?? typeInfo?.namespace,
           fieldType: result.type === CSPMemberType.File ? "file"
             : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
-              : result.type === CSPMemberType.ComposedDocument ? "composedDocument"
+              : result.type === CSPMemberType.CompoundDocument ? "compoundDocument"
                 : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
         }, reconstructedDescriptor);

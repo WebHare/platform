@@ -1,6 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { buildInstance, buildRTD, WebHareBlob } from "@webhare/services";
-import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import { CompoundDocument } from "@webhare/services/src/compound-document";
 import { db } from "@webhare/whdb";
 import { describeWHFSType } from "@webhare/whfs";
 
@@ -64,8 +64,8 @@ export async function dumpSettings(objid: number, ns: string) {
 
 export async function generateForm(content: {
   text: string;
-}): Promise<ComposedDocument> {
-  const formContent = new ComposedDocument("platform:formdefinition", WebHareBlob.from(`
+}): Promise<CompoundDocument> {
+  const formContent = new CompoundDocument("platform:formdefinition", WebHareBlob.from(`
       <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
         <form name="webtoolform">
           <page>

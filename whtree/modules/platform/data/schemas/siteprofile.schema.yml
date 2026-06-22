@@ -298,7 +298,7 @@ $defs:
           - whfsRefArray
           - stringArray
           - richTextDocument
-          - composedDocument
+          - compoundDocument
           - intExtLink
           - instance
           - url

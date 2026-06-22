@@ -254,7 +254,7 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
     {
       contents :=
          CELL[ ...dbinfo_baserow
-             , name := "composeddocument: " || rtd.type
+             , name := "compounddocument: " || rtd.type
              , data := Length(rtd.text) || ' bytes'
              , rowkey := mybasename || 'formtext'
              , candownload := TRUE
