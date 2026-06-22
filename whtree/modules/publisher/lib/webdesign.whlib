@@ -1574,7 +1574,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
       @cell(string) options.whfstype WHFS Type of the widget to render */
   PUBLIC MACRO RenderWidgetInstance(RECORD widgetdata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ whfstype := "" ], options);
+    options := ValidateOptions( [ whfstype := "", ispublisherpreview := FALSE /*TS site requests*/ ], options);
 
     IF(NOT RecordExists(widgetdata) AND options.whfstype = "") //accepting default records simplifies usage (similar to WrapCachedImage)
       RETURN;
@@ -1599,7 +1599,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext <
     IF(NOT RecordExists(rtdinfo))
       THROW NEW Exception("No rtdtype setup for the current object");
 
-    OBJECT embobj := GetEmbeddedObjectRenderer(this->targetobject, this->pvt_targetapplytester, rtdinfo.rtdtype, widgetdata, this).widget;
+    OBJECT embobj := GetEmbeddedObjectRenderer(this->targetobject, this->pvt_targetapplytester, rtdinfo.rtdtype, widgetdata, this, options.ispublisherpreview).widget;
     embobj->RenderLive();
   }
 
