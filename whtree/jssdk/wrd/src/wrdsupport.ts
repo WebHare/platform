@@ -113,3 +113,13 @@ export function isValidWRDSchemaTag(tag: string): boolean {
   //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
   return Boolean(tag.match(/^.+:.+$/));
 }
+
+export function isValidWRDTypeTag(tag: string): boolean {
+  return Boolean(tag.match(/^[a-z][$a-zA-Z0-9_]{0,63}$/) && !tag.endsWith('_')) && nameToSnakeCase(tag).length <= 64;
+}
+
+export function isValidWRDAttributeTag(tag: string, options?: { allowMultiLevel?: boolean }): boolean {
+  if (options?.allowMultiLevel)
+    return !tag.split('.').some(part => !isValidWRDAttributeTag(part));
+  return Boolean(tag.match(/^[a-z][$a-zA-Z0-9_]{0,63}$/) && !tag.endsWith('_')) && nameToSnakeCase(tag).length <= 64;
+}

@@ -33,9 +33,15 @@ declare module "@webhare/services" {
 const MaxImageScanSize = 50 * 1024 * 1024; //Size above which we don't trust images. Now 50MB starting with WH5.9.2/WH6.0
 const BlobLinkValidity = 86400_000; //one day
 
-//cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
-const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
-export const SupportedPackMethods = ["none", "fit", "scale", "fill", "fitcanvas", "scalecanvas"] as const;
+export const PackMethods = {
+  none: 0,
+  fit: 1,
+  scale: 2,
+  fill: 3,
+  fitCanvas: 5,
+  scaleCanvas: 6
+} as const;
+
 //List of bitmap formats we support for upload and editing. (image/gif is unsafe to edit as it will generally be used for animation!)
 export const supportedBitmapImages = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 export const outputFormats = ["keep", "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const; //outputFormats mirrors graphics.whlib __packformats. Note that the ordering cannot change as this is directly mapped to an integer in the packed format
@@ -67,7 +73,8 @@ export type ResizedImage = {
   objectPosition: string | null;
 };
 
-export type ResizeMethodName = typeof SupportedPackMethods[number];
+type LegacyResizeMethodName = "fitcanvas" | "scalecanvas";
+export type ResizeMethodName = keyof typeof PackMethods | LegacyResizeMethodName;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
 export type ExportMapWhfsLinkInfo = {
@@ -566,11 +573,19 @@ export function decodeScanData(scandata: string): ResourceMetadata {
 }
 
 function validateResizeMethod(resizemethod: PackableResizeMethod) {
-  const method = packMethods.indexOf(resizemethod.method);
-  if (method < 0)
-    throw new Error(`Unrecognized method '${resizemethod.method}'`);
-  if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method))
+  let methodName: ResizeMethodName;
+  if (resizemethod.method === "fitcanvas" || resizemethod.method === "scalecanvas") {
+    //TODO start throwing explicitly once all are WH6+ and we can phase out the lowercase names
+    methodName = resizemethod.method === "fitcanvas" ? "fitCanvas" as const : "scaleCanvas" as const;
+  } else if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method)) {
     throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
+  } else {
+    methodName = resizemethod.method;
+  }
+
+  const method = PackMethods[methodName];
+  if (method === undefined)
+    throw new Error(`Unrecognized method '${resizemethod.method}'`);
 
   const format = outputFormats.indexOf(resizemethod.format ?? "keep");
   if (format < 0)

@@ -121,7 +121,7 @@ servers:
 - url: "."
   description: Test service 1.0.0
 
-  x-webhare-authorization: users.ts#allowAll
+x-webhare-authorization: users.ts#allowAll
 
 paths:
   "/users":

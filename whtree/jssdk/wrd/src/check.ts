@@ -2,6 +2,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { WRDSchema } from "@webhare/wrd";
 import { db } from "@webhare/whdb";
+import { isValidWRDAttributeTag, isValidWRDTypeTag, tagToJS } from "./wrdsupport";
 
 export type WRDIssue = {
   message: string;
@@ -20,7 +21,7 @@ function addFullTags<T extends { tag: string; id: number; parent: number | null 
 
 /** Test the consistency of a WRD schema and pinpoint reference defects
 */
-export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => void, options?: { metadataOnly: boolean }): Promise<void> {
+export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => void, options?: { metadataOnly?: boolean }): Promise<void> {
   const schema = new WRDSchema(tag);
   const schemaId = await schema.getId();
 
@@ -32,7 +33,10 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
   for (const type of types) {
     for (const prop of ["requiretype_left", "requiretype_right", "parenttype"] as const) {
       if (type[prop] && !types.find(t => t.id === type[prop])) {
-        onIssue({ message: `WRD type ${type.title} refers to type #${type[prop]} in its ${prop} field which is not in the same schema` });
+        onIssue({ message: `WRD type ${type.tag} refers to type #${type[prop]} in its ${prop} field which is not in the same schema` });
+      }
+      if (!isValidWRDTypeTag(tagToJS(type.tag))) {
+        onIssue({ message: `WRD type has invalid tag '${tagToJS(type.tag)}'` });
       }
     }
   }
@@ -42,7 +46,10 @@ export async function checkWRDSchema(tag: string, onIssue: (issue: WRDIssue) => 
 
   for (const attr of attrs) {
     if (attr.domain && !types.find(t => t.id === attr.domain)) {
-      onIssue({ message: `WRD type ${attr.title} refers to type #${attr.domain} in its domain field which is not in the same schema` });
+      onIssue({ message: `WRD type ${attr.fullTag} refers to type #${attr.domain} in its domain field which is not in the same schema` });
+    }
+    if (!isValidWRDAttributeTag(tagToJS(attr.tag))) {
+      onIssue({ message: `WRD attribute ${attr.fullTag} has invalid tag '${tagToJS(attr.tag)}'` });
     }
   }
   //Verify against duplicate attributes (TODO also detect collisions against built-in attributes, we may be able to make better use of existing WRD APIs if we're sure those won't hide issues)

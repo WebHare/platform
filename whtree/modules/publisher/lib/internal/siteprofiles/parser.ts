@@ -691,7 +691,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
       objectname: context.resolve(apply.bodyRenderer.objectName || ''),
-      contentbuilder: context.resolve(apply.bodyRenderer.onRenderContent || apply.bodyRenderer.contentBuilder || ''),
+      onrendercontent: context.resolve(apply.bodyRenderer.onRenderContent || ''),
     };
 
   if (apply.webDesign) {
@@ -780,7 +780,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       previewcomponent: setWidget.previewComponent || '',
       has_wittycomponent: setWidget.wittyComponent !== undefined,
       wittycomponent: setWidget.wittyComponent ? context.resolve(setWidget.wittyComponent) : '',
-      ...(setWidget.onRenderWidget ?? setWidget.widgetBuilder) ? { onrenderwidget: context.resolve((setWidget.onRenderWidget ?? setWidget.widgetBuilder)!) } : {},
+      ...setWidget.onRenderWidget ? { onrenderwidget: context.resolve(setWidget.onRenderWidget!) } : {},
     });
   }
 
@@ -943,7 +943,7 @@ function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceP
   return {
     cachettl: exec.cacheTtl || 0,
     routerfunction: context.resolve(exec.routerFunction || ''),
-    ...(exec.onRenderContent ?? exec.onRenderContent) ? { contentbuilder: context.resolve((exec.onRenderContent ?? exec.onRenderContent)!) } : null,
+    ...(exec.onRenderContent ? { onrendercontent: context.resolve(exec.onRenderContent) } : null),
     startmacro: context.resolve(exec.startMacro || ''),
     webpageobjectname: context.resolve(exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],
@@ -1136,8 +1136,8 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
         ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
         ctype.previewcomponent = context.resolve(widgetSettings.previewComponent || '');
         ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
-        if (widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)
-          ctype.onrenderwidget = context.resolve((widgetSettings.onRenderWidget ?? widgetSettings.widgetBuilder)!);
+        if (widgetSettings.onRenderWidget)
+          ctype.onrenderwidget = context.resolve(widgetSettings.onRenderWidget);
       } else {
         ctype.type = "filetype";
       }

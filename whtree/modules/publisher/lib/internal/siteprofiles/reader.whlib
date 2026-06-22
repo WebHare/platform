@@ -1368,7 +1368,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
     webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
     webdesign.js := webdesign.pagebuilder != ""
                     OR webdesign.siteresponsefactory != ""  //legacy 'pagebuilder'
-                    OR (webdesign.renderinfo.contentbuilder != "" AND webdesign.renderinfo.objectname = ""); //page only offers JS renderer, not HS
+                    OR (webdesign.renderinfo.onrendercontent != "" AND webdesign.renderinfo.objectname = ""); //page only offers JS renderer, not HS
     RETURN webdesign;
   }
 
@@ -1377,14 +1377,14 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RECORD bodyrenderer := CELL[  //default rendering settings from publisher.siteprl.xml
       objectname := "mod::publisher/lib/webdesign.whlib#StaticPageBase",
       capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths,
-      contentbuilder := "",
+      onrendercontent := "",
       overridden := FALSE
     ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
-      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.contentbuilder != "") { //we always reset them together
+      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.onrendercontent != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
-        bodyrenderer.contentbuilder := apply.bodyrenderer.contentbuilder;
+        bodyrenderer.onrendercontent := apply.bodyrenderer.onrendercontent;
         bodyrenderer.overridden := TRUE;
       }
 
@@ -1604,7 +1604,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
 
     dyn := contenttype.dynamicexecution;
     IF(RecordExists(dyn))
-      RETURN [ success := TRUE, dyn := dyn, js := CellExists(dyn,'contentbuilder') ];
+      RETURN [ success := TRUE, dyn := dyn, js := CellExists(dyn,'onrendercontent') ];
 
     RETURN [ success := FALSE, badtype := FALSE ];
   }

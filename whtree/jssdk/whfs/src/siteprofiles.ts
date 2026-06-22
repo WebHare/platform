@@ -59,7 +59,7 @@ export interface CSPMember extends CSPMemberBasics {
 
 export interface CSPDynamicExecution {
   cachettl: number;
-  contentbuilder?: string;
+  onrendercontent?: string;
   routerfunction: string;
   startmacro: string;
   webpageobjectname: string;
@@ -243,7 +243,7 @@ export interface CSPWebtoolsFormRule {
 
 interface CSPBodyRendererRule {
   objectname: string;
-  contentbuilder: string;
+  onrendercontent: string;
 }
 
 export type CSPBaseProperties = {

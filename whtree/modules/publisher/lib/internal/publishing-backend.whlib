@@ -168,7 +168,7 @@ STATIC OBJECTTYPE PublicationRun
       RETURN retval;
     }
 
-    IF(RecordExists(webdesign.renderinfo) AND webdesign.renderinfo.contentbuilder != "" AND webdesign.renderinfo.objectname = "") { //If we're in HS but have no choice, we'll have TS run the page for us
+    IF(RecordExists(webdesign.renderinfo) AND webdesign.renderinfo.onrendercontent != "" AND webdesign.renderinfo.objectname = "") { //If we're in HS but have no choice, we'll have TS run the page for us
       retval.has_webdesign := TRUE;
       retval.templatescript := "mod::publisher/scripts/internal/publishjsrenderer.whscr";
       RETURN retval;

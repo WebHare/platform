@@ -1,6 +1,6 @@
 import { resizeImage } from "@mod-platform/js/cache/imgcache";
 import { runCli, enumOption, CLIRuntimeError, intOption } from "@webhare/cli";
-import { ResourceDescriptor, SupportedPackMethods, type outputFormats, type ResizeMethodName } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, PackMethods, type outputFormats, type ResizeMethodName } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 
 function getImageTypeForPath(path: string): typeof outputFormats[number] {
@@ -29,7 +29,7 @@ runCli({
         "ignore-errors": { description: "Ignore errors in source image" }
       },
       options: {
-        method: { description: "The method to use for resizing the image", default: "none", type: enumOption(SupportedPackMethods) },
+        method: { description: "The method to use for resizing the image", default: "none", type: enumOption(Object.keys(PackMethods)) },
         width: { description: "Target width in pixels", type: intOption() },
         height: { description: "Target height in pixels", type: intOption() },
       },
