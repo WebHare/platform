@@ -86,7 +86,7 @@ types:
         type: integer
       data:
         title: Form contents
-        type: compoundDocument
+        type: formDefinition
       unavailable:
         title: The form is unavailable
         type: boolean

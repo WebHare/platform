@@ -392,7 +392,7 @@ export async function buildRTDFromCompoundDocument(rtd: CompoundDocument): Promi
 }
 
 export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
-  const cdoc = new CompoundDocument("platform:richtextdocument", rtd.htmltext);
+  const cdoc = new CompoundDocument("platform:html", rtd.htmltext);
   for (const inst of rtd.instances) {
     const typeinfo = await describeWHFSType(inst.data.whfstype, { allowMissing: true });
     if (!typeinfo)
@@ -629,7 +629,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
 
   const htmlText = `<html><body>${await buildBlocks(rtd.blocks)}</body></html>`;
 
-  return new CompoundDocument("platform:richtextdocument", WebHareBlob.from(htmlText), {
+  return new CompoundDocument("platform:html", WebHareBlob.from(htmlText), {
     instances,
     embedded,
     links

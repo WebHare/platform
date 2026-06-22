@@ -129,6 +129,12 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "compoundDocument": {
     dbtype: CSPMemberType.CompoundDocument
   },
+  "formDefinition": {
+    dbtype: CSPMemberType.FormDefinition
+  },
+  "compoundHTMLDocument": {
+    dbtype: CSPMemberType.CompoundHTMLDocument
+  },
   "hson": {
     dbtype: CSPMemberType.HSON
   },

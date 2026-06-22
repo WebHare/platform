@@ -3,7 +3,7 @@ import { beginWork, commitWork, db } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
-import { verifyNumSettings, dumpSettings, generateForm } from "../data/whfs-testhelpers";
+import { verifyNumSettings, dumpSettings, generateForm, generateMarkDownDoc, generateCompoundHTMLDoc } from "../data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, buildInstance, type Instance, type TypedInstance, exportFileAsFetch } from "@webhare/services";
@@ -266,49 +266,83 @@ async function testInstanceData() {
   test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
 
   //Test composed documents
-  const inComposedDoc = await generateForm({ text: "asdf def" });
+  const inComposedDoc = await generateMarkDownDoc();
+  const inComposedForm = await generateForm({ text: "asdf def" });
+  const inComposedHTMLDoc = await generateCompoundHTMLDoc();
+
+  //CompoundDocument only takes markdown
   await testtype.set(testfile.id, { aDoc: inComposedDoc });
+  //@ts-expect-error -- inComposedForm is not a document
+  await test.throws(/Wanted a CompoundDocument/, () => testtype.set(testfile.id, { aDoc: inComposedForm }));
+  await test.throws(/Unsupported composed document type/, () => testtype.set(testfile.id, { aDoc: inComposedHTMLDoc }), "Shouldn't accept HTML into a plain compoundDocument so developers correct their types");
+  expectNumSettings += 1; //just the text
+
+  await testtype.set(testfile.id, { aForm: inComposedForm });
+  //@ts-expect-error -- inComposedDoc is not a form
+  await test.throws(/Wanted a FormDefinition/, () => testtype.set(testfile.id, { aForm: inComposedDoc }));
+  //@ts-expect-error -- inComposedHTMLDoc is not a form
+  await test.throws(/Wanted a FormDefinition/, () => testtype.set(testfile.id, { aForm: inComposedHTMLDoc }));
   expectNumSettings += 3; //one setting for type+text, one for the instance and one for the data member in the instance
 
-  const outComposedDoc = (await testtype.get(testfile.id)).aDoc;
+  await testtype.set(testfile.id, { aHTMLDoc: inComposedHTMLDoc });
+  //@ts-expect-error -- inComposedForm is not a HTML document
+  await test.throws(/Wanted a CompoundDocument/, () => testtype.set(testfile.id, { aHTMLDoc: inComposedForm }));
+  await test.throws(/Wanted a CompoundDocument.*platform:html/, () => testtype.set(testfile.id, { aHTMLDoc: inComposedDoc }), "Shouldn't accept markdown into a HTML compoundDocument so developers correct their types");
+  expectNumSettings += 3; //one setting for type+text, one for the instance and one for the data member in the instance
+
+  const { aDoc: outComposedDoc, aForm: outComposedForm, aHTMLDoc: outComposedHTMLDoc } = (await testtype.get(testfile.id));
   test.assert(outComposedDoc);
   test.eq(inComposedDoc.type, outComposedDoc.type);
   test.eq(await inComposedDoc.text.text(), await outComposedDoc.text.text());
-  const outinstance = outComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA');
-  test.assert(outinstance);
-  test.eq((inComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0], (outinstance?.data.data as RichTextDocument).blocks[0]);
 
-  test.assert(outinstance[dbLoc]?.id);
-  const directinstance = await whfsType("platform:filetypes.richdocument").getBySettingId(outinstance[dbLoc].id);
+  test.assert(outComposedForm);
+  test.eq(await inComposedForm["compoundDocument"].text.text(), await outComposedForm["compoundDocument"].text.text());
+
+  const outFormInstance = outComposedForm["compoundDocument"].instances.get('Yl98JQ8ztbgW3-KdqLzYBA');
+  test.assert(outFormInstance);
+  test.eq((inComposedForm["compoundDocument"].instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0], (outFormInstance?.data.data as RichTextDocument).blocks[0]);
+  test.assert(outFormInstance[dbLoc]?.id);
+
+  test.assert(outComposedHTMLDoc);
+  test.eq(await inComposedHTMLDoc.text.text(), await outComposedHTMLDoc.text.text());
+  const outHTMLDocInstance = outComposedHTMLDoc.instances.get('_1ra7ve1TrCw-ussv14O-g');
+  test.assert(outHTMLDocInstance);
+  test.eq((inComposedHTMLDoc.instances.get('_1ra7ve1TrCw-ussv14O-g')?.data.data as RichTextDocument).blocks[0], (outHTMLDocInstance?.data.data as RichTextDocument).blocks[0]);
+  test.assert(outHTMLDocInstance[dbLoc]?.id);
+
+
+  const directinstance = await whfsType("platform:filetypes.richdocument").getBySettingId(outFormInstance[dbLoc].id);
   test.eq({ tag: "p", items: [{ text: "asdf def" }] }, directinstance.data?.blocks[0]);
 
-  const exportedComposedDoc = (await testtype.get(testfile.id, { export: true })).aDoc;
+  const exportedComposedForm = (await testtype.get(testfile.id, { export: true })).aForm;
   test.eqPartial({
-    type: 'platform:formdefinition',
-    text: '\n' +
-      '      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">\n' +
-      '        <form name="webtoolform">\n' +
-      '          <page>\n' +
-      '            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="P1" guid="formcomp:9A757BDEF63422BC86F6C5586FDA3508"/>\n' +
-      '          </page>\n' +
-      '        </form>\n' +
-      '      </formdefinitions>',
-    instances: {
-      'Yl98JQ8ztbgW3-KdqLzYBA': {
-        whfsType: 'platform:filetypes.richdocument',
-        data: {
-          data: [{ tag: 'p', items: [{ text: 'asdf def' }] }]
+    __compoundform: {
+      type: 'platform:formdefinition',
+      text: '\n' +
+        '      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">\n' +
+        '        <form name="webtoolform">\n' +
+        '          <page>\n' +
+        '            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="P1" guid="formcomp:9A757BDEF63422BC86F6C5586FDA3508"/>\n' +
+        '          </page>\n' +
+        '        </form>\n' +
+        '      </formdefinitions>',
+      instances: {
+        'Yl98JQ8ztbgW3-KdqLzYBA': {
+          whfsType: 'platform:filetypes.richdocument',
+          data: {
+            data: [{ tag: 'p', items: [{ text: 'asdf def' }] }]
+          }
         }
       }
     }
-  }, exportedComposedDoc);
+  }, exportedComposedForm);
 
-  await testtype.set(testfile.id, { aDoc: null });
-  test.eqPartial({ aDoc: null }, await testtype.get(testfile.id));
+  await testtype.set(testfile.id, { aForm: null });
+  test.eqPartial({ aForm: null }, await testtype.get(testfile.id));
 
-  await testtype.set(testfile.id, { aDoc: exportedComposedDoc });
-  const exportedComposedDoc2 = (await testtype.get(testfile.id, { export: true })).aDoc;
-  test.eq(exportedComposedDoc, exportedComposedDoc2);
+  await testtype.set(testfile.id, { aForm: exportedComposedForm });
+  const exportedComposedForm2 = (await testtype.get(testfile.id, { export: true })).aForm;
+  test.eq(exportedComposedForm, exportedComposedForm2);
 
   // STORY: Further instance update tests
 
@@ -337,6 +371,8 @@ async function testInstanceData() {
     url: "",
     aRecord: null,
     aDoc: null,
+    aHTMLDoc: null,
+    aForm: null,
     aTypedRecord: null,
     anArray: [],
     myWhfsRef: null,
@@ -631,6 +667,8 @@ async function testInstanceData() {
     strArray: [],
     url: "",
     yesNo: false,
+    aForm: null,
+    aHTMLDoc: null,
     anUntypedRecord: null
   } satisfies whfs.TypedInstanceData<"webhare_testsuite:global.generic_test_type">;
 
@@ -679,13 +717,13 @@ async function testInstanceData() {
   await testtype.set(testfile.id, {
     anArray: [
       {
-        form: inComposedDoc
+        form: inComposedForm
       }
     ]
   });
   await commitWork();
 
-  test.eqPartial({ anArray: [{ form: exportedComposedDoc }] }, await testtype.get(testfile.id, { export: true }));
+  test.eqPartial({ anArray: [{ form: exportedComposedForm }] }, await testtype.get(testfile.id, { export: true }));
 
   const scenarios = [
     { setVisibleEdit: true, cloneType: "onCopy", expectModDateChange: true },

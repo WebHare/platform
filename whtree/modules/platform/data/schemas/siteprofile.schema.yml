@@ -299,6 +299,8 @@ $defs:
           - stringArray
           - richTextDocument
           - compoundDocument
+          - formDefinition
+          - compoundHTMLDocument
           - intExtLink
           - instance
           - url

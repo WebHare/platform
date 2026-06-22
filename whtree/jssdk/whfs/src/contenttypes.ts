@@ -384,7 +384,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
 
 export interface VisitedResourceContext {
   fsObject: number;
-  fieldType: MemberType & ("file" | "richTextDocument" | "compoundDocument");
+  fieldType: MemberType & ("file" | "richTextDocument" | "compoundDocument" | "formDefinition");
   fieldName: string;
   fsType: string;
 }
@@ -427,12 +427,20 @@ export async function visitResources(callback: VisitCallback, scope: {
     }
   }
 
+  const composedMembers: number[] = [
+    CSPMemberType.RichTextDocument,
+    CSPMemberType.File,
+    CSPMemberType.CompoundDocument,
+    CSPMemberType.FormDefinition,
+    CSPMemberType.CompoundHTMLDocument
+  ];
+
   for (; queryPos < allQueries.length; ++queryPos) {
     const query = allQueries[queryPos];
     const queryBuilder = db<PlatformDB>().
       selectFrom("system.fs_settings").
       innerJoin("system.fs_members", "system.fs_members.id", "system.fs_settings.fs_member").
-      where("system.fs_members.type", "in", [5, 15, 20]). //5=file, 15=richdoc, 20=composeddoc - TODO don't hardcode constant, add RTD and 'image' type
+      where("system.fs_members.type", "in", composedMembers).
       where("system.fs_settings.blobdata", "is not", null).
       innerJoin("system.fs_instances", "system.fs_settings.fs_instance", "system.fs_instances.id").
       select(["system.fs_settings.id", "system.fs_settings.setting", "system.fs_settings.blobdata", "system.fs_instances.fs_object", "system.fs_members.type", "system.fs_members.name", "system.fs_members.fs_type"]).
@@ -470,7 +478,8 @@ export async function visitResources(callback: VisitCallback, scope: {
           fieldType: result.type === CSPMemberType.File ? "file"
             : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
               : result.type === CSPMemberType.CompoundDocument ? "compoundDocument"
-                : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
+                : result.type === CSPMemberType.FormDefinition ? "formDefinition"
+                  : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
         }, reconstructedDescriptor);
 

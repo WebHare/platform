@@ -4,7 +4,7 @@ import { mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type Expo
 import type { ExportedInstance } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/src/quacks";
 
-export type CompoundDocumentType = "platform:formdefinition" | "platform:markdown" | "platform:richtextdocument";
+export type CompoundDocumentType = "platform:formdefinition" | "platform:markdown" | "platform:html";
 
 export type ExportedCompoundDocument = {
   type: CompoundDocumentType;

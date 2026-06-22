@@ -1856,7 +1856,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       }
     }
 
-    return buildRTDFromCompoundDocument(new CompoundDocument("platform:richtextdocument", val.blobdata, { embedded }));
+    return buildRTDFromCompoundDocument(new CompoundDocument("platform:html", val.blobdata, { embedded }));
   }
 
   validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): RichTextDocument | null {

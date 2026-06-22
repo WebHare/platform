@@ -16,6 +16,7 @@ import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { buildCompoundDocument, CompoundDocument, isCompoundDocument, type CompoundDocumentType, type ExportedCompoundDocument } from "@webhare/services/src/compound-document";
+import { buildFormDefinition, buildFormDefinitionFromCompoundDocument, type ExportedFormDefinition, type FormDefinition, isFormDefinition } from "@webhare/services/src/form-definition";
 import { dbLoc } from "@webhare/services/src/symbols";
 import { SetDataError } from "@webhare/services/src/codec-support";
 
@@ -44,8 +45,10 @@ export type MemberType = "string" // 2
   | "compoundDocument" //20
   | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
-  | "plainDate" //25
+  | "plainDate" //25 - like Date, but signal truncation of the millisecond part
   | "json" // 26
+  | "formDefinition" //27 - compoundDocument in HareScript, FormDefinition in TypeScript
+  | "compoundHTMLDocument" //28 - HTML-like (htmltext) in HareScript, CompoundDocument in TypeScript
   ;
 
 export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
@@ -618,7 +621,7 @@ export const codecs = {
 
       // An RTD doesn't have a non-recursive .export(), so don't export recursively here and leave it to .exportValue
       return (async () => {
-        const base = await decodeCompoundDocument(settings, "platform:richtextdocument", context);
+        const base = await decodeCompoundDocument(settings, "platform:html", context);
         return buildRTDFromCompoundDocument(base);
       })();
     },
@@ -721,7 +724,74 @@ export const codecs = {
     },
     importValue(value: CompoundDocument | ExportedCompoundDocument | null, member, beforeEncode, options): MaybePromise<CompoundDocument | null> {
       if (value && !isCompoundDocument(value)) //looks like an ExportedCompoundDocument
-        return buildCompoundDocument(value, options);
+        if ("type" in value && "text" in value)
+          return buildCompoundDocument(value, options);
+        else
+          throw new TypeError(`Wanted a CompoundDocument or ExportedCompoundDocument`);
+      return value;
+    },
+  },
+  "compoundHTMLDocument": {
+    getType: "CompoundDocument | null",
+    setType: "CompoundDocument | ExportedCompoundDocument | null",
+    exportType: "ExportedCompoundDocument | null",
+
+    encoder: (value: CompoundDocument | null) => {
+      if (value && value.type !== "platform:html")
+        throw new Error(`Incorrect type. Wanted a CompoundDocument of type 'platform:html', got '${describeType(value)}' with type '${(value as CompoundDocument).type}'`);
+      return value ? encodeCompoundDocument(value, "RD1") : null;
+    },
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<CompoundDocument> | null => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      if (settings[0].setting !== "RD1")
+        throw new Error(`Unsupported composed document type indicator '${settings[0].setting}' for compoundHTMLDocument`);
+
+      return decodeCompoundDocument(settings, "platform:html", context);
+    },
+    exportValue(value: CompoundDocument | null, member, afterDecode, options): MaybePromise<ExportedCompoundDocument | null> {
+      return value ? value.export(options) : null;
+    },
+    importValue(value: CompoundDocument | ExportedCompoundDocument | null, member, beforeEncode, options): MaybePromise<CompoundDocument | null> {
+      if (value && !isCompoundDocument(value)) //looks like an ExportedCompoundDocument
+        if ("type" in value && "text" in value)
+          return buildCompoundDocument(value, options);
+        else
+          throw new TypeError(`Wanted a CompoundDocument or ExportedCompoundDocument`);
+
+      return value;
+    },
+  },
+  "formDefinition": {
+    getType: "FormDefinition | null",
+    setType: "FormDefinition | ExportedFormDefinition | null",
+    exportType: "ExportedFormDefinition | null",
+
+    encoder: (value: FormDefinition | null) => {
+      if (value && !isFormDefinition(value))
+        throw new Error(`Incorrect type. Wanted a FormDefinition, got '${describeType(value)}'`);
+      return value ? encodeCompoundDocument(value["compoundDocument"], "CD1:publisher:formdefinition") : null; //HS used 'publisher:' prefix
+    },
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<FormDefinition> | null => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      if (settings[0].setting !== "CD1:publisher:formdefinition")
+        throw new Error(`Unsupported composed document type indicator '${settings[0].setting}' for formDefinition`);
+      return decodeCompoundDocument(settings, "platform:formdefinition", context).then(base => {
+        return buildFormDefinitionFromCompoundDocument(base);
+      });
+    },
+    exportValue(value: FormDefinition | null, member, afterDecode, options): MaybePromise<ExportedFormDefinition | null> {
+      return value ? value.export(options) : null;
+    },
+    importValue(value: FormDefinition | ExportedFormDefinition | null, member, beforeEncode, options): MaybePromise<FormDefinition | null> {
+      if (value && !isFormDefinition(value)) //looks like an ExportedFormDefinition
+        if ("__compoundform" in value)
+          return buildFormDefinition(value, options);
+        else
+          throw new TypeError(`Wanted a FormDefinition or ExportedFormDefinition`);
       return value;
     },
   }
@@ -916,6 +986,7 @@ export type CodecGetMemberType =
   { [K in string]: CodecGetMemberType } |
   Array<{ [K in string]: CodecGetMemberType }> |
   CompoundDocument |
+  FormDefinition |
   Instance |
   IntExtLink |
   Money |
@@ -934,7 +1005,10 @@ export type CodecExportMemberType =
   string |
   string[] |
   Array<{ [K in string]?: CodecExportMemberType }> |
+  ExportedCompoundDocument |
+  ExportedFormDefinition |
   CompoundDocument |
+  FormDefinition |
   IntExtLink |
   Money |
   { [K in string]?: CodecExportMemberType } |
@@ -955,8 +1029,10 @@ export type CodecImportMemberType =
   Array<{ [K in string]?: CodecImportMemberType }> |
   Array<string | number> |
   CompoundDocument |
+  FormDefinition |
   Date |
   Date |
+  ExportedFormDefinition |
   ExportedIntExtLink |
   ExportedResource |
   Instance |

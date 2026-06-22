@@ -39,6 +39,10 @@ types:
         type: hson
       aDoc:
         type: compoundDocument
+      aHTMLDoc:
+        type: compoundHTMLDocument
+      aForm:
+        type: formDefinition
       aTypedRecord:
         type: record
         members:
@@ -56,7 +60,7 @@ types:
           richMember:
             type: richdocument
           form:
-            type: compoundDocument
+            type: formDefinition
           intMember:
             type: integer
           aWhfsRef:
