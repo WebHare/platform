@@ -81,8 +81,8 @@ RECORD FUNCTION GetRateLimitConfig()
          ];
 }
 
-STATIC OBJECTTYPE FormPage
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE FormPage <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -693,18 +693,14 @@ PUBLIC STATIC OBJECTTYPE FormBase <
     this->__PullFormMessages(); //flush setvalue generated messages so we don't reflect received values
   }
 
-  PUBLIC STRING FUNCTION GetFormTarget()
-  {
+  PUBLIC STRING FUNCTION GetFormTarget() {
     STRING extformname := this->__form.name;
-    INTEGER fsobj := this->formcontext->targetobject->id;
-    IF(extformname LIKE "webtoolform") //FIXME don't switch by name
-    {
-      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj := this->__form.targetid, name := "webtoolform", formref := this->formref, incontext := this->__form.incontext ]);
-    }
-    ELSE
-    {
+    IF(extformname LIKE "webtoolform") { //FIXME don't switch by name
+      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj := this->__form.webtoolformid, name := "webtoolform", formref := this->formref, incontext := this->__form.incontext, target := this->__form.targetid ]);
+    } ELSE {
       //TODO isn't fsobj & targetid == context?
-      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj, name := extformname, formref := this->formref, incontext := this->__form.incontext ]);
+      INTEGER fsobj := this->formcontext->targetobject->id;
+      RETURN EncryptForThisServer("publisher:formtarget", CELL[ fsobj, name := extformname, formref := this->formref, incontext := this->__form.incontext, target := this->__form.targetid ]);
     }
   }
 
@@ -1321,7 +1317,7 @@ PUBLIC STATIC OBJECTTYPE FormBase <
     IF(options.guid = "")
       options.guid := GenerateUFS128BitId();
 
-    INTEGER formid := options.formid ?? this->__form.webtoolformid;
+    INTEGER formid := options.formid ?? this->__form.targetid;
     DELETE CELL formid FROM options;
     IF (formid = 0 AND ObjectExists(this->formcontext) AND ObjectExists(this->formcontext->targetobject))
       formid := this->formcontext->targetobject->id;

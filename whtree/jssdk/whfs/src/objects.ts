@@ -9,7 +9,7 @@ import { convertToWillPublish, formatPathOrId, getFSObjectData, isHistoricWHFSSp
 import * as std from "@webhare/std";
 import { backendConfig, encryptForThisServer, IntExtLink, readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
-import { whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_historytype_approved, whconstant_historytype_created, whconstant_webserver_indexpages, whconstant_whfsid_private_rootsettings, whconstant_historytype_final } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSIsActive, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 import { whfsFinishHandler } from "./finishhandler";
 import { listInstances, type ListInstancesOptions, type ListInstancesResult } from "./listinstances";
@@ -411,7 +411,9 @@ abstract class WHFSBaseObject {
       orderBy("id", "asc").
       execute();
 
-    const lastApproved = dbHistory.find(h => h.type === 5 || h.type === 4)?.id; //whconstant_historytype_approved || whconstant_historytype_created
+    const lastApproved = dbHistory.findLast(h => h.type === whconstant_historytype_approved
+      || h.type === whconstant_historytype_created
+      || h.type === whconstant_historytype_final)?.id;
 
     return dbHistory.filter(h => eventNames[h.type]).map(h => ({
       id: h.id,

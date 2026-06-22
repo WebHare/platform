@@ -277,6 +277,9 @@
       <d:varchar name="useragent" maxlength="512">
         <d:documentation>What useragent was specified (in the HTTP headers) while casting the vote?</d:documentation>
       </d:varchar>
+      <d:varchar name="formversion" maxlength="32">
+        <d:documentation>Form version active during submission</d:documentation>
+      </d:varchar>
       <d:varchar name="ipcountrycode" maxlength="2">
         <d:documentation>The user's country code, based on GeoIP</d:documentation>
       </d:varchar>

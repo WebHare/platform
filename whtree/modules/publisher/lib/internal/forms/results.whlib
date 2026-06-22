@@ -467,6 +467,7 @@ STATIC OBJECTTYPE WHFSForm
                , storedresults.ipcountrycode
                , storedresults.idfield
                , storedresults.useragent
+               , storedresults.formversion
                , wrdguid := EncodeWRDGuid(storedresults.wrdguid)
                , submittype
                , ischange := submittype = "change"

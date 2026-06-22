@@ -102,6 +102,7 @@ test.runTests(
 
     'Submitform api',
     async function () {
+      await test.load(setupdata.url, { urlParams: { "getformtarget": "1" } });
       const target = test.getDoc().documentElement.dataset.rpcformtarget!;
       let result = await test.getWin().formrpc_submitForm(target, {});
       test.eqPartial([{ message: "This value is required.", name: "requiredpulldownfield" }], result.errors);
