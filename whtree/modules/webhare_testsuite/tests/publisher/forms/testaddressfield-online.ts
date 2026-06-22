@@ -407,7 +407,6 @@ test.runTests(
       await test.wait(() => test.qSA(".wh-form__fieldgroup--error").length === 1);
       test.assert(test.qR(`[data-wh-form-group-for="address4.zip"]`).classList.contains("wh-form__fieldgroup--error"), "ZIP should be in error mode");
 
-      ///@ts-ignore We need a more central error check/count facility
       test.eq(0, test.getWin().basetestErrorList.length);
     }
   ]);

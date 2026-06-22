@@ -1510,7 +1510,7 @@ async function testComparisons() {
     for (const value of values) {
       const entityval = { [attr]: value };
       await schema.update("wrdPerson", newperson, entityval, { importMode: true });
-      //@ts-ignore -- it should be okay as we've matched the keys in const 'tests'.
+      //@ts-expect-error -- it should be okay as we've matched the keys in const 'tests'.
       currentPersonValue[attr] = value;
       for (let othervalue of values as any[])
         for (const comparetype of comparetypes) {

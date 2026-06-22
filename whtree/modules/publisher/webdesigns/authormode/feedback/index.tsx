@@ -102,7 +102,7 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
       // Show the aboutdompointer block
       document.body.append(aboutdompointer);
       // Wait for 2 seconds before calling the resolve callback
-      // @ts-ignore `resolve` is assigned synchronously, which isn't picked up by the TypeScript compiler (see
+      // @ts-expect-error `resolve` is assigned synchronously, which isn't picked up by the TypeScript compiler (see
       // https://github.com/Microsoft/TypeScript/issues/30053)
       setTimeout(aboutresolve, 2000);
       // Wait for the promise

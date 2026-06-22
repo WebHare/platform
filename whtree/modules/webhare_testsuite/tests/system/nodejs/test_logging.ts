@@ -179,7 +179,7 @@ async function testLogs() {
 
   services.logDebug("webhare_testsuite:services_test", { test: 42 });
   services.logError(new Error("Broken"));
-  ///@ts-ignore we explicitly want to test for the exception when passing an incorrect name
+  ///@ts-expect-error we explicitly want to test for the exception when passing an incorrect name
   test.throws(/Invalid log type/, () => services.logNotice("debug", "message"));
   services.logNotice("error", "Foutmelding", { data: { extra: 43 } });
   services.logNotice("info", "Ter info");

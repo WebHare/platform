@@ -145,7 +145,7 @@ function initForms() {
   if (location.href.includes("splitdatetime=1")) {
     register<HTMLInputElement>(".wh-form__date", node => {
       const datefield = new DateField(node, { weeknumbers: node.name === "weeknumbers" });
-      //@ts-ignore -- we're adding a property to the node for testing purposes
+      //@ts-expect-error -- we're adding a property to the node for testing purposes
       node.formtestDateHandler = datefield;
     });
     register(".wh-form__time", node => new TimeField(node));

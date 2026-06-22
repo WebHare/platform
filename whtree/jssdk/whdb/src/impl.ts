@@ -660,7 +660,7 @@ export function query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
 export function query<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
 export function query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
-  ///@ts-ignore -- We don't really care about the arguments, just delegating it to the actual implementation
+  ///@ts-expect-error -- We don't really care about the arguments, just delegating it to the actual implementation
   return getConnection().query<R>(sqlquery, parameters);
 }
 

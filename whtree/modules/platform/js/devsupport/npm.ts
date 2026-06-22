@@ -19,7 +19,7 @@ function listNodePackageRoots(basepath: string) {
    test it by enabling it and invoking: wh run mod::system/scripts/internal/listbrokenmodules.whscr
    */
 async function buildMyNpm() {
-  //@ts-ignore experimental, ignore
+  //@ts-expect-error experimental, ignore
   const Npm = (await import("/usr/local/lib/node_modules/npm/lib/npm.js")).default;
 
   class MyNpm extends Npm {

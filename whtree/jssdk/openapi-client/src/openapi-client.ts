@@ -8,7 +8,7 @@ import { TypedOpenAPIClient } from "./typedclient";
 import type { OpenAPIClientFetch } from "@webhare/openapi-service";
 
 import type { OpenAPIClientDefinitions } from "@mod-platform/generated/ts/openapi.ts";
-// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
+//  @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig). this line *must* remain a @ts-ignore
 import type { } from "wh:ts/openapi.ts";
 
 interface OpenAPIClientOptions {

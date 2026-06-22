@@ -31,7 +31,7 @@ export class Fetcher extends BackendServiceConnection {
       };
 
       if (pooloptions.rejectUnauthorized === false
-        //@ts-ignore Perhaps we should allow camel/snake conversion on backendservices so HS can transmit a camelcase prop
+        //@ts-expect-error Perhaps we should allow camel/snake conversion on backendservices so HS can transmit a camelcase prop
         || pooloptions.reject_unauthorized === false
       ) {
         if (!insecureagent)

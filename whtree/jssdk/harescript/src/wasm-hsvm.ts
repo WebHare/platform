@@ -3,7 +3,6 @@ import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, Stri
 import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, getTypedArray, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { isTruthy } from "@webhare/std";
 
-// @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 import { HareScriptJob, registerBaseFunctions } from "./wasm-hsfunctions";
 import { getCachedWebAssemblyModule, setCachedWebAssemblyModule, WASMModule } from "./wasm-modulesupport";

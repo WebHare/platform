@@ -69,7 +69,7 @@ class DownloadManager {
           src: dlurl
         });
 
-      //@ts-ignore cleanup this expando hack
+      //@ts-expect-error cleanup this expando hack
       this.dlframe.__whDownloadManagerFailureCallback = (data) => this._onDownloadFailure(data);
       document.body.appendChild(this.dlframe);
       this.cookieinterval = window.setInterval(() => this._cookieCheck(), 100);
@@ -78,9 +78,9 @@ class DownloadManager {
   }
 }
 
-//@ts-ignore cleanup this expando hack
+//@ts-expect-error cleanup this expando hack
 window.__wh_downloadfailurecallback = function (iframe: HTMLIFrameElement, data: unknown) {
-  //@ts-ignore cleanup this expando hack
+  //@ts-expect-error cleanup this expando hack
   iframe.__whDownloadManagerFailureCallback(data);
 };
 

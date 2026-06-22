@@ -1,5 +1,5 @@
 import * as L from "leaflet";
-//@ts-ignore - MarkerClusterGroup _is_ exported in leaflet.markercluster
+//@ts-expect-error - MarkerClusterGroup _is_ exported in leaflet.markercluster
 import { MarkerClusterGroup } from "leaflet.markercluster";
 import { createTolliumImage, requestedBrowserContextMenu, showTolliumContextMenu } from "@webhare/tollium-iframe-api";
 import {
@@ -326,11 +326,11 @@ export class LeafletMap extends MapObject {
                 marker.getPopup()!.close();
               };
               marker.on("popupopen", (event: L.PopupEvent) => {
-                //@ts-ignore - _closeButton is an internal property that isn't exposed
+                //@ts-expect-error - _closeButton is an internal property that isn't exposed
                 event.popup._closeButton.addEventListener("click", closePopup, true);
               });
               marker.on("popupclose", (event: L.PopupEvent) => {
-                //@ts-ignore - _closeButton is an internal property that isn't exposed
+                //@ts-expect-error - _closeButton is an internal property that isn't exposed
                 event.popup._closeButton.removeEventListener("click", closePopup, true);
               });
             }

@@ -221,7 +221,6 @@
           const mapped = mapper(real_value);
 
           if (Symbol.iterator in mapped) {
-            // @ts-ignore -- copied from original
             next_value = yield* mapped[Symbol.iterator]();
           } else {
             next_value = yield mapped;

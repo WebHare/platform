@@ -1,4 +1,3 @@
-///@ts-ignore -- FIXME port waitabletimer.es to TypeScript
 import { WaitableTimer } from "@mod-system/js/internal/util/waitabletimer";
 import * as test from "@webhare/test";
 

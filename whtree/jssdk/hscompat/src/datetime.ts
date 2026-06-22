@@ -216,7 +216,7 @@ export function localizeDate(format: string, date: Date, locale: string, timeZon
           case "S": { // fractional second
             // Only lengths 1-3 have a corresponding DateTimeFormat option
             if (symbol.length > 0 && symbol.length <= 3)
-              //@ts-ignore We know that the length is either 1, 2 or 3
+              //@ts-expect-error We know that the length is either 1, 2 or 3
               options.fractionalSecondDigits = symbol.length;
             break;
           }

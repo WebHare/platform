@@ -6,17 +6,17 @@ export const wrdSettingsGuid = "07004000-0000-4000-a000-00bea61ef00d";
 export async function getSchemaSettings<SchemaType extends SchemaTypeDefinition, M extends string[] & OutputMap<SchemaType["wrdSettings"]>>(schema: WRDSchemaType<SchemaType>, fields: M)
   : Promise<MapRecordOutputMap<SchemaType["wrdSettings"], RecordizeOutputMap<SchemaType["wrdSettings"], M>, false>> {
 
-  //@ts-ignore FIXME "=" is not recognized as valid by TS
+  //@ts-expect-error FIXME "=" is not recognized as valid by TS
   const retval = await schema.query("wrdSettings").where("wrdGuid", "=", wrdSettingsGuid).select(fields).execute();
   if (!retval[0])
     throw new Error(`No WRD settings found for schema ${schema.tag}`);
 
-  //@ts-ignore FIXME either TS and/or I is confused
+  //@ts-expect-error FIXME either TS and/or I is confused
   return retval[0];
 }
 
 export async function updateSchemaSettings<SchemaType extends SchemaTypeDefinition>(schema: WRDSchemaType<SchemaType>, value: WRDUpdatable<SchemaType["wrdSettings"]>) {
-  //@ts-ignore FIXME the guid is not recognized as valid by TS
+  //@ts-expect-error FIXME the guid is not recognized as valid by TS
   const id = await schema.search("wrdSettings", "wrdGuid", wrdSettingsGuid);
   if (!id)
     throw new Error(`No WRD settings found for schema ${schema.tag}`);

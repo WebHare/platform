@@ -25,7 +25,7 @@ async function convertBody(body: BodyInit | null | undefined): Promise<WebHareBl
   if (extract instanceof Blob)
     return WebHareBlob.fromBlob(extract);
 
-  //@ts-ignore FIXME deal with arraybufferviews
+  //@ts-expect-error FIXME deal with arraybufferviews
   return WebHareBlob.from(extract);
 }
 

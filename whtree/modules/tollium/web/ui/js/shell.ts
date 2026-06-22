@@ -31,7 +31,7 @@ import * as storage from 'dompack/extra/storage';
 import * as whintegration from '@mod-system/js/wh/integration';
 import './debugging/magicmenu';
 
-//@ts-ignore there are no typings for eventserver and might never be worth
+//@ts-expect-error there are no typings for eventserver and might never be worth
 import EventServerConnection from '@mod-system/js/net/eventserver';
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";

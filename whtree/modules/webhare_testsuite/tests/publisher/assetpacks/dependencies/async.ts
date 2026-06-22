@@ -1,4 +1,4 @@
-//@ts-ignore has no TS
+//@ts-expect-error has no TS
 import * as base from "./base-for-deps";
 
 export function return42() {

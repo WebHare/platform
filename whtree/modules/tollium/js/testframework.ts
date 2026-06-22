@@ -463,7 +463,7 @@ export async function expectWindowOpen(code: () => void | Promise<void>) {
   const _testfw_oldopen = test.getWin().open;
   try {
     const promise = new Promise<{ url: string; target?: string }>((resolve, reject) => {
-      //@ts-ignore -- FIXME cleanup this hack!!
+      //@ts-expect-error -- FIXME cleanup this hack!!
       test.getWin().open = (url: string, target?: string) => {
         console.log("window.open request, returning fake WindowProxy", { url, target });
         resolve({ url, target });

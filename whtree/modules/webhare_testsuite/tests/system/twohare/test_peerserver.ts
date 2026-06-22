@@ -31,10 +31,10 @@ test.runTests(
       test.setTodd('peer', setupdata!.peerserver);
 
       const oauth_auth_wait = Promise.withResolvers<void>();
-      //@ts-ignore yes it's an ugly hack..
+      //@ts-expect-error yes it's an ugly hack..
       test.getWin().open = async url => {
         const overlay = test.getDoc().createElement("div");
-        //@ts-ignore yes it's an ugly hack..
+        //@ts-expect-error yes it's an ugly hack..
         window.parent.overlay = overlay;
         overlay.innerHTML =
           `<div style="position:fixed; top: 20px; left:20px; width:800px; height:640px;">

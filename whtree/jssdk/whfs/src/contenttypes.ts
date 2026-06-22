@@ -11,7 +11,7 @@ import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
 import type { WebHareBlob } from "@webhare/services";
 
-// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
+// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig). this line *must* remain a @ts-ignore
 import type { } from "wh:ts/whfstypes.ts";
 import { CSPMemberType } from "./siteprofiles";
 import { whfsFinishHandler } from "./finishhandler";
@@ -320,7 +320,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     const bulkdata = await this.getBulk(fsObjIds, properties as string[]);
 
     const results: Array<DataRow & Pick<GetFormat, AddKey>> = [];
-    for (const row of data) //@ts-ignore should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
+    for (const row of data) //@ts-expect-error should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
       results.push({ ...row, ...bulkdata.get(row[field]) });
 
     return results;

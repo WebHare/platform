@@ -1,4 +1,3 @@
-///@ts-ignore -- FIXME port fifo.es to TypeScript
 import { FIFO } from "@mod-system/js/internal/util/fifo";
 import * as test from "@webhare/test";
 

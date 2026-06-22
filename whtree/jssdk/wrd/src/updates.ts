@@ -591,7 +591,7 @@ function serializeChangeEntity<T>(entity: T & { guid?: Buffer }): Omit<T, "guid"
 function serializeChangeEntity<T>(entity: T & { guid?: Buffer }): Omit<T, "guid"> & { guid?: string } {
   if ("guid" in entity)
     return { ...entity, guid: encodeWRDGuid(entity.guid!) };
-  else //@ts-ignore We know guid is not in entity
+  else //@ts-expect-error We know guid is not in entity
     return entity;
 }
 

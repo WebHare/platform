@@ -2,7 +2,7 @@
 
 import './internal/baseforumstyle.css';
 import * as dompack from "@webhare/dompack";
-// @ts-ignore -- .rpc.json imports cannot be checked by TypeScript
+// @ts-expect-error -- .rpc.json imports cannot be checked by TypeScript
 import forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json?proxy";
 import type { FormSubmitEmbeddedResult } from '@mod-publisher/js/forms/formbase';
 import { RPCFormBase } from '../forms';

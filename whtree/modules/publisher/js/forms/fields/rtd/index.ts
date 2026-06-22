@@ -34,7 +34,7 @@ export class RTDEditElement extends JSFormElement<string> {
   constructor() {
     super();
     this.node = this;
-    //@ts-ignore cleanup registration
+    //@ts-expect-error cleanup registration
     this.node.whRTDField = this;
   }
 
@@ -90,7 +90,6 @@ export class RTDEditElement extends JSFormElement<string> {
       enabled: !this.disabled //initial enabled state
     });
 
-    //@ts-ignore -- we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
     this.node.rte = this.rte;
     //@ts-expect-error -- remove as soon as wh:richeditor-action is defined
     this.node.addEventListener('wh:richeditor-action', evt => void this.executeAction(evt));
@@ -146,7 +145,7 @@ export class RTDEditElement extends JSFormElement<string> {
   }
 
   static getForNode(node: HTMLElement): RTDField | null {
-    //@ts-ignore cleanup registration
+    //@ts-expect-error cleanup registration
     return (node.whRTDField as RTDField) || null;
   }
 }

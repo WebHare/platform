@@ -1,6 +1,5 @@
 import * as dompack from "dompack";
 import * as movable from "dompack/browserfix/movable";
-//@ts-ignore we only have this one as a .js
 import SmartCrop from "./smartcrop";
 
 import { debugFlags } from "@webhare/env";

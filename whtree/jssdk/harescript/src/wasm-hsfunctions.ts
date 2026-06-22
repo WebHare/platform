@@ -588,7 +588,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
   });
   wasmmodule.registerExternalFunction("__ICU_GETTIMEZONEIDS::SA:", (vm, id_set) => {
-    //@ts-ignore -- MDN says it is supported everywhere we need it to be
     const list = Intl.supportedValuesOf('timeZone');
     // Add some missing timezones: https://bugs.chromium.org/p/v8/issues/detail?id=13084
     for (const toAdd of ["UTC", "GMT", "CET"])
