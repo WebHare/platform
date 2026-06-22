@@ -4,7 +4,7 @@ import { WRDSchemaType } from "@webhare/wrd/src/schema";
 
 /* Future schema plans/ideas (for which we are reserving room in the structure)
 
-   - Future compatiblility with full WRD Schema descriptions. Would add eg. 'imoprt' and 'migrations' keys next to 'types' keys
+   - Future compatiblility with full WRD Schema descriptions. Would add eg. 'import' and 'migrations' keys next to 'types' keys
    - Creating types, setting attributes as well as entities. Would extend ImportGroup with more keys than just 'entities'
    - Perhaps adding a way to do partial imports, useful for CI? an 'if' statement per ImportGroup, similar to applicability?
      that would also make having multiple 'attributes' keys under a type useful, so that the option to put attributes into groups
