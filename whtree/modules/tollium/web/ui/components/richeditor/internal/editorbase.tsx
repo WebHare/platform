@@ -643,7 +643,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
   }
 
-  _gotStateChange(event) {
+  _gotStateChange(event?) {
     this._fireStateChange();
     this._checkDirty();
   }
@@ -773,6 +773,17 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   qS<T extends HTMLElement>(selector: string): T | null {
     return this.getBody().querySelector(selector);
+  }
+
+  qR<T extends HTMLElement>(selector: string): T {
+    const matches = this.qSA<T>(selector);
+    if (matches.length === 0)
+      throw new Error(`No element found for selector: ${selector}`);
+    if (matches.length > 1) {
+      console.error(`Multiple elements found for selector: ${selector}`, matches);
+      throw new Error(`Multiple elements found for selector: ${selector}`);
+    }
+    return matches[0];
   }
 
   qSA<T extends HTMLElement>(selector: string): T[] {
@@ -1943,7 +1954,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.gotPaste(event);
   }
 
-  async gotPaste(event) {
+  gotPaste(event): void {
     const preexistingstylenodes = this.qSA("style");
 
     // Wait for the paste to happen, then

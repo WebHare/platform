@@ -10,6 +10,7 @@ import * as snapshots from '@mod-tollium/web/ui/components/richeditor/internal/s
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 import RangeIterator2 from '@mod-tollium/web/ui/components/richeditor/internal/dom/rangeiterator';
 import * as diff from 'diff';
+import ObjRTE from '@mod-tollium/webdesigns/webinterface/components/rte/rte.tsx';
 
 //capture the next richeditor-action event
 export function getNextAction() {
@@ -188,7 +189,7 @@ export function getRTE(win, toddname) {
   const comp = test.compByName(toddname);
   if (!comp)
     throw new Error("No such component with name '" + toddname + "'");
-  return comp.propTodd.rte;
+  return (comp.propTodd as ObjRTE).rte;
 }
 
 export function getPreActionState(rte) {

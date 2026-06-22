@@ -73,4 +73,8 @@ export default class FreeEditor extends EditorBase {
       candecrease: insidelist || havelist
     };
   }
+
+  _pasteContent(pastecontent: HTMLDivElement) {
+    throw new Error(`Only supported by the StructuredEditor`); // easier for CI tests to have this function exidsting
+  }
 }

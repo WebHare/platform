@@ -3,6 +3,7 @@ import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 import { sleep } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
 import * as rtetest from "@mod-tollium/js/testframework-rte";
+import { dispatchDomEvent } from "@webhare/dompack";
 
 let status_comp: any, clearbutton_node: any, apptab: any;
 
@@ -291,14 +292,14 @@ test.runTests(
       const rte_comp = rtetest.getRTE(test.getCurrentApp().win, "rte");
       const rte_selection = rte_comp.getEditor().getSelectionRange();
       rte_selection.insertBefore(test.getCurrentApp().win.document.createTextNode("some text"));
-      rte_comp._checkDirty();//ADDME: How can we trigger RTE dirtyness without having to call _checkDirty ourselves?
+      dispatchDomEvent(rte_selection.start.element, "input");
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test RTE again; its internal dirty state should be cleared again
       rte_selection.insertBefore(test.getCurrentApp().win.document.createTextNode("other text"));
-      rte_comp._checkDirty();//ADDME: How can we trigger RTE dirtyness without having to call _checkDirty ourselves?
+      dispatchDomEvent(rte_selection.start.element, "input");
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
