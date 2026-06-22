@@ -161,10 +161,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
   /// Limit RTE internal links to these subfolders
   PUBLIC INTEGER ARRAY internallinkroots;
 
-  ///How often we sent a value to the client. The initial empty value is #0, the inital set value is #1
-  INTEGER valuegeneration;
-  ///How often have we received a dirty for this value
-  INTEGER valuedirtycount;
   STRING pvt_htmlclass;
   STRING pvt_bodyclass;
   //Caches the components for the linktypes
@@ -174,13 +170,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
 
   STRING cssinstance;
   OBJECT cleaner;
-  BOOLEAN pvt_isdirty;
   STRING __margins;
   BOOLEAN allowinspect;
-
-  PUBLIC PROPERTY dirty(pvt_isdirty, SetDirtyProp); // SetDirty is already defined in TolliumIsDirtyable
-
-  PUBLIC FUNCTION PTR ondirty;
 
   PUBLIC RECORD borders;
 
@@ -338,39 +329,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     RETURN this->pvt_dirty;
   }
 
-  MACRO SetDirtyProp(BOOLEAN newdirty)
-  {
-    IF(this->pvt_isdirty = newdirty)
-      RETURN;
-
-    IF (newdirty)
-    {
-      this->pvt_isdirty := TRUE;
-      this->SetDirty();
-
-      IF (this->ondirty != DEFAULT FUNCTION PTR)
-      {
-        IF(debugrtddirty)
-          dumpvalue("invoking ondirty");
-        this->ondirty();
-      }
-      RETURN;
-    }
-    this->DirtyCleared();
-  }
-
-  UPDATE PUBLIC MACRO DirtyCleared()
-  {
-    IF(NOT this->pvt_isdirty)
-      RETURN;
-
-    this->pvt_isdirty := FALSE;
-    IF(debugrtddirty)
-      DUmpValue(CELL[trace := GetStackTrace(),  this->valuegeneration, this->valuedirtycount ]);
-    this->QueueOutboundMessage("ClearDirty", CELL[ this->valuegeneration, this->valuedirtycount ]);
-    this->ClearDirty();
-  }
-
   PUBLIC OBJECT ARRAY FUNCTION GetLinkHandlers()
   {
     OBJECT ARRAY handlers;
@@ -480,8 +438,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
 
       RECORD compinfo := [ areatype := this->type IN [ "html-block", "html-inline" ] ? "html" : this->type
                          , value := this->GetRenderValue()
-                         , valuedirtycount := this->valuedirtycount
-                         , valuegeneration := this->valuegeneration
                          , hint := this->hint
                          , allowtags := this->editable->CalculateAllowedTags()
                          , required := this->required
@@ -509,7 +465,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     ELSE
     {
       IF (this->dirtyflags.text)
-        this->QueueOutboundMessage("UpdateValue", CELL[ value := this->GetRenderValue(), this->valuegeneration, this->valuedirtycount ]);
+        this->QueueOutboundMessage("UpdateValue", CELL[ value := this->GetRenderValue() ]);
 
       IF (this->dirtyflags.enabled)
         this->QueueOutboundMessage("UpdateEnabled", [ value := this->enabled ]);
@@ -587,11 +543,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     // Introduces an external value.
     this->editable->ImportFromRecord(contents);
 
-    this->valuegeneration := this->valuegeneration + 1;
-    this->valuedirtycount := 0;
     this->ExtUpdatedText();
-    this->pvt_isdirty := FALSE;
-    this->ClearDirty();
   }
 
   MACRO SetType(STRING type)
@@ -801,24 +753,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
       this->HandleServersideButton(msgdata.button, msgdata.messagetag);
       RETURN;
     }
-    IF(type="dirty")
-    {
-      IF(debugrtddirty)
-        DumpValue( [ localgeneration := this->valuegeneration, localdirtycount := this->valuedirtycount
-                   , remotegeneration := msgdata.valuegeneration, remotedirtycount := msgdata.valuedirtycount
-                   ]);
-
-      IF(msgdata.valuegeneration = this->valuegeneration AND msgdata.valuedirtycount > this->valuedirtycount)
-      {
-        IF(debugrtddirty)
-          DumpValue("Setting dirty");
-        this->valuedirtycount := msgdata.valuedirtycount;
-        this->dirty := TRUE;
-      }
-      // Queue a response, so the test framework knows this message has been processed
-      this->QueueOutboundMessage("AckDirty", DEFAULT RECORD);
-      RETURN;
-    }
     IF(type = "magicEditValue") {
       this->RunEditSource();
       RETURN;
@@ -826,9 +760,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase <
     TolliumComponentBase::ProcessInboundMessage(type, msgdata);
   }
 
-  PUBLIC MACRO __debug_simulatedirty()
-  {
-    this->ProcessInboundMessage("dirty", [ valuegeneration := this->valuegeneration, valuedirtycount := this->valuedirtycount + 1]);
+  PUBLIC MACRO __debug_simulatedirty() { //FIXME remove this
+    this->SetDirty();
   }
 
   RECORD FUNCTION HandlePropertiesRequest2(RECORD data)

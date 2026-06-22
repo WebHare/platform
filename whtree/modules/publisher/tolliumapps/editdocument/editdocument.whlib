@@ -178,7 +178,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   MACRO AddTypesSections() { //Insert metadata sheets as new sections
     FOREVERY(RECORD type FROM this->renderer->metatabsconfig.types) {
-      FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type, [ dirtylistener := ^dirtylistener ])) {
+      FOREVERY(RECORD section FROM this->renderer->PrepareTypeSections(this->contexts, type)) {
         OBJECT newsection := this->CreateTolliumComponent("section");
         newsection->title := section.title;
         newsection->open := FALSE;
@@ -232,11 +232,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       newsection->open := FALSE;
       newsection->panel->InsertComponentAfter(tabs, DEFAULT OBJECT, TRUE);
       ^metadatatab->InsertComponentAfter(newsection, DEFAULT OBJECT, TRUE);
-
-      FOREVERY(OBJECT comp FROM loadresult.components) {
-        IF(MemberExists(comp,'dirtylistener')) //TODO recursive dirty event capturing would be nicer
-          comp->dirtylistener := ^dirtylistener;
-      }
 
       INSERT CELL[ ext.whfs_type
                  , loadresult.components

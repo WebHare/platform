@@ -19,5 +19,23 @@ ASYNC MACRO TestDirtyListener()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestRecursiveDirtyListener() {
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:runscreen", [ params := ["tests/dirty.recursivedirty"]]));
+
+  TestEq(FALSE, TT("innerpanel_dirty")->value);
+  TestEq(FALSE, TT("outerpanel_dirty")->value);
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Add"));
+  TT("rowedit_column")->value := "R1";
+  TT("rowedit_column")->SetDirty();
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  TestEq(TRUE, TT("innerpanel_dirty")->value);
+  TestEq(TRUE, TT("outerpanel_dirty")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR TestDirtyListener
+                 , PTR TestRecursiveDirtyListener
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);

@@ -97,8 +97,8 @@ PUBLIC STATIC OBJECTTYPE WebHareDBBlobStabilizer
 
 /** Helper class for frontend rich text editors
 */
-PUBLIC STATIC OBJECTTYPE RichDocumentEditor
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //

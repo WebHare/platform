@@ -282,9 +282,6 @@ class UndoLock {
   }
 
   close() {
-    //fire a change event - closing undoitem is hint of (possible) change
-    dompack.dispatchCustomEvent(this.editor.bodydiv, "wh:richeditor-change", { bubbles: true, cancelable: false });
-
     if (this._undoitem) {
       const closedlock = this._undoitem.locks.pop();
       if (closedlock !== this)
@@ -350,6 +347,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   knownimages: string[] = [];
   language: string;
   bodydiv;
+
+  private allChangeObserver: MutationObserver;
+  private allChangeObserverActive = false;
 
   constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
     const originalcontent = [...container.childNodes];
@@ -481,6 +481,28 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
     //    this.stateHasChanged();
+    //Watch to implement change events. This observer is disabled during manual value sets
+    this.allChangeObserver = new MutationObserver(() =>
+      dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-change", { bubbles: true, cancelable: false })
+    );
+
+    this.setAllChangeObserver(true);
+  }
+
+  protected setAllChangeObserver(enable: boolean) {
+    if (this.allChangeObserverActive === enable)
+      return;
+    this.allChangeObserverActive = enable;
+    if (enable)
+      this.allChangeObserver.observe(this.bodydiv,
+        {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true,
+        });
+    else
+      this.allChangeObserver.disconnect();
   }
 
   _constructorTail() {
@@ -808,6 +830,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   setValue(val: string) {
     this.dirty = true;
+    this.setAllChangeObserver(false); //avoid firing change events during setValue
 
     this.bodydiv.innerHTML = val;
     this.resetUndoStack();
@@ -821,6 +844,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.dirty = false;
 
     this._checkDirty();
+    this.setAllChangeObserver(true); //reenable change events after setValue
   }
 
   focus() {
@@ -1962,9 +1986,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   async handlePasteDone(preexistingstylenodes: HTMLElement[]) {
-    //we need an onchange event after the paste
-    dompack.dispatchCustomEvent(this.container, "wh:richeditor-change", { bubbles: true, cancelable: false });
-
     //Check for and remove hostile nodes (but allow inside embbedded objects)
     this.qSA("script,style,head")
       .filter(node => !preexistingstylenodes.includes(node))
@@ -2837,8 +2858,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   _detectedInputEvent(event) {
-    dompack.dispatchCustomEvent(this.container, "wh:richeditor-change", { bubbles: true, cancelable: false });
-
     // Currently inside range code, just ignore
     if (this.selectingrange)
       return;

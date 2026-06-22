@@ -10,8 +10,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 
 interface DirtyListenerAttributes extends ComponentStandardAttributes {
   checkcomponents: string[];
-  dirtycomponents: string[];
-  manualdirty: boolean;
+  isdirty: boolean;
   makeappdirty: boolean;
 }
 
@@ -19,21 +18,20 @@ type DirtyListenerUpdate = {
   type: "checkcomponents";
   checkcomponents: string[];
 } | {
-  type: "dirtycomponents";
-  dirtycomponents: string[];
-  manualdirty: boolean;
+  type: "updatedirty";
+  isdirty: boolean;
 } | {
   type: "makeappdirty";
   makeappdirty: boolean;
 } | ComponentBaseUpdate;
 
 export default class DirtyListener extends ComponentBase {
-  manualdirty: boolean;
+  isDirty: boolean;
   checkcomponents = new Map<string, boolean>;
 
   // The dirty listener is dirty if it's enabled and  manually set to dirty or any of its components is dirty
   get dirty() {
-    return this.enabled && (this.manualdirty || [...this.checkcomponents.values()].some(_ => _));
+    return this.enabled && this.isDirty;
   }
 
   /****************************************************************************************************************************
@@ -48,7 +46,7 @@ export default class DirtyListener extends ComponentBase {
     this.checkcomponents = new Map();
     this.setComponents(data.checkcomponents);
     this.owner.node.addEventListener("tollium:updatedcomponents", () => this.refreshComponents());
-    this.manualdirty = data.manualdirty;
+    this.isDirty = data.isdirty;
 
     // Register the dirty listener with the application if it can make the application dirty
     if (data.makeappdirty)
@@ -94,16 +92,14 @@ export default class DirtyListener extends ComponentBase {
     }
   }
 
-  /** @returns True if this call made the component transition from clean to dirty */
-  setDirtyComponent(comp: ToddCompBase) {
-    if (this.checkcomponents.get(comp.name) === true)
-      return false; //already dirty
+  setDirty(): void {
+    if (this.isDirty)
+      return;
 
-    this.checkcomponents.set(comp.name, true);
-    this.queueMessage("dirtycomponent", { component: comp.name });
+    this.queueMessage("setdirty", null);
+
     // Maybe update the dirty state of the application
     this.owner.hostapp.checkDirtyState();
-    return true;
   }
 
   /****************************************************************************************************************************
@@ -126,10 +122,10 @@ export default class DirtyListener extends ComponentBase {
       case "checkcomponents":
         this.setComponents(data.checkcomponents);
         return;
-      case "dirtycomponents":
-        for (const key of this.checkcomponents.keys())
-          this.checkcomponents.set(key, data.dirtycomponents.includes(key));
-        this.manualdirty = data.manualdirty;
+      case "updatedirty":
+        /* TODO resetting dirty serverside might race against client setting something more dirty. this won't happen if the
+                server is careful enough to only clear dirty flag during modal actions. otherwhise we probably need some sort of clock */
+        this.isDirty = data.isdirty;
         // Maybe update the dirty state of the application
         this.owner.hostapp.checkDirtyState();
         return;

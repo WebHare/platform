@@ -338,7 +338,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
   /** invoked by setDirty on every element upwards to the parent */
   onMarkAsDirty(): void {
-    this.dirtylistener?.setDirtyComponent(this);
+    this.dirtylistener?.setDirty();
   }
 
   doCopyToClipboard() {

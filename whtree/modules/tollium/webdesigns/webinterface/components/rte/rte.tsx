@@ -22,8 +22,6 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
 
 interface ValueMessage {
   value: string;
-  valuegeneration: number;
-  valuedirtycount: number;
 }
 interface RTEAttributes extends ComponentStandardAttributes, ValueMessage {
   readonly: boolean | undefined;
@@ -52,23 +50,6 @@ interface RTEAttributes extends ComponentStandardAttributes, ValueMessage {
   allowvideo: boolean;
   structure: ExternalStructureDef | null;
 }
-
-/* our new dirty/change protocol:
-  - When the server initializes us, we get a value and a generation count (0).
-    We store this generation and reset our dirtycount.
-  - When the server updates the value, it sends a higher sendcount with that
-    value. We again store this value and reset our dirtycount
-  - When the RTD receives input, it sends a Dirty signal. We receive that signal,
-    increment our dirtycount, and send the generation and dirtycount to the server
-  - When the server receives our dirty signal and the generation matches,
-    it'll flag the RTD as dirty. If the server's generation is higher, it ignores
-    the dirty signal
-  - When the server wants to mark us as clean (and receive future dirties) without
-    having to reset the value, it'll send us a clean request and inform us of
-    the dirtycount. We'll only rearm if the dirtycount matches what we had - if
-    we were already higher, it's a race and the server will rearm our higher
-    dirtycount soon.
-*/
 
 export default class ObjRTE extends ComponentBase {
   callbacks = new Map<string, (result: unknown) => void>;
@@ -107,9 +88,6 @@ export default class ObjRTE extends ComponentBase {
 
   allowinspect: boolean;
   _warnlength: number;
-  valuegeneration = 0;
-  valuedirtycount = 0;
-
 
   constructor(parentcomp: ToddCompBase | null, data: RTEAttributes) {
     super(parentcomp, data);
@@ -187,7 +165,6 @@ export default class ObjRTE extends ComponentBase {
 
     this.node.propTodd = this;
     this.node.addEventListener("wh:richeditor-action", evt => this._doExecuteAction(evt));
-    this.node.addEventListener("wh:richeditor-dirty", evt => this._gotDirty());
     this.node.addEventListener("wh:richeditor-change", evt => this._gotChange());
     this.node.addEventListener("wh:richeditor-contextmenu", evt => this._gotContextMenu(evt));
 
@@ -213,23 +190,15 @@ export default class ObjRTE extends ComponentBase {
   */
 
   setValue(newvalue: ValueMessage) {
-    // Only apply updates if the untouched content changed, or the valuegeneration is newer
-    if (!this.untouchedcontent || this.untouchedcontent !== newvalue.value || newvalue.valuegeneration > this.valuegeneration) {
-      this.untouchedcontent = newvalue.value;
-      this.rte.setValue(this.untouchedcontent);
-      this.restructuredcontent = this.rte.getValue();
-      if (newvalue.valuedirtycount === 0)
-        this.rte.clearDirty();
-    }
-
-    this.valuegeneration = newvalue.valuegeneration;
-    this.valuedirtycount = newvalue.valuedirtycount;
+    this.untouchedcontent = newvalue.value;
+    this.rte.setValue(this.untouchedcontent);
+    this.restructuredcontent = this.rte.getValue();
   }
 
   getSubmitValue() {
     /* We can't become async again unless we figure out how to fix unload-autosave then. */
     const suggestedreturnvalue = this.rte.getValue();
-    if (suggestedreturnvalue === this.restructuredcontent && this.untouchedcontent !== null) { //no material change ( FIXME Let the RTD implement this)
+    if (suggestedreturnvalue === this.restructuredcontent && this.untouchedcontent !== null) { //no material change
       return this.untouchedcontent;
     } else {
       return suggestedreturnvalue;
@@ -359,23 +328,8 @@ export default class ObjRTE extends ComponentBase {
     this.setValue(data);
   }
 
-  onMsgClearDirty(data: { valuedirtycount: number; valuegeneration: number }) {
-    if (data.valuegeneration === this.valuegeneration && data.valuedirtycount === this.valuedirtycount) {
-      this.rte.clearDirty();
-    } else {
-      console.log("Ignoring stale cleardirty request", data, this.valuegeneration, this.valuedirtycount);
-    }
-  }
-
   _gotChange() {
-    //TODO cam we manage dirtyness ourselves here instead of _gotDirty integration? simplifies RTD's own dirty tracking
-    this.pendingValueSubmit = true;
-  }
-
-  _gotDirty() {
-    ++this.valuedirtycount;
-    this.untouchedcontent = null; //invalidate cached 'original'
-    this.queueMessage("dirty", { valuedirtycount: this.valuedirtycount, valuegeneration: this.valuegeneration });
+    this.setDirty();
   }
 
   private resolveCallback(messagetag: string, result: object | null) {
@@ -415,10 +369,5 @@ export default class ObjRTE extends ComponentBase {
   onMsgUpdateClasses(data: { htmlclass: string; bodyclass: string }) {
     this.rte.setHTMLClass(data.htmlclass);
     this.rte.setBodyClass(data.bodyclass);
-  }
-
-  onMsgAckDirty() {
-    // Used to send an empty response on the 'dirty' async message, so the comm layer gets an ack
-    // on the message, which the test framework needs to complete 'waits: ["tollium"]'
   }
 }

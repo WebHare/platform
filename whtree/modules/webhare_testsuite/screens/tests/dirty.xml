@@ -66,7 +66,7 @@
                  height="1gr"
                  columnheaders="false"
                  dirtylistener="dirtylistener"
-                 roweditscreen=".editarrayeditrow">
+                 roweditscreen="#editarrayeditrow">
         <column name="column" type="text" checkboxname="checkbox" />
       </arrayedit>
       <box name="box" checkbox="true" dirtylistener="dirtylistener" enablecomponents="heading" hr="false" title="box">
@@ -115,6 +115,12 @@
         <panel name="innerpanel" dirtylistener="innerpanel_listener">
           <heading title="Inner panel"/>
           <textedit name="innertextedit" dirtylistener="innertextedit_listener" title="Inner textedit" />
+          <arrayedit name="arrayedit"
+                    height="1gr"
+                    columnheaders="false"
+                    roweditscreen="#editarrayeditrow">
+            <column name="column" type="text" checkboxname="checkbox" />
+          </arrayedit>
         </panel>
         <box name="innerbox" dirtylistener="box_listener" title="Inner box" checkbox="true" hr="false">
           <textedit name="box_textedit" dirtylistener="box_textedit_listener" title="Box textedit" />
