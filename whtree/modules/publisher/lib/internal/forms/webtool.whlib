@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
 
   MACRO NEW() {
     /* __form.webtoolformid is the 'content object' or the actual draft to which we're submitting. it's also the ID that is the source of the actually parsed form definition and is set in the call to ParseFormDef
-       __form.incontext is the target object of the webdeisgn
+       __form.incontext is the target object of the webdesign
        __form.targetid .. is specified as following:
           'formtargetid is where the answers are routed to and extensions come form. may differ from formobject when previewing/contentobjecting (targetobject will point to final location, but contentobject/formobject to draft)'
 
