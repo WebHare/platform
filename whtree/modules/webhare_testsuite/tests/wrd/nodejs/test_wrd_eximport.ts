@@ -1,4 +1,4 @@
-import { wrd, type WRDSchemaLike } from "@webhare/wrd";
+import { importIntoWRDSchema, wrd, type WRDSchemaLike } from "@webhare/wrd";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
@@ -10,11 +10,10 @@ import { buildInstance } from "@webhare/services/src/richdocument";
 import { whconstant_whfsid_webharebackend } from "@mod-system/js/internal/webhareconstants";
 
 type WRD_TestschemaSchemaType = WRDSchemaLike["wrd:testschema"];
+type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
 
 async function testExport() { //  tests
-  type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
   const wrdschema = wrd<TestSchemaType>(testSchemaTag);
-  await createWRDTestSchema();
 
   await whdb.beginWork(); //change 0 - initial insert
 
@@ -185,9 +184,119 @@ async function testExport() { //  tests
   const importedId = await wrdschema.insert("wrdPerson", exportCleaned);
   const imported: ExportPersonType = await wrdschema.getFields("wrdPerson", importedId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
   test.eq(exported, imported);
+
+  await whdb.commitWork();
+}
+
+async function testYAMLImport() {
+  const wrdschema = wrd<TestSchemaType>(testSchemaTag);
+  await whdb.beginWork();
+
+  {
+    const importRes = await importIntoWRDSchema(wrdschema, `
+types:
+  wrdPerson:
+    entities:
+    - wrdFirstName: "Jane"
+      wrdLastName: "Smith"
+      wrdContactEmail: "janesmith@beta.webhare.net"
+      wrdauthAccountStatus: { status: "active" }
+  `);
+
+    test.eq(1, importRes.byType.wrdPerson.length);
+    test.eq("Jane", await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[0], "wrdFirstName"));
+  }
+
+  {
+    const importRes = await importIntoWRDSchema(wrdschema, `
+types:
+  wrdPerson:
+    defaults:
+      wrdauthAccountStatus: { status: "active" }
+      wrdLastName: "Smith"
+    entities:
+      jan:
+        wrdTag: JANTJE
+        wrdFirstName: "Jantje"
+        wrdContactEmail: "jantjesmith@beta.webhare.net"
+      pete:
+        wrdGuid: 5fb962da-f620-43f9-85b7-5c8f8a115297
+        wrdFirstName: "Pete"
+        wrdContactEmail: "petesmith@beta.webhare.net"
+  `);
+
+    test.eq(2, importRes.byType.wrdPerson.length);
+    test.eq("Pete", await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[1], "wrdFirstName"));
+    test.eq("Pete", await wrdschema.getFields("wrdPerson", importRes.byName.pete, "wrdFirstName"));
+  }
+
+  { //implied updates
+    const importRes = await importIntoWRDSchema(wrdschema, `
+types:
+  wrdPerson:
+    entities:
+      - wrdGuid: 5fb962da-f620-43f9-85b7-5c8f8a115297 # pete
+        wrdTag: PETE
+        wrdLastName: "Peterson"
+      - wrdTag: JANTJE
+        wrdLastName: "Janssen"
+  `);
+
+    test.eq(2, importRes.byType.wrdPerson.length);
+    test.eq({
+      wrdGuid: "5fb962da-f620-43f9-85b7-5c8f8a115297",
+      wrdTag: "PETE",
+      wrdFirstName: "Pete",
+      wrdLastName: "Peterson"
+    }, await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[0], ["wrdGuid", "wrdTag", "wrdFirstName", "wrdLastName"]));
+    test.eq({
+      wrdTag: "JANTJE",
+      wrdFirstName: "Jantje",
+      wrdLastName: "Janssen"
+    }, await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[1], ["wrdTag", "wrdFirstName", "wrdLastName"]));
+  }
+
+  //explicit upsert keys
+  {
+    const importRes = await importIntoWRDSchema(wrdschema, `
+types:
+  wrdPerson:
+    keys: ["wrdLastName"]
+    ifNew: ["whuserComment"]
+    defaults:
+      wrdauthAccountStatus: { status: "blocked", reason: "test" }
+    entities:
+    - wrdLastName: "Peterson"
+      whuserComment: "this should not be set, as the entity already exists"
+      wrdContactEmail: "pete2@beta.webhare.net"
+    - wrdLastName: "Klaassen"
+      whuserComment: "this should now be created!"
+      wrdContactEmail: "klaas2@beta.webhare.net"
+      `);
+
+    test.eq(2, importRes.byType.wrdPerson.length);
+    test.eq({
+      wrdFirstName: "Pete",
+      wrdLastName: "Peterson",
+      wrdContactEmail: "pete2@beta.webhare.net",
+      whuserComment: "",
+      wrdauthAccountStatus: { status: "blocked", reason: "test" }
+    }, await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[0], ["wrdFirstName", "wrdLastName", "wrdContactEmail", "whuserComment", "wrdauthAccountStatus"]));
+    test.eq({
+      wrdFirstName: "",
+      wrdLastName: "Klaassen",
+      wrdContactEmail: "klaas2@beta.webhare.net",
+      whuserComment: "this should now be created!"
+    }, await wrdschema.getFields("wrdPerson", importRes.byType.wrdPerson[1], ["wrdFirstName", "wrdLastName", "wrdContactEmail", "whuserComment"]));
+  }
+  await whdb.commitWork();
 }
 
 test.runTests([
+  //prep
+  async () => void await createWRDTestSchema(),
   //basic exports to get typings right
   testExport,
+  //YAML imports, useful for inline code and tests
+  testYAMLImport,
 ]);

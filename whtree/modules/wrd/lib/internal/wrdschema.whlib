@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -1066,6 +1067,15 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
   {
     options := ValidateOptions( [ continuesetup := DEFAULT RECORD ], options);
     RETURN NEW BulkCreator(this, options.continuesetup)->Run(commands);
+  }
+
+  /** Imports into a WRD schema using the YAML format */
+  PUBLIC RECORD FUNCTION ImportIntoWRDSchema(STRING yamldata) {
+    IF(NOT IsWasm() AND HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen())
+      THROW NEW Exception("ImportIntoWRDSchema cannot run with open work in native HareScript mode as it uses a separate transaction. ");
+    IF(IsWasm() AND NOT (HavePrimaryTransaction() AND GetPrimary()->IsWorkOpen()))
+      THROW NEW Exception("ImportIntoWRDSchema should not be invoked without open work in WASM HareScript");
+    RETURN CallJS([ camelcase := TRUE, runinseparatework := NOT IsWasm() ], "@webhare/wrd/src/import.ts#importIntoWRDSchemaForHS", this->tag, yamldata);
   }
 >;
 

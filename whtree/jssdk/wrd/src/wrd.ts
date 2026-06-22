@@ -14,7 +14,7 @@ import { wrdFinishHandler } from "./finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
 export { getSchemaSettings, updateSchemaSettings } from "./settings";
-
+export { importIntoWRDSchema } from "./import";
 export { WRDLegacySchema as WRDSchema, type WRDAttributeType, type WRDMetaType, type AnyWRDSchema };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf, WRDSchemaType };
 
