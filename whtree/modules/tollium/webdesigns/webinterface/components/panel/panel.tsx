@@ -121,6 +121,7 @@ export class ObjPanel extends ComponentBase {
   * Initialization
   */
   visibleons: EnableOnRule[] = [];
+  isCurrentlyVisible = true;
   widthOverhead = 0;
   isbodypanel = false;
   spacers: toddtools.Spacers = {};
@@ -241,6 +242,15 @@ export class ObjPanel extends ComponentBase {
     this.setDropTypes(data.acceptdrops?.accepttypes || []);
   }
 
+  private isTabSheet(): boolean {
+    //This isn't easy to abstract as a tabsheet is really just a panel - and would be a true panel if it had any other parent than <tabs>
+    return this.parentcomp?.componenttype === "tabs";
+  }
+
+  shouldBeVisible(): boolean {
+    return this.owner.getMatchedEnableOnRule(this.visibleons) !== -1;
+  }
+
   allowScroll() {
     return this.vscroll; /* rely on explicit vscroll setting
     return this.parentcomp === this.owner            // the bodynode may scroll
@@ -321,6 +331,18 @@ export class ObjPanel extends ComponentBase {
       this.nodearea.appendChild(line.node);
   }
 
+  onRefreshConditions() {
+    //We should never hide when we're a tab sheet, as tabs need to know the maximum height of all tabs, including hidden
+    const shouldBeVisible = this.shouldBeVisible() || this.isTabSheet();
+    if (shouldBeVisible === this.isCurrentlyVisible)
+      return;
+
+    this.isCurrentlyVisible = shouldBeVisible;
+    this.height.dirty = true;
+    this.owner.recalculateDimensions();
+    this.owner.relayout();
+  }
+
 
   /****************************************************************************************************************************
   * Dimensions
@@ -347,6 +369,12 @@ export class ObjPanel extends ComponentBase {
   }
 
   calculateDimWidth() {
+    if (!this.isCurrentlyVisible) {
+      this.width.min = 0;
+      this.width.calc = 0;
+      return;
+    }
+
     //Prepare line calculation: we first need their label widths, then lines can do their actual calculations
     this.setSizeToMaxOf('width', this.lines);
     this.widthOverhead = toddtools.getSpacerWidth(this.spacers) + toddtools.getBorderWidth(this.borders);
@@ -375,6 +403,12 @@ export class ObjPanel extends ComponentBase {
   }
 
   calculateDimHeight() {
+    if (!this.isCurrentlyVisible) {
+      this.height.min = 0;
+      this.height.calc = 0;
+      return;
+    }
+
     // Calculate needed size
     this.setSizeToSumOf('height', this.lines);
 
@@ -401,6 +435,9 @@ export class ObjPanel extends ComponentBase {
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
+    this.node.style.display = this.isCurrentlyVisible ? "" : "none";
+    if (!this.isCurrentlyVisible)
+      return; //don't bother relayout invisible children
 
     // Set outer width, including border (we have box-sizing: border-box!)
     dompack.setStyles(this.node, { width: this.width.set, height: this.height.set });

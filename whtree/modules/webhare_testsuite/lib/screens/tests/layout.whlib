@@ -346,3 +346,6 @@ PUBLIC OBJECTTYPE DynamicAutosuggest EXTEND TolliumAutoSuggestBase
     RETURN vals;
   }
 >;
+
+PUBLIC STATIC OBJECTTYPE Layouttest_Panel_Visibleon EXTEND TolliumScreenBase <
+>;

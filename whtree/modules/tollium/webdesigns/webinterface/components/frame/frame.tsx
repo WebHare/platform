@@ -1525,7 +1525,7 @@ export class ObjFrame extends ToddCompBase {
     //ADDME redo/relayout do this only when needed/requested by a component? or work exclusively with dirty markings?
     this.recalculateDimensions();
 
-    //we must not run the enabler before recalculateDimensions, so the tab control can calculate all visible components (actionenabler will display:none stuff)
+    //we must not run the enabler before recalculateDimensions, so the tab control can calculate all visible components (actionenabler will display:none stuff) FIXME should actionenabler be doing such stuff then? this now the only place where relayout() does not follow recalculateDimensions immediately
     this.refreshConditions();
     this.relayout();
     this.scrollmonitor.fixupPositions(); //fix any scrollopsitions on newly appeared elements

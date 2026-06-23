@@ -116,7 +116,7 @@ export class ObjTabs extends ComponentBase {
     this.visibletabs = 0;
 
     for (let i = 0; i < this.pages.length; ++i) {
-      const newshow = this.owner.getMatchedEnableOnRule(this.pages[i].comp.visibleons) !== -1;
+      const newshow = this.pages[i].comp.shouldBeVisible();
       if (newshow)
         ++this.visibletabs;
       //console.log("Tab control " + this.name + " child #" + i + " (" + this.pages[i].comp.name + ") (" + this.pages[i].comp.visibleons.length + " checks) visibility = " + (newshow?'true':'false'));
