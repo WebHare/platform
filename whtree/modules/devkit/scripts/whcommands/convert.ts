@@ -23,7 +23,7 @@ runCli({
     { name: "<source>" },
     { name: "<sink>" },
   ],
-  main: async function main({ opts, args }) {
+  async main({ opts, args }) {
     if (!args.source.endsWith(".xlsx") || !args.sink.endsWith(".json"))
       throw new CLIRuntimeError("Only xlsx->json currently supported");
 

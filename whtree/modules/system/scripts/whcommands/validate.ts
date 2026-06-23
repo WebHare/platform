@@ -13,7 +13,7 @@ runCli({
     "parsed": "Show parse result",
   },
   arguments: [{ name: "<files...>", description: "Files to validate" }],
-  main: async function main({ opts, args }) {
+  async main({ opts, args }) {
     const jssdk = `${backendConfig.installationRoot}jssdk/`;
     let anyErrors = false;
 
