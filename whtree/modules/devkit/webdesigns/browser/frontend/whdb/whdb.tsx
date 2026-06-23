@@ -18,10 +18,10 @@ import type { ${whdbdef.interface} } from "${whdbdef.importPath}";
     <h2>Recipes</h2>
     <h3>select</h3>
     <pre>{`
-rows = await db<${whdbdef.interface}>().selectFrom("<tablename>").selectAll().execute();
+rows = await db<${whdbdef.interface}>().query("<tablename>").selectAll().execute();
 
 rows = await db<${whdbdef.interface}>()
-  .selectFrom("<tablename>")
+  .query("<tablename>")
   .where("parent", "=", id)
   .select(["id", "title"])
   .orderBy("name")
