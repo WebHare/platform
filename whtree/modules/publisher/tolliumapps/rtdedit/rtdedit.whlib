@@ -30,20 +30,14 @@ PUBLIC OBJECTTYPE RichDoc EXTEND TolliumScreenBase
 
     RECORD filedata := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile");
     this->rte->value := filedata.data;
-    this->rte->dirty := FALSE;
+    this->dirtylistener->ClearDirty(); //TODO why even have a separate listener?
     IF(this->rte->appliedsettings.margins != "")
       this->rte->margins := this->rte->appliedsettings.margins;
-
-    //FIXME rearm dirty checking?
   }
 
-  MACRO StoreData()
-  {
-    IF(NOT this->rte->dirty)
-      RETURN;
-
+  MACRO StoreData() {
     this->contexts->editdocumentapi->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile", [ data := this->rte->value ]);
-    this->rte->dirty := FALSE;
+    this->dirtylistener->ClearDirty(); //TODO why even have a separate listener?
   }
 
   MACRO SetEnabled(BOOLEAN enabled)

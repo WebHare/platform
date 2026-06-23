@@ -102,7 +102,7 @@ PUBLIC OBJECTTYPE RightObjectTreeComponent EXTEND TolliumPanel
   PUBLIC UPDATE MACRO StaticInit(RECORD def)
   {
     //FIXME should be TolliumComponentBase::StaticInit(def);
-    this->TolliumComponentBase_StaticInit(def);
+    this->TolliumComponentBase_StaticInit(CELL[ ...def, dirtylistener := DEFAULT OBJECT ]);
 
     this->thelist := this->CreateSubComponent("list");
     this->thelist->width := "1pr";

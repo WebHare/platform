@@ -31,11 +31,15 @@
       </menu>
     </menus>
 
+    <compositions>
+      <dirtylistener name="dirtylistener" ondirty="gotdirty" />
+    </compositions>
+
     <body name="body" spacers="none">
       <panel name="editorpanel" height="1pr">
         <tabs name="rteholder" height="1pr" onselect="onchangetab" savestate="selectedtab">
           <tab name="rtetab" title="Tab with Free RTE">
-            <richarea name="editor" type="email" width="1pr" height="1pr" />
+            <richarea name="editor" type="email" width="1pr" height="1pr" dirtylistener="dirtylistener" />
           </tab>
           <tab name="othertab" title="Tab with Structured RTE">
             <textedit name="focusfield"
@@ -47,6 +51,7 @@
                           width="1pr"
                           height="1pr"
                           contentareawidth="900px"
+                          dirtylistener="dirtylistener"
                           rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc" />
           </tab>
         </tabs>

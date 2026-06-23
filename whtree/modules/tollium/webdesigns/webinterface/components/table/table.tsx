@@ -247,7 +247,7 @@ export default class ObjTable extends ComponentBase {
   // Component management
   //
 
-  getVisibleChildren(): ToddCompBase[] { //objTable
+  getChildren(): ToddCompBase[] { //objTable
     return this.rowgroups.concat(this.cols).concat(this.overlays).filter(node => Boolean(node));
   }
 
@@ -610,14 +610,15 @@ export default class ObjTable extends ComponentBase {
     // Set the new selection
     if (modified) {
       this.selection = newselection;
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
 
+      this.pendingValueSubmit = true;
       if (this.isEventUnmasked("select"))
         this.transferState();
     }
   }
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     const sel = [];
     this.selection.forEach(item => {
       if (item.componenttype === "table.cell")
@@ -771,7 +772,7 @@ export default class ObjTable extends ComponentBase {
     }
 
     // we might have gotten focus, so always run the action enabler
-    this.owner.actionEnabler();
+    this.owner.refreshConditions();
     evt.stopPropagation();
   }
 
@@ -1169,7 +1170,7 @@ class ObjRowGroup extends ComponentBase {
   // Dimensions
   //
 
-  getVisibleChildren(): ToddCompBase[] { //objRowGroup
+  getChildren(): ToddCompBase[] { //objRowGroup
     return this.rows;
   }
   calculateDimWidth() //todObjRowgroup calculateDimWidth
@@ -1310,7 +1311,7 @@ class ObjRow extends ComponentBase {
   //
   // Dimensions
   //
-  getVisibleChildren(): ToddCompBase[] { //objRow
+  getChildren(): ToddCompBase[] { //objRow
     return this.cells.filter(node => Boolean(node));
   }
   calculateDimWidth() //toddObjRow calculateDimWidth
@@ -1516,7 +1517,7 @@ class ObjCell extends ComponentBase {
   //
   // Dimensions
   //
-  getVisibleChildren(): ToddCompBase[] {//objCell
+  getChildren(): ToddCompBase[] {//objCell
     return [this.comp].filter(node => Boolean(node));
   }
 
@@ -1769,7 +1770,7 @@ class ObjOverlay extends ComponentBase {
   // Dimensions
   //
 
-  getVisibleChildren(): ToddCompBase[] {  //objOverlay
+  getChildren(): ToddCompBase[] {  //objOverlay
     return [this.comp].filter(node => Boolean(node));
   }
 

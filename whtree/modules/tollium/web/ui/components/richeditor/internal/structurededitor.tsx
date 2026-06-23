@@ -148,7 +148,7 @@ export default class StructuredEditor extends EditorBase {
     undolock.close();
   }
 
-  gotPaste(event) {
+  gotPaste(event): void {
     /* Paste event:
        - if we have event.clipboardData & it supports getting type text/html we use that
          (webkit)
@@ -264,7 +264,7 @@ export default class StructuredEditor extends EditorBase {
     throw new Error(`Paste detected, but no usable clipboardData (${JSON.stringify(Array.from(clipboardData?.types ?? ["no clipboardData"]))})`);
   }
 
-  async _pasteContent(pastecontent: HTMLDivElement) {
+  _pasteContent(pastecontent: HTMLDivElement) {
     const undolock = this.getUndoLock();
 
     //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -273,9 +273,7 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    await this._pasteContentAt(pastecontent, locator);
-
-    undolock.close();
+    this._pasteContentAt(pastecontent, locator).finally(() => undolock.close());
   }
 
   //validate all our embedded objects on the server, make sure none are broken (eg by bad pastes)

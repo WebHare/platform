@@ -116,11 +116,11 @@
         <part name="doceditor" width="2pr" />
         <part name="metapart" width="1pr" visible="false">
           <tabs name="filetabs" height="1pr">
-            <tab name="metadatatab" tid=".metadata" vscroll="true">
+            <tab name="metadatatab" tid=".metadata" vscroll="true" dirtylistener="dirtylistener">
               <section name="mainsection" open="true" tid="tolliumapps.objectprops.objectprops.maintab">
                 <heading name="maintab_heading" tid="tolliumapps.objectprops.objectprops.nametitle" />  <!-- doclink="publisher:objectprops/nametitle" -->
                 <line>
-                  <textedit name="title" width="1pr" maxlength="256" dirtylistener="dirtylistener" tid="~title" />
+                  <textedit name="title" width="1pr" maxlength="256" tid="~title" />
                   <select name="isunlisted" type="pulldown" rowkeytype="boolean" title="">
                     <option rowkey="false" tid="tolliumapps.objectprops.objectprops.isunlisted-false" />
                     <option rowkey="true" tid="tolliumapps.objectprops.objectprops.isunlisted-true" />
@@ -129,7 +129,6 @@
                 <textedit name="name"
                           width="1pr"
                           maxlength="256"
-                          dirtylistener="dirtylistener"
                           tid="~name"
                           validationchecks="whfsname">
                   <button name="refreshnamebutton"
@@ -142,7 +141,6 @@
                           name="page_heading"
                           width="1pr"
                           maxlength="256"
-                          dirtylistener="dirtylistener"
                           placeholdertid="platform:siteprofiles.types.web.metadata.page_heading-placeholder"
                           showcounter="true"
                           tid="platform:siteprofiles.types.web.metadata.page_heading" />
@@ -152,13 +150,11 @@
                           name="seotitle"
                           width="1pr"
                           maxlength="256"
-                          dirtylistener="dirtylistener"
                           placeholdertid="platform:siteprofiles.types.web.metadata.seo_title-placeholder"
                           showcounter="true"
                           tid="platform:siteprofiles.types.web.metadata.seo_title" />
                 <textarea name="description"
                           height="3gr"
-                          dirtylistener="dirtylistener"
                           maxlength="2048"
                           placeholdertid="tolliumapps.objectprops.objectprops.description-placeholder"
                           showcounter="true"

@@ -30,7 +30,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF (CellExists(data, "params") AND "loadfailingcss" IN data.params)
       ^structured->SetupForRTDType("http://www.webhare.net/xmlns/webhare_testsuite/testrichdoc-cssfail");
 
-    this->structured->ondirty := PTR this->GotDirty;
     this->structured->value := GetTestRTD( [ bigstructure := "bigstructure" IN data.params ]);
 
     IF("structure" IN data.params OR "bigstructure" IN data.params)
@@ -41,7 +40,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO GotDirty()
   {
-    this->dirty->value := this->structured->dirty ? "YES" : "NO";
+    ^dirty->value := ^dirtylistener->dirty ? "YES" : "NO";
   }
 
   MACRO OnChangeTab()
@@ -123,12 +122,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoRewrite()
   {
-    PRINT("PRE REWRITE\n\n");
-    dumpvalue(this->GetCurrentRTE()->value,'tree');
     this->GetCurrentRTE()->value := this->GetCurrentRTE()->value;
-    PRINT("POST REWRITE\n\n");
-    dumpvalue(this->GetCurrentRTE()->value,'tree');
-    this->GotDirty();
+    ^dirtylistener->ClearDirty();
   }
 
   MACRO DoSend()
@@ -154,8 +149,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoUndirty()
   {
-    this->structured->dirty := FALSE;
-    this->GotDirty();
+    ^dirtylistener->ClearDirty();
   }
 
   MACRO DoShowMessage()
@@ -263,7 +257,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->GetCurrentRTE()->value.htmltext := StringToBlob(screen->code->value);
       dumpvalue(this->GetCurrentRTE()->value,'tree');
     }
-    this->GotDirty();
+    ^dirtylistener->ClearDirty();
   }
 
   MACRO DoViewPlainText()

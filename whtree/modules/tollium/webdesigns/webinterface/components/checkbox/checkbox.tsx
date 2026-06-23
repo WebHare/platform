@@ -36,7 +36,7 @@ export class ObjCheckbox extends ComponentBase { // ----------------------------
   // Property getters & setters
   //
 
-  getSubmitValue() {
+  getSubmitValue(): boolean {
     return this.getValue();
   }
 
@@ -127,7 +127,7 @@ export class ObjCheckbox extends ComponentBase { // ----------------------------
     if (this.isEventUnmasked("change") || this.enablecomponents.length)
       this.transferState(true);
 
-    this.owner.actionEnabler();
+    this.owner.refreshConditions();
   }
 
   applyUpdate(data) {

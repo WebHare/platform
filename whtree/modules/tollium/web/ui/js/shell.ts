@@ -12,6 +12,7 @@ import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type { ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
+import type { ObjFrame } from "@mod-tollium/webdesigns/webinterface/components/frame/frame";
 
 //We need to configure window extensions for the debuginterface
 import type { } from "@mod-tollium/js/internal/debuginterface";
@@ -647,7 +648,7 @@ class IndyShell extends TolliumShell {
 }
 
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
-function reportApplicationError(app, data: AppStartResponse, messages, trace) {
+function reportApplicationError(app: ApplicationBase, data: AppStartResponse, messages, trace) {
   //Set up a crash handler dialog
   let buttons = [{ item: "restartbutton" }, { item: "closebutton" }];
   if (data.debugtimeout > 0)
@@ -704,7 +705,7 @@ function reportApplicationError(app, data: AppStartResponse, messages, trace) {
         const debugaction = crashdialog.getComponent("debugaction");
         if (debugaction) {
           debugaction.xml_enabled = false;
-          crashdialog.actionEnabler();
+          crashdialog.refreshConditions();
         }
       }
     }, data.debugtimeout);
@@ -718,9 +719,9 @@ function closeAppAfterError(app, result, callback) {
   app.terminateApplication();
 }
 
-function debugApp(crashdialog, app, data, x, ondone) {
+function debugApp(crashdialog: ObjFrame, app: ApplicationBase, data, x, ondone) {
   crashdialog.getComponent("debugaction").xml_enabled = false;
-  crashdialog.actionEnabler();
+  crashdialog.refreshConditions();
 
   // appid is A:<groupid>
   app.shell.sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });

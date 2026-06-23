@@ -37,7 +37,7 @@ PUBLIC OBJECTTYPE TolliumDefaultFormButtons EXTEND TolliumPanel
 
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
-    this->TolliumComponentBase_StaticInit(def);
+    this->TolliumComponentBase_StaticInit(CELL[ ...def, dirtylistener := DEFAULT OBJECT ]);
     this->SetButtons(def.buttons, def."default");
   }
 

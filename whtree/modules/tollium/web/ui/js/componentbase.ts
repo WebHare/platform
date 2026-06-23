@@ -51,6 +51,12 @@ export type ToddCompClass<T extends ToddCompBase> = {
   new(parentcomp: ToddCompBase, data: ComponentStandardAttributes): T;
 };
 
+//Selects suitable callbacks. NonNullable to ensure optional callbacks are present
+type GetVoidCallbacks<ServiceType> = {
+  [K in keyof ServiceType as NonNullable<ServiceType[K]> extends () => void ? K extends `on${string}` ? K : never : never]: ServiceType[K];
+};
+
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  COMPONENT BASE                                                                                                          *
@@ -108,6 +114,9 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
 
   wrapinlineblock?: boolean;
   nodewrapper?: HTMLDivElement;
+
+  /** Is a value change pending that needs to be submitted to the server? */
+  pendingValueSubmit = false;
 
   /****************************************************************************************************************************
   * Initialization
@@ -295,9 +304,10 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     this[sizeproperty].calc = calc + (addspace || 0);
     this[sizeproperty].min = min + (addspace || 0);
   }
-  checkEnabled(): void {
+  /** invoked by refreshConditions when focus/action/enableons may have changed */
+  onRefreshConditions(): void {
   }
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return [];
   }
 
@@ -321,9 +331,14 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     this.dirtylistener = dirtylistener;
   }
 
-  /** @returns True if this call made the component transition from clean to dirty and someone was listening to it */
-  setDirty() {
-    return this.dirtylistener?.setDirtyComponent(this);
+  /** Mark this component as dirty to ours and any parent listeners */
+  setDirty(): void {
+    this.pendingValueSubmit = true;
+    this.invokeBubbleUpwards("onMarkAsDirty");
+  }
+  /** invoked by setDirty on every element upwards to the parent */
+  onMarkAsDirty(): void {
+    this.dirtylistener?.setDirty();
   }
 
   doCopyToClipboard() {
@@ -381,9 +396,20 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     return this.enabled;
   }
 
-  // If this function returns null, its value is not submitted
+  // If this function returns undefined, its value is not submitted
   getSubmitValue(): unknown {
-    return null;
+    return undefined;
+  }
+
+  /** Retrieve the value to be submitted for this component if it changed since the server last sent it.
+  */
+  private retrieveSubmitValue() { //Should only be invoked by the frame
+    if (!this.pendingValueSubmit || !this.shouldSubmitValue())
+      return undefined;
+
+    const value = this.getSubmitValue();
+    this.pendingValueSubmit = false;
+    return value;
   }
 
   // Check if the given event is unmasked for this component
@@ -477,7 +503,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   */
 
   beforeRelayout() {
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.beforeRelayout();
   }
 
@@ -488,7 +514,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
       this.gotskinsettings = true;
     }
 
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.updateSkinSettings();
   }
 
@@ -501,16 +527,26 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   }
   /** If the specified dimension should be recalculated (because the dimension of this component or any child components is dirty) */
   isDimensionDirty(horizontal: boolean): boolean {
-    return this.dim(horizontal).dirty || this.getVisibleChildren().some(child => child.isDimensionDirty(horizontal));
+    return this.dim(horizontal).dirty || this.getChildren().some(child => child.isDimensionDirty(horizontal));
   }
   // If no minimum is set but an absolute size is given, set the minimum to it. This implements taking a height as minheight, needed to prevent components from suddenly shrinking
   setMinToAbs(sizeprop: SizeObj) {
     if (!sizeprop.servermin && isFixedSize(sizeprop.serverset))
       sizeprop.servermin = sizeprop.serverset;
   }
-  /** invoked when focus/action/eanbleons may have changed */
-  checkActionEnablers() {
-    this.getVisibleChildren().forEach(child => child.checkActionEnablers());
+  /** Invoke a callback depth-first on our children, recursively */
+  invokeDepthFirst<C extends keyof GetVoidCallbacks<ToddCompBase>>(callback: C) {
+    for (const child of this.getChildren())
+      if (child) {
+        child[callback]?.();
+        child.invokeDepthFirst(callback);
+      }
+  }
+  /** Invoke a callback on us and all our parents, recursively */
+  invokeBubbleUpwards<C extends keyof GetVoidCallbacks<ToddCompBase>>(callback: C) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    for (let target: ToddCompBase | null = this; target; target = target.parentcomp)
+      target[callback]?.();
   }
   /** Recalculate the specified dimensions of any dimension-dirty part of the tree.
    *  Is invoked after adding the node to the DOM so CSS variables/metrics should be available
@@ -524,7 +560,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
       return;
     }
 
-    const children = this.getVisibleChildren();
+    const children = this.getChildren();
     if (isDebugTypeEnabled("dimensions")) {
       console.group(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " recalculating. " + (children.length ? "(" + children.length + " children) " : ""), this.node);
     }
@@ -591,7 +627,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     else
       this.applySetHeight();
 
-    for (const comp of this.getVisibleChildren())
+    for (const comp of this.getChildren())
       comp.applyDimension(horizontal);
     this.updateNodeSizeData(); //FIXME make this debugging only
 

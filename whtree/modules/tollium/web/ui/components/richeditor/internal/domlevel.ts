@@ -237,7 +237,7 @@ export class Range {
     this.end.descendToLeafNode(maxancestor);
   }
 
-  splitStartBoundary(preservelocators: PreservedLocatorList) {
+  splitStartBoundary(preservelocators?: PreservedLocatorList) {
     if (!this.start.parentIsElementOrFragmentNode()) {
       // Try to move start to its parent (and try to move end too, in case start === end at end of text node)
       if (this.start.element === this.end.element)
@@ -262,7 +262,7 @@ export class Range {
       @param preservelocators - Locators to preserver
       @returns Locator pointing to new node
   */
-  insertBefore(node: ParentNode, preservelocators: PreservedLocatorList) {
+  insertBefore(node: Node, preservelocators?: PreservedLocatorList) {
     if (!this.start.parentIsElementOrFragmentNode())
       this.splitStartBoundary(preservelocators);
 

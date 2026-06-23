@@ -69,7 +69,7 @@ export default class ObjSection extends ToddCompBase {
     this.summaryNode.title = this.summaryNode.offsetWidth < this.summaryNode.scrollWidth ? this.summaryNode.textContent || '' : '';
   }
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return [this.panel];
   }
 

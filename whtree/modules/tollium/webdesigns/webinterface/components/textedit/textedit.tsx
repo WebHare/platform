@@ -275,10 +275,10 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
       return;
 
     this.enabled = value;
-    this.checkActionEnablers();
+    this.onRefreshConditions();
   }
 
-  checkActionEnablers() {
+  onRefreshConditions() {
     const enabled = this.enabled && (this.enabledOn ? this.evaluateCondition(this.enabledOn) : true);
     this.node.classList.toggle("disabled", !enabled);
     this.inputnode.readOnly = !enabled;
@@ -289,7 +289,7 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
   // Dimensions
   //
 
-  getVisibleChildren(): ToddCompBase[] {
+  getChildren(): ToddCompBase[] {
     return this.buttons;
   }
 
@@ -394,6 +394,8 @@ export class ObjTextEdit extends ObjAutoSuggestableBase<TextEditAttributes> {
   }
 
   onAnyChange(selectionChange = false) {
+    this.pendingValueSubmit = true; //we must immediately set this as we're delaying setDirty below
+
     // Run change detect handler 100ms after last successive change
     if (this.reportchange_cb)
       clearTimeout(this.reportchange_cb);

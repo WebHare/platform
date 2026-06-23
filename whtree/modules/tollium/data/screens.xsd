@@ -3388,6 +3388,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:attributeGroup name="PanelAttributes">
     <xs:attributeGroup ref="InlineBlockAttributes" />
     <xs:attributeGroup ref="Gid" />
+    <xs:attributeGroup ref="tc:IsDirtyable" />
     <xs:attribute name="spacers" type="BordersSpacers" default="default">
       <xs:annotation>
         <xs:documentation>A space separated list of spacers to enable. If not set, a non-leftmost grid cell will enable its left spacer, and tab pages will enable all spacers (unless inside a server tab)</xs:documentation>
@@ -3562,7 +3563,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:complexContent>
       <xs:extension base="Panel">
         <xs:attributeGroup ref="IsComposable" />
-        <xs:attributeGroup ref="tc:IsDirtyable" />
         <xs:attributeGroup ref="Onchange" />
         <xs:attributeGroup ref="sc:TidOrTitle" />
         <xs:attribute name="checkbox" type="xs:boolean">

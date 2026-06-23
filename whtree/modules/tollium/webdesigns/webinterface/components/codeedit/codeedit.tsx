@@ -92,6 +92,7 @@ export default class ObjCodeEdit extends ComponentBase {
           style={{ marginLeft: this.linenumberswidth + 2 }}
           on={{
             scroll: () => this.gotScrollEvent(),
+            selectionchange: () => this.gotSelectionChangeEvent(),
             input: () => this.gotInput()
           }}
         />
@@ -215,7 +216,11 @@ export default class ObjCodeEdit extends ComponentBase {
   }
 
   gotScrollEvent() {
+    this.pendingValueSubmit = true;
     this.syncScroll(false);
+  }
+  gotSelectionChangeEvent() {
+    this.pendingValueSubmit = true;
   }
 
   syncScroll(immediate: boolean) {

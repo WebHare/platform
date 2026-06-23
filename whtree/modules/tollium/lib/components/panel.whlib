@@ -65,6 +65,7 @@ PUBLIC OBJECTTYPE TolliumPanel EXTEND TolliumLinesContainerBase
   MACRO NEW()
   {
     EXTEND this BY TolliumFileDropAccepter;
+    EXTEND this BY TolliumIsDirtyable;
 
     this->pvt_blockelement := TRUE;
     this->componenttype := "panel";

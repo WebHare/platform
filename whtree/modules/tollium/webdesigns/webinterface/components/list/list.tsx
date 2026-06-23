@@ -681,6 +681,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       if (selected !== row[1]) {
         row[1] = selected;
         changed = true;
+        this.pendingValueSubmit = true;
         this.sendRow(i);
       }
     }
@@ -755,7 +756,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       case "selection":
         {
           if (this._setSelection(data.selection))
-            this.owner.actionEnabler();
+            this.owner.refreshConditions();
           this.jumpToSelection();
         } break;
 
@@ -1069,6 +1070,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     return sortAscending ? diff : -diff;
   }
   onSelectColumnsChange() {
+    this.pendingValueSubmit = true;
     if (this.isEventUnmasked("select"))
       this.transferState(this.syncselect);
   }
@@ -1210,12 +1212,14 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
     row[cellidx] = newvalue;
 
     if (cellidx === 1) { //changing selected state
+      this.pendingValueSubmit = true;
       this.sendRow(rownum);
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
 
       if (this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
     } else if (cellidx === 2) { //changing expanded state
+      this.pendingValueSubmit = true;
       this.flattenRows();
       this.invalidateAllRows();
 
@@ -1266,7 +1270,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
 
   _updatedSelection(changed?: boolean) {
     if (!this.selectionupdates) {
-      this.owner.actionEnabler();
+      this.owner.refreshConditions();
       if (changed && this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
     }
@@ -1279,6 +1283,8 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
         if (!changed && this.flatrows[i][1])
           changed = true;
         this.flatrows[i][1] = false;
+
+        this.pendingValueSubmit = true;
         this.sendRow(i);
       }
 
@@ -1337,6 +1343,7 @@ export default class ObjList extends ToddCompBase<ListAttributes> {
       if (this.flatrows[i][1] !== newvalue) { //isselected
         changed = true;
         this.flatrows[i][1] = newvalue;
+        this.pendingValueSubmit = true;
         this.sendRow(i);
       }
     }

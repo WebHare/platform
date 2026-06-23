@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 
@@ -42,5 +44,24 @@ PUBLIC OBJECTTYPE DirtyTest EXTEND TolliumScreenBase
       RETURN FALSE; // Not changed
     this->list->UpdateSingleRow(CellUpdate(row, cellname, newvalue));
     RETURN TRUE;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE RecursiveDirty EXTEND TolliumScreenBase <
+  MACRO Init() {
+    FOREVERY(STRING comp FROM ["outerpanel", "innerpanel", "innertextedit", "box", "box_textedit" ]) {
+      GetMember(this, `^${comp}_listener`)->ondirty := PTR this->OnDirty(comp);
+      GetMember(this, `^${comp}_dirty`)->onchange := PTR this->OnChange(comp);
+    }
+  }
+  MACRO OnDirty(STRING comp) {
+    ^log->value := `[${formatiso8601datetime(GetCurrentDatetime())}] ${comp} dirty: ${GetMember(this, `^${comp}_listener`)->dirty ? "true":"false"}\n${^log->value}`;
+    IF(GetMember(this, `^${comp}_listener`)->dirty)
+      GetMember(this, `^${comp}_dirty`)->value := TRUE;
+  }
+  MACRO OnChange(STRING comp) {
+    ^log->value := `[${formatiso8601datetime(GetCurrentDatetime())}] ${comp} change: ${GetMember(this, `^${comp}_dirty`)->value ? "true":"false"}\n${^log->value}`;
+    IF (GetMember(this, `^${comp}_dirty`)->value = FALSE)
+      GetMember(this, `^${comp}_listener`)->ClearDirty();
   }
 >;

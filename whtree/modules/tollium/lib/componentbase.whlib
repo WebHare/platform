@@ -2074,16 +2074,11 @@ PUBLIC OBJECTTYPE TolliumIsDirtyable
     this->dirtylistener := DEFAULT OBJECT;
   }
 
-  PUBLIC MACRO SetDirty()
-  {
-    IF (Objectexists(this->pvt_dirtylistener))
-      this->pvt_dirtylistener->SetDirtyComponent(this);
-  }
-
-  MACRO ClearDirty()
-  {
-    IF (Objectexists(this->pvt_dirtylistener))
-      this->pvt_dirtylistener->ClearDirtyComponent(this);
+  PUBLIC MACRO SetDirty() {
+    FOR(OBJECT comp := this; ObjectExists(comp); comp := comp->parent) {
+      IF (MemberExists(comp,"dirtylistener") AND Objectexists(comp->dirtylistener))
+        comp->dirtylistener->SetDirty();
+    }
   }
 >;
 

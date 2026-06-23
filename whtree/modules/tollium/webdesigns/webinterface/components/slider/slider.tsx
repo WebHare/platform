@@ -12,6 +12,7 @@ import { replaceRangeComponent } from '@mod-tollium/web/ui/components/basecontro
  ****************************************************************************************************************************/
 
 export default class ObjSlider extends ComponentBase {
+  inputnode: HTMLInputElement!;
 
   /****************************************************************************************************************************
    * Initialization
@@ -81,7 +82,7 @@ export default class ObjSlider extends ComponentBase {
     this._slidercomp.setValues(newvalue);
   }
 
-  getSubmitValue() {
+  getSubmitValue(): string {
     return this.getValue();
   }
 

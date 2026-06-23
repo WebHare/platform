@@ -270,7 +270,7 @@ class UndoLock {
   _undoitem: EditorUndoItem | null;
   stack: Error | undefined;
 
-  constructor(undoitem: EditorUndoItem | null) {
+  constructor(private editor: EditorBase, undoitem: EditorUndoItem | null) {
     // FIXME: public dom-level undoitem for now - remove when domlevel undoitem is removed
     this.undoitem = null;
 
@@ -347,6 +347,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   knownimages: string[] = [];
   language: string;
   bodydiv;
+
+  private allChangeObserver: MutationObserver;
+  private allChangeObserverActive = false;
 
   constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
     const originalcontent = [...container.childNodes];
@@ -478,6 +481,28 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
     //    this.stateHasChanged();
+    //Watch to implement change events. This observer is disabled during manual value sets
+    this.allChangeObserver = new MutationObserver(() =>
+      dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-change", { bubbles: true, cancelable: false })
+    );
+
+    this.setAllChangeObserver(true);
+  }
+
+  protected setAllChangeObserver(enable: boolean) {
+    if (this.allChangeObserverActive === enable)
+      return;
+    this.allChangeObserverActive = enable;
+    if (enable)
+      this.allChangeObserver.observe(this.bodydiv,
+        {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          characterData: true,
+        });
+    else
+      this.allChangeObserver.disconnect();
   }
 
   _constructorTail() {
@@ -640,7 +665,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
   }
 
-  _gotStateChange(event) {
+  _gotStateChange(event?) {
     this._fireStateChange();
     this._checkDirty();
   }
@@ -772,6 +797,17 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     return this.getBody().querySelector(selector);
   }
 
+  qR<T extends HTMLElement>(selector: string): T {
+    const matches = this.qSA<T>(selector);
+    if (matches.length === 0)
+      throw new Error(`No element found for selector: ${selector}`);
+    if (matches.length > 1) {
+      console.error(`Multiple elements found for selector: ${selector}`, matches);
+      throw new Error(`Multiple elements found for selector: ${selector}`);
+    }
+    return matches[0];
+  }
+
   qSA<T extends HTMLElement>(selector: string): T[] {
     return Array.from(this.getBody().querySelectorAll<T>(selector));
   }
@@ -794,6 +830,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
   setValue(val: string) {
     this.dirty = true;
+    this.setAllChangeObserver(false); //avoid firing change events during setValue
 
     this.bodydiv.innerHTML = val;
     this.resetUndoStack();
@@ -807,6 +844,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.dirty = false;
 
     this._checkDirty();
+    this.setAllChangeObserver(true); //reenable change events after setValue
   }
 
   focus() {
@@ -1354,11 +1392,11 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   */
   getUndoLock() {
     if (!this.options.allowundo)
-      return new UndoLock(null);
+      return new UndoLock(this, null);
 
     const last = this.undostack.length && this.undostack[this.undostack.length - 1];
     if (last && !last.finished)
-      return new UndoLock(last);
+      return new UndoLock(this, last);
 
     // Allocate a new undo item, place it on the undo stack (erase redoable items)
     const item = new EditorUndoItem(this, this.getSelectionRange());
@@ -1369,7 +1407,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
       console.warn('[rte] start recording undo item', item);
 
     item.onfinish = (finisheditem) => this._updateUndoNodeForNewUndoItem(finisheditem);
-    return new UndoLock(item);
+    return new UndoLock(this, item);
   }
 
   resetUndoStack() {
@@ -1940,7 +1978,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.gotPaste(event);
   }
 
-  async gotPaste(event) {
+  gotPaste(event): void {
     const preexistingstylenodes = this.qSA("style");
 
     // Wait for the paste to happen, then

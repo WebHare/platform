@@ -97,8 +97,8 @@ PUBLIC STATIC OBJECTTYPE WebHareDBBlobStabilizer
 
 /** Helper class for frontend rich text editors
 */
-PUBLIC STATIC OBJECTTYPE RichDocumentEditor
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE RichDocumentEditor <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -160,9 +160,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
   PUBLIC BOOLEAN trimwhitespace;
 
   PUBLIC OBJECT mergefields;
-
-//  /// Callback called when the document becomes dirty
-//  PUBLIC MACRO PTR ondirty;
 
   // ---------------------------------------------------------------------------
   //
