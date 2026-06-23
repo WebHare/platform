@@ -28,7 +28,9 @@ function nodeContainsJSX(node: ts.Node): boolean {
 
 runCli({
   flags: {
-    "v,verbose": { description: "Show more information" }
+    "v,verbose": { description: "Show more information" },
+    "no-status-check": { description: "Don't check for a clean git status before proceeding" },
+
   },
   arguments: [{ name: "<module>", description: "Module to convert" }],
   async main({ opts, args }) {
@@ -39,9 +41,11 @@ runCli({
     if (root.startsWith(backendConfig.installationRoot))
       throw new CLIRuntimeError(`Module ${args.module} is a builtin module and cannot be converted`);
 
-    const status = await simpleGit({ baseDir: root }).status();
-    if (!status.isClean())
-      throw new CLIRuntimeError(`Module ${root} appears to have uncommitted changes, please commit or stash them before running es2ts`);
+    if (!opts.noStatusCheck) {
+      const status = await simpleGit({ baseDir: root }).status();
+      if (!status.isClean())
+        throw new CLIRuntimeError(`Module ${root} appears to have uncommitted changes, please commit or stash them before running es2ts`);
+    }
 
     //ensure tsconfig is present
     const tsConfigFile = root + "tsconfig.json";
