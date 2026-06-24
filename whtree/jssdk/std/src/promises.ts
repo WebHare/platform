@@ -1,5 +1,5 @@
-import { type WaitPeriod, convertWaitPeriodToDate } from "./datetime";
-import { isPromise } from "./quacks";
+import { type WaitPeriod, convertWaitPeriodToDate } from "./datetime.ts";
+import { isPromise } from "./quacks.ts";
 
 //TODO Deprecate once everyone is WH5.5+
 export type DeferredPromise<T> = PromiseWithResolvers<T>;

@@ -1,4 +1,4 @@
-import { isDate, isTemporalInstant } from "./quacks";
+import { isDate, isTemporalInstant } from "./quacks.ts";
 
 /** A tolerant JS date parameter */
 export type FlexibleInstant = Date | Temporal.Instant | Temporal.ZonedDateTime;

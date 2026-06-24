@@ -224,8 +224,10 @@ export function typedFromEntries<T extends [string, unknown]>(entries: Iterable<
 
 export class SortedMultiSet<V> {
   private contents: V[] = [];
+  private compareFn;
 
-  constructor(private compareFn: (lhs: V, rhs: V) => number, contents?: V[]) {
+  constructor(compareFn: (lhs: V, rhs: V) => number, contents?: V[]) {
+    this.compareFn = compareFn;
     if (contents)
       this.addMultiple(contents);
   }
