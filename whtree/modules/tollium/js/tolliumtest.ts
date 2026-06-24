@@ -111,7 +111,7 @@ class ComponentProxy implements CastableToElement {
   }
 
   /** Set a value, allowing events to trigger */
-  set(value: unknown) {
+  setValue(value: unknown) {
     const toSet = this.getHTMLFormControl() ?? this.node;
 
     if (isFormControl(toSet)) {

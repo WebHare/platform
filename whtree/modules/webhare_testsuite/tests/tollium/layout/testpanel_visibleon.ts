@@ -11,12 +11,12 @@ test.runTests(
       test.eq(false, test.canClick(tt.comp("panel1text").node));
       test.eq(false, test.canClick(tt.comp("panel1text2").node));
 
-      tt.comp("showmode").set("showpanel1");
+      tt.comp("showmode").setValue("showpanel1");
 
       test.eq(true, test.canClick(tt.comp("panel1text").node));
       test.eq(true, test.canClick(tt.comp("panel1text2").node));
 
-      tt.comp("showmode").set("hidepanel1");
+      tt.comp("showmode").setValue("hidepanel1");
 
       test.eq(false, test.canClick(tt.comp("panel1text").node));
       test.eq(false, test.canClick(tt.comp("panel1text2").node));

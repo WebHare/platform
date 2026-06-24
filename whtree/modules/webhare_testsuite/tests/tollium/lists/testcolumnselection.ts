@@ -56,7 +56,7 @@ test.runTests(
 
     "test multiselect",
     async function () {
-      tt.comp(':List selection mode').set('multiple');
+      tt.comp(':List selection mode').setValue('multiple');
       await test.waitForUI();
 
       test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);

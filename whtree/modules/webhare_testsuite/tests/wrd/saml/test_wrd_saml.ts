@@ -40,7 +40,7 @@ test.runTests(
       name: "Configure IDP - Import SP metadata",
       test: async function () {
         const metadataurl = new URL(webroot + "test-saml/portal-sp/saml-sp-test-sp", location.href).toString();
-        tt.comp("metadataurl").set(metadataurl);
+        tt.comp("metadataurl").setValue(metadataurl);
         test.clickToddButton("Update metadata");
         await test.waitForUI();
       }
@@ -75,7 +75,7 @@ test.runTests(
       name: "Configure SP - Import IDP metadata",
       test: async function () {
         const metadataurl = webroot + "test-saml/portal-idp/saml-idp";
-        tt.comp("metadataurl").set(metadataurl);
+        tt.comp("metadataurl").setValue(metadataurl);
         test.clickToddButton("Update metadata");
         await test.waitForUI();
       }

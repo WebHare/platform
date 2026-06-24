@@ -37,7 +37,7 @@ test.runTests([
     test.eq(`"P15D"`, tt.comp(":Value").querySelector("input")?.value);
 
     // Set the value
-    tt.comp(":Value").set(`"PT59H"`);
+    tt.comp(":Value").setValue(`"PT59H"`);
     tt.comp("writevaluebutton").click();
     await test.waitForUI();
     amountComp = testPanel.querySelector("t-textedit[data-name*=amount] input");
@@ -46,7 +46,7 @@ test.runTests([
     test.eq(1, unitComp.selectedIndex);
 
     // Set the value with a unit that's not in the unit select
-    tt.comp(":Value").set(`"P1234Y"`);
+    tt.comp(":Value").setValue(`"P1234Y"`);
     tt.comp("writevaluebutton").click();
     await test.waitForUI();
     amountComp = testPanel.querySelector("t-textedit[data-name*=amount] input");
@@ -55,7 +55,7 @@ test.runTests([
     test.eq(4, unitComp.selectedIndex);
     test.eq("years", unitComp.selectedOptions[0]?.textContent); // The 'years' option should be added as the last option
 
-    tt.comp(":Value").set(`"PT0.001S"`);
+    tt.comp(":Value").setValue(`"PT0.001S"`);
     tt.comp("writevaluebutton").click();
     await test.waitForUI();
     amountComp = testPanel.querySelector("t-textedit[data-name*=amount] input");
