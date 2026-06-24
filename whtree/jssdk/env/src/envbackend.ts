@@ -217,6 +217,12 @@ export function getAssetBase(): string | null {
   return ensureHooks().currentAssetBase();
 }
 
+/** Get the base url for a module's public assets (those located in the module's `public` folder)
+ */
+export function getModulePublicAssetBase(module: string) {
+  return `${getAssetBase() || "/"}.wh/mod/${encodeURIComponent(module)}/public/`;
+}
+
 /** Set the base url for assets */
 export function setAssetBase(base: string | null): void {
   if (base && !base.endsWith("/"))
