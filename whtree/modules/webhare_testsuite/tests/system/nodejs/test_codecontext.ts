@@ -2,8 +2,9 @@ import { getCodeContext, CodeContext, isRootCodeContext, ensureScopedResource } 
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { loadlib } from "@webhare/harescript";
-import { debugFlags, type DebugRegistry } from "@webhare/env";
+import { debugFlags, setAssetBase, type DebugRegistry } from "@webhare/env";
 import { registerDebugConfigChangedCallback, updateDebugConfig, type DebugFlags } from "@webhare/env/src/envbackend";
+import { getAssetBase } from "@webhare/env";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { spawnSync } from "child_process";
 
@@ -100,6 +101,18 @@ async function testContextStorage() {
   test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
 }
 
+async function testAssetBase() {
+  test.eq(null, getAssetBase());
+  const c1 = new CodeContext("test_codecontext:assetbase", { context: 1 });
+  test.eq(null, c1.run(() => getAssetBase()));
+  c1.run(() => setAssetBase("https://beta.webhare.net/"));
+  test.eq("https://beta.webhare.net/", c1.run(() => getAssetBase()));
+  test.eq(null, getAssetBase(), "Doesn't affect root");
+  setAssetBase("https://alpha.webhare.net/");
+  test.eq("https://alpha.webhare.net/", getAssetBase(), "Doesn't affect root");
+  test.eq("https://beta.webhare.net/", c1.run(() => getAssetBase()));
+}
+
 async function testContextHSVM() {
   const context1 = new CodeContext("test_codecontext:context storage", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context storage", { context: 2 });
@@ -155,6 +168,7 @@ async function testGlobalDebugFlags() {
 test.runTests([
   testContextSetup,
   testContextStorage,
+  testAssetBase,
   testContextHSVM,
   testDebugRegistry,
   testGlobalDebugFlags

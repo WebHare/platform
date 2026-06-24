@@ -26,6 +26,14 @@ export type DebugConfig = {
   context: string;
 };
 
+/// Empty or no parameter lang is get, otherwise it's a set
+export type GetSetAssetBase = (assetBase?: string | null) => string | null;
+
+export type EnvHooks = {
+  currentAssetBase: GetSetAssetBase;
+};
+
+
 const settingschangedcallbacks = new Array<() => void>;
 
 /* Global debug flags are set by `wh debug`, local flags are prefilled by environment variables.
@@ -159,11 +167,18 @@ let isLive: boolean = dtapStage === "production" || dtapStage === "acceptance";
 /** The backend base URL. Used for eg. autoconfiguring JSON/RPC */
 let backendBase = "";
 
+/** The global assetbase */
+let assetBase: string | null = null;
+
 //deprecated variants
 /** @deprecated For WH5.4 and up use 'dtapStage' */
 let dtapstage: DTAPStage = dtapStage;
 /** @deprecated For WH5.4 and up compare 'dtapStage' for production or acceptance */
 let islive: boolean = isLive;
+
+let hooks: EnvHooks | undefined;
+let hookFactory: (() => EnvHooks) | undefined;
+let gotHooks = false;
 
 export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
   dtapStage = setDtapStage;
@@ -172,6 +187,42 @@ export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
 
   dtapstage = dtapStage;
   islive = isLive;
+}
+
+export function setEnvHooksFactory(newHookFactory: () => EnvHooks) {
+  if (gotHooks)
+    throw new Error(`The call to setEnvHooksFactory was too late - hooks have already been retrieved once`);
+  hookFactory = newHookFactory;
+}
+
+export function getEnvHooks() {
+  gotHooks = true;
+  return hookFactory?.();
+}
+
+function ensureHooks(): EnvHooks {
+  return hooks ??= getEnvHooks?.() ?? {
+    currentAssetBase: (newAssetBase) => {
+      if (newAssetBase !== undefined)
+        assetBase = newAssetBase;
+      return assetBase;
+    }
+  };
+}
+
+/** Get the base url for assets. This may point towards eg. a CDN
+ * @returns The base url for assets, ending with a '/'. null if not set
+ */
+export function getAssetBase(): string | null {
+  return ensureHooks().currentAssetBase();
+}
+
+/** Set the base url for assets */
+export function setAssetBase(base: string | null): void {
+  if (base && !base.endsWith("/"))
+    throw new Error(`Asset base must end with a '/'`);
+
+  ensureHooks().currentAssetBase(base);
 }
 
 export { dtapStage, isLive, backendBase, localDebugFlags };
