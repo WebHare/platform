@@ -4,6 +4,7 @@ import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 import stylistic from "@stylistic/eslint-plugin";
 import importPlugin from 'eslint-plugin-import';
+import erasableSyntaxOnly from "eslint-plugin-erasable-syntax-only";
 
 /* We add some rules that don't exist in this WebHare, but are referenced by eslint-disable comments in
    code that needs to validate on previous or future WebHare versions. These rules shouldn't be activated,
@@ -37,7 +38,7 @@ tseslint.configs.recommended.forEach(c => {
 });
 tseslint.configs.recommended.unshift({
   plugins: {
-    "@typescript-eslint": tseslint.plugin
+    "@typescript-eslint": tseslint.plugin,
   }
 });
 
@@ -48,6 +49,7 @@ export function buildBaseConfig(options) {
     react.configs.flat.recommended,
     importPlugin.flatConfigs.recommended,
     importPlugin.flatConfigs.typescript,
+    erasableSyntaxOnly.configs.recommended,
     ...tseslint.configs.recommended, {
     name: "@webhare/eslint-config main configuration",
     languageOptions: {
@@ -211,6 +213,11 @@ export function buildBaseConfig(options) {
           allowInterfaces: "always"
         }
       ],
+      // Warn about non-erasable syntax
+      "erasable-syntax-only/enums": "warn",
+      "erasable-syntax-only/import-aliases": "warn",
+      "erasable-syntax-only/namespaces": "warn",
+      "erasable-syntax-only/parameter-properties": "warn",
       // The importplugin resolver requires providing extentions. Typescript compilation will catch these errors anyway.
       "import/no-unresolved": "off",
       // these gives back false positives

@@ -38,6 +38,7 @@
     "diff": "^9.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^9.32.0",
+    "eslint-plugin-erasable-syntax-only": "^0.4.2",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "events": "^3.3.0",
