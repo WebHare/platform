@@ -85,13 +85,6 @@ async function testContextSetup() {
   test.eq({ value: "1:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: "2:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: undefined, done: true }, await contextidgeneratorasync.next());
-
-  //test global flag updates
-  test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  spawnSync("wh", ["debug", "enable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
-  await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  spawnSync("wh", ["debug", "disable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
-  await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
 }
 
 async function testContextStorage() {
@@ -150,9 +143,19 @@ async function testDebugRegistry() {
   await test.wait(() => !(contextid in debugRegistry!.codeContexts!), "Debug registry entry should eventually go away completely");
 }
 
+async function testGlobalDebugFlags() {
+  //test global flag updates
+  test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  spawnSync("wh", ["debug", "enable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  spawnSync("wh", ["debug", "disable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+}
+
 test.runTests([
   testContextSetup,
   testContextStorage,
   testContextHSVM,
-  testDebugRegistry
+  testDebugRegistry,
+  testGlobalDebugFlags
 ]);
