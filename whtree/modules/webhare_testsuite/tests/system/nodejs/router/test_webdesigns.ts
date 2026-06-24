@@ -12,6 +12,9 @@ import type { } from "@mod-publisher/js/internal/plugins/gtmplugin.ts"; //make c
 import { parseResponse, getWHConfig, getAsDoc, fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { loadlib } from "@webhare/harescript";
 import { getTestSiteJS } from "@mod-webhare_testsuite/js/wts-backend.ts";
+import { openSite } from "@webhare/whfs";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
+import { getAssetBase } from "@webhare/env";
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseDocAsXML(await response.text(), "text/html", { rewriteHTML: true });
@@ -90,6 +93,39 @@ async function testPageResponse() {
     { "p.intro": [{ text: "default p with " }, { text: "bold", bold: true }, { text: " text." }] }
   ]));
   test.eq(`<h1 class="heading1">Heading 1</h1><p class="normal"><br></p><p class="intro">default p with <b>bold</b> text.</p>`, await littyToString(richDocument));
+}
+
+async function testPaths() {
+  test.eq(null, getAssetBase(), "verify initial state");
+
+  async function verifyImageDoc(expectCDN: boolean) {
+    const staticDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/images");
+    const smallBob = staticDoc.doc.getElementById("smallbob");
+    test.assert(smallBob);
+
+    test.eq(expectCDN ? "https://beta.webhare.net/sub/.wh/mod/webhare_testsuite/public/img/smallbob.jpg" : "/.wh/mod/webhare_testsuite/public/img/smallbob.jpg", smallBob.getAttribute("src"));
+
+    const fish = staticDoc.doc.getElementsByClassName("wh-rtd__img")[0];
+    test.eq(expectCDN ? /^https:\/\/beta\.webhare\.net\/sub\/\.wh\/ea\/uc\// : /^\/\.wh\/ea\/uc\//, fish?.getAttribute("src"));
+  }
+
+  await verifyImageDoc(false);
+
+  await beginWork();
+  const testsite = await openSite("webhare_testsuite.testsitejs");
+  test.eq(null, testsite.cdnBaseURL, "should have been cleared by test.reset");
+
+  await test.throws(/must end with a slash/, () => testsite.update({ cdnBaseURL: "" }));
+  await test.throws(/must end with a slash/, () => testsite.update({ cdnBaseURL: "https://beta.webhare.net/sub" }));
+
+  await testsite.update({ cdnBaseURL: "https://beta.webhare.net/sub/" });
+  test.eq("https://beta.webhare.net/sub/", testsite.cdnBaseURL);
+  await commitWork();
+
+  await verifyImageDoc(true);
+  test.eq(null, getAssetBase(), "assetbase we see shouldn't have changed");
+
+  await runInWork(() => testsite.update({ cdnBaseURL: null })); // Reset for further tests
 }
 
 async function testDynamicPage() {
@@ -537,7 +573,9 @@ async function testRouter_JSWebDesign() {
 }
 
 test.runTests([
+  test.reset,
   testPageResponse,
+  testPaths,
   testDynamicPage,
   testPageResponseApplies,
   testPageResponseMarkdown,

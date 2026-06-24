@@ -1,4 +1,4 @@
-import { db, sql, type Selectable } from "@webhare/whdb";
+import { db, sql, type Selectable, type Updateable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
@@ -27,7 +27,7 @@ interface ListableSiteRow {
   /// The webserver on which this site is hosted, null if the site is not published
   outputWeb: number | null;
   /// The corresponding CDN URL for the webroot
-  cdnBaseURL: string;
+  cdnBaseURL: string | null;
   /// The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
   webRoot: string;
   /// Webdesign applied to a site
@@ -36,7 +36,7 @@ interface ListableSiteRow {
   webFeatures: string[] | null;
 }
 
-type UpdateableSiteSettings = Pick<ListableSiteRow, "webDesign" | "webFeatures">;
+type UpdateableSiteSettings = Pick<ListableSiteRow, "cdnBaseURL" | "webDesign" | "webFeatures">;
 
 const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatures">, keyof SiteRow> = {
   "cdnBaseURL": "cdnbaseurl",
@@ -51,7 +51,7 @@ const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatu
 };
 
 export class Site {
-  private readonly dbrow: SiteRow;
+  private dbrow: SiteRow;
 
   /** Site primary key (matches root folder id) */
   get id(): number {
@@ -66,6 +66,11 @@ export class Site {
   /** Absolute URL where the site is published, or null if the site is not published */
   get webRoot(): string | null {
     return this.dbrow.webroot || null;
+  }
+
+  /** Get URL for the CDN, if any */
+  get cdnBaseURL(): string | null {
+    return this.dbrow.cdnbaseurl || null;
   }
 
   /** ID of the webserver to which the site is published, null if unpublished*/
@@ -125,16 +130,29 @@ export class Site {
       metadataupdate = { ...metadataupdate, webfeatures: updates.webFeatures?.length ? updates.webFeatures.sort() : [] };
     if (metadataupdate)
       await whfsType("platform:web.sitesettings").set(this.id, metadataupdate);
+
+    const dbupdates: Updateable<PlatformDB, "system.sites"> = {};
+    if (updates.cdnBaseURL !== undefined) {
+      if (updates.cdnBaseURL !== null && !updates.cdnBaseURL.endsWith("/"))
+        throw new Error(`CDN root must end with a slash ('/')`);
+
+      dbupdates.cdnbaseurl = updates.cdnBaseURL || "";
+    }
+
+    if (Object.keys(dbupdates).length) {
+      await db<PlatformDB>().updateTable("system.sites").set(dbupdates).where("id", "=", this.id).execute();
+    }
+
+    const reload = await loadSite(this.id);
+    if (!reload)
+      throw new Error(`Site ${this.name} (${this.id}) disappeared after update`);
+
+    this.dbrow = reload;
   }
 }
 
-
-export async function openSite(site: number | string, options: { allowMissing: true }): Promise<Site | null>;
-export async function openSite(site: number | string, options?: { allowMissing: boolean }): Promise<Site>;
-
-export async function openSite(site: number | string, options?: { allowMissing: boolean }) {
-  //TODO we may need a view for this ? or learn our sql about .append too or similar
-  const match = await db<PlatformDB>()
+async function loadSite(site: number | string): Promise<SiteRow | null> {
+  return await db<PlatformDB>()
     .selectFrom("system.sites")
     .selectAll()
     .select(selectSitesWebRoot().as("webroot"))
@@ -144,7 +162,14 @@ export async function openSite(site: number | string, options?: { allowMissing: 
       else
         return qb.where(sql`upper(name)`, "=", sql`upper(${site})`);
     })
-    .executeTakeFirst();
+    .executeTakeFirst() || null;
+}
+
+export async function openSite(site: number | string, options: { allowMissing: true }): Promise<Site | null>;
+export async function openSite(site: number | string, options?: { allowMissing: boolean }): Promise<Site>;
+
+export async function openSite(site: number | string, options?: { allowMissing: boolean }) {
+  const match = await loadSite(site);
 
   if (!match)
     if (options?.allowMissing)

@@ -10,6 +10,7 @@ import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { attempt, throwError } from "@webhare/std";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 import type { PageMetadata } from "@webhare/router/src/metadata";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 export function getWHConfig(parseddoc: Document): WHConfigScriptData {
   const config = parseddoc.getElementById("wh-config");
@@ -43,15 +44,19 @@ export function parseResponse(responsetext: string) {
 
 /** Get the file inline (running its builders in the current script, often easier to debug) */
 export async function getAsDoc(whfspath: string) {
-  const whfsobj = await whfs.openFile(whfspath);
-  const sitereq = await createContentPageRequest(whfsobj, { webRequest: new IncomingWebRequest(whfsobj.link!) });
-  const builder = await (sitereq as CPageRequest).getPageRenderer();
-  if (!builder)
-    throw new Error(`No builder found for this page`);
+  await using cc = new CodeContext("getAsDoc", { whfspath });
+  const { response, link } = await cc.run(async () => {
+    const whfsobj = await whfs.openFile(whfspath);
+    const sitereq = await createContentPageRequest(whfsobj, { webRequest: new IncomingWebRequest(whfsobj.link!) });
+    sitereq.applyToCurrentContext();
 
-  const response = await builder(sitereq);
+    const builder = await (sitereq as CPageRequest).getPageRenderer();
+    if (!builder)
+      throw new Error(`No builder found for this page`);
 
-  return { response, ...parseResponse(await response.text()) };
+    return { response: await builder(sitereq), link: whfsobj.link };
+  });
+  return { response, ...parseResponse(await response.text()), url: link };
 }
 
 /** Fetch the final version of a file */

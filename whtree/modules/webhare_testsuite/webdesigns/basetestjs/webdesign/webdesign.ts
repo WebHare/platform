@@ -4,6 +4,7 @@ import { litty } from "@webhare/litty";
 import type { PageBuilderFunction, WidgetBuilderFunction } from "@webhare/router/src/siterequest";
 import { openFile, whfsType, type TypedInstanceData } from "@webhare/whfs";
 import type { SchemaOrg } from "@webhare/deps";
+import { getModulePublicAssetBase } from "@webhare/env";
 
 declare module "@webhare/frontend" {
   interface FrontendDataTypes {
@@ -74,9 +75,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   req.pageMetadata.htmlDataSet.otherField = "";
   req.pageMetadata.dataLayer.push({ datalayerpush: 430043004300 });
 
-  const contentobjectpath = "FIXME"; //are we receiving contentObject yet ? do we want it?
-  const navigationobjectpath = "FIXME"; //are we receiving navigationobject yet ? do we want it?
-
   const bobimage = await req.targetSite.openFile("bob.jpg", { allowMissing: true });
   const bobimagelink = bobimage?.data?.toResized({ method: "none" });
   const widget = null;
@@ -84,7 +82,7 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
   const wrdauthplugin = await req.getPlugin("platform:wrdauth")?.getWittyData() || null;
 
   //TODO we want to move away from providing imgroot .. as that one depends on the webdesign designfolder and we might be rendered outside our usual webdesign!
-  const imgroot = "FIXME";
+  const imgroot = getModulePublicAssetBase("webhare_testsuite") + "img/";
 
   const comments = null; // TODO ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,8 +92,6 @@ export async function baseTestJSPageBuilder(req: PageBuildRequest): Promise<WebR
       <div id="basetitle">${getTid("webhare_testsuite:basetest.title")}</div>
       <div id="whfspath">${req.targetObject.whfsPath}</div>
       <div id="content" data-targetobjectpath="${req.targetObject.whfsPath}"
-                        data-contentobjectpath="${contentobjectpath}"
-                        data-navigationobjectpath="${navigationobjectpath}"
                         ${getTidLanguage() === 'nl' ? 'data-sitelanguage-nl' : ''}
                         ${getTidLanguage() === 'en' ? 'data-sitelanguage-en' : ''}
                         ${getTidLanguage() === 'ps' ? 'data-sitelanguage-ps' : ''}

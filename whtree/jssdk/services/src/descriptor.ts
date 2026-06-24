@@ -19,6 +19,7 @@ import { __getBlobDatabaseId, createPGBlobByBlobRec } from "@webhare/whdb/src/bl
 import { decryptForThisServer, encryptForThisServer } from "./secrets";
 import { SetDataError } from "./codec-support";
 import { isHistoricWHFSSpace } from "@webhare/whfs/src/support";
+import { getAssetBase } from "@webhare/env";
 
 declare module "@webhare/services" {
   interface ServerEncryptionScopes {
@@ -930,8 +931,8 @@ function getUnifiedCacheURL(dataType: number, metadata: Pick<ResourceMetadata, "
   suffix += packet;
   suffix += '/' + encodeURIComponent((filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : ''));
 
-  const url = `/.wh/ea/uc/` + suffix;
-  return options?.baseURL ? new URL(url, options?.baseURL).href : url;
+  const useBaseURL = (options?.baseURL === undefined ? getAssetBase() : options?.baseURL) || "/";
+  return `${useBaseURL}.wh/ea/uc/${suffix}`;
 }
 
 export function fromMetaDatatoResized(dataType: number, metadata: Pick<ResourceMetadata, "refPoint" | "width" | "height" | "dominantColor" | "mediaType" | "hash" | "fileName" | "dbLoc">, method: ResizeMethod): ResizedImage {
@@ -1036,7 +1037,7 @@ export class ResourceDescriptor implements ResourceMetadata {
       throw new Error(`Opening a resource requires an absolute path, got: '${resource}'`);
 
     if (!resource.startsWith("mod::"))
-      throw new Error(`Cannot yet open resources other than mod::`);
+      throw new Error(`Cannot yet open resources other than mod:: `);
 
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
   }
@@ -1073,7 +1074,7 @@ export class ResourceDescriptor implements ResourceMetadata {
       /* TODO once we allow external fetching through an importOption:
       const response = await fetch(file.fetch);
       if (!response.ok)
-        throw new Error(`Failed to fetch resource from '${file.fetch}', status ${response.status}`);
+        throw new Error(`Failed to fetch resource from '${file.fetch}', status ${ response.status } `);
       blob = WebHareBlob.fromBlob(await response.blob());
       */
     }
@@ -1081,7 +1082,7 @@ export class ResourceDescriptor implements ResourceMetadata {
     if ("asset" in file)
       throw new SetDataError(`Importing from asset reference '${file.asset}' requires an importFile option to handle it`);
 
-    throw new SetDataError(`Not sure how to import file from ExportedBlobReference, got keys: ${Object.keys(file).slice(0, 5).join(", ")}`, { path: ["file"] });
+    throw new SetDataError(`Not sure how to import file from ExportedBlobReference, got keys: ${Object.keys(file).slice(0, 5).join(", ")} `, { path: ["file"] });
   }
 
   static async import(resource: ResourceSource, options?: ImportOptions): Promise<ResourceDescriptor> {

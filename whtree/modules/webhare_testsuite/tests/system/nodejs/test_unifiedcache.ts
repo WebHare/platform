@@ -433,7 +433,6 @@ async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMS
 
 async function testImgCache() {
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
-  console.log(fish);
   test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
 
   const testsitejs = await test.getTestSiteJS();
@@ -542,7 +541,10 @@ async function testFileCache() {
   test.eq(200, odditylink_fetched.status);
   test.eq("application/octet-stream", odditylink_fetched.headers.get("content-type"));
 
-  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: testsite.webRoot! });
+  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: "https://beta.webhare.net/sub/" });
+  test.assert(odditylink.startsWith("https://beta.webhare.net/sub/"), "we shouldn't remove subpaths from baseURL as that will break CDNs-in-subdirectory support");
+
+  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: new URL("/", testsite.webRoot!).toString() });
   test.eq(/\/bowie-space.oddity$/, odditylink);
   odditylink_fetched = await fetch(odditylink);
   test.eq(200, odditylink_fetched.status);
