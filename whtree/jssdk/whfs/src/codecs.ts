@@ -713,7 +713,8 @@ export const codecs = {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      const type = settings[0].setting === "CD1:publisher:formdefinition" ? "platform:formdefinition"
+      //Pre WH 5.2 used "FD1" for formdefinitions. so these may still pop up
+      const type = settings[0].setting === "CD1:publisher:formdefinition" || settings[0].setting === "FD1" ? "platform:formdefinition"
         : settings[0].setting === "CD1:publisher:markdown" ? "platform:markdown"
           : throwError(`Unsupported composed document type indicator '${settings[0].setting}'`);
 
@@ -777,7 +778,8 @@ export const codecs = {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      if (settings[0].setting !== "CD1:publisher:formdefinition")
+      //Pre WH 5.2 used "FD1" for formdefinitions. so these may still pop up
+      if (settings[0].setting !== "CD1:publisher:formdefinition" && settings[0].setting !== "FD1")
         throw new Error(`Unsupported composed document type indicator '${settings[0].setting}' for formDefinition`);
       return decodeCompoundDocument(settings, "platform:formdefinition", context).then(base => {
         return buildFormDefinitionFromCompoundDocument(base);
