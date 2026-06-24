@@ -1,5 +1,5 @@
 types:
-  samlidpendpoint:
+  wrd.samlidpendpoint:
     namespace: http://www.webhare.net/xmlns/wrd/samlidpendpoint
     tid: wrd:filetypes.samlidpendpoint
     comment: SAML IDP
@@ -10,7 +10,7 @@ types:
     useWebDesign: false
     dynamicExecution:
       startMacro: mod::wrd/lib/internal/auth/samlidpendpoint.whlib#RunSAMLIdpEndpoint
-  samlspendpoint:
+  wrd.samlspendpoint:
     namespace: http://www.webhare.net/xmlns/wrd/samlspendpoint
     tid: wrd:filetypes.samlspendpoint
     comment: SAML SP
@@ -21,7 +21,7 @@ types:
     useWebDesign: false
     dynamicExecution:
       startMacro: mod::wrd/lib/internal/auth/samlspendpoint.whlib#RunSAMLSpEndpoint
-  schemaarchive:
+  wrd.schemaarchive:
     namespace: http://www.webhare.net/xmlns/wrd/schemaarchive
     tid: wrd:filetypes.schemaarchive
     comment: WRD Schema archive
