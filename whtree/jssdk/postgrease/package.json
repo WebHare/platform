@@ -1,5 +1,6 @@
 {
   "name": "@webhare/postgrease",
+  "type": "module",
   "version": "",
   "description": "Postgrease('d lightning) quick PostgreSQL client for Node.js",
   "main": "src/postgrease.ts",

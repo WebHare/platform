@@ -1,5 +1,6 @@
 {
   "name": "@webhare/address",
+  "type": "module",
   "version": "",
   "description": "The address library for WebHare modules",
   "main": "src/address.ts",

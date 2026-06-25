@@ -1,5 +1,6 @@
 {
   "name": "@webhare/services",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/services.ts",

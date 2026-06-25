@@ -1,5 +1,6 @@
 {
   "name": "@webhare/deps",
+  "type": "module",
   "version": "",
   "description": "Provides access to some WebHare Platform dependencies",
   "main": "src/deps.ts",

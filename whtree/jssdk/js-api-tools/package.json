@@ -1,5 +1,6 @@
 {
   "name": "@webhare/js-api-tools",
+  "type": "module",
   "version": "",
   "description": "Tools to build nicer JavaScript APIs",
   "main": "src/js-api-tools.ts",

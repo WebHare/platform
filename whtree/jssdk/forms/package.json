@@ -1,5 +1,6 @@
 {
   "name": "@webhare/forms",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/forms.ts",

@@ -1,5 +1,6 @@
 {
   "name": "@webhare/geoip",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/geoip.ts",

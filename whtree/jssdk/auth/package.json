@@ -1,5 +1,6 @@
 {
   "name": "@webhare/auth",
+  "type": "module",
   "version": "",
   "description": "WebHare auth(entic|oriz)ation library",
   "main": "src/auth.ts",

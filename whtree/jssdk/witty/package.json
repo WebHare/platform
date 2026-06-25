@@ -1,5 +1,6 @@
 {
   "name": "@webhare/witty",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/witty.ts",

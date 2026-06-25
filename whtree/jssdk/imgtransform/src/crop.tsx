@@ -1,6 +1,6 @@
 import * as dompack from "dompack";
 import * as movable from "dompack/browserfix/movable";
-import SmartCrop from "./smartcrop";
+import SmartCrop from "./smartcrop.cjs";
 
 import { debugFlags } from "@webhare/env";
 import { getTid } from "@webhare/gettid";

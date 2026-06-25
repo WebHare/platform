@@ -1,5 +1,6 @@
 {
   "name": "@webhare/litty",
+  "type": "module",
   "version": "",
   "description": "Litty template literals for building HTML in WebHare",
   "main": "src/litty.ts",

@@ -1,5 +1,6 @@
 {
   "name": "@webhare/upload",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/upload.ts",

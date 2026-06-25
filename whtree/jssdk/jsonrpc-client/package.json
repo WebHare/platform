@@ -1,5 +1,6 @@
 {
   "name": "@webhare/jsonrpc-client",
+  "type": "module",
   "version": "",
   "description": "A JSON/RPC client built for nice integration into WebHare",
   "main": "src/jsonrpc-client.ts",

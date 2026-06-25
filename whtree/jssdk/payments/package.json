@@ -1,5 +1,6 @@
 {
   "name": "@webhare/payments",
+  "type": "module",
   "version": "",
   "description": "Payment processing",
   "main": "src/payments.ts",

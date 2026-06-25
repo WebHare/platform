@@ -1,5 +1,6 @@
 {
   "name": "@webhare/std",
+  "type": "module",
   "version": "",
   "description": "A standard library for WebHare modules",
   "main": "src/std.ts",

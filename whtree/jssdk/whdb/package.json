@@ -1,5 +1,6 @@
 {
   "name": "@webhare/whdb",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/whdb.ts",

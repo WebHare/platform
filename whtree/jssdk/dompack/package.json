@@ -1,5 +1,6 @@
 {
   "name": "@webhare/dompack",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/dompack.ts",

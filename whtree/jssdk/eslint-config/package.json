@@ -1,5 +1,6 @@
 {
   "name": "@webhare/eslint-config",
+  "type": "module",
   "version": "",
   "description": "ESLint settings as used by WebHare Platform",
   "main": "eslint.config.mjs",

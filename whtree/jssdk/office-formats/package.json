@@ -1,5 +1,6 @@
 {
   "name": "@webhare/office-formats",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/office-formats.ts",

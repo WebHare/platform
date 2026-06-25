@@ -1,5 +1,6 @@
 {
   "name": "@webhare/frontend",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/frontend.ts",

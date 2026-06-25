@@ -1,5 +1,6 @@
 {
   "name": "@webhare/test-backend",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/test-backend.ts",
