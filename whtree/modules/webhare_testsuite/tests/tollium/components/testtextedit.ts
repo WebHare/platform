@@ -146,7 +146,7 @@ test.runTests(
       await test.wait("ui");
 
       const textedit = tt.comp("thecomponent");
-      textedit.set("aap noot mies");
+      textedit.setValue("aap noot mies");
       textedit.querySelector("input")!.setSelectionRange(4, 8); // select the 4th up until the 8th character, i.e. "noot"
 
       test.eq(0, parseInt(test.compByName("onselectcount").textContent));
@@ -158,7 +158,7 @@ test.runTests(
       test.eq(JSON.stringify("noot"), selection.getValue()); // selection is presented as a JSON stringified value
 
       // update the selected text
-      selection.set(JSON.stringify("wim"));
+      selection.setValue(JSON.stringify("wim"));
       test.click(test.compByName("writeselectionbutton"));
       await test.wait(() => parseInt(test.compByName("onselectcount").textContent) === 2);
       test.eq("aap wim mies", textedit.getValue());
@@ -167,9 +167,9 @@ test.runTests(
       test.eq(7, textedit.querySelector("input")?.selectionEnd);
 
       // clear the value
-      textedit.set("");
+      textedit.setValue("");
       // set the selection
-      selection.set(JSON.stringify("zus"));
+      selection.setValue(JSON.stringify("zus"));
       test.click(test.compByName("writeselectionbutton"));
       await test.wait(() => parseInt(test.compByName("onselectcount").textContent) === 3);
       test.eq("zus", textedit.getValue());

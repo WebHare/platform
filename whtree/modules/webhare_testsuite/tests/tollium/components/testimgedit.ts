@@ -239,7 +239,7 @@ test.runTests(
       test.click(test.getOpenMenuItem('Properties')!);
       await test.waitForUI();
       test.eq("rangetestfile.jpg", test.compByName("filename").querySelector("input").value);
-      tt.comp("filename").set("img2.jpg");
+      tt.comp("filename").setValue("img2.jpg");
       //TODO test the color picker, refpoint eiditng...
       test.clickTolliumButton("OK");
       await test.waitForUI();

@@ -19,7 +19,7 @@ test.runTests([
       mimetype: "image/jpeg"
     }, await test.wait(() => getResult()));
 
-    tt.comp("opendialog").set(true);
+    tt.comp("opendialog").setValue(true);
     test.prepareUpload([await test.fetchAsFile('/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg', { overrideContentType: "application/octet-stream" })]);
     test.click(await test.waitForElement(['button', /Upload single/]));
     await test.waitForUI();
@@ -27,7 +27,7 @@ test.runTests([
     test.click(await test.waitForElement(['button', /OK/]));
     await test.waitForUI();
 
-    tt.comp("opendialog").set(false);
+    tt.comp("opendialog").setValue(false);
 
     test.click(await test.waitForElement(['button', /Reset/]));
     await test.waitForUI();

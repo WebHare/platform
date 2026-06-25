@@ -13,7 +13,7 @@ test.runTests(
 
     'source.row1->target.row1_test',
     async function () {
-      tt.comp("log").set("");
+      tt.comp("log").setValue("");
       const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
       const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -38,7 +38,7 @@ test.runTests(
     {
       name: 'source.row2->target.row1_prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -64,7 +64,7 @@ test.runTests(
     {
       name: 'source.row2->target.row1_copy_prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -89,7 +89,7 @@ test.runTests(
     {
       name: 'source.row3->target.row1_copy_prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 3/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -114,7 +114,7 @@ test.runTests(
     {
       name: 'source.row2->target.row2_copy_prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 2/);
 
@@ -139,7 +139,7 @@ test.runTests(
     {
       name: 'source.row2->target.none_copy_prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
@@ -165,7 +165,7 @@ test.runTests(
     {
       name: 'source.row2->target.none_copy_clickrow1',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
         await test.waitForUI();
@@ -200,7 +200,7 @@ test.runTests(
     {
       name: 'source.row2->target.none_copy_clickrow1',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
         await test.waitForUI();
@@ -244,7 +244,7 @@ test.runTests(
     {
       name: 'source.row4->target.none_copy_clickrow4',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
         await test.waitForUI();
@@ -279,7 +279,7 @@ test.runTests(
     {
       name: 'source.row4->target.row1.copy_clickrow4',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
         await test.waitForUI();
@@ -314,7 +314,7 @@ test.runTests(
     {
       name: 'source.row4->target.row1.link_clickrow4',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         let srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
 
@@ -340,7 +340,7 @@ test.runTests(
     {
       name: 'source.void->target.row1.copy_clickrow4',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
         await test.waitForUI();
@@ -375,7 +375,7 @@ test.runTests(
     {
       name: 'tree.r1.to.r1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
@@ -402,7 +402,7 @@ test.runTests(
     {
       name: 'tree.r1.to.r1.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
@@ -428,7 +428,7 @@ test.runTests(
     {
       name: 'tree.r1.1.to.r1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
@@ -454,7 +454,7 @@ test.runTests(
     {
       name: 'tree.r3.to.r3-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
 
@@ -481,7 +481,7 @@ test.runTests(
     {
       name: 'source-1-to-before-r1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
 
@@ -508,7 +508,7 @@ test.runTests(
     {
       name: 'source-1-to-before-r1.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
@@ -535,7 +535,7 @@ test.runTests(
     {
       name: 'source-1-to-before-r1.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
 
@@ -562,7 +562,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2/).querySelector('span.text');
 
@@ -589,7 +589,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
@@ -615,7 +615,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
@@ -641,7 +641,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
@@ -667,7 +667,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
@@ -693,7 +693,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r1.2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
 
@@ -719,7 +719,7 @@ test.runTests(
     {
       name: 'source-1-to-before-r1.4-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
 
@@ -745,7 +745,7 @@ test.runTests(
     {
       name: 'source-1-to-before-r1.4-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
 
@@ -771,7 +771,7 @@ test.runTests(
     {
       name: 'source-1-to-after-r2.1-prepare',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R2.1/).querySelector('span.text');
 
@@ -807,7 +807,7 @@ test.runTests(
     {
       name: 'drop-on-scrolled-list',
       test: async function () {
-        tt.comp("log").set("");
+        tt.comp("log").setValue("");
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /S18/).querySelector('span.text');
 

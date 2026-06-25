@@ -34,7 +34,7 @@ test.runTests(
       await clearState();
 
       // Update textedit value
-      tt.comp("textedit").set("some text");
+      tt.comp("textedit").setValue("some text");
       // Wait until the state changes (times out if it doesn't work)
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
