@@ -140,7 +140,8 @@ runCli({
           strict: true,
           module: "commonjs",
           types: [join(backendConfig.installationRoot, "node_modules/@types/node")],
-          paths: { ["@webhare/" + pkgname]: ["."] } as Record<string, string[]>
+          paths: { ["@webhare/" + pkgname]: ["."] } as Record<string, string[]>,
+          rewriteRelativeImportExtensions: true
         }
       };
 
