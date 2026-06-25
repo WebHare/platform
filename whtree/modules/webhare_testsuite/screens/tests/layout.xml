@@ -974,4 +974,19 @@
     </footer>
   </screen>
 
+  <screen name="layouttest_panel_visibleon" gid="">
+    <body layout="left">
+      <select name="showmode" title="Show mode" type="pulldown" flags="showpanel1">
+        <option rowkey="hidepanel1" title="Hide panel 1"/>
+        <option rowkey="showpanel1" title="Show panel 1" flags="showpanel1"/>
+      </select>
+      <panel name="panel1">
+        <visibleon source="showmode" checkflags="showpanel1"/>
+        <text name="panel1text" value="Panel 1" />
+        <text name="panel1text2" value="Panel 1 line 2" />
+      </panel>
+      <text name="outsidepaneltext" value="Outside panel" />
+    </body>
+  </screen>
+
 </screens>

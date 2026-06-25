@@ -1,6 +1,7 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="testautosuggest.whscr"/>
   <jstest file="testautosuggest.ts"/>
+  <jstest file="testpanel_visibleon.ts"/>
   <jstest file="testsplits.ts"/>
   <jstest file="testbox.ts"/>
   <jstest file="testform.ts"/>
