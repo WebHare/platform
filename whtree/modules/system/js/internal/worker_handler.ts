@@ -1,4 +1,4 @@
-import { type TransferListItem, workerData } from "node:worker_threads";
+import { type Transferable, workerData } from "node:worker_threads";
 import type { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
 import { describePublicInterface } from "@webhare/services/src/backendservicerunner";
 import { encodeIPCException } from "./whmanager/ipc";
@@ -66,7 +66,7 @@ export class WorkerHandler {
       case "callRequest": {
         try {
           let result = await (await importJSFunction<CallRequestFunction>(message.func))(...message.params);
-          let transferList = new Array<TransferListItem>;
+          let transferList = new Array<Transferable>;
           if (result && typeof result === "object" && result instanceof ReturnValueWithTransferList) {
             transferList = result.transferList;
             result = await result.value;
@@ -106,7 +106,7 @@ class ServicePortHandler {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       let result = await ((this.serviceclass as Record<string, Function>)[message.func])(...message.params);
-      let transferList = new Array<TransferListItem>;
+      let transferList = new Array<Transferable>;
       if (result && typeof result === "object" && result instanceof ReturnValueWithTransferList) {
         transferList = result.transferList;
         result = await result.value;
