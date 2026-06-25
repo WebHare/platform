@@ -181,7 +181,8 @@ export function handleModuleInvalidation(path: string) {
       if (lib && lib.fixed)
         continue;
 
-      if (module.children.some(({ id }) => id === testid && (!lib || !lib.dynamicloader || lib.directloads.includes(id)))) {
+      // The require cache can also contain JSON files, which don't have children
+      if (module.children?.some(({ id }) => id === testid && (!lib || !lib.dynamicloader || lib.directloads.includes(id)))) {
         toinvalidate.push(key);
       }
     }
@@ -197,9 +198,11 @@ export function handleModuleInvalidation(path: string) {
   }
 
   // Remove the invalidated libraries from the list of children of libraries that loaded them
-  for (const mod of Object.values(require.cache))
-    if (mod)
+  for (const mod of Object.values(require.cache)) {
+    // The require cache can also contain JSON files, which don't have children
+    if (mod && mod.children)
       mod.children = mod.children.filter(child => !toinvalidate.includes(child.id));
+  }
 
   // Call the invalidation callbacks
   for (const callback of toInvalidateCallbacks)
@@ -325,7 +328,7 @@ export function getState(): State {
       registrations.push({ id, ...value });
 
   return {
-    modulecache: Array.from(Object.entries(require.cache)).map(([key, value]) => ({ id: key, children: value?.children.map(c => c.id) ?? [] })),
+    modulecache: Array.from(Object.entries(require.cache)).map(([key, value]) => ({ id: key, children: value?.children?.map(c => c.id) ?? [] })),
     registrations,
     events,
   };
