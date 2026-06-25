@@ -18,6 +18,8 @@ LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+CONSTANT INTEGER ARRAY compound_types := [ 15, 20, 27, 28 ]; //15: RTD, 20: Compound Other (markdown), 27: formdefinition, 28: compoundhtmldocument
+CONSTANT INTEGER ARRAY instance_types := [ 18, ...compound_types ]; //18: instance
 
 RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
 {
@@ -465,7 +467,7 @@ STATIC OBJECTTYPE WHFSType <
         {
           newval := DecodeSPDate(curset);
         }
-        CASE 15,20 //richdocument, composeddocument
+        CASE 15,20,27,28 //richdocument, compounddocument, formdefinition, compoundhtmldocument
         {
           RECORD root := SELECT * FROM curset WHERE ordering=0;
           BOOLEAN isrtd := memberrec.type = 15; //rtd
@@ -622,7 +624,7 @@ STATIC OBJECTTYPE WHFSType <
       }
 
       VARIANT newval := CellExists(newdata, memberrec.name) ? GetCell(newdata, memberrec.name) : memberrec.emptyval;
-      IF(Length(current_member_settings)>1 AND memberrec.type NOT IN [ 3, 12, 14, 15, 20 ]) //setting should not have multiple values, except multiple choice, arrays and richdocs
+      IF(Length(current_member_settings)>1 AND memberrec.type NOT IN [ 3, 12, 14, ...compound_types ]) //setting should not have multiple values, except multiple choice, arrays and richdocs
       {
         //Correct it. It may happen when two transactions create the same settings record in parallel
         //ADDME find a nicer solution..
@@ -868,7 +870,7 @@ STATIC OBJECTTYPE WHFSType <
           // Delete non-matched old settings
           killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN unmatched_ids;
         }
-        CASE 15,20 { //Rich document, composeddocument
+        CASE 15,20,27,28 { //Rich document, compounddocument (20), formdefinition (27), compoundhtmldocument (28)
           /* Rich documents are stored as follows:
              fs_settings { setting: "RD1" (version indicator, for future use), blobdata: html doc, ordering: 0 }
              embedded images are stored like blobs, but we prefix the setting field with the contentid */
@@ -1441,7 +1443,7 @@ STATIC OBJECTTYPE WHFSType <
         INSERT memberrec.id INTO selectmembers AT END;
         IF (memberrec.type IN [12,23]) //Array, TypedRecord
           INSERT memberrec.id INTO expandarrays AT END;
-        ELSE IF (memberrec.type IN [ 15, 18, 20 ])
+        ELSE IF (memberrec.type IN instance_types)
           have_instances := TRUE;
       }
     }
@@ -1455,7 +1457,7 @@ STATIC OBJECTTYPE WHFSType <
         INSERT memberrec.id INTO selectmembers AT END;
         IF (memberrec.type IN [12,23]) //Array, TypedRecord. schedule expansion within this loop (dynamic end condition!)
           INSERT memberrec.id INTO expandarrays AT END;
-        ELSE IF (memberrec.type IN [ 15, 18, 20 ])
+        ELSE IF (memberrec.type IN instance_types)
           have_instances := TRUE;
       }
     }
@@ -2119,7 +2121,7 @@ PUBLIC MACRO RescanWHFSConsilioLinks()
   INTEGER ARRAY members :=
       SELECT AS INTEGER ARRAY id
         FROM system.fs_members
-       WHERE type IN [ 15, 16, 19 ]; // RICHDOCUMENT, INTEXTLINK, URL
+       WHERE type IN [ 16, 19, ...compound_types ]; // INTEXTLINK, URL, and instance types can also have URLs
 
   INTEGER64 ARRAY all_settings :=
       SELECT AS INTEGER64 ARRAY fs_settings.id

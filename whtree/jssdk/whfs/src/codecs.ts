@@ -4,7 +4,7 @@ import { uploadBlob } from "@webhare/whdb";
 import { appendToArray, isPromise, isTruthy, Money, omit, parseTyped, stringify, throwError } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/src/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.ts";
-import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument.ts";
+import { buildRTDFromCompoundDocument, exportRTDAsCompoundDocument } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, WebHareBlob, type RichTextDocument, type Instance } from "@webhare/services";
@@ -15,7 +15,8 @@ import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/
 import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions, ImportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
-import { buildComposedDocument, ComposedDocument, isComposedDocument, type ComposedDocumentType, type ExportedComposedDocument } from "@webhare/services/src/composeddocument";
+import { buildCompoundDocument, CompoundDocument, isCompoundDocument, type CompoundDocumentType, type ExportedCompoundDocument } from "@webhare/services/src/compound-document";
+import { buildFormDefinition, buildFormDefinitionFromCompoundDocument, type ExportedFormDefinition, type FormDefinition, isFormDefinition } from "@webhare/services/src/form-definition";
 import { dbLoc } from "@webhare/services/src/symbols";
 import { SetDataError } from "@webhare/services/src/codec-support";
 
@@ -41,11 +42,13 @@ export type MemberType = "string" // 2
   | "intExtLink" //16
   | "instance" //18
   | "url" //19
-  | "composedDocument" //20
+  | "compoundDocument" //20
   | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
-  | "plainDate" //25
+  | "plainDate" //25 - like Date, but signal truncation of the millisecond part
   | "json" // 26
+  | "formDefinition" //27 - compoundDocument in HareScript, FormDefinition in TypeScript
+  | "compoundHTMLDocument" //28 - HTML-like (htmltext) in HareScript, CompoundDocument in TypeScript
   ;
 
 export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
@@ -129,7 +132,7 @@ async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
   return await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata, [dbLoc]: { source: 2, id: row.id, cc: context.cc } });
 }
 
-async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting: string): Promise<EncodedFSSetting[]> {
+async function encodeCompoundDocument(toSerialize: CompoundDocument, rootSetting: string): Promise<EncodedFSSetting[]> {
   const storetext = toSerialize.text; // isrtd ? newval.htmltext : newval.text;
 
   const settings: EncodedFSSetting[] = [];
@@ -174,8 +177,8 @@ async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting
   return settings;
 }
 
-async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedDocumentType, context: DecoderContext) {
-  const outdoc = new ComposedDocument(type, settings[0].blobdata!);
+async function decodeCompoundDocument(settings: FSSettingsRow[], type: CompoundDocumentType, context: DecoderContext) {
+  const outdoc = new CompoundDocument(type, settings[0].blobdata!);
   for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
     const decoded = decodeResourceDescriptor(img, context);
     if (decoded.fileName)
@@ -607,9 +610,9 @@ export const codecs = {
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
         //Don't recurse, we're encoding embedded instances ourselves
-        const asComposed = await exportRTDAsComposedDocument(value, { recurse: false });
+        const asComposed = await exportRTDAsCompoundDocument(value, { recurse: false });
         const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
-        return await encodeComposedDocument(asComposed, versionindicator);
+        return await encodeCompoundDocument(asComposed, versionindicator);
       })();
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
@@ -618,8 +621,8 @@ export const codecs = {
 
       // An RTD doesn't have a non-recursive .export(), so don't export recursively here and leave it to .exportValue
       return (async () => {
-        const base = await decodeComposedDocument(settings, "platform:richtextdocument", context);
-        return buildRTDFromComposedDocument(base);
+        const base = await decodeCompoundDocument(settings, "platform:html", context);
+        return buildRTDFromCompoundDocument(base);
       })();
     },
     exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions) => {
@@ -692,36 +695,105 @@ export const codecs = {
       return importIntExtLink(value, options);
     }
   },
-  "composedDocument": {
-    getType: "ComposedDocument | null",
-    setType: "ComposedDocument | ExportedComposedDocument | null",
-    exportType: "ExportedComposedDocument | null",
+  "compoundDocument": {
+    getType: "CompoundDocument | null",
+    setType: "CompoundDocument | ExportedCompoundDocument | null",
+    exportType: "ExportedCompoundDocument | null",
 
-    encoder: (value: ComposedDocument | null) => {
+    encoder: (value: CompoundDocument | null) => {
       if (!value)
         return null;
       if (value.type === "platform:formdefinition")
-        return encodeComposedDocument(value, "CD1:publisher:formdefinition"); //HS used 'publisher:' prefix
+        return encodeCompoundDocument(value, "CD1:publisher:formdefinition"); //HS used 'publisher:' prefix
       if (value.type === "platform:markdown")
-        return encodeComposedDocument(value, "CD1:publisher:markdown"); //HS used 'publisher:' prefix
+        return encodeCompoundDocument(value, "CD1:publisher:markdown"); //HS used 'publisher:' prefix
       throw new Error(`Unsupported composed document type '${value.type}'`);
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<ComposedDocument> | null => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<CompoundDocument> | null => {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      const type = settings[0].setting === "CD1:publisher:formdefinition" ? "platform:formdefinition"
+      //Pre WH 5.2 used "FD1" for formdefinitions. so these may still pop up
+      const type = settings[0].setting === "CD1:publisher:formdefinition" || settings[0].setting === "FD1" ? "platform:formdefinition"
         : settings[0].setting === "CD1:publisher:markdown" ? "platform:markdown"
           : throwError(`Unsupported composed document type indicator '${settings[0].setting}'`);
 
-      return decodeComposedDocument(settings, type, context);
+      return decodeCompoundDocument(settings, type, context);
     },
-    exportValue(value: ComposedDocument | null, member, afterDecode, options): MaybePromise<ExportedComposedDocument | null> {
+    exportValue(value: CompoundDocument | null, member, afterDecode, options): MaybePromise<ExportedCompoundDocument | null> {
       return value ? value.export() : null;
     },
-    importValue(value: ComposedDocument | ExportedComposedDocument | null, member, beforeEncode, options): MaybePromise<ComposedDocument | null> {
-      if (value && !isComposedDocument(value)) //looks like an ExportedComposedDocument
-        return buildComposedDocument(value, options);
+    importValue(value: CompoundDocument | ExportedCompoundDocument | null, member, beforeEncode, options): MaybePromise<CompoundDocument | null> {
+      if (value && !isCompoundDocument(value)) //looks like an ExportedCompoundDocument
+        if ("type" in value && "text" in value)
+          return buildCompoundDocument(value, options);
+        else
+          throw new TypeError(`Wanted a CompoundDocument or ExportedCompoundDocument`);
+      return value;
+    },
+  },
+  "compoundHTMLDocument": {
+    getType: "CompoundDocument | null",
+    setType: "CompoundDocument | ExportedCompoundDocument | null",
+    exportType: "ExportedCompoundDocument | null",
+
+    encoder: (value: CompoundDocument | null) => {
+      if (value && value.type !== "platform:html")
+        throw new Error(`Incorrect type. Wanted a CompoundDocument of type 'platform:html', got '${describeType(value)}' with type '${(value as CompoundDocument).type}'`);
+      return value ? encodeCompoundDocument(value, "RD1") : null;
+    },
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<CompoundDocument> | null => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      if (settings[0].setting !== "RD1")
+        throw new Error(`Unsupported composed document type indicator '${settings[0].setting}' for compoundHTMLDocument`);
+
+      return decodeCompoundDocument(settings, "platform:html", context);
+    },
+    exportValue(value: CompoundDocument | null, member, afterDecode, options): MaybePromise<ExportedCompoundDocument | null> {
+      return value ? value.export(options) : null;
+    },
+    importValue(value: CompoundDocument | ExportedCompoundDocument | null, member, beforeEncode, options): MaybePromise<CompoundDocument | null> {
+      if (value && !isCompoundDocument(value)) //looks like an ExportedCompoundDocument
+        if ("type" in value && "text" in value)
+          return buildCompoundDocument(value, options);
+        else
+          throw new TypeError(`Wanted a CompoundDocument or ExportedCompoundDocument`);
+
+      return value;
+    },
+  },
+  "formDefinition": {
+    getType: "FormDefinition | null",
+    setType: "FormDefinition | ExportedFormDefinition | null",
+    exportType: "ExportedFormDefinition | null",
+
+    encoder: (value: FormDefinition | null) => {
+      if (value && !isFormDefinition(value))
+        throw new Error(`Incorrect type. Wanted a FormDefinition, got '${describeType(value)}'`);
+      return value ? encodeCompoundDocument(value["compoundDocument"], "CD1:publisher:formdefinition") : null; //HS used 'publisher:' prefix
+    },
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<FormDefinition> | null => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      //Pre WH 5.2 used "FD1" for formdefinitions. so these may still pop up
+      if (settings[0].setting !== "CD1:publisher:formdefinition" && settings[0].setting !== "FD1")
+        throw new Error(`Unsupported composed document type indicator '${settings[0].setting}' for formDefinition`);
+      return decodeCompoundDocument(settings, "platform:formdefinition", context).then(base => {
+        return buildFormDefinitionFromCompoundDocument(base);
+      });
+    },
+    exportValue(value: FormDefinition | null, member, afterDecode, options): MaybePromise<ExportedFormDefinition | null> {
+      return value ? value.export(options) : null;
+    },
+    importValue(value: FormDefinition | ExportedFormDefinition | null, member, beforeEncode, options): MaybePromise<FormDefinition | null> {
+      if (value && !isFormDefinition(value)) //looks like an ExportedFormDefinition
+        if ("__compoundform" in value)
+          return buildFormDefinition(value, options);
+        else
+          throw new TypeError(`Wanted a FormDefinition or ExportedFormDefinition`);
       return value;
     },
   }
@@ -915,7 +987,8 @@ export type CodecGetMemberType =
   string[] |
   { [K in string]: CodecGetMemberType } |
   Array<{ [K in string]: CodecGetMemberType }> |
-  ComposedDocument |
+  CompoundDocument |
+  FormDefinition |
   Instance |
   IntExtLink |
   Money |
@@ -934,7 +1007,10 @@ export type CodecExportMemberType =
   string |
   string[] |
   Array<{ [K in string]?: CodecExportMemberType }> |
-  ComposedDocument |
+  ExportedCompoundDocument |
+  ExportedFormDefinition |
+  CompoundDocument |
+  FormDefinition |
   IntExtLink |
   Money |
   { [K in string]?: CodecExportMemberType } |
@@ -954,9 +1030,11 @@ export type CodecImportMemberType =
   { [K in string]?: CodecImportMemberType } |
   Array<{ [K in string]?: CodecImportMemberType }> |
   Array<string | number> |
-  ComposedDocument |
+  CompoundDocument |
+  FormDefinition |
   Date |
   Date |
+  ExportedFormDefinition |
   ExportedIntExtLink |
   ExportedResource |
   Instance |

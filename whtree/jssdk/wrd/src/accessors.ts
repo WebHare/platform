@@ -21,9 +21,9 @@ import type { ExportedInstance, InstanceSource } from "@webhare/whfs/src/content
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
-import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument";
+import { buildRTDFromCompoundDocument, exportRTDAsCompoundDocument } from "@webhare/hscompat/src/richdocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
-import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import { CompoundDocument } from "@webhare/services/src/compound-document";
 import { cmp, getAttrBaseCells, WRDAttributeValueBase, type AddToQueryResponse } from "./accessors-support";
 import { WRDDBBaseCreationLimitDateValue, WRDDBBaseDateValue, WRDDBBaseModificationDateValue, WRDDBDateTimeValue, WRDDBDateValue, WRDDBTimeValue } from "./accessors-datetimes";
 
@@ -1856,7 +1856,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       }
     }
 
-    return buildRTDFromComposedDocument(new ComposedDocument("platform:richtextdocument", val.blobdata, { embedded }));
+    return buildRTDFromCompoundDocument(new CompoundDocument("platform:html", val.blobdata, { embedded }));
   }
 
   validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): RichTextDocument | null {
@@ -1874,7 +1874,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
         //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
         //FIXME Reuse existing documents/settings
 
-        const asComposed = await exportRTDAsComposedDocument(value);
+        const asComposed = await exportRTDAsCompoundDocument(value);
 
         //do we need to use WHFS to store this document ?
         const inWHFS = asComposed.links.size > 0 || asComposed.instances.size > 0; //TODO what about embedded images ? can they have a source object which requires preservation?

@@ -238,7 +238,7 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
 
   SWITCH (type)
   {
-    CASE 15
+    CASE 15 //RichDocument
     {
       contents :=
           CELL[ ...dbinfo_baserow
@@ -250,11 +250,11 @@ RECORD ARRAY FUNCTION UnpackCTYPERichDocument(INTEGER type, RECORD rtd, OBJECT t
               , type := "blob"
               ];
     }
-    CASE 20
+    CASE 20, 27, 28 //20:ComposedDocument, 27:FormDefinition, 28:ComposedHTMLDocument
     {
       contents :=
          CELL[ ...dbinfo_baserow
-             , name := "composeddocument: " || rtd.type
+             , name := "compounddocument: " || rtd.type
              , data := Length(rtd.text) || ' bytes'
              , rowkey := mybasename || 'formtext'
              , candownload := TRUE

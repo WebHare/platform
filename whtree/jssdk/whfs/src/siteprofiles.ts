@@ -24,11 +24,13 @@ export enum CSPMemberType {
   IntExtLink = 16,
   Instance = 18,
   URL = 19,
-  ComposedDocument = 20,
+  CompoundDocument = 20,
   HSON = 21,
   Record = 23,
   PlainDate = 25, //like Date, but signal truncation of the millisecond part
-  JSON = 26
+  JSON = 26,
+  FormDefinition = 27,
+  CompoundHTMLDocument = 28,
 }
 
 export interface YamlComponentDefinition {

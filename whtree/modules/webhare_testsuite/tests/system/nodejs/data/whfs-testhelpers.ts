@@ -1,6 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { buildInstance, buildRTD, WebHareBlob } from "@webhare/services";
-import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import { CompoundDocument } from "@webhare/services/src/compound-document";
+import { buildFormDefinitionFromCompoundDocument, type FormDefinition } from "@webhare/services/src/form-definition";
 import { db } from "@webhare/whdb";
 import { describeWHFSType } from "@webhare/whfs";
 
@@ -62,10 +63,33 @@ export async function dumpSettings(objid: number, ns: string) {
     console.table(settings);
 }
 
+export async function generateMarkDownDoc(): Promise<CompoundDocument> {
+  //TODO with instances once we're sure we'll actually keep supporting markdowndoc and add that
+  return new CompoundDocument("platform:markdown", WebHareBlob.from(`
+    # Hello World
+    we send greetings from the testsuite`));
+}
+
+export async function generateCompoundHTMLDoc(): Promise<CompoundDocument> {
+  //TODO with instances once we're sure we'll actually keep supporting markdowndoc and add that
+  return new CompoundDocument("platform:html", WebHareBlob.from(`<html><body><p class="normal">We send greetings from the testsuite</p><div class="wh-rtd-embeddedobject" data-instanceid="_1ra7ve1TrCw-ussv14O-g"</body></html>`),
+    {
+      instances: {
+        "_1ra7ve1TrCw-ussv14O-g": await buildInstance({
+          whfsType: 'platform:filetypes.richdocument',
+          data: {
+            data: await buildRTD([{ p: "widget!" }])
+          }
+        })
+      }
+    }
+  );
+}
+
 export async function generateForm(content: {
   text: string;
-}): Promise<ComposedDocument> {
-  const formContent = new ComposedDocument("platform:formdefinition", WebHareBlob.from(`
+}): Promise<FormDefinition> {
+  const formContent = buildFormDefinitionFromCompoundDocument(new CompoundDocument("platform:formdefinition", WebHareBlob.from(`
       <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
         <form name="webtoolform">
           <page>
@@ -81,6 +105,6 @@ export async function generateForm(content: {
         }
       })
     }
-  });
+  }));
   return formContent;
 }

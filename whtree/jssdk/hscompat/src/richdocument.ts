@@ -6,7 +6,7 @@ import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
-import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import { CompoundDocument } from "@webhare/services/src/compound-document";
 import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
@@ -149,7 +149,7 @@ function normalizeInlineItems(items: RTDInlineItem[]): RTDInlineItem[] {
 class HSRTDImporter {
   outdoc = new RichTextDocument;
 
-  constructor(private inrtd: ComposedDocument) {
+  constructor(private inrtd: CompoundDocument) {
 
   }
 
@@ -375,7 +375,7 @@ class HSRTDImporter {
 }
 
 
-export async function buildRTDFromComposedDocument(rtd: ComposedDocument): Promise<RichTextDocument> {
+export async function buildRTDFromCompoundDocument(rtd: CompoundDocument): Promise<RichTextDocument> {
   const importer = new HSRTDImporter(rtd);
   let text = await rtd.text.text();
 
@@ -392,7 +392,7 @@ export async function buildRTDFromComposedDocument(rtd: ComposedDocument): Promi
 }
 
 export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
-  const cdoc = new ComposedDocument("platform:richtextdocument", rtd.htmltext);
+  const cdoc = new CompoundDocument("platform:html", rtd.htmltext);
   for (const inst of rtd.instances) {
     const typeinfo = await describeWHFSType(inst.data.whfstype, { allowMissing: true });
     if (!typeinfo)
@@ -409,7 +409,7 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
   for (const embed of rtd.embedded)
     cdoc.embedded.set(embed.contentid, importHSResourceDescriptor(embed));
 
-  return buildRTDFromComposedDocument(cdoc);
+  return buildRTDFromCompoundDocument(cdoc);
 }
 
 /** Recursively replace embedded RTD values with further HareScript RTDs */
@@ -440,7 +440,7 @@ async function expandRTDValues(data: Record<string, unknown>) {
  * @param rtd - RTD to export
 */
 export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<HareScriptRTD> {
-  const exp = await exportRTDAsComposedDocument(rtd, { recurse: false });
+  const exp = await exportRTDAsCompoundDocument(rtd, { recurse: false });
 
   const instances: HareScriptRTD["instances"] = [];
   for (const [instanceid, instance] of exp.instances) {
@@ -469,7 +469,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
  * @param options - Options
  * @param options.recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
 */
-export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<ComposedDocument> {
+export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<CompoundDocument> {
   const instancemapping = rtd["__instanceIds"];
   const imagemapping = rtd["__imageIds"];
   const linkmapping = rtd["__linkIds"];
@@ -629,7 +629,7 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
 
   const htmlText = `<html><body>${await buildBlocks(rtd.blocks)}</body></html>`;
 
-  return new ComposedDocument("platform:richtextdocument", WebHareBlob.from(htmlText), {
+  return new CompoundDocument("platform:html", WebHareBlob.from(htmlText), {
     instances,
     embedded,
     links

@@ -4,24 +4,24 @@ import { mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type Expo
 import type { ExportedInstance } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/src/quacks";
 
-export type ComposedDocumentType = "platform:formdefinition" | "platform:markdown" | "platform:richtextdocument";
+export type CompoundDocumentType = "platform:formdefinition" | "platform:markdown" | "platform:html";
 
-export type ExportedComposedDocument = {
-  type: ComposedDocumentType;
+export type ExportedCompoundDocument = {
+  type: CompoundDocumentType;
   instances?: Record<string, ExportedInstance>;
   links?: Record<string, string>;
   embedded?: Record<string, ExportedResource>;
   text: string;
 };
 
-export class ComposedDocument {
-  private static "__ $whTypeSymbol" = "ComposedDocument"; //Used to identify this as a ComposedDocument in the WebHare API
+export class CompoundDocument {
+  private static "__ $whTypeSymbol" = "CompoundDocument"; //Used to identify this as a CompoundDocument in the WebHare API
 
   instances = new Map<string, Instance>;
   links = new Map<string, number>();
   embedded = new Map<string, ResourceDescriptor>();
 
-  constructor(public type: ComposedDocumentType, public text: WebHareBlob, opts?: {
+  constructor(public type: CompoundDocumentType, public text: WebHareBlob, opts?: {
     instances?: Map<string, Instance> | Record<string, Instance>;
     links?: Map<string, number> | Record<string, number>;
     embedded?: Map<string, ResourceDescriptor> | Record<string, ResourceDescriptor>;
@@ -39,8 +39,8 @@ export class ComposedDocument {
         this.embedded.set(key, val);
   }
 
-  async export(options?: ExportOptions): Promise<ExportedComposedDocument> {
-    const doc: ExportedComposedDocument = {
+  async export(options?: ExportOptions): Promise<ExportedCompoundDocument> {
+    const doc: ExportedCompoundDocument = {
       type: this.type,
       text: await this.text.text(),
     };
@@ -55,7 +55,7 @@ export class ComposedDocument {
   }
 }
 
-export async function buildComposedDocument(cd: ExportedComposedDocument, options?: ImportOptions): Promise<ComposedDocument> {
+export async function buildCompoundDocument(cd: ExportedCompoundDocument, options?: ImportOptions): Promise<CompoundDocument> {
   const instances = new Map<string, Instance>;
   const links = new Map<string, number>;
   const embedded = new Map<string, ResourceDescriptor>;
@@ -74,9 +74,9 @@ export async function buildComposedDocument(cd: ExportedComposedDocument, option
     for (const [key, val] of Object.entries(cd.embedded))
       embedded.set(key, await ResourceDescriptor.import(val, options));
 
-  return new ComposedDocument(cd.type, WebHareBlob.from(cd.text), { instances, links, embedded });
+  return new CompoundDocument(cd.type, WebHareBlob.from(cd.text), { instances, links, embedded });
 }
 
-export function isComposedDocument(value: unknown): value is ComposedDocument {
-  return Boolean(value && getWHType(value) === "ComposedDocument");
+export function isCompoundDocument(value: unknown): value is CompoundDocument {
+  return Boolean(value && getWHType(value) === "CompoundDocument");
 }
