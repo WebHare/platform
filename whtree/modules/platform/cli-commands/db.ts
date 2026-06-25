@@ -17,7 +17,7 @@ runCli({
   subCommands: {
     transactions: {
       description: "Show current database transactions",
-      main: async function main({ opts, args }) {
+      async main({ opts, args }) {
         const info = await getDatabaseMonitorInfo();
         if (opts.json) {
           console.log(JSON.stringify(info.translist, null, 2));
@@ -30,7 +30,7 @@ runCli({
     },
     locks: {
       description: "Manage database locks",
-      main: async function main({ opts, args }) {
+      async main({ opts, args }) {
         const info = await getDatabaseMonitorInfo();
         if (opts.json) {
           console.log(JSON.stringify(info.blockingLocks, null, 2));
@@ -63,7 +63,7 @@ runCli({
       flags: {
         "restart": "Restart all sequences to their start value"
       },
-      main: async function main({ opts, args }) {
+      async main({ opts, args }) {
         if (opts.restart)
           await runInWork(() => restartAllSequences());
 
@@ -87,7 +87,7 @@ runCli({
           type: intOption({ start: 2 })
         }
       ],
-      main: async function main({ opts, args }) {
+      async main({ opts, args }) {
         await cancelBackend(args.pid, { kill: opts.kill });
       }
     },
@@ -102,7 +102,7 @@ runCli({
           type: intOption({ start: 11 }),
         }
       },
-      main: async function main({ opts, args }) {
+      async main({ opts, args }) {
         const curVersion = (await getCurrentPGVersion()).major;
         const expectVersion = opts.setVersion || parseInt((await readPlatformConf())["postgres_recommended_major"]);
         if (!opts.setVersion && curVersion >= expectVersion) { //ignore same-version if you explicitly select a version

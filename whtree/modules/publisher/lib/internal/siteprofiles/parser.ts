@@ -284,20 +284,22 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
   return { ns, component, yamlprops: toSnakeCase(compentries[0][1] as object) as Record<string, unknown> };
 }
 
-function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
+function parseMembers(context: SiteProfileParserContext, gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
   const cspmembers = new Array<CSPMember>();
 
   for (const [name, member] of Object.entries(members || {})) {
     const memberGid = gid.addGid(member);
     const type = YamlTypeMapping[member.type];
-    if (!type)
-      throw new Error(`Unknown type '${member.type}' for member '${name}'`);
+    if (!type) {
+      context.addMessage({ type: "error", message: `Unknown type '${member.type}' for member '${name}'` }, member);
+      continue;
+    }
 
     const addmember: CSPMember = {
       name: toHSSnakeCase(name),
       jsname: name,
       type: type.dbtype,
-      children: ["array", "record"].includes(member.type) ? parseMembers(memberGid, member.members || {}) : [],
+      children: ["array", "record"].includes(member.type) ? parseMembers(context, memberGid, member.members || {}) : [],
       title: memberGid.resolveTid({ name: toHSSnakeCase(name), title: member.title, tid: member.tid })
     };
 
@@ -351,8 +353,10 @@ const builtinRules: Record<string, CSPApplyTo> = {
 function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.ApplyTo): CSPApplyTo[] {
   if (typeof apply === "string") {
     const rule = builtinRules[apply];
-    if (!rule)
-      throw new Error(`Unknown applyTo rule '${apply}'`);
+    if (!rule) {
+      context.addMessage({ type: "error", message: `Unknown applyTo rule '${apply}'` }, apply);
+      return [];
+    }
 
     return [rule];
   }
@@ -386,16 +390,26 @@ function parseApplyToRecursive(context: SiteProfileParserContext, apply: Sp.Appl
     return [tester];
   }
 
-  if (apply.siteType && typeof apply.siteType === "object" && "regex" in apply.siteType)
-    throw new Error(`To: filter 'siteType' may not be a regex yet`); //can't export to HareScript yet
-  if (apply.parentType && typeof apply.parentType === "object" && "regex" in apply.parentType)
-    throw new Error(`To: filter 'parentType' may not be a regex yet`); //can't export to HareScript yet
-  if (apply.withinType && typeof apply.withinType === "object" && "regex" in apply.withinType)
-    throw new Error(`To: filter 'withinType' may not be a regex yet`); //can't export to HareScript yet
-  if (apply.type && typeof apply.type === "object" && "regex" in apply.type)
-    throw new Error(`To: filter 'type' may not be a regex yet`); //can't export to HareScript yet
-  if (apply.hasWebDesign === false)
-    throw new Error(`To: filter 'hasWebDesign: false' is not supported`); //can't export to HareScript yet
+  if (apply.siteType && typeof apply.siteType === "object" && "regex" in apply.siteType) { //can't export to HareScript yet
+    context.addMessage({ type: "error", message: `To: filter 'siteType' may not be a regex yet` }, apply);
+    return [];
+  }
+  if (apply.parentType && typeof apply.parentType === "object" && "regex" in apply.parentType) { //can't export to HareScript yet
+    context.addMessage({ type: "error", message: `To: filter 'parentType' may not be a regex yet` }, apply);
+    return [];
+  }
+  if (apply.withinType && typeof apply.withinType === "object" && "regex" in apply.withinType) { //can't export to HareScript yet
+    context.addMessage({ type: "error", message: `To: filter 'withinType' may not be a regex yet` }, apply);
+    return [];
+  }
+  if (apply.type && typeof apply.type === "object" && "regex" in apply.type) { //can't export to HareScript yet
+    context.addMessage({ type: "error", message: `To: filter 'type' may not be a regex yet` }, apply);
+    return [];
+  }
+  if (apply.hasWebDesign === false) { //can't export to HareScript yet
+    context.addMessage({ type: "error", message: `To: filter 'hasWebDesign: false' is not supported` }, apply);
+    return [];
+  }
 
   const to: CSPApplyToTo = {
     type: "to",
@@ -745,13 +759,14 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
         const target = ("copy" in apply.folderIndex ? apply.folderIndex.copy : apply.folderIndex.contentLink) as string;
         const parseTarget = target.match(/^(site::([^/]*))?(\/.*)$/);
         if (!parseTarget) {
-          throw new Error(`Invalid index file target '${target}' - must be an absolute path or site::sitename/absolutepath`);
-        }
-        if (parseTarget[2])
-          rule.folderindex.site = parseTarget[2];
-        rule.folderindex.fullpath = parseTarget[3];
+          context.addMessage({ type: "error", message: `Invalid index file target '${target}' - must be an absolute path or site::sitename/absolutepath` }, apply.folderIndex);
+        } else {
+          if (parseTarget[2])
+            rule.folderindex.site = parseTarget[2];
+          rule.folderindex.fullpath = parseTarget[3];
 
-        rule.folderindex.indexfile = "copy" in apply.folderIndex ? "copy_of_file" : "contentlink";
+          rule.folderindex.indexfile = "copy" in apply.folderIndex ? "copy_of_file" : "contentlink";
+        }
       }
     }
   }
@@ -873,7 +888,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
       const el = toSnakeCase(apply[node.yamlProperty] as object | object[]);
       if (Array.isArray(el) !== node.isArray) {
-        context.addMessage({ type: "error", message: `Custom siteprofile property ${node.yamlProperty} must ${node.isArray ? '' : 'not '}be an array` });
+        context.addMessage({ type: "error", message: `Custom siteprofile property ${node.yamlProperty} must ${node.isArray ? '' : 'not '}be an array` }, node);
         continue;
       }
 
@@ -1116,7 +1131,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
       isembeddedobjecttype: false,
       isrtdtype: false,
       line: context.tracked.getPosition(settings)?.line || 0,
-      members: parseMembers(typeParser, settings.members || {}),
+      members: parseMembers(context, typeParser, settings.members || {}),
       namespace: ns,
       orphan: false,
       previewcomponent: "",

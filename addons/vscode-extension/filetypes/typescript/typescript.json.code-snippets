@@ -10,7 +10,7 @@
 			"  flags: {",
 			"    \"v,verbose\": \"Show more info\",",
 			"  },",
-			"  main: async function main({ opts, args }) {",
+			"    async main({ opts, args }) {",
 			"    ${2}",
 			"  }",
 			"});"
