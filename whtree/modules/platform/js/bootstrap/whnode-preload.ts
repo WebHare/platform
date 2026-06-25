@@ -1,7 +1,7 @@
 //This preload is invoked for all node scripts executed by WebHare (together with the TS preload support)
 
 import { backendConfig, getFullConfigFile } from '@mod-system/js/internal/configuration';
-import { debugFlags, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
+import { debugFlags, initEnv, setEnvHooksFactory, updateDebugConfig } from '@webhare/env/src/envbackend';
 import { enableFetchDebugging } from '@webhare/env/src/fetchdebug';
 import { setGetTidHooksFactory } from '@webhare/gettid/src/hooks';
 import { env } from "node:process";
@@ -22,5 +22,7 @@ for (const flag of [...(env.WEBHARE_DEBUG?.split(',') ?? []), ...(env.__WEBHARE_
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 setGetTidHooksFactory(() => require("@mod-tollium/js/internal/gettid_nodehooks.ts").getGetTidNodeHooks());
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+setEnvHooksFactory(() => require("@mod-platform/js/bootstrap/env-hooks.ts").getEnvHooks());
 
 enableFetchDebugging();

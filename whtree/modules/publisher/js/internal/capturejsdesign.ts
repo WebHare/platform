@@ -3,7 +3,6 @@ import * as whfs from "@webhare/whfs";
 import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { CodeContext } from "@webhare/services/src/codecontexts";
-import { setTidLanguage } from "@webhare/gettid";
 
 
 export async function captureJSPage(obj: number, usecontent?: number): Promise<WebResponseInfo> {
@@ -17,7 +16,7 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
     if (!builder)
       throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
 
-    setTidLanguage(sitereq.siteLanguage);
+    sitereq.applyToCurrentContext();
     const response = await builder(sitereq);
 
     return await response.asWebResponseInfo();

@@ -2,8 +2,9 @@ import { getCodeContext, CodeContext, isRootCodeContext, ensureScopedResource } 
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { loadlib } from "@webhare/harescript";
-import { debugFlags, type DebugRegistry } from "@webhare/env";
-import { registerDebugConfigChangedCallback, updateDebugConfig, type DebugFlags } from "@webhare/env/src/envbackend";
+import { debugFlags, setAssetBase, type DebugRegistry } from "@webhare/env";
+import { getModulePublicAssetBase, registerDebugConfigChangedCallback, updateDebugConfig, type DebugFlags } from "@webhare/env/src/envbackend";
+import { getAssetBase } from "@webhare/env";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { spawnSync } from "child_process";
 
@@ -85,13 +86,6 @@ async function testContextSetup() {
   test.eq({ value: "1:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: "2:" + context2.id, done: false }, await contextidgeneratorasync.next());
   test.eq({ value: undefined, done: true }, await contextidgeneratorasync.next());
-
-  //test global flag updates
-  test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  spawnSync("wh", ["debug", "enable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
-  await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
-  spawnSync("wh", ["debug", "disable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
-  await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
 }
 
 async function testContextStorage() {
@@ -105,6 +99,20 @@ async function testContextStorage() {
   test.eq(77, ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
   test.eq(88, context1.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
   test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
+}
+
+async function testAssetBase() {
+  test.eq(null, getAssetBase());
+  test.eq("/.wh/mod/webhare_testsuite/public/", getModulePublicAssetBase("webhare_testsuite"));
+  const c1 = new CodeContext("test_codecontext:assetbase", { context: 1 });
+  test.eq(null, c1.run(() => getAssetBase()));
+  c1.run(() => setAssetBase("https://beta.webhare.net/"));
+  test.eq("https://beta.webhare.net/", c1.run(() => getAssetBase()));
+  test.eq("https://beta.webhare.net/.wh/mod/webhare_testsuite/public/", c1.run(() => getModulePublicAssetBase("webhare_testsuite")));
+  test.eq(null, getAssetBase(), "Doesn't affect root");
+  setAssetBase("https://alpha.webhare.net/");
+  test.eq("https://alpha.webhare.net/", getAssetBase(), "Doesn't affect root");
+  test.eq("https://beta.webhare.net/", c1.run(() => getAssetBase()));
 }
 
 async function testContextHSVM() {
@@ -150,9 +158,20 @@ async function testDebugRegistry() {
   await test.wait(() => !(contextid in debugRegistry!.codeContexts!), "Debug registry entry should eventually go away completely");
 }
 
+async function testGlobalDebugFlags() {
+  //test global flag updates
+  test.eq(false, (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  spawnSync("wh", ["debug", "enable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => (await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+  spawnSync("wh", ["debug", "disable", "--force", nonExistingGlobalFlag], { stdio: "inherit", env: { ...process.env, WEBHARE_DEBUG: "" } });
+  await test.wait(async () => !(await noAuthJSService.describeMyRequest()).debugFlags.includes(nonExistingGlobalFlag));
+}
+
 test.runTests([
   testContextSetup,
   testContextStorage,
+  testAssetBase,
   testContextHSVM,
-  testDebugRegistry
+  testDebugRegistry,
+  testGlobalDebugFlags
 ]);

@@ -8,7 +8,7 @@ declare module "@webhare/test-backend" {
 import * as test from "@webhare/test";
 import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
-import { lookupURL, openFileOrFolder, openFolder, type WHFSObject } from "@webhare/whfs";
+import { lookupURL, openFileOrFolder, openFolder, openSite, type WHFSObject } from "@webhare/whfs";
 import { convertWaitPeriodToDate, isDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema, type WRDSchemaType } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
@@ -123,8 +123,15 @@ export async function reset(options?: ResetOptions): Promise<void> {
     }
   }
 
-  for (const tmpfoldername of ["site::webhare_testsuite.testsite/tmp", "site::webhare_testsuite.testsitejs/tmp"]) {
-    const tmpfolder = await openFolder(tmpfoldername, { allowMissing: true });
+  for (const siteName of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
+    const site = await openSite(siteName, { allowMissing: true });
+    if (!site)
+      return;
+
+    if (site.cdnBaseURL)
+      await site.update({ cdnBaseURL: null });
+
+    const tmpfolder = await site.openFolder("tmp", { allowMissing: true });
     if (tmpfolder) {
       for (const item of await tmpfolder.list()) {
         //FIXME openObjects would still be very useful

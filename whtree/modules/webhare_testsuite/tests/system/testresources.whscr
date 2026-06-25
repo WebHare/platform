@@ -157,6 +157,8 @@ MACRO TestBase()
   TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesigns/basetest/web2"));
   TestEq("", GetModuleResourceURL("mod::webhare_testsuite/data/webdesigns/basetest/web/"));
   TestEq("", GetModuleResourceURL("mod::webhare_testsuite/webdesign/basetest/web/"));
+  TestEq("/.wh/mod/webhare_testsuite/public/", GetModuleResourceURL("mod::webhare_testsuite/public/"));
+  TestEq("/.wh/mod/webhare_testsuite/public/img/smallbob.jpg", GetModuleResourceURL("mod::webhare_testsuite/public/img/smallbob.jpg"));
 
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));

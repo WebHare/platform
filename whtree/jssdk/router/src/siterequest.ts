@@ -22,11 +22,12 @@ import { renderRTD } from "@webhare/services/src/richdocument-rendering";
 import { PageMetadata, getOpenGraphData } from "./metadata";
 import { dbLoc } from "@webhare/services/src/symbols";
 import type { WebHareDBLocation } from "@webhare/services/src/descriptor";
-import { debugFlags, dtapStage } from "@webhare/env";
+import { debugFlags, dtapStage, setAssetBase } from "@webhare/env";
 import type { RawPluginSettings } from "@webhare/whfs/src/siteprofiles";
 import { getWebHareDBLocation } from "@webhare/whfs/src/objects";
 import type { Timings } from "@mod-platform/js/logging/timings";
 import { minify } from 'html-minifier-next';
+import { setTidLanguage } from "@webhare/gettid";
 
 export type PluginInterface<API extends object> = {
   api: API;
@@ -256,6 +257,12 @@ export class CPageRequest {
 
   get siteLanguage() {
     return this._siteLanguage;
+  }
+
+  /** Initialize the current context for this request. Apply getTid language and assetBaseRoot */
+  applyToCurrentContext(): void {
+    setTidLanguage(this.siteLanguage);
+    setAssetBase(this.targetSite.cdnBaseURL || "");
   }
 
   /** Insert a callback for use during rendering
@@ -651,7 +658,7 @@ export async function createContentPageRequest(targetObject: WHFSObject, options
 //How well can we isolate widgets (PagePartRequest users) in practice? ideally we won't provide APIs that can cause 2 widgets to conflict with each other
 export type PagePartRequest = Pick<CPageRequest, "renderRTD" | "renderWidget" | "targetFolder" | "targetObject" | "targetSite" | "targetPath" | "siteLanguage" | "isEditorPreview">; //TODO need something to determine emailwidgets. IsTargetEmail() ?
 type PageRequestBase = PagePartRequest & Pick<CPageRequest, "setFrontendData" | "setPageBuilderData" | "insertAt" | "webRequest" | "getInstance" | "pageMetadata" | "timings">;
-export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins">;
+export type ContentPageRequest = PageRequestBase & Pick<CPageRequest, "buildWebPage" | "getPageRenderer" | "getPlugin" | "initializePlugins" | "applyToCurrentContext">;
 // Plugin API is only visible during PageBuildRequest as we don't want to initialize them it during the page run itself. eg. might still redirect
 export type PageBuildRequest = PageRequestBase & Pick<CPageRequest, "render" | "getPlugin" | "content" | "getPageBuilderData">;
 
