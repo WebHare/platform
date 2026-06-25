@@ -1,5 +1,5 @@
 # Export of file "/test-saml/portal-idp-formlogin/saml-idp" from WebHare v6.0.0 on arnold.whdev at 2026-03-20T21:07:09.338Z
-type: platform:samlidpendpoint
+type: platform:wrd.samlidpendpoint
 created: 2026-03-20T20:42:29.915Z
 modified: 2026-03-20T20:42:29.915Z
 instances:

@@ -965,6 +965,8 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
 
   destroy() {
+    this.setAllChangeObserver(false); //prevent teardown triggering change events
+
     this.toolbarnode.remove();
     styleloader.unregister(this);
 
