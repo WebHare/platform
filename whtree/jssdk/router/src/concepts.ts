@@ -15,7 +15,7 @@ export function getAssetPackIntegrationCode(assetpack: string, { designRoot = ''
   if (cacheBuster)
     bundleBaseUrl = "/!" + encodeURIComponent(cacheBuster) + bundleBaseUrl;
   if (designRoot)
-    bundleBaseUrl = new URL(designRoot, bundleBaseUrl).toString();
+    bundleBaseUrl = new URL(bundleBaseUrl, designRoot).toString();
 
   return `<link rel="stylesheet" href="${encodeAttr(bundleBaseUrl)}ap.css">`
     + `<script src="${encodeAttr(bundleBaseUrl)}ap.mjs"${scriptsettings}></script>`;
