@@ -768,7 +768,7 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
 
   MACRO RefreshYAML() {
     RECORD inspectresult := CallJS("./inspect/inspect.ts#inspectObject", [ this->fsobjid ]);
-    ^yaml->value := inspectresult.yaml;
+    ^yaml->value := CellExists(inspectresult,'error') ? inspectresult.error : inspectresult.yaml;
   }
 
   MACRO ReloadApplyRules()
