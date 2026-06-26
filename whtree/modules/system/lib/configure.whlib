@@ -158,6 +158,7 @@ PUBLIC RECORD FUNCTION GetWebHareConfiguration()
                 , baseport
                 , trustedhost := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP") ?? "127.0.0.1"
                 , trustedport := baseport + whconstant_webserver_trustedportoffset
+                , ssl_trustedport := baseport + whconstant_webserver_ssl_trustedportoffset
                 , hstrustedport := baseport + whconstant_webserver_hstrustedportoffset
                 ];
   RETURN params;
