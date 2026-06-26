@@ -122,10 +122,9 @@ async function setSwStoreValue(key: string, value: unknown) {
 }
 
 function getWHConfig(pagetext: string): WHConfigScriptData {
-  //extract and parse the wh-config tag
-  const scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
-  const scriptend = pagetext.indexOf('</script>', scriptpos);
-  return JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47)) as WHConfigScriptData;
+  //extract and parse the wh-config tag. don't expect quotes to be there, they may be minified away
+  const extractWHConfig = pagetext.match(/<script type="?application\/json"? id="?wh-config"?>([\s\S]*?)<\/script>/);
+  return JSON.parse(extractWHConfig?.[1] ?? '{}') as WHConfigScriptData;
 }
 
 function getPWASettings(pagetext: string): PublishedPWASSettings {
