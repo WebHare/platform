@@ -69,7 +69,13 @@ async function testServiceState(protocol: BackendServiceProtocol) {
 
 async function testBasicService(protocol: BackendServiceProtocol) {
   class MyService extends services.BackendServiceConnection {
-    constructor(public arg1?: string, public arg2?: string) { super(); }
+    arg1;
+    arg2;
+    constructor(arg1?: string, arg2?: string) {
+      super();
+      this.arg1 = arg1;
+      this.arg2 = arg2;
+    }
     getArgs() { return [this.arg1 || "", this.arg2 || ""]; }
     whatsMyName() { return "doggie dog"; }
   }
