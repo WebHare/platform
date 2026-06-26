@@ -36,7 +36,7 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 # Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
 ( curl -sL https://deb.nodesource.com/setup_20.x | bash - )
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
-add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
+add-apt-repository 'deb http://apt-archive.postgresql.org/pub/repos/apt/ focal-pgdg main'
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
 
 
@@ -82,6 +82,7 @@ PACKAGES="automake
     fonts-open-sans
     libfreetype6
     libfreetype6-dev
+    gawk
     g++
     gettext-base
     libgif-dev
