@@ -45,5 +45,10 @@ runCli({
           await keyfolder.recycle();
         }
       });
+
+    // WH6.0: remove fallback certificate, now TS managed and stored on disk
+    const fallbackkey = (await listStoredKeyPairs()).find(key => key.name === "fallback");
+    if (fallbackkey)
+      await runInWork(async () => (await openFolder(fallbackkey.id)).recycle());
   }
 });

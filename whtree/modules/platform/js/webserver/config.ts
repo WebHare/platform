@@ -1,8 +1,14 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { whconstant_webserver_hstrustedportoffset, whconstant_webserver_indexpages, whconstant_webserver_trustedportoffset, whconstant_webservertype_interface, whwebserverconfig_hstrustedportid, whwebserverconfig_rescueportid, whwebserverconfig_rescueportoffset, whwebserverconfig_rescuewebserverid, whwebserverconfig_trustedportid } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_webserver_hstrustedportoffset, whconstant_webserver_indexpages, whconstant_webserver_ssl_trustedportoffset, whconstant_webserver_trustedportoffset, whconstant_webservertype_interface, whwebserverconfig_hstrustedportid, whwebserverconfig_rescueportid, whwebserverconfig_rescueportoffset, whwebserverconfig_rescuewebserverid, whwebserverconfig_ssl_trustedportid, whwebserverconfig_trustedportid } from "@mod-system/js/internal/webhareconstants";
+import { lockMutex, toFSPath } from "@webhare/services";
 import { getBasePort } from "@webhare/services/src/config";
 import { appendToArray, regExpFromWildcards } from "@webhare/std";
 import { db } from "@webhare/whdb";
+import { execFile } from "node:child_process";
+import { createPrivateKey, createPublicKey, X509Certificate } from "node:crypto";
+import { chmod, mkdir, readFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { promisify } from "node:util";
 
 type WebServer = {
   id: number;
@@ -150,6 +156,10 @@ export async function getHostedSites() {
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_trustedportoffset
   }, {
+    id: whwebserverconfig_ssl_trustedportid,
+    virtualhost: true,
+    port: getBasePort() + whconstant_webserver_ssl_trustedportoffset
+  }, {
     id: whwebserverconfig_hstrustedportid,
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_hstrustedportoffset
@@ -188,4 +198,112 @@ export async function lookupWebserver(findhostname: string, findport: number) {
       return matchserver;
   }
   return null;
+}
+
+async function loadKeysAndCerts(keyPath: string, crtPath: string) {
+  let keyPem: string | null = null;
+  let keyObject: ReturnType<typeof createPrivateKey> | null = null;
+  let certPem: string | null = null;
+  let certObject: X509Certificate | null = null;
+
+  // 2) Read and validate key/certificate using Node crypto APIs.
+  try {
+    keyPem = await readFile(keyPath, "utf8");
+    keyObject = createPrivateKey({ key: keyPem, format: "pem" });
+  } catch {
+    keyPem = null;
+    keyObject = null;
+  }
+
+  try {
+    certPem = await readFile(crtPath, "utf8");
+    certObject = new X509Certificate(certPem);
+  } catch {
+    certPem = null;
+    certObject = null;
+  }
+
+  return { keyPem, keyObject, certPem, certObject };
+}
+
+/** Ensure the fallback certificate is present, update if necessary. We keep the ceritificate on disk
+ * do we won't require WHFS to exist before being able to generate a webserver configuration whose trusted
+ * port relies on this certificate.
+ */
+export async function ensureFallbackCertficate() {
+  using lock = await lockMutex("platform:fallback-certificate");
+  void (lock);
+
+  // 1) Resolve paths for fallback-certificate.key and fallback-certificate.crt.
+  const keyRootPath = toFSPath("storage::platform/misc/fallback-certificate");
+  const keyPath = `${keyRootPath}.key`;
+  const crtPath = `${keyRootPath}.crt`;
+  const renewBeforeMs = 30 * 24 * 60 * 60 * 1000;
+
+  const runExecFile = promisify(execFile);
+
+  const { keyPem, keyObject, certPem, certObject } = await loadKeysAndCerts(keyPath, crtPath);
+
+  // 3) Check certificate health: parse validity, expiry window, and key/cert match.
+  const now = Date.now();
+  const validFrom = certObject?.validFromDate?.getTime() ?? 0;
+  const validTo = certObject?.validToDate?.getTime() ?? 0;
+  const certificateIsNearExpiry = certObject ? validTo <= (now + renewBeforeMs) : true;
+  const certificateIsNotYetValid = certObject ? validFrom > now : true;
+
+  let certificateMatchesKey = false;
+  if (certObject && keyObject) {
+    try {
+      const certPublicKeyDer = certObject.publicKey.export({ format: "der", type: "spki" });
+      const keyPublicKeyDer = createPublicKey(keyObject).export({ format: "der", type: "spki" });
+      certificateMatchesKey = certPublicKeyDer.equals(keyPublicKeyDer);
+    } catch {
+      certificateMatchesKey = false;
+    }
+  }
+
+  // 4) Regenerate key/certificate with openssl when missing, invalid, or near expiry.
+  const shouldRegenerateKey = !keyPem || !keyObject;
+  const shouldRegenerateCertificate = !certPem
+    || !certObject
+    || certificateIsNearExpiry
+    || certificateIsNotYetValid
+    || !certificateMatchesKey;
+
+  if (!shouldRegenerateKey && !shouldRegenerateCertificate)
+    return { keyPem, certPem };
+
+  // 5) Ensure target directory exists and enforce secure file permissions.
+  await mkdir(dirname(keyRootPath), { recursive: true });
+
+  if (shouldRegenerateKey) {
+    await runExecFile("openssl", [
+      "genpkey",
+      "-algorithm", "RSA",
+      "-pkeyopt", "rsa_keygen_bits:4096",
+      "-out", keyPath
+    ]);
+    await chmod(keyPath, 0o600);
+  }
+
+  if (shouldRegenerateCertificate) {
+    await runExecFile("openssl", [
+      "req",
+      "-new",
+      "-x509",
+      "-sha256",
+      "-days", "825",
+      "-key", keyPath,
+      "-out", crtPath,
+      "-subj", "/CN=WebHare Fallback Certificate"
+    ]);
+    await chmod(crtPath, 0o644);
+  }
+
+  const final = await loadKeysAndCerts(keyPath, crtPath);
+  if (!final.keyPem || !final.certPem) {
+    throw new Error("Failed to generate fallback certificate or key.");
+  }
+
+  return { keyPem: final.keyPem, certPem: final.certPem };
 }
