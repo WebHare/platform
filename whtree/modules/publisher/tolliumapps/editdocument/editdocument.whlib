@@ -246,7 +246,6 @@ PUBLIC STATIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
   {
     this->AddTypesSections();
     this->AddLegacyExtensions();
-    ^metapart->visible := TRUE;
 
     OBJECT filehandler := this->LoadScreen(objecteditor.documenteditor);
 

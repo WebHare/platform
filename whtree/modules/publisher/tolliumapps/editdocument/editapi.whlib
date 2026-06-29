@@ -124,6 +124,11 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
     this->editscreen->tolliumresult := "cancel";
   }
 
+  /** Hide the metadata tab */
+  PUBLIC MACRO HideMetadataTab() {
+    this->editscreen->^metapart->visible := FALSE;
+  }
+
   /* Extend the editor meta tabs.
      This is an EXPERIMENTAL API for PTHU and it will go away in the future, hopefully to be replaced with clean siteprl hooks not requiring OnSave etc hooking (eg we might start passing 'contentdata' to the tabs) */
   PUBLIC MACRO __LoadMetaTabs(STRING tabsptr)

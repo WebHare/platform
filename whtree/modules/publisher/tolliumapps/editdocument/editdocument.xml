@@ -114,7 +114,7 @@
       </statuspanel>
       <split name="editarea" type="horizontal" height="1pr">
         <part name="doceditor" width="2pr" />
-        <part name="metapart" width="1pr" visible="false">
+        <part name="metapart" width="1pr">
           <tabs name="filetabs" height="1pr">
             <tab name="metadatatab" tid=".metadata" vscroll="true" dirtylistener="dirtylistener">
               <section name="mainsection" open="true" tid="tolliumapps.objectprops.objectprops.maintab">
