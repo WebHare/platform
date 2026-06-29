@@ -26,7 +26,7 @@
     <test script="test-whfs-autocreate.whscr" />
     <test script="test-whfs-types_bulkapi.whscr" />
     <test script="test-whfs-rights.whscr" />
-    <test script="test-whfs-consilio.whscr" xfail="1" />
+    <test script="test-whfs-consilio.whscr" />
     <test script="test-whfs-findwhfsobjects.whscr" />
     <test script="test-whfs-events.whscr" flaky="true" />
   </group>

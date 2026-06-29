@@ -155,12 +155,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase <
     IF(IsDebugTagEnabled("que"))
       LogDebug("system:whfscommithandler", "commitbroadcasts", CELL[trace := GetStackTrace() ]);
 
-    IF (uncommitted_fstypes_changes)
-    {
-      BroadcastEvent("system:whfs.types", DEFAULT RECORD);
-      uncommitted_fstypes_changes := FALSE;
-    }
-
     INTEGER ARRAY sites;
     FOREVERY (RECORD rec FROM this->items)
     {
@@ -592,6 +586,7 @@ OBJECTTYPE WHFSWasmCommitHandler <
 
   PUBLIC MACRO FSTypesChanged()
   {
+    uncommitted_fstypes_changes := TRUE;
     CallJS("@webhare/whfs/src/finishhandler.ts#whfsFinishHandler")->Call("fsTypesChanged");
   }
 
