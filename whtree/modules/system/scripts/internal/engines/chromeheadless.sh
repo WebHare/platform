@@ -20,6 +20,8 @@ fi
 
 mkdir -p -- "$PROFILEDIR"
 
+cd "$WEBHARE_DIR"
+
 # --disk-cache-dir=/dev/null seems to be the preferred method on the interwebs but is now crashing - https://bugs.chromium.org/p/chromium/issues/detail?id=1262129
 # as far as I know there's no officially sanctioned way to fully disable the cache so we'll go for session-level enabling in tests/pdf rendering
 
@@ -40,7 +42,7 @@ ARGS="--disable-gpu
       --user-data-dir=$PROFILEDIR"
 
 # Find a browser in PUPPETEER_CACHE_DIR first. This one will have proper hyphenations
-BROWSER=$(find "$PUPPETEER_CACHE_DIR" -type f -name chrome | head -n1)
+BROWSER="$(wh node -e 'require("puppeteer").executablePath().then(_=>console.log(_))')"
 
 if [ -z "$BROWSER" ]; then
   # If not found, try to find a browser in the system
