@@ -73,10 +73,13 @@ export const whconstant_webservertype_interface = 1;
 //'Webserver' type of a webserver group
 export const whconstant_webservertype_group = 6;
 
-//base port offset for LB trusted port
+//base port offset for LB trusted port. Commonly 13684
 export const whconstant_webserver_trustedportoffset = 5;
 
-//base port offset for HS trusted port
+//base port offset for LB SSL trusted port. Commonly 13683
+export const whconstant_webserver_ssl_trustedportoffset = 4;
+
+//base port offset for HS trusted port. Commonly 13682
 export const whconstant_webserver_hstrustedportoffset = 3;
 
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/normafolder
@@ -260,9 +263,11 @@ export const whconstant_consilio_default_suffix_mask = "-*";
 export const whwebserverconfig_rescueportoffset = 0;
 export const whwebserverconfig_trustedportid = -2;
 export const whwebserverconfig_trustedportid_ipv6 = -3;
-export const whwebserverconfig_hstrustedportid = -6;
 export const whwebserverconfig_rescueportid = -4;
 export const whwebserverconfig_rescuewebserverid = -5;
+export const whwebserverconfig_hstrustedportid = -6;
+export const whwebserverconfig_ssl_trustedportid = -7;
+export const whwebserverconfig_ssl_trustedportid_ipv6 = -8;
 
 export const whwebserverconfig_virtualportid = 0;
 

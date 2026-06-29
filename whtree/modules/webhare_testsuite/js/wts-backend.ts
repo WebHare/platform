@@ -9,7 +9,8 @@ export * from "@webhare/test-backend";
 import { loadlib } from "@webhare/harescript";
 
 import { beginWork, commitWork } from "@webhare/whdb";
-import { openFile, openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
+import { openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
+import { ensureFallbackCertficate } from "@mod-platform/js/webserver/config";
 
 export const wellKnownHashes = {
   snowbeagleJPG: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw",
@@ -95,8 +96,7 @@ async function getAvailableServerPort() {
 
 export async function createTestWebserverConfig() {
   //Get the fallback certificate so we have a keypair to test with
-  const fallback_privatekey = await openFile("/webhare-private/system/keystore/fallback/privatekey.pem");
-  const fallback_certificate = await openFile("/webhare-private/system/keystore/fallback/certificatechain.pem");
+  const { certPem, keyPem } = await ensureFallbackCertficate();
 
   const port_http = await getAvailableServerPort();
   const port_https = await getAvailableServerPort();
@@ -115,13 +115,13 @@ export async function createTestWebserverConfig() {
     },
     {
       port: port_https,
-      certificatechain: await fallback_certificate.data?.resource.text() || "",
+      certificatechain: certPem,
       ciphersuite: "",
       id: -2,
       ip: "127.0.0.1",
       istrustedport: true,
       keypair: 0,
-      privatekey: await fallback_privatekey.data?.resource.text() || "",
+      privatekey: keyPem,
       virtualhost: true
     }
   ];

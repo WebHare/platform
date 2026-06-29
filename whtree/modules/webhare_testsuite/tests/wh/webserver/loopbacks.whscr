@@ -1334,6 +1334,33 @@ MACRO TestWHPubPreview()
       , localport :=      testport.portnumber
       ], data, "*");
 
+  // Test with proxy headers in the request (send through trusted SSL port)
+  res := previewbrowser->SendRawRequest("GET", baseurl || "getrequestdata.shtml",
+      [ [ field := "host", value := "proxyhost:22143" ]
+      , [ field := "X-WH-Proxy", value := FormatXWHProxyHeader([ source :=    "test"
+                                                               , binding :=   testport.portid
+                                                               , proto :=     "https"
+                                                               , forip :=     "2001:db8::1"
+                                                               , localip :=   "2001:db8::2"
+                                                               , localport := testport.portnumber
+                                                               ])
+        ]
+      ], DEFAULT BLOB,
+      [ connecthost := GetWebhareConfiguration().trustedhost, connectport := GetWebHareConfiguration().ssl_trustedport, connectssl := TRUE ]);
+
+  TestEQ(TRUE, res);
+
+  data := DecodeHSONBlob(previewbrowser->content);
+  TestEQMembers(
+      [ clienturl :=      'https://proxyhost:22143/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml'
+      , serverurl :=      `https://[2001:db8::2]:${testport.portnumber}/tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml`
+      , remoteip :=       `2001:db8::1`
+      , remoteport :=     0
+      , localip :=        `2001:db8::2`
+      , localport :=      testport.portnumber
+      ], data, "*");
+
+
   previewbrowser->Close();
 
   previewbrowser := NEW WebBrowser;

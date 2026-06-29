@@ -79,10 +79,13 @@ PUBLIC CONSTANT INTEGER whconstant_webservertype_interface := 1;
 //'Webserver' type of a webserver group
 PUBLIC CONSTANT INTEGER whconstant_webservertype_group := 6;
 
-//base port offset for LB trusted port
+//base port offset for LB trusted port. Commonly 13684
 PUBLIC CONSTANT INTEGER whconstant_webserver_trustedportoffset := 5;
 
-//base port offset for HS trusted port
+//base port offset for LB trusted port. Commonly 13683
+PUBLIC CONSTANT INTEGER whconstant_webserver_ssl_trustedportoffset := 4;
+
+//base port offset for HS trusted port. Commonly 13682
 PUBLIC CONSTANT INTEGER whconstant_webserver_hstrustedportoffset := 3;
 
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/normafolder

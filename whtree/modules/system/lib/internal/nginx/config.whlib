@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
@@ -131,7 +132,7 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
 
       INSERT
           [ servername :=     name
-          , ssl_keypair :=    RecordExists(best_cert) ? best_cert.name : "fallback"
+          , ssl_keypair :=    RecordExists(best_cert) ? best_cert.name : "!fallback"
           , orghost :=        host.listenhosts[0]
           ] INTO listenhosts AT END;
     }
@@ -145,9 +146,14 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
     GROUP BY orghost, ssl_keypair;
 
   STRING ARRAY used_keypairs := SELECT AS STRING ARRAY ssl_keypair FROM request.hosts;
+  RECORD fallback_ssl_keys := CallJS("@mod-platform/js/webserver/config.ts#ensureFallbackCertficate");
 
   // Filter the certificates
-  request.certificates :=
+  request.certificates := [[
+    name := "!fallback", //invalid WHFS name so can never exist
+    keyfile := fallback_ssl_keys.keyPem,
+    chainfile := fallback_ssl_keys.chainPem
+  ]] CONCAT
       SELECT name
            , keyfile
            , chainfile

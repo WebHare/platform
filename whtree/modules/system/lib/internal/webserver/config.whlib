@@ -2,6 +2,7 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -716,8 +717,7 @@ STATIC OBJECTTYPE WebConfigBuilder <
     RETURN rules;
   }
 
-  PUBLIC MACRO Run()
-  {
+  PUBLIC MACRO Run() {
     BOOLEAN autodenyipv6 := TRUE;
     STRING useciphersuite;
     STRING debugsecret;
@@ -731,8 +731,7 @@ STATIC OBJECTTYPE WebConfigBuilder <
 
     //NGINX mode?
     RECORD ARRAY ports;
-    IF(NOT this->minimalconfig)
-    {
+    IF(NOT this->minimalconfig) {
       ports := SELECT keypairobj := COLUMN keypair != 0 ? OpenKeyPair(COLUMN keypair) : DEFAULT OBJECT
                     , id
                     , ip := ip = "" ? "0.0.0.0" : ip
@@ -754,12 +753,24 @@ STATIC OBJECTTYPE WebConfigBuilder <
     STRING secureport_bindip := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP");
     STRING rescueport_bindip := GetEnvironmentVariable("WEBHARE_RESCUEPORT_BINDIP") ?? "127.0.0.1";
 
+    RECORD fallback_ssl_keys := CallJS("@mod-platform/js/webserver/config.ts#ensureFallbackCertficate");
+
     //Add the NGINX/reverse proxy port
     INSERT [ id := whwebserverconfig_trustedportid
            , ip := secureport_bindip ?? "127.0.0.1"
            , privatekey := ""
            , certificatechain := ""
            , port := GetWebHareConfiguration().trustedport
+           , virtualhost := TRUE
+           , ciphersuite := ""
+           , istrustedport := TRUE
+           ] INTO ports AT END;
+
+    INSERT [ id := whwebserverconfig_ssl_trustedportid
+           , ip := secureport_bindip ?? "127.0.0.1"
+           , privatekey := fallback_ssl_keys.keyPem
+           , certificatechain := fallback_ssl_keys.certPem
+           , port := GetWebHareConfiguration().ssl_trustedport
            , virtualhost := TRUE
            , ciphersuite := ""
            , istrustedport := TRUE
@@ -784,6 +795,16 @@ STATIC OBJECTTYPE WebConfigBuilder <
              , privatekey := ""
              , certificatechain := ""
              , port := GetWebHareConfiguration().trustedport
+             , virtualhost := TRUE
+             , ciphersuite := ""
+             , istrustedport := TRUE
+             ] INTO ports AT END;
+
+      INSERT [ id := whwebserverconfig_ssl_trustedportid_ipv6
+             , ip := secureport_bindip = "" ? "::1" : "::0"
+             , privatekey := fallback_ssl_keys.keyPem
+             , certificatechain := fallback_ssl_keys.certPem
+             , port := GetWebHareConfiguration().ssl_trustedport
              , virtualhost := TRUE
              , ciphersuite := ""
              , istrustedport := TRUE
