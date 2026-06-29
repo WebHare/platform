@@ -107,7 +107,33 @@ PUBLIC CONSTANT STRING ARRAY __haligns := ["LEFT","CENTER","RIGHT"];
 
 PUBLIC RECORD FUNCTION GfxRGB2HSV(INTEGER rgb)
 {
-  RETURN __DRAWLIB_V2_RGBTOHSV(rgb);
+  FLOAT r := ((rgb BITRSHIFT 16) BITAND 0xFF) / 255.0;
+  FLOAT g := ((rgb BITRSHIFT 8) BITAND 0xFF) / 255.0;
+  FLOAT b := (rgb BITAND 0xFF) / 255.0;
+
+  FLOAT maxc := MAX[]([r, g,b]);
+  FLOAT minc := MIN[]([r, g, b]);
+  FLOAT delta := maxc - minc;
+
+  FLOAT h := 0;
+  IF(delta != 0) {
+  IF(maxc = r) {
+  h := (g - b) / delta;
+  } ELSE IF(maxc = g) {
+    h := 2 + (b - r) / delta;
+  } ELSE {
+    h := 4 + (r - g) / delta;
+  }
+
+  h := h * 60;
+  IF(h < 0)
+    h := h + 360;
+  }
+
+  FLOAT s := maxc= 0 ? 0f : delta/maxc;
+  FLOAT v := maxc;
+
+  RETURN CELL[h, s, v];
 }
 
 /**
@@ -124,7 +150,30 @@ PUBLIC RECORD FUNCTION GfxRGB2HSV(INTEGER rgb)
 */
 PUBLIC INTEGER FUNCTION GfxHSV2RGB(FLOAT h, FLOAT s, FLOAT v)
 {
-  RETURN __DRAWLIB_V2_HSVTORGB(h, s, v);
+  FLOAT c := v * s;
+  FLOAT x := c * (1 - ABS(INTEGER(h / 60f) % 2 - 1));
+  FLOAT m := v - c;
+
+  FLOAT r1, g1, b1;
+  IF(h < 60) {
+    r1 := c; g1 := x; b1 := 0;
+  } ELSE IF(h < 120) {
+    r1 := x; g1 := c; b1 := 0;
+  } ELSE IF(h < 180) {
+    r1 := 0; g1 := c; b1 := x;
+  } ELSE IF(h < 240) {
+    r1 := 0; g1 := x; b1 := c;
+  } ELSE IF(h < 300) {
+    r1 := x; g1 := 0; b1 := c;
+  } ELSE {
+    r1 := c; g1 := 0; b1 := x;
+  }
+
+  INTEGER r := INTEGER((r1 + m) * 255);
+  INTEGER g := INTEGER((g1 + m) * 255);
+  INTEGER b := INTEGER((b1 + m) * 255);
+
+  RETURN (0xFF000000 BITOR (r BITLSHIFT 16) BITOR (g BITLSHIFT 8) BITOR b);
 }
 
 /**
