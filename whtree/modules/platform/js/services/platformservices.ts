@@ -6,7 +6,7 @@ import type { ConfigClient } from "../configure/configservice";
 /** Describes HareScript-based services */
 declare module "@webhare/services" {
   interface BackendServices {
-    "system:chromeheadlessrunner": {
+    "platform:chromeheadlessrunner": {
       getConnectParams(): Promise<{
         connectorurl: string;
       }>;

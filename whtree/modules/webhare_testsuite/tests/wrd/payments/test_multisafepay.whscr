@@ -182,7 +182,7 @@ ASYNC MACRO TestPaymentMultiSafePay()
 
 /* MSP test payments appear curently non-functional ,we'l revisit these test cases once we need to convert to TS
   //////////// use chrome headless to execute the paymemnt ////////////////////// ADDME generalize cleanup?
-  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("platform:chromeheadlessrunner"));
   RECORD session := AWAIT runner->CreateSession();
   OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
   OBJECT conn := AWAIT connector->ConnectToSession(session);

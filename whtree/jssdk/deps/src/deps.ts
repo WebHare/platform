@@ -88,7 +88,7 @@ export async function connectPuppeteer(options: Puppeteer.ConnectOptions): Promi
     @returns A browser context (not a Browser!) that can be used to create pages
 */
 export async function connectSharedPuppeteer(options?: Puppeteer.BrowserContextOptions): Promise<Puppeteer.BrowserContext & AsyncDisposable> {
-  const headlessRunner = await openBackendService("system:chromeheadlessrunner");
+  const headlessRunner = await openBackendService("platform:chromeheadlessrunner");
   const session = await headlessRunner.getConnectParams();
 
   const puppet = await connectPuppeteer({
