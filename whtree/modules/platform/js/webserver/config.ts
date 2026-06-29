@@ -101,7 +101,7 @@ async function enrichWithListenHosts<H extends { baseurl: string; port: number; 
   }
   for (const host of inhosts) {
     const unp = new URL(host.baseurl);
-    const hostname = unp.hostname.includes("::") ? `[${unp.hostname.toUpperCase()}]` : unp.hostname.toUpperCase(); // wrap IPv6 addresses
+    const hostname = unp.hostname.toUpperCase();
     const listenhosts: string[] = [];
     if (host.port === 0) {
       listenhosts.push(hostname);
@@ -152,19 +152,19 @@ export async function getHostedSites() {
 
   // Also mark our trusted port as a virtualhosted port
   ports.push({
-    id: whwebserverconfig_trustedportid,
+    id: whwebserverconfig_trustedportid, // -2
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_trustedportoffset
   }, {
-    id: whwebserverconfig_ssl_trustedportid,
+    id: whwebserverconfig_ssl_trustedportid, // -7
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_ssl_trustedportoffset
   }, {
-    id: whwebserverconfig_hstrustedportid,
+    id: whwebserverconfig_hstrustedportid, // -6
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_hstrustedportoffset
   }, { //and add the "rescue" port which simply hosts the WebHare backend
-    id: whwebserverconfig_rescueportid,
+    id: whwebserverconfig_rescueportid, // -4
     virtualhost: false,
     port: getBasePort() + whwebserverconfig_rescueportoffset
   });
