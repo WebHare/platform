@@ -2,9 +2,13 @@ import type { HSVMWrapper } from "@webhare/harescript";
 import { sleep } from "@webhare/std";
 
 class NestingHandler {
-  constructor(public vm: HSVMWrapper) { }
   topLevelPromise = Promise.withResolvers<void>();
   seondLevelPromise = Promise.withResolvers<void>();
+  vm;
+
+  constructor(vm: HSVMWrapper) {
+    this.vm = vm;
+  }
 }
 
 let curNestingHandler: NestingHandler | null = null;

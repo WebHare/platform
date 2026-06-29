@@ -1,5 +1,6 @@
 {
   "name": "@webhare/test",
+  "type": "module",
   "version": "",
   "description": "A promise- and TypeScript-based test runner",
   "main": "src/test.ts",

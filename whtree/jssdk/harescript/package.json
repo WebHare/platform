@@ -1,5 +1,6 @@
 {
   "name": "@webhare/harescript",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/harescript.ts",

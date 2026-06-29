@@ -1,5 +1,6 @@
 {
   "name": "@webhare/zip",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/zip.ts",

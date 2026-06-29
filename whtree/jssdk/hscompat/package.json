@@ -1,5 +1,6 @@
 {
   "name": "@webhare/hscompat",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/hscompat.ts",

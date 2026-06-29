@@ -1,5 +1,6 @@
 {
   "name": "@webhare/wrd",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/wrd.ts",

@@ -1,5 +1,5 @@
-import { stdTypeOf } from "./quacks";
-import { Money } from "./money";
+import { stdTypeOf } from "./quacks.ts";
+import { Money } from "./money.ts";
 
 export type WildcardTypes = "?*";
 

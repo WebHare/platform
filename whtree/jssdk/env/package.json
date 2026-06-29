@@ -1,5 +1,6 @@
 {
   "name": "@webhare/env",
+  "type": "module",
   "version": "",
   "description": "Provides debugFlags, dtapStage and isLive to both frontend and backend code",
   "main": "src/env.ts",

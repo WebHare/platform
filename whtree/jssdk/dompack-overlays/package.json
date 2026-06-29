@@ -1,5 +1,6 @@
 {
   "name": "@webhare/dompack-overlays",
+  "type": "module",
   "version": "",
   "description": "Support for user editable overlays",
   "main": "src/dompack-overlays.ts",

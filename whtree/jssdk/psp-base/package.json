@@ -1,5 +1,6 @@
 {
   "name": "@webhare/psp-base",
+  "type": "module",
   "version": "",
   "description": "Base package for WebHare PSP integrations",
   "main": "src/psp-base.ts",

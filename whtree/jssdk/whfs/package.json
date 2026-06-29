@@ -1,5 +1,6 @@
 {
   "name": "@webhare/whfs",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/whfs.ts",

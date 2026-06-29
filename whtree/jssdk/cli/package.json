@@ -1,5 +1,6 @@
 {
   "name": "@webhare/cli",
+  "type": "module",
   "version": "",
   "description": "Tools for command line applications. TypeScript-safe command line parser and ANSI codes",
   "keywords": [

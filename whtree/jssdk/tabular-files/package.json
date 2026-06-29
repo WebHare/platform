@@ -1,5 +1,6 @@
 {
   "name": "@webhare/tabular-files",
+  "type": "module",
   "version": "",
   "description": "Process tabular files (CSV, XLSX)",
   "main": "src/tabular-files.ts",

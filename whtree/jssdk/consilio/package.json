@@ -1,5 +1,6 @@
 {
   "name": "@webhare/consilio",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/consilio.ts",

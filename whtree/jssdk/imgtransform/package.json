@@ -1,5 +1,6 @@
 {
   "name": "@webhare/imgtransform",
+  "type": "module",
   "version": "",
   "description": "The WebHare built-in image transformer (eg. crop, rotate, focalpoint)",
   "main": "src/imgtransform.ts",

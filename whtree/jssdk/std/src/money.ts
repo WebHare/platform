@@ -9,8 +9,8 @@
   Users should not rely on JS Money keeping this smaller range in the future. Money values supplied from HareScript should be formatted using FormatJSFinmathMoney
 */
 
-import * as finmath from "./finmath"; //TODO absorb into us as soon as noone externally depends on finmath anymore
-import { isMoney } from "./quacks";
+import * as finmath from "./finmath.ts"; //TODO absorb into us as soon as noone externally depends on finmath anymore
+import { isMoney } from "./quacks.ts";
 
 export type MoneyRoundingMode = "none" | "toward-zero" | "down" | "up" | "half-toward-zero" | "half-down" | "half-up" | "toward-infinity" | "half-toward-infinity";
 export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";

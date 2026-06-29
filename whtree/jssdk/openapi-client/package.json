@@ -1,5 +1,6 @@
 {
   "name": "@webhare/openapi-client",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/openapi-client.ts",

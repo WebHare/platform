@@ -1,5 +1,6 @@
 {
   "name": "@webhare/forms-rtdedit",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/forms-rtdedit.ts",

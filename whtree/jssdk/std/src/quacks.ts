@@ -1,6 +1,6 @@
 //TODO can we replace ourselves with nodejs util.types in a pure NodeJS environment?
 
-import type { Money } from "./money";
+import type { Money } from "./money.ts";
 
 export function getWHType(obj: unknown): string | null { //not exporting this directly as we hope JS comes up with better solutions for instanceOf not being compatible with realms/reloading
   // Ideally we'd use symbol but it breaks tree shaking in esbuild, so this is our workaround. Reported as https://github.com/evanw/esbuild/issues/3940

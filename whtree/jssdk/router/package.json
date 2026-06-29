@@ -1,5 +1,6 @@
 {
   "name": "@webhare/router",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/router.ts",

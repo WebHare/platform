@@ -1,5 +1,6 @@
 {
   "name": "@webhare/gettid",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/gettid.ts",

@@ -1,5 +1,6 @@
 {
   "name": "@webhare/system-tools",
+  "type": "module",
   "version": "",
   "description": "",
   "main": "src/system-tools.ts",

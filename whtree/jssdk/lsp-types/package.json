@@ -1,5 +1,6 @@
 {
   "name": "@webhare/lsp-types",
+  "type": "module",
   "version": "",
   "types": "lsp-types.ts",
   "description": "Types shared between the WebHare LSP server and clients",
