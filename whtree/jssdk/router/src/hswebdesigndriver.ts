@@ -200,6 +200,6 @@ export async function wrapHSWebdesign(request: PageBuildRequest): Promise<WebRes
 }
 
 export async function renderHSWidget(request: CPageRequest, widgetType: string, dbLoc: WebHareDBLocation): Promise<{ content: Litty }> {
-  const result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RenderHSWidget(request.targetObject.id, widgetType, dbLoc) as { content: string };
+  const result = await loadlib("mod::platform/lib/internal/hs-pagehost.whlib").RenderHSWidget(request.targetObject.id, widgetType, dbLoc, request.isPublisherPreview) as { content: string };
   return { content: rawLitty(result.content) };
 }

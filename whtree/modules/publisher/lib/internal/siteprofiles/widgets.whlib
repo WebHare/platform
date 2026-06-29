@@ -72,7 +72,7 @@ RECORD FUNCTION DescribeWidgetType(STRING widgettype, OBJECT applytester, STRING
 
 /** @param fsobject Used for legacy objects. leave empty if rtdtype is known
 */
-PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applytester, STRING rtdtype, RECORD instancedata, OBJECT widgetcontext)
+PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applytester, STRING rtdtype, RECORD instancedata, OBJECT widgetcontext, BOOLEAN ispublisherpreview DEFAULTSTO FALSE)
 {
   RECORD described;
   IF(rtdtype != "")
@@ -122,6 +122,7 @@ PUBLIC RECORD FUNCTION GetEmbeddedObjectRenderer(OBJECT fsobject, OBJECT applyte
           , context := widgetcontext
           , typeinfo.requiremergefieldscontext
           , ...CellExists(typeinfo,'onrenderwidget') ? [ onrenderwidget := typeinfo.onrenderwidget ] : CELL[]
+          , ispublisherpreview
           ];
   TRY
   {

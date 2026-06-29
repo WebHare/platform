@@ -168,6 +168,7 @@ export async function renderTSWidgetHS(context: {
   targetsite: number;
   sitelanguage: string;
   iseditorpreview: boolean;
+  ispublisherpreview: boolean;
 }) {
   const type = whfsType(context.whfstype);
   //HareScript wouldn't have decoded instance data the way we would expect, so re-get the widget from the database
@@ -192,7 +193,8 @@ export async function renderTSWidgetHS(context: {
     targetSite: await whfs.openSite(context.targetsite) as PagePartRequest["targetSite"],
     targetPath: await buildTargetPath(targetObject),
     siteLanguage: context.sitelanguage,
-    isEditorPreview: context.iseditorpreview
+    isEditorPreview: context.iseditorpreview,
+    isPublisherPreview: context.ispublisherpreview,
   };
 
   const result = await renderFunction(pagePartRequest, instance);
