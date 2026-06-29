@@ -2631,6 +2631,11 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
           event.stopPropagation();
           this.executeAction('u');
         } return;
+        case "Accel+K": { // K: Apply link
+          event.preventDefault();
+          event.stopPropagation();
+          this.executeAction('a-href');
+        } return;
         case "Shift+Enter": {
           event.preventDefault();
           event.stopPropagation();
