@@ -68,6 +68,7 @@ async function testMockedTypes() {
   await test.throws(/No such type/, () => whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { metaType: "fileType" }));
   test.eq(null, await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true }));
   const nosuchfiletype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/nosuchfiletype", { allowMissing: true, metaType: "fileType" });
+  test.assert(nosuchfiletype);
   test.eq("http://www.webhare.net/xmlns/publisher/nosuchfiletype", nosuchfiletype.namespace);
   test.eq("fileType", nosuchfiletype.metaType);
   test.eq(false, nosuchfiletype.isWebPage);

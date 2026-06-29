@@ -79,13 +79,18 @@ function explainCSPContentType(matchtype: CSPContentType): WHFSMetaTypeInfo {
   return baseinfo;
 }
 
-//splitting off a keyof WHFSTypes only version for improved intellisense and type autocompletion
+//Added keyof WHFSTypes overloads so intellisense will complete types
+export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing: true; metaType: "fileType" }): Promise<FileTypeInfo | null>;
+export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing: true; metaType: "folderType" }): Promise<FolderTypeInfo | null>;
+export async function describeWHFSType(type: string | number, options: { allowMissing: true; metaType: "fileType" }): Promise<FileTypeInfo | null>;
+export async function describeWHFSType(type: string | number, options: { allowMissing: true; metaType: "folderType" }): Promise<FolderTypeInfo | null>;
 export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
 export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
 export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
 export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
 
 export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {

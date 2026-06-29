@@ -119,7 +119,7 @@ PUBLIC RECORD FUNCTION RunAndCaptureHSBody(OBJECT webdesign, MACRO PTR renderfun
 PUBLIC RECORD FUNCTION RunInstantiatedDynHSPage(OBJECT webdesign, OBJECT pageobject) {
   MACRO PTR renderfunc;
   IF(pageobject EXTENDSFROM WebPageBase) {
-    renderfunc := pageobject->GetPageBody();
+    renderfunc := pageobject->GetPageBody() ?? PTR Print("");
   } ELSE {
     pageobject->PrepareForPageConfig(webdesign);
     pageobject->PrepareForRendering(webdesign);
