@@ -3,6 +3,7 @@ import type { FsObjectRow, WHFSObject } from "./objects";
 import * as crypto from "node:crypto";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetadataInit } from "@webhare/services/src/descriptor";
+import { appendToArray } from "@webhare/std";
 
 function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
   return !excludes.includes(t as unknown as K);
@@ -158,7 +159,7 @@ export async function getWHFSDescendantIds(basefolders: number[], returnfolders:
   if (!returnfiles && !returnfolders)
     return [];
 
-  const allsubs = [];
+  const allsubs: number[] = [];
   let currentlevel = [...basefolders];
   if (maximumdepth > 32)
     maximumdepth = 32; //safety against corrupted databases
@@ -172,7 +173,7 @@ export async function getWHFSDescendantIds(basefolders: number[], returnfolders:
 
     const currentsubs = await currentsubsSQL.execute();
     currentlevel = currentsubs.filter(sub => sub.isfolder).map(sub => sub.id);
-    allsubs.push(...currentsubs.filter(sub => returnfolders || !sub.isfolder).map(sub => sub.id));
+    appendToArray(allsubs, currentsubs.filter(sub => returnfolders || !sub.isfolder).map(sub => sub.id));
     --maximumdepth;
   }
   return allsubs;
