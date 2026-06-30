@@ -2,10 +2,11 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
 import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPSiteFilter, type CSPSiteSetting, type CSPSource, type CSPWebRule, type CSPWidgetEditor, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
-import { appendToArray, nameToSnakeCase, regExpFromWildcards, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
+import { appendToArray, attempt, nameToSnakeCase, regExpFromWildcards, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
 import { type ContentValidationFunction, TrackedYAML, type ValidationMessageWithType, type ValidationState } from "@mod-platform/js/devsupport/validation";
 import { loadlib } from "@webhare/harescript";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
@@ -1232,8 +1233,10 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
 }
 
 export async function readAndParseSiteProfile(resource: string, options?: { overridetext?: string }) { //used by HareScript
-  const text = options?.overridetext ?? readFileSync(toFSPath(resource), 'utf8');
-  const context = new SiteProfileParserContext(resource, new TrackedYAML(text));
+  const text = options?.overridetext ?? await attempt(() => readFile(toFSPath(resource), 'utf8'), null);
+  const context = new SiteProfileParserContext(resource, new TrackedYAML(text ?? '{}'));
+  if (text === null)
+    context.addMessage({ type: "error", message: `Failed to read siteprofile` });
   return parseSiteProfile(context);
 }
 

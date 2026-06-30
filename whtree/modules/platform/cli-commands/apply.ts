@@ -1,6 +1,7 @@
 // @webhare/cli: Reconfigures part of all of WebHare
 
 import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigurationOptions, executeApply, type ConfigurableSubsystemPart } from '@mod-platform/js/configure/applyconfig';
+import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/messages';
 import { runCli } from "@webhare/cli";
 import { CLISyntaxError } from '@webhare/cli/src/run';
 
@@ -35,6 +36,8 @@ runCli({
     if (opts.modules)
       toApply.modules = opts.modules.split(',');
 
-    await executeApply(toApply);
+    const result = await executeApply(toApply);
+    logValidationMessagesToConsole(result.messages.filter(_ => _.type === "error")); //hints are for checkmodule and warnings don't require immediate resolution, they're generally future-version deprecations
+    return result.messages.some(_ => _.type === "error") ? 1 : 0;
   }
 });

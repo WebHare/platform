@@ -7,6 +7,8 @@ import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_
 import { updateConsilioCatalogs } from './consilio';
 import { updateTypeScriptInfrastructure } from '@mod-system/js/internal/generation/gen_typescript';
 import { reconfigureProxies, refreshGlobalWebserverConfig } from '../webserver/control';
+import type { ValidationMessageWithType } from '../devsupport/validation';
+import { appendToArray } from '@webhare/std';
 
 type SubsystemConfig = {
   generate?: readonly GeneratorType[];
@@ -93,7 +95,9 @@ export interface ApplyConfigurationOptions {
   offline?: boolean;
 }
 
-export async function executeApply(options: ApplyConfigurationOptions & { offline?: boolean }) {
+export async function executeApply(options: ApplyConfigurationOptions & { offline?: boolean }): Promise<{
+  messages: ValidationMessageWithType[];
+}> {
   // The mutex prevents 'wh apply' and backend service from aplying configuration at the same time
   using mutex = options.offline ? null : await lockMutex("platform:applyconfig");
   void (mutex);
@@ -101,6 +105,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
   const start = Date.now();
   const verbose = Boolean(options.verbose);
   const togenerate = new Set<GeneratorType>;
+  const messages: ValidationMessageWithType[] = [];
   logDebug("platform:configuration", { type: "apply", ...options });
 
   const todoList = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
@@ -172,7 +177,8 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
 
     if (todoList.includes('siteprofiles')) {
       // this also updates 'siteprofilerefs'
-      await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true, "executeApply");
+      const res = await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true, "executeApply");
+      appendToArray(messages, res.messages);
     } else if (todoList.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
     }
@@ -194,4 +200,5 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
     logDebug("platform:configuration", { type: "error", at: Date.now() - start, message: (e as Error)?.message ?? "", stack: (e as Error)?.stack ?? "" });
     throw e;
   }
+  return { messages };
 }
