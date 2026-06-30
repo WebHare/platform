@@ -14,9 +14,9 @@ export type ListInstancesResult = {
   namespace: string;
   // Scoped type of the content type
   scopedType: string | null;
-  /// Indicator whether this instance is cloned when copying or archiving
+  /// Indicator whether this instance is cloned when copying, archiving or for drafts too
   clone: WHFSCloneMode;
-  /// This instance is managed as part of a workflow (drafts/autosaves)
+  /// This instance is part of the draft/autosave workflow and should be applied if the draft is finalized (even if empty)
   workflow: boolean;
   /** True if this content type is not defined in the site profile configuration anymore (these instances are
       hidden unless option withOrphans is set) */
@@ -57,8 +57,8 @@ export async function listInstances(objId: number | number[], options?: ListInst
       fsObject: inst.fsObject,
       namespace: inst.namespace,
       scopedType: inst.scopedType,
-      clone: inst.cloneOnCopy ? "onCopy" : inst.cloneOnArchive ? "onArchive" : "never",
-      workflow: inst.workflow,
+      clone: type?.workflow ? "onDraft" : inst.cloneOnCopy ? "onCopy" : inst.cloneOnArchive ? "onArchive" : "never",
+      workflow: inst.workflow, //instance workflow is *not* always equal to the workflow field on a type.
       orphan: inst.orphan || !type,
     } satisfies ListInstancesResult[number]);
   }).filter(_ => _ !== null);

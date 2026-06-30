@@ -51,7 +51,7 @@ function explainCSPContentType(matchtype: CSPContentType): WHFSMetaTypeInfo {
     namespace: matchtype.namespace,
     scopedType: matchtype.scopedtype || null,
     title: matchtype.title,
-    clone: matchtype.cloneoncopy ? "onCopy" : matchtype.cloneonarchive ? "onArchive" : "never",
+    clone: matchtype.workflow ? "onDraft" : matchtype.cloneoncopy ? "onCopy" : matchtype.cloneonarchive ? "onArchive" : "never",
   };
 
   if (matchtype.filetype)

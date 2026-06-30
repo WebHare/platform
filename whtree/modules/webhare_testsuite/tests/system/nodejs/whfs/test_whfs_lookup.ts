@@ -91,21 +91,21 @@ async function testLookup() {
 
   await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
   await whfs.whfsType("platform:web.config").set(root.id, { comments: "comment" });
-  test.eq([
+  test.eq([ //This test seems a bit lost here, just drop it once we've sufficiently covered listInstances elsewhere
     {
       fsObject: root.id,
       namespace: "http://www.webhare.net/xmlns/publisher/sitesettings",
       scopedType: "platform:web.sitesettings",
       clone: "onCopy",
-      workflow: false,
       orphan: false,
+      workflow: false
     }, {
       fsObject: root.id,
       namespace: "platform:web.config",
       scopedType: "platform:web.config",
       clone: "onArchive",
-      workflow: false,
       orphan: false,
+      workflow: false
     }
   ], await whfs.listInstances([root.id]));
 

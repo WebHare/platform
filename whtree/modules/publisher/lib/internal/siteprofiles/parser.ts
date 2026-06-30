@@ -1120,9 +1120,10 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
     const typeParser = rootParser.addGid(settings, { fallback: isValidScopedType(type) ? '.' + type : undefined });
     const scopedtype = `${baseScope}${type}` as WHFSTypeName;
     const ns = (settings.namespace as WHFSTypeName ?? scopedtype);
+    const workflow = settings.workflow === true || settings.clone === "onDraft";
     const ctype: CSPContentType = {
-      cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
-      cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!),
+      cloneonarchive: workflow || settings.clone !== "never",
+      cloneoncopy: workflow || (settings.clone !== 'never' && settings.clone !== 'onArchive'),
       dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(context, rootParser, settings.dynamicExecution) : null,
       comment: settings.comment || '',
       filetype: null,
@@ -1143,7 +1144,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
       type: "contenttype",
       wittycomponent: "",
       yaml: true,
-      workflow: (settings as Sp.InstanceType).workflow === true
+      workflow: workflow
     };
 
     if (settings.metaType && ["dataFile", "upload", "page", "blockWidget", "inlineWidget"].includes(settings.metaType)) {
@@ -1181,7 +1182,7 @@ function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?:
 
             In YML we don't want pages to be initialpublish unlesse explicitly requested - so we've inverted the default so most files will work properly with versioning
         */
-        initialpublish: ispublishable && !(settings as Sp.PageType).workflow,
+        initialpublish: ispublishable && !workflow,
         needstemplate: (settings as Sp.PageType).useWebDesign ?? settings.metaType === "page",
         pagelistprovider: context.resolve((settings as Sp.PageType).pageListProvider || ''),
         requirescontent: (settings as Sp.UploadType).requiresContent || false,

@@ -69,7 +69,7 @@ types:
     namespace: http://www.webhare.net/xmlns/publisher/formwebtool
     icon: tollium:files/application_x-webhare-survey
     metaType: page
-    workflow: true
+    clone: onDraft
     dynamicExecution:
       webPageObjectName: mod::publisher/lib/forms/base.whlib#WebtoolFormPage
     searchContentProvider: publisher:webtoolform
@@ -144,7 +144,7 @@ types:
     namespace: http://www.webhare.net/xmlns/publisher/markdownfile
     icon: tollium:files/text_plain
     metaType: page
-    workflow: true
+    clone: onDraft
     searchContentProvider: publisher:markdown
     members:
       data:
@@ -199,7 +199,7 @@ types:
     namespace: http://www.webhare.net/xmlns/publisher/richdocumentfile
     icon: tollium:files/application_x-webhare-richdocument
     metaType: page
-    workflow: true
+    clone: onDraft
     searchContentProvider: publisher:rtd
     members:
       data:
@@ -353,8 +353,7 @@ types:
 
   ## SEO and other extended metadata used when publishing to the web
   web.metadata:
-    workflow: true
-    clone: onCopy
+    clone: onDraft
     comment: Extended metadata for web publishing. eg. seotitle, schema.org, ..
     # TODO we still need to design and add schema.org support but it would appear here. likewise og:data things could appear here
     members:

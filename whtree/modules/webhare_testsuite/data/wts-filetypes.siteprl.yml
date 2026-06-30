@@ -1,14 +1,14 @@
 types:
   base_test.testsuite_rtd_ts: # Forced use of the JS renderer
     metaType: page
-    workflow: true
+    clone: onDraft
     apply:
       bodyRenderer:
         onRenderContent: mod::platform/js/pagebuilders/richdocument.ts#renderRTD
 
   base_test.testsuite_rtd_hs: # Forced use of the HS renderer
     metaType: page
-    workflow: true
+    clone: onDraft
     apply:
       bodyRenderer:
         objectName: mod::publisher/lib/internal/renderers/rtd.whlib#RenderRTD

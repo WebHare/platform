@@ -86,11 +86,13 @@ types:
         type: string
 
   type_with_workflow:
+    clone: onDraft
     members:
       withWorkflowString:
         type: string
 
   type_clone_only:
+    clone: onCopy # the default, btw
     members:
       cloneOnlyString:
         type: string

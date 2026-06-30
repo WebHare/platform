@@ -176,6 +176,17 @@ async function testInstanceData() {
   expectNumSettings += 3; //adding 3 array members
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
+  test.eq([
+    {
+      fsObject: testfile.id,
+      namespace: "webhare_testsuite:global.generic_test_type",
+      scopedType: "webhare_testsuite:global.generic_test_type",
+      clone: "onCopy",
+      orphan: false,
+      workflow: false
+    }
+  ], await whfs.listInstances([testfile.id]));
+
   test.eqPartial({
     int: 20,
     str: "String",

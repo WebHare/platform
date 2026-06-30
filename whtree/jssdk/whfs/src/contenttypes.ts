@@ -27,7 +27,7 @@ export type WHFSTypeName = keyof WHFSTypes;
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
 /** WHFS Type copy/clone mode */
-export type WHFSCloneMode = "onCopy" | "onArchive" | "never";
+export type WHFSCloneMode = "onCopy" | "onArchive" | "onDraft" | "never";
 
 /** Generic instance data format */
 export type InstanceData = { [key in string]: CodecGetMemberType };
