@@ -133,8 +133,11 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_recycled := 0;
 /// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
 PUBLIC CONSTANT INTEGER whconstant_historytype_saved := 1;
 
-/// fs_history.type revert action
-PUBLIC CONSTANT INTEGER whconstant_historytype_reverted := 3;
+/// fs_history.type autosave abandoned
+PUBLIC CONSTANT INTEGER whconstant_historytype_abandoned_autosave := 2;
+
+/// fs_history.type draft abandoned
+PUBLIC CONSTANT INTEGER whconstant_historytype_abandoned_draft := 3;
 
 /// fs_history.type created action
 PUBLIC CONSTANT INTEGER whconstant_historytype_created := 4;

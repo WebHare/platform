@@ -134,10 +134,10 @@ MACRO DraftingTest() {
   //Writing triggers an autosave in the history
   TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
                 , [ name := "", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
-                ], ListObjectHistory(testfile->id), "*");
+                ], ListObjectHistory(testfile->id, [include_autosaves := TRUE]), "*");
   TestEq([ version := "0.1", liveversion := testfile->id ], GetCurrentVersion(testfile->id));
   TestEq(0, GetLastPublicDraft(testfile->id), "An autosave is not a draft");
-  TestEq([ version := "", liveversion := testfile->id ], GetCurrentVersion(ListObjectHistory(testfile->id)[1].snapshot));
+  TestEq([ version := "", liveversion := testfile->id ], GetCurrentVersion(ListObjectHistory(testfile->id, [include_autosaves := TRUE])[1].snapshot));
   TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   //Unclaimed instances cannot be managed through the workflow
@@ -317,6 +317,7 @@ MACRO DraftingTest() {
   TestEq([ on_draft_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq([ on_draft_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq([ on_draft_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "yet-another-draft" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
   testfw->CommitWork();
@@ -340,7 +341,13 @@ MACRO DraftingTest() {
     [ user := GetEffectiveUser()
     , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
+    history :=ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
+  dumpvalue(history,'boxed');
+  TestEq([ on_draft_string := "jolly-good-autosave" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "yet-another-draft" ], OpenWHFSObject(history[3].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "yet-another-draft" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   workflowmgr->Save([ finalize := TRUE]);
+  TestEq([ on_draft_string := "yet-another-draft" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq(FALSE, RecordExists(workflowmgr->GetCurrentDraft()));
   TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
 
@@ -510,6 +517,18 @@ MACRO DraftingTest() {
   TestEq([ version := "2.0", liveversion := testfile->id ], GetCurrentVersion(testfile->id));
   TestEq([ version := "1.0", liveversion := testfile->id ], GetCurrentVersion(history[3].snapshot));
 
+  history := ListObjectHistory(testfile->id,[include_autosaves := TRUE]);
+  TestEqMembers([ [ type := "created",  version := "0.1", user := testfw->GetUserAuthobjectId("marge"), name := "" ]
+                , [ type := "saved",    version := "0.2", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html" ]
+                , [ type := "autosave" ]
+                , [ type := "saved",    version := "0.3", user := testfw->GetUserAuthobjectId("homer"), name := "test2.html" ]
+                , [ type := "final",    version := "1.0", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html" ]
+                , [ type := "autosave" ]
+                , [ type := "final",    version := "2.0", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html", when := testfile->modificationdate ]
+                , [ type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge"), name := "test2.html" ]
+                , [ type := "abandoned-autosave", version := "", user := testfw->GetUserAuthobjectId("marge"), name := "", snapshot := 0]
+                ], history, "*");
+
   testfw->CommitWork();
   VerifyTSHistory(testfile->id);
 
@@ -532,10 +551,10 @@ ASYNC MACRO AutosaveClockTest() {
   //Writing triggers an autosave in the history
   TestEqMembers([ [ name := "autosaveclocktest.txt", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge")]
                 , [ name := "autosaveclocktest.txt", type := "autosave", version := "", user := testfw->GetUserAuthobjectId("marge")] //autosaves are unversioned
-                ], ListObjectHistory(clocktestfile->id), "*");
+                ], ListObjectHistory(clocktestfile->id, [ include_autosaves := TRUE ]), "*");
   TestEq(0, GetLastPublicDraft(clocktestfile->id), "An autosave is not a draft");
 
-  INTEGER autosave_snapshot := ListObjectHistory(clocktestfile->id)[1].snapshot; //we need to ensure that no changes wee recorded and that autosave & save share the same snapshot
+  INTEGER autosave_snapshot := ListObjectHistory(clocktestfile->id, [ include_autosaves := TRUE ])[1].snapshot; //we need to ensure that no changes wee recorded and that autosave & save share the same snapshot
 
   testfw->CommitWork();
 
@@ -601,7 +620,7 @@ ASYNC MACRO NamingTest() {
     TestEqMembers([[ type := "created",  version := "0.1", name := "" ]
                   ,[ type := "saved",    version := "0.2", name := "" ]
                   ,[ type := "autosave", version := "",    name := "new-name-during-draft.txt" ]
-                ], ListObjectHistory(testfile->id), "*");
+                ], ListObjectHistory(testfile->id, [ include_autosaves := TRUE ]), "*");
     TestEq("naming-during-draft.txt", OpenWHFSObject(testfile->id)->name, "The live file should still have the old name until we finalize");
 
     workflowmgr->Save([ finalize := TRUE ]);

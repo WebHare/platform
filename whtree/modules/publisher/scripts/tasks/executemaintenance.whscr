@@ -1,9 +1,11 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 
@@ -64,11 +66,33 @@ MACRO RemoveObsoleteDrafts()
   INTEGER max_recycle_days := ReadRegistryKey("publisher.trashcan.trashcanexpire");
   DATETIME cutoff := AddDaysToDate(-max_recycle_days, GetCurrentDatetime());
 
-  DELETE FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND modificationdate<cutoff;
+  //Clean up old autosaves
+  INTEGER ARRAY old_autosaves := SELECT AS INTEGER ARRAY snapshot FROM system_internal.fs_history WHERE type = whconstant_historytype_autosave ;//AND when < cutoff;
+  RECORD ARRAY shared_snapshots := SELECT id,snapshot,type,when FROM system_internal.fs_history WHERE type != whconstant_historytype_autosave AND snapshot IN old_autosaves;
 
-  //We can also safely delete any public/private draft whose associated file is already gone (and out of the recyclebin) - they're unreachable for normal users anyway
-  DELETE FROM system.fs_objects WHERE parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ] AND filelink = 0;
+  //For now we'll build an emergency brake if we find shared snapshots and would be deleting wrong history items
+  IF(Length(shared_snapshots) > 0)  {
+    PrintTo(2,"Unexpected deletable autosave history items are sharing snapshots with items we want to keep - this should not happen\n");
+    dumpvalue(shared_snapshots,'boxed');
+    SetConsoleExitCode(1);
+    trans->RollbackWork();
+    RETURN;
+  }
 
+  //Another safety valve - only delete snapshots that live in the snapshots folder
+  INTEGER ARRAY snapshot_folders := SELECT AS INTEGER ARRAY parent FROM system.fs_objects WHERE parent = whconstant_whfsid_whfs_snapshots AND isfolder;
+  INSERT whconstant_whfsid_autosaves INTO snapshot_folders AT END; //for now this is also an acceptable parent
+
+  RECORD ARRAY misplaced_snapshots := SELECT id,whfspath FROM system.fs_objects WHERE id IN old_autosaves AND parent NOT IN snapshot_folders;
+  IF(Length(misplaced_snapshots) > 0)  {
+    PrintTo(2,"Unexpected deletable autosave history items are not in the snapshots folder - this should not happen\n");
+    dumpvalue(misplaced_snapshots,'boxed');
+    SetConsoleExitCode(1);
+    trans->RollbackWork();
+    RETURN;
+  }
+
+  DELETE FROM system.fs_objects WHERE id IN old_autosaves;
   trans->CommitWork();
 }
 

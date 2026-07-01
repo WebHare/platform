@@ -32,8 +32,8 @@ export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects">
 const eventNames = [
   "recycled", //0 whconstant_historytype_recycled
   "saved",    //1 whconstant_historytype_saved
-  undefined,  //currently unused
-  "reverted", //3 whconstant_historytype_reverted
+  "abandoned-autosave",  //2 whconstant_historytype_abandoned_autosave
+  "abandoned-draft",     //3 whconstant_historytype_abandoned_draft
   "created",  //4 whconstant_historytype_created
   "approved", //5 whconstant_historytype_approved
   "autosave", //6 whconstant_historytype_autosave

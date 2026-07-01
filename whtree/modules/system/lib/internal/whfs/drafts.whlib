@@ -18,8 +18,8 @@ PUBLIC CONSTANT STRING ARRAY workflow_controlled_fields := ["DATA", "TITLE", "DE
 
 CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_recycled
                                     , "saved"      //1 whconstant_historytype_saved
-                                    , "#2"         //currently unused
-                                    , "reverted"   //3 whconstant_historytype_reverted
+                                    , "abandoned-autosave" //2 whconstant_historytype_abandoned_autosave
+                                    , "abandoned-draft"    //3 whconstant_historytype_abandoned_draft
                                     , "created"    //4 whconstant_historytype_created
                                     , "approved"   //5 whconstant_historytype_approved
                                     , "autosave"   //6 whconstant_historytype_autosave
@@ -83,7 +83,7 @@ PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, I
       [ name :=       objinfo.name
       ], [ ifreadonly := "update" ]);
 
-  GetWHFSCommitHandler()->ObjectCreate(0, whconstant_whfsid_autosaves, destid, CellExists(fields, "ISFOLDER") AND fields.isfolder);
+  GetWHFSCommitHandler()->ObjectCreate(0, fields.parent, destid, CellExists(fields, "ISFOLDER") AND fields.isfolder);
 
   RETURN destid;
 }
@@ -98,8 +98,9 @@ PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, I
     @cell(datetime) return.isactive Whether this is the current active version
     @cell(string) return.version Version number. First version is 0.1, first published version is 1.0
 */
-PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
-{
+PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL[ include_autosaves := FALSE ], options);
+
   RECORD ARRAY historyitems :=
      SELECT id
           , type := type >= 0 AND type < Length(eventnames) ? eventnames[type] : "#" || type
@@ -112,6 +113,7 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
           , name := currentname
        FROM system_internal.fs_history
       WHERE fs_object = objid
+            AND (options.include_autosaves OR type NOT IN [whconstant_historytype_autosave, whconstant_historytype_abandoned_autosave ])
    ORDER BY when, id;
 
   INTEGER lastapproved := SELECT AS INTEGER id FROM historyitems WHERE type IN [ "final", "approved", "created" ] ORDER BY when DESC LIMIT 1;
@@ -127,7 +129,7 @@ PUBLIC RECORD FUNCTION GetCurrentVersion(INTEGER objid) {
     THROW NEW Exception(`Object #${objid} does not exist`);
 
   IF(IsRecycleOrHistoryWHFSPath(fileinfo.whfspath)) {
-    RECORD ARRAY history := ListObjectHistory(fileinfo.snapshotfor);
+    RECORD ARRAY history := ListObjectHistory(fileinfo.snapshotfor, [ include_autosaves := TRUE ]);
     RECORD ARRAY matches := SELECT * FROM history WHERE snapshot = objid;
     IF(Length(matches) != 1) {
       dumpvalue(history);
@@ -314,17 +316,6 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
 
   OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobject->id);
   RETURN draft;
-}
-
-/** Cleanup private drafts made by others */
-PUBLIC MACRO CleanupOtherPrivateDrafts(INTEGER objid)
-{
-  DELETE FROM system.fs_objects WHERE snapshotfor = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby != GetEffectiveUserID();
-}
-/** Cleanup my drafts */
-PUBLIC MACRO CleanupMyPrivateDrafts(INTEGER objid)
-{
-  DELETE FROM system.fs_objects WHERE snapshotfor = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby = GetEffectiveUserID();
 }
 
 PUBLIC MACRO ImportCurrentState(INTEGER baseobjectid) {

@@ -109,8 +109,11 @@ export const whconstant_historytype_recycled = 0;
 /// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
 export const whconstant_historytype_saved = 1;
 
-/// fs_history.type revert action
-export const whconstant_historytype_reverted = 3;
+/// fs_history.type autosave abandoned - blocks access to all earlier autosaves
+export const whconstant_historytype_abandoned_autosave = 2;
+
+/// fs_history.type draft abandoned - blocks access to all earlier drafts and autosaves
+export const whconstant_historytype_abandoned_draft = 3;
 
 /// fs_history.type created action
 export const whconstant_historytype_created = 4;

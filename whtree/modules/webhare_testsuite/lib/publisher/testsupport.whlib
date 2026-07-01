@@ -107,7 +107,7 @@ VARIANT FUNCTION Ternary(BOOLEAN test, VARIANT iftrue, VARIANT iffalse) {
 
 PUBLIC MACRO VerifyTSHistory(INTEGER fileid) {
   RECORD ARRAY hs_history;
-  FOREVERY(RECORD entry FROM ListObjectHistory(fileid)) {
+  FOREVERY(RECORD entry FROM ListObjectHistory(fileid, [ include_autosaves := TRUE ])) {
     INSERT CELL[ entry.id
                , entry.name
                , entry.type
