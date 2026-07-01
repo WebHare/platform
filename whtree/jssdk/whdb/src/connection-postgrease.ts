@@ -221,7 +221,7 @@ export class WHDBPgClient implements WHDBClientInterface, PoolClient {
 
     return {
       rows: result.rows,
-      rowCount: result.rows.length,
+      rowCount: result.rowCount,
       command: result.command! as "UPDATE" | "DELETE" | "SELECT" | "INSERT", //apparently kysely assumes only these can appear in queries
       fields: result.fields
     };
