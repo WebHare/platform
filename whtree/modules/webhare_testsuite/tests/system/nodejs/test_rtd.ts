@@ -14,11 +14,11 @@ import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
 ({} as RTDExport) satisfies RTDSource;
 
 ///A resourcedescriptor compare that ignores filenames (because )
-function compareRDIgnoreFilename(expect: unknown, actual: unknown) {
+function compareRDIgnoreFilename(expect: unknown, actual: unknown, path: string) {
   if (!isResourceDescriptor(expect) || !isResourceDescriptor(actual))
     return;
 
-  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata());
+  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata(), { path });
   return true;
 }
 
