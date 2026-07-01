@@ -15,6 +15,7 @@ interface ListedFSContentType {
   tolliumicon: string;
   type: string;
   codesource: string;
+  scopedtype: string;
 }
 
 /* quick test:
@@ -66,7 +67,7 @@ export async function listFSContentTypes(mask: string): Promise<ListedFSContentT
     return result;
 
   const regexp = regExpFromWildcards(mask, { caseInsensitive: true });
-  return result.filter(_ => `${_.namespace} ${_.codesource}`.match(regexp));
+  return result.filter(_ => `${_.namespace} ${_.codesource} ${_.scopedtype}`.match(regexp));
 }
 
 export async function validateCompiledSiteProfile(result: ValidationState, modules: string[] | "*"): Promise<void> {

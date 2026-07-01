@@ -61,7 +61,7 @@ ASYNC MACRO NavigateThroughBuckaroo(OBJECT entity, STRING payurl)
 
 /* TODO we'll revisit reenabling this test as soon as we switch the PSP itself over to TS
   //////////// use chrome headless to execute the payment (buckaroo does a pointless redirect and sends highly broken HTML... let a browser deal with that)
-  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
+  OBJECT runner :=  WaitForPromise(OpenWebHareService("platform:chromeheadlessrunner"));
   RECORD session := AWAIT runner->CreateSession();
   OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
   OBJECT conn := AWAIT connector->ConnectToSession(session);

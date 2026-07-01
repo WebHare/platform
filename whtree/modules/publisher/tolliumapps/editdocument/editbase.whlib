@@ -198,7 +198,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
     this->curtype := DescribeContentTypeById(type, CELL[ isfolder, mockifmissing := TRUE ]);
     this->namefollowstitle := type != whconstant_whfstype_foreignfolder;
 
-    STRING ARRAY workflowtypes := STRING[ "platform:web.config", "platform:web.metadata", ...options.workflowtypes ];
+    STRING ARRAY workflowtypes := STRING[ "platform:web.metadata", ...options.workflowtypes ];
 
     this->contexts->applytester := this->renderer->applytester;
 

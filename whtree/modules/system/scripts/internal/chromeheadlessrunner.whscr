@@ -5,7 +5,7 @@
    You can make this Chrome instance visible (sometimes useful for debugging, but unfortunately Chrome currently requires
    headless mode for PDF Printing) by using
 
-   wh services debug system:chromeheadlessrunner --noheadless
+   wh services debug platform:chromeheadlessrunner --noheadless
 */
 
 LOADLIB "wh::async.whlib";
@@ -267,7 +267,7 @@ STATIC OBJECTTYPE ChromeHeadlessController
     {
       IF (debug)
         PRINT(`Got exception while connecting: ${e->what}\n`);
-      LogDebug("system:chromeheadlessrunner", "exception starting session", e->what);
+      LogDebug("platform:chromeheadlessrunner", "exception starting session", e->what);
 
       // connection failure dooms process
       this->connecting := this->connecting - 1;
@@ -429,4 +429,4 @@ OBJECT controller := NEW ChromeHeadlessController;
 IF(debug)
   Print("starting service...\n");
 AddInterruptCallback(PTR controller->OnInterrupt);
-RunWebHareService("system:chromeheadlessrunner", PTR Constructor(controller));
+RunWebHareService("platform:chromeheadlessrunner", PTR Constructor(controller));
