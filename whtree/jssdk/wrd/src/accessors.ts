@@ -1849,7 +1849,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
 
     const embedded = new Map<string, ResourceDescriptor>();
     for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
-      if (item.ordering === 1) { //it's an embedded image
+      if (item.ordering >= 1) { //it's an embedded image
         const descr = decodeResourceDescriptor(item, links, cc);
         if (descr.fileName)
           embedded.set(descr.fileName, descr);
