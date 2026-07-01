@@ -15,7 +15,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -209,10 +208,6 @@ FOREVERY(RECORD tocheck FROM folderchecklist)
   }
 }
 
-// trigger initial compilation of siteprofiles before we add the first site
-// TODO: if we split up siteprofiles into platform / installed modules and ship the platform set in platform/generated/, this trigger will be unneeded again
-GetWHFSCommitHandler()->UpdateSiteProfiles();
-
 // Ensure we have a repository site too
 BOOLEAN isfreshwebhare;
 IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
@@ -290,7 +285,5 @@ IF(initial_backend LIKE "http:*") //no https support (yet? but bothering letsenc
   IF (ReadRegistryKey("system.services.smtp.mailfrom") = "") //Ensure mailfrom is set, needed for some tets
     WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
 }
-
-UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation! and a CreateAppliedPromise "siteprofilerefs" through UpdateSiteMetadata
 
 trans->CommitWork();
