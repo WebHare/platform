@@ -33,7 +33,6 @@ export type WorklowOptions = {
 
 export async function openWorkflowManager(fileId: number, options?: WorklowOptions) {
   const hsMgr = await makeObject("mod::publisher/lib/history.whlib#WorkflowManager", fileId, {
-    useworkflow: options?.useWorkflow ?? false,
     workflowtypes: options?.workflowTypes ?? [],
     assumewriteaccess: options?.assumeWriteAccess ?? false
   });

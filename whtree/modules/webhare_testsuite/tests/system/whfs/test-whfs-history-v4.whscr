@@ -111,7 +111,6 @@ MACRO DraftingTest() {
   //Start editing this document. Create a private draft (autosave)
   OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser(),
-      useworkflow := TRUE,
       workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
@@ -286,7 +285,6 @@ MACRO DraftingTest() {
   //reopen for homer
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
@@ -339,7 +337,6 @@ MACRO DraftingTest() {
   testfw->SetTestUser("marge");
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
   workflowmgr->Save([ finalize := TRUE]);
@@ -397,7 +394,6 @@ MACRO DraftingTest() {
   testfw->SetTestUser("homer");
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
   workflowmgr->UpdateData(StringToBlob("Simple change to trigger an autosave"));
@@ -406,7 +402,6 @@ MACRO DraftingTest() {
   testfw->SetTestUser("marge");
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := [ "webhare_testsuite:global.type_clone_ondraft" ]
     ]);
 
@@ -422,7 +417,6 @@ MACRO DraftingTest() {
   //STORY: Pretend the editor restarted (by the same user) but now has a different workflow config: type_clone_oncopy is the only one managed
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := [ "webhare_testsuite:global.type_clone_oncopy" ]
     ]);
 
@@ -483,7 +477,6 @@ MACRO DraftingTest() {
   // STORY: start a workflow with 'clear' type_clean_only. then update it in the final after starting the workflow and verify it's NOT reflected in the autosave
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
-    , useworkflow := TRUE
     , workflowtypes := [ "webhare_testsuite:global.type_clone_oncopy", "webhare_testsuite:global.type_clone_ondraft" ]
     ]);
   workflowmgr->UpdateData(StringToBlob("Locking in changes"));
@@ -527,7 +520,6 @@ ASYNC MACRO AutosaveClockTest() {
   //STORY Trigger an autosave
   OBJECT workflowmgr := NEW WorkflowManager(clocktestfile->id,
     [ user := GetEffectiveUser(),
-      useworkflow := TRUE,
       workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
@@ -576,7 +568,7 @@ ASYNC MACRO NamingTest() {
     TestEq(FALSE, testfile->publish);
     TestEq("an-unnamed-file.txt", testfile->name, "The system should have auto-named the file");
 
-    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser() ]);
     TestEqMembers([ name := "", title := "An unnamed file" ], workflowmgr->GetMetadata(), "*", "Name should be empty before any update action, we just have a title");
 
     workflowmgr->UpdateData(StringToBlob("Just some changed text"));
@@ -596,7 +588,7 @@ ASYNC MACRO NamingTest() {
     OBJECT testfile := testfolder->CreateFile([ title := "Naming during draft", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
     TestEq("naming-during-draft.txt", testfile->name, "The system should have auto-named the file");
 
-    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser() ]);
     workflowmgr->UpdateData(StringToBlob("Just some changed text"));
     workflowmgr->Save();
 
@@ -625,7 +617,7 @@ ASYNC MACRO NamingTest() {
     OBJECT testfile := testfolder->CreateFile([ title := "Naming twice", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser() ]);
     TestEq("naming-twice.txt", testfile->name, "The system should have auto-named the file");
 
-    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser() ]);
     workflowmgr->UpdateMetadata([name := "naming-twice-autosaved.dat"]);
     TestEqMembers([ name := "naming-twice-autosaved.dat" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->Save();
@@ -648,7 +640,7 @@ ASYNC MACRO NamingTest() {
     OBJECT testfile := testfolder->CreateFile([ name := "new.txt", typens := "platform:filetypes.plaintext" ], [ createdby := GetEffectiveUser(), implicit_name := TRUE ]);
     TestEq("new.txt", testfile->name);
 
-    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser() ]);
     TestEqMembers([ name := "" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->UpdateMetadata([title := "New ASCII"]);
     workflowmgr->Save();
@@ -669,7 +661,7 @@ ASYNC MACRO NamingTest() {
     OBJECT testfile := testfolder->OpenByName("new-ascii.txt")->CopyTo(testfolder, "new-ascii-2.txt", [ createdby := testfw->GetUserObject("sysop") ]);
     testfile->UpdateMetadata([ publish := FALSE ]);
 
-    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+    OBJECT workflowmgr := NEW WorkflowManager(testfile->id, [ user := GetEffectiveUser() ]);
     TestEqMembers([ name := "new-ascii-2.txt" ], workflowmgr->GetMetadata(), "*");
     workflowmgr->Save();
     TestEqMembers([ name := "new-ascii-2.txt" ], workflowmgr->GetMetadata(), "*");
@@ -708,7 +700,6 @@ ASYNC MACRO UnpublishedSavesTest()
   testfw->SetTestUser("homer");
   OBJECT workflowmgr := NEW WorkflowManager(unpublishedfile->id,
     [ user := GetEffectiveUser(),
-      useworkflow := TRUE,
       workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
@@ -763,7 +754,6 @@ ASYNC MACRO ImportTest() {
   //This is what we expect task replacecontents to do: backup the old version as an 'import' snapshot and setup a 'final' version
   OBJECT workflowmgr := NEW WorkflowManager(importfile->id,
     [ user := testfw->GetUserObject("marge"),
-      useworkflow := TRUE,
       workflowtypes := ["http://www.webhare.net/xmlns/beta/test"]
     ]);
   workflowmgr->UpdateData(StringToBlob("I'm an  updated file"));

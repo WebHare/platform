@@ -32,15 +32,14 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
   RECORD options;
 
-  PUBLIC PROPERTY useworkflow(this->options.useworkflow,-);
-
   RECORD ARRAY workflowtypes;
 
-  /** @param options.useworkflow - Enable to only show workflow-enabled tabs
+  /** @param options.readonly - force read only access
+      @param options.assumewriteaccess - assume the user has system:fs_write access, don't check rights
+      @param options.user User to hold responsible
    */
   MACRO NEW(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
     this->options := ValidateOptions(CELL[ readonly := FALSE
-                                         , useworkflow := FALSE
                                          , assumewriteaccess := FALSE
                                          , user := DEFAULT OBJECT
                                          , workflowtypes := STRING[]
@@ -102,8 +101,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     IF(Length(types) > 0) {
       IF(ObjectExists(this->currentautosave))
         THROW NEW Exception("Can't add types when an autosave is already active");
-      IF(NOT this->options.useworkflow)
-        THROW NEW Exception("Setting 'workflowtypes' requires setting 'useworkflow' to TRUE");
     }
 
     FOREVERY(STRING type FROM types) {
@@ -214,9 +211,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
 
   PUBLIC RECORD FUNCTION GetCurrentDraft() {
-    IF(NOT this->options.useworkflow)
-      THROW NEW Exception("Draft management requires setting 'useworkflow'");
-
     this->LoadDrafts();
     IF(RecordExists(this->currentdraft_version))
       RETURN CELL[ user_auth_object := this->currentdraft_version.user
@@ -227,9 +221,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
   }
 
   PUBLIC RECORD FUNCTION GetResumableAutosave() {
-    IF(NOT this->options.useworkflow)
-      THROW NEW Exception("Draft management requires setting 'useworkflow'");
-
     this->LoadDrafts();
     IF(RecordExists(this->currentautosave_version))
       RETURN CELL[ saved := this->currentautosave_version.when
