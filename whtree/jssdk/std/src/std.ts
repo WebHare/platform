@@ -21,7 +21,7 @@ export type { Duration, WaitPeriod, FlexibleInstant } from "./datetime.ts";
 
 export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime, isTemporalPlainTime } from "./quacks.ts";
 
-export { combineAbortSignals, getScopeSignal, whenAborted } from "./utils.ts";
+export { combineAbortSignals, getScopeSignal, whenAborted, pipe } from "./utils.ts";
 
 export { LocalMutex, type LocalLock } from "./localmutex.ts";
 
