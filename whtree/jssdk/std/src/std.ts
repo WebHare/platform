@@ -5,7 +5,7 @@ declare module "@webhare/std" {
 // Adding APIs may also require an update to https://www.webhare.dev/manuals/typescript/harescript-conversion-guide/
 export { attempt, sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type DeferredPromise, type SerializeOptions } from "./promises.ts";
 
-export { compare, compareProperties, nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase, maybePromiseAll } from "./types.ts";
+export { compare, compareProperties, nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase, maybePromiseAll, mapMaybePromise } from "./types.ts";
 export type { ToSnakeCase, ToCamelCase, ComparableType, MaybePromise } from "./types.ts";
 
 export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringify, parseTyped, slugify, isValidEmail, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase, levenshteinDistance, getUTF8Length, limitUTF8Length, updateURL } from "./strings.ts";

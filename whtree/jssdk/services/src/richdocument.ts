@@ -1,8 +1,8 @@
-import { appendToArray, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
+import { appendToArray, mapMaybePromise, maybePromiseAll, omit, throwError, typedEntries, typedFromEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { ExportedInstance, InstanceSource, TypedInstanceData, ExportedTypedInstance, InstanceData, WHFSTypeName, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
-import { getWHType, isPromise } from "@webhare/std/src/quacks";
+import { getWHType } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
 import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "./descriptor";
@@ -332,10 +332,6 @@ function splitBuildTag<T extends string>(tag: T): { tag: T extends `${infer Tag}
 }
 
 type MaybePromise<T> = T | Promise<T>;
-
-function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Promise<U> {
-  return isPromise(value) ? value.then(t => cb(t)) : cb(value);
-}
 
 type DistributedKeys<T extends object> = T extends object ? keyof T : never;
 type OmitDefaults<T extends object, K extends DistributedKeys<T>> = T extends object ? Omit<T, K> & Partial<Pick<T, K>> : never;

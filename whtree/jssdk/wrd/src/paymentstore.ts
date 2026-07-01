@@ -16,7 +16,6 @@ class PaymentProviderValue {
   }
 }
 
-
 export function makePaymentProviderValueFromEntitySetting(data: object) {
   /* In HareScript we serialized CELL[type,meta] as HSON.
      A JS driver would look like this:
@@ -39,6 +38,7 @@ export function makePaymentProviderValueFromEntitySetting(data: object) {
 }
 
 type PaymentDataRow = {
+  paymentProvider: number;
   a: Money;
   d: Date;
   h: string;
@@ -51,6 +51,8 @@ type PaymentDataRow = {
   s: "approved" | "pending" | "failed";
   u: string;
 };
+
+export const getPaymentPrivateData = Symbol("getPaymentPrivateData");
 
 class PaymentValue {
   #data: PaymentDataRow[];
@@ -70,10 +72,14 @@ class PaymentValue {
     const paymeta = this.#getBestPayment().m?.paymeta;
     return paymeta ? parseTyped(paymeta) : null;
   }
+
+  private [getPaymentPrivateData]() {
+    return this.#data;
+  }
 }
 
-export function makePaymentValueFromEntitySetting(data: object[]) {
-  return new PaymentValue(data);
+export function makePaymentValueFromEntitySetting(data: { setting: number | null; data: object }[]) {
+  return new PaymentValue(data.map(row => ({ paymentProvider: row.setting, ...row.data })));
 }
 
 export type { PaymentProviderValue, PaymentValue };

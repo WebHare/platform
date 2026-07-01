@@ -1,10 +1,13 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema, getExtendedWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { ResourceDescriptor } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { fenceEvents } from "@webhare/services/src/backendevents";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { getPaymentPrivateData, makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting } from "@webhare/wrd/src/paymentstore";
+import type { IsRequired, WRDAttr, WRDAttributeTypeId, WRDTypeBaseSettingsModern } from "@webhare/wrd/src/types";
+import { Money } from "@webhare/std";
 
 async function testSettingReuse() {
   function assertHasSettingIds<T extends object>(obj: T[]): asserts obj is Array<T & { [wrdSettingId]: number }> {
@@ -104,8 +107,76 @@ async function testSettingReuse() {
   }
 }
 
+async function testPaymentTypes() {
+  type MySchema = {
+    testPaymentProvider: {
+      data: IsRequired<WRDAttr<WRDAttributeTypeId.PaymentProvider>>;
+    } & WRDTypeBaseSettingsModern;
+    testPayment: {
+      payment: IsRequired<WRDAttr<WRDAttributeTypeId.Payment>>;
+    } & WRDTypeBaseSettingsModern;
+  };
+
+  await whdb.beginWork();
+  const wrdschema = await getWRDSchema<MySchema>();
+  const wrdProviderType = await wrdschema.createType("testPaymentProvider", { metaType: "domain" });
+  await wrdProviderType.createAttribute("data", { attributeType: "paymentProvider", isRequired: true });
+  const wrdPaymentType = await wrdschema.createType("testPayment", { metaType: "domain" });
+  await wrdPaymentType.createAttribute("payment", { attributeType: "payment", isRequired: true, domain: wrdProviderType.tag });
+  await whdb.commitWork();
+
+  const paymentProvider = makePaymentProviderValueFromEntitySetting({ type: "X", x: "1" });
+
+  await whdb.beginWork();
+  const paymentProviderId = await wrdschema.insert("testPaymentProvider", { data: paymentProvider });
+  const providerFields = await wrdschema.getFields("testPaymentProvider", paymentProviderId, ["data"]);
+  test.eq(paymentProvider.__paymentData, providerFields.data.__paymentData);
+
+  // export and import the exported version, see if the data is still the same
+  const providerFieldsExport = await wrdschema.getFields("testPaymentProvider", paymentProviderId, ["data"], { export: true });
+  await wrdschema.update("testPaymentProvider", paymentProviderId, { data: providerFieldsExport.data });
+  const providerFields2 = await wrdschema.getFields("testPaymentProvider", paymentProviderId, ["data"]);
+  test.eq(paymentProvider.__paymentData, providerFields2.data.__paymentData);
+
+  await whdb.commitWork();
+
+  const payment = makePaymentValueFromEntitySetting([
+    {
+      setting: paymentProviderId,
+      data: {
+        a: new Money("13.44"),
+        d: new Date(Date.parse("2024-06-05T12:34:56Z")),
+        h: "h",
+        m: {
+          paymeta: "paymeta"
+        },
+        o: "o",
+        p: "p",
+        s: "approved",
+        u: "u",
+      }
+    }
+  ]);
+
+  await whdb.beginWork();
+  const paymentId = await wrdschema.insert("testPayment", {
+    payment,
+  });
+  const paymentFields = await wrdschema.getFields("testPayment", paymentId, ["payment"]);
+  test.eq(payment[getPaymentPrivateData](), paymentFields.payment[getPaymentPrivateData]());
+
+  // export and import the exported version, see if the data is still the same
+  const paymentFieldsExport = await wrdschema.getFields("testPayment", paymentId, ["payment"], { export: true });
+  await wrdschema.update("testPayment", paymentId, { payment: paymentFieldsExport.payment });
+  const paymentFields2 = await wrdschema.getFields("testPayment", paymentId, ["payment"]);
+  test.eq(payment[getPaymentPrivateData](), paymentFields2.payment[getPaymentPrivateData]());
+
+  await whdb.commitWork();
+}
+
 
 test.runTests([
   async () => { await createWRDTestSchema(); }, //test.runTests doesn't like tests returning values
-  testSettingReuse
+  testSettingReuse,
+  testPaymentTypes,
 ]);
