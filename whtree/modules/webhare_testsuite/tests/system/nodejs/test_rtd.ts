@@ -259,7 +259,7 @@ async function testHSReaderTables() {
         { text: 'heading 1&', bold: true }
       ]
     },
-    { tag: 'p', items: [] },
+    { tag: 'p', items: [{ text: "\n" }] },
     {
       tag: 'p',
       items: [
@@ -269,7 +269,7 @@ async function testHSReaderTables() {
         { text: 'b-lex', link: { externalLink: 'http://b-lex.nl/' } },
         { text: ' ' },
         { text: 'paragraaf', italic: true },
-        { text: 'met een      soft-break. Check deze afbeelding: ' },
+        { text: '\nmet een      soft-break. Check deze afbeelding: ' },
         {
           alt: 'I&G',
           width: 160,

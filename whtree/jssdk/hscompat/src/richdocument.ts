@@ -204,6 +204,9 @@ class HSRTDImporter {
         await this.processInlineWidget(child, state, outlist);
       } else if (tag === 'img') {
         await this.processInlineImage(child, state, outlist);
+      } else if (tag === 'br') {
+        if (child.getAttribute("data-wh-rte") !== "bogus")
+          outlist.push({ text: "\n", ...state });
       } else {
         await this.processInlineItems(child, state, outlist);
       }
