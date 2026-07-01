@@ -112,6 +112,8 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
         THROW NEW Exception(`Type '${type}' is not a known content type`);
       IF(NOT typeinfo.cloneonarchive AND NOT typeinfo.clonencopy)
         THROW NEW Exception(`Type '${type}' is not copyable and not a suitable workflow type`);
+      IF(NOT typeinfo.workflow)
+        THROW NEW Exception(`Type '${type}' is not marked with ${typeinfo.siteprofile LIKE "*.xml" ? `workflow="true"` : `workflow: true`} in siteprofile ${typeinfo.siteprofile}`);
 
       INSERT typeinfo INTO this->workflowtypes AT END;
     }

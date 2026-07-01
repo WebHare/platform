@@ -91,6 +91,12 @@ types:
       onDraftString:
         type: string
 
+  type_clone_ondraft2: # we need a second onDraft type to test adding types during version history
+    clone: onDraft
+    members:
+      onDraftString2:
+        type: string
+
   type_clone_oncopy:
     clone: onCopy # the default, btw
     members:
