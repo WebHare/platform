@@ -157,7 +157,7 @@ IF(topreview.validuntil > GetCurrentDatetime()) { //still valid
     RETURN;
   }
 
-  targetobject := SELECT id, whfspath, filelink, parent, creationdate, type, publish FROM system.fs_objects WHERE id = topreview.id AND creationdate = topreview.creationdate;
+  targetobject := SELECT id, whfspath, filelink, snapshotfor, parent, creationdate, type, publish FROM system.fs_objects WHERE id = topreview.id AND creationdate = topreview.creationdate;
 }
 
 IF(NOT RecordExists(targetobject)) {
@@ -177,9 +177,9 @@ IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHO
    OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*"
    OR ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*") {
   //Resolve the base object for the snapshot/draft
-  targetobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = contentobject.filelink;
+  targetobject := SELECT id, parentsite, type FROM system.fs_objects WHERE id = contentobject.snapshotfor;
   IF(NOT RecordExists(targetobject))
-    THROW NEW Exception(`The target object for this preview (${contentobject.filelink}) does not exist`);
+    THROW NEW Exception(`The target object for this preview (${contentobject.snapshotfor}) does not exist`);
 
 } ELSE IF(ToUppercase(targetobject.whfspath) LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*/*") {
   //This is the recycle bin!

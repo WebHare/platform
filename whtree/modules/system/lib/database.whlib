@@ -193,6 +193,7 @@ PUBLIC SCHEMA
     , DATETIME "modificationdate"
     , INTEGER "modifiedby" NULL := 0
     , INTEGER "filelink" NULL := 0
+    , INTEGER "snapshotfor" NULL := 0
     , INTEGER "highestparent" AS "parentsite" __ATTRIBUTES__(READONLY)
     , INTEGER "indexdoc" NULL := 0
     , DATETIME "firstpublishdate"

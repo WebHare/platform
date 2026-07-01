@@ -49,12 +49,13 @@ async function displayUsage(opts: { threshold: number; maxDepth?: number; versio
 
   const files: File[] = (await db<PlatformDB>()
     .selectFrom("system.fs_objects")
-    .select(["id", "parent", "name", "filelink", sql<string>`(data).id`.as("blobid"), sql<number>`(data).size`.as("blobsize")])
+    .select(["id", "parent", "name", "filelink", "snapshotfor", sql<string>`(data).id`.as("blobid"), sql<number>`(data).size`.as("blobsize")])
     .select(selectFSWHFSPath().as("whfsPath"))
     .orderBy("name")
     .execute()).map(file => ({
       ...file,
-      parent: opts.versionsInSite && (file.parent === whconstant_whfsid_versions || file.parent === whconstant_whfsid_whfs_snapshots) ? (file.filelink ?? file.parent) : (file.parent ?? 0),
+      //snapshotfor is used in snapshots folder, filelink in versions folder
+      parent: opts.versionsInSite && (file.parent === whconstant_whfsid_versions || file.parent === whconstant_whfsid_whfs_snapshots) ? (file.snapshotfor ?? file.filelink ?? file.parent) : (file.parent ?? 0),
       prefix: null,
       parentObj: null,
       referredSize: 0,

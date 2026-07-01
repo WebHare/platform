@@ -57,7 +57,7 @@ The document editor implements the draft/publish workflow. The editor manages a 
 we will refer to this as managed fields. The editor doesn't currently manage fields such as the file title and SEO descriptions -
 these are considered the unmanaged fields.
 
-The document editor creates an autosave in the `whconstant_whfsid_autosaves` folder (a full copy linked through `filelink` to
+The document editor creates an autosave in the `whconstant_whfsid_autosaves` folder (a full copy linked through `snapshotfor` to
 the original source) when you start editing a document to record the current changes. This autosave is then periodically updated.
 
 A public draft is created when a published file has pending content changes - ie the Save button for a published
@@ -96,7 +96,7 @@ In practice:
 
 ## Background information
 - We use the `/webhare-private/system/whfs-XXX/<siteid>/` structure with fixed IDs for the whfs- folders so it only takes
-  one `parent=xx and filelink=yy` query to find it.
+  one `parent=xx and snapshotfor=yy` query to find it.
 
 ### SQL
 ```sql

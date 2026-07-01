@@ -57,7 +57,7 @@ PUBLIC RECORD FUNCTION GetLastSnapshotVersion(INTEGER source)
 
 PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, INTEGER modifiedby) {
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  RECORD objinfo := SELECT name, filelink, parent, parentsite, isfolder, whfspath, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR baseobjectid;
+  RECORD objinfo := SELECT name, parent, parentsite, isfolder, type, data, title, description, keywords FROM system.fs_objects WHERE id = VAR baseobjectid;
   RECORD fields := CELL
               [ id := destid
               , parent := EnsureSnapshotsFolder(objinfo.parentsite)
@@ -65,7 +65,7 @@ PUBLIC INTEGER FUNCTION CreateFullSnapshot(DATETIME now, INTEGER baseobjectid, I
               , creationdate := now
               , modificationdate := now
               , ...PickCells(objinfo, STRING[...workflow_controlled_fields, "type"])
-              , filelink := baseobjectid
+              , snapshotfor := baseobjectid
               , modifiedby
               ];
   INSERT fields INTO system.fs_objects;
@@ -122,18 +122,18 @@ PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
 }
 
 PUBLIC RECORD FUNCTION GetCurrentVersion(INTEGER objid) {
-  RECORD fileinfo := SELECT whfspath, filelink FROM system.fs_objects WHERE id = objid;
+  RECORD fileinfo := SELECT whfspath, snapshotfor FROM system.fs_objects WHERE id = objid;
   IF(NOT RecordExists(fileinfo))
     THROW NEW Exception(`Object #${objid} does not exist`);
 
   IF(IsRecycleOrHistoryWHFSPath(fileinfo.whfspath)) {
-    RECORD ARRAY history := ListObjectHistory(fileinfo.filelink);
+    RECORD ARRAY history := ListObjectHistory(fileinfo.snapshotfor);
     RECORD ARRAY matches := SELECT * FROM history WHERE snapshot = objid;
     IF(Length(matches) != 1) {
       dumpvalue(history);
       abort(`Object #${objid} is a snapshot but no unique history entry was found for it`);
     }
-    RETURN [ version := matches[0].version, liveversion := fileinfo.filelink ];
+    RETURN [ version := matches[0].version, liveversion := fileinfo.snapshotfor ];
   }
 
   RECORD ARRAY history := ListObjectHistory(objid);
@@ -168,11 +168,11 @@ PUBLIC MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEG
 
 PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid)
 {
-  RECORD versioninfo := SELECT id, parent, filelink FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];//17 no longer exists
+  RECORD versioninfo := SELECT id, parent, snapshotfor FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];//17 no longer exists
   IF(NOT RecordExists(versioninfo))
     RETURN DEFAULT OBJECT;
 
-  RETURN NEW WHFSDraft(versioninfo.id, versioninfo.parent = whconstant_whfsid_drafts, versioninfo.filelink);
+  RETURN NEW WHFSDraft(versioninfo.id, versioninfo.parent = whconstant_whfsid_drafts, versioninfo.snapshotfor);
 }
 
 STATIC OBJECTTYPE WHFSDraft <
@@ -286,7 +286,7 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
               , modificationdate := now
               , ...PickCells(metadata, workflow_controlled_fields)
               , type := baseobject->type
-              , filelink := baseobject->id
+              , snapshotfor := baseobject->id
               , modifiedby := ObjectExists(options.user) ? options.user->authobjectid : 0
               ] INTO system.fs_objects;
 
@@ -319,12 +319,12 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
 /** Cleanup private drafts made by others */
 PUBLIC MACRO CleanupOtherPrivateDrafts(INTEGER objid)
 {
-  DELETE FROM system.fs_objects WHERE filelink = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby != GetEffectiveUserID();
+  DELETE FROM system.fs_objects WHERE snapshotfor = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby != GetEffectiveUserID();
 }
 /** Cleanup my drafts */
 PUBLIC MACRO CleanupMyPrivateDrafts(INTEGER objid)
 {
-  DELETE FROM system.fs_objects WHERE filelink = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby = GetEffectiveUserID();
+  DELETE FROM system.fs_objects WHERE snapshotfor = VAR objid AND parent = whconstant_whfsid_autosaves AND modifiedby = GetEffectiveUserID();
 }
 
 PUBLIC MACRO ImportCurrentState(INTEGER baseobjectid) {

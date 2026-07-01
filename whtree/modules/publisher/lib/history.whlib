@@ -328,7 +328,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
              , modificationdate := now
          WHERE id = autosavedoc;
 
-    RECORD ARRAY todeleteautosaves := SELECT id, isfolder FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->baseobject->id;
+    RECORD ARRAY todeleteautosaves := SELECT id, isfolder FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND snapshotfor = this->baseobject->id;
     DELETE FROM system.fs_objects WHERE id IN (SELECT AS INTEGER ARRAY id FROM todeleteautosaves);
 
     //Patch the existing autosave entry. The autosave will remain the associated snapshot
