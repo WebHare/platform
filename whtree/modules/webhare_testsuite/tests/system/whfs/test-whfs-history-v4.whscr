@@ -22,19 +22,19 @@ LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 
 RECORD FUNCTION GetCloneTestFields(INTEGER id) {
   RETURN CELL[
-    ...OpenWHFSType("webhare_testsuite:global.type_no_clone")->GetInstanceData(id),
-    ...OpenWHFSType("webhare_testsuite:global.type_with_workflow")->GetInstanceData(id),
-    ...OpenWHFSType("webhare_testsuite:global.type_clone_only")->GetInstanceData(id)
+    ...OpenWHFSType("webhare_testsuite:global.type_clone_never")->GetInstanceData(id),
+    ...OpenWHFSType("webhare_testsuite:global.type_clone_ondraft")->GetInstanceData(id),
+    ...OpenWHFSType("webhare_testsuite:global.type_clone_oncopy")->GetInstanceData(id)
   ];
 }
 
 MACRO SetCloneTestFields(INTEGER id, RECORD fields) {
-  IF(CellExists(fields, "no_clone_string"))
-    OpenWHFSType("webhare_testsuite:global.type_no_clone")->SetInstanceData(id, [ no_clone_string := fields.no_clone_string ]);
-  IF(CellExists(fields, "with_workflow_string"))
-    OpenWHFSType("webhare_testsuite:global.type_with_workflow")->SetInstanceData(id, [ with_workflow_string := fields.with_workflow_string ]);
-  IF(CellExists(fields, "clone_only_string"))
-    OpenWHFSType("webhare_testsuite:global.type_clone_only")->SetInstanceData(id, [ clone_only_string := fields.clone_only_string ]);
+  IF(CellExists(fields, "never_string"))
+    OpenWHFSType("webhare_testsuite:global.type_clone_never")->SetInstanceData(id, [ never_string := fields.never_string ]);
+  IF(CellExists(fields, "on_draft_string"))
+    OpenWHFSType("webhare_testsuite:global.type_clone_ondraft")->SetInstanceData(id, [ on_draft_string := fields.on_draft_string ]);
+  IF(CellExists(fields, "on_copy_string"))
+    OpenWHFSType("webhare_testsuite:global.type_clone_oncopy")->SetInstanceData(id, [ on_copy_string := fields.on_copy_string ]);
 }
 
 
@@ -64,9 +64,9 @@ MACRO Prep()
   TestEq(FALSE, newfile->publish);
   TestEq(newfile->creationdate, newfile->modificationdate);
   TestEq("test.html", newfile->name);
-  newfile->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "created_0_1"]);
-  newfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "created_0_1"]);
-  newfile->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "created_0_1"]);
+  newfile->SetInstanceData("webhare_testsuite:global.type_clone_never", [ never_string := "created_0_1"]);
+  newfile->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "created_0_1"]);
+  newfile->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", [ on_copy_string := "created_0_1"]);
 
   TestEqMembers([ [ name := "", type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge"), when := newfile->modificationdate, userdata := [ login := "marge@beta.webhare.net" ] ]
                 ], ListObjectHistory(newfile->id), "*", "No name, we did not explicitly set it");
@@ -81,9 +81,9 @@ RECORD FUNCTION AnalyzeURL(STRING url) {
   TestEq(TRUE, testfw->browser->GotoWebPage(url));
 
   RETURN [ title := testfw->browser->QS("title")->textcontent
-         , no_clone_string := ObjectExists(testfw->browser->QS("#no_clone_string")) ? testfw->browser->QS("#no_clone_string")->textcontent : ""
-         , with_workflow_string := ObjectExists(testfw->browser->QS("#with_workflow_string")) ? testfw->browser->QS("#with_workflow_string")->textcontent : ""
-         , clone_only_string := ObjectExists(testfw->browser->QS("#clone_only_string")) ? testfw->browser->QS("#clone_only_string")->textcontent : ""
+         , never_string := ObjectExists(testfw->browser->QS("#never_string")) ? testfw->browser->QS("#never_string")->textcontent : ""
+         , on_draft_string := ObjectExists(testfw->browser->QS("#on_draft_string")) ? testfw->browser->QS("#on_draft_string")->textcontent : ""
+         , on_copy_string := ObjectExists(testfw->browser->QS("#on_copy_string")) ? testfw->browser->QS("#on_copy_string")->textcontent : ""
          , textcontent := testfw->browser->QS("body")->textcontent
         //TODO test file level metadata
         //  , keywords := testfw->browser->QS("meta[name='keywords']")->GetAttribute("content")
@@ -112,19 +112,19 @@ MACRO DraftingTest() {
   OBJECT workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser(),
       useworkflow := TRUE,
-      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+      workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
-  TestEq([ with_workflow_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_never"));
+  TestEq([ on_draft_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
   TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("I'm a jolly good file"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   TestEqMembers([
     title := "Test!",
-    with_workflow_string := "created_0_1",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1"
+    on_draft_string := "created_0_1",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetDraftObject()->id), "*");
 
   testfw->BeginWork();
@@ -141,35 +141,35 @@ MACRO DraftingTest() {
   TestEq([ name := "", title := "Test!", keywords := "my new keywords", description := "d", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
   //Unclaimed instances cannot be managed through the workflow
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_1" ]);
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_never", [ never_string := "pvt_draft_0_1" ]));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "pvt_draft_0_1" ]);
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", [ on_copy_string := "pvt_draft_0_1" ]));
 
   workflowmgr->UpdateMetadata(CELL[ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd" ]);
   TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("This just went into a temporary draft"), isunlisted := FALSE ], workflowmgr->GetMetadata());
 
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_no_clone"));
-  TestEq([ with_workflow_string := "pvt_draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_never"));
+  TestEq([ on_draft_string := "pvt_draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
 
   testfw->CommitWork();
   VerifyTSHistory(testfile->id);
 
-  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   TestEqMembers([
     title := "Test!",
-    with_workflow_string := "created_0_1",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1"
+    on_draft_string := "created_0_1",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1"
   ], AnalyzePreview(testfile->id), "*");
 
   TestEqMembers([
     title := "An even newer title",
-    with_workflow_string := "pvt_draft_0_1",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1"
+    on_draft_string := "pvt_draft_0_1",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
 
 
@@ -178,7 +178,7 @@ MACRO DraftingTest() {
   //Let's create another private draft. Ignore it though (TODO does this scenario make sense? it doesn't use the previous autosave as basis? Replace it with multiple historic autosaves later)
   //FIXME this just updates the existing draft. if we really want a new a new private draft we need a ->Checkpoint() API or something which stops updating the previous draft.
   /* FIXME but that's not what we're building in this MR
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_2" ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "pvt_draft_0_2" ]);
  TestEq(2, Length(GetDrafts(testfile->id)));
 
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
@@ -186,9 +186,9 @@ MACRO DraftingTest() {
   */
 
   //Set a clonable instance on the draft to see if its properly copied
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "draft_0_1"]));
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "draft_0_1"]);
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "draft_0_1"]));
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_never", [ never_string := "draft_0_1"]));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "draft_0_1"]);
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", [ on_copy_string := "draft_0_1"]));
 
   //Now create a public draft from the first autosave. A public draft will destroy all autosaves FIXME why should it ? temp history may still have some value see VSCode file history
   //Note that this converts the autosave to a public draft and logs it into the history - no new file is actually created here!
@@ -196,7 +196,7 @@ MACRO DraftingTest() {
 
 
   TestEq(TRUE, RecordExists(workflowmgr->GetCurrentDraft()));
-  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+  TestEqMembers([[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetDraftObject()->id), '*');
 
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
@@ -204,7 +204,7 @@ MACRO DraftingTest() {
 
 
   //This draft is part of history now and shouldn't be easily modified
-  TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "try_update"]));
+  TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "try_update"]));
   TestThrowsLike("*readonly*", PTR workflowmgr->__GetDraftObject()->UpdateMetadata(CELL[ title := "Try update" ]));
 
   RECORD ARRAY history := ListObjectHistory(testfile->id);
@@ -216,9 +216,9 @@ MACRO DraftingTest() {
   TestEq([ version := "0.2", liveversion := testfile->id ], GetCurrentVersion(workflowmgr->__GetDraftObject()->id));
 
   // Original file is still untouched
-  TestEq([ no_clone_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_no_clone"));
-  TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ clone_only_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestEq([ never_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_never"));
+  TestEq([ on_draft_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_copy_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
   TestEq("I'm a jolly good file", BlobToString(OpenWHFSObject(testfile->id)->data), "Testfile is still untouched");
   TestEq("test.html", testfile->name);
   TestEq("Test!", testfile->title);
@@ -228,9 +228,9 @@ MACRO DraftingTest() {
   // But we see new metadata on the public draft
   // TODO shouldn't snapshots have an Object API too? aren't they just Drafts too, just frozen ?
   OBJECT rawsnapshot := OpenWHFSObject(history[1].snapshot);
-  TestEq([ no_clone_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_no_clone"));
-  TestEq([ with_workflow_string := "draft_0_1" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ clone_only_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestEq([ never_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_clone_never"));
+  TestEq([ on_draft_string := "draft_0_1" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_copy_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
 
   TestEq(rawsnapshot->modificationdate, history[1].when);
   TestEq("This just went into a temporary draft", BlobToString(OpenWHFSObject(history[1].snapshot)->data), "Content of autosave is still updated");
@@ -243,9 +243,9 @@ MACRO DraftingTest() {
   STRING mostrecentversionlink := GetPreviewLink(history[1].snapshot, [ share := "mostrecentversion" ]);
   RECORD expect_analyze_thisversion := [
     title := "An even newer title",
-    with_workflow_string := "draft_0_1",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1",
+    on_draft_string := "draft_0_1",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1",
     //Ensure we get the *new* textcontent (ie: that you can see your draft when previewing an unpublished file)
     textcontent := NEW Regex("This just went into a temporary draft","i")
   ];
@@ -260,21 +260,21 @@ MACRO DraftingTest() {
   workflowmgr->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
   TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file, but now with more data!"), isunlisted := FALSE ], workflowmgr->GetMetadata());
   workflowmgr->UpdateMetadata([ title := "Jolly Good Autosave"]);
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "jolly-good-autosave" ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "jolly-good-autosave" ]);
 
   testfw->CommitWork();
 
   TestEqMembers([
     title := "Jolly Good Autosave",
-    with_workflow_string := "jolly-good-autosave",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1"
+    on_draft_string := "jolly-good-autosave",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetAutosavedObject()->id), "*");
   TestEqMembers([
     title := "An even newer title",
-    with_workflow_string := "draft_0_1",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1"
+    on_draft_string := "draft_0_1",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1"
   ], AnalyzePreview(workflowmgr->__GetDraftObject()->id), "*");
 
   testfw->BeginWork();
@@ -287,7 +287,7 @@ MACRO DraftingTest() {
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
   DATETIME now := GetCurrentDateTime();
@@ -297,13 +297,13 @@ MACRO DraftingTest() {
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
 
   //Let's save another draft
-  TestEq([ with_workflow_string := "draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ on_draft_string := "draft_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq([ name := "test2.html", title := "An even newer title", keywords := "my new keywords, plus more", description := "dd", data := StringToBlob("I'm a jolly good file with some data added by Homer!"), isunlisted := FALSE ], workflowmgr->GetMetadata());
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "yet-another-draft" ]);
   workflowmgr->Save();
 
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetDraftObject()->id), '*');
 
   history := ListObjectHistory(testfile->id);
@@ -315,9 +315,9 @@ MACRO DraftingTest() {
   TestEq([ version := "0.1", liveversion := testfile->id ], GetCurrentVersion(testfile->id));
   TestEq([ version := "0.3", liveversion := testfile->id ], GetCurrentVersion(workflowmgr->__GetDraftObject()->id));
 
-  TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ on_draft_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
   testfw->CommitWork();
@@ -326,9 +326,9 @@ MACRO DraftingTest() {
   TestEqMembers(expect_analyze_thisversion, AnalyzeURL(thisversionlink), "*", "Locked to its draft");
   TestEqMembers([
     title := "An even newer title",
-    with_workflow_string := "yet-another-draft",
-    no_clone_string := "created_0_1",
-    clone_only_string := "created_0_1",
+    on_draft_string := "yet-another-draft",
+    never_string := "created_0_1",
+    on_copy_string := "created_0_1",
     textcontent := NEW Regex("I'm a jolly good file with some data added by Homer","i")
   ], AnalyzeURL(mostrecentversionlink), "*", "Autofollow to the most recent draft");
 
@@ -340,20 +340,20 @@ MACRO DraftingTest() {
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
   workflowmgr->Save([ finalize := TRUE]);
   TestEq(FALSE, RecordExists(workflowmgr->GetCurrentDraft()));
   TestEq(FALSE, OpenWHFSObject(testfile->id)->publish);
 
   TestEqMembers([[ namespace := "http://www.webhare.net/xmlns/beta/test", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_no_clone", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := FALSE ]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_never", workflow := FALSE ]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_oncopy", workflow := FALSE ]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := FALSE ]
                 ], ListInstances(testfile->id), '*');
 
   testfile := OpenWHFSObject(testfile->id);
-  TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ on_draft_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEq("I'm a jolly good file with some data added by Homer!", BlobToString(OpenWHFSObject(testfile->id)->data));
   //FIXME CONSIDER should SaveAsFinal also rename the file? TestEq("test2.html", testfile->name);
   //               also consider the file might be pinned since the draft started
@@ -379,11 +379,11 @@ MACRO DraftingTest() {
 
   //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
   //FIXME where did created_0_1 go ?
-  TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ with_workflow_string := "draft_0_1" , no_clone_string := "", clone_only_string := "" ], GetCloneTestFields(history[1].snapshot), "The 0.2 snapshot should only have the workflow managed data");
-  TestEq([ with_workflow_string := "yet-another-draft" , no_clone_string := "", clone_only_string := "" ], GetCloneTestFields(history[2].snapshot), "The 0.3 snapshot should only have its own data");
-  TestEq([ with_workflow_string := "yet-another-draft" , no_clone_string := "", clone_only_string := "created_0_1" ], GetCloneTestFields(history[3].snapshot), "The 1.0 saved should have clonable non-workflow data too");
-  TestEq(['http://www.webhare.net/xmlns/beta/test', 'webhare_testsuite:global.type_clone_only', 'webhare_testsuite:global.type_no_clone', 'webhare_testsuite:global.type_with_workflow'], SELECT AS STRING ARRAY namespace FROM ListInstances(testfile->id) ORDER BY namespace);
+  TestEq([ on_draft_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_draft_string := "draft_0_1" , never_string := "", on_copy_string := "" ], GetCloneTestFields(history[1].snapshot), "The 0.2 snapshot should only have the workflow managed data");
+  TestEq([ on_draft_string := "yet-another-draft" , never_string := "", on_copy_string := "" ], GetCloneTestFields(history[2].snapshot), "The 0.3 snapshot should only have its own data");
+  TestEq([ on_draft_string := "yet-another-draft" , never_string := "", on_copy_string := "created_0_1" ], GetCloneTestFields(history[3].snapshot), "The 1.0 saved should have clonable non-workflow data too");
+  TestEq(['http://www.webhare.net/xmlns/beta/test', 'webhare_testsuite:global.type_clone_never', 'webhare_testsuite:global.type_clone_oncopy', 'webhare_testsuite:global.type_clone_ondraft'], SELECT AS STRING ARRAY namespace FROM ListInstances(testfile->id) ORDER BY namespace);
 
   TestAssert(testfile->id != history[3].snapshot, "Assure us that the 1.0 version is really independent from the live file");
   TestEq(DEFAULT RECORD, workflowmgr->GetCurrentDraft());
@@ -398,7 +398,7 @@ MACRO DraftingTest() {
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+    , workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
   workflowmgr->UpdateData(StringToBlob("Simple change to trigger an autosave"));
 
@@ -407,38 +407,38 @@ MACRO DraftingTest() {
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := [ "webhare_testsuite:global.type_with_workflow" ]
+    , workflowtypes := [ "webhare_testsuite:global.type_clone_ondraft" ]
     ]);
 
   workflowmgr->UpdateData(StringToBlob("another change to trigger an autosave"));
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_1_1" ]);
-  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"), "The type is not readbale yet");
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "pvt_draft_1_1" ]);
+  TestThrowsLike("*not*workflow*", PTR workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"), "The type is not readbale yet");
 
   ////////////
-  //STORY: Pretend the editor restarted (by the same user) but now has a different workflow config: type_clone_only is the only one managed
+  //STORY: Pretend the editor restarted (by the same user) but now has a different workflow config: type_clone_oncopy is the only one managed
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := [ "webhare_testsuite:global.type_clone_only" ]
+    , workflowtypes := [ "webhare_testsuite:global.type_clone_oncopy" ]
     ]);
 
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   //We can now read it through the workflowmgr even though the data isn't actually there
-  TestEq([ with_workflow_string := "pvt_draft_1_1" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
-  TestEq([ clone_only_string := "" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ clone_only_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  TestEq([ on_draft_string := "pvt_draft_1_1" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
+  TestEq([ on_copy_string := "" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
+  TestEq([ on_copy_string := "created_0_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
 
   workflowmgr->UpdateData(StringToBlob("yet another change to trigger an autosave"));
 
   /* TODO
-     should this already sync webhare_testsuite:global.type_clone_only as workflow or not, as we haven't observed/touched it yet.
+     should this already sync webhare_testsuite:global.type_clone_oncopy as workflow or not, as we haven't observed/touched it yet.
      it's hard to observe as the editdocument app normally creates the autosave and immediately writes back all instances.
 
      but other users of workflow might care about this specific window between creating an autosave and writing all instances
@@ -447,56 +447,56 @@ MACRO DraftingTest() {
      but we could change this in the future
   */
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                // ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := TRUE] //not expecting it yet
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                // ,[ scopedtype := "webhare_testsuite:global.type_clone_oncopy", workflow := TRUE] //not expecting it yet
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   //'Dummy' update similar to what the RTD would do when autosaving. But this makes it an explicit workflow:
 
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ with_workflow_string := "pvt_draft_1_1" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
+  TestEq([ on_draft_string := "pvt_draft_1_1" ], workflowmgr->__GetAutosavedObject()->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := TRUE] //there it is!
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_oncopy", workflow := TRUE] //there it is!
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   //We should also be able to clear it now
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_only", OpenWHFSType("webhare_testsuite:global.type_clone_only")->defaultinstance);
-  TestEq([ clone_only_string := "" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", OpenWHFSType("webhare_testsuite:global.type_clone_oncopy")->defaultinstance);
+  TestEq([ on_copy_string := "" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := TRUE] //and it's STILL there
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_oncopy", workflow := TRUE] //and it's STILL there
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*');
 
   workflowmgr->Save([ finalize := TRUE, publish := TRUE ]);
   TestEq(TRUE, OpenWHFSObject(testfile->id)->publish);
 
-  TestEq([ clone_only_string := "" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
-  TestEq([ with_workflow_string := "pvt_draft_1_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ on_copy_string := "" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"));
+  TestEq([ on_draft_string := "pvt_draft_1_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"));
 
  TestEqMembers([[ namespace := "http://www.webhare.net/xmlns/beta/test", workflow := FALSE ]
-               ,[ scopedtype := "webhare_testsuite:global.type_no_clone", workflow := FALSE]
-               ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := FALSE]
-               ], ListInstances(testfile->id), '*', "Note the lack of type_clone_only");
+               ,[ scopedtype := "webhare_testsuite:global.type_clone_never", workflow := FALSE]
+               ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := FALSE]
+               ], ListInstances(testfile->id), '*', "Note the lack of type_clone_oncopy");
 
   /////////////
   // STORY: start a workflow with 'clear' type_clean_only. then update it in the final after starting the workflow and verify it's NOT reflected in the autosave
   workflowmgr := NEW WorkflowManager(testfile->id,
     [ user := GetEffectiveUser()
     , useworkflow := TRUE
-    , workflowtypes := [ "webhare_testsuite:global.type_clone_only", "webhare_testsuite:global.type_with_workflow" ]
+    , workflowtypes := [ "webhare_testsuite:global.type_clone_oncopy", "webhare_testsuite:global.type_clone_ondraft" ]
     ]);
   workflowmgr->UpdateData(StringToBlob("Locking in changes"));
   TestEqMembers([[ scopedtype := "platform:publisher.draftmetadata", workflow := FALSE ]
-                ,[ scopedtype := "webhare_testsuite:global.type_clone_only", workflow := TRUE]
-                ,[ scopedtype := "webhare_testsuite:global.type_with_workflow", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_oncopy", workflow := TRUE]
+                ,[ scopedtype := "webhare_testsuite:global.type_clone_ondraft", workflow := TRUE]
                 ], ListInstances(workflowmgr->__GetAutosavedObject()->id), '*', "UpdateData above started the draft, so all fields should be there");
 
-  testfile->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "final-update-1" ]);
-  testfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "final-workflow-1" ]);
+  testfile->SetInstanceData("webhare_testsuite:global.type_clone_oncopy", [ on_copy_string := "final-update-1" ]);
+  testfile->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "final-workflow-1" ]);
 
-  TestEq([ with_workflow_string := "pvt_draft_1_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_with_workflow"), "should not see this change");
-  TestEq([ clone_only_string := "" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_only"), "should not see this change");
+  TestEq([ on_draft_string := "pvt_draft_1_1" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_ondraft"), "should not see this change");
+  TestEq([ on_copy_string := "" ], workflowmgr->GetInstanceData("webhare_testsuite:global.type_clone_oncopy"), "should not see this change");
 
   workflowmgr->DiscardAutosavedChanges();
 
@@ -528,7 +528,7 @@ ASYNC MACRO AutosaveClockTest() {
   OBJECT workflowmgr := NEW WorkflowManager(clocktestfile->id,
     [ user := GetEffectiveUser(),
       useworkflow := TRUE,
-      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+      workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
   DATETIME autosave_after := GetCurrentDateTime();
@@ -709,10 +709,10 @@ ASYNC MACRO UnpublishedSavesTest()
   OBJECT workflowmgr := NEW WorkflowManager(unpublishedfile->id,
     [ user := GetEffectiveUser(),
       useworkflow := TRUE,
-      workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
+      workflowtypes := ["webhare_testsuite:global.type_clone_ondraft"]
     ]);
 
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-draft" ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "unpublished-draft" ]);
   workflowmgr->Save();
 
   workflowmgr->Save([ finalize := TRUE ]);
@@ -720,7 +720,7 @@ ASYNC MACRO UnpublishedSavesTest()
   TestEq(FALSE, OpenWHFSObject(unpublishedfile->id)->publish);
 
   //Create an autosave or an unpublished file and finalize it straight away
-  workflowmgr->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "unpublished-update" ]);
+  workflowmgr->SetInstanceData("webhare_testsuite:global.type_clone_ondraft", [ on_draft_string := "unpublished-update" ]);
   workflowmgr->Save([ finalize := TRUE ]);
 
   RECORD ARRAY history := ListObjectHistory(unpublishedfile->id);
@@ -755,7 +755,7 @@ ASYNC MACRO ImportTest() {
     ]);
 
   importfile->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["a","b"]  ]);
-  SetCloneTestFields(importfile->id, [ no_clone_string := "import_0_1", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ]);
+  SetCloneTestFields(importfile->id, [ never_string := "import_0_1", on_draft_string := "import_0_1", on_copy_string := "import_0_1" ]);
 
   RECORD ARRAY history := ListObjectHistory(importfile->id);
   TestEq(RECORD[], history, "There should be no history yet");
@@ -776,13 +776,13 @@ ASYNC MACRO ImportTest() {
                 ], history, "*");
 
   TestEq(STRING["a","b"], OpenWHFSObject(history[0].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq([ no_clone_string := "", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(history[0].snapshot), "The import snapshot should have preserved its clonable instance data");
+  TestEq([ never_string := "", on_draft_string := "import_0_1", on_copy_string := "import_0_1" ], GetCloneTestFields(history[0].snapshot), "The import snapshot should have preserved its clonable instance data");
 
   TestEq(STRING["x","z"], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq([ no_clone_string := "", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(history[1].snapshot), "The final snapshot should have the clonabledata");
+  TestEq([ never_string := "", on_draft_string := "import_0_1", on_copy_string := "import_0_1" ], GetCloneTestFields(history[1].snapshot), "The final snapshot should have the clonabledata");
 
   TestEq(STRING["x","z"], OpenWHFSObject(importfile->id)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq([ no_clone_string := "import_0_1", with_workflow_string := "import_0_1", clone_only_string := "import_0_1" ], GetCloneTestFields(importfile->id), "The final snapshot should have ALL data");
+  TestEq([ never_string := "import_0_1", on_draft_string := "import_0_1", on_copy_string := "import_0_1" ], GetCloneTestFields(importfile->id), "The final snapshot should have ALL data");
 
   testfw->CommitWork();
   VerifyTSHistory(importfile->id);

@@ -75,7 +75,6 @@ PUBLIC MACRO SetupFormVersions() {
     OBJECT workflowmgr := NEW WorkflowManager(form.id,
       [ user := GetEffectiveUser(),
         useworkflow := TRUE,
-        // workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
       ]);
     workflowmgr->Save([ finalize := TRUE ]);
     testfw->CommitWork();

@@ -79,20 +79,20 @@ types:
       myLink:
         type: intextlink
 
-  type_no_clone:
+  type_clone_never:
     clone: never
     members:
-      noCloneString:
+      neverString:
         type: string
 
-  type_with_workflow:
+  type_clone_ondraft:
     clone: onDraft
     members:
-      withWorkflowString:
+      onDraftString:
         type: string
 
-  type_clone_only:
+  type_clone_oncopy:
     clone: onCopy # the default, btw
     members:
-      cloneOnlyString:
+      onCopyString:
         type: string
