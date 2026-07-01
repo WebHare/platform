@@ -187,10 +187,6 @@ InitializeFileTypes();
 
 INTEGER ARRAY createdfolders;
 
-INTEGER rescue_system_folder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = whconstant_whfsid_private AND name="system" AND id != whconstant_whfsid_private_system;
-IF(rescue_system_folder != 0) //we have one to rescue!
-  UPDATE system.fs_objects SET name := "system$$$torescue" WHERE id = rescue_system_folder;
-
 FOREVERY(RECORD tocheck FROM folderchecklist)
 {
   OBJECT folder := OpenWHFSObject(tocheck.id);
@@ -212,17 +208,6 @@ FOREVERY(RECORD tocheck FROM folderchecklist)
                            WHERE id = tocheck.id;
   }
 }
-
-IF(rescue_system_folder != 0) //clear out the old folder
-{
-  UPDATE system.fs_objects SET parent := whconstant_whfsid_private_system WHERE parent = rescue_system_folder;
-  DELETE FROM system.fs_objects WHERE id = rescue_system_folder;
-}
-
-// Delete the siteprofile XML version if it still exists
-OBJECT oldsiteprofile := OpenWHFSObjectByPath("/webhare-private/publisher/compiled-siteprofiles.xml");
-IF(ObjectExists(oldsiteprofile))
-  oldsiteprofile->RecycleSelf();
 
 // trigger initial compilation of siteprofiles before we add the first site
 // TODO: if we split up siteprofiles into platform / installed modules and ship the platform set in platform/generated/, this trigger will be unneeded again
