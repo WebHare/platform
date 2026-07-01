@@ -152,7 +152,7 @@ PUBLIC RECORD FUNCTION GenerateNginxProxyRegistrationRequest(RECORD data, STRING
   request.certificates := [[
     name := "!fallback", //invalid WHFS name so can never exist
     keyfile := fallback_ssl_keys.keyPem,
-    chainfile := fallback_ssl_keys.chainPem
+    chainfile := fallback_ssl_keys.certPem
   ]] CONCAT
       SELECT name
            , keyfile
