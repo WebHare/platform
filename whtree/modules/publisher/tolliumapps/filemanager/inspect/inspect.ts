@@ -5,7 +5,7 @@ import YAML from 'yaml';
 
 export async function inspectObject(id: number) {
   try {
-    const obj = await openFileOrFolder(id, { allowVersion: true, allowMissing: true });
+    const obj = await openFileOrFolder(id, { allowHistoric: true, allowMissing: true });
     const exp = obj ? await exportWHSFObject(obj!, "*", { export: true, exportFile: exportFileAsFetch }) : null;
     return { yaml: YAML.stringify(exp) };
   } catch (err) {

@@ -90,13 +90,13 @@ export class Site {
   async openFile(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
   async openFile(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
   async openFile(path: string, options?: OpenWHFSObjectOptions) {
-    return __openWHFSObj(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowVersion ?? options?.allowHistoric ?? false, false);
+    return __openWHFSObj(this.id, path, true, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
   }
 
   async openFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions) {
-    return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowVersion ?? options?.allowHistoric ?? false, false);
+    return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`, options?.allowHistoric ?? false, false);
   }
 
   list<K extends keyof ListableFsObjectRow = never>(keys?: K[], options?: ListFSOptions): Promise<Array<ListFSResult<K>>> {

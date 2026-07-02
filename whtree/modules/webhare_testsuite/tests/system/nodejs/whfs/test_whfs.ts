@@ -220,18 +220,18 @@ async function testWHFS() {
   test.eq(null, await intLinkToNewFile.resolve());
   test.eq(null, await intLinkToNewFile2.resolve());
 
-  //verify allowMissing and allowVersion options
+  //verify allowMissing and allowHistoric options
   test.eq(null, await tmpfolder.openFile("testfile", { allowMissing: true }));
   test.eq(null, await tmpfolder.openFile("testfile2.txt", { allowMissing: true }));
   await test.throws(/No such file/, openFile(newFile.id));
   await test.throws(/No such file.*recycle/, openFile(newFile2.id));
   test.eq(null, await openFile(newFile.id, { allowMissing: true }));
   test.eq(null, await openFile(newFile2.id, { allowMissing: true }));
-  test.eq(null, await openFile(newFile.id, { allowMissing: true, allowVersion: false }));
-  test.eq(null, await openFile(newFile2.id, { allowMissing: true, allowVersion: false }));
-  test.eq(null, await openFile(newFile.id, { allowMissing: true, allowVersion: true }));
+  test.eq(null, await openFile(newFile.id, { allowMissing: true, allowHistoric: false }));
+  test.eq(null, await openFile(newFile2.id, { allowMissing: true, allowHistoric: false }));
+  test.eq(null, await openFile(newFile.id, { allowMissing: true, allowHistoric: true }));
   test.eq(newFile2.id, (await openFile(newFile2.id, { allowHistoric: true })).id);
-  test.eq(newFile2.id, (await openFile(newFile2.id, { allowVersion: true })).id);
+  test.eq(newFile2.id, (await openFile(newFile2.id, { allowHistoric: true })).id);
 
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data?.mediaType);
