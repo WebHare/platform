@@ -544,3 +544,31 @@ PUBLIC STRING FUNCTION SimpleTextDiff(STRING leftfile, STRING rightfile, RECORD 
 
   RETURN result;
 }
+
+/** Get a colored line diff */
+PUBLIC STRING FUNCTION GetColoredLineDiff(STRING oldline, STRING newline) {
+  STRING ARRAY oldc := Tokenize(oldline, "");
+  STRING ARRAY newc := Tokenize(newline, "");
+  RECORD d := Diff(oldc, newc);
+
+  INTEGER oldpos := 0;
+  INTEGER newpos := 0;
+  STRING res;
+  STRING mode := "reset";
+  FOREVERY (RECORD rec FROM d.path) {
+    STRING newmode, str;
+    SWITCH (rec.type) {
+      CASE "l" { newmode := "back-red,white"; str := SubString(oldline, oldpos, rec.len); oldpos := oldpos + rec.len; }
+      CASE "b" { newmode := "reset"; str := SubString(newline, newpos, rec.len); newpos := newpos + rec.len; oldpos := oldpos + rec.len; }
+      CASE "r" { newmode := "back-green,black"; str := SubString(newline, newpos, rec.len); newpos := newpos + rec.len; }
+    }
+    IF (mode != newmode) {
+      res := res || AnsiCmd(newmode);
+      mode := newmode;
+    }
+    res := res || str;
+  }
+  IF (mode != "reset")
+    res := res || AnsiCmd("reset");
+  RETURN res;
+}
