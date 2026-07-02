@@ -157,7 +157,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
        - and then we can setup a workflow manager
        */
 
-    STRING ARRAY workflowtypes := STRING[ "platform:web.config", "platform:web.metadata", ...options.workflowtypes ];
+    STRING ARRAY workflowtypes := STRING[ "platform:web.metadata", ...options.workflowtypes ];
 
     this->renderer := CreateMetatabsRenderer(CELL[ objectid, parent, isfolder, type, requireworkflow :=options.useworkflow ]);
     this->contexts->applytester := this->renderer->applytester;
