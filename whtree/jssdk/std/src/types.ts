@@ -110,6 +110,14 @@ export function maybePromiseAll<const T extends readonly unknown[]>(array: T): M
   return resolved as AwaitedValues<T>;
 }
 
+/** Call a function on the value of a potential promise, return the result
+ * @param value - Value or promise
+ * @param cb - Callback to call on the value
+ * @returns The result of the callback, or a promise resolving to that result if the input was a promise
+*/
+export function mapMaybePromise<T, U>(value: T, cb: (arg: Awaited<T>) => U): U | Promise<U> {
+  return isPromise(value) ? value.then(t => cb(t as Awaited<T>)) : cb(value as Awaited<T>);
+}
 
 /** Compare two values of std-supported types
  * @param left - First value

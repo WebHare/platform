@@ -9,16 +9,17 @@ import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type 
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
+import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
 
 ///A resourcedescriptor compare that ignores filenames (because )
-function compareRDIgnoreFilename(expect: unknown, actual: unknown) {
+function compareRDIgnoreFilename(expect: unknown, actual: unknown, path: string) {
   if (!isResourceDescriptor(expect) || !isResourceDescriptor(actual))
     return;
 
-  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata());
+  test.eqPartial({ ...expect.getMetadata(), fileName: actual.fileName }, actual.getMetadata(), { path });
   return true;
 }
 
@@ -259,7 +260,7 @@ async function testHSReaderTables() {
         { text: 'heading 1&', bold: true }
       ]
     },
-    { tag: 'p', items: [] },
+    { tag: 'p', items: [{ text: "\n" }] },
     {
       tag: 'p',
       items: [
@@ -269,7 +270,7 @@ async function testHSReaderTables() {
         { text: 'b-lex', link: { externalLink: 'http://b-lex.nl/' } },
         { text: ' ' },
         { text: 'paragraaf', italic: true },
-        { text: 'met een      soft-break. Check deze afbeelding: ' },
+        { text: '\nmet een      soft-break. Check deze afbeelding: ' },
         {
           alt: 'I&G',
           width: 160,
@@ -1006,7 +1007,9 @@ async function testRegressions() {
 async function testRTDOutput() {
   for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
     ////////////// Tables
-    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
+    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`, {
+      "wh-debug": getSignedWHDebugOptions({ debugFlags: { "no-minify": true } })
+    });
     const table = tabledRTD.body.getElementsByTagName("table")[0];
     test.assert(table);
     // console.dir(xmlToJS(table), { depth: null });
@@ -1026,17 +1029,17 @@ async function testRTDOutput() {
           children: [
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             },
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             },
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             }
           ],

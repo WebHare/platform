@@ -59,6 +59,7 @@ export type TestOptions = {
    */
   onCompare?: (expect: unknown, actual: unknown, path: string) => boolean | undefined;
   annotation?: Annotation;
+  path?: string;
 };
 
 class TestError extends Error {
@@ -508,7 +509,7 @@ export function throws(expect: RegExp | ((error: Error) => boolean), func_or_pro
 export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, options?: string | TestOptions) {
   options = fixupOptions(options);
 
-  eqPropsRecurse(expect, actual, "root", [], options);
+  eqPropsRecurse(expect, actual, options.path || "root", [], options);
   return actual;
 }
 
@@ -516,7 +517,7 @@ export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actua
 export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], options?: string | TestOptions) {
   options = fixupOptions(options);
 
-  eqPropsRecurse(expect, actual, "root", ignore, options);
+  eqPropsRecurse(expect, actual, options.path || "root", ignore, options);
   return actual;
 }
 

@@ -867,6 +867,12 @@ async function testPromises() {
   test.eq([], std.maybePromiseAll([]));
   test.eq([2], std.maybePromiseAll([2]));
   test.eq([2, 4], await std.maybePromiseAll([2, Promise.resolve(4)]));
+
+  // test mapMaybePromise
+  test.eq("a1", std.mapMaybePromise("a", x => x + "1"));
+  test.eq("b1", await std.mapMaybePromise(Promise.resolve("b"), x => x + "1"));
+  const maybeC: string | Promise<string> = "c";
+  test.eq("c1", std.mapMaybePromise(maybeC, x => x + "1"));
 }
 
 async function testMutex() {

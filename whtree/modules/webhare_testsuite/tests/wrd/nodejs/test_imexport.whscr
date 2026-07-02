@@ -1,0 +1,240 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/payments.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
+
+
+MACRO TestJSExportRoundTrip() {
+  OBJECT myrichdoc := NEW RichDocument;
+  // Document copied from a rich document editor test
+  myrichdoc->ImportFromRecord(CELL[
+    htmltext := StringToBlob(
+      `<html>` ||
+        `<body>` ||
+          `<h1 class="heading1">Ik ben een heading 1'&lt;&gt;"&amp;</h1>` ||
+          `<p class="normal">` ||
+            `<br data-wh-rte="bogus"/>` ||
+          `</p>` ||
+          `<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> paragraaf<br/>met een soft-break. Check deze afbeelding: <img class="wh-rtd__img" src="cid:imagecid-81400"/> en nog een <img class="wh-rtd__img" src="cid:imagecid-81401"/>` ||
+            `<img alt="I:&#39;&#60;&#62;&#34;&#38;&#10;and an enter" class="wh-rtd__img" height="120" src="" width="160"/>` ||
+          `</p>` ||
+          `<table class="mytable wh-rtd__table">` ||
+            `<caption class="wh-rtd__tablecaption">Met een captie!</caption>` ||
+            `<colgroup class="wh-tableeditor-colgroup">` ||
+              `<col style="width: 25px;"/>` ||
+              `<col style="width: 118px;"/>` ||
+            `</colgroup>` ||
+            `<tbody>` ||
+              `<tr>` ||
+                `<th class="wh-rtd__tablecell" scope="col">` ||
+                  `<p class="normal">Cell 1 para 1</p>` ||
+                  `<p class="normal">Cell 1 para 2</p>` ||
+                `</th>` ||
+                `<th class="wh-rtd__tablecell" scope="col">` ||
+                  `<p class="normal">Cell 2 para 1</p>` ||
+                `</th>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell" rowspan="2">` ||
+                  `<p class="normal">Cell 3</p>` ||
+                `</td>` ||
+                `<td class="wh-rtd__tablecell">` ||
+                  `<p class="normal">Cell 4</p>` ||
+                `</td>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell">` ||
+                  `<p class="normal">Next to the rowspan 2</p>` ||
+                `</td>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell" colspan="2">` ||
+                  `<p class="normal">Colspan 2</p>` ||
+                `</td>` ||
+              `</tr>` ||
+            `</tbody>` ||
+          `</table>` ||
+        `</body>` ||
+      `</html>`),
+    embedded := [
+      MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]),
+      MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/goudvis.png"),"goudvis.png"), [ contentid := "imagecid-81401" ]),
+    ]
+  ]);
+  RECORD myrichexp := myrichdoc->ExportAsRecord();
+
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
+  RECORD testimage := WrapBlob(testimage_blob,"goudvis.png", [ extractdominantcolor := TRUE ]);
+
+  OBJECT schemaobj := testfw->GetWRDSchema();
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  OBJECT pm1 := testfw->wrdschema->^payprov->CreateEntity(
+    [ wrd_title := "invoice"
+    , wrd_tag := "INVOICE"
+    , method := MakePaymentProviderValue("wrd:external", [ methodtitle := "Pay by invoice" ])
+    ]);
+  RECORD paymentrec := paymentapi->MakePaymentMethod([ paymentprovider := pm1->guid ]);
+  OBJECT temp_obj := paymentapi->paymenttype->CreateEntity(CELL[ data := paymentrec ]);
+  testfw->CommitWork();
+
+  paymentapi->StartPayment(temp_obj->id, 1.23m, CELL[ setstatus := "pending", paymentref := "ref-123", paymentprovider := pm1->id ]);
+  paymentapi->StartPayment(temp_obj->id, 2.46m, CELL[ isexternal := TRUE, setstatus := "approved", paymentref := "ref-246" ]);
+  RECORD test_payment := temp_obj->GetField("data");
+
+  RECORD test_authenticationsettings :=
+      [ version := 1
+      , passwords :=    [ [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                          , validfrom :=    DEFAULT DATETIME
+                          ]
+                        , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                          , validfrom :=    MakeDate(1999, 2, 2)
+                          ]
+                        , [ passwordhash := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO" // secret
+                          , validfrom :=    MakeDate(1999, 2, 3)
+                          ]
+                        ]
+      , totp :=         [ url :=            "otpauth://totp/example.com"
+                        , locked :=         DEFAULT DATETIME
+                        , backupcodes :=    [ [ code := "C1", used := DEFAULT DATETIME ] ]
+                        ]
+      ];
+
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  OBJECT linkfile := firstfolder->CreateFile([ name := "linktarget.txt" ]);
+
+  OBJECT rel_obj := schemaobj->CreateType("TEST_IMEXPORT");
+  OBJECT dom_obj := schemaobj->CreateDomain("TEST_UPDATES_DOMAIN");
+
+  rel_obj->CreateAttribute("TEST_DOMAIN",                      "DOMAIN",                  [ title := "domain", domain := dom_obj->id ]);
+  rel_obj->CreateAttribute("TEST_FREE",                        "FREE",                    [ title := "free" ]);
+  rel_obj->CreateAttribute("TEST_ADDRESS",                     "ADDRESS",                 [ title := "address" ]);
+  rel_obj->CreateAttribute("TEST_EMAIL",                       "EMAIL",                   [ title := "email" ]);
+  rel_obj->CreateAttribute("TEST_TELEPHONE",                   "TELEPHONE",               [ title := "telephone" ]);
+  rel_obj->CreateAttribute("TEST_DATE",                        "DATE",                    [ title := "date" ]);
+  rel_obj->CreateAttribute("TEST_DOMAINARRAY",                 "DOMAINARRAY",             [ title := "domainarray", domain := dom_obj->id ]);
+  rel_obj->CreateAttribute("TEST_IMAGE",                       "IMAGE",                   [ title := "image" ]);
+  rel_obj->CreateAttribute("TEST_FILE",                        "FILE",                    [ title := "file" ]);
+  rel_obj->CreateAttribute("TEST_TIME",                        "TIME",                    [ title := "time" ]);
+  rel_obj->CreateAttribute("TEST_DATETIME",                    "DATETIME",                [ title := "datetime" ]);
+  rel_obj->CreateAttribute("TEST_ARRAY",                       "ARRAY",                   [ title := "array" ]);
+  rel_obj->CreateAttribute("TEST_ARRAY.TEST_INT",              "INTEGER",                 [ title := "Array integer attribute" ]);
+  rel_obj->CreateAttribute("TEST_MONEY",                       "MONEY",                   [ title := "money" ]);
+  rel_obj->CreateAttribute("TEST_INTEGER",                     "INTEGER",                 [ title := "integer" ]);
+  rel_obj->CreateAttribute("TEST_BOOLEAN",                     "BOOLEAN",                 [ title := "boolean" ]);
+  rel_obj->CreateAttribute("TEST_RICHDOCUMENT",                "RICHDOCUMENT",            [ title := "richdocument" ]);
+  rel_obj->CreateAttribute("TEST_INTEGER64",                   "INTEGER64",               [ title := "integer64" ]);
+  rel_obj->CreateAttribute("TEST_WHFSINSTANCE",                "WHFSINSTANCE",            [ title := "whfsinstance" ]);
+  rel_obj->CreateAttribute("TEST_WHFSINTEXTLINK",              "WHFSINTEXTLINK",          [ title := "whfsintextlink" ]);
+  rel_obj->CreateAttribute("TEST_URL",                         "URL",                     [ title := "url" ]);
+  rel_obj->CreateAttribute("TEST_RECORD",                      "RECORD",                  [ title := "record" ]);
+  rel_obj->CreateAttribute("TEST_ENUM",                        "ENUM",                    [ title := "enum", allowedvalues := ["v1", "v2"] ]);
+  rel_obj->CreateAttribute("TEST_ENUMARRAY",                   "ENUMARRAY",               [ title := "enumarray", allowedvalues := ["v1", "v2"] ]);
+  rel_obj->CreateAttribute("TEST_PAYMENTPROVIDER",             "PAYMENTPROVIDER",         [ title := "paymentprovider" ]);
+  rel_obj->CreateAttribute("TEST_STATUSRECORD",                "STATUSRECORD",            [ title := "statusrecord", allowedvalues := ["v1", "v2"] ]);
+  rel_obj->CreateAttribute("TEST_PAYMENT",                     "PAYMENT",                 [ title := "payment", domain := schemaobj->^payprov->id ]);
+  rel_obj->CreateAttribute("TEST_AUTHENTICATIONSETTINGS",      "AUTHENTICATIONSETTINGS",  [ title := "authenticationsettings" ]);
+  rel_obj->CreateAttribute("TEST_WHFSLINK",                    "WHFSLINK",                [ title := "whfslink" ]);
+  rel_obj->CreateAttribute("TEST_JSON",                        "JSON",                    [ title := "json" ]);
+
+  INTEGER dom_d1 := dom_obj->CreateEntity([ wrd_tag := "D1" ])->id;
+  INTEGER dom_d2 := dom_obj->CreateEntity([ wrd_tag := "D2" ])->id;
+  INTEGER dom_d3 := dom_obj->CreateEntity([ wrd_tag := "D3" ])->id;
+
+  RECORD test1 := [
+    test_domain := dom_d1,
+    test_free := "test free",
+    test_address := [
+      city := "test city",
+      country := "NL",
+      nr_detail := "test number",
+      street := "test street",
+    ],
+    test_email := "test@example.com",
+    test_telephone := "+31 6 12345678",
+    test_date := MakeDate(2024, 1, 1),
+    test_domainarray := [ dom_d1, dom_d2 ],
+    test_image := testimage,
+    test_file := testimage,
+    test_time := (12 * 60 * 60 + 34 * 60 + 56) * 1000,
+    test_datetime := MakeDateTime(2024, 1, 1, 12, 34, 56),
+    test_array := [ [ test_int := 1 ], [ test_int := 2 ] ],
+    test_money := 12.34m,
+    test_integer := 42,
+    test_boolean := TRUE,
+    test_richdocument := myrichexp,
+    test_integer64 := 1234567890123456789i64,
+    test_whfsinstance := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1 := "str2-1" ],
+    test_whfsintextlink := [ internallink := linkfile->id, externallink := "", append := "" ],
+    test_url := "https://example.com/", // WRD auto-appends a trailing slash to http://example.com!
+    test_record := [ wrd_tag := "testrecord" ],
+    test_enum := "v2",
+    test_enumarray := [ "v1", "v2" ],
+    test_paymentprovider := MakePaymentProviderValue("wrd:external", [ methodtitle := "Pay by invoice" ]),
+    test_payment := test_payment,
+    test_statusrecord := [ status := "v1", value := "a" ],
+    test_authenticationsettings := test_authenticationsettings,
+    test_whfslink := linkfile->id,
+    test_json := [ "key" := "value" ]
+  ];
+
+  OBJECT newobj := rel_obj->CreateEntity(test1);
+
+  testfw->CommitWork();
+
+  RECORD orgfields := schemaobj->^test_imexport->GetEntityFields(newobj->id, ["*"]);
+  STRING ARRAY testattrs := SELECT AS STRING ARRAY tag FROM schemaobj->^test_imexport->ListAttributes(0) WHERE tag LIKE "TEST_*";
+
+  // Test roundtrip through JS, without export
+  {
+    INTEGER newid := CallJS(Resolve("tsapi_support.ts#testExportImport"), schemaobj->tag, newobj->id, FALSE);
+    RECORD fields := schemaobj->^test_imexport->GetEntityFields(newid, testattrs);
+    TestEQ(TRUE, RecordExists(fields));
+
+    RECORD ARRAY updates := UnpackRecord(newobj->FilterFieldUpdates(fields));
+    FOREVERY (RECORD rec FROM updates)
+      INSERT CELL oldvalue := GetCell(orgfields, rec.name) INTO updates[#rec];
+
+    /* code for debugging differences between the original and the roundtrip through JS
+    RECORD rd := SELECT * FROM updates WHERE name = "TEST_RICHDOCUMENT";
+    IF (RecordExists(rd) AND BlobToString(rd.oldvalue.htmltext) != BlobToString(rd.value.htmltext)) {
+      PRINT("OLD:\n" || EncodeJSON(BlobToString(rd.oldvalue.htmltext)) || "\n");
+      PRINT("NEW:\n" || EncodeJSON(BlobToString(rd.value.htmltext)) || "\n");
+      PRINT(`DIF:\n` || GetColoredLineDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
+      PRINT(SimpleTextDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
+    }
+    */
+
+    TestEQ(RECORD[], updates);
+  }
+
+  // Test roundtrip through JS, with export
+  {
+    INTEGER newid := CallJS(Resolve("tsapi_support.ts#testExportImport"), schemaobj->tag, newobj->id, TRUE);
+    RECORD fields := schemaobj->^test_imexport->GetEntityFields(newid, testattrs);
+    TestEQ(TRUE, RecordExists(fields));
+
+    // RTD's don't keep the contentIds in an export, so they will differ
+    STRING ARRAY expected_changes := [ "test_richdocument" ];
+    RECORD ARRAY updates := UnpackRecord(newobj->FilterFieldUpdates(fields));
+    TestEQ(expected_changes, SELECT AS STRING ARRAY ToLowercase(name) FROM updates ORDER BY name);
+  }
+}
+
+RunTestframework([
+  PTR CreateWRDTestSchema,
+  PTR TestJSExportRoundTrip,
+]);

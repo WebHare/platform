@@ -123,7 +123,7 @@ export async function renderRTD(partRequest: PagePartRequest, rtd: RichTextDocum
   }
 
   async function buildTable(table: RTDBaseTable<"inMemory">): Promise<Litty> {
-    const colgroups = table.colGroups.map(colgroup => litty`<colgroup>${colgroup.cols.map(col => litty`<col style="width:${col.width}px">`)}</colgroup>`);
+    const colgroups = table.colGroups.map(colgroup => litty`<colgroup>${colgroup.cols.map(col => litty`<col style="width: ${col.width}px;">`)}</colgroup>`);
     const rowgroups = (await maybePromiseAll(table.rowGroups.map(rowgroup => maybePromiseAll(rowgroup.rows.map(buildTableRow))))).flat();
 
     const wrapperClassName = `wh-rtd__tablewrap ${table.className || "table"}`;

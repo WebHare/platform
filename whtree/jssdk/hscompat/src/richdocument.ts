@@ -1,6 +1,6 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
 import { RichTextDocument, type RTDInlineItem, type RTDSourceBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat, type RTDBaseTable, type RTDBaseTableCell } from "@webhare/services/src/richdocument";
-import { encodeString, generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase, typedEntries } from "@webhare/std";
+import { generateRandomId, isTruthy, nameToSnakeCase, throwError, toSnakeCase, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs/src/describe";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
@@ -146,11 +146,47 @@ function normalizeInlineItems(items: RTDInlineItem[]): RTDInlineItem[] {
   return normalized;
 }
 
+function isHTMLUnrepresentableChar(curch: number) {
+  return (curch < 32 && curch !== 9 && curch !== 10 && curch !== 13)
+    || (curch >= 128 && curch <= 159);
+}
+
+// Entity encoder that mimics the way RTD's are returned by the editor
+function encodeEntities(str: string, mode: "attribute" | "xhtml") {
+  /* differences from @webhare/std version:
+     - <br/> instead of <br> for xml encoding
+     - Unicode chars >= 160 are not encoded
+  */
+  let s = "";
+  for (const char of str) {
+    const curch = char.codePointAt(0);
+    if (curch === undefined || isHTMLUnrepresentableChar(curch))
+      continue;
+    if ((curch >= 32 && curch < 128 && curch !== 38 && curch !== 60 && curch !== 62 && (mode === "xhtml" || curch !== 34 && curch !== 39)) || curch >= 160) {
+      s += String.fromCodePoint(curch);
+      continue;
+    }
+    if (mode === "xhtml") {
+      switch (curch) {
+        case 10: s += "<br/>"; continue;
+        case 13: continue;
+        case 38: s += "&amp;"; continue;
+        case 60: s += "&lt;"; continue;
+        case 62: s += "&gt;"; continue;
+      }
+    }
+
+    s += "&#" + curch + ";";
+  }
+  return s;
+}
+
 class HSRTDImporter {
+  inrtd: CompoundDocument;
   outdoc = new RichTextDocument;
 
-  constructor(private inrtd: CompoundDocument) {
-
+  constructor(inrtd: CompoundDocument) {
+    this.inrtd = inrtd;
   }
 
   async reconstructWidget(node: Element): Promise<Instance | null> {
@@ -204,6 +240,9 @@ class HSRTDImporter {
         await this.processInlineWidget(child, state, outlist);
       } else if (tag === 'img') {
         await this.processInlineImage(child, state, outlist);
+      } else if (tag === 'br') {
+        if (child.getAttribute("data-wh-rte") !== "bogus")
+          outlist.push({ text: "\n", ...state });
       } else {
         await this.processInlineItems(child, state, outlist);
       }
@@ -231,16 +270,17 @@ class HSRTDImporter {
 
     const img = node.getAttribute("src") || '';
     if (!img?.startsWith("cid:")) {
-      outImg = { ...baseattributes, externalImage: img };
+      outImg = { ...baseattributes, externalImage: img, ...state };
     } else {
       const contentid = img.substring(4);
       const matchingimage = this.inrtd.embedded.get(contentid);
       if (!matchingimage)
         throw new Error("Inline image not found, contentid: " + contentid);
 
-      outImg = { ...baseattributes, image: matchingimage };
+      outImg = { ...baseattributes, image: matchingimage, ...state };
+      this.outdoc.__hintImageId(outImg, contentid);
     }
-    outlist.push({ ...outImg, ...state });
+    outlist.push(outImg);
   }
 
   async processInlineItems(node: Node, state: BlockItemStack, outlist: RTDInlineItems) {
@@ -487,7 +527,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
       throw new Error(`internal error - duplicate instanceid ${instanceid}`);
 
     instances.set(instanceid, widget as Instance);
-    return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
+    return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeEntities(instanceid, 'attribute')}"></${tag}>`;
   }
 
   async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">) {
@@ -505,7 +545,8 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
       embedded.set(contentid, image.image);
       link = `cid:${contentid}`;
     }
-    return `<img class="${classes.join(" ")}" src="${encodeString(link, 'attribute')}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
+    const hasDimensions = image.width && image.height;
+    return `<img${image.alt ? ` alt="${encodeEntities(image.alt || '', 'attribute')}"` : ''} class="${classes.join(" ")}"${hasDimensions ? ` height="${image.height}"` : ''} src="${encodeEntities(link, 'attribute')}"${hasDimensions ? ` width="${image.width}"` : ''}/>`;
   }
 
   async function buildBlocks(blocks: Array<RTDBlock | RTDAnonymousParagraph>) {
@@ -521,14 +562,14 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
       htmlText += await exportWidgetForHS(block.widget, true);
     else if ("listItems" in block) {
       const className = block.className || rtdBlockDefaultClass[block.tag];
-      htmlText += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>`;
+      htmlText += `<${block.tag}${className ? ` class="${encodeEntities(className, "attribute")}"` : ""}>`;
       for (const item of block.listItems)
         htmlText += `<li>${await buildBlocks(item.li)}</li>`;
       htmlText += `</${block.tag}>`;
     } else if ("items" in block) {
       if (block.tag) {
         const className = block.className || rtdBlockDefaultClass[block.tag];
-        htmlText += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildInlineItems(block.items)}</${block.tag}>`;
+        htmlText += `<${block.tag}${className ? ` class="${encodeEntities(className, "attribute")}"` : ""}>${await buildInlineItems(block.items)}</${block.tag}>`;
       } else {
         htmlText += await buildInlineItems(block.items);
       }
@@ -543,13 +584,13 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
 
   async function buildTable(table: RTDBaseTable<"inMemory">) {
     const className = table.className || rtdBlockDefaultClass.table;
-    let htmlText = `<table${className ? ` class="${encodeString(className, "attribute")}"` : ""}>`;
+    let htmlText = `<table class="${className ? encodeEntities(className, "attribute") + " " : ""}wh-rtd__table">`;
     if (table.caption)
-      htmlText += `<caption>${encodeString(table.caption, 'html')}</caption>`;
+      htmlText += `<caption class="wh-rtd__tablecaption">${encodeEntities(table.caption, 'xhtml')}</caption>`;
     for (const colGroup of table.colGroups) {
-      htmlText += `<colgroup>`;
+      htmlText += `<colgroup class="wh-tableeditor-colgroup">`;
       for (const col of colGroup.cols) {
-        htmlText += `<col${col.width ? ` style="width:${col.width}px"` : ""}/>`;
+        htmlText += `<col${col.width ? ` style="width: ${col.width}px;"` : ""}/>`;
       }
       htmlText += `</colgroup>`;
       htmlText += `<tbody>`;
@@ -558,9 +599,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
           htmlText += `<tr>`;
           for (const cell of row.cells) {
             const tagName = cell.scope === "col" ? "th" : "td";
-            htmlText += `<${tagName}`;
-            if (cell.className)
-              htmlText += ` class="${encodeString(cell.className, "attribute")}"`;
+            htmlText += `<${tagName} class="${cell.className ? encodeEntities(cell.className, "attribute") + " " : ""}wh-rtd__tablecell"`;
             if (cell.scope)
               htmlText += ` scope="${cell.scope}"`;
             if (cell.colSpan && cell.colSpan > 1)
@@ -591,7 +630,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
           gotNonWhitespace = true;
           part = await exportImageForHS(item as RTDBaseInlineImageItem<"inMemory">);
         } else {
-          part = encodeString(item.text, 'html');
+          part = encodeEntities(item.text, "xhtml");
           if (!gotNonWhitespace && part.trim())
             gotNonWhitespace = true;
         }
@@ -617,7 +656,7 @@ export async function exportRTDAsCompoundDocument(rtd: RichTextDocument, { recur
         }
 
         if (url)
-          linkpart = `<a href="${encodeString(url, 'attribute')}"${linkitem.target ? ` target="${encodeString(linkitem.target, 'attribute')}"` : ""}>${linkpart}</a>`;
+          linkpart = `<a href="${encodeEntities(url, 'attribute')}"${linkitem.target ? ` target="${encodeEntities(linkitem.target, 'attribute')}"` : ""}>${linkpart}</a>`;
       }
 
       output += linkpart;

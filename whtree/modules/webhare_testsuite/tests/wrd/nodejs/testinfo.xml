@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="tsapi_support.whlib" tags="wrd-nodejs">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="tsapi_support.whlib tsapi_support.ts" tags="wrd-nodejs">
   <test script="test_wrd_api.ts" />
   <test script="test_wrd_types.ts" />
   <test script="test_wrd_tsapi.ts" />
@@ -14,4 +14,5 @@
   <test script="test_openid.ts" />
   <test script="test_whapi_wrd.ts" />
   <test script="test_wrd_cli.ts" />
+  <test script="test_imexport.whscr" />
 </group>

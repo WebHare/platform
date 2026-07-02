@@ -169,25 +169,28 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, Ex
 
   abstract encodeValue(value: In | null): AwaitableEncodedValue; //explicitly add | null so derived classes have to handle it
 
-  protected decodeAsStringWithOverlow(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
+  protected decodeAsStringWithOverflow(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
     if (entity_settings[settings_start].rawdata)
       return entity_settings[settings_start].rawdata;
     const buf = entity_settings[settings_start].blobdata?.__getAsSyncUInt8Array();
     return buf ? Buffer.from(buf).toString() : "";
   }
 
-  protected encodeAsStringWithOverlow(rawdata: string): AwaitableEncodedValue {
+  protected encodeAsStringWithOverflow(rawdata: string): undefined | EncodedSetting | Promise<EncodedSetting[]> {
     if (!rawdata)
-      return {};
+      return undefined;
     if (Buffer.byteLength(rawdata) <= 4096)
-      return { settings: { rawdata, attribute: this.attr.id } };
+      return { rawdata, attribute: this.attr.id };
 
-    return {
-      settings: (async (): Promise<EncodedSetting[]> => {
-        const blobdata = WebHareBlob.from(rawdata);
-        await uploadBlob(blobdata);
-        return [{ blobdata, attribute: this.attr.id }];
-      })()
-    };
+    return (async (): Promise<EncodedSetting[]> => {
+      const blobdata = WebHareBlob.from(rawdata);
+      await uploadBlob(blobdata);
+      return [{ blobdata, attribute: this.attr.id }];
+    })();
+  }
+
+  protected encodeAsStringWithOverflowWrapped(rawdata: string): AwaitableEncodedValue {
+    const data = this.encodeAsStringWithOverflow(rawdata);
+    return data ? { settings: data } : {};
   }
 }

@@ -5,7 +5,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
 import { isLike } from "@webhare/hscompat/src/strings";
 import type { AddressValue } from "@webhare/address";
-import { Money, omit, isValidEmail, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf } from "@webhare/std";
+import { Money, omit, isValidEmail, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, throwError, isTruthy, stdTypeOf, mapMaybePromise, maybePromiseAll } from "@webhare/std";
 import { addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, mapExternalWHFSRef, ResourceDescriptor, unmapExternalWHFSRef, type ExportedResource, type ExportOptions, type ImportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
@@ -20,7 +20,7 @@ import { isPromise } from "node:util/types";
 import type { ExportedInstance, InstanceSource } from "@webhare/whfs/src/contenttypes";
 import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
-import { makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
+import { getPaymentPrivateData, makePaymentProviderValueFromEntitySetting, makePaymentValueFromEntitySetting, type PaymentProviderValue, type PaymentValue } from "./paymentstore";
 import { buildRTDFromCompoundDocument, exportRTDAsCompoundDocument } from "@webhare/hscompat/src/richdocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { CompoundDocument } from "@webhare/services/src/compound-document";
@@ -926,8 +926,11 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
   ExportOut | NullIfNotRequired<Required>,
   WRDDBDomainConditions
 > {
-  constructor(type: AnyWRDType, attr: AttrRec, private exportString: boolean) {
+  exportString: boolean;
+
+  constructor(type: AnyWRDType, attr: AttrRec, exportString: boolean) {
     super(type, attr);
+    this.exportString = exportString;
   }
   getDefaultValue(): number | null { return null; }
   isSet(value: number | null) { return Boolean(value); }
@@ -1679,7 +1682,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
   isSet(value: object | null) { return Boolean(value); }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): JSONType | NullIfNotRequired<Required> {
-    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    const data = this.decodeAsStringWithOverflow(entity_settings, settings_start, settings_limit);
     return data ? parseTyped(data) : null as JSONType | NullIfNotRequired<Required>;
   }
 
@@ -1690,7 +1693,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
   }
 
   encodeValue(value: JSONType | NullIfNotRequired<Required>): AwaitableEncodedValue {
-    return this.encodeAsStringWithOverlow(value ? stringify(value, { typed: true }) : '');
+    return this.encodeAsStringWithOverflowWrapped(value ? stringify(value, { typed: true }) : '');
   }
 }
 
@@ -1705,7 +1708,7 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
   isSet(value: object | null) { return Boolean(value); }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): IPCMarshallableRecord | null {
-    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    const data = this.decodeAsStringWithOverflow(entity_settings, settings_start, settings_limit);
     return data ? decodeHSON(data) as IPCMarshallableRecord : null;
   }
 
@@ -1716,60 +1719,166 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
   }
 
   encodeValue(value: object | null): AwaitableEncodedValue {
-    return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
+    return this.encodeAsStringWithOverflowWrapped(value ? encodeHSON(value as IPCMarshallableData) : '');
   }
 }
 
-class WRDDBPaymentProviderValue extends WRDAttributeUncomparableValueBase<object | null, PaymentProviderValue | null, PaymentProviderValue | null, PaymentProviderValue | null> {
+
+export type PaymentProviderValueExport = {
+  /* Don't use this to manipulate the value, this exists only for API exports/imports at the moment */
+  __opaquePaymentValueExport: unknown;
+};
+
+type PaymentProviderValueExportImpl = {
+  /* Don't use this to manipulate the value, this exists only for API exports/imports at the moment */
+  __opaquePaymentValueExport: {
+    type: "opaquePaymentProviderExport";
+    data: string;
+  };
+};
+
+function isOpaquePaymentProviderValueExport(value: PaymentProviderValue | PaymentProviderValueExport | null): value is PaymentProviderValueExport {
+  return Boolean(value && "__opaquePaymentValueExport" in value && typeof value.__opaquePaymentValueExport === "object" && (value as PaymentProviderValueExportImpl).__opaquePaymentValueExport.type === "opaquePaymentProviderExport");
+}
+
+class WRDDBPaymentProviderValue<Required extends boolean> extends WRDAttributeUncomparableValueBase<
+  PaymentProviderValue | PaymentProviderValueExport | NullIfNotRequired<Required>,
+  PaymentProviderValue | null,
+  PaymentProviderValue | NullIfNotRequired<Required>,
+  PaymentProviderValueExport | NullIfNotRequired<Required>> {
   getDefaultValue(): PaymentProviderValue | null {
     return null;
   }
 
   isSet(value: object | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentProviderValue | null {
-    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
-    return data ? makePaymentProviderValueFromEntitySetting(decodeHSON(data) as object) : null;
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentProviderValue | NullIfNotRequired<Required> {
+    const data = this.decodeAsStringWithOverflow(entity_settings, settings_start, settings_limit);
+    return data ? makePaymentProviderValueFromEntitySetting(decodeHSON(data) as object) : null as PaymentProviderValue | NullIfNotRequired<Required>;
   }
 
-  validateInput(value: object | null, checker: ValueQueryChecker, attrPath: string): object | null {
+  validateInput(value: PaymentProviderValue | PaymentProviderValueExport | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): PaymentProviderValue | PaymentProviderValueExport | NullIfNotRequired<Required> {
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     return value;
   }
 
-  encodeValue(value: PaymentProviderValue | null): AwaitableEncodedValue {
-    throw new Error(`No write support yet for PaymentProviderValue`);
-    // return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
+  encodeValue(value: PaymentProviderValue | NullIfNotRequired<Required>): AwaitableEncodedValue {
+    if (!value)
+      return { settings: [] };
+    const providerData = value.__paymentData;
+    const strData = encodeHSON({ ...providerData.data, type: providerData.type });
+    return this.encodeAsStringWithOverflowWrapped(strData);
+  }
+
+  importValue(value: PaymentProviderValue | PaymentProviderValueExport | NullIfNotRequired<Required>): PaymentProviderValue | NullIfNotRequired<Required> {
+    if (isOpaquePaymentProviderValueExport(value)) {
+      const data = parseTyped((value as PaymentProviderValueExportImpl).__opaquePaymentValueExport.data);
+      if (!data || typeof data !== "object" || typeof data.type !== "string")
+        throw new Error("Invalid PaymentProviderValue export, missing type field");
+      return makePaymentProviderValueFromEntitySetting(data as object);
+    }
+    return value;
+  }
+
+  exportValue(value: PaymentProviderValue | NullIfNotRequired<Required>, exportOptions?: ExportOptions): PaymentProviderValueExport | NullIfNotRequired<Required> {
+    return value && {
+      __opaquePaymentValueExport: {
+        type: "opaquePaymentProviderExport",
+        data: stringify({ ...value.__paymentData.data, type: value.__paymentData.type }, { typed: true }),
+      }
+    };
   }
 }
 
-class WRDDBPaymentValue extends WRDAttributeUncomparableValueBase<object | null, PaymentValue | null, PaymentValue | null, PaymentValue | null> {
+export type PaymentValueExport = {
+  __opaquePaymentValueExport: unknown;
+};
+
+type PaymentValueExportImpl = {
+  /* Don't use this to manipulate the value, this exists only for API exports/imports at the moment */
+  __opaquePaymentValueExport: {
+    type: "opaquePaymentValueExport";
+    data: { paymentProvider: string | null; data: string }[]; // stringify typed encoding of omit(PaymentDataRow, ["paymentprovider"])
+  };
+};
+
+function isOpaquePaymentValueExport(value: PaymentValue | PaymentValueExport): value is PaymentValueExport {
+  return "__opaquePaymentValueExport" in value && typeof value.__opaquePaymentValueExport === "object" && (value as PaymentValueExportImpl).__opaquePaymentValueExport.type === "opaquePaymentValueExport";
+}
+
+
+class WRDDBPaymentValue<Required extends boolean> extends WRDAttributeUncomparableValueBase<
+  PaymentValue | PaymentValueExport | NullIfNotRequired<Required>,
+  PaymentValue | null,
+  PaymentValue | NullIfNotRequired<Required>,
+  PaymentValueExport | NullIfNotRequired<Required>
+> {
   getDefaultValue(): PaymentValue | null {
     return null;
   }
 
   isSet(value: object | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentValue | null {
-    const rows = Array<{ ordering: number; data: unknown }>();
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): PaymentValue | NullIfNotRequired<Required> {
+    const rows = Array<{ ordering: number; data: object; setting: number | null }>();
     for (let idx = settings_start; idx < settings_limit; idx++) {
-      const data = this.decodeAsStringWithOverlow(entity_settings, idx, idx + 1);
-      rows.push({ ordering: entity_settings[idx].ordering, data: decodeHSON(data) });
+      const data = this.decodeAsStringWithOverflow(entity_settings, idx, idx + 1);
+      rows.push({ ordering: entity_settings[idx].ordering, data: decodeHSON(data) as object, setting: entity_settings[idx].setting });
     }
     rows.sort((a, b) => a.ordering - b.ordering);
-    return rows.length ? makePaymentValueFromEntitySetting(rows.map(r => r.data as object)) : null;
+    return (rows.length ? makePaymentValueFromEntitySetting(rows) : null) as PaymentValue | NullIfNotRequired<Required>;
   }
 
-  validateInput(value: object | null, checker: ValueQueryChecker, attrPath: string): object | null {
+  validateInput(value: PaymentValue | PaymentValueExport | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): PaymentValue | PaymentValueExport | NullIfNotRequired<Required> {
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     return value;
   }
 
   encodeValue(value: PaymentValue | null): AwaitableEncodedValue {
-    throw new Error(`No write support yet for PaymentValue`);
-    // return this.encodeAsStringWithOverlow(value ? encodeHSON(value as IPCMarshallableData) : '');
+    if (!value)
+      return {};
+
+    const rows = value[getPaymentPrivateData]();
+    const settings = mapMaybePromise(maybePromiseAll(rows.map((row, idx) => {
+      const rowSetting = this.encodeAsStringWithOverflow(encodeHSON(omit(row, ["paymentProvider"])));
+      return mapMaybePromise(rowSetting, s => (s ? (Array.isArray(s) ? s : [s]) : []).map(r => ({ ...r, ordering: idx, setting: row.paymentProvider })));
+    })), a => a.flat());
+    return { settings };
+  }
+
+  importValue(value: PaymentValue | PaymentValueExport | NullIfNotRequired<Required>): MaybePromise<PaymentValue | NullIfNotRequired<Required>> {
+    if (!value || !isOpaquePaymentValueExport(value))
+      return value;
+
+    return (async () => {
+      const data = (value as PaymentValueExportImpl).__opaquePaymentValueExport;
+      const providers = data.data.map(r => r.paymentProvider).filter(p => p !== null);
+      const domVals = await lookupDomainValues(this.type, this.attr, providers);
+      const domValMap = new Map(providers.map((p, idx) => [p, domVals[idx]]));
+
+
+      const settings = data.data.map((row, idx) => ({
+        setting: row.paymentProvider ? (domValMap.get(row.paymentProvider) ?? throwError(`Domain value ${row.paymentProvider} for attribute ${this.attr.tag} not found in database`)) : null,
+        data: parseTyped(row.data)
+      }));
+      return makePaymentValueFromEntitySetting(settings);
+    })();
+  }
+
+  exportValue(value: PaymentValue | NullIfNotRequired<Required>, exportOptions?: ExportOptions): MaybePromise<PaymentValueExport | NullIfNotRequired<Required>> {
+    if (!value)
+      return value;
+    return (async () => ({
+      __opaquePaymentValueExport: {
+        type: "opaquePaymentValueExport",
+        data: await Promise.all(value[getPaymentPrivateData]().map(async row => ({
+          paymentProvider: row.paymentProvider ? (await getGuidForEntity(row.paymentProvider) ?? throwError(`Domain value ${row.paymentProvider} for attribute ${this.attr.tag} not found in database`)) : null,
+          data: stringify(omit(row, ["paymentProvider"]), { typed: true }),
+        })))
+      }
+    }))();
   }
 }
 
@@ -1849,7 +1958,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
 
     const embedded = new Map<string, ResourceDescriptor>();
     for (const item of entity_settings.slice(settings_start + 1, settings_limit)) {
-      if (item.ordering === 1) { //it's an embedded image
+      if (item.ordering >= 1) { //it's an embedded image
         const descr = decodeResourceDescriptor(item, links, cc);
         if (descr.fileName)
           embedded.set(descr.fileName, descr);
@@ -2251,7 +2360,7 @@ class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparab
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): AddressValue | NullIfNotRequired<Required> {
-    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    const data = this.decodeAsStringWithOverflow(entity_settings, settings_start, settings_limit);
     const parsed = JSON.parse(data) as AddressValue & { nr_detail: string };
     return { ...omit(parsed, ["nr_detail"]), houseNumber: parsed.nr_detail };
   }
@@ -2274,7 +2383,7 @@ class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparab
   }
 
   encodeValue(value: AddressValue | NullIfNotRequired<Required>): AwaitableEncodedValue {
-    return this.encodeAsStringWithOverlow(value ? JSON.stringify({ ...omit(value, ["houseNumber"]), nr_detail: value.houseNumber }) : '');
+    return this.encodeAsStringWithOverflowWrapped(value ? JSON.stringify({ ...omit(value, ["houseNumber"]), nr_detail: value.houseNumber }) : '');
   }
 }
 
@@ -2293,7 +2402,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): AuthenticationSettings | null {
-    const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
+    const data = this.decodeAsStringWithOverflow(entity_settings, settings_start, settings_limit);
     return data.startsWith("hson:") ? AuthenticationSettings.fromHSON(data) : AuthenticationSettings.fromPasswordHash(data);
   }
 
@@ -2303,7 +2412,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   }
 
   encodeValue(value: AuthenticationSettings | null): AwaitableEncodedValue {
-    return this.encodeAsStringWithOverlow(value ? value.toHSON() : '');
+    return this.encodeAsStringWithOverflowWrapped(value ? value.toHSON() : '');
   }
 }
 
@@ -2351,8 +2460,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.Instance]: WRDDBInstanceValue;
   [WRDAttributeTypeId.IntExtLink]: WRDDBWHFSIntextlinkValue;
   [WRDAttributeTypeId.HSON]: WRDDBRecordValue;
-  [WRDAttributeTypeId.PaymentProvider]: WRDDBPaymentProviderValue;
-  [WRDAttributeTypeId.Payment]: WRDDBPaymentValue;
+  [WRDAttributeTypeId.PaymentProvider]: WRDDBPaymentProviderValue<Required>;
+  [WRDAttributeTypeId.Payment]: WRDDBPaymentValue<Required>;
   [WRDAttributeTypeId.AuthenticationSettings]: WRDDBAuthenticationSettingsValue;
   [WRDAttributeTypeId.WHFSRef]: WRDDBWHFSLinkValue;
   [WRDAttributeTypeId.Time]: WRDDBTimeValue<Required, false>;

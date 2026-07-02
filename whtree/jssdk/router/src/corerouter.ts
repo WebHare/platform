@@ -13,6 +13,7 @@ import { isLitty, litty, littyToString } from "@webhare/litty";
 import { runHareScriptPage } from "./hswebdesigndriver";
 import { whfsType } from "@webhare/whfs";
 import { Timings, asServerTimingHeader } from "@mod-platform/js/logging/timings";
+import { getCodeContext } from "@webhare/services/src/codecontexts";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(new URL(url), options);
@@ -107,6 +108,7 @@ export async function coreWebHareRouter(port: WebServerPort, webRequest: WebRequ
 
 export async function executeSHTMLRequestHS(webreq: WebRequestInfo, webdesignurl: string, funcname: string, funcarg: unknown) {
   const webRequest = await newWebRequestFromInfo(webreq);
+  getCodeContext().applyDebugSettings(webRequest.getDebugSettings());
   const lookupresult = await whfs.lookupURL(new URL(webdesignurl), { clientWebServer: webRequest.clientWebServer });
   if (!lookupresult?.folder)
     throw new Error(`Unable to lookup webdesign for url '${webdesignurl}'`);
@@ -127,6 +129,8 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   using prepRenderTimer = timings.startTimer("prepPageRender");
 
   const webRequest = options?.webreq ? await newWebRequestFromInfo(options.webreq) : undefined;
+  if (webRequest)
+    getCodeContext().applyDebugSettings(webRequest.getDebugSettings());
 
   if (options?.webreq) {
     const isJsonRpc = webRequest?.headers.get("Content-Type")?.split(";")[0] === "application/json" && webRequest.method === "POST";
