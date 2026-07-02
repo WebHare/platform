@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
 <
   PUBLIC OBJECT result;
+  RECORD options;
 
   MACRO NEW()
   {
@@ -16,6 +17,7 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     ^peers->entitycontext := [ wrd_leftentity := this->contexts->user->entityid ];
+    this->options := data.options;
 
     INTEGER lastserver := this->contexts->user->GetRegistryKey("system.webharepreers.lastserver", 0);
     IF(lastserver != 0)
@@ -26,14 +28,14 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
   {
     IF(entityid = 0)
     {
-      RETURN this->RunScreen("#addpeer"); //ADDME should probably pass the requested scopes
+      RETURN this->RunScreen("#addpeer", CELL[this->options]); //ADDME should probably pass the requested scopes
     }
     RETURN ^peers->RunEntityEditScreen("#editpeer", entityid) ?? entityid;
   }
 
   MACRO DoConnect()
   {
-    OBJECT peer := OpenWebHarePeer(this, ^peers->selection.serverurl, [ scopes := ["system:sysop"]
+    OBJECT peer := OpenWebHarePeer(this, ^peers->selection.serverurl, [ scopes := this->options.scopes
                                                                       , validuntil := AddTimeToDate(15*60*1000, GetCurrentDatetime())
                                                                       ]);
     IF(ObjectExists(peer))
@@ -47,8 +49,10 @@ PUBLIC STATIC OBJECTTYPE PeerServers EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
 <
+  RECORD options;
   MACRO Init(RECORD data)
   {
+    this->options := data.options;
   }
   ASYNC MACRO OnConnect(OBJECT urlreceiver)
   {
@@ -60,7 +64,7 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
       RETURN;
     }
 
-    RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value);
+    RECORD resp := GetWebHareRequestTokenURL(this, ^peer->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
     IF(AWAIT resp.tokenpromise != "")
     {
@@ -77,13 +81,16 @@ PUBLIC STATIC OBJECTTYPE AddPeer EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE ReauthServer EXTEND TolliumScreenBase
 <
+  RECORD options;
+
   MACRO Init(RECORD data)
   {
     ^url->value := data.url;
+    this->options := data.options;
   }
   ASYNC MACRO DoAuthServer(OBJECT urlreceiver)
   {
-    RECORD resp := GetWebHareRequestTokenURL(this, ^url->value);
+    RECORD resp := GetWebHareRequestTokenURL(this, ^url->value, [ scopes := this->options.scopes ]);
     urlreceiver->SendUrl(resp.requesturl);
     IF(AWAIT resp.tokenpromise != "")
       this->tolliumresult := "ok";

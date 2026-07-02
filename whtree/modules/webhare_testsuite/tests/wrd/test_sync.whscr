@@ -89,7 +89,7 @@ MACRO TestSync()
 {
   OBJECT userapi := GetWRDAuthUserAPI(testfw->wrdschema);
 
-  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("sysop")->entityid, STRING["system:sysop"], "CI test_sync");
+  RECORD tokenrec := userapi->GenerateOAuthAccessToken(testfw->GetUserObject("sysop")->entityid, STRING["platform:wrd.export"], "CI test_sync");
 
   STRING token := tokenrec.token;
 

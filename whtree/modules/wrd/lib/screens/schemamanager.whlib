@@ -484,7 +484,7 @@ PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
 
   MACRO DoSelectPeer()
   {
-    OBJECT selectedpeer := RunConnectRemoteWebHareDialog(this);
+    OBJECT selectedpeer := RunConnectRemoteWebHareDialog(this, CELL[scopes := ["platform:wrd.export"]]);
     IF(ObjectExists(selectedpeer))
       ^peer->value := selectedpeer->url;
   }
