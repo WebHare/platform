@@ -185,7 +185,7 @@ IF(is_webhare_ci) { //precreate /webhare-tests/ or EnsureWHFSTestRoot may race a
              , name := "webhare-tests"
               , type := whconstant_whfstype_normalfolder
               ] INTO folderchecklist AT END;
-  //Ensure mailfrom is set, needed for some tets
+  //Ensure mailfrom is set, needed for some tests
   WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
 }
 

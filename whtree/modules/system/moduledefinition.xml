@@ -861,7 +861,7 @@ false = authentication is only necessary for users not matching the IP access ru
       </d:integer>
       <d:boolean name="workflow">
         <d:documentation>This instance is managed as part of a workflow (drafts/autosaves) - it had clone: onDraft at one point during the workflow and has been in an editProps component.
-          This instance will not be deleted even if all members are unset so we can see the difference between 'explciitly cleared in this draft' versus 'did not exist when we started this draft'.
+          This instance will not be deleted even if all members are unset so we can see the difference between 'explicitly cleared in this draft' versus 'did not exist when we started this draft'.
         </d:documentation>
       </d:boolean>
     </d:table>
