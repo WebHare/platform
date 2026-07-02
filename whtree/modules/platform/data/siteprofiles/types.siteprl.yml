@@ -119,6 +119,8 @@ types:
     metaType: upload
     requiresContent: true
     browserPreview: /.wh/common/preview/image.shtml
+  # externallink and internallink have to remain two separate types for historical reasons and to distinguish between "internal file that had an 'append' to its link but its linked file was deleted"
+  # and "actual external link" - as both will have an empty filelink field but a set externallink field
   filetypes.internallink:
     namespace: http://www.webhare.net/xmlns/publisher/internallink
     icon: tollium:files/application_x-webhare-internallink

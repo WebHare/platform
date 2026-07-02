@@ -1374,11 +1374,9 @@ STATIC OBJECTTYPE TestFramework <
     IF (ObjectExists(folderobj2))
       object_ids := object_ids CONCAT folderobj2->GetDescendantObjectIds();
 
-    INTEGER ARRAY all_drafts :=
-        SELECT AS INTEGER ARRAY id
-          FROM system.fs_objects
-         WHERE parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ]
-           AND filelink IN object_ids;
+    //Remove all history for the test sites
+    DELETE FROM system.fs_objects WHERE snapshotfor IN object_ids;
+    DELETE FROM system.fs_history WHERE fs_object IN object_ids;
 
     IF(Length(object_ids) > 0
        OR (ObjectExists(folderobj) AND folderobj->modificationdate != MakeDate(2001,1,1))
@@ -1389,9 +1387,6 @@ STATIC OBJECTTYPE TestFramework <
       IF (ObjectExists(folderobj2))
         folderobj2->RecycleSelf();
 
-      // Recycle all non-recycled objects with links to the folder
-      FOREVERY (INTEGER id FROM FilterOutRecycledObjects(all_drafts))
-        OpenWHFSObject(id)->RecycleSelf();
     }
 
     FOREVERY(STRING site FROM [ "webhare_testsuite.testsite","webhare_testsuite.testsitejs" ])
@@ -2072,42 +2067,6 @@ PUBLIC OBJECT FUNCTION RunTestframework(FUNCTION PTR ARRAY tests, RECORD options
 
   testfw->RunTests();
   RETURN testfw;
-}
-
-INTEGER ARRAY FUNCTION FilterOutRecycledObjects(INTEGER ARRAY ids)
-{
-  RECORD ARRAY worklist :=
-      SELECT id
-           , parent :=  id
-        FROM ToRecordArray(ids, "ID")
-    GROUP BY id;
-
-  INTEGER ARRAY result;
-
-  WHILE (LENGTH(worklist) != 0)
-  {
-    result := result CONCAT SELECT AS INTEGER ARRAY id FROM worklist WHERE parent = 0;
-    INTEGER ARRAY curparents := SELECT AS INTEGER ARRAY parent FROM worklist WHERE parent != 0;
-
-    RECORD ARRAY folders :=
-        SELECT id
-             , parent
-          FROM system.fs_objects
-         WHERE id IN curparents
-      ORDER BY id;
-
-    RECORD ARRAY newworklist;
-    FOREVERY (RECORD rec FROM worklist)
-      IF (rec.parent NOT IN [ 0, whconstant_whfsid_versions, whconstant_whfsid_whfs_snapshots ]) // filter out everything in whfs-versions
-      {
-        RECORD pos := RecordLowerBound(folders, [ id := rec.parent ], [ "ID" ]);
-        INSERT [ id := rec.id, parent := folders[pos.position].parent ] INTO worklist AT END;
-      }
-
-    worklist := newworklist;
-  }
-
-  RETURN result;
 }
 
 /** Prints a stacktrace

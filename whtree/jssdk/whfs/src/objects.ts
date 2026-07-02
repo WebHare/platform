@@ -32,8 +32,8 @@ export interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects">
 const eventNames = [
   "recycled", //0 whconstant_historytype_recycled
   "saved",    //1 whconstant_historytype_saved
-  undefined,  //currently unused
-  "reverted", //3 whconstant_historytype_reverted
+  "abandoned-autosave",  //2 whconstant_historytype_abandoned_autosave
+  "abandoned-draft",     //3 whconstant_historytype_abandoned_draft
   "created",  //4 whconstant_historytype_created
   "approved", //5 whconstant_historytype_approved
   "autosave", //6 whconstant_historytype_autosave
@@ -207,7 +207,8 @@ export async function createWHFSObject(parent: {
       ispinned: metadata?.isPinned || false,
       isunlisted: metadata?.isUnlisted || false,
       data: data,
-      indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null
+      indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null,
+      snapshotfor: null
     }).returning(['id']).executeTakeFirstOrThrow();
 
   whfsFinishHandler().objectCreate(parent.parentSite, parent.id, id, isFolder);
@@ -938,7 +939,8 @@ async function getRootFolderDBRow(): Promise<FsObjectRow> {
     modifiedby: 0,
     type: 0,
     indexdoc: 0,
-    filelink: 0,
+    filelink: null,
+    snapshotfor: null,
     externallink: "",
     ispinned: false,
     isunlisted: false,

@@ -3,7 +3,7 @@ import { db, isWorkOpen, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
-import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
+import { getWHFSDescendantIds, isHistoricWHFSSpace } from "./support";
 import { getData, setData, type CodecExportMemberType, type CodecGetMemberType, type CodecImportMemberType, type EncodedFSSetting, type MemberType } from "./codecs";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions, type ImportOptions, type WebHareDBLocation } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
@@ -331,7 +331,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     if (!this.descr?.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
     const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", true, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
-    if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
+    if (options?.ifReadOnly !== 'update' && isHistoricWHFSSpace(objinfo?.whfsPath)) {
       if (options?.ifReadOnly !== 'skip') //ie "fail"
         throw new Error(`Attempting to update instance data on recycled or historic object #${id} `);
       return;

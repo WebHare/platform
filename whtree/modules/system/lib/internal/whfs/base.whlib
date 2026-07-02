@@ -186,24 +186,21 @@ PUBLIC STRING FUNCTION GenerateUniqueName(INTEGER parentfolder, STRING suggestio
   }
 }
 
-PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path)
-{
+PUBLIC BOOLEAN FUNCTION IsReadonlyWHFSSpace(STRING path) { // isHistoricWHFSSpace in TypeScript
   path := ToUppercase(path);
-  RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*"
-         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*" //not so much readonly but requires setting a workflow flag
-         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*"
-         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*";
+  RETURN path LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/*" //WH6.0+ migrates all historic WHFS content to this space
+         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/*" //WH5.9
+         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*" //WH5.9
+         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/*" //WH5.9
+         OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/*"; //WH5.9
 }
 
 PUBLIC BOOLEAN FUNCTION IsRecycleOrHistoryWHFSPath(STRING path) {
-  path := ToUppercase(path);
-  RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-*" OR path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS/*"; //snapshots has a slightly different path
+  RETURN IsReadonlyWHFSSpace(path);
 }
 
-PUBLIC BOOLEAN FUNCTION IsRecycleBinWHFSPath(STRING path)
-{
-  path := ToUppercase(path);
-  RETURN path LIKE "/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/*/*";
+PUBLIC BOOLEAN FUNCTION IsRecycleBinWHFSPath(STRING path) {
+  RETURN ToUppercase(path) LIKE "/WEBHARE-PRIVATE/PLATFORM/WHFS/RECYCLEBINS/*/*";
 }
 
 PUBLIC BOOLEAN FUNCTION CanEffectiveUserScript()

@@ -27,6 +27,8 @@ export interface ListableFsObjectRow {
   // externalLink: string;
   /** If this is an internal or content link file, the id of the linked file */
   fileLink: number | null;
+  /** If this is a snapshot, the id of the original file */
+  snapshotFor: number | null;
   /// The path from the site's root folder to this file. Always starts and ends with a slash character ('/'), empty if object outside a site
   sitePath: string;
   /// Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root
@@ -91,6 +93,7 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow | 
   "description": "description",
   "firstPublish": "firstpublishdate",
   "fileLink": "filelink",
+  "snapshotFor": "snapshotfor",
   "sitePath": "fullpath",
   "whfsPath": "whfspath",
   "parentSite": "parentsite",

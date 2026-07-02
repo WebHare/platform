@@ -22,17 +22,11 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_lostandfound := 6;
 //Folder id for webhare-private/
 PUBLIC CONSTANT INTEGER whconstant_whfsid_private := 10;
 
-//Folder id for webhare-private/system/whfs-versions
+//Folder id for webhare-private/platform/whfs/recyclebins
 PUBLIC CONSTANT INTEGER whconstant_whfsid_versions := 11;
 
 //Folder id for webhare-private/wrd
 PUBLIC CONSTANT INTEGER whconstant_whfsid_wrdstore := 13;
-
-//Folder id storing autosaves
-PUBLIC CONSTANT INTEGER whconstant_whfsid_autosaves := 14;
-
-//Folder id for webhare-private/system/whfs-drafts
-PUBLIC CONSTANT INTEGER whconstant_whfsid_drafts := 15;
 
 //Folder/site id of the WebHare Backend site
 PUBLIC CONSTANT INTEGER whconstant_whfsid_webharebackend := 16;
@@ -52,11 +46,14 @@ PUBLIC CONSTANT INTEGER whconstant_whfsid_webhare_tests := 22;
 //Folder id for webhare-private/system/shorturl
 PUBLIC CONSTANT INTEGER whconstant_whfsid_shorturl := 23;
 
-//Folder id for webhare-private/system/whfs
+//Folder id for webhare-private/platform/whfs
 PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs := 24;
 
-//Folder id for webhare-private/system/whfs/snapshots
+//Folder id for webhare-private/platform/whfs/snapshots
 PUBLIC CONSTANT INTEGER whconstant_whfsid_whfs_snapshots := 25;
+
+//Folder id for webhare-private/platform
+PUBLIC CONSTANT INTEGER whconstant_whfsid_private_platform := 26;
 
 //Default key expiry warning (days)
 PUBLIC CONSTANT INTEGER whconstant_default_warnexpirydays := 30;
@@ -133,8 +130,11 @@ PUBLIC CONSTANT INTEGER whconstant_historytype_recycled := 0;
 /// fs_history.type save action (it's not named "save as draft" as some files might never be actually published (eg widgets, included content)
 PUBLIC CONSTANT INTEGER whconstant_historytype_saved := 1;
 
-/// fs_history.type revert action
-PUBLIC CONSTANT INTEGER whconstant_historytype_reverted := 3;
+/// fs_history.type autosave abandoned
+PUBLIC CONSTANT INTEGER whconstant_historytype_abandoned_autosave := 2;
+
+/// fs_history.type draft abandoned
+PUBLIC CONSTANT INTEGER whconstant_historytype_abandoned_draft := 3;
 
 /// fs_history.type created action
 PUBLIC CONSTANT INTEGER whconstant_historytype_created := 4;

@@ -107,6 +107,11 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , type := whconstant_whfstype_systemfolder
                                  ]
                                  //12 was reserved for 'webhare-moduledata'
+                               , [ id := whconstant_whfsid_private_platform
+                                 , parent := whconstant_whfsid_private
+                                 , name := "platform"
+                                 , type := whconstant_whfstype_normalfolder
+                                 ]
                                , [ id := whconstant_whfsid_wrdstore
                                  , parent := whconstant_whfsid_private
                                  , name := "wrd"
@@ -117,16 +122,13 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , name := "system"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
-                               , [ id := whconstant_whfsid_autosaves
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs-autosaves"
-                                 , type := whconstant_whfstype_normalfolder
+                               , [ id := whconstant_whfsid_whfs
+                                 , parent := whconstant_whfsid_private_platform //used to be under 'system', moving to 'platform' in WH6.0
+                                 , name := "whfs"
+                                 , type := whconstant_whfstype_systemfolder
                                  ]
-                               , [ id := whconstant_whfsid_drafts
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs-drafts"
-                                 , type := whconstant_whfstype_normalfolder
-                                 ]
+                                 //NOTE 14, "whfs-autosaves", whconstant_whfsid_autosaves is reserved
+                                 //NOTE 15, "whfs-drafts", whconstant_whfsid_drafts is reserved
                                , [ id := whconstant_whfsid_webharebackend
                                  , parent := 0
                                  , name := "WebHare backend"
@@ -135,9 +137,9 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  // NOTE 17, "whfs-versionhistory", whconstant_whfsid_versionhistory is reserved
                                  // NOTE 18, "whfs-versionarchive",  whconstant_whfsid_versionarchive is reserved
                                , [ id := whconstant_whfsid_versions
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs-versions"
-                                 , type := whconstant_whfstype_normalfolder
+                                 , parent := whconstant_whfsid_whfs
+                                 , name := "recyclebins"
+                                 , type := whconstant_whfstype_systemfolder
                                  ]
                                , [ id := whconstant_whfsid_registerslots
                                  , parent := whconstant_whfsid_private_system
@@ -145,24 +147,19 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  , type := whconstant_whfstype_normalfolder
                                  ]
                                , [ id := whconstant_whfsid_private_rootsettings
-                                 , parent := whconstant_whfsid_private_system
+                                 , parent := whconstant_whfsid_whfs
                                  , name := "webhare-publisher-rootsettings"
-                                 , type := whconstant_whfstype_normalfolder
+                                 , type := whconstant_whfstype_systemfolder
                                  ]
                                , [ id := whconstant_whfsid_shorturl
                                  , parent := whconstant_whfsid_private_system
                                  , name := "shorturl"
                                  , type := whconstant_whfstype_normalfolder
                                  ]
-                               , [ id := whconstant_whfsid_whfs
-                                 , parent := whconstant_whfsid_private_system
-                                 , name := "whfs"
-                                 , type := whconstant_whfstype_normalfolder
-                                 ]
                                , [ id := whconstant_whfsid_whfs_snapshots
                                  , parent := whconstant_whfsid_whfs
                                  , name := "snapshots"
-                                 , type := whconstant_whfstype_normalfolder
+                                 , type := whconstant_whfstype_systemfolder
                                  ]
                                ];
 
@@ -191,6 +188,11 @@ IF(is_webhare_ci) { //precreate /webhare-tests/ or EnsureWHFSTestRoot may race a
 
 InitializeFileTypes();
 
+IF(NOT is_first_initdb) {
+  //platform folder should still be empty. if it isn't, not our problem, and it's too early in startup to start recycling things anyway. delete it to make room for fixed-id platform folder
+  DELETE FROM system.fs_objects WHERE name = "platform" AND parent = whconstant_whfsid_private AND id != whconstant_whfsid_private_platform;
+}
+
 FOREVERY(RECORD tocheck FROM folderchecklist) {
   OBJECT folder := is_first_initdb ? DEFAULT OBJECT : OpenWHFSObject(tocheck.id);
   IF(NOT ObjectExists(folder))
@@ -201,10 +203,11 @@ FOREVERY(RECORD tocheck FROM folderchecklist) {
     INSERT INTO system.fs_objects(id,name,creationdate,modificationdate,parent,isfolder,type, ispinned)
            VALUES(tocheck.id,tocheck.name,initnow,initnow,tocheck.parent,TRUE,2, TRUE);
   }
-  ELSE IF(tocheck.parent != folder->parent OR tocheck.type != folder->type OR NOT folder->ispinned)
+  ELSE IF(tocheck.parent != folder->parent OR tocheck.type != folder->type OR NOT folder->ispinned OR tocheck.name != folder->name)
   {
     UPDATE system.fs_objects SET parent := tocheck.parent
                                , type := tocheck.type
+                               , name := tocheck.name
                                , ispinned := TRUE
                            WHERE id = tocheck.id;
   }

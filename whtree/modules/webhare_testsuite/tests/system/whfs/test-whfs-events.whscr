@@ -9,10 +9,10 @@ LOADLIB "mod::publisher/lib/history.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/whfs/history.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
-
 
 OBJECT testsite;
 OBJECT movetarget;
@@ -77,15 +77,17 @@ MACRO Prepare()
 }
 
 MACRO TestEvents() {
+  testfw->BeginWork();
+  INTEGER snapshotfolder := EnsureSnapshotsFolder(testsite->id);
+  testfw->CommitWork();
 
   eventmgr := NEW EventManager;
   eventmgr->RegisterInterest(`system:whfs.folder.*`);
   eventmgr->RegisterInterest(`system:whfs-history.folder.*`);
-  ListenToId(whconstant_whfsid_autosaves);
-  ListenToId(whconstant_whfsid_drafts);
   ListenToId(whconstant_whfsid_whfs_snapshots);
   listenToId(testsite->root);
   listenToId(movetarget->id);
+  ListenToId(snapshotfolder);
 
 
   {
@@ -386,11 +388,13 @@ MACRO TestEvents() {
   metamgr->UpdateData(StringToBlob("Draft data 2"));
   OBJECT draft2 := metamgr->__GetAutosavedObject();
 
+  dumpvalue(cell[ draft := draft->id, draft2 := draft2->id, snapshotfolder ]);
+
   testfw->CommitWork();
 
   TestEQ([
     [
-      folder := whconstant_whfsid_autosaves,
+      folder := snapshotfolder,
       events := STRING[],
       files := [
         [ file := draft->id, isfolder := FALSE, events := [ "create", "update" ] ],
@@ -412,7 +416,7 @@ MACRO TestEvents() {
 
   TestEQ([
     [
-      folder := whconstant_whfsid_autosaves,
+      folder := snapshotfolder,
       events := STRING[],
       files := [ [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ] ]
     ]
@@ -422,28 +426,19 @@ MACRO TestEvents() {
   metamgr->Save();
   testfw->CommitWork();
 
-  INTEGER snapshotfolder;
   {
-    RECORD ARRAY events := ExpectWHFSEvents(4);
+    RECORD ARRAY events := ExpectWHFSEvents(3);
     INTEGER finalsnapshot := events[0].files[1].file;
-
-    snapshotfolder := events[1].files[0].file; // The snapshot parent folder
 
     // Draft is moved from autosaves to drafts, so we get a moved event
     // Draft2 is deleted (autosave cleanup)
     TestEQ([
       [
-        folder := whconstant_whfsid_autosaves,
+        folder := snapshotfolder,
         events := STRING[],
         files := [
-          [ file := draft2->id, isfolder := FALSE, events := [ "moved" ] ],
+          [ file := draft2->id, isfolder := FALSE, events := [ "update" ] ],
           [ file := finalsnapshot, isfolder := FALSE, events := [ "create" ] ]
-        ]
-      ], [
-        folder := whconstant_whfsid_whfs_snapshots,
-        events := STRING[],
-        files := [
-          [ file := snapshotfolder, isfolder := TRUE, events := [ "create" ] ]
         ]
       ], [
         folder := testfolder->id,
@@ -457,9 +452,6 @@ MACRO TestEvents() {
     ], events);
   }
 
-  // Also listen to the snapshot folder
-  ListenToId(snapshotfolder);
-
   testfw->BeginWork();
   metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 3"));
@@ -468,7 +460,7 @@ MACRO TestEvents() {
 
   TestEQ([
     [
-      folder := whconstant_whfsid_autosaves,
+      folder := snapshotfolder,
       events := STRING[],
       files := [
                 [ file := draft3->id, isfolder := FALSE, events := [ "create", "update" ] ]
@@ -488,14 +480,16 @@ MACRO TestEvents() {
   WaitForOutputAnalyzer(INTEGER[ subfile->parent ], AddTimeToDate(60000, GetCurrentDatetime()));
   WaitForPublishCompletion(subfile->parent);
 
+dumpvalue(cell[draft3 := draft3->id, subfile := subfile->id, snapshotfolder, testfolder := testfolder->id]);
   {
-    RECORD ARRAY events := ExpectWHFSEvents(5, [ minmsgcount := 4 ]);
+    RECORD ARRAY events := ExpectWHFSEvents(4, [ minmsgcount := 3 ]);
+    dumpvalue(events, "tree");
     TestEQ([
       [
-        folder := whconstant_whfsid_autosaves,
+        folder := snapshotfolder,
         events := STRING[],
         files := [
-          [ file := draft3->id, isfolder := FALSE, events := [ "moved" ] ]
+          [ file := draft3->id, isfolder := FALSE, events := [ "update" ] ]
         ]
       ], [
         folder := testfolder->id,
@@ -512,13 +506,7 @@ MACRO TestEvents() {
             events := STRING[],
             files := [ [ file := subfile->id, isfolder := FALSE, events := [ "rep" ] ] ]
           ]
-        ] : RECORD[]), [
-        folder := snapshotfolder,
-        events := STRING[],
-        files := [
-          [ file := draft3->id, isfolder := FALSE, events := [ "move","update" ] ]
-        ]
-      ]
+        ] : RECORD[])
     ], events);
   }
 

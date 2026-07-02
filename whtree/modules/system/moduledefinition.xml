@@ -15,7 +15,7 @@
     <runonce script="scripts/runonce/initmimetypes.whscr" tag="init_mimetypes_20240815" when="aftertablecreation" />
 
     <!-- initialize core DB structure and create standard folders -->
-    <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20240219" when="afterregistryupdate" />
+    <runonce script="scripts/runonce/initdb.whscr" tag="initdb_20260701" when="afterregistryupdate" />
 
     <task runat="*/5 * * * *" script="scripts/tasks/intervalchecks.whscr" tag="intervalchecks" description="Periodic status checks" runatstartup="true" />
     <task runat="13  0 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="system_maintenance_task" />
@@ -912,6 +912,9 @@ false = authentication is only necessary for users not matching the IP access ru
       </d:varchar>
       <d:integer name="filelink" ondelete="set default" references=".fs_objects">
         <d:documentation>If this is an internal or content link file, the id of the linked file</d:documentation>
+      </d:integer>
+      <d:integer name="snapshotfor" ondelete="cascade" references=".fs_objects">
+        <d:documentation>The object for which we are a snapshot.</d:documentation>
       </d:integer>
       <d:varchar name="fullpath" internalcolumnname="FULLPATH" maxlength="4096">
         <d:documentation>The path from the site's root folder to this file. Always starts and ends with a slash character ('/')</d:documentation>

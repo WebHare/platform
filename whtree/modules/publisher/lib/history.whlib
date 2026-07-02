@@ -134,13 +134,13 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
       RETURN;
 
     //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FlushInstanceData won't see it)
-    OBJECT autosave := StartWorkflowUpdate(this->baseobject, ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
+    INTEGER autosave := StartWorkflowUpdate(this->baseobject, ObjectExists(this->currentdraft) ? this->currentdraft->id : this->baseobject->id,
           this->GetMetadata(),
           [ user := this->options.user, workflowtypes := SELECT AS INTEGER ARRAY id FROM this->workflowtypes ]);
 
     this->LoadDrafts();
-    IF(autosave->id != this->currentautosave->id)
-      THROW NEW Exception("Failed to create an autosave object");
+    IF(this->currentautosave->id != autosave)
+      THROW NEW Exception("Failed to properly create an autosave object");
   }
   PUBLIC INTEGER FUNCTION __GetWriteableAutosaveId() {
     this->EnsureAutosave();
@@ -199,13 +199,16 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     }
 
     RECORD lastautosave := SELECT * FROM history WHERE type = whconstant_historytype_autosave ORDER BY when DESC LIMIT 1;
-    RECORD lastdraftpublish := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final] ORDER BY when DESC LIMIT 1;
-    //FIXME SUPPORT FALLBACK TO HISTORY ITEM WITHOUT ASSOCIATED AUTOSAVE - need for WH5.9 upgrade
+    //The last version superseding any autosave
+    RECORD last_cancel_autosave := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_autosave, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
+    //The last version superseding any draft
+    RECORD lastdraftpublish := SELECT * FROM history WHERE type IN [ whconstant_historytype_saved, whconstant_historytype_approved, whconstant_historytype_final, whconstant_historytype_abandoned_draft] ORDER BY when DESC LIMIT 1;
 
     //TODO ReplaceWith tasks trigger autosaves without an owner/user. (see test-lifecycle). Should we optimize that path?
     INTEGER currentuser := ObjectExists(this->options.user) ? this->options.user->authobjectid : 0;
-    this->currentautosave_version := RecordExists(lastautosave) AND lastautosave.user = currentuser ? lastautosave : DEFAULT RECORD;
     this->currentdraft_version := RecordExists(lastdraftpublish) AND lastdraftpublish.type = whconstant_historytype_saved ? lastdraftpublish : DEFAULT RECORD;
+    //only take an autosave if it was created by the current user and is newer than the last draft or published version
+    this->currentautosave_version := RecordExists(lastautosave) AND lastautosave.user = currentuser AND (NOT RecordExists(last_cancel_autosave) OR lastautosave.when > last_cancel_autosave.when) ? lastautosave : DEFAULT RECORD;
 
     this->currentautosave := RecordExists(this->currentautosave_version) ? OpenWHFSObject(this->currentautosave_version.snapshot) : DEFAULT OBJECT;
     this->currentdraft := RecordExists(this->currentdraft_version) ? OpenWHFSObject(this->currentdraft_version.snapshot) : DEFAULT OBJECT;
@@ -231,20 +234,27 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RETURN DEFAULT RECORD;
   }
 
+  MACRO DoDiscardAutosavedChanges(BOOLEAN revert_draft) {
+    IF((RecordExists(this->currentdraft_version) AND revert_draft) OR RecordExists(this->currentautosave_version)) { //do we have something to discard?
+      RECORD userinfo := ObjectExists(this->options.user) ? this->options.user->GetUserDataForLogging() : DEFAULT RECORD;
+      INSERT CELL [ fs_object := this->baseobject->id
+                  , user := ObjectExists(this->options.user) ? this->options.user->authobjectid : 0
+                  , userdata := RecordExists(userinfo) ? EncodeJSON(userinfo, [typed := TRUE]) : ""
+                  , type := revert_draft ? whconstant_historytype_abandoned_draft : whconstant_historytype_abandoned_autosave
+                  , when := GetCurrentDatetime()
+                  ] INTO system_internal.fs_history;
+
+    }
+
+    this->LoadDrafts();
+  }
+
   PUBLIC MACRO DiscardAutosavedChanges() {
-    CleanupMyPrivateDrafts(this->baseobject->id);
-    this->currentautosave := DEFAULT OBJECT;
+    this->DoDiscardAutosavedChanges(FALSE);
   }
 
   PUBLIC MACRO DiscardDraftAndAutosavedChanges() {
-    IF (ObjectExists(this->currentautosave)) {
-      this->currentautosave->DeleteSelf();
-      this->currentautosave := DEFAULT OBJECT;
-    }
-    IF (ObjectExists(this->currentdraft)) {
-      this->currentdraft->DeleteSelf();
-      this->currentdraft := DEFAULT OBJECT;
-    }
+    this->DoDiscardAutosavedChanges(TRUE);
   }
 
   PUBLIC RECORD FUNCTION GetObjectMetadata() {
@@ -319,17 +329,11 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     INTEGER setparent := EnsureSnapshotsFolder(this->baseobject->parentsite);
 
     RECORD autosavedocrec := SELECT parent, isfolder FROM system.fs_objects WHERE id = autosavedoc;
-    INTEGER oldparent := autosavedocrec.parent;
-    IF(oldparent = setparent)
-      THROW NEW Exception("This autosave is already finished");
 
     UPDATE system.fs_objects
            SET parent := setparent
              , modificationdate := now
          WHERE id = autosavedoc;
-
-    RECORD ARRAY todeleteautosaves := SELECT id, isfolder FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND filelink = this->baseobject->id;
-    DELETE FROM system.fs_objects WHERE id IN (SELECT AS INTEGER ARRAY id FROM todeleteautosaves);
 
     //Patch the existing autosave entry. The autosave will remain the associated snapshot
     UPDATE system_internal.fs_history
@@ -341,11 +345,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     // Fire events
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectMove(0, oldparent, 0, setparent, autosavedoc, autosavedocrec.isfolder);
     commithandler->ObjectUpdate(0, setparent, autosavedoc, autosavedocrec.isfolder);
-    FOREVERY (RECORD rec FROM todeleteautosaves)
-      commithandler->ObjectDelete(0, whconstant_whfsid_autosaves, rec.id, rec.isfolder);
-
     commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
 
     RETURN this->currentautosave_version.id;
