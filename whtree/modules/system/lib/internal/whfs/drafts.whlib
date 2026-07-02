@@ -168,114 +168,13 @@ PUBLIC MACRO CopyWorkflowInstances(INTEGER instancesource, INTEGER destid, INTEG
     }
 }
 
-PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid)
-{
-  RECORD versioninfo := SELECT id, parent, snapshotfor FROM system.fs_objects WHERE id = draftid AND parent IN [whconstant_whfsid_autosaves,whconstant_whfsid_drafts,17];//17 no longer exists
-  IF(NOT RecordExists(versioninfo))
-    RETURN DEFAULT OBJECT;
-
-  RETURN NEW WHFSDraft(versioninfo.id, versioninfo.parent = whconstant_whfsid_drafts, versioninfo.snapshotfor);
+PUBLIC OBJECT FUNCTION OpenWHFSDraft(INTEGER draftid) __ATTRIBUTES__(DEPRECATED "Unavailable since WebHare 6.0") {
+  RETURN DEFAULT OBJECT; //there are still external users, don't fully break them yet
 }
-
-STATIC OBJECTTYPE WHFSDraft <
-  OBJECT pvt_fsobject;
-  BOOLEAN pvt_ispublic;
-  // The live object on which this draft is based
-  INTEGER pvt_source;
-
-  PUBLIC PROPERTY ispublic(pvt_ispublic, -);
-
-  //TODO get rid of when, user and fsobject. They're caches and already hid some bugs in the versioning code, but we should probably wait until all Versioning code is removed - 90% of fsobject references are there.
-  PUBLIC PROPERTY fsobject(pvt_fsobject,-);
-
-  //The ID of the draft object (lives in private autosave/draft folders) which holds the changed (meta)data
-  PUBLIC PROPERTY id(pvt_fsobject->id, -);
-
-  //The ID of the live/original object on which this draft is based (lives in the original site)
-  PUBLIC PROPERTY source(pvt_source, -);
-
-  PUBLIC PROPERTY when(this->pvt_fsobject->creationdate, -);
-
-  PUBLIC PROPERTY user(this->pvt_fsobject->modifiedby, -);
-
-  MACRO NEW(INTEGER draftid, BOOLEAN ispublic, INTEGER source)
-  {
-    this->pvt_ispublic := ispublic;
-    this->pvt_fsobject := OpenWHFSObject(draftid);
-    this->pvt_source := source;
-  }
-  MACRO UnlinkThis()
-  {
-    this->pvt_ispublic := FALSE;
-    this->pvt_fsobject := DEFAULT OBJECT;
-    this->pvt_source := 0;
-  }
-
-  PUBLIC RECORD FUNCTION GetMetadata() {
-    RECORD draftmeta := this->pvt_fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
-    RECORD basefields := SELECT title, keywords, description, data, isunlisted FROM system.fs_objects WHERE id = this->id;
-    RETURN CELL [ draftmeta.name, basefields.title, basefields.keywords, basefields.description, basefields.data, basefields.isunlisted ];
-  }
-
-  PUBLIC MACRO UpdateMetadata(RECORD updates) {
-    updates := ValidateOptions(CELL[ name := "", title := "", description := "" , keywords := "", data := DEFAULT BLOB ], updates, [ optional := ["*"], title := "updates" ] );
-
-    IF(NOT ObjectExists(this->pvt_fsobject))
-      THROW NEW Exception("This draft no longer exists");
-    IF(this->ispublic)
-      THROW NEW Exception("This draft has already been committed to history and is read-only");
-
-    IF(CellExists(updates,'name'))
-      this->pvt_fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", CELL[  updates.name ], [ ifreadonly := "update" ]);
-
-    RECORD directupdates :=  PickCells(updates, ["title","description","keywords","data"]);
-    UPDATE system.fs_objects SET RECORD CELL[ ...directupdates
-                                            , modificationdate := GetCurrentDatetime()
-                                            ]
-                           WHERE id = this->id;
-
-    // Draft could have been moved, so we need to refetch parent
-    INTEGER parent := SELECT AS INTEGER COLUMN parent FROM system.fs_objects WHERE id = this->id;
-    GetWHFSCommitHandler()->ObjectUpdate(0, parent, this->id, this->pvt_fsobject->isfolder);
-  }
-
-  PUBLIC RECORD FUNCTION GetInstanceData(STRING typens) {
-    RECORD typeinfo := LookupContentTypeByName(typens);
-    IF(NOT RecordExists(typeinfo))
-      THROW NEW Exception(`Type '${typens}' is not a known content type`);
-    IF(NOT typeinfo.workflow)
-      THROW NEW Exception(`Type '${typens}' does not support workflow and should not be retrieved from drafts`);
-    IF(NOT ObjectExists(this->pvt_fsobject))
-      THROW NEW Exception("This draft no longer exists");
-
-    RETURN this->pvt_fsobject->GetInstanceData(typens);
-  }
-
-  PUBLIC MACRO SetInstanceData(STRING typens, RECORD data) {
-    RECORD typeinfo := LookupContentTypeByName(typens);
-    IF(NOT RecordExists(typeinfo))
-      THROW NEW Exception(`Type '${typens}' is not a known content type`);
-    IF(NOT typeinfo.workflow)
-      THROW NEW Exception(`Type '${typens}' does not support workflow and should not be set on drafts`);
-    IF(NOT ObjectExists(this->pvt_fsobject))
-      THROW NEW Exception("This draft no longer exists");
-    IF(this->ispublic)
-      THROW NEW Exception("This draft has already been committed to history and is read-only");
-
-    this->pvt_fsobject->SetInstanceData(typens, data, [ ifreadonly := "update" ]);
-  }
-
-  /** Returns the event masks for broadcasts fired for this object
-  */
-  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
-  {
-    RETURN this->fsobject->GetEventMasks();
-  }
->;
 
 /** Start a workflow update (create an autosave to have an object that can receive a RTD being updated)
     @param objid - The ID of the object we're updating. Draft or final object id */
-PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD) {
+PUBLIC INTEGER FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ user := DEFAULT OBJECT, workflowtypes := INTEGER[] ], options);
 
   // Set up the new object (the 'autosave', or at least it will be an autosave as soon as we start writing data from editdocument here)
@@ -314,8 +213,7 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
   commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id, baseobject->isfolder);
   commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid, FALSE);
 
-  OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobject->id);
-  RETURN draft;
+  RETURN destid;
 }
 
 PUBLIC MACRO ImportCurrentState(INTEGER baseobjectid) {

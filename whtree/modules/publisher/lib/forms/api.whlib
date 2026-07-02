@@ -96,12 +96,6 @@ PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, STRING formname, O
 
   INTEGER webtoolformid := formobject->id;
   STRING objref := GetWHFSObjRef(formobject);
-  OBJECT openasdraft := OpenWHFSDraft(webtoolformid);
-  IF(ObjectExists(openasdraft))
-  {
-    webtoolformid := openasdraft->source;
-    objref := GetWHFSObjRef(OpenWHFSObject(openasdraft->source));
-  }
 
   RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, CELL[ webtoolformid, objref ]);
   IF(parseresult.objectname = "")

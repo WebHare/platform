@@ -1574,17 +1574,6 @@ PUBLIC RECORD FUNCTION GetRTDSettingsFromType(STRING type)
 PUBLIC RECORD FUNCTION GetRTDSettingsForFile(INTEGER basefileid)
 {
   INTEGER usefileid := basefileid;
-
-  OBJECT draft := OpenWHFSDraft(basefileid);
-  IF(ObjectExists(draft))
-  {
-    usefileid := draft->source;
-  }
-  ELSE
-  {
-    usefileid := basefileid;
-  }
-
   RECORD retval := GetRTDSettingsForApplyTester(GetApplyTesterForObject(usefileid));
   RETURN retval;
 }
