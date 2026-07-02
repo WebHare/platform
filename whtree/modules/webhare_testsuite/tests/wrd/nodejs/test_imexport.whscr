@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
-LOADLIB "wh::util/comparisons.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -16,37 +15,63 @@ LOADLIB "mod::publisher/lib/rtd.whlib";
 
 
 MACRO TestJSExportRoundTrip() {
-  /*
-  FIXME: JS roundtrip of richdocument is currently broken because JS doesn't preserve the ids for embedded images, links and instances
-
   OBJECT myrichdoc := NEW RichDocument;
-  myrichdoc->ImportFromRecord([
-    htmltext := StringToBlob('<html><body>'
-                                || '<h1 class="heading1">Ik ben     een <b>heading 1&</b></h1>'
-                                || '<p class="normal"><br/></p>'
-                                || '<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> <i>paragraaf</i><br/>met een      soft-break. Check deze afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&#38;G" /> en nog een <img src="cid:imagecid-81401" width="160" height="120" alt="I&#38;G" /></p>'
-                                || '<table class="maintable"><colgroup><col style="width:25px"/><caption class="wh-rtd__tablecaption">Met een captie!</caption><col style="width:45px"/></colgroup><tbody>'
-                                  || '<tr>'
-                                    || '<th scope="col" class="wh-rtd__tablecell"><p class="normal">Cell 1 para 1</p><p class="normal">Cell 1 para 2</p></th>'
-                                      || '<th scope="col" class="cell2"><p class="normal">Cell 2 para 1</p></th>'
-                                  || '</tr><tr>'
-                                    || '<td class="wh-rtd__tablecell cell1" rowspan="2"><p class="normal">Cell 3</p></td>'
-                                    || '<td colspan="1"><p class="normal">Cell 4</p></td>'
-                                  || '</tr><tr>'
-                                    || '<td><p class="normal">Next to the rowspan 2</p></td>'
-                                  || '</tr>'
-                                  || '</tr><tr>'
-                                    || '<td colspan="2"><p class="normal">Colspan 2</p></td>'
-                                  || '</tr>'
-                                || '</tbody></table>'
-                                || '</body></html>'),
+  // Document copied from a rich document editor test
+  myrichdoc->ImportFromRecord(CELL[
+    htmltext := StringToBlob(
+      `<html>` ||
+        `<body>` ||
+          `<h1 class="heading1">Ik ben een heading 1'&lt;&gt;"&amp;</h1>` ||
+          `<p class="normal">` ||
+            `<br data-wh-rte="bogus"/>` ||
+          `</p>` ||
+          `<p class="normal">Ik ben een <b>&lt;normale&gt;</b> <a href="http://b-lex.nl/">b-lex</a> paragraaf<br/>met een soft-break. Check deze afbeelding: <img class="wh-rtd__img" src="cid:imagecid-81400"/> en nog een <img class="wh-rtd__img" src="cid:imagecid-81401"/>` ||
+            `<img alt="I:&#39;&#60;&#62;&#34;&#38;&#10;and an enter" class="wh-rtd__img" height="120" src="" width="160"/>` ||
+          `</p>` ||
+          `<table class="mytable wh-rtd__table">` ||
+            `<caption class="wh-rtd__tablecaption">Met een captie!</caption>` ||
+            `<colgroup class="wh-tableeditor-colgroup">` ||
+              `<col style="width: 25px;"/>` ||
+              `<col style="width: 118px;"/>` ||
+            `</colgroup>` ||
+            `<tbody>` ||
+              `<tr>` ||
+                `<th class="wh-rtd__tablecell" scope="col">` ||
+                  `<p class="normal">Cell 1 para 1</p>` ||
+                  `<p class="normal">Cell 1 para 2</p>` ||
+                `</th>` ||
+                `<th class="wh-rtd__tablecell" scope="col">` ||
+                  `<p class="normal">Cell 2 para 1</p>` ||
+                `</th>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell" rowspan="2">` ||
+                  `<p class="normal">Cell 3</p>` ||
+                `</td>` ||
+                `<td class="wh-rtd__tablecell">` ||
+                  `<p class="normal">Cell 4</p>` ||
+                `</td>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell">` ||
+                  `<p class="normal">Next to the rowspan 2</p>` ||
+                `</td>` ||
+              `</tr>` ||
+              `<tr>` ||
+                `<td class="wh-rtd__tablecell" colspan="2">` ||
+                  `<p class="normal">Colspan 2</p>` ||
+                `</td>` ||
+              `</tr>` ||
+            `</tbody>` ||
+          `</table>` ||
+        `</body>` ||
+      `</html>`),
     embedded := [
       MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"),"bob.jpg"), [ contentid := "imagecid-81400" ]),
       MakeMergedRecord(WrapBlob(GetHarescriptResource("mod::system/web/tests/goudvis.png"),"goudvis.png"), [ contentid := "imagecid-81401" ]),
     ]
   ]);
   RECORD myrichexp := myrichdoc->ExportAsRecord();
-  */
 
   BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png", [ extractdominantcolor := TRUE ]);
@@ -110,7 +135,7 @@ MACRO TestJSExportRoundTrip() {
   rel_obj->CreateAttribute("TEST_MONEY",                       "MONEY",                   [ title := "money" ]);
   rel_obj->CreateAttribute("TEST_INTEGER",                     "INTEGER",                 [ title := "integer" ]);
   rel_obj->CreateAttribute("TEST_BOOLEAN",                     "BOOLEAN",                 [ title := "boolean" ]);
-  //rel_obj->CreateAttribute("TEST_RICHDOCUMENT",                "RICHDOCUMENT",            [ title := "richdocument" ]);
+  rel_obj->CreateAttribute("TEST_RICHDOCUMENT",                "RICHDOCUMENT",            [ title := "richdocument" ]);
   rel_obj->CreateAttribute("TEST_INTEGER64",                   "INTEGER64",               [ title := "integer64" ]);
   rel_obj->CreateAttribute("TEST_WHFSINSTANCE",                "WHFSINSTANCE",            [ title := "whfsinstance" ]);
   rel_obj->CreateAttribute("TEST_WHFSINTEXTLINK",              "WHFSINTEXTLINK",          [ title := "whfsintextlink" ]);
@@ -150,7 +175,7 @@ MACRO TestJSExportRoundTrip() {
     test_money := 12.34m,
     test_integer := 42,
     test_boolean := TRUE,
-    //test_richdocument := myrichexp,
+    test_richdocument := myrichexp,
     test_integer64 := 1234567890123456789i64,
     test_whfsinstance := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1 := "str2-1" ],
     test_whfsintextlink := [ internallink := linkfile->id, externallink := "", append := "" ],
@@ -183,12 +208,14 @@ MACRO TestJSExportRoundTrip() {
     FOREVERY (RECORD rec FROM updates)
       INSERT CELL oldvalue := GetCell(orgfields, rec.name) INTO updates[#rec];
 
-    /*
+    /* code for debugging differences between the original and the roundtrip through JS
     RECORD rd := SELECT * FROM updates WHERE name = "TEST_RICHDOCUMENT";
-    PRINT("OLD:\n" || EncodeJSON(BlobToString(rd.oldvalue.htmltext)) || "\n");
-    PRINT("NEW:\n" || EncodeJSON(BlobToString(rd.value.htmltext)) || "\n");
-    PRINT(SimpleTextDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
-    DumpValue(updates, "tree");
+    IF (RecordExists(rd) AND BlobToString(rd.oldvalue.htmltext) != BlobToString(rd.value.htmltext)) {
+      PRINT("OLD:\n" || EncodeJSON(BlobToString(rd.oldvalue.htmltext)) || "\n");
+      PRINT("NEW:\n" || EncodeJSON(BlobToString(rd.value.htmltext)) || "\n");
+      PRINT(`DIF:\n` || GetColoredLineDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
+      PRINT(SimpleTextDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
+    }
     */
 
     TestEQ(RECORD[], updates);
@@ -200,19 +227,10 @@ MACRO TestJSExportRoundTrip() {
     RECORD fields := schemaobj->^test_imexport->GetEntityFields(newid, testattrs);
     TestEQ(TRUE, RecordExists(fields));
 
+    // RTD's don't keep the contentIds in an export, so they will differ
+    STRING ARRAY expected_changes := [ "test_richdocument" ];
     RECORD ARRAY updates := UnpackRecord(newobj->FilterFieldUpdates(fields));
-    FOREVERY (RECORD rec FROM updates)
-      INSERT CELL oldvalue := GetCell(orgfields, rec.name) INTO updates[#rec];
-
-    /*
-    RECORD rd := SELECT * FROM updates WHERE name = "TEST_RICHDOCUMENT";
-    PRINT("OLD:\n" || EncodeJSON(BlobToString(rd.oldvalue.htmltext)) || "\n");
-    PRINT("NEW:\n" || EncodeJSON(BlobToString(rd.value.htmltext)) || "\n");
-    PRINT(SimpleTextDiff(EncodeJSON(BlobToString(rd.oldvalue.htmltext)), EncodeJSON(BlobToString(rd.value.htmltext))) || "\n");
-    DumpValue(updates, "tree");
-    */
-
-    TestEQ(RECORD[], updates);
+    TestEQ(expected_changes, SELECT AS STRING ARRAY ToLowercase(name) FROM updates ORDER BY name);
   }
 }
 

@@ -9,6 +9,7 @@ import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type 
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import { xmlToJS } from "@mod-system/js/internal/generation/xmlhelpers";
+import { getSignedWHDebugOptions } from "@webhare/router/src/debug";
 
 // An exportable RTD should always be a valid input source
 ({} as RTDExport) satisfies RTDSource;
@@ -1006,7 +1007,9 @@ async function testRegressions() {
 async function testRTDOutput() {
   for (const site of ["webhare_testsuite.testsite", "webhare_testsuite.testsitejs"]) {
     ////////////// Tables
-    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`);
+    const tabledRTD = await fetchPreviewAsDoc(`site::${site}/testpages/tables`, {
+      "wh-debug": getSignedWHDebugOptions({ debugFlags: { "no-minify": true } })
+    });
     const table = tabledRTD.body.getElementsByTagName("table")[0];
     test.assert(table);
     // console.dir(xmlToJS(table), { depth: null });
@@ -1026,17 +1029,17 @@ async function testRTDOutput() {
           children: [
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             },
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             },
             {
               tag: 'col',
-              attributes: { style: 'width:319px' },
+              attributes: { style: 'width: 319px;' },
               children: [],
             }
           ],

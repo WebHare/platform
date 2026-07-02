@@ -678,8 +678,7 @@ export class RichTextDocument {
       this.__instanceIds.set(widget, instanceId);
   }
   __hintImageId(image: RTDBaseInlineImageItem<"inMemory">, imageId: string) {
-    if (this.__imageIds.get(image))
-      this.__imageIds.set(image, imageId);
+    this.__imageIds.set(image, imageId);
   }
 }
 
