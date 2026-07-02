@@ -180,8 +180,9 @@ PUBLIC INTEGER FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, RE
   // Set up the new object (the 'autosave', or at least it will be an autosave as soon as we start writing data from editdocument here)
   DATETIME now := GetCurrentDateTime();
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
+  INTEGER setparent := EnsureSnapshotsFolder(baseobject->parentsite);
   INSERT CELL [ id := destid
-              , parent := whconstant_whfsid_autosaves
+              , parent := setparent
               , name := ToString(destid)
               , creationdate := now
               , modificationdate := now
@@ -211,7 +212,7 @@ PUBLIC INTEGER FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, RE
   // Fire events
   OBJECT commithandler := GetWHFSCommitHandler();
   commithandler->ObjectHistoryChange(baseobject->parentsite, baseobject->parent, baseobject->id, baseobject->isfolder);
-  commithandler->ObjectCreate(0, whconstant_whfsid_autosaves, destid, FALSE);
+  commithandler->ObjectCreate(0, setparent, destid, FALSE);
 
   RETURN destid;
 }

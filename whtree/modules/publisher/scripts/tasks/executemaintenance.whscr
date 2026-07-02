@@ -80,8 +80,7 @@ MACRO RemoveObsoleteDrafts()
   }
 
   //Another safety valve - only delete snapshots that live in the snapshots folder
-  INTEGER ARRAY snapshot_folders := SELECT AS INTEGER ARRAY parent FROM system.fs_objects WHERE parent = whconstant_whfsid_whfs_snapshots AND isfolder;
-  INSERT whconstant_whfsid_autosaves INTO snapshot_folders AT END; //for now this is also an acceptable parent
+  INTEGER ARRAY snapshot_folders := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent = whconstant_whfsid_whfs_snapshots AND isfolder;
 
   RECORD ARRAY misplaced_snapshots := SELECT id,whfspath FROM system.fs_objects WHERE id IN old_autosaves AND parent NOT IN snapshot_folders;
   IF(Length(misplaced_snapshots) > 0)  {

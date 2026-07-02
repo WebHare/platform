@@ -329,9 +329,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     INTEGER setparent := EnsureSnapshotsFolder(this->baseobject->parentsite);
 
     RECORD autosavedocrec := SELECT parent, isfolder FROM system.fs_objects WHERE id = autosavedoc;
-    INTEGER oldparent := autosavedocrec.parent;
-    IF(oldparent = setparent)
-      THROW NEW Exception("This autosave is already finished");
 
     UPDATE system.fs_objects
            SET parent := setparent
@@ -348,7 +345,6 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
 
     // Fire events
     OBJECT commithandler := GetWHFSCommitHandler();
-    commithandler->ObjectMove(0, oldparent, 0, setparent, autosavedoc, autosavedocrec.isfolder);
     commithandler->ObjectUpdate(0, setparent, autosavedoc, autosavedocrec.isfolder);
     commithandler->ObjectHistoryChange(this->baseobject->parentsite, this->baseobject->parent, this->baseobject->id, this->baseobject->isfolder);
 

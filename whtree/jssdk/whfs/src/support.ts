@@ -80,14 +80,6 @@ export function isQueuedForPublication(published: number) {
   return code > 0 && code <= 100;
 }
 
-export function isReadonlyWHFSSpace(path: string) {
-  path = path.toUpperCase();
-  return path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/") ||
-    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/") || //not so much readonly but requires setting a workflow flag
-    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/") ||
-    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/");
-}
-
 export const PubPrio_Scheduled = 6;  //put on queue because of a scheduled task
 export const PubPrio_DirectEdit = 11;  //put on queue because of user action (edit, replace)
 export const PubPrio_FolderRepub = 16;  //put on queue because of a republish on this folder (or root folder of a republish_all)
@@ -179,12 +171,14 @@ export async function getWHFSDescendantIds(basefolders: number[], returnfolders:
   return allsubs;
 }
 
+/** Historic WHFS Space contains the snapshots and the recyclebin and shouldn't normally be updated */
 export function isHistoricWHFSSpace(path: string) {
   path = path.toUpperCase();
-  if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/")
-    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/")
+  if (path.startsWith("/WEBHARE-PRIVATE/PLATFORM/WHFS/") //WH6.0+ migrates all historic WHFS content to this space
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/") //WH5.9
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/") //WH5.9
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/") //WH5.9
+    || path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-AUTOSAVES/") //WH5.9
   )
     return true;
   return false;

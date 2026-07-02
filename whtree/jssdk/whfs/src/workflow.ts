@@ -1,7 +1,14 @@
 //TODO not sure if we should *actually* offer the HS API to TS in the same shape
 
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { makeObject, type HSVMObject } from "@webhare/harescript";
+import { db, nextVal } from "@webhare/whdb";
 import { whfsType, type WHFSTypes } from "@webhare/whfs/src/contenttypes";
+import { createWHFSObject } from "./objects";
+import { getType } from "./describe";
+import { throwError } from "@webhare/std";
+import { whconstant_whfsid_whfs_snapshots } from "@mod-system/js/internal/webhareconstants";
+import { IntExtLink } from "@webhare/services/src/intextlink";
 
 class WorkFlowManager {
   constructor(private hsMgr: HSVMObject) {
@@ -30,6 +37,26 @@ export type WorklowOptions = {
   workflowTypes?: string[];
   assumeWriteAccess?: boolean;
 };
+
+//TODO - To avoid races, create WHFS folders for a site immediately when creating the site. But having multiple shouldn't really matter..
+async function ensureWHFSSiteFolder(parent: number, site: number | null): Promise<number> {
+  //Always prefer the 'oldest' version folder. cleanversions will merge newers into the oldest anyway
+  const versionRoot = await db<PlatformDB>().selectFrom("system.fs_objects").where("parent", "=", parent).where("filelink", "=", site).select("id").orderBy("creationdate").executeTakeFirst();
+  if (versionRoot)
+    return versionRoot.id;
+
+  const newVersionDir = await nextVal("system.fs_objects.id");
+  const type = getType("platform:foldertypes.default") ?? throwError("Could not find default folder type");
+  await createWHFSObject({ id: parent, parentSite: null }, newVersionDir.toString(), type, {
+    id: newVersionDir,
+    target: site ? new IntExtLink(site) : null
+  });
+  return newVersionDir;
+}
+
+export async function ensureSnapshotsFolder(site: number | null) {
+  return await ensureWHFSSiteFolder(whconstant_whfsid_whfs_snapshots, site);
+}
 
 export async function openWorkflowManager(fileId: number, options?: WorklowOptions) {
   const hsMgr = await makeObject("mod::publisher/lib/history.whlib#WorkflowManager", fileId, {

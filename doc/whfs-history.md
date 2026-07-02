@@ -3,12 +3,12 @@
 The history for WHFS objects is primarily linked to the Save and Publish
 operations in the document editor.
 
-Each site has a snapshot folder `/webhare-private/system/whfs/snapshots/<siteid>`.
+Each site has a snapshot folder `/webhare-private/platform/whfs/snapshots/<siteid>`.
 (history for any objects outside a site will be stored as siteid '0'). This is
 where we store a copy of the file whenever its saved or published. We store them
 as a full copy so `GetInstanceData()` works on its id.
 
-A site's recyclebin lives in `/webhare-private/system/whfs-versions/<siteid>`.
+A site's recyclebin lives in `/webhare-private/platform/recyclebin/<siteid>`.
 
 ## History events
 
@@ -57,15 +57,12 @@ The document editor implements the draft/publish workflow. The editor manages a 
 we will refer to this as managed fields. The editor doesn't currently manage fields such as the file title and SEO descriptions -
 these are considered the unmanaged fields.
 
-The document editor creates an autosave in the `whconstant_whfsid_autosaves` folder (a full copy linked through `snapshotfor` to
-the original source) when you start editing a document to record the current changes. This autosave is then periodically updated.
+When you start editing the document editor creates an autosave in the site's snapshot folder as a full copy linked through `snapshotfor` to
+the original source. This autosave is then periodically updated. All content types that are active in the editor (which must have clone: onDraft)
+are stored with the autosave, even if the instance is empty. The instances are marked with the 'workflow' flag.
 
-A public draft is created when a published file has pending content changes - ie the Save button for a published
-file creates a draft but does not update the source. Since WH5.9 you can also create public drafts for an unpublished document
-or unpublishable documents.
-
-When you save a draft the current autosave is moved to the `whconstant_whfsid_drafts` folder. All content types that are managed
-in the editor are stored with the autosave (with the 'workflow' attribute). (Before WH5.9: all clonable data would copied)
+Clicking the Save button will copy the current contents (the current autosave) to a draft snapshot and does not update the source document.
+Since WH5.9 you can also create public drafts for an unpublished document or unpublishable documents.
 
 The draft's minor version number is increased and the editor is set to the user saving
 this draft. A version event of type 'saved' is generated and the snapshot is set to the draft id. Any earlier drafts are
@@ -77,8 +74,8 @@ the minor reset to 0) - eg the last draft might be `0.6` and the first published
 The existing draft is moved to the `whconstant_whfsid_whfs_snapshots` folder. A version event of type 'publish' is generated
 with the snapshot pointing to the same draft (so there may be two version events referring to the same snapshot).
 
-Reverting a draft moves it to the snapshots folder and creates a 'revert' event pointing to the snapshot. A revert keeps
-its version number and a new draft generated from the source will have an incremented minor version.
+Reverting a draft creates an 'abandoned draft' event to mark the end of this editing session. Drafts before this 'abanonded' event
+will not be opened by the editor, but their version (number)s are preserved and a new draft generated from the source will have an incremented minor version.
 
 ### File named and workflow
 Principles behind the 'name' field and its effect on the UI/WHFS:
@@ -95,7 +92,7 @@ In practice:
 
 
 ## Background information
-- We use the `/webhare-private/system/whfs-XXX/<siteid>/` structure with fixed IDs for the whfs- folders so it only takes
+- We use the `/webhare-private/platform/whfs-XXX/<siteid>/` structure with fixed IDs for the whfs- folders so it only takes
   one `parent=xx and snapshotfor=yy` query to find it.
 
 ### SQL

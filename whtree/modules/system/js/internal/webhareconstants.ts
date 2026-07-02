@@ -19,17 +19,11 @@ export const whconstant_whfsid_lostandfound = 6;
 //Folder id for webhare-private/
 export const whconstant_whfsid_private = 10;
 
-//Folder id for webhare-private/system/whfs-versions
+//Folder id for webhare-private/platform/whfs/recyclebins
 export const whconstant_whfsid_versions = 11;
 
 //Folder id for webhare-private/wrd
 export const whconstant_whfsid_wrdstore = 13;
-
-//Folder id storing autosaves
-export const whconstant_whfsid_autosaves = 14;
-
-//Folder id for webhare-private/system/whfs-drafts
-export const whconstant_whfsid_drafts = 15;
 
 //Folder/site id of the WebHare Backend site
 export const whconstant_whfsid_webharebackend = 16;
@@ -49,11 +43,14 @@ export const whconstant_whfsid_webhare_tests = 22;
 //Folder id for webhare-private/system/shorturl
 export const whconstant_whfsid_shorturl = 23;
 
-//Folder id for webhare-private/system/whfs
+//Folder id for webhare-private/platform/whfs
 export const whconstant_whfsid_whfs = 24;
 
-//Folder id for webhare-private/system/whfs/snapshots
+//Folder id for webhare-private/platform/whfs/snapshots
 export const whconstant_whfsid_whfs_snapshots = 25;
+
+//Folder id for webhare-private/platform/
+export const whconstant_whfsid_private_platform = 26;
 
 //Default key expiry warning (days)
 export const whconstant_default_warnexpirydays = 30;
