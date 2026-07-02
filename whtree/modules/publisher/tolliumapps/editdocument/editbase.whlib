@@ -202,8 +202,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
     this->contexts->applytester := this->renderer->applytester;
 
-    IF(objectid != 0) {
-      IF(options.useworkflow AND RecordExists(this->renderer->metatabsconfig)) {
+    IF(objectid != 0 AND options.useworkflow) {
+      IF(RecordExists(this->renderer->metatabsconfig)) {
          //add the metacontroller requested types to the type edit list
         FOREVERY(RECORD t FROM this->renderer->metatabsconfig.types)
           INSERT t.namespace INTO workflowtypes AT END;
@@ -213,8 +213,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
 
       this->workflowmgr := NEW WorkflowManager(objectid,
         CELL[ user := this->contexts->user
-            , ...options
-            , workflowtypes := options.useworkflow ? workflowtypes : STRING[]
+            , options.readonly
+            , options.assumewriteaccess
+            , workflowtypes
             ]);
     }
 
@@ -301,14 +302,14 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase <
       INSERT CELL keywords := ^keywords->value INTO metadata;
     IF(^isunlisted->enabled)
       INSERT CELL isunlisted := ^isunlisted->value INTO metadata;
-    IF(ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow)
+    IF(ObjectExists(this->workflowmgr))
       INSERT CELL name := ^name->value INTO metadata;
 
     RETURN metadata;
   }
 
   MACRO SaveMetadata(INTEGER targetobject) { //editdocument will always be invoking us with a draft as parameter
-    OBJECT target := ObjectExists(this->workflowmgr) AND this->workflowmgr->useworkflow ? this->workflowmgr : OpenWHFSObject(targetobject);
+    OBJECT target := ObjectExists(this->workflowmgr) ? this->workflowmgr : OpenWHFSObject(targetobject);
 
     //FIXME ensure any specific validation rule *and* all valueConstraints are honored
     FOREVERY(RECORD controller FROM this->renderer->metacontrollers)

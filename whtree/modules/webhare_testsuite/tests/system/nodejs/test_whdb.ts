@@ -125,7 +125,7 @@ async function testQueries() {
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
   await beginWork();
-  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute(); //clean up for testContexts
+  test.eq([{ numDeletedRows: 6n }], await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute()); //clean up for testContexts
   await commitWork();
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
@@ -737,8 +737,8 @@ async function testDeadlockDetection() {
 
     const run1 = ctxt1.run(async () => {
       await beginWork();
-      // update row 1
-      await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated1" }).where("id", "=", 1).execute();
+      // update row 1. we're also getting numChangedRows: undefined which is a kysely thing and just means our driver doesn't support that field
+      test.eqPartial([{ numUpdatedRows: 1n }], await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated1" }).where("id", "=", 1).execute());
       // wait for the second context to update row 2
       update1_1.resolve();
       await update2_2.promise;

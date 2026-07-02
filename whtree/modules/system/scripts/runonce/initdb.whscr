@@ -15,7 +15,6 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -167,33 +166,33 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  ]
                                ];
 
-IF(GetEnvironmentVariable("WEBHARE_CI") != "") { //precreate /webhare-tests/ or EnsureWHFSTestRoot may race against itself (eg CI scripts versus webhare_testsuites:reset)
-  INSERT CELL[ id := whconstant_whfsid_webhare_tests
-             , parent := 0
-             , name := "webhare-tests"
-              , type := whconstant_whfstype_normalfolder
-              ] INTO folderchecklist AT END;
-}
-
 DATETIME initnow := GetCurrentDatetime();
 OBJECT trans := OpenPrimary();
 
+/* As initdb uses only a single transaction we can easily detect whether we ever completed
+
+   Ideally we'd combine this with the initial creation commit of the system.fs_objects table - then there's no way to race us from eg a manually started script */
+BOOLEAN is_first_initdb := NOT RecordExists(SELECT FROM system.fs_objects LIMIT 1);
+BOOLEAN is_webhare_ci := GetEnvironmentVariable("WEBHARE_CI") != "";
 /*
    Initialize/repair the repository and basic filetypes
 */
 trans->BeginWork();
 
+IF(is_webhare_ci) { //precreate /webhare-tests/ or EnsureWHFSTestRoot may race against itself (eg CI scripts versus webhare_testsuites:reset)
+  INSERT CELL[ id := whconstant_whfsid_webhare_tests
+             , parent := 0
+             , name := "webhare-tests"
+              , type := whconstant_whfstype_normalfolder
+              ] INTO folderchecklist AT END;
+  //Ensure mailfrom is set, needed for some tests
+  WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
+}
+
 InitializeFileTypes();
 
-INTEGER ARRAY createdfolders;
-
-INTEGER rescue_system_folder := SELECT AS INTEGER id FROM system.fs_objects WHERE parent = whconstant_whfsid_private AND name="system" AND id != whconstant_whfsid_private_system;
-IF(rescue_system_folder != 0) //we have one to rescue!
-  UPDATE system.fs_objects SET name := "system$$$torescue" WHERE id = rescue_system_folder;
-
-FOREVERY(RECORD tocheck FROM folderchecklist)
-{
-  OBJECT folder := OpenWHFSObject(tocheck.id);
+FOREVERY(RECORD tocheck FROM folderchecklist) {
+  OBJECT folder := is_first_initdb ? DEFAULT OBJECT : OpenWHFSObject(tocheck.id);
   IF(NOT ObjectExists(folder))
   {
     IF(tocheck.parent!=0 AND NOT ObjectExists(OpenWHFSObject(tocheck.parent)))
@@ -201,8 +200,6 @@ FOREVERY(RECORD tocheck FROM folderchecklist)
 
     INSERT INTO system.fs_objects(id,name,creationdate,modificationdate,parent,isfolder,type, ispinned)
            VALUES(tocheck.id,tocheck.name,initnow,initnow,tocheck.parent,TRUE,2, TRUE);
-
-    INSERT tocheck.id INTO createdfolders AT END;
   }
   ELSE IF(tocheck.parent != folder->parent OR tocheck.type != folder->type OR NOT folder->ispinned)
   {
@@ -213,32 +210,14 @@ FOREVERY(RECORD tocheck FROM folderchecklist)
   }
 }
 
-IF(rescue_system_folder != 0) //clear out the old folder
-{
-  UPDATE system.fs_objects SET parent := whconstant_whfsid_private_system WHERE parent = rescue_system_folder;
-  DELETE FROM system.fs_objects WHERE id = rescue_system_folder;
-}
-
-// Delete the siteprofile XML version if it still exists
-OBJECT oldsiteprofile := OpenWHFSObjectByPath("/webhare-private/publisher/compiled-siteprofiles.xml");
-IF(ObjectExists(oldsiteprofile))
-  oldsiteprofile->RecycleSelf();
-
-// trigger initial compilation of siteprofiles before we add the first site
-// TODO: if we split up siteprofiles into platform / installed modules and ship the platform set in platform/generated/, this trigger will be unneeded again
-GetWHFSCommitHandler()->UpdateSiteProfiles();
-
 // Ensure we have a repository site too
-BOOLEAN isfreshwebhare;
-IF(NOT RecordExists(SELECT FROM system.sites WHERE id=1))
-{
-  isfreshwebhare := TRUE;
+IF(is_first_initdb OR NOT RecordExists(SELECT FROM system.sites WHERE id=1)) {
   // Initializing the Repository...
   CreateSiteFromFolder(whconstant_whfsid_repository);
 }
 
 OBJECT usermgmtschema := OpenWRDSchema("system:usermgmt");
-IF(NOT ObjectExists(usermgmtschema))
+IF(is_first_initdb OR NOT ObjectExists(usermgmtschema))
 {
   /* We need to initialize system:usermgmt early on new installations, or GetPrimaryWebhareUserAPI() may break during
     poststart due to no accounttype yet (we used to delay accounttype setting until poststart, racing other poststart scripts) */
@@ -251,61 +230,38 @@ IF(NOT ObjectExists(usermgmtschema))
 // Ensure submodule folders exist
 EnsureModulePrivateFolders();
 
-STRING hostname := ReadRegistryKey("system.global.servername");
-IF(hostname = "")
-{
-  hostname := GetSystemHostName(TRUE);
-  WriteRegistryKey("system.global.servername", hostname);
-}
-IF(ReadRegistryKey("system.global.installationid") = "")
+IF(is_first_initdb) {
+  WriteRegistryKey("system.global.servername", GetSystemHostName(TRUE));
   WriteRegistryKey("system.global.installationid", GenerateUFS128BitId());
-IF(ReadRegistryKey("system.global.servertype") = "")
   WriteRegistryKey("system.global.servertype", IsModuleInstalled("webhare_testsuite") ? "development" : "test");
-
-IF(ReadRegistryKey("system.tasks.maintenanceoffset") = 0)
   WriteRegistryKey("system.tasks.maintenanceoffset", Random(1,240));
-
-IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
   WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
   WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
   WriteRegistryKey("system.webserver.security.debugsecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-IF(ReadRegistryKey("system.webserver.security.gcmsecret")="")
   WriteRegistryKey("system.webserver.security.gcmsecret", EncodeUFS(DecodeUFS(GenerateUFS128BitId())||DecodeUFS((GenerateUFS128BitId()))));
 
-/* NOT sure if we want to make this envvar official .. using it for freshdbconsole but a YAML file with initial
-   (or always applied?) configuration would be more flexible */
-STRING initial_backend := GetEnvironmentVariable("WEBHARE_INITIAL_BACKEND")
-                          ?? (GetEnvironmentVariable("WEBHARE_CI") != "" ? "http://127.0.0.1/" : "");
+  /* NOT sure if we want to make this envvar official .. using it for freshdbconsole but a YAML file with initial
+    (or always applied?) configuration would be more flexible */
+  STRING initial_backend := GetEnvironmentVariable("WEBHARE_INITIAL_BACKEND")
+                            ?? (GetEnvironmentVariable("WEBHARE_CI") != "" ? "http://127.0.0.1/" : "");
 
-IF(initial_backend LIKE "http:*") //no https support (yet? but bothering letsencrypt for CI is not nice)
-{
-  IF(NOT RecordExists(SELECT FROM system.webservers)
-     AND NOT RecordExists(SELECT FROM system.ports)
-     AND NOT RecordExists(SELECT FROM system.sites WHERE id = whconstant_whfsid_webharebackend) ) //we are completely new!
-  {
+  IF(initial_backend LIKE "http:*") { //no https support (yet? but bothering letsencrypt for CI is not nice)
     RECORD unpacked := UnpackURL(initial_backend);
 
     // Setup port and bindings for http://127.0.0.1/
     INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
     INTEGER portid := MakeAutoNumber(system.ports,"id");
     INSERT INTO system.ports(id,ip,port,virtualhost)
-           VALUES (portid, "", unpacked.port, unpacked.isdefaultport); //we assume 80/443 should be virtualhosted
+          VALUES (portid, "", unpacked.port, unpacked.isdefaultport); //we assume 80/443 should be virtualhosted
 
     //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
     INSERT INTO system.webservers(id,type,baseurl,outputextension,port)
-           VALUES (webserverid, 1, initial_backend, '.html',unpacked.isdefaultport ? 0 : portid);
+          VALUES (webserverid, 1, initial_backend, '.html',unpacked.isdefaultport ? 0 : portid);
 
     Print(`WEBHARE_CI: Configured a webinterface at ${initial_backend}\n`);
     OBJECT backendsite := CreateSiteFromFolder(whconstant_whfsid_webharebackend);
     backendsite->SetPrimaryOutput(webserverid, "/");
   }
-
-  IF (ReadRegistryKey("system.services.smtp.mailfrom") = "") //Ensure mailfrom is set, needed for some tets
-    WriteRegistryKey("system.services.smtp.mailfrom", "defaultmailfrom@beta.webhare.net");
 }
-
-UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation! and a CreateAppliedPromise "siteprofilerefs" through UpdateSiteMetadata
 
 trans->CommitWork();

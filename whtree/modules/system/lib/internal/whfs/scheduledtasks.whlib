@@ -52,7 +52,7 @@ MACRO DoStartPublish(RECORD task)
   INTEGER ARRAY check_for_drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN affected_files AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
 
   FOREVERY(INTEGER tocheck FROM check_for_drafts) {
-    OBJECT mgr := NEW WorkflowManager(task.file, [ useworkflow := TRUE, assumewriteaccess := TRUE ]);
+    OBJECT mgr := NEW WorkflowManager(task.file, [ assumewriteaccess := TRUE ]);
     IF(RecordExists(mgr->GetCurrentDraft()))
       mgr->Save([ finalize := TRUE, updatemetadatafields := STRING[]]); //don't copy title etc until those props are visible to all
   }
@@ -211,8 +211,7 @@ MACRO DoReplaceWith(RECORD task)
     INSERT OpenWHFSTypeById(cancopy) INTO clonetypes AT END;
 
   OBJECT workflowmgr := NEW WorkflowManager(task.file,
-      [ useworkflow := TRUE,
-        workflowtypes := (SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type"))
+      [ workflowtypes := (SELECT AS STRING ARRAY type->namespace FROM ToRecordArray(clonetypes, "type"))
       , assumewriteaccess := TRUE
       ]);
 

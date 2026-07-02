@@ -176,6 +176,17 @@ async function testInstanceData() {
   expectNumSettings += 3; //adding 3 array members
   await verifyNumSettings(testfile.id, "webhare_testsuite:global.generic_test_type", expectNumSettings);
 
+  test.eq([
+    {
+      fsObject: testfile.id,
+      namespace: "webhare_testsuite:global.generic_test_type",
+      scopedType: "webhare_testsuite:global.generic_test_type",
+      clone: "onCopy",
+      orphan: false,
+      workflow: false
+    }
+  ], await whfs.listInstances([testfile.id]));
+
   test.eqPartial({
     int: 20,
     str: "String",
@@ -740,9 +751,9 @@ async function testInstanceData() {
     const oldModified = testfile.modified;
     await beginWork();
     if (scenario.cloneType === "onCopy") {
-      await whfsType("webhare_testsuite:global.type_clone_only").set(testfile.id, { cloneOnlyString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
+      await whfsType("webhare_testsuite:global.type_clone_oncopy").set(testfile.id, { onCopyString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
     } else {
-      await whfsType("webhare_testsuite:global.type_no_clone").set(testfile.id, { noCloneString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
+      await whfsType("webhare_testsuite:global.type_clone_never").set(testfile.id, { neverString: "Random change " + generateRandomId() }, { isVisibleEdit: scenario.setVisibleEdit });
     }
     await commitWork();
     await testfile.refresh();

@@ -91,8 +91,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 
   PUBLIC MACRO SetEditContentTypes(STRING ARRAY types) {
     this->pvt_editcontenttypes := types;
-    IF(this->editscreen->workflowmgr->useworkflow)
-      this->editscreen->workflowmgr->AddTypes(types);
+    this->editscreen->workflowmgr->AddTypes(types);
   }
 
   /// Get instance data of a given type from the object being edited (containing last changes)

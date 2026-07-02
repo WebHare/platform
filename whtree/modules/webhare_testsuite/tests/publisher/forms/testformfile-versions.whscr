@@ -74,8 +74,6 @@ PUBLIC MACRO SetupFormVersions() {
     testfw->BeginWork();
     OBJECT workflowmgr := NEW WorkflowManager(form.id,
       [ user := GetEffectiveUser(),
-        useworkflow := TRUE,
-        // workflowtypes := ["webhare_testsuite:global.type_with_workflow"]
       ]);
     workflowmgr->Save([ finalize := TRUE ]);
     testfw->CommitWork();
@@ -105,7 +103,6 @@ PUBLIC MACRO SetupFormVersions() {
     testfw->BeginWork();
     OBJECT workflowmgr := NEW WorkflowManager(form.id,
       [ user := GetEffectiveUser(),
-        useworkflow := TRUE,
         workflowtypes := ["platform:filetypes.form"]
       ]);
 

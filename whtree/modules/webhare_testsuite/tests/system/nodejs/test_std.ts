@@ -1078,6 +1078,16 @@ async function testUtils() {
   const ac3 = new AbortController();
   std.whenAborted(AbortSignal.abort("aborted4"), ac3);
   test.eq("aborted4", ac3.signal.reason);
+
+  //Test pipe, which strings together sync and async APIs
+  test.eq(12, std.pipe(() => 3, x => x + 1, x => x * 3));
+  test.eq("12!", std.pipe(() => 4, x => x * 3, x => `${x}!`));
+  test.eq("12!", await std.pipe(() => 4, async x => x * 3, async x => `${x}!`));
+  test.eq("12!", await std.pipe(() => 4, x => x * 3, async x => `${x}!`));
+  test.eq("12!", await std.pipe(() => 4, async x => x * 3, x => `${x}!`));
+  test.eq([1, 2, 3], std.pipe([1, 2, 3]));
+  test.eq([1, 2, 3, 4], std.pipe([1, 2, 3], values => values.concat(4)));
+  test.eq([1, 2, 3, 4], await std.pipe([1, 2, 3], async values => values.concat(4)));
 }
 
 

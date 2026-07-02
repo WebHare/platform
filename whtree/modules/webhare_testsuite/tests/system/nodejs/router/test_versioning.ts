@@ -2,7 +2,7 @@ import { fetchPreviewAsDoc } from "@mod-webhare_testsuite/js/whfs";
 import * as test from "@mod-webhare_testsuite/js/wts-backend.ts";
 import { throwError } from "@webhare/std";
 import { beginWork, commitWork } from "@webhare/whdb";
-import { whfsType } from "@webhare/whfs";
+import { listInstances, whfsType } from "@webhare/whfs";
 import { openWorkflowManager } from "@webhare/whfs/src/workflow";
 import { generateForm } from "../data/whfs-testhelpers";
 
@@ -28,6 +28,17 @@ async function testVersionedForm() {
   //Preview the historic variant
   const history = await form.listHistory();
   test.eqPartial([{ type: "import", version: "1.0" }, { type: "final", version: "2.0" }], history);
+  test.eq([
+    {
+      fsObject: form.id,
+      namespace: "http://www.webhare.net/xmlns/publisher/formwebtool",
+      scopedType: "platform:filetypes.form",
+      clone: "onDraft",
+      orphan: false,
+      workflow: false
+    }
+  ], await listInstances([form.id]));
+
 
   const historicPreview = await fetchPreviewAsDoc(history[0].snapshot ?? throwError("No snapshot for original import?"));
   test.eq(/This is test #1/, historicPreview.contentDiv?.textContent);

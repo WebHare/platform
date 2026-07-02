@@ -316,19 +316,6 @@ PUBLIC OBJECT FUNCTION StartWorkflowUpdate(OBJECT baseobject, INTEGER objid, REC
   RETURN draft;
 }
 
-/** @short Returns the public draft for this object, if it exists
-    @param objid Id of the object
-    @return(object %WHFSDraft) Public draft, if it exists
-    @topic sitedev/whfs
-    @public
-    @loadlib mod::system/lib/whfs.whlib
-*/
-PUBLIC OBJECT FUNCTION GetPublicDraft(INTEGER objid)
-{
-  INTEGER draftid := SELECT AS INTEGER id FROM system.fs_objects WHERE filelink = objid AND parent = whconstant_whfsid_drafts;
-  RETURN draftid = 0 ? DEFAULT OBJECT : NEW WHFSDraft(draftid, TRUE, objid);
-}
-
 /** Cleanup private drafts made by others */
 PUBLIC MACRO CleanupOtherPrivateDrafts(INTEGER objid)
 {

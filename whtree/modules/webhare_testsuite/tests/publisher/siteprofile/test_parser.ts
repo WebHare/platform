@@ -579,6 +579,33 @@ apply:
 
 `));
 
+  // Test onDraft
+  test.eqPartial({
+    contenttypes: [
+      {
+        scopedtype: 'webhare_testsuite:type1' as WHFSTypeName,
+        cloneonarchive: true,
+        cloneoncopy: true,
+        workflow: true
+      },
+      {
+        scopedtype: 'webhare_testsuite:type2' as WHFSTypeName,
+        cloneonarchive: true,
+        cloneoncopy: true,
+        workflow: true
+      }
+    ]
+  }, await parseSP(`
+types:
+  type1:
+    kind: page
+    clone: onCopy
+    workflow: true
+  type2:
+    kind: page
+    clone: onDraft
+`));
+
 
 
   //TODO add a file or foldertype and use that to prove 'apply to type:' works for a scoped type

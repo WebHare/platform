@@ -79,18 +79,26 @@ types:
       myLink:
         type: intextlink
 
-  type_no_clone:
+  type_clone_never:
     clone: never
     members:
-      noCloneString:
+      neverString:
         type: string
 
-  type_with_workflow:
+  type_clone_ondraft:
+    clone: onDraft
     members:
-      withWorkflowString:
+      onDraftString:
         type: string
 
-  type_clone_only:
+  type_clone_ondraft2: # we need a second onDraft type to test adding types during version history
+    clone: onDraft
     members:
-      cloneOnlyString:
+      onDraftString2:
+        type: string
+
+  type_clone_oncopy:
+    clone: onCopy # the default, btw
+    members:
+      onCopyString:
         type: string

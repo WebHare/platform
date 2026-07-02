@@ -133,6 +133,90 @@ function decodeTarget(target: IntExtLink | null, type: string | null, explicitTy
   }
 }
 
+/** Lowlevel WHFS object creator which avoids openFile/Folder overhead */
+export async function createWHFSObject(parent: {
+  /** Parent folder ID */
+  id: number | null;
+  /** Site ID of parent folder */
+  parentSite: number | null;
+}, name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata): Promise<number> {
+  const creationdate = metadata?.created ? new Date(metadata.created.epochMilliseconds) : new Date();
+  const modificationdate = metadata?.modified ? new Date(metadata.modified.epochMilliseconds) : creationdate;
+
+  let data: WebHareBlob | null = null, scandata = '';
+  if (!type.foldertype) {
+    const resdescr = (metadata as CreateFileMetadata)?.data;
+    if (resdescr) {
+      scandata = await addMissingScanData(resdescr, { fileName: name });
+      data = resdescr?.resource || null;
+      if (data)
+        await uploadBlob(data);
+    }
+  }
+
+  if (metadata && "fileLink" in metadata) //TODO need to set it for version/recycled files. but that might be a lower level API in the end PLUS consider moving that to a 'version' or 'base' reference so we can actually version int/ext links
+    throw new Error(`The 'filelink' property is read only. Update the 'target' property instead.`);
+
+  //FIXME validate whether type is valid for publication
+  const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
+  const initialData: boolean = data ? data.size > 0 : false;
+
+  const isFolder = Boolean(type.foldertype);
+  let published = initialPublish ? PubPrio_DirectEdit : 0;
+  if (!isFolder) {
+    published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
+  }
+
+  const { externallink, filelink, forceType } = decodeTarget((metadata as CreateFileMetadata)?.target || null, metadata && "type" in metadata ? type.scopedtype : null, Boolean(metadata && "type" in metadata));
+  if (forceType)
+    type = getType(forceType, "fileType") ?? std.throwError(`Forced type '${forceType}' not found`);
+
+  const { id } = await db<PlatformDB>()
+    .insertInto("system.fs_objects")
+    .values({
+      id: metadata?.id || undefined,
+      creationdate,
+      modificationdate,
+      modifiedby: metadata?.modifiedBy ? await ensureAuthObject(metadata.modifiedBy) : null,
+      parent: parent.id,
+      name,
+      title: metadata?.title || "",
+      description: metadata?.description || "",
+      errordata: "",
+      externallink,
+      filelink,
+      isfolder: isFolder,
+      keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
+      firstpublishdate: (metadata as CreateFileMetadata)?.firstPublish
+        ? new Date((metadata! as CreateFileMetadata).firstPublish!.epochMilliseconds)
+        : initialPublish
+          ? creationdate
+          : defaultDateTime,
+      contentmodificationdate: (metadata as CreateFileMetadata)?.contentModified
+        ? new Date((metadata! as CreateFileMetadata).contentModified!.epochMilliseconds)
+        : initialPublish || initialData
+          ? creationdate
+          : defaultDateTime,
+      lastpublishdate: defaultDateTime,
+      lastpublishsize: 0,
+      lastpublishtime: 0,
+      scandata,
+      ordering: metadata?.order ?? 0,
+      published,
+      type: type.id || null, //#0 can't be stored so convert to null
+      ispinned: metadata?.isPinned || false,
+      isunlisted: metadata?.isUnlisted || false,
+      data: data,
+      indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null
+    }).returning(['id']).executeTakeFirstOrThrow();
+
+  whfsFinishHandler().objectCreate(parent.parentSite, parent.id, id, isFolder);
+  if (isPublish(published))
+    whfsFinishHandler().fileRepublish(parent.parentSite, parent.id, id);
+
+  return id;
+}
+
 abstract class WHFSBaseObject {
   protected dbrecord: FsObjectRow;
   private _typens: string;
@@ -543,96 +627,26 @@ export class WHFSFolder extends WHFSBaseObject {
   }
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
-    const creationdate = metadata?.created ? new Date(metadata.created.epochMilliseconds) : new Date();
-    const modificationdate = metadata?.modified ? new Date(metadata.modified.epochMilliseconds) : creationdate;
-
-    let data: WebHareBlob | null = null, scandata = '';
-    if (!type.foldertype) {
-      const resdescr = (metadata as CreateFileMetadata)?.data;
-      if (resdescr) {
-        scandata = await addMissingScanData(resdescr, { fileName: name });
-        data = resdescr?.resource || null;
-        if (data)
-          await uploadBlob(data);
-      }
-    }
-
-    if (metadata && "fileLink" in metadata) //TODO need to set it for version/recycled files. but that might be a lower level API in the end PLUS consider moving that to a 'version' or 'base' reference so we can actually version int/ext links
-      throw new Error(`The 'filelink' property is read only. Update the 'target' property instead.`);
-
-    //FIXME validate whether type is valid for publication
-    const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
-    const initialData: boolean = data ? data.size > 0 : false;
-
-    const isfolder = Boolean(type.foldertype);
-    let published = initialPublish ? PubPrio_DirectEdit : 0;
-    if (!isfolder) {
-      published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
-    }
-
     //Find conflicting entries so we can report errors normally instead of through database unique violation exceptions
     const exists = await db<PlatformDB>().
       selectFrom("system.fs_objects").
       select(["id", "isfolder"]).
-      where("parent", "=", this.id).
+      where(qB => this.id ? qB("parent", "=", this.id) : qB("parent", "is", null)).
       where(sql`upper(name)`, "=", sql`upper(${name})`).
-      execute();
-    if (exists.length)
-      throw new Error(`A ${exists[0].isfolder ? "folder" : "file"} named '${name}' (#${exists[0].id}) already exists in folder '${this.whfsPath}'`);
+      executeTakeFirst();
 
-    const { externallink, filelink, forceType } = decodeTarget((metadata as CreateFileMetadata)?.target || null, metadata && "type" in metadata ? type.scopedtype : null, Boolean(metadata && "type" in metadata));
-    if (forceType)
-      type = getType(forceType, "fileType") ?? std.throwError(`Forced type '${forceType}' not found`);
+    if (exists)
+      throw new Error(`A ${exists.isfolder ? "folder" : "file"} named '${name}' (#${exists.id}) already exists in folder '${this.whfsPath}'`);
 
-    const retval = await db<PlatformDB>()
-      .insertInto("system.fs_objects")
-      .values({
-        id: metadata?.id || undefined,
-        creationdate,
-        modificationdate,
-        modifiedby: metadata?.modifiedBy ? await ensureAuthObject(metadata.modifiedBy) : null,
-        parent: this.id,
-        name,
-        title: metadata?.title || "",
-        description: metadata?.description || "",
-        errordata: "",
-        externallink,
-        filelink,
-        isfolder,
-        keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
-        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublish
-          ? new Date((metadata! as CreateFileMetadata).firstPublish!.epochMilliseconds)
-          : initialPublish
-            ? creationdate
-            : defaultDateTime,
-        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModified
-          ? new Date((metadata! as CreateFileMetadata).contentModified!.epochMilliseconds)
-          : initialPublish || initialData
-            ? creationdate
-            : defaultDateTime,
-        lastpublishdate: defaultDateTime,
-        lastpublishsize: 0,
-        lastpublishtime: 0,
-        scandata,
-        ordering: metadata?.order ?? 0,
-        published,
-        type: type.id || null, //#0 can't be stored so convert to null
-        ispinned: metadata?.isPinned || false,
-        isunlisted: metadata?.isUnlisted || false,
-        data: data,
-        indexdoc: type.foldertype ? (metadata as CreateFolderMetadata)?.indexDoc || null : null
-      }).returning(['id']).executeTakeFirstOrThrow();
+    const id = await createWHFSObject({ id: this.id, parentSite: this.parentSite }, name, type, metadata);
 
     // If this is a file with an indexdoc name, make it the indexdoc of this folder.
     // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
     if (/* options.setindex OR*/ whconstant_webserver_indexpages.includes(name.toLowerCase())) {
-      await this.update({ indexDoc: retval.id });
+      await this.update({ indexDoc: id });
     }
 
-    whfsFinishHandler().objectCreate(this.parentSite, this.id, retval.id, isfolder);
-    if (isPublish(published))
-      whfsFinishHandler().fileRepublish(this.parentSite, this.id, retval.id);
-    return retval.id;
+    return id;
   }
 
   /** Get the base URL for items in this folder if it was published. Does not follow or use the indexDoc

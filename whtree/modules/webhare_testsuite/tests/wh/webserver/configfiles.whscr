@@ -2,6 +2,7 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 
 MACRO WebserverConfig()
 {
@@ -24,6 +25,10 @@ MACRO WebserverConfig()
         , tag :=            ""
         ]
       ], appliedrule_xyz.datastorage);
+
+  //Verify nginx config API works
+  RECORD proxyreg := GenerateNginxProxyRegistrationRequest(config, "http://reverseaddress.example.com", "http://verification.example.com", "*", -123, DEFAULT DATETIME);
+  Testeq(TRUE, Length(proxyreg.certificates) > 0, "should at least have a fallback certificate");
 }
 
 RunTestframework([ PTR WebserverConfig

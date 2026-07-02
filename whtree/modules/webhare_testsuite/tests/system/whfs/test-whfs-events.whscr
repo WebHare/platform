@@ -378,7 +378,7 @@ MACRO TestEvents() {
 
   testfw->BeginWork();
 
-  OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  OBJECT metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 1"));
   OBJECT draft := metamgr->__GetAutosavedObject();
 
@@ -461,7 +461,7 @@ MACRO TestEvents() {
   ListenToId(snapshotfolder);
 
   testfw->BeginWork();
-  metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser(), useworkflow := TRUE ]);
+  metamgr := NEW WorkflowManager(subfile->id, [ user := GetEffectiveUser() ]);
   metamgr->UpdateData(StringToBlob("Draft data 3"));
   OBJECT draft3 := metamgr->__GetAutosavedObject();
   testfw->CommitWork();

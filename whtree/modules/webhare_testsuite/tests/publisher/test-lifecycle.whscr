@@ -301,7 +301,6 @@ MACRO TestReplaceContents() {
   //We'll also setup drafts for the file to be replaced, and expect the task to destroy these
   OBJECT workflowmgr := NEW WorkflowManager(toreplacefile->id,
   [ user := GetEffectiveUser(),
-    useworkflow := TRUE,
     workflowtypes := ["platform:filetypes.richdocument"]
   ]);
   workflowmgr->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
@@ -472,7 +471,6 @@ MACRO PublicationOfDrafts() {
   OBJECT testrtd := GetTestsuiteTempFolder()->CreateFile([ name := "test-publication-of-draft", publish := FALSE ]);
   OBJECT workflowmgr := NEW WorkflowManager(testrtd->id,
   [ user := GetEffectiveUser(),
-    useworkflow := TRUE,
     workflowtypes := ["platform:filetypes.richdocument"]
   ]);
 

@@ -90,7 +90,7 @@ async function testWHFSAPI() {
   test.eqPartial(
     {
       whfsType: 'platform:filetypes.richdocument',
-      clone: 'onCopy',
+      clone: 'onDraft',
       data: {
         data: [
           {

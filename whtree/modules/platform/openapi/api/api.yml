@@ -373,6 +373,7 @@ components:
           type: string
           description: The clone identifier if applicable. Ignored when setting
           enum:
+            - onDraft
             - onCopy
             - onArchive
             - never

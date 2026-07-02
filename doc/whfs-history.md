@@ -36,6 +36,22 @@ When a new document is created in the Publisher it receives the following versio
 
 and a 'created' version event is generated.
 
+### Instance cloning
+Instance types have a 'clone' setting which determines how their data is handled when 'copying' a WHFS object. 'Copying' here may includes
+synchronizing from a remote WebHare, unpacking an archive, instantiating a template or creating snapshots for draft/final versions.
+
+- never: Instance data is never copied or archived, no workflow support
+- onArchive: Instance data is only copied when the live object is copied, duplicated, archived, synced, etc. (no workflow support)
+- onCopy: Instance data is always copied, eg when a live object is copied, duplicated, archived, synced, etc.
+- onDraft: Instance data is always copied when live objects are copied and as saved/restored as part of draft/publish workflows.
+
+A filetype with clone: onDraft will use the draft/publish workflow (the document editor) in the Publisher as described below
+
+'clone' replaces/combines the previous 'cloneoncopy', 'cloneonarchive' and 'workflow' settings. onCopy is the default and the most commonly used setting
+for non-filetypes. onArchive is rarely used
+
+test-whfs-history-v4 tests the handling of various 'clone' settings during workflow.
+
 ### Draft/Publish workflow
 The document editor implements the draft/publish workflow. The editor manages a subset of the meta- and instance data of a file,
 we will refer to this as managed fields. The editor doesn't currently manage fields such as the file title and SEO descriptions -
