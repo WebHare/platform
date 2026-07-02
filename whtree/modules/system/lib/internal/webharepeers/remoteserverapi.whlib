@@ -181,7 +181,8 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
     IF(NOT RecordExists(connectinfo) OR NOT connectinfo.isloggedin OR connectinfo.expires < options.validuntil)
     {
       IF(screen->contexts->screen->RunScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#reauthserver",
-                                              [ url := url
+                                              [ url := url,
+                                                options := options
                                               ]) != "ok")
         RETURN DEFAULT OBJECT; //cancelled
 
@@ -192,11 +193,11 @@ PUBLIC OBJECT FUNCTION OpenWebHarePeer(OBJECT screen, STRING url, RECORD options
   }
 }
 
-PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRING url)
-{
+RECORD FUNCTION GetWHRequestTokenURL(STRING baseurl, OBJECT userentity, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions(CELL [ scopes := STRING[]
+                                  ], options);
   url := ResolveToAbsoluteURL(url,"/");
 
-  STRING baseurl := GetPrimaryWebHareInterfaceURL();
   RECORD defer := CreateDeferredPromise();
   OBJECT tokprom := NEW TokenPromise(defer.resolve, defer.reject, url, userentity);
 
@@ -209,6 +210,7 @@ PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRI
         , oauth_clientid := baseurl
         , oauth_scopes :=   "webhare"
         , oauth_redirect := redirecturl
+        , scopes := Detokenize(options.scopes, " ")
         ]);
 
   RETURN [ requesturl := url
@@ -216,30 +218,14 @@ PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRI
          ];
 }
 
-PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  url := ResolveToAbsoluteURL(url,"/");
+PUBLIC RECORD FUNCTION GetHeadlessWebHareRequestTokenURL(OBJECT userentity, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  STRING baseurl := GetPrimaryWebHareInterfaceURL();
+  RETURN GetWHRequestTokenURL(baseurl, userentity, url, options);
+}
 
-  options := ValidateOptions(CELL[], options);
-
-  STRING baseurl := screen->contexts->controller->baseurl;
-  RECORD defer := CreateDeferredPromise();
-  OBJECT tokprom := NEW TokenPromise(defer.resolve, defer.reject, url, screen->contexts->user->entity);
-
-  STRING redirecturl := UpdateURLVariables(baseurl,
-      [ oauth_responseid :=    tokprom->requestid
-      ]);
-
-  url := UpdateURLVariables(url,
-        [ app :=            "tollium:builtin.oauth"
-        , oauth_clientid := baseurl
-        , oauth_scopes :=   "webhare"
-        , oauth_redirect := redirecturl
-        ]);
-
-  RETURN [ requesturl := url
-         , tokenpromise := defer.promise
-         ];
+PUBLIC RECORD FUNCTION GetWebHareRequestTokenURL(OBJECT screen, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  STRING baseurl := GetPrimaryWebHareInterfaceURL();
+  RETURN GetWHRequestTokenURL(baseurl, screen->contexts->user->entity, url, options);
 }
 
 /** Get the configured list of peers of a user
