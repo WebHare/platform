@@ -75,7 +75,7 @@
             <column name="filename" type="text" />
             <column name="comment" type="text" />
             <column name="displayname" type="text" tid=".fullname" />
-            <column name="versionnumber" type="text" width="8x" sortkeyname="versionsort" tid=".versionnumber" />
+            <column name="versionnumber" type="text" width="8x" sortkeyname="versionsort" tid=".versionnumber" align="right" />
             <rowlayout name="singlerow">
               <col coldef="icon" />
               <col coldef="when" />
