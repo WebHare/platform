@@ -56,51 +56,6 @@ MACRO CheckScheduledTasks()
   trans->CommitWork();
 }
 
-MACRO CheckPublicDrafts()
-{
-  trans->BeginWork();
-
-  INTEGER ARRAY files_with_public_drafts :=
-      SELECT AS INTEGER ARRAY DISTINCT filelink
-        FROM system.fs_objects
-       WHERE parent = whconstant_whfsid_drafts;
-
-  RECORD ARRAY badfiles :=
-      SELECT id
-           , parent
-           , parentsite
-           , isfolder
-        FROM system.fs_objects
-       WHERE id IN files_with_public_drafts
-         AND NOT TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
-
-  badfiles := badfiles CONCAT
-      SELECT id
-           , parent
-           , parentsite
-           , isfolder
-        FROM system.fs_objects
-       WHERE published >= PublishedFlag_HasPublicDraft //this criterium just helps the database optimizer weed out improbable matches
-         AND id NOT IN files_with_public_drafts
-         AND TestFlagFromPublished(published, PublishedFlag_HasPublicDraft);
-
-  FOREVERY (RECORD rec FROM badfiles)
-  {
-    IF (rec.id NOT IN files_with_public_drafts)
-      PRINT("File #" || rec.id || " had a public draft, but seemed to be incorrectly not marked with a draft icon\n");
-    ELSE
-      PRINT("File #" || rec.id || " has no public drafts, but seemed to be incorrectly marked with a draft icon\n");
-
-    UPDATE system.fs_objects
-       SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, id IN files_with_public_drafts)
-     WHERE id = rec.id;
-
-    GetWHFSCommitHandler()->ObjectUpdate(rec.parentsite, rec.parent, rec.id, rec.isfolder);
-  }
-
-  trans->CommitWork();
-}
-
 MACRO RemoveObsoleteDrafts()
 {
   trans->BeginWork();
@@ -132,7 +87,6 @@ RECORD ARRAY FUNCTION GetRemovableTargets(RECORD ARRAY intargets)
 }
 
 CheckScheduledTasks();
-CheckPublicDrafts();
 RemoveObsoleteDrafts();
 CleanupObsoleteFavorites("publisher:app", PTR GetRemovableTargets);
 
