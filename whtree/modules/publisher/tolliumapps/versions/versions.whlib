@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
@@ -57,7 +58,13 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
     IF (CellExists(data, "filterto"))
       ^filterto->value := data.filterto;
 
-    this->liveobject := OpenWHFSObject(data.id);
+    RECORD targetinfo := SELECT id, snapshotfor FROM system.fs_objects WHERE id = VAR data.id;
+    IF(NOT RecordExists(targetinfo)) {
+      this->tolliumresult := "close";
+      RETURN;
+    }
+
+    this->liveobject := OpenWHFSObject(targetinfo.snapshotfor ?? data.id);
 
     ^listener->masks := this->liveobject->GetEventMasks([ "object", "history" ]);
 
@@ -67,6 +74,9 @@ PUBLIC STATIC OBJECTTYPE History EXTEND TolliumScreenBase <
     this->frame->title := this->GetTid(".dialogtitle", this->liveobject->name);
 
     this->Refresh();
+    ^versions->SetValueIfValid(data.id);
+    IF(targetinfo.snapshotfor != 0) //if we deeplinked to a version, select it
+      ^versions->selection := SELECT * FROM ^versions->rows WHERE snapshot = targetinfo.id;
   }
 
   // ---------------------------------------------------------------------------
