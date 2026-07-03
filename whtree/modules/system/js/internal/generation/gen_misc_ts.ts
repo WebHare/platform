@@ -1,13 +1,14 @@
 import type { FileToUpdate } from "./shared";
-import { listWebServers } from "@mod-platform/js/configure/webservers";
+import { listWebHareBackendURLs } from "@mod-platform/js/configure/webservers";
 
 export type CMSConfig = {
   interfaceServers: string[];
 };
 
 export async function generateCMSConfig(): Promise<string> {
+  //TODO this would miss non-redirect aliases for interface webservers
   const config: CMSConfig = {
-    interfaceServers: (await listWebServers()).filter(s => s.isInterface).map(s => s.baseURL)
+    interfaceServers: await listWebHareBackendURLs()
   };
   return JSON.stringify(config) + '\n';
 }

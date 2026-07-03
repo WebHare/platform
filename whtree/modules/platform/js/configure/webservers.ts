@@ -10,3 +10,9 @@ export async function listWebServers() {
       isInterface: row.type === whconstant_webservertype_interface,
     }));
 }
+
+/** List webservers base URLs hosting the WebHare interface */
+export async function listWebHareBackendURLs() {
+  //TODO this misses non-redirect aliases for interface webservers
+  return (await listWebServers()).filter(s => s.isInterface).map(s => s.baseURL);
+}
