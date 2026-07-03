@@ -99,7 +99,7 @@
       <button name="editbutton" action="edititem" icon="tollium:actions/edit" tid="~edit" />
       <button name="deletebutton" action="deleteitem" icon="tollium:actions/trash" tid="~delete" />
       <divider />
-      <button name="settingsbutton" action="settings" icon="tollium:tools/tools" tid=".settings" />
+      <button name="settingsbutton" action="settings" icon="tollium:tools/tools" tid="~settings" />
       <divider />
       <button name="resultsbuttons" action="showresults" icon="tollium:reporting/statistics" tid=".showresults" />
     </toolbar>

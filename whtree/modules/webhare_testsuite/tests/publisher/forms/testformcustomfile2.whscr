@@ -464,7 +464,7 @@ ASYNC MACRO ProcessExpiredResults()
   TestEq(TRUE, ObjectExists(TT(":Results", [ allowmissing := TRUE ])));
 
   // Set retention period to 0
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
   TT("overwritestoreresults")->value := TRUE;
   TT("storeresults")->value := 0;
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick(":OK"), [ messagemask := "*changes*take effect*form*(re)published*" ]);
