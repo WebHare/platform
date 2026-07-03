@@ -123,7 +123,6 @@ PUBLIC MACRO CustomForm()
   TestEq("You won a", witty.field.prize.title);
   TestEQ(TRUE, witty.field.prize.issubmitted);
 
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
   RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="About Your Submission";
   OBJECT confirmmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simpleconfirmmail.html));
@@ -202,7 +201,6 @@ PUBLIC MACRO CustomForm()
   TestEQ(TRUE, witty.ischange);
 
   //Discard all mail so far
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   mails := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 2 ]);
 
   TestEq('=?UTF-8?Q?P=2E_Gim=C3=A9nez_&_Henkie_=F0=9F=98=87?= <mailfromtemplate@beta.webhare.net>', (SELECT AS STRING value FROM mails[0].headers WHERE field = "From"));
@@ -213,7 +211,6 @@ PUBLIC MACRO CustomForm()
   //Test cancellation
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(witty.pagedata.editlink, [ cancel := "1" ])), testfw->browser->href);
   TestEq(0, webtoolresults->GetResultsCount());
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
 
   RECORD ARRAY cancelmail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   TestEq(1,Length(cancelmail));
@@ -263,9 +260,6 @@ PUBLIC MACRO CustomForm()
   TestEq(FALSE, result.success);
   TestEqLike("A result with guid '*' already exists", result.error);
 
-  // Make sure no email tasks are running anymore
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
-
   // Delete current results and import again
   testfw->BeginWork();
   webtoolresults->DeleteAllResults();
@@ -304,8 +298,6 @@ MACRO CustomForm_SuppressMail()
 {
   SnoozeRateLimits();
 
-  // Make sure no email tasks are running anymore
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
 
   OBJECT customformfile := OpenTestsuiteSite()->OpenByPath("webtools/customform2");
@@ -335,7 +327,6 @@ MACRO CustomForm_SuppressMail()
   TestEq(TRUE, res.success);
 
   TestEq(1, webtoolresults->GetResultsCount());
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
 
   TestEq(1, Length(testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ])));
   TestEq(TRUE, testfw->IsMailqueueEmptyFor("testfw+dontmailme@beta.webhare.net"));
@@ -385,7 +376,6 @@ MACRO CustomForm_NL()
 
   //ADDME: TestEq("Hengelosestraat 296\n7521 AM Enschede\nNederland", witty.field.address.text);
 
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD mail := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   OBJECT maildoc := MakeXMLDocumentFromHTML(mail.toppart.subparts[1].subparts[0].data);
   OBJECT checkboxrow := maildoc->GetElements("div.defaultmail__results__line")[8];
@@ -568,7 +558,6 @@ MACRO CustomFormApplyTest()
   TestEq(1, webtoolresults->GetResultsCount());
 
   // Test if the mail tasks have run (they list the fields as well and should supply the applytester)
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 2 ]);
   RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="About Your Submission";
   TestEq(TRUE, RecordExists(simpleconfirmmail));

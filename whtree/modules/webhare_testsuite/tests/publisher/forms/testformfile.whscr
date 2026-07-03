@@ -486,7 +486,6 @@ PUBLIC MACRO FillInForm()
 MACRO TestDirectFormSubmission()
 {
   //ensure no pending mail from previous tests
-  testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ count := 0 ]);
 
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -585,7 +584,7 @@ ASYNC MACRO TestFormApp()
   // Check for a 'handler rerun for 1 of 2 results' message
   // Note: Cannot use ExpectAndAnswerMessageBox, as it expects a message screen to be opened (+1) instead of replaced (0)
   AWAIT AnswerMessageBox("OK", [ messagemask := "*1 of 2*" ]);
-  testfw->FlushTasks([ "publisher:mailfeedback" ]); // Handle all feedback mail
+
   RECORD usermail := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 60000, count := 1 ]);
   TestEq(TRUE, RecordExists(usermail));
   // There should not be a second mail
