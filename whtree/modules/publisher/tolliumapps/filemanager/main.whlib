@@ -105,29 +105,30 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase <
     {
       IF (CellExists(data.target, "folderid"))
       {
+        INTEGER setfolder, setfile;
+
         OBJECT obj := OpenWHFSObject(data.target.folderid);
         IF (data.target.folderid IN [ 0, -1 ]                                                     // Publisher root, trash
             OR (ObjectExists(obj)                                                                 // Object still exists
-                AND obj->isactive                                                                 // and is not deleted
+                // AND obj->isactive                                                                 // and is not deleted
                 AND (NOT CellExists(data.target, "foldercreationdate")                            // and has the correct creationdate
                      OR data.target.foldercreationdate = EncodeDateTime(obj->creationdate))))
         {
           IF(CellExists(data.target,'infilelist') AND data.target.infilelist)
           {
-            ^foldertree->value := obj->parent;
-            ^filelist->value := INTEGER[data.target.folderid];
+            setfolder := obj->parent;
+            setfile := data.target.folderid;
           }
           ELSE
           {
-            ^foldertree->value := data.target.folderid;
+            setfolder := data.target.folderid;
           }
-        }
-        ELSE
-        {
-          // The folder id does not point to an existing folder or it points to an object with a different creationdate
-          //ADDME: Offer to delete the start menu shortcut?
-          ^foldertree->value := 0;
-          this->RunMessageBox(".shortcutoutdated");
+
+          ^foldertree->value := setfolder;
+          IF(^foldertree->value != setfolder)
+            this->RunMessageBox(".shortcutoutdated"); //FIXME we're now also using this message on restart of the publisher
+          ELSE IF(setfile != 0)
+            ^filelist->SetValueIfValid([setfile]);
         }
       }
       ELSE IF (CellExists(data.target, "fileid"))
