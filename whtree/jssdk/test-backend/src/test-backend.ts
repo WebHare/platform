@@ -16,7 +16,7 @@ import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { getAuthorizationInterface, type AuthAuditEvent, type AuthEventData, type AuthorizationInterface } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
-import { type IntExtLink, type Instance, openBackendService, backendConfig } from "@webhare/services";
+import { type IntExtLink, type Instance, openBackendService, backendConfig, signalOnEvent } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
 import type { ExportedInstance, WHFSTypeName, ExportedTypedInstance, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
 import { getPrioOrErrorFromPublished, getWHFSDescendantIds } from "@webhare/whfs/src/support";
@@ -24,7 +24,6 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSPublish, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import type { EventCompletionLink } from "@webhare/whfs/src/finishhandler";
-import { deleteModules } from "@mod-platform/js/devsupport/modules";
 export { profileCPU } from "./profiling";
 
 export const passwordHashes = {
@@ -35,7 +34,7 @@ export const passwordHashes = {
 };
 
 export const tempModuleGroup = "webhare_testsuite_temp";
-export const tempModuleNamePrefix = "webhare_testsuite_temp_";
+export const tempModuleNamePrefix = "webhare_testsuite_";
 
 export interface TestUserConfig {
   grantRights?: string[];
@@ -70,11 +69,8 @@ async function cleanupWRDTestSchemas() {
 }
 
 async function deleteTempModules() {
-  const todelete = Object.keys(backendConfig.module).filter(key => key.startsWith(tempModuleNamePrefix));
-  if (todelete.length) {
-    console.log(`Deleting test modules from previous runs: ${todelete.join(", ")}`);
-    await deleteModules(todelete);
-  }
+  for (const mod of Object.keys(backendConfig.module).filter(key => key.startsWith(tempModuleNamePrefix)))
+    await deleteTestModule(mod);
 }
 
 /** Reset the test framework */
@@ -383,6 +379,25 @@ export function guardEventLoop() {
   };
   process.on("beforeExit", retval.gotEventLoopEnd);
   return retval;
+}
+
+export async function deleteTestModule(name: string) {
+  if (!name.startsWith(tempModuleNamePrefix))
+    throw new Error(`deleteTestModule: module name must start with '${tempModuleNamePrefix}'`);
+  if (!backendConfig.module[name])
+    throw new Error(`Module ${name} does not exist in configuration, cannot delete`);
+
+  console.log(`Deleting module ${name}`);
+  const deleteEventSignal = await signalOnEvent(`system:moduleupdate.${name}`);
+
+  await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule(name);
+  using smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
+  await smservice.reload(); //TODO shouldn't delete testmodule imply this? (but then we still need to at least wait for the service to go away)
+
+  await test.wait(() => !backendConfig.module[name]);
+  await test.wait(() => deleteEventSignal.aborted);
+
+  console.log(`Completed deleting module ${name}`);
 }
 
 //By definition we re-export all of whtest and @webhare/test

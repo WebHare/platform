@@ -1,11 +1,11 @@
 import { map } from "./hmrlibs/keeper";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { toFSPath, backendConfig, importJSFunction } from "@webhare/services";
 import { addResourceChangeListener, activateHMR } from "@webhare/services/src/hmr";
 import { storeDiskFile } from "@webhare/system-tools";
-import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 
 type HMRTestFunction = () => number;
 
@@ -119,17 +119,6 @@ async function testFileEdits() {
 }
 
 async function testModuleReplacement() {
-  if (backendConfig.module["webhare_testsuite_hmrtest"]) {
-    console.log(`delete module webhare_testsuite_hmrtest`);
-    await deleteTestModule("webhare_testsuite_hmrtest");
-  }
-
-  if (backendConfig.module["webhare_testsuite_hmrtest2"]) {
-    console.log(`delete module webhare_testsuite_hmrtest2`);
-    await deleteTestModule("webhare_testsuite_hmrtest2");
-  }
-
-  console.log(`create module webhare_testsuite_hmrtest`);
   const hmrtestresult = await installTestModule("webhare_testsuite_hmrtest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -141,7 +130,6 @@ async function testModuleReplacement() {
     "js/data.txt": `1`
   });
 
-  console.log(`create module webhare_testsuite_hmrtest2`);
   const hmrtestresult2 = await installTestModule("webhare_testsuite_hmrtest2", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -210,11 +198,12 @@ export function func3() { return Number(file.trim()); }
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
 
-  await deleteTestModule("webhare_testsuite_hmrtest");
-  await deleteTestModule("webhare_testsuite_hmrtest2");
+  await test.deleteTestModule("webhare_testsuite_hmrtest");
+  await test.deleteTestModule("webhare_testsuite_hmrtest2");
 }
 
 test.runTests([
+  test.reset,
   testFileEdits,
   testModuleReplacement
 ]);
