@@ -62,6 +62,10 @@ STATIC OBJECTTYPE HarescriptErrorPage EXTEND DynamicPageBase
                             , isglobal := IsDebugTagGloballyEnabled("etr")
                             ];
     LoadWittylibrary(Resolve("mod::publisher/lib/internal/builtinpages/harescripterror.witty"),"HTML-NI")->Run(wittydata);
+
+    /* The errorpage itself runs in a well understood webdesign and shouldn't come with risks solved by CSP. Allow self-framing increases its usability when debugging ('etr' is already active anyway if we get here) */
+    AddHTTPHeader("Content-Security-Policy", "frame-ancestors 'self'", FALSE);
+    AddHTTPHeader("X-Frame-Options", "", FALSE);
   }
 >;
 
