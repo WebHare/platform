@@ -7,8 +7,11 @@ import { registerRun } from "./run-autocomplete";
 type CommandReturn = void | number | Promise<void> | Promise<number>;
 
 export class CLIError extends Error {
-  constructor(message: string, public command?: string) {
+  command?: string;
+
+  constructor(message: string, command?: string) {
     super(message);
+    this.command = command;
   }
 }
 
@@ -19,15 +22,21 @@ export class CLIConfigError extends CLIError {
 }
 
 export class CLIShowHelp extends CLIError {
-  constructor(message: string, public options: { command?: string } = {}) {
+  options: { command?: string };
+
+  constructor(message: string, options: { command?: string } = {}) {
     super(message, options.command);
+    this.options = options;
   }
 }
 
 /** An error that will be printed to stderr (without a stackrace dump) and return an error code if handled by runCli */
 export class CLIRuntimeError extends CLIError {
-  constructor(message: string, public options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
+  options: { exitCode?: number; showHelp?: boolean; command?: string };
+
+  constructor(message: string, options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
     super(message, options.command);
+    this.options = options;
   }
 }
 

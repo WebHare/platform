@@ -19,8 +19,11 @@ abstract class ToolbarButtonBase extends GenericToolbarButton {
 
   abstract type: string;
 
-  constructor(protected toolbar: RTEToolbar, options?: ToolbarButtonOptions) {
+  protected toolbar: RTEToolbar;
+
+  constructor(toolbar: RTEToolbar, options?: ToolbarButtonOptions) {
     super(options);
+    this.toolbar = toolbar;
   }
 
   ///Whether this button is allowed given the current tagset. Only used by free editors and depends on setting the tagfilter property
@@ -83,8 +86,11 @@ abstract class ToolbarSimpleButtonBase extends ToolbarButtonBase {
 }
 
 class ToolbarButton extends ToolbarSimpleButtonBase {
-  constructor(toolbar: RTEToolbar, public type: string) {
+  type: string;
+
+  constructor(toolbar: RTEToolbar, type: string) {
     super(toolbar, type);
+    this.type = type;
     this.buttondebugid = 'toolbarbutton:' + type;
 
     this.updateState(null);
@@ -109,8 +115,11 @@ class ToolbarButton extends ToolbarSimpleButtonBase {
 }
 
 class SimpleToggleButton extends ToolbarSimpleButtonBase {
-  constructor(toolbar: RTEToolbar, public type: string) {
+  type: string;
+
+  constructor(toolbar: RTEToolbar, type: string) {
     super(toolbar, type);
+    this.type = type;
     this.updateState(null);
   }
 
@@ -169,9 +178,11 @@ abstract class StyleButtonBase extends ToolbarButtonBase {
   owngroup = true;
   optionlist: HTMLOptionElement[] = [];
   select: HTMLSelectElement;
+  type: string;
 
-  constructor(toolbar: RTEToolbar, public type: string) {
+  constructor(toolbar: RTEToolbar, type: string) {
     super(toolbar);
+    this.type = type;
 
     this.node = <span>
       {this.select = <select class="wh-rtd__toolbarstyle" data-button={type} on={{ change: () => this.selectStyle() }} />}
@@ -418,8 +429,12 @@ export type RTEToolbarOptions = {
 export default class RTEToolbar {
   options: RTEToolbarOptions;
   buttons: ToolbarButtonBase[];
+  readonly rte: RTEComponent;
+  el: HTMLElement;
 
-  constructor(public readonly rte: RTEComponent, public el: HTMLElement, options: Partial<RTEToolbarOptions>) {
+  constructor(rte: RTEComponent, el: HTMLElement, options: Partial<RTEToolbarOptions>) {
+    this.rte = rte;
+    this.el = el;
     this.options = {
       hidebuttons: [],
       //button layout. top level array is rows, consists of groups, and a group is either a single button (p-class) or an array of buttons

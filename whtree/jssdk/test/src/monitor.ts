@@ -40,7 +40,12 @@ export class TestMonitor implements Disposable {
 
 /** Class to allocate during test waits to receive aborts */
 class Waiter implements Disposable {
-  constructor(private monitor: TestMonitor | null, public waitType: string) {
+  private monitor: TestMonitor | null;
+  public waitType: string;
+
+  constructor(monitor: TestMonitor | null, waitType: string) {
+    this.monitor = monitor;
+    this.waitType = waitType;
     this.monitor?.waiters.push(this);
   }
   [Symbol.dispose]() {

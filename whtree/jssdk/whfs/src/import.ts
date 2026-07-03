@@ -121,8 +121,12 @@ class ImportSession {
   items;
   outputMap;
   importDT = Temporal.Now.instant();
+  public targetFolder: WHFSFolder;
+  public options?: ImportWHFSOptions;
 
-  constructor(items: CombinedImportItem[], public targetFolder: WHFSFolder, public options?: ImportWHFSOptions) {
+  constructor(items: CombinedImportItem[], targetFolder: WHFSFolder, options?: ImportWHFSOptions) {
+    this.targetFolder = targetFolder;
+    this.options = options;
     items.sort(compareProperties(["subPath"])); //ensure parent folders come before their children
     this.items = new Map(items.map(item => [toCLocaleLowercase(item.subPath), item]));
     this.outputMap = new Map<string, WHFSObject>([["", targetFolder]]); //maps source subpaths to their corresponding WHFSFolder in the target (starting with the root)

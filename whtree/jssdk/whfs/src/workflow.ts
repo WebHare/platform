@@ -11,7 +11,10 @@ import { whconstant_whfsid_whfs_snapshots } from "@mod-system/js/internal/webhar
 import { IntExtLink } from "@webhare/services/src/intextlink";
 
 class WorkFlowManager {
-  constructor(private hsMgr: HSVMObject) {
+  private hsMgr: HSVMObject;
+
+  constructor(hsMgr: HSVMObject) {
+    this.hsMgr = hsMgr;
 
   }
 

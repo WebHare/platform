@@ -40,8 +40,16 @@ class LoadedBundle {
   fileDeps = new Set<string>();
   missingDeps = new Set<string>();
   state: AssetPackState | null = null;
+  private readonly controller: AssetPackController;
+  public readonly name: string;
+  private config: AssetPack;
+  private settings: BundleSettings;
 
-  constructor(private readonly controller: AssetPackController, public readonly name: string, private config: AssetPack, private settings: BundleSettings, state: AssetPackState | null) {
+  constructor(controller: AssetPackController, name: string, config: AssetPack, settings: BundleSettings, state: AssetPackState | null) {
+    this.controller = controller;
+    this.name = name;
+    this.config = config;
+    this.settings = settings;
     if (state)
       this.updateState(state);
     this.checkIfDirtied();
@@ -248,8 +256,10 @@ class AssetPackController implements BackendServiceController {
   bundles = new Map<string, LoadedBundle>();
   clients = new Set<AssetPackControlClient>();
   firstConfig = Promise.withResolvers<void>();
+  config: AssetPacksConfig;
 
-  constructor(public config: AssetPacksConfig) {
+  constructor(config: AssetPacksConfig) {
+    this.config = config;
     void subscribe("system:modulefolder.*", this.onChangedFile);
     void subscribe("system:npmlinkroot.filechange.*", this.onChangedFile);
     void subscribe("system:modulesupdate", () => void this.reload());
@@ -316,9 +326,13 @@ class AssetPackController implements BackendServiceController {
 
 class AssetPackControlClient extends BackendServiceConnection {
   watchlist = new Set<string>;
+  private controller: AssetPackController;
+  public source: string;
 
-  constructor(private controller: AssetPackController, public source: string) {
+  constructor(controller: AssetPackController, source: string) {
     super();
+    this.controller = controller;
+    this.source = source;
   }
   async reload() {
     return await this.controller.reload();

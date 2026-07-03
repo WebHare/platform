@@ -215,8 +215,8 @@ export function buildBaseConfig(options) {
       ],
       // Warn about non-erasable syntax
       "erasable-syntax-only/enums": "warn",
-      "erasable-syntax-only/import-aliases": "warn",
-      "erasable-syntax-only/namespaces": "warn",
+      "erasable-syntax-only/import-aliases": "error",
+      "erasable-syntax-only/namespaces": "error",
       "erasable-syntax-only/parameter-properties": "warn",
       // The importplugin resolver requires providing extentions. Typescript compilation will catch these errors anyway.
       "import/no-unresolved": "off",
@@ -371,6 +371,8 @@ export function buildStrictConfig(options) {
           }
         ],
         "@typescript-eslint/consistent-type-exports": "error",
+        //We've cleaned it up on our side, so enforce it now
+        "erasable-syntax-only/parameter-properties": "error",
         // Make the recommended errors of the import plugin errors again
         "import/default": "error",
         "import/export": "error",

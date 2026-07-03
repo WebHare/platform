@@ -14,7 +14,12 @@ function normalizeJSLibPath(lib: string) {
 
 /** Wraps a loaded library */
 class ImportedJSLibrary {
-  constructor(private readonly originalName: string, private readonly lib: Record<string, unknown>) {
+  private readonly originalName: string;
+  private readonly lib: Record<string, unknown>;
+
+  constructor(originalName: string, lib: Record<string, unknown>) {
+    this.originalName = originalName;
+    this.lib = lib;
   }
   describe() {
     return { exports: Object.entries(this.lib).map(([name, fn]) => ({ name, type: typeof fn })) };

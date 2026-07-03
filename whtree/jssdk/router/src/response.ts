@@ -71,8 +71,11 @@ export type SupportedResponseSubset = Pick<Response, "ok" | "status" | "headers"
 
 export type RPCErrorCodes = HTTPErrorCode.BadRequest | HTTPErrorCode.NotFound | HTTPErrorCode.InternalServerError | HTTPErrorCode.Unauthorized | HTTPErrorCode.Forbidden;
 export class RPCError extends Error {
-  constructor(public readonly status: RPCErrorCodes, message: string) {
+  public readonly status: RPCErrorCodes;
+
+  constructor(status: RPCErrorCodes, message: string) {
     super(message);
+    this.status = status;
   }
 }
 

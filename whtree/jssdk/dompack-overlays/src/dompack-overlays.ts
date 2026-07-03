@@ -19,12 +19,15 @@ export class OverlayManager {
   options: OverlayManagerOptions;
   dragcreateinfo: { x: number; y: number; overlay: ResizeableOverlayRectangle | null } | null = null;
   overlays: ResizeableOverlayRectangle[] = [];
+  public readonly classname: string;
 
-  constructor(container: HTMLElement, public readonly classname: string, options: Partial<OverlayManagerOptions>) {
+  constructor(container: HTMLElement, classname: string, options: Partial<OverlayManagerOptions>) {
     if (!container)
       throw new Error("No container specified");
     if (!classname)
       throw new Error("No className specified");
+
+    this.classname = classname;
 
     this.options = { allowcreate: false, bounds: null, autoselectdrawnoverlays: true, ...options };
 
@@ -226,8 +229,10 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
   rect: OverlayRect;
   rect_temp: OverlayRect;
   contentnode: HTMLDivElement | null = null;
+  overlaymgr: OverlayManager;
 
-  constructor(public overlaymgr: OverlayManager, options: RectangleDimensions) {
+  constructor(overlaymgr: OverlayManager, options: RectangleDimensions) {
+    this.overlaymgr = overlaymgr;
     if (!overlaymgr)
       throw new Error("No container node specified");
 

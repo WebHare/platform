@@ -76,8 +76,10 @@ export class ValidationState {
   messages = new Array<ValidationMessageWithType>;
   icons: unknown[] = [];
   tids = new Array<ValidationTid>;
+  options: ValidationOptions;
 
-  constructor(public readonly options: ValidationOptions) {
+  constructor(options: ValidationOptions) {
+    this.options = options;
   }
 
   onTid = (resourcename: string, tid: string) => {

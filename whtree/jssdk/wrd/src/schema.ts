@@ -664,10 +664,12 @@ export type AnyWRDType = WRDType<any, any>;
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
   schema: WRDSchemaType<S>;
   tag: T;
+  public readonly legacySchema: boolean;
 
-  constructor(schema: WRDSchemaType<S>, tag: T, public readonly legacySchema: boolean) {
+  constructor(schema: WRDSchemaType<S>, tag: T, legacySchema: boolean) {
     this.schema = schema;
     this.tag = tag;
+    this.legacySchema = legacySchema;
   }
 
   /** Test whether this type actually exists in the database */

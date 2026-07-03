@@ -13,7 +13,13 @@ import type { WHDBCodecContext } from "./connectionbase";
 export class PreparedWebHareBlob {
   private static "__ $whTypeSymbol" = "PreparedWebHareBlob";
 
-  constructor(public databaseid: string, public size: number) { }
+  public databaseid: string;
+  public size: number;
+
+  constructor(databaseid: string, size: number) {
+    this.databaseid = databaseid;
+    this.size = size;
+  }
 }
 
 const timeShiftMs = 946_684_800_000n;

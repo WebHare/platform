@@ -120,10 +120,12 @@ export class UnixSocketServiceProxy<T extends object> extends UnixSocketLineBase
   nextMsgId = 0;
   constructorPromise?: Promise<unknown>;
   linger: boolean;
+  private sb: UnixSocketServiceBase;
 
-  constructor(private sb: UnixSocketServiceBase, socket: Socket, args: unknown[], awaitConstructor: boolean, linger: boolean) {
+  constructor(sb: UnixSocketServiceBase, socket: Socket, args: unknown[], awaitConstructor: boolean, linger: boolean) {
     super(socket);
 
+    this.sb = sb;
     this.linger = linger;
     if (args.length || awaitConstructor) {
       this.constructorPromise = this.remotingFunc("constructor", args);

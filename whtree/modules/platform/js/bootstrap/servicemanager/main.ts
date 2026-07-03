@@ -140,8 +140,10 @@ class ProcessManager {
   startDelay;
   startDelayTimer: NodeJS.Timeout | null = null;
   lastLogText = "";
+  servicemgr: ServiceManager;
 
-  constructor(public servicemgr: ServiceManager, name: string, service: ServiceDefinition, startDelay = 0) {
+  constructor(servicemgr: ServiceManager, name: string, service: ServiceDefinition, startDelay = 0) {
+    this.servicemgr = servicemgr;
     this.name = name;
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
@@ -402,8 +404,12 @@ class ServiceManager {
   processes = new ProcessList;
   expectedServices = new Map<string, ServiceDefinition>();
   finishedWaitForCompletionServices = new Set<string>;
+  readonly name: string;
+  readonly isSecondaryManager: boolean;
 
-  constructor(public readonly name: string, public readonly isSecondaryManager: boolean, include: string, exclude: string) {
+  constructor(name: string, isSecondaryManager: boolean, include: string, exclude: string) {
+    this.name = name;
+    this.isSecondaryManager = isSecondaryManager;
     this.includeServices = include ? regExpFromWildcards(include) : null;
     this.excludeServices = exclude ? regExpFromWildcards(exclude) : null;
 
@@ -614,8 +620,16 @@ class ServiceManagerManager {
   mgr: ServiceManager | null = null;
 
   public relaunching = false;
+  name: string;
+  secondary: boolean;
+  include: string;
+  exclude: string;
 
-  constructor(public name: string, public secondary: boolean, public include: string, public exclude: string) {
+  constructor(name: string, secondary: boolean, include: string, exclude: string) {
+    this.name = name;
+    this.secondary = secondary;
+    this.include = include;
+    this.exclude = exclude;
   }
 
   async start() {

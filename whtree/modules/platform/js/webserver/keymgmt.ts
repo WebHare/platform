@@ -64,7 +64,10 @@ class StoredKeyPair {
     return this.keyFolder.name;
   }
 
-  constructor(private keyFolder: WHFSFolder) {
+  private keyFolder: WHFSFolder;
+
+  constructor(keyFolder: WHFSFolder) {
+    this.keyFolder = keyFolder;
   }
 
   async shouldRenew(): Promise<{ shouldRenew: boolean; validUntil: Temporal.Instant }> {

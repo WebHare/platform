@@ -260,11 +260,15 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
 
-  constructor(public readonly node: HTMLFormElement) {
+  readonly node: HTMLFormElement;
+
+  constructor(node: HTMLFormElement) {
     if (node.nodeName !== 'FORM')
       throw new Error("Specified node is not a <form>"); //we want our clients to be able to assume 'this.node.elements' works
 
     super("", getFormElementCandidates(node, ''));
+
+    this.node = node;
 
     this.elements = node.elements;
     if (this.node.propWhFormhandler)

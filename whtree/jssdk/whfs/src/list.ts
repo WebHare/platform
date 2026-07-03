@@ -152,6 +152,7 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   getkeys: Set<keyof ListableFsObjectRow>;
   selectkeys = new Set<keyof FsObjectRow>;
   prepped = false;
+  public options?: ListFSOptions;
   private limitTypeIds?: Set<number>;
   private allowNullTypes?: Set<boolean>;
   private addTypeColumn = false;
@@ -159,7 +160,8 @@ export class ListingContext<K extends keyof ListableFsObjectRow = never> {
   private modfiedByAuthInterfaces = new Map<number, AuthorizationInterface>();
   private userMap = new Map<number, number | null>();
 
-  constructor(keys?: K[], public options?: ListFSOptions) {
+  constructor(keys?: K[], options?: ListFSOptions) {
+    this.options = options;
     this.getkeys = new Set(["id", "name", "isFolder", ...(keys || [])]);
 
     for (const k of this.getkeys) {

@@ -26,7 +26,12 @@ interface TestDriverPayMeta {
 }
 
 export class TestDriver implements PSPDriver<TestDriverPayMeta> {
-  constructor(private readonly config: TestDriverConfig, private readonly context: PSPDriverContext) {
+  private readonly config: TestDriverConfig;
+  private readonly context: PSPDriverContext;
+
+  constructor(config: TestDriverConfig, context: PSPDriverContext) {
+    this.config = config;
+    this.context = context;
   }
 
   /** Connect to the remote, return settings or error */

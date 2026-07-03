@@ -332,9 +332,13 @@ export class URL extends BaseEditable {
 export class TreeWrapper<DataType> extends ListColumnBase<DataType> {
   istree = true;
   expanderholderwidth = 12;
+  private datasource: ObjList;
+  protected base: ListColumnBase<DataType>;
 
-  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
+  constructor(datasource: ObjList, base: ListColumnBase<DataType>) {
     super();
+    this.datasource = datasource;
+    this.base = base;
   }
 
   render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
@@ -402,8 +406,13 @@ export class TreeWrapper<DataType> extends ListColumnBase<DataType> {
 }
 
 export class LinkWrapper<DataType> extends ListColumnBase<DataType> {
-  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
+  private datasource: ObjList;
+  protected base: ListColumnBase<DataType>;
+
+  constructor(datasource: ObjList, base: ListColumnBase<DataType>) {
     super();
+    this.datasource = datasource;
+    this.base = base;
   }
 
   render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
@@ -431,9 +440,13 @@ export class LinkWrapper<DataType> extends ListColumnBase<DataType> {
 //Not sure if it's intended that CheckboxWrapper only wraps strings, but that's the effect of extending BaseEditable....
 export class CheckboxWrapper<DataType extends string = string> extends BaseEditable {
   checkboxholderwidth = 20;
+  private datasource: ObjList;
+  protected base: ListColumnBase<DataType>;
 
-  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
+  constructor(datasource: ObjList, base: ListColumnBase<DataType>) {
     super();
+    this.datasource = datasource;
+    this.base = base;
   }
 
   render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
@@ -582,9 +595,11 @@ export class IconWrapper<DataType> extends ListColumnBase<DataType> {
   //, restholder: null // the node container of the content we place our icon before
   toddlist;
   iconholderwidth;
+  public base: ListColumnBase<DataType>;
 
-  constructor(list: ObjList, public base: ListColumnBase<DataType>) {
+  constructor(list: ObjList, base: ListColumnBase<DataType>) {
     super();
+    this.base = base;
     this.toddlist = list;
     this.iconholderwidth = $todd.settings.listview_iconholder_width;
   }

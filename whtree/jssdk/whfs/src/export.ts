@@ -105,8 +105,12 @@ class WHFSExportContext {
   assetCounters = new Map<string, number>();
   /** Resources indexed from disk for use with linkResourcesFrom */
   availableResources?: Map<string, string>;
+  target: WHFSExportTarget;
+  options?: ExportWHFSOptions;
 
-  constructor(public target: WHFSExportTarget, public options?: ExportWHFSOptions) {
+  constructor(target: WHFSExportTarget, options?: ExportWHFSOptions) {
+    this.target = target;
+    this.options = options;
   }
 
   async exportFileAsAsset(storePath: string, file: WebHareBlob, info: { extension: string | null }): Promise<ExportedBlobReference | undefined> {

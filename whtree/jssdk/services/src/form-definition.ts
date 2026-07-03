@@ -13,7 +13,10 @@ export type ExportedFormDefinition = {
 class FormDefinition {
   private static "__ $whTypeSymbol" = "FormDefinition"; //Used to identify this as a CompoundDocument in the WebHare API
 
-  constructor(private compoundDocument: CompoundDocument) {
+  private compoundDocument: CompoundDocument;
+
+  constructor(compoundDocument: CompoundDocument) {
+    this.compoundDocument = compoundDocument;
   }
 
   async export(options?: ExportOptions): Promise<ExportedFormDefinition> {
