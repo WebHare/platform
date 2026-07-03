@@ -131,6 +131,9 @@ apply:
     folderTypes:
       - allowType: base_test.jsfolder1
       - allowType: base_test.jsfolder2
+    # this is the equivalent to <webhare_testsuite:test />
+    webhareTestsuite:testPlugin:
+      data: "testdata"
   - to:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]
@@ -226,6 +229,21 @@ apply:
     setLibrary:
       test1:
         - site::webhare_testsuite.testsitejs/testpages/
+  - comment: Mailtemplates
+    to:
+      not:
+        whfsPath: "*nomailtemplates*"
+    mailTemplates:
+      - path: ../../tests/system/email/data/template.html.witty
+        title: Mailtemplate
+      - sources:
+          - path: site::webhare_testsuite.testsite/tmp/templates/
+      # below should not fail any parser but not cause any duplicates either
+      - ordering: -1
+        path: mod::webhare_testsuite/tests/system/email/data/template.html.witty
+        sources:
+          - path: site::webhare_testsuite.testsitejs/tmp/templates/
+          - path: site::webhare_testsuite.testsitejs/tmp/templates2/
 
 applySiteProfiles:
   - ./metadata.siteprl.yml

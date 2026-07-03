@@ -142,7 +142,10 @@ export async function executeContentPageRequestHS(targetId: number, options?: {
   if (!targetObject || !targetObject.parentSite || !targetObject.parent)
     throw new Error(`Invalid fileid '${targetId}' for content page request`);
 
-  const contentObject = options?.contentfile && options.contentfile !== targetId ? await whfs.openFile(options.contentfile, { allowHistoric: true }) : undefined;
+  //Note that options.contentfile is not set for content links in dynamic requests. we need to look those up ourselves. TODO deal with broken target
+  const contentFile = options?.contentfile ?? (targetObject.type === "platform:filetypes.contentlink" ? (targetObject as whfs.WHFSFile).target?.internalLink : targetId);
+
+  const contentObject = contentFile && contentFile !== targetId ? await whfs.openFile(contentFile, { allowHistoric: true }) : undefined;
   const whfsreq = await createContentPageRequest(targetObject, { webRequest, statusCode: options?.errorcode, contentObject, isPublisherPreview: options?.ispublisherpreview, timings });
   if (options?.errorcode) {
     //FIXME We need to create proper error page body. Pass sufficient info to the webdesign?

@@ -883,26 +883,29 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     }
 
   const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
-  for (const node of context.plugins.spPlugins)
-    if (apply[node.yamlProperty]) {
-      externalNodes.delete(node.yamlProperty); //we handled it here
 
-      const el = toSnakeCase(apply[node.yamlProperty] as object | object[]);
-      if (Array.isArray(el) !== node.isArray) {
-        context.addMessage({ type: "error", message: `Custom siteprofile property ${node.yamlProperty} must ${node.isArray ? '' : 'not '}be an array` }, node);
+  for (const pluginDef of context.plugins.spPlugins) {
+    const node = apply[pluginDef.yamlProperty];
+    if (node !== undefined) {
+      externalNodes.delete(pluginDef.yamlProperty); //we handled it here
+
+      const el = toSnakeCase(node as object | object[]);
+      if (Array.isArray(el) !== pluginDef.isArray) {
+        context.addMessage({ type: "error", message: `Custom siteprofile property ${pluginDef.yamlProperty} ${pluginDef.isArray ? 'must' : 'may not '}be an array` }, node);
         continue;
       }
 
       //note that parser.whlib will make an array out of it anyway
-      const cellname = `yml_` + nameToSnakeCase(node.yamlProperty) as `yml_${string}`;
+      const cellname = `yml_` + nameToSnakeCase(pluginDef.yamlProperty) as `yml_${string}`;
       rule[cellname] ||= [];
       rule[cellname].push(...Array.isArray(el) ? el : [el]);
 
-      if (node.composerHook || node.objectName || node.hooksFeatures.length) {
+      if (pluginDef.composerHook || pluginDef.objectName || pluginDef.hooksFeatures.length) {
         //we still need to add something to 'plugins' for activators to find us otherwise they have to scan though all yml_ and all plugin configs to find us
-        rule.plugins.push(toSnakeCase(node));
+        rule.plugins.push(toSnakeCase(pluginDef));
       }
     }
+  }
 
   for (const node of externalNodes)
     context.addMessage({ type: "warning", message: `Ignoring unknown siteprofile property '${node}'` });

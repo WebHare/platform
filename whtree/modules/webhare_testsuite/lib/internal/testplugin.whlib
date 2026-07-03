@@ -2,9 +2,13 @@
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+PUBLIC RECORD FUNCTION ParseTestPlugin(OBJECT node) {
+  RETURN CELL[ data_attribute := node->GetAttribute("data") ];
+}
 
-PUBLIC OBJECTTYPE TestPlugin EXTEND WebDesignPluginBase
-<
+PUBLIC OBJECTTYPE TestPlugin EXTEND WebDesignPluginBase <
+  UPDATE PUBLIC MACRO ConfigureYamlPlugin(OBJECT webcontext, RECORD ARRAY records) {
+  }
   UPDATE PUBLIC RECORD FUNCTION HookPrepareMail()
   {
     RETURN [ hookedpreparemail := "hooked-custom" ];
