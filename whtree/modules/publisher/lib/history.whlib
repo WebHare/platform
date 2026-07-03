@@ -60,6 +60,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
                AND (NOT ObjectExists(this->options.user) OR NOT this->options.user->HasRightOn("system:fs_fullaccess", this->baseobject->id)));
   }
 
+  /** Get the explicit object for a specific version. Returns 0 if this version doesn't exist. But perhaps just replace this with a versions dialog in the editor and inspect there? */
   PUBLIC INTEGER FUNCTION GetObjectIdForInspect(STRING version) {
     SWITCH(version) {
       CASE "live" {
@@ -77,12 +78,26 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     }
   }
 
-  PUBLIC STRING FUNCTION GetPreviewLink(STRING version, RECORD options DEFAULTSTO DEFAULT RECORD) {
-    IF(version NOT IN ["live","draft","autosave"])
-      THROW NEW Exception("Invalid version, must be one of 'live', 'draft' or 'autosave'");
+  /** Get the object to use for a specific version. Mostly useful for a preview depending on the Save button that wants to show either draft or live, but not autosave - it would request GetContentObject("draft") */
+  PUBLIC INTEGER FUNCTION GetContentObject(STRING version) {
+    SWITCH(version) {
+      CASE "live" {
+        RETURN this->baseobject->id;
+      }
+      CASE "draft" {
+        RETURN (this->currentdraft ?? this->baseobject)->id;
+      }
+      CASE "autosave" {
+        RETURN (this->currentautosave ?? this->currentdraft ?? this->baseobject)->id;
+      }
+      DEFAULT {
+        THROW NEW Exception("Invalid version, must be one of 'live', 'draft' or 'autosave'");
+      }
+    }
+  }
 
-    OBJECT toshow := version = "autosave" ? this->__GetAutosavedObject() : version = "draft" ? this->__GetDraftObject() : this->baseobject;
-    RETURN GetPreviewLink(toshow->id, options);
+  PUBLIC STRING FUNCTION GetPreviewLink(STRING version, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    RETURN GetPreviewLink(this->GetContentObject(version), options);
   }
 
   //exported for some legacy preview code, but GetPreview should be used

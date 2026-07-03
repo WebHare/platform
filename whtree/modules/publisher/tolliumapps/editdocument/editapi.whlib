@@ -169,7 +169,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 
   INTEGER FUNCTION GetEditObject()
   {
-    RETURN this->editscreen->workflowmgr->__GetAutosavedObject()->id;
+    RETURN this->GetContentObject("autosave");
   }
 
   MACRO SetOnCanView(MACRO PTR callback)
@@ -182,5 +182,9 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   {
     this->pvt_oncanpreview := callback;
     this->editscreen->RefreshState();
+  }
+
+  PUBLIC INTEGER FUNCTION GetContentObject(STRING version) {
+    RETURN this->editscreen->workflowmgr->GetContentObject(version);
   }
 >;
