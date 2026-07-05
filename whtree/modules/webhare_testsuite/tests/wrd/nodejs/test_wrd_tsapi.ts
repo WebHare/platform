@@ -1,7 +1,7 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions, type CustomExtensionsModern } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettingsModern, type WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
+import type { WRDAttributeTypeId, SelectionResultRow, IsRequired, WRDAttr, Combine, WRDTypeBaseSettingsModern, WRDBaseAttributeTypeId } from "@webhare/wrd/src/types";
 import { describeEntity, listSchemas, openSchemaById, getSchemaSettings, updateSchemaSettings, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable, wrd, type WRDSchemaLike, type AnySchemaType } from "@webhare/wrd";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type Instance } from "@webhare/services";
@@ -371,7 +371,7 @@ async function testNewAPI() {
 
   const basePerson = { whuserUnit: unit_id, wrdauthAccountStatus: { status: "active" } } as const;
 
-  const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdInitials: "F", wrdLastNamePrefix: "van de", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdInitials: "F", wrdLastNamePrefix: "van de", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: "male" });
   test.eq({ wrdLastNamePrefix: "van de" }, await schema.getFields("wrdPerson", firstperson, ["wrdLastNamePrefix"]));
   //@ts-expect-error -- TS should block wrdTitle
   test.eq({ wrdTitle: "F van de lastname" }, await schema.getFields("wrdPerson", firstperson, ["wrdTitle"]));
@@ -389,8 +389,8 @@ async function testNewAPI() {
 
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
-  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdClosed: new Date(), wrdGender: WRDGender.Other });
+  const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: "female" });
+  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdClosed: new Date(), wrdGender: "other" });
 
   //prevent creating WRD style guids
   await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "badbadvalue" }));

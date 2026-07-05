@@ -1,4 +1,4 @@
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type WRDAttrBase, type WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -1301,9 +1301,9 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedValues: WRDGender
 
     switch (entityrec["gender"]) {
       case 0: return null;
-      case 1: return WRDGender.Male;
-      case 2: return WRDGender.Female;
-      case 3: return WRDGender.Other;
+      case 1: return "male";
+      case 2: return "female";
+      case 3: return "other";
       default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
   }
@@ -1328,7 +1328,7 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedValues: WRDGender
 
 
   encodeValue(value: WRDGender) {
-    const mapped = [null, WRDGender.Male, WRDGender.Female, WRDGender.Other].indexOf(value);
+    const mapped = [null, "male", "female", "other"].indexOf(value);
     if (mapped === -1)
       throw new Error(`Unknown gender value '${value}'`);
     return { entity: { [this.getAttrBaseCells()]: mapped } };

@@ -1,11 +1,19 @@
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { tagToHS, tagToJS } from "./wrdsupport";
-import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDGender, WRDMetaTypeId } from "./types";
+import { WRDAttributeTypeId, WRDBaseAttributeTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
 const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract", "keephistorydays"] as const;
 const selectAttrColumns = ["id", "attributetype", "domain", "isunique", "isunsafetocopy", "parent", "required", "ordered", "tag", "type", "allowedvalues", "checklinks"] as const;
+const wrdMetaTypeId = {
+  Object: 1,
+  Link: 2,
+  Attachment: 3,
+  Domain: 4,
+} as const;
+
+
 export const selectEntitySettingColumns = ["id", "entity", "attribute", "blobdata", "rawdata", "setting", "ordering", "parentsetting"] as const;
 export const selectEntitySettingWHFSLinkColumns = ["id", "fsobject", "linktype"] as const;
 
@@ -76,17 +84,17 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     { ...baseEmptyAttrRec, tag: "wrdClosed", fullTag: "wrdClosed", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdModified", fullTag: "wrdModified", attributetype: WRDBaseAttributeTypeId.Base_ModificationDate },
   ];
-  if (type.metatype === WRDMetaTypeId.Domain) {
+  if (type.metatype === wrdMetaTypeId.Domain) {
     attrs.push({ ...baseEmptyAttrRec, tag: "wrdOrdering", fullTag: "wrdOrdering", attributetype: WRDBaseAttributeTypeId.Base_Integer });
     attrs.push({ ...baseEmptyAttrRec, tag: "wrdOrder", fullTag: "wrdOrder", attributetype: WRDBaseAttributeTypeId.Base_Integer });
   }
-  if (((type.metatype === WRDMetaTypeId.Attachment || type.metatype === WRDMetaTypeId.Link) && type.requiretype_left) || type.metatype === WRDMetaTypeId.Domain)
-    attrs.push({ ...baseEmptyAttrRec, tag: "wrdLeftEntity", fullTag: "wrdLeftEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: type.metatype !== WRDMetaTypeId.Domain, domain: type.metatype === WRDMetaTypeId.Domain ? type.id : type.requiretype_left });
-  if ((type.metatype === WRDMetaTypeId.Link) && type.requiretype_right)
+  if (((type.metatype === wrdMetaTypeId.Attachment || type.metatype === wrdMetaTypeId.Link) && type.requiretype_left) || type.metatype === wrdMetaTypeId.Domain)
+    attrs.push({ ...baseEmptyAttrRec, tag: "wrdLeftEntity", fullTag: "wrdLeftEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: type.metatype !== wrdMetaTypeId.Domain, domain: type.metatype === wrdMetaTypeId.Domain ? type.id : type.requiretype_left });
+  if ((type.metatype === wrdMetaTypeId.Link) && type.requiretype_right)
     attrs.push({ ...baseEmptyAttrRec, tag: "wrdRightEntity", fullTag: "wrdRightEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: true, domain: type.requiretype_right });
   if (type.tag === "wrdPerson") {
     attrs.push(...[
-      { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender, allowedvalues: Object.values(WRDGender).join('\t') },
+      { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender, allowedvalues: "male\tfemale\tother" },
       { ...baseEmptyAttrRec, tag: "wrdFullName", fullTag: "wrdFullName", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdTitles", fullTag: "wrdTitles", attributetype: WRDBaseAttributeTypeId.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdInitials", fullTag: "wrdInitials", attributetype: WRDBaseAttributeTypeId.Base_NameString },

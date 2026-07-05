@@ -5,23 +5,12 @@ import type { AccessorType } from "./accessors";
 
 /** WRD entity metatypes.
 */
-export enum WRDMetaTypeId {
-  Object = 1,
-  Link = 2,
-  Attachment = 3,
-  Domain = 4,
-}
-
 export const WRDMetaTypes = ["object", "link", "attachment", "domain"] as const;
 export type WRDMetaType = typeof WRDMetaTypes[number];
 
 /** WRD Gender values
  */
-export enum WRDGender {
-  Male = "male",
-  Female = "female",
-  Other = "other"
-}
+export type WRDGender = "male" | "female" | "other";
 
 /** WRD attribute types. Negative values are used for base attributes (which will have a different accessor than the attributes read from settings) */
 export enum WRDBaseAttributeTypeId {

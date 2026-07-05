@@ -1,6 +1,6 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@webhare/wrd/src/types";
+import { WRDAttributeTypeId, type WRDAttributeType, WRDAttributeTypes } from "@webhare/wrd/src/types";
 import { type GenerateContext, type FileToUpdate, generatorBanner, isNodeApplicableToThisWebHare } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { Document } from "@xmldom/xmldom";
@@ -300,7 +300,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
       parentpath.push(ptype.tag);
 
     if (parentpath.includes("WRD_PERSON")) {
-      typeinfo.attrdefs.wrdGender = { attributeType: "enum", isGenerated: false, isRequired: false, isBase: false, allowedValues: Object.values(WRDGender) };
+      typeinfo.attrdefs.wrdGender = { attributeType: "enum", isGenerated: false, isRequired: false, isBase: false, allowedValues: ["male", "female", "other"] };
       typeinfo.attrdefs.wrdFullName = { attributeType: "string", isGenerated: true, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdTitles = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
       typeinfo.attrdefs.wrdInitials = { attributeType: "string", isGenerated: false, isRequired: false, isBase: false };
