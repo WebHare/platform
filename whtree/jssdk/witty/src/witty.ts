@@ -24,12 +24,13 @@ enum ParserStates {
   RawComponent
 }
 
-export enum WittyEncodingStyle {
-  Invalid = 0,
-  Text,
-  HTML,
-  XML
-}
+export const WittyEncodingStyle = {
+  Invalid: 0,
+  Text: 1,
+  HTML: 2,
+  XML: 3
+} as const;
+export type WittyEncodingStyle = typeof WittyEncodingStyle[keyof typeof WittyEncodingStyle];
 
 enum ContentEncoding {
   Invalid = 0,
@@ -83,32 +84,33 @@ class ParsedPart {
   }
 }
 
-export enum WittyErrorCode {
-  UnterminatedInstruction = 1,
-  LinefeedWithinInstruction,
-  UnknownData,
-  UnknownEncoding,
-  ReservedWordAsCell,
-  ElseOutsideIf,
-  DuplicateElse,
-  EndIfOutsideIf,
-  DuplicateComponent,
-  EndComponentOutsideComponent,
-  ParameterNotACell,
-  EndForeveryOutsideForevery,
-  UnterminatedBlock,
-  UnterminatedComment,
-  NoSuchCell,
-  CellNotAnArray,
-  ForeveryVarOutsideForevery,
-  CannotOutputCell,
-  NoSuchComponent,
-  EmptyCommand,
-  InvalidClosingTag,
-  MissingParameter,
-  EndRawcomponentOutsideRawcomponent,
-  MissingComponentName
-}
+export const WittyErrorCode = {
+  UnterminatedInstruction: 1,
+  LinefeedWithinInstruction: 2,
+  UnknownData: 3,
+  UnknownEncoding: 4,
+  ReservedWordAsCell: 5,
+  ElseOutsideIf: 6,
+  DuplicateElse: 7,
+  EndIfOutsideIf: 8,
+  DuplicateComponent: 9,
+  EndComponentOutsideComponent: 10,
+  ParameterNotACell: 11,
+  EndForeveryOutsideForevery: 12,
+  UnterminatedBlock: 13,
+  UnterminatedComment: 14,
+  NoSuchCell: 15,
+  CellNotAnArray: 16,
+  ForeveryVarOutsideForevery: 17,
+  CannotOutputCell: 18,
+  NoSuchComponent: 19,
+  EmptyCommand: 20,
+  InvalidClosingTag: 21,
+  MissingParameter: 22,
+  EndRawcomponentOutsideRawcomponent: 23,
+  MissingComponentName: 24
+} as const;
+export type WittyErrorCode = typeof WittyErrorCode[keyof typeof WittyErrorCode];
 
 const WittyMessages = {
   [WittyErrorCode.UnterminatedInstruction]: "Unterminated instruction",

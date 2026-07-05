@@ -2,10 +2,11 @@ import { getState, activateHMR } from "@webhare/services/src/hmrinternal";
 import { registerTexts } from "@webhare/gettid/src/internal";
 import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, getTidLanguage, setTidLanguage } from "@webhare/gettid";
 import { loadlib } from "@webhare/harescript";
-import { WittyEncodingStyle, backendConfig, loadWittyResource } from "@webhare/services";
+import { backendConfig, loadWittyResource } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as test from "@webhare/test";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import { WittyEncodingStyle } from "@webhare/witty";
 
 async function tidCompilerTest() {
   // Do as much tests as possible before we install the module...
