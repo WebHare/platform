@@ -231,3 +231,8 @@ export async function getCurrentPGVersion() {
   const res = await query<{ server_version_num: number }>("SHOW server_version_num");
   return { major: res.rows[0].server_version_num / 10000 | 0, minor: (res.rows[0].server_version_num % 10000) };
 }
+
+/** Get the PID for the current connection's backend. Unreliable outside work as connection pooling may silently change the backend */
+export async function getPGBackendPid() {
+  return (await query<{ pg_backend_pid: number }>('select pg_backend_pid()')).rows[0].pg_backend_pid;
+}

@@ -2,9 +2,9 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getLegacyWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { throwError } from "@webhare/std";
+import { runInWork } from "@webhare/whdb";
 
 async function testWRDUntypedApi() { //  tests
   const nosuchschema = new WRDSchema("wrd:nosuchschema");
@@ -380,21 +380,8 @@ async function testUnique() {
 
   await whdb.commitWork();
 
-  //Test whether the database is actually enforcing these contraints by using 2 parallel connections
-  const context1 = new CodeContext("test_unique: Inserter", { context: 1 });
-  const context2 = new CodeContext("test_unique: Conflicter", { context: 2 });
-
-  await context1.run(async () => whdb.beginWork());
-  await context2.run(async () => whdb.beginWork());
-
-  const person1 = await context1.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
-  const person2 = context2.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
-  person2.catch(() => { }); //prevent uncaughtRejections during the sleep. it a 1% race with sleep(50) below, take that sleep to 5000 to get 100%
-  await test.sleep(50); //give context2 time to start hanging - TODO would be nice to just look up the hang in the PostgreSQL lock table and wait for that
-
-  await context1.run(async () => whdb.commitWork());
-  await test.throws(/duplicate key value/, person2, "PG throws, WRD cannot see the issue");
-  await test.throws(/Commit failed/, context2.run(async () => whdb.commitWork()));
+  // Removed/simplified some tests as these won't differ per API and test_wrd_api sufficiently covers this
+  const person1 = await runInWork(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
 
   // Test reactivation triggering unique checks
   await whdb.beginWork();

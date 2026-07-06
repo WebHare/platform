@@ -5,6 +5,7 @@ import { getConnection, isDatabaseError, type WHDBConnectionImpl } from "@webhar
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import * as test from "@webhare/test";
+import { getPGBackendPid } from "@webhare/whdb/src/management";
 
 export function returnContextId() {
   return getCodeContext().id;
@@ -89,7 +90,7 @@ export async function testQueryInNewContext() {
 
 export async function runAndKillTransaction() {
   await beginWork(); //work is needed to prevent crash but also makes us safer if we start to pool
-  const pid = (await query<{ pg_backend_pid: number }>('select pg_backend_pid()')).rows[0].pg_backend_pid;
+  const pid = await getPGBackendPid();
   const promised = query('select pg_sleep(10)');
   const promised2 = query('select pg_sleep(10)');
   promised.catch(() => { });

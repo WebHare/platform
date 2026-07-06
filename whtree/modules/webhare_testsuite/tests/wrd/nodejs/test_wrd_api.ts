@@ -5,6 +5,7 @@ import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 import { throwError } from "@webhare/std";
+import { getDatabaseMonitorInfo, getPGBackendPid } from "@webhare/whdb/src/management";
 
 async function testWRDUntypedApi() { //  tests
   const nosuchschema = wrd<"*">("wrd:nosuchschema");
@@ -389,8 +390,11 @@ async function testUnique() {
 
   const person1 = await context1.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
   const person2 = context2.run(async () => wrdschema.insert("testUniques", { testEmail: "trans@beta.webhare.net" }));
-  person2.catch(() => { }); //prevent uncaughtRejections during the sleep. it a 1% race with sleep(50) below, take that sleep to 5000 to get 100%
-  await test.sleep(50); //give context2 time to start hanging - TODO would be nice to just look up the hang in the PostgreSQL lock table and wait for that
+  person2.catch(() => { }); //prevent uncaughtRejections during the wait
+
+  //wait unil person2 is actually hanging inside the lock
+  const context2BackendPid = await context2.run(() => getPGBackendPid());
+  await test.wait(async () => (await getDatabaseMonitorInfo()).blockingLocks.some(_ => _.waiters.some(waiter => waiter.backend === context2BackendPid)), "waiting for context2's transaction to be blocked");
 
   await context1.run(async () => whdb.commitWork());
   await test.throws(/duplicate key value/, person2, "PG throws, WRD cannot see the issue");
