@@ -8,30 +8,32 @@ import type { ToSnakeCase } from "@webhare/std/src/types";
 import type { GlobalRight, TargettedRight } from "@webhare/auth";
 import type { WHFSTypeName } from "@webhare/whfs";
 
-export enum CSPMemberType {
-  String = 2,
-  DateTime = 4,
-  File = 5,
-  Boolean = 6,
-  Integer = 7,
-  Float = 8,
-  Money = 9,
-  WHFSRef = 11,
-  Array = 12,
-  WHFSRefArray = 13,
-  StringArray = 14,
-  RichTextDocument = 15,
-  IntExtLink = 16,
-  Instance = 18,
-  URL = 19,
-  CompoundDocument = 20,
-  HSON = 21,
-  Record = 23,
-  PlainDate = 25, //like Date, but signal truncation of the millisecond part
-  JSON = 26,
-  FormDefinition = 27,
-  CompoundHTMLDocument = 28,
-}
+export const CSPMemberType = Object.freeze({
+  String: 2,
+  DateTime: 4,
+  File: 5,
+  Boolean: 6,
+  Integer: 7,
+  Float: 8,
+  Money: 9,
+  WHFSRef: 11,
+  Array: 12,
+  WHFSRefArray: 13,
+  StringArray: 14,
+  RichTextDocument: 15,
+  IntExtLink: 16,
+  Instance: 18,
+  URL: 19,
+  CompoundDocument: 20,
+  HSON: 21,
+  Record: 23,
+  PlainDate: 25, //like Date, but signal truncation of the millisecond part
+  JSON: 26,
+  FormDefinition: 27,
+  CompoundHTMLDocument: 28,
+});
+
+export type CSPMemberType = (typeof CSPMemberType)[keyof typeof CSPMemberType];
 
 export interface YamlComponentDefinition {
   ns: string;
