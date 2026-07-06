@@ -36,15 +36,14 @@ class OauthApp {
 
     this.oauth_clientid = url.searchParams.get("oauth_clientid");
     this.oauth_redirect = url.searchParams.get("oauth_redirect");
-    const scopes = url.searchParams.get("oauth_scopes").split(",").filter(function (scope) { return scope; });
-    this.oauth_scopes = scopes;
+    this.scopes = url.searchParams.get("scopes")?.split(",").filter(function (scope) { return scope; }) ?? ["system:sysop"];
 
     let error = "";
 
     if (this.oauth_clientid === "")
       error = getTid("tollium:shell.oauth.messages.missing_client");
-    else if (!scopes.length || scopes.some(scope => scope !== "webhare") || !scopes.includes("webhare"))
-      error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
+    //  else if (!scopes.length || scopes.some(scope => scope !== "webhare") || !scopes.includes("webhare"))
+    //    error = getTid("tollium:shell.oauth.messages.missing_scopes"); //FIXME future versions should *only* accept scope 'webhare' for this oauth flow
     else if (this.oauth_redirect === "")
       error = getTid("tollium:shell.oauth.messages.missing_redirect");
     else if (this.oauth_redirect.indexOf(this.oauth_clientid))
@@ -132,8 +131,6 @@ class OauthApp {
 
       clientid: { type: "text", title: "", value: this.oauth_clientid },
 
-      // , scopes:       { type: "text", title: "", value: this.oauth_scopes.join(", ") }
-
       submitbutton: { type: "button", title: getTid("~yes"), action: "submitaction" },
 
       cancelbutton: { type: "button", title: getTid("~no"), action: "cancelaction" },
@@ -151,7 +148,7 @@ class OauthApp {
       const options =
       {
         type: "getoauthtoken",
-        scopes: ["system:sysop"], //currently the only supported scope by WebHare
+        scopes: this.scopes,
         client: this.oauth_clientid
       };
 

@@ -887,9 +887,11 @@ STATIC OBJECTTYPE WHUserApi <
     IF (access_token = "")
       RETURN [ success := FALSE, errormessage := "Access token is empty" ];
 
-    RECORD result := CallJS("mod::platform/js/auth/harescript.ts#verifyAPIAccessToken", this->wrdschema->tag, access_token, ["system:sysop"]);
+    RECORD result := CallJS("mod::platform/js/auth/harescript.ts#verifyAPIAccessToken", this->wrdschema->tag, access_token);
     IF(CellExists(result,"error"))
       RETURN [ success := FALSE, errormessage := result.error ];
+    IF("platform:wrd.export" NOT IN result.scopes AND "system:sysop" NOT IN result.scopes AND "platform:sysop" NOT IN result.scopes)
+      RETURN [ success := FALSE, errormessage := `Access token does not have a scope accepted by the whremoting admin service` ];
 
     /* result should be snakecased VerifyAccessTokenResult
         // wrdId of the found subject
@@ -908,8 +910,9 @@ STATIC OBJECTTYPE WHUserApi <
     OBJECT user := this->GetUser(result.entity);
     IF(NOT ObjectExists(user))
       RETURN [ success := FALSE, errormessage := `User does not exist` ];
-    IF(NOT user->HasRight("system:sysop"))
-     RETURN [ success := FALSE, errormessage := `User does not have sysop rights` ];
+
+    //We rely on services themselves to check for both sysop right and token. But this path is being phased out anyway so may not matter much anymore.
+    //(don't forget that originally peers were open to *everyone*, just had a requirewhaccount= and the services had to check anyway
 
     RETURN
         [ success := TRUE
