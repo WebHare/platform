@@ -1,8 +1,15 @@
 <?wh
 
-// TODO factor out parts to share with objectprops
-PUBLIC STATIC OBJECTTYPE EditDocumentAPI
-<
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+
+MACRO Dummy() {
+}
+
+/** EditDocumentAPI emits the following events
+    - loaddocument - Fired at startup on when reverting a draft. Signals all components to reload their data from the current instance data using GetInstanceData on the editdocument API
+    - storedocument - Fired before we want to commit an autosave. Signals all components that manage their data themselves to now store that using SetInstanceData on the editdocument API
+*/
+PUBLIC STATIC OBJECTTYPE EditDocumentAPI EXTEND TolliumEventSource <
   OBJECT editscreen;
 
   RECORD ARRAY instancedatacache;
@@ -70,6 +77,10 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
     this->editscreen := editscreen;
     this->canpublish := TRUE;
     this->onconfirmsaveandpublish := PTR this->editscreen->DefaultConfirmAndSavePublishHandler;
+
+    //Install no-ops - there are editdocument hooks that chain into onloaddata/onstoredata but don't expect DEFAULT PTRs
+    this->onloaddata := PTR Dummy;
+    this->onstoredata := PTR Dummy;
   }
 
   /// Should be invoked by editors to mark the document as dirty, is implicitly called when using SetInstanceData
@@ -153,6 +164,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 
   PUBLIC MACRO __FlushInstanceData(OBJECT targetobject)
   {
+    this->DispatchEvent("storedocument");
     this->onstoredata();
     FOREVERY (RECORD cached FROM this->instancedatacache)
     {
