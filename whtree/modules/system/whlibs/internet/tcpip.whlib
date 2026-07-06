@@ -17,17 +17,44 @@ STATIC OBJECTTYPE SocketException EXTEND Exception
   MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
 >;
 
-//These ciphersuite settings are taken from the current internet.nl requirements. Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will not support IE11 on win8.1 and below
-/** List of currently safe ciphersuites supported by Mozilla. Taken from the current internet.nl
-    requirementsand . Full compliance also requires at least webhare/proxy:2.1.0. modern_ciphersuites will
-    not support IE11 on win8.1 and below
-*/
-PUBLIC CONSTANT STRING modern_ciphersuites :=  "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256";
+/** These ciphersuite settings are taken from the current internet.nl requirements which in turn is based on appendix B of NCSC-NL's guidelines.
 
-/** List of cyphersuites supported by modern browers. Taken from the current internet.nl
-    requirementsand . Full compliance also requires at least webhare/proxy:2.1.0.
+Good [TLS 1.3]:
+
+TLS_AES_256_GCM_SHA384
+TLS_CHACHA20_POLY1305_SHA256
+
+Sufficient [TLS 1.3]:
+
+TLS_AES_128_CCM_SHA256
+TLS_AES_128_GCM_SHA256
+
+Sufficient [TLS 1.2]:
+
+TLS_ECDHE_ECDSA_WITH_AES_128_CCM
+TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+TLS_ECDHE_ECDSA_WITH_AES_256_CCM
+TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+
+Openssl calls these:
+
+ECDHE-ECDSA-AES128-CCM
+ECDHE-ECDSA-AES128-GCM-SHA256
+ECDHE-ECDSA-AES256-CCM
+ECDHE-ECDSA-AES256-GCM-SHA384
+ECDHE-ECDSA-CHACHA20-POLY1305
+ECDHE-RSA-AES128-GCM-SHA256
+ECDHE-RSA-AES256-GCM-SHA384
+ECDHE-RSA-CHACHA20-POLY1305
+
+It seems our webhare/proxy currently lacks support for TLS_AES_128_CCM_SHA256 - so we'll just drop that one
+
 */
-PUBLIC CONSTANT STRING default_ciphersuites := `${modern_ciphersuites}:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA`;
+PUBLIC CONSTANT STRING default_ciphersuites := `TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES128-CCM:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-CCM:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305`;
 
 /** Default options for secure connections
 */
