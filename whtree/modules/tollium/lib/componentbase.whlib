@@ -305,7 +305,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
     RETURN condition;
   }
 
-  PUBLIC INTEGER FUNCTION AddYamlEventHandler(STRING eventtype, VARIANT callback)
+  PUBLIC INTEGER FUNCTION AddEventListener(STRING eventtype, VARIANT callback)
   {
     INTEGER id := nexteventnr;
     nexteventnr := nexteventnr + 1;
@@ -327,7 +327,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
     RETURN id;
   }
 
-  PUBLIC MACRO DispatchYamlEvents(STRING eventtype)
+  PUBLIC MACRO DispatchEvent(STRING eventtype)
   {
     FOREVERY(RECORd handler FROM this->yamleventhandlers)
       IF(handler.eventtype = eventtype)
@@ -351,9 +351,9 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->enabled_on := this->LoadYamlCondition(props.enabled_on);
 
     IF(CellExists(props,'on_set'))
-      this->AddYamlEventHandler('onSet', props.on_set);
+      this->AddEventListener('set', props.on_set);
     IF(CellExists(props,'on_init'))
-      this->AddYamlEventHandler('onInit', props.on_init);
+      this->AddEventListener('init', props.on_init);
 
     this->ExtUpdatedComponent();
     this->EnsurePreinit();
@@ -535,7 +535,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->PreInitComponent();
       /* onInit is the 'followup' to SetYamlProperties (except value). It should be preparing the component to receive
          its first value, but otherwise expects the component to be usable. */
-      this->DispatchYamlEvents("onInit");
+      this->DispatchEvent("init");
     }
 
     FOREVERY(OBJECT comp FROM this->GetChildComponents())
@@ -551,7 +551,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       this->parent->EnsurePreShow();
 
     this->pvt_havepreshown := TRUE;
-    this->DispatchYamlEvents("onSet");
+    this->DispatchEvent("set");
     this->PreShowComponent();
     RETURN TRUE;
   }
@@ -1604,7 +1604,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       }
       CASE "change"
       {
-        this->DispatchYamlEvents("onSet");
+        this->DispatchEvent("set");
         IF(this->onchange != DEFAULT FUNCTION PTR)
           this->onchange();
       }
@@ -1630,7 +1630,7 @@ PUBLIC OBJECTTYPE TolliumComponentBase <
       CASE "click", "change", "select", "windowmove", "windowsavestate", "interval"
       {
         IF(action="change")
-          this->DispatchYamlEvents("onSet");
+          this->DispatchEvent("set");
         this->owner->tolliumscreenmanager->QueueEvent(this, action, DEFAULT RECORD);
       }
       CASE "clicklink"
