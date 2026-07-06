@@ -4,7 +4,7 @@ import { type WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, t
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../../../../../jssdk/services/src/hmrinternal";
 import { pick, generateRandomId } from "@webhare/std";
-import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType } from "./ipc";
+import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType, getIPCEndPointImplControlMessageTypeName } from "./ipc";
 import { type TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, type AnyTypedMessagePort } from './transport';
 import { RefTracker } from "./refs";
 import * as stacktrace_parser from "stacktrace-parser";
@@ -1467,7 +1467,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     this.links.set(linkid, { name: portname, port: port, partialmessages: new Map });
     port.on("message", (ctrlmsg: IPCEndPointImplControlMessage) => {
       if (envbackend.debugFlags.ipc)
-        console.log(`main bridge: incoming message from local endpoint of ${linkid} (${portname})`, { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type] });
+        console.log(`main bridge: incoming message from local endpoint of ${linkid} (${portname})`, { ...ctrlmsg, type: getIPCEndPointImplControlMessageTypeName(ctrlmsg.type) });
       switch (ctrlmsg.type) {
         case IPCEndPointImplControlMessageType.ConnectResult: {
           this.sendData({ opcode: WHMRequestOpcode.OpenLinkResult, linkid, replyto: msgid, success: ctrlmsg.success });
