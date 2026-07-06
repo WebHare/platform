@@ -6,23 +6,25 @@ import { encodeString, stringify } from "@webhare/std";
 import { getHTMLTid, getTid } from "@webhare/gettid";
 import * as path from "node:path";
 
-enum DataType {
-  First = 1,
-  Last,
-  Odd,
-  Even,
-  Seqnr,
-  Cell
-}
+const DataType = {
+  First: 1,
+  Last: 2,
+  Odd: 3,
+  Even: 4,
+  Seqnr: 5,
+  Cell: 6
+} as const;
+type DataType = typeof DataType[keyof typeof DataType];
 
-enum ParserStates {
-  Text = 1,
-  Content,
-  Tag,
-  TagSQuote,
-  TagDQuote,
-  RawComponent
-}
+const ParserStates = {
+  Text: 1,
+  Content: 2,
+  Tag: 3,
+  TagSQuote: 4,
+  TagDQuote: 5,
+  RawComponent: 6
+} as const;
+type ParserStates = typeof ParserStates[keyof typeof ParserStates];
 
 export const WittyEncodingStyle = {
   Invalid: 0,
@@ -32,15 +34,16 @@ export const WittyEncodingStyle = {
 } as const;
 export type WittyEncodingStyle = typeof WittyEncodingStyle[keyof typeof WittyEncodingStyle];
 
-enum ContentEncoding {
-  Invalid = 0,
-  None,
-  Html,
-  Value,
-  CData,
-  JsonValue,
-  Json
-}
+const ContentEncoding = {
+  Invalid: 0,
+  None: 1,
+  Html: 2,
+  Value: 3,
+  CData: 4,
+  JsonValue: 5,
+  Json: 6
+} as const;
+type ContentEncoding = typeof ContentEncoding[keyof typeof ContentEncoding];
 
 function GetNonquoteEncoding(encodingstyle: WittyEncodingStyle): ContentEncoding {
   if (encodingstyle === WittyEncodingStyle.HTML)
@@ -51,17 +54,18 @@ function GetNonquoteEncoding(encodingstyle: WittyEncodingStyle): ContentEncoding
     return ContentEncoding.None;
 }
 
-enum ParsedPartType {
-  Content = 1,
-  Data,
-  Forevery,
-  If,
-  ElseIf,
-  Component,
-  Embed,
-  GetTid,
-  GetHTMLTid
-}
+const ParsedPartType = {
+  Content: 1,
+  Data: 2,
+  Forevery: 3,
+  If: 4,
+  ElseIf: 5,
+  Component: 6,
+  Embed: 7,
+  GetTid: 8,
+  GetHTMLTid: 9
+} as const;
+type ParsedPartType = typeof ParsedPartType[keyof typeof ParsedPartType];
 
 class ParsedPart {
   lineNum: number;
@@ -535,7 +539,7 @@ export class WittyTemplate {
     while (lastEnd !== limit && /\s/.test(data[lastEnd]))
       ++lastEnd;
 
-    let encoding = ContentEncoding.Invalid;
+    let encoding: ContentEncoding = ContentEncoding.Invalid;
 
     if (lastEnd === limit)
       return { haveEncoding: false, encoding, paramEnd: 0 };
@@ -953,7 +957,7 @@ export class WittyTemplate {
 
       let wittyVar: WittyVar | undefined;
       let isHtml = false;
-      if (![ParsedPartType.Content, ParsedPartType.Component, ParsedPartType.Embed, ParsedPartType.GetTid, ParsedPartType.GetHTMLTid].includes(part.type) && part.dataType === DataType.Cell) {
+      if (!([ParsedPartType.Content, ParsedPartType.Component, ParsedPartType.Embed, ParsedPartType.GetTid, ParsedPartType.GetHTMLTid] as ParsedPartType[]).includes(part.type) && part.dataType === DataType.Cell) {
         wittyVar = this.findCellInStack(this.parts[elt.itr].content);
         if (wittyVar === undefined)
           throw new WittyErrorRec(this.resource, part.lineNum, part.columnNum, WittyErrorCode.NoSuchCell, part.content);
