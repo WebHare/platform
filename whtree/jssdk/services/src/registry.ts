@@ -7,7 +7,7 @@ import { readAnyFromDatabase } from "@webhare/whdb/src/formats";
 import type { RegistryKeys } from "@mod-platform/generated/ts/registry.ts";
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig). this line *must* remain a @ts-ignore
 import type { } from "wh:ts/registry.ts";
-import { determineType, encodeHSON, HareScriptType, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
+import { determineType, encodeHSON, getHSTypeName, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { WebHareBlob } from "./webhareblob";
 import { signalOnEvent } from "./backendevents";
 
@@ -127,7 +127,7 @@ export async function writeRegistryKey(key: string, value: unknown, options?: { 
     const curvaltype = determineType(keyinfo.value);
     const newvaltype = determineType(value);
     if (curvaltype !== newvaltype)
-      throw new Error(`Invalid type in registry for registry key '${key}', got ${HareScriptType[curvaltype]} but expected ${HareScriptType[newvaltype]}`);
+      throw new Error(`Invalid type in registry for registry key '${key}', got ${getHSTypeName(curvaltype)} but expected ${getHSTypeName(newvaltype)}`);
   }
 
   const newvalue = encodeHSON(value as IPCMarshallableData);

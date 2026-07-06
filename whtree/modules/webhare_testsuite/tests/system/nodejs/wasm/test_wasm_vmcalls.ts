@@ -1,17 +1,17 @@
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import * as stacktrace_parser from "stacktrace-parser";
-import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { type HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, commitWork, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
-import { determineType } from "@webhare/hscompat/src/hson";
+import { determineType, HareScriptType } from "@webhare/hscompat/src/hson";
 import { startNestingHandler } from "./testwasmlib";
 
 function testTypeAPIs() {
-  test.eq(VariableType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));
-  test.eq(VariableType.Integer64Array, determineType(getTypedArray(VariableType.Integer64Array, [1n, 2n, 3n])));
+  test.eq(HareScriptType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));
+  test.eq(HareScriptType.Integer64Array, determineType(getTypedArray(HareScriptType.Integer64Array, [1n, 2n, 3n])));
 }
 
 async function testVarMemory() {
@@ -20,8 +20,8 @@ async function testVarMemory() {
   const arrayvar = vm.allocateVariable();
   const js_in64array = [0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n];
   arrayvar.setJSValue(js_in64array);
-  test.eq(VariableType.Integer64Array, arrayvar.getType());
-  test.eq(VariableType.Integer64, arrayvar.arrayGetRef(0)?.getType());
+  test.eq(HareScriptType.Integer64Array, arrayvar.getType());
+  test.eq(HareScriptType.Integer64, arrayvar.arrayGetRef(0)?.getType());
 
   const binaryvar = vm.allocateVariable();
   binaryvar.setString("€");
@@ -39,27 +39,27 @@ async function testVarMemory() {
 
   const scratchvar = vm.allocateVariable();
   scratchvar.setJSValue(undefined);
-  test.eq(VariableType.Record, scratchvar.getType());
+  test.eq(HareScriptType.Record, scratchvar.getType());
   test.eq(false, scratchvar.recordExists());
 
   scratchvar.setJSValue([0, undefined, null, 3]);
-  test.eq(VariableType.VariantArray, scratchvar.getType());
-  test.eq(VariableType.Record, scratchvar.arrayGetRef(1)?.getType());
+  test.eq(HareScriptType.VariantArray, scratchvar.getType());
+  test.eq(HareScriptType.Record, scratchvar.arrayGetRef(1)?.getType());
 
   scratchvar.setJSValue({ a: "xyz", b: undefined });
-  test.eq(VariableType.Record, scratchvar.getType());
+  test.eq(HareScriptType.Record, scratchvar.getType());
   test.assert(scratchvar.getCell("a"));
   test.assert(scratchvar.getCell("b") === null);
 
   scratchvar.setJSValue(Buffer.from("abc"));
-  test.eq(VariableType.String, scratchvar.getType());
+  test.eq(HareScriptType.String, scratchvar.getType());
   test.eq("abc", scratchvar.getJSValue());
 
   const abuffer = new ArrayBuffer(3);
   const view = new Int8Array(abuffer);
   view.set([65, 98, 99]);
   scratchvar.setJSValue(abuffer);
-  test.eq(VariableType.String, scratchvar.getType());
+  test.eq(HareScriptType.String, scratchvar.getType());
   test.eq("Abc", scratchvar.getJSValue());
 
   /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
@@ -67,7 +67,7 @@ async function testVarMemory() {
 
   await beginWork();
   const blobvar1 = vm.allocateVariable(), blobvar2 = vm.allocateVariable();
-  blobvar1.setDefault(VariableType.Blob);
+  blobvar1.setDefault(HareScriptType.Blob);
   test.eq(0, blobvar1.getBlob().size, `confirm we're not getting nulls back after setting default`);
   blobvar1.setBlob(null);
   test.eq(0, blobvar1.getBlob().size, `confirm we're not getting nulls back after an explicit null`);
@@ -80,7 +80,7 @@ async function testVarMemory() {
 
   blobvar1.setBlob(blob1);
   blobvar2.setJSValue(blob2);
-  test.eq(VariableType.Blob, blobvar2.getType());
+  test.eq(HareScriptType.Blob, blobvar2.getType());
 
   const returnedblob1 = blobvar1.getBlob();
   test.eq(returnedblob1.size, blob1.size, "first a superficial check...");

@@ -1,8 +1,9 @@
 import type { HTTPMethod } from "@webhare/router";
-import type { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
+import type { IPCMarshallableData } from "./whmanager/hsmarshalling";
 import type { IPCExceptionMessage, IPCLinkType } from "./whmanager/ipc";
 import type { TypedMessagePort } from "./whmanager/transport";
 import type { WebHareBlob } from "@webhare/services";
+import type { HareScriptType } from "@webhare/hscompat/src/hson";
 
 /// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;
@@ -39,9 +40,9 @@ export type WebHareServiceDescription = {
   methods: Array<{
     name: string;
     signdata: {
-      returntype: number;
+      returntype: HareScriptType;
       params: Array<{
-        type: VariableType;
+        type: HareScriptType;
         has_default: boolean;
       }>;
       excessargstype: number;

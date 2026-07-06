@@ -3,7 +3,7 @@ import type { HSVMVar } from "./wasm-hsvmvar";
 import type { HareScriptVM } from "./wasm-hsvm";
 import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { parseHSException } from "./wasm-support";
-import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptType } from "@webhare/hscompat/src/hson";
 import { parseTrace } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env";
 
@@ -113,7 +113,7 @@ export async function resolveHSPromise(promise: HSVMVar, status: string, resolve
     setHSException(varResult, resolveValue);
   else
     varResult.setJSValue(resolveValue);
-  varOriginPromise.setDefault(VariableType.Object);
+  varOriginPromise.setDefault(HareScriptType.Object);
 
   if (promise.vm.__isShuttingdown())
     return; //don't bother, it's too late to send stuff back to the HSVM (and callWithHSVMVars will fail). And let's not forget that *we* might be the cause of the failing VM (if setHSException wasn't caught or any of the above HSVM actions failed)
@@ -153,7 +153,7 @@ export function setHSException(obj: HSVMVar, e: Error) {
 
   obj.getMemberRef("WHAT").setString(e.message);
   const trace = obj.getMemberRef("PVT_TRACE");
-  trace.setDefault(VariableType.RecordArray);
+  trace.setDefault(HareScriptType.RecordArray);
   for (const item of parseTrace(e))
     trace.arrayAppend().setJSValue(item);
 }

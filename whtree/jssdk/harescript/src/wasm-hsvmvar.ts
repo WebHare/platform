@@ -1,4 +1,4 @@
-import { Marshaller, type IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/src/hson";
+import { Marshaller, type IPCMarshallableRecord, determineType, getDefaultValue, HareScriptType, getHSTypeName } from "@webhare/hscompat/src/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webhare/hscompat/src/datetime.ts";
@@ -98,7 +98,7 @@ export class HSVMVar {
     this.id = id;
   }
 
-  getType() {
+  getType(): HareScriptType {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     return this.type;
   }
@@ -254,20 +254,20 @@ export class HSVMVar {
   }
   setDefault(type: HareScriptType): HSVMVar {
     if (type === HareScriptType.Array)
-      throw new Error(`Illegal variable type ${HareScriptType[type] ?? type}`);
+      throw new Error(`Illegal variable type ${getHSTypeName(type)}`);
     this.vm.wasmmodule._HSVM_SetDefault(this.vm.hsvm, this.id, type as HSVM_VariableType);
     this.type = type;
     return this;
   }
   arrayLength() {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
-    if (!(this.type & 0x80))
+    if (!(this.type! & 0x80))
       throw new Error(`Variable is not an ARRAY`);
     return this.vm.wasmmodule._HSVM_ArrayLength(this.vm.hsvm, this.id);
   }
   arrayAppend() {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
-    if (!(this.type & 0x80))
+    if (!(this.type! & 0x80))
       throw new Error(`Variable is not an ARRAY`);
     const eltid = this.vm.wasmmodule._HSVM_ArrayAppend(this.vm.hsvm, this.id);
     return new HSVMVar(this.vm, eltid);
@@ -406,7 +406,7 @@ export class HSVMVar {
   setJSValue(value: unknown, forcetype: HareScriptType = HareScriptType.Variant): void {
     if (value instanceof HSVMVar) {
       if (forcetype !== HareScriptType.Variant && forcetype !== value.getType())
-        throw new Error(`Cannot use a ${HareScriptType[value.getType()]} here, a ${HareScriptType[forcetype]} is required`);
+        throw new Error(`Cannot use a ${getHSTypeName(value.getType())} here, a ${getHSTypeName(forcetype)} is required`);
 
       this.copyFrom(value);
       return;
@@ -415,7 +415,7 @@ export class HSVMVar {
     let type = determineType(value);
     if (forcetype !== HareScriptType.Variant) {
       if (!canCastTo(type, forcetype))
-        throw new Error(`Cannot use a ${HareScriptType[type]} here, a ${HareScriptType[forcetype]} is required`);
+        throw new Error(`Cannot use a ${getHSTypeName(type)} here, a ${getHSTypeName(forcetype)} is required`);
       type = forcetype;
     }
     if (typeof value === "object" && value?.[Marshaller]?.setValue) {
@@ -484,14 +484,14 @@ export class HSVMVar {
       }
     }
     if (type & HareScriptType.Array) {
-      const itemtype = type !== HareScriptType.VariantArray ? type & ~HareScriptType.Array : HareScriptType.Variant;
+      const itemtype: HareScriptType = type !== HareScriptType.VariantArray ? (type & ~HareScriptType.Array) as HareScriptType : HareScriptType.Variant;
       this.setDefault(type);
       for (const item of value as unknown[]) {
         this.arrayAppend().setJSValue(item, itemtype);
       }
       return;
     }
-    throw new Error(`Encoding ${HareScriptType[type]} not supported yet`);
+    throw new Error(`Encoding ${getHSTypeName(type)} not supported yet`);
   }
   getJSValue(): unknown {
     const type = this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id) as HareScriptType;
@@ -563,7 +563,7 @@ export class HSVMVar {
         throw new Error(`Returning active function ptr not supported yet`);
 
       default: {
-        throw new Error(`Decoding ${HareScriptType[type]} not supported yet`);
+        throw new Error(`Decoding ${getHSTypeName(type)} not supported yet`);
       }
     }
     if (type & HareScriptType.Array) {

@@ -11,6 +11,7 @@ import { rename, rm } from "node:fs/promises";
 import { UnixSocketLineBasedConnection, type USLMethodCall } from "@mod-system/js/internal/whmanager/unix-connections";
 import type { BackendServiceProtocol } from "./backendservice";
 import { debugFlags } from "@webhare/env";
+import { HareScriptType } from "@webhare/hscompat/src/hson";
 
 export type ServiceControllerFactoryFunction = (options?: { debug?: boolean }) => Promise<BackendServiceController> | BackendServiceController;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need to match any possible arguments to be able to return a useful satifsyable type
@@ -83,7 +84,7 @@ export interface BackendServiceOptions {
 
 //Describe a JS public interface in a HS compatible way
 export function describePublicInterface(inobj: object): WebHareServiceDescription {
-  const methods = [];
+  const methods: WebHareServiceDescription["methods"] = [];
   const seenMethods = new Set<string>();
 
   // Hide any names of the base class - prevents them from being exposed if also defined by the service
@@ -105,11 +106,11 @@ export function describePublicInterface(inobj: object): WebHareServiceDescriptio
 
       const params = [];
       for (let i = 0; i < method.length; ++i) //iterate arguments of method
-        params.push({ type: 1, has_default: true }); //pretend all arguments to be VARIANTs in HareScript
+        params.push({ type: HareScriptType.Variant, has_default: true }); //pretend all arguments to be VARIANTs in HareScript
 
       methods.push({
         signdata: {
-          returntype: 1,  //variant return value
+          returntype: HareScriptType.Variant,  //variant return value
           params,
           excessargstype: -1
         },

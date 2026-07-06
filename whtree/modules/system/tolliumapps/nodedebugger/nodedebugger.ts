@@ -3,8 +3,7 @@ import { type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientL
 import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { sleep } from "@mod-system/js/wh/testframework";
 import { HSVMMarshallableOpaqueObject, type HSVMObject } from "@webhare/harescript/src/wasm-proxies";
-import { defaultDateTime } from "@webhare/hscompat";
-import { HareScriptType } from "@webhare/hscompat/src/hson";
+import { defaultDateTime, HareScriptType } from "@webhare/hscompat";
 import { logError, toResourcePath } from "@webhare/services";
 
 
