@@ -371,62 +371,66 @@ class Level {
 }
 
 
-enum TokenState {
-  TS_Initial, // Allow BOM
-  TS_Default,
-  TS_LongToken,
-  TS_QString,
-  TS_QStringEsc,
-  TS_DQString,
-  TS_DQStringEsc,
-  TS_NumberPrefix,
-  TS_Number,
-  TS_Error,
-  TS_CommentStart,
-  TS_LineComment,
-  TS_BlockComment,
-  TS_BlockCommentEnd
-}
+const TokenState = {
+  TS_Initial: 0, // Allow BOM
+  TS_Default: 1,
+  TS_LongToken: 2,
+  TS_QString: 3,
+  TS_QStringEsc: 4,
+  TS_DQString: 5,
+  TS_DQStringEsc: 6,
+  TS_NumberPrefix: 7,
+  TS_Number: 8,
+  TS_Error: 9,
+  TS_CommentStart: 10,
+  TS_LineComment: 11,
+  TS_BlockComment: 12,
+  TS_BlockCommentEnd: 13
+} as const;
 
-enum TokenType {
-  JTT_SpecialToken,
-  JTT_Token,
-  JTT_String,
-  JTT_Number
-}
+type TokenState = typeof TokenState[keyof typeof TokenState];
 
-enum ParseState {
-  PS_RootValue,
-  PS_ObjectWantName,
-  PS_ObjectWantColon,
-  PS_ObjectWantValue,
-  PS_ObjectWantComma,
-  PS_ArrayWantValue,
-  PS_ArrayWantComma,
-  PS_Finished,
-  PS_Error,
+const TokenType = {
+  JTT_SpecialToken: 0,
+  JTT_Token: 1,
+  JTT_String: 2,
+  JTT_Number: 3
+} as const;
 
-  PS_HSONStart,
-  PS_HSONStartColon,
-  PS_HSONWantArray,
-  PS_HSONWantTypedValue
-}
+type TokenType = typeof TokenType[keyof typeof TokenType];
 
+const ParseState = {
+  PS_RootValue: 0,
+  PS_ObjectWantName: 1,
+  PS_ObjectWantColon: 2,
+  PS_ObjectWantValue: 3,
+  PS_ObjectWantComma: 4,
+  PS_ArrayWantValue: 5,
+  PS_ArrayWantComma: 6,
+  PS_Finished: 7,
+  PS_Error: 8,
 
+  PS_HSONStart: 9,
+  PS_HSONStartColon: 10,
+  PS_HSONWantArray: 11,
+  PS_HSONWantTypedValue: 12
+} as const;
+
+type ParseState = typeof ParseState[keyof typeof ParseState];
 
 class JSONParser {
   /// Tokenizer state
-  state = TokenState.TS_Default;
+  state: TokenState = TokenState.TS_Default;
   comment_after_numberprefix = false;
 
   /// Current token
   currenttoken = "";
 
   /// Current parse state
-  parsestate = ParseState.PS_HSONStart;
+  parsestate: ParseState = ParseState.PS_HSONStart;
 
   /// State before hson type specifier
-  hsonrestorestate = ParseState.PS_HSONStart;
+  hsonrestorestate: ParseState = ParseState.PS_HSONStart;
   lastname = "";
   lasttype: HareScriptType = HareScriptType.Uninitialized;
 
