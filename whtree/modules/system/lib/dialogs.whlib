@@ -85,9 +85,9 @@ PUBLIC MACRO RunMailQueueDialog(OBJECT parent, STRING filter, RECORD options DEF
 */
 PUBLIC OBJECT FUNCTION RunConnectRemoteWebHareDialog(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[], options);
+  options := ValidateOptions(CELL[ scopes := STRING["system:sysop"]], options);
 
-  OBJECT scr := parent->contexts->screen->LoadScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#peerservers");
+  OBJECT scr := parent->contexts->screen->LoadScreen("mod::system/tolliumapps/commondialogs/webharepeers.xml#peerservers", CELL[options]);
   IF(scr->RunModal()="ok")
     RETURN scr->result;
   RETURN DEFAULT OBJECT;
