@@ -16,6 +16,21 @@ export let client: (
 		get initializeResult(): (InitializeResult & WHServerInitializeResult) | undefined;
 	}) | undefined;
 
+async function focusOurWorkspace() {
+	// Bring us to the front. Have VSCode focus the proper workspace
+	const workspaces = vscode.workspace.workspaceFolders;
+	if (workspaces.length) //reopening it should bring it to the top
+		await vscode.commands.executeCommand('vscode.openFolder', workspaces[0].uri, {
+			forceNewWindow: false
+		});
+
+	// And bring VSCode itself to the front (FIXME only works on mac)
+	// appRoot contains eg '"/Applications/Visual Studio Code.app/Contents/Resources/app". we strip after .app
+	const appname = vscode.env.appRoot.match(/^(.*\.app)/)[1];
+	if (appname)
+		spawn("osascript", ['-e', `activate application ${JSON.stringify(appname)}`], { detached: true });
+}
+
 export function startClient(serverOptions: ServerOptions, clientOptions: LanguageClientOptions) {
 	stopClient();
 
@@ -37,8 +52,6 @@ export function startClient(serverOptions: ServerOptions, clientOptions: Languag
 
 	// Watch for 'reveal' requests from WebHare. This is the reason we need `activationEvents`: `onStartupFinished`
 	client.onRequest("window/showDocument", async param => {
-		//appRoot contains eg '"/Applications/Visual Studio Code.app/Contents/Resources/app". we strip after .app
-		const appname = vscode.env.appRoot.match(/^(.*\.app)/)[1];
 
 		const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(param.uri));
 		const editor = await vscode.window.showTextDocument(doc);
@@ -49,9 +62,7 @@ export function startClient(serverOptions: ServerOptions, clientOptions: Languag
 		var range = new vscode.Range(param.selection.start, param.selection.start);
 		editor.revealRange(range);
 
-		//FIXME mac only. can we detect the app name?
-		if (appname)
-			spawn("osascript", ['-e', `activate application ${JSON.stringify(appname)}`], { detached: true });
+		await focusOurWorkspace();
 	});
 }
 
