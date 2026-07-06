@@ -32,7 +32,7 @@ import { getBuildInfo } from "@mod-system/js/internal/generation/gen_config_nodb
 import { getSocketsBaseDir } from "@mod-system/js/internal/whmanager/unix-connections";
 
 
-export let currentstage = Stage.Bootup;
+export let currentstage: Stage = Stage.Bootup;
 const DefaultTimeout = 5000;
 ///minimum time the proces must be running before we throttle startup
 const MinimumRunTime = 60000;
