@@ -2272,3 +2272,7 @@ PUBLIC STRING FUNCTION GetRandomTestModuleName()
 {
   RETURN testfw_testmodule || "_" || Random(10000,70000) || "_" || Random(10000,70000);
 }
+
+PUBLIC MACRO TestInvoke_FlushWebserverLogFiles() {
+  FlushWebserverLogfiles();
+}
