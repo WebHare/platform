@@ -52,7 +52,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
 
   TestEq(FALSE, TTClick("save", [ allowfailure := TRUE ]), "Doc should not be dirty yet");
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
   TT(":Some data")->value := "Here, have some data!";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
@@ -68,7 +68,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   TestEq("Here, have some data!", customformfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/customform2").somedata);
 
   //update the custom form setting and save a draft
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
   TT(":Some data")->value := "Here, have some other data!";
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
   TTClick("save");
@@ -89,7 +89,7 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
 
   //save a draft version and check if the custom settings isn't reverted to the last published value
   TTClick("save");
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
   TestEq("Here, have some other data!", TT(":Some data")->value);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
