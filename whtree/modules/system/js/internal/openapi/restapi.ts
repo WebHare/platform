@@ -360,7 +360,7 @@ export class WorkerRestAPIHandler {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed
-      if (response.status.toString() in endpoint.responses || (response.status in HTTPErrorCode && this.defaultErrorSchema)) {
+      if (response.status.toString() in endpoint.responses || (response.status >= 400 && this.defaultErrorSchema)) {
         let responseschema;
         if (response.status.toString() in endpoint.responses) {
           const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
@@ -368,7 +368,7 @@ export class WorkerRestAPIHandler {
           responseschema = responsedef?.content?.[contentType]?.schema;
         }
         // Fallback to 'defaulterror' for errors, if specified in components.schemas
-        if (!responseschema && response.status in HTTPErrorCode && this.defaultErrorSchema) {
+        if (!responseschema && response.status >= 400 && this.defaultErrorSchema) {
           responseschema = this.defaultErrorSchema;
         }
         if (responseschema) {
@@ -384,7 +384,7 @@ export class WorkerRestAPIHandler {
             }
           }
         }
-      } else if (!(response.status in HTTPErrorCode)) {
+      } else if (!(response.status >= 400)) {
         // ADDME:
         throw new Error(`Handler returned status code ${response.status} which is not mentioned for path ${JSON.stringify(`${req.method} ${relurl}`)}`);
       }

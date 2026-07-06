@@ -3,13 +3,13 @@ import { generatorBanner, type FileToUpdate, type GenerateContext } from "./shar
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { astToString, type OpenAPI3, type SchemaObject } from "openapi-typescript";
 import type { OpenAPIV3 } from "openapi-types";
-import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
 import type { OpenAPIDescriptor, Services } from "./gen_extracts";
 import { promises as fs } from "node:fs";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import { getHTTPStatusCodeName, type HTTPStatusCode } from "@webhare/router/src/response";
 
 
 function encodeJSONReferenceProperty(prop: string) {
@@ -304,32 +304,32 @@ export async function createOpenAPITypeDocuments(openapifilepath: string | OpenA
   if (!check.result)
     return req.createErrorResponse(HTTPErrorCode.InternalServerError, { error: "Operation failed" });
 
-  // Type of succesfull response (if multiple responses are possible, add the specific response as the second type parameter)
+  // Type of successful response (if multiple responses are possible, add the specific response as the second type parameter)
   const result: RestResponseType<typeof req> = {
     todo: "Response"
   };
 `;
         if ("responses" in op) {
           const responses = op.responses as object;
-          for (const key of Array.from(Object.keys(responses)).map(k => Number(k))) {
-            if (key in HTTPErrorCode) {
+          for (const key of Array.from(Object.keys(responses)).map(k => Number(k) as HTTPStatusCode)) {
+            if (key >= 400) { //a HTTP error code
 
-              sig += `  if ("error_${HTTPErrorCode[key]}")
-    return req.createErrorResponse(HTTPErrorCode.${HTTPErrorCode[key]}, { error: \`Got error ${HTTPErrorCode[key]}\` });
+              sig += `  if ("error_${getHTTPStatusCodeName(key)}")
+    return req.createErrorResponse(HTTPErrorCode.${getHTTPStatusCodeName(key)}, { error: \`Got error ${getHTTPStatusCodeName(key)}\` });
 `;
             }
           }
 
-          for (const key of Array.from(Object.keys(responses)).map(k => Number(k))) {
-            if (key in HTTPSuccessCode) {
+          for (const key of Array.from(Object.keys(responses)).map(k => Number(k) as HTTPStatusCode)) {
+            if (key >= 200 && key < 400) { //a HTTP success code
               const v = responses[key as keyof typeof responses] as { content?: { "application/json": unknown } };
               if (v.content?.["application/json"]) {
                 sig += `
-  return req.createJSONResponse(HTTPSuccessCode.${HTTPSuccessCode[key]}, result);
+  return req.createJSONResponse(HTTPSuccessCode.${getHTTPStatusCodeName(key)}, result);
 `;
               } else {
                 sig += `
-  return req.createRawResponse(HTTPSuccessCode.${HTTPSuccessCode[key]}, "raw response");
+  return req.createRawResponse(HTTPSuccessCode.${getHTTPStatusCodeName(key)}, "raw response");
 `;
               }
               break;

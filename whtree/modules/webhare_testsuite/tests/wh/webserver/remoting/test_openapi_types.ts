@@ -215,66 +215,66 @@ function testOpenAPITypes() {
 
   // Response for a code provided, but no content: allow raw and unknown json
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
 
   // No response provided: don't allow to read the body via JSON
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: never }>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: never } }>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: true; response: number },
+    { status: typeof HTTPSuccessCode.Ok; isjson: true; response: number },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>();
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: false; response: unknown },
+    { status: typeof HTTPSuccessCode.Ok; isjson: false; response: unknown },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "image/png": unknown } } }>>>();
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: number },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: number },
     ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } } }>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: number } |
-    { status: HTTPSuccessCode.Created; isjson: true; response: string } |
-    { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode; error: string; extra: boolean } },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: number } |
+    { status: typeof HTTPSuccessCode.Created; isjson: true; response: string } |
+    { status: typeof HTTPErrorCode.NotFound; isjson: true; response: { status: typeof HTTPErrorCode; error: string; extra: boolean } },
     ResponseTypesFromResponses<{
       [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } };
       [HTTPSuccessCode.Created]: { content: { "application/json": string } };
-      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: HTTPErrorCode; error: string; extra: boolean } } };
+      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: typeof HTTPErrorCode; error: string; extra: boolean } } };
     }>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: boolean; response: number } |
-    { status: HTTPErrorCode.NotFound; isjson: true; response: ({ status: HTTPErrorCode; error: string; extra: string } | { status: HTTPErrorCode; error: string }) },
+    { status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: number } |
+    { status: typeof HTTPErrorCode.NotFound; isjson: true; response: ({ status: typeof HTTPErrorCode; error: string; extra: string } | { status: typeof HTTPErrorCode; error: string }) },
     ResponseTypesFromResponses<{
       [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } };
       [HTTPSuccessCode.Created]: { content: { "application/json": string } };
-      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: HTTPErrorCode; error: string } } };
+      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: typeof HTTPErrorCode; error: string } } };
     } | {
       [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": unknown } };
-      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: HTTPErrorCode; error: string; extra: string } } };
-      [HTTPErrorCode.InternalServerError]: { content: { "application/json": { status: HTTPErrorCode; error: string; extra: string } } };
+      [HTTPErrorCode.NotFound]: { content: { "application/json": { status: typeof HTTPErrorCode; error: string; extra: string } } };
+      [HTTPErrorCode.InternalServerError]: { content: { "application/json": { status: typeof HTTPErrorCode; error: string; extra: string } } };
     }>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: true; response: { status: "ok"; value: number } } |
-    { status: HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
-    { status: HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent } |
-    { status: HTTPErrorCode.InternalServerError; isjson: true; response: ErrorResponseContent },
+    { status: typeof HTTPSuccessCode.Ok; isjson: true; response: { status: "ok"; value: number } } |
+    { status: typeof HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
+    { status: typeof HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent } |
+    { status: typeof HTTPErrorCode.InternalServerError; isjson: true; response: ErrorResponseContent },
     OperationResponseTypes<paths["/path"]["get"]>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
-    { status: HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent },
+    { status: typeof HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
+    { status: typeof HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent },
     OperationResponseTypes<paths["/path"]["get"] | paths["/path"]["post"]>>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
-    { status: HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent },
+    { status: typeof HTTPErrorCode.Unauthorized; isjson: true; response: ErrorResponseContent } |
+    { status: typeof HTTPErrorCode.Forbidden; isjson: true; response: ErrorResponseContent },
     OperationResponseTypes<GetOperation<paths, "/path">>>>();
 
   test.typeAssert<test.Equals<true, IsMediaTypeJSON<{ "application/json": number }>>>();
@@ -282,12 +282,12 @@ function testOpenAPITypes() {
   test.typeAssert<test.Equals<boolean, IsMediaTypeJSON<{ "image/png": number; "application/json": number }>>>();
   test.typeAssert<test.Equals<boolean, IsMediaTypeJSON<never>>>();
 
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: true; response: number }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: number }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": string } } }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: false; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "image/png": string } } }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: never }>>>();
-  test.typeAssert<test.Equals<{ status: HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: never } }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: true; response: number }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number } } }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: number }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "application/json": number; "image/png": string } } }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: false; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: { "image/png": string } } }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: object }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: never }>>>();
+  test.typeAssert<test.Equals<{ status: typeof HTTPSuccessCode.Ok; isjson: boolean; response: unknown }, ResponseTypesFromResponses<{ [HTTPSuccessCode.Ok]: { content: never } }>>>();
 
   // Delete has no responses defined, so JSONResponseTypes should be empty
   test.typeAssert<test.Equals<never, OperationResponseTypes<paths["/path/{bla}"]["get"] | paths["/path/{bla}"]["delete"]>>>();
