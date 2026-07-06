@@ -4,7 +4,6 @@ import * as fs from "node:fs";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
 import { mapHareScriptPath } from "./wasm-support";
@@ -13,7 +12,7 @@ import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
 import { decodeString, isError } from "@webhare/std";
 import { getConnection, type WHDBConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
-import { HareScriptType } from "@webhare/hscompat/src/hson";
+import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;

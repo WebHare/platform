@@ -107,6 +107,15 @@ export function setHareScriptType<T>(variable: T, type: HareScriptType): T {
   return variable;
 }
 
+type ArrayHareScriptType = typeof HareScriptType.VariantArray | typeof HareScriptType.IntegerArray | typeof HareScriptType.MoneyArray | typeof HareScriptType.FloatArray | typeof HareScriptType.BooleanArray | typeof HareScriptType.DateTimeArray | typeof HareScriptType.Integer64Array | typeof HareScriptType.FunctionPtrArray | typeof HareScriptType.RecordArray | typeof HareScriptType.StringArray | typeof HareScriptType.BlobArray | typeof HareScriptType.ObjectArray;
+
+/** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
+export function getTypedArray<V extends ArrayHareScriptType, T extends JSTypeForHSType<V>>(type: V, array: T): T {
+  const copy = [...array];
+  setHareScriptType(copy, type);
+  return copy as T;
+}
+
 /* TODO we may need to support WHDBBlob too - encodeHSON and IPC only currently require that they can transfer the data without await */
 export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | WebHareBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
 export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };

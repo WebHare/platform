@@ -1,5 +1,5 @@
 import type { HareScriptVM, LoadedLibrariesInfo, MessageList } from "./wasm-hsvm";
-import { type IPCMarshallableRecord, getTypedArray, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableRecord, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { log, logError } from "@webhare/services/src/logging.ts";
@@ -30,7 +30,7 @@ import * as readline from "node:readline";
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { beginWork, commitWork, rollbackWork, workHasMutex, type FinishHandler } from "@webhare/whdb";
 import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
-import { HareScriptType, setHareScriptType } from "@webhare/hscompat/src/hson";
+import { getTypedArray, HareScriptType, setHareScriptType } from "@webhare/hscompat/src/hson";
 import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
 import { lockMutex } from "./syscalls";

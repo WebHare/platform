@@ -10,7 +10,6 @@ import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hs
 import { appendToArray, compare, generateRandomId, isPromise, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/src/algorithms";
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getBestMatch, getStackTrace } from "@webhare/js-api-tools";
 import { type Changes, type ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
@@ -21,7 +20,7 @@ import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
 import { hashStream } from "@webhare/services/src/descriptor";
 import { SettingsStorer } from "./entitysettings";
 import { isDate } from "node:util/types";
-import { HareScriptType } from "@webhare/hscompat/src/hson";
+import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;

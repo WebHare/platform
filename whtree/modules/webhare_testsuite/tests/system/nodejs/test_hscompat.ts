@@ -8,7 +8,7 @@ import { isBlob, Money, toCamelCase, toSnakeCase } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType, HareScriptType } from "@webhare/hscompat";
 import { lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/src/algorithms";
 import { getRoundedDateTime, localizeDate } from "@webhare/hscompat/src/datetime";
-import { getTypedArray, type IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray, type IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { WebHareBlob } from "@webhare/services";
 
 function testStrings() {
