@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -22,17 +23,21 @@ LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 RECORD firstsubmitrec;
 STRING emailfieldname;
 
+RECORD args := ParseArguments(GetConsoleArguments(),
+                              [ [ name := "jssite", type := "switch" ]
+                              ]);
+
 PUBLIC MACRO BuildForm()
 {
-  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, addpulldown := TRUE ]);
+  BuildWebtoolForm( [ checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs:=TRUE, addpulldown := TRUE, js := args.jssite ]);
 }
 
-PUBLIC MACRO FillInForm()
-{
+PUBLIC MACRO FillInForm() {
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
   INTEGER numexportfields := 18;
 
   //Ensure the form is up
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := testsite->OpenByPath("webtools/form");
   TestEq(TRUE, testfw->browser->GotoWebPage(UpdateURLVariables(formfile->url, [ longurl := RepeatText("X",1000) ])));
 
   OBJECT firstemailfield := testfw->browser->document->QuerySelector("input[type=email]");
@@ -485,11 +490,13 @@ PUBLIC MACRO FillInForm()
 
 MACRO TestDirectFormSubmission()
 {
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+
   //ensure no pending mail from previous tests
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   testfw->ExtractAllMailFor("*+jstest@beta.webhare.net", [ count := 0 ]);
 
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := testsite->OpenByPath("webtools/form");
   OBJECT form := OpenWebtoolForm(formfile->id, [ formref := "noprefill" ]);
   OBJECT emailfield := SELECT AS OBJECT obj FROM form->ListFields() WHERE title = ":Email";
 
@@ -557,7 +564,8 @@ MACRO TestFormAnchors()
 
 ASYNC MACRO TestFormApp()
 {
-  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath("webtools");
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+  OBJECT webtoolsfolder := testsite->OpenByPath("webtools");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ webtoolsfolder->whfspath || "form" ], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Results"));
 
@@ -645,7 +653,7 @@ ASYNC MACRO TestFormApp()
   TestEq(6, Length(TT("results")->rows));
 
   //test singleresult dialog
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := testsite->OpenByPath("webtools/form");
 
   AWAIT ExpectScreenChange(+1, PTR RunSingleFormResultDialog(GetTestController(), formfile->id, resultguid));
   TestEq("Contentlink", TT(":First name")->value);
@@ -688,9 +696,11 @@ ASYNC MACRO TestFormApp()
 
 MACRO TestContentLink()
 {
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+
   testfw->BeginWork();
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
-  OBJECT contentlink := GetTestsuiteTempFolder()->CreateFile ([ name := "linktoform", type := 20, filelink := formfile->id, publish := TRUE ]);
+  OBJECT formfile := testsite->OpenByPath("webtools/form");
+  OBJECT contentlink := testsite->OpenByPath("tmp")->CreateFile ([ name := "linktoform", type := 20, filelink := formfile->id, publish := TRUE ]);
   testfw->CommitWork();
 
   IF(testfw->debug)
@@ -763,8 +773,10 @@ ASYNC MACRO SetFormStateThroughApp(OBJECT formfile, BOOLEAN open_it)
 
 ASYNC MACRO TestCloseForm()
 {
+  OBJECT testsite := args.jssite ? OpenTestsuiteJSSite() : OpenTestsuiteSite();
+
   //visit the form online - do this before closing it so we can check the RPC is blocking!
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := testsite->OpenByPath("webtools/form");
   TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
 
   OBJECT tester := OpenFormsapiFormTester(testfw->browser);

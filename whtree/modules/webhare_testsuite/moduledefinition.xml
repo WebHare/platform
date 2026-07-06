@@ -362,7 +362,9 @@
     <webdesignplugin name="test"
                      hooksfeatures="preparemail"
                      namespace="http://www.webhare.net/xmlns/webhare_testsuite"
-                     objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin" />
+                     toyaml="mod::webhare_testsuite/lib/internal/testplugin.whlib#ParseTestPlugin"
+                     objectname="mod::webhare_testsuite/lib/internal/testplugin.whlib#TestPlugin"
+                     yamlproperty="testPlugin" />
 
     <filemgrextension>
       <accesscheck>
