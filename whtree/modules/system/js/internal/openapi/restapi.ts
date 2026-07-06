@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, type HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
@@ -20,7 +20,7 @@ export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationCont
 
 export type OpenAPIInitHandlerHookFunction = (context: OpenAPIHandlerInitializationContext) => Promise<void> | void;
 
-const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
+const SupportedMethods: HTTPMethod[] = ["GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH"];
 
 function resolveJSResource(base: string, relativepath: string) {
   //Needed to understand @mod- paths. See https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1069#note_225871

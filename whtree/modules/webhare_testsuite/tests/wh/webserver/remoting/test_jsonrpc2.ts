@@ -1,7 +1,6 @@
 import * as test from '@webhare/test';
 import { getJSONApiCaller } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
-import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
 import type { WebRequestInfo } from '@mod-system/js/internal/types';
@@ -17,7 +16,7 @@ async function testRPCCaller() {
     url: "http://127.0.0.1/test",
     headers: {},
     body: WebHareBlob.from(JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] })),
-    method: HTTPMethod.POST,
+    method: "POST",
     binding: 0,
     webserver: 0
   };
