@@ -76,8 +76,11 @@ export type SearchResult<TDocument> = OpenSearchAPI.Search_ResponseBody & {
 type OpenSearchError<TDocument extends OpenSearchDocument = OpenSearchDocument> = ErrorCause & { doc: TDocument };
 
 class BulkUploadError<TDocument extends OpenSearchDocument = OpenSearchDocument> extends Error {
-  constructor(public errors: Array<OpenSearchError<TDocument>>) {
+  errors: Array<OpenSearchError<TDocument>>;
+
+  constructor(errors: Array<OpenSearchError<TDocument>>) {
     super(`${errors.length} errors during bulk action`);
+    this.errors = errors;
   }
 }
 
@@ -88,8 +91,10 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   private ensuredSuffixes: Set<string> = new Set();
   queuesize = 0;
   debug;
+  private catalog: Catalog<TDocument>;
 
-  constructor(private catalog: Catalog<TDocument>, { debug = false } = {}) {
+  constructor(catalog: Catalog<TDocument>, { debug = false } = {}) {
+    this.catalog = catalog;
     this.debug = debug;
   }
 
@@ -181,7 +186,12 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
 }
 
 class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
-  constructor(private readonly id: number, public readonly tag: string) {
+  private readonly id: number;
+  public readonly tag: string;
+
+  constructor(id: number, tag: string) {
+    this.id = id;
+    this.tag = tag;
 
   }
 

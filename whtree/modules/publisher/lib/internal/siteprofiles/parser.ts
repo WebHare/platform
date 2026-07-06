@@ -200,8 +200,14 @@ export class SiteProfileParserContext {
   doc: Sp.SiteProfile;
   basescope: string | null;
   module: string;
+  resourceName: string;
+  tracked: TrackedYAML<Sp.SiteProfile>;
+  options?: { validate?: boolean };
 
-  constructor(public readonly resourceName: string, public tracked: TrackedYAML<Sp.SiteProfile>, public readonly options?: { validate?: boolean }) {
+  constructor(resourceName: string, tracked: TrackedYAML<Sp.SiteProfile>, options?: { validate?: boolean }) {
+    this.resourceName = resourceName;
+    this.tracked = tracked;
+    this.options = options;
     this.plugins = getExtractedConfig("plugins");
     this.doc = this.tracked.doc;
     this.basescope = this.tracked.doc.typeGroup || null;

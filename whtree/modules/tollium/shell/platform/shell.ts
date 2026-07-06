@@ -33,9 +33,11 @@ export type AppStartResponse = AppSuccessfulStartResponse | {
 
 class FrontendLink extends LinkEndpoint {
   apps = new Map<string, WeakRef<BackendApplication>>;
+  shell: TolliumShell;
 
-  constructor(public shell: TolliumShell, linkid: string, commhost: string, frontendid: string) {
+  constructor(shell: TolliumShell, linkid: string, commhost: string, frontendid: string) {
     super({ linkid, commhost, frontendid });
+    this.shell = shell;
     this.onmessage = this._gotMetaMessage.bind(this) as (msg: unknown) => void;
     this.onclosed = this._gotMetaClose.bind(this, frontendid);
     this.register(this.shell.transportmgr);

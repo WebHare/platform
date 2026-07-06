@@ -144,7 +144,10 @@ type OAuth2ClientInfo = {
 };
 
 export class OAuth2Client {
-  constructor(private clientinfo: OAuth2ClientInfo) {
+  clientinfo: OAuth2ClientInfo;
+
+  constructor(clientinfo: OAuth2ClientInfo) {
+    this.clientinfo = clientinfo;
   }
 
   /** Create an OpenID login request

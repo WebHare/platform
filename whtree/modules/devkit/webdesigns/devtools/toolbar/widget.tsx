@@ -21,13 +21,15 @@ export class ToolbarWidget {
   private toolbar_pagerepublishreload;
   private toolbar_cssreloadcheck: HTMLInputElement;
   private toolbar_fullreloadcheck: HTMLInputElement;
+  private callbacks;
 
   constructor(settings: DevToolsSettings,
-    private callbacks: {
+    callbacks: {
       onPageReloadClick: (evt: MouseEvent) => Promise<void> | void;
       onPageRepublishReloadClick: (evt: MouseEvent) => Promise<void> | void;
       onSettingsUpdate: (settings: Partial<DevToolsSettings>) => Promise<void> | void;
     }) {
+    this.callbacks = callbacks;
     this.toolbarshadow.append(
       <>
         <link href={getToolsOrigin() + "/.wh/mod/devkit/public/wh-outputtools.css"} rel="stylesheet" />

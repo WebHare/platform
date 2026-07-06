@@ -65,13 +65,24 @@ class TokenPromise {
   requestid = generateRandomId();
   sub;
   timeout;
+  public resolve: (value: { token: string; expires: Date; scopes: string[] }) => void;
+  public reject: (reason?: Error) => void;
+  public url: string;
+  public wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>;
+  public wrdentity: number;
 
   constructor(
-    public resolve: (value: { token: string; expires: Date; scopes: string[] }) => void,
-    public reject: (reason?: Error) => void,
-    public url: string,
-    public wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>,
-    public wrdentity: number) {
+    resolve: (value: { token: string; expires: Date; scopes: string[] }) => void,
+    reject: (reason?: Error) => void,
+    url: string,
+    wrdschema: WRDSchemaType<WRDSchemaLike["system:usermgmt"]>,
+    wrdentity: number) {
+
+    this.resolve = resolve;
+    this.reject = reject;
+    this.url = url;
+    this.wrdschema = wrdschema;
+    this.wrdentity = wrdentity;
 
     this.sub = subscribe("tollium:oauth_response", (events, sub) => void this.gotOauthResponse(events));
     this.timeout = setTimeout(() => this.gotTimeout(), 15 * 60 * 1000); //15 minutes timeout - should be enough for the user to complete the oauth flow

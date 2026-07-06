@@ -7,8 +7,10 @@ import { wrd, type WRDSchemaLike } from "@webhare/wrd";
 
 class WRDAuthPluginAPI {
   private state: Awaited<ReturnType<typeof WRDAuthPluginAPI.prototype.getDynamicState>> | null = null;
+  private req: PagePluginRequest;
 
-  constructor(private req: PagePluginRequest) {
+  constructor(req: PagePluginRequest) {
+    this.req = req;
 
   }
 

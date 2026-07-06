@@ -110,8 +110,12 @@ class FrameRecord {
   currentsignals = {
     pageload: null as Promise<void> | null,
   };
+  name: string;
+  holder: HTMLDivElement;
 
-  constructor(public readonly name: string, public readonly holder: HTMLDivElement) {
+  constructor(name: string, holder: HTMLDivElement) {
+    this.name = name;
+    this.holder = holder;
   }
 
   get win() {

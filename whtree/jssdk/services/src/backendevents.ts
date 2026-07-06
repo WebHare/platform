@@ -13,8 +13,10 @@ type BackendEventCallback<DataType extends BackendEventData = BackendEventData> 
 class BackendEventSubscription implements Disposable {
   private listenerid = 0;
   private mask: RegExp | null = null;
+  private readonly callback: BackendEventCallback;
 
-  constructor(private readonly callback: BackendEventCallback) {
+  constructor(callback: BackendEventCallback) {
+    this.callback = callback;
   }
 
   async setMasks(masks: BackendEventMasks): Promise<void> {

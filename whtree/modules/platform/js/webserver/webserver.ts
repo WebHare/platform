@@ -28,8 +28,10 @@ export class WebServerPort {
   fixedHost: Host | undefined;
   overrideHost: string | undefined;
   readonly port: Port;
+  webserver: WebServer;
 
-  constructor(public webserver: WebServer, port: Port, fixedHost: Host | undefined) {
+  constructor(webserver: WebServer, port: Port, fixedHost: Host | undefined) {
+    this.webserver = webserver;
     this.port = port;
     this.fixedHost = fixedHost;
     if (fixedHost)
@@ -224,8 +226,11 @@ export class WebServerPort {
 }
 
 class WebServerClient extends BackendServiceConnection {
-  constructor(public ws: WebServer) {
+  ws: WebServer;
+
+  constructor(ws: WebServer) {
     super();
+    this.ws = ws;
   }
   async reloadConfig() {
     return await this.ws.loadConfig();

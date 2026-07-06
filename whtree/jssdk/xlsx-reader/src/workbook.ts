@@ -61,8 +61,10 @@ class XlsxStreamReaderWorkBook {
   end = () => this;
   ready;
   private _readyForStreamingPromise: Promise<void> | null = null;
+  source: UnpackArchiveResult;
 
-  constructor(public source: UnpackArchiveResult, options: OpenXlsxOptions = {}) {
+  constructor(source: UnpackArchiveResult, options: OpenXlsxOptions = {}) {
+    this.source = source;
     this.options = options;
     this.workBookSharedStrings = [];
     this.parsedSharedStrings = false;

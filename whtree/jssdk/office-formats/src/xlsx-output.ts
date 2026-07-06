@@ -16,7 +16,10 @@ function dateToExcel(x: Date): number {
 const useTemporal = false;
 
 class WorksheetBuilder {
-  constructor(private doc: XLSXDocBuilder) {
+  private doc: XLSXDocBuilder;
+
+  constructor(doc: XLSXDocBuilder) {
+    this.doc = doc;
   }
 
   createHeaderRow(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions) {

@@ -91,7 +91,12 @@ export function getYMLPxlConfigs(modYml: ModDefYML): PxlEventConfig {
 }
 
 class PxlParser {
-  constructor(private config: PxlEventConfig, private lookupper: CityLookupCall | null) {
+  private config: PxlEventConfig;
+  private lookupper: CityLookupCall | null;
+
+  constructor(config: PxlEventConfig, lookupper: CityLookupCall | null) {
+    this.config = config;
+    this.lookupper = lookupper;
   }
 
   /** Parse a pxl line to a document (which means we keep the ds_/db_/dn_ prefix as otherwise

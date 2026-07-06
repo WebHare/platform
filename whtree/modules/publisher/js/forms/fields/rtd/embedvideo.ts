@@ -8,8 +8,13 @@ import { getFormService } from "@webhare/forms/src/formservice";
 import type { FormSubmitEmbeddedResult } from '../../formbase';
 
 class EmbedVideoForm extends RPCFormBase {
-  constructor(node: HTMLFormElement, private dialog: dialogapi.DialogBase, private rtd: RTDEditElement) {
+  private dialog: dialogapi.DialogBase;
+  private rtd: RTDEditElement;
+
+  constructor(node: HTMLFormElement, dialog: dialogapi.DialogBase, rtd: RTDEditElement) {
     super(node);
+    this.dialog = dialog;
+    this.rtd = rtd;
   }
 
   async onSubmitSuccess(result: FormSubmitEmbeddedResult<{

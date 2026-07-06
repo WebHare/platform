@@ -11,8 +11,11 @@ import { dirname } from "path";
 import { SetDataError } from "@webhare/services/src/codec-support";
 
 class WHFSAPIError extends Error {
-  constructor(message: string, public statusCode: 400 | 403 | 404) {
+  statusCode: 400 | 403 | 404;
+
+  constructor(message: string, statusCode: 400 | 403 | 404) {
     super(message);
+    this.statusCode = statusCode;
   }
 }
 

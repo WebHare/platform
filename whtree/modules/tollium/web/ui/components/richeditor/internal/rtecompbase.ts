@@ -16,6 +16,7 @@ export class RTECompBase {
   options: EditorBaseOptions;
   toolbarnode;
   toolbaropts: Partial<RTEToolbarOptions>;
+  protected readonly container: HTMLElement;
 
   /** The 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node */
   stylescopenode;
@@ -23,7 +24,8 @@ export class RTECompBase {
   /** Represents the <html> node in the editor */
   htmldiv;
 
-  constructor(protected readonly container: HTMLElement, options: Partial<EditorBaseOptions>) {
+  constructor(container: HTMLElement, options: Partial<EditorBaseOptions>) {
+    this.container = container;
     this.options = {
       allowtags: null,
       log: false,

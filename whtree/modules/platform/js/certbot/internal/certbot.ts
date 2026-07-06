@@ -158,12 +158,19 @@ export async function doRequestACMECertificate(directory: string, domains: strin
 class UpdateHandler {
   dnsRecords?: DnsTxtRecord[];
   httpResources?: HttpResource[];
+  public updateDnsRecordsCallback?: RequestACMECertificateOptions["updateDnsRecords"];
+  public updateHttpResourcesCallback?: RequestACMECertificateOptions["updateHttpResources"];
+  public cleanupCallback?: RequestACMECertificateOptions["cleanup"];
 
   constructor(
-    public updateDnsRecordsCallback?: RequestACMECertificateOptions["updateDnsRecords"],
-    public updateHttpResourcesCallback?: RequestACMECertificateOptions["updateHttpResources"],
-    public cleanupCallback?: RequestACMECertificateOptions["cleanup"],
-  ) { }
+    updateDnsRecordsCallback?: RequestACMECertificateOptions["updateDnsRecords"],
+    updateHttpResourcesCallback?: RequestACMECertificateOptions["updateHttpResources"],
+    cleanupCallback?: RequestACMECertificateOptions["cleanup"],
+  ) {
+    this.updateDnsRecordsCallback = updateDnsRecordsCallback;
+    this.updateHttpResourcesCallback = updateHttpResourcesCallback;
+    this.cleanupCallback = cleanupCallback;
+  }
 
   async updateDnsRecords(dnsRecords: DnsTxtRecord[]) {
     this.dnsRecords = dnsRecords;

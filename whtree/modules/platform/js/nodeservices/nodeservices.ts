@@ -15,9 +15,11 @@ const activeServices: Record<string, WebHareService> = {};
 
 class NodeServicesClient extends BackendServiceConnection {
   #suppressing = new Set<string>;
+  manager: NodeServiceManager;
 
-  constructor(public manager: NodeServiceManager) {
+  constructor(manager: NodeServiceManager) {
     super();
+    this.manager = manager;
   }
 
   async #startService(srvinfo: BackendServiceDescriptor) {
@@ -70,8 +72,10 @@ class NodeServicesClient extends BackendServiceConnection {
 
 class NodeServiceManager {
   backendservices;
+  servicename: string;
 
-  constructor(public servicename: string) {
+  constructor(servicename: string) {
+    this.servicename = servicename;
     this.backendservices = getExtractedConfig("services").backendServices;
   }
 

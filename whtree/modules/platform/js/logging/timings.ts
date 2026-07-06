@@ -1,7 +1,11 @@
 class RunningTimer implements Disposable {
   stopped?: boolean;
+  public readonly tag: string;
+  private readonly timings: Timings;
 
-  constructor(public tag: string, private timings: Timings) {
+  constructor(tag: string, timings: Timings) {
+    this.tag = tag;
+    this.timings = timings;
   }
 
   stop() {

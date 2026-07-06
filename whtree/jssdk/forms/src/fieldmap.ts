@@ -69,8 +69,12 @@ function unmapValue(type: ValueType | undefined, invalue: unknown, fieldDescr: s
 
 class HTMLFormFieldHandler implements FormField {
   valuetype?: ValueType;
+  private form: FormParent;
+  private readonly field: FormFieldLike;
 
-  constructor(private form: FormParent, private readonly field: FormFieldLike) {
+  constructor(form: FormParent, field: FormFieldLike) {
+    this.form = form;
+    this.field = field;
     this.valuetype = field.dataset.whFormValueType as undefined | ValueType;
     if (!this.valuetype && field.matches('input[type=number]'))
       this.valuetype = "number";
@@ -122,7 +126,14 @@ class HTMLFormFieldHandler implements FormField {
 
 class RadioFormFieldHandler implements FormField {
   valuetype?: ValueType;
-  constructor(private form: FormParent, private readonly name: string, private readonly rnodes: HTMLInputElement[]) {
+  private form: FormParent;
+  private readonly name: string;
+  private readonly rnodes: HTMLInputElement[];
+
+  constructor(form: FormParent, name: string, rnodes: HTMLInputElement[]) {
+    this.form = form;
+    this.name = name;
+    this.rnodes = rnodes;
     const group = rnodes[0].closest<HTMLElement>(".wh-form__fieldgroup");
     if (!group) { //value metadata is stored at the fieldgroup level, so reject these
       console.error("Missing group for radiofield ", group);
@@ -158,7 +169,14 @@ class RadioFormFieldHandler implements FormField {
 
 class CheckboxGroupHandler implements FormField {
   valuetype?: ValueType;
-  constructor(private form: FormParent, private readonly name: string, private readonly cboxes: HTMLInputElement[]) {
+  private form: FormParent;
+  private readonly name: string;
+  private readonly cboxes: HTMLInputElement[];
+
+  constructor(form: FormParent, name: string, cboxes: HTMLInputElement[]) {
+    this.form = form;
+    this.name = name;
+    this.cboxes = cboxes;
     this.valuetype = (cboxes[0].closest<HTMLElement>(".wh-form__fieldgroup") ?? throwError("RadioFormFieldHandler: Missing group")).dataset.whFormValueType as undefined | ValueType;
   }
   getValue(): unknown {
@@ -182,7 +200,12 @@ class CheckboxGroupHandler implements FormField {
 }
 
 class RegisteredFieldHandler implements FormField {
-  constructor(protected form: FormParent, private readonly field: FormFieldAPI) {
+  protected form: FormParent;
+  private readonly field: FormFieldAPI;
+
+  constructor(form: FormParent, field: FormFieldAPI) {
+    this.form = form;
+    this.field = field;
   }
 
   getValue(): unknown {
@@ -194,9 +217,12 @@ class RegisteredFieldHandler implements FormField {
 }
 
 export class ArrayFieldHandler extends RegisteredFieldHandler implements FormField {
-  constructor(form: FormParent, private node: HTMLElement, items: HTMLElement[]) {
+  private node: HTMLElement;
+
+  constructor(form: FormParent, node: HTMLElement, items: HTMLElement[]) {
     node[rfSymbol] ||= new ArrayField(form, node, items, getFieldName(items[0]));
     super(form, node[rfSymbol]);
+    this.node = node;
   }
 
   __scheduleUpdateConditions() {
@@ -209,8 +235,10 @@ export class ArrayFieldHandler extends RegisteredFieldHandler implements FormFie
 export abstract class FormFieldMap<DataShape> {
   /** Field mapping. Uses original names */
   protected fieldmap = new Map<string, FormField>();
+  protected fieldName: string;
 
-  constructor(protected fieldName: string, nodes: HTMLElement[]) {
+  constructor(fieldName: string, nodes: HTMLElement[]) {
+    this.fieldName = fieldName;
     const subpos = fieldName ? fieldName.length + 1 : 0;
     const groups = Map.groupBy(nodes, _ => getFieldName(_).substring(subpos).split('.')[0]);
 
@@ -291,8 +319,11 @@ export abstract class FormFieldMap<DataShape> {
 }
 
 export class RecordFieldHandler extends FormFieldMap<object> implements FormField {
-  constructor(private form: FormParent, baseName: string, nodes: HTMLElement[]) {
+  private form: FormParent;
+
+  constructor(form: FormParent, baseName: string, nodes: HTMLElement[]) {
     super(baseName, nodes);
+    this.form = form;
   }
 
   getValue(): unknown {
@@ -353,7 +384,10 @@ class AddressFieldHandler extends RecordFieldHandler {
 }
 
 export class FieldMapDataProxy implements ProxyHandler<object> {
-  constructor(private readonly form: FormFieldMap<object>) {
+  private readonly form: FormFieldMap<object>;
+
+  constructor(form: FormFieldMap<object>) {
+    this.form = form;
   }
   get(target: object, p: string | symbol) {
     //Don't attempt to validate getters... it will break various introspection calls (eg requesting constructor, checking for 'then'...)

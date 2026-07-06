@@ -2,13 +2,25 @@ import { describeEntity } from "@webhare/wrd";
 import type { WRDSchemaType } from "./schema";
 
 export class ValueQueryChecker {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for generics
+  private schema: WRDSchemaType<any>;
+  public readonly typeTag: string;
+  public readonly entityId: number | null;
+  public readonly temp: boolean;
+  public readonly importMode: boolean;
+
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for generics
-    private schema: WRDSchemaType<any>,
-    public readonly typeTag: string,
-    public readonly entityId: number | null,
-    public readonly temp: boolean,
-    public readonly importMode: boolean) {
+    schema: WRDSchemaType<any>,
+    typeTag: string,
+    entityId: number | null,
+    temp: boolean,
+    importMode: boolean) {
+    this.schema = schema;
+    this.typeTag = typeTag;
+    this.entityId = entityId;
+    this.temp = temp;
+    this.importMode = importMode;
   }
 
   private uniqueChecks = new Map<string, {

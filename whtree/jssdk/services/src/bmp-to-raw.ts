@@ -11,6 +11,7 @@ class BmpDecoder {
   flag: string;
   bottom_up = true;
   data: Buffer;
+  private buffer: Buffer;
   fileSize: number;
   reserved: number;
   offset: number;
@@ -37,7 +38,7 @@ class BmpDecoder {
   maskBlue = 0;
   mask0 = 0;
 
-  constructor(private buffer: Buffer, is_with_alpha?: boolean) {
+  constructor(buffer: Buffer, is_with_alpha?: boolean) {
     this.pos = 0;
     this.buffer = buffer;
     this.is_with_alpha = Boolean(is_with_alpha);

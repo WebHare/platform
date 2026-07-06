@@ -40,8 +40,10 @@ class SassLoggerSession { //one SassLoggerSession is instantiated per build proc
 
 class SassLogger { //one SassLogger is instantiated per build, so ideal for counting deprecations
   warnings = new Array<esbuild.PartialMessage>();
+  session: SassLoggerSession;
 
-  constructor(public session: SassLoggerSession) {
+  constructor(session: SassLoggerSession) {
+    this.session = session;
   }
 
   warn = (message: string, opts: sass.LoggerWarnOptions) => {

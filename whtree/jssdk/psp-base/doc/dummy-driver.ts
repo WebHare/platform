@@ -7,7 +7,10 @@ interface DummyDriverPayMeta {
 }
 
 export class DummyDriver implements PSPDriver<DummyDriverPayMeta> {
-  constructor(private readonly config: DummyDriverConfig) {
+  private readonly config: DummyDriverConfig;
+
+  constructor(config: DummyDriverConfig) {
+    this.config = config;
   }
 
   async connect() {

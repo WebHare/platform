@@ -155,8 +155,10 @@ export class RestAPI {
   onInitHandler: string | null = null;
   defaultErrorMapper: string | null = null;
   swaggerOptions: object = {};
+  bundled: WebHareOpenAPIDocument;
 
-  constructor(public bundled: WebHareOpenAPIDocument) {
+  constructor(bundled: WebHareOpenAPIDocument) {
+    this.bundled = bundled;
   }
 
   async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, onInitService, onInitHandler, swaggerOptions }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; onInitService?: string; onInitHandler?: string; swaggerOptions: object }) {

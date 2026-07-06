@@ -5,8 +5,9 @@ import type { ApplicationBase } from '../application';
 
 export default class DocPanel {
   edittoken: string | undefined;
+  app: ApplicationBase;
 
-  constructor(public app: ApplicationBase) {
+  constructor(app: ApplicationBase) {
     this.app = app;
   }
   load(url: unknown, edittoken: string) {

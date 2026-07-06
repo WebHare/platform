@@ -14,7 +14,10 @@ import { nameToSnakeCase, throwError } from "@webhare/std";
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
 class ListProxy {
-  constructor(private comp: ComponentProxy) {
+  private comp: ComponentProxy;
+
+  constructor(comp: ComponentProxy) {
+    this.comp = comp;
   }
 
   /** Find a visible list row containing the specified text */

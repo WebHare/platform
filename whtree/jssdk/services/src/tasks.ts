@@ -50,7 +50,14 @@ export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskRe
 export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
 export class TaskRequest<TaskDataType, TaskResultType extends object | null = object | null> {
-  constructor(readonly taskid: number, readonly numFailures: number, readonly taskdata: TaskDataType) {
+  readonly taskid: number;
+  readonly numFailures: number;
+  readonly taskdata: TaskDataType;
+
+  constructor(taskid: number, numFailures: number, taskdata: TaskDataType) {
+    this.taskid = taskid;
+    this.numFailures = numFailures;
+    this.taskdata = taskdata;
   }
 
   /** @deprecated synchronous cancellation should be generally be replaced with resolveByCompletion or resolveByPermanentFailure */

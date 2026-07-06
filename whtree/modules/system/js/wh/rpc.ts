@@ -22,8 +22,12 @@ class ControlledCall {
   timedout = false;
   aborted = false;
   legacyresolve;
+  client;
+  options;
 
-  constructor(public client, method, stack, id, public options, callurl, fetchoptions) {
+  constructor(client, method, stack, id, options, callurl, fetchoptions) {
+    this.client = client;
+    this.options = options;
     // if(options.timeout || options.signal) //as long as rpcResolve exists, we'll ALWAYS need to setup a controller
     {
       fetchoptions.signal = this.abortcontroller.signal;

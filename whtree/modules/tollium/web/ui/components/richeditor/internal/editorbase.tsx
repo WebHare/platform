@@ -269,8 +269,10 @@ class UndoLock {
   undoitem: null;
   _undoitem: EditorUndoItem | null;
   stack: Error | undefined;
+  private editor: EditorBase;
 
-  constructor(private editor: EditorBase, undoitem: EditorUndoItem | null) {
+  constructor(editor: EditorBase, undoitem: EditorUndoItem | null) {
+    this.editor = editor;
     // FIXME: public dom-level undoitem for now - remove when domlevel undoitem is removed
     this.undoitem = null;
 

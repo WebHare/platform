@@ -17,15 +17,20 @@ export type ExportedCompoundDocument = {
 export class CompoundDocument {
   private static "__ $whTypeSymbol" = "CompoundDocument"; //Used to identify this as a CompoundDocument in the WebHare API
 
+  public type: CompoundDocumentType;
+  public text: WebHareBlob;
   instances = new Map<string, Instance>;
   links = new Map<string, number>();
   embedded = new Map<string, ResourceDescriptor>();
 
-  constructor(public type: CompoundDocumentType, public text: WebHareBlob, opts?: {
+  constructor(type: CompoundDocumentType, text: WebHareBlob, opts?: {
     instances?: Map<string, Instance> | Record<string, Instance>;
     links?: Map<string, number> | Record<string, number>;
     embedded?: Map<string, ResourceDescriptor> | Record<string, ResourceDescriptor>;
   }) {
+    this.type = type;
+    this.text = text;
+
     if (opts?.instances)
       for (const [key, val] of opts.instances instanceof Map ? opts.instances : Object.entries(opts.instances))
         this.instances.set(key, val);

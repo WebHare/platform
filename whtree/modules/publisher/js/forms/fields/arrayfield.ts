@@ -45,8 +45,14 @@ export default class ArrayField {
   template;
   insertPoint: HTMLElement;
   arrayBaseName;
+  handler: NewType;
+  node: HTMLElement;
+  name: string;
 
-  constructor(private handler: NewType, private node: HTMLElement, items: HTMLElement[], private name: string) {
+  constructor(handler: NewType, node: HTMLElement, items: HTMLElement[], name: string) {
+    this.handler = handler;
+    this.node = node;
+    this.name = name;
     this.arrayBaseName = node.dataset.whFormGroupFor || throwError("Missing array base name");
 
     // The template for new rows. If we have arrays-in-array, it will still be the first <template>

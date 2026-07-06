@@ -92,7 +92,10 @@ type Command = {
 };
 
 class ChangeContext {
-  constructor(public pg: PostgresPoolClient) {
+  public pg: PostgresPoolClient;
+
+  constructor(pg: PostgresPoolClient) {
+    this.pg = pg;
 
   }
 

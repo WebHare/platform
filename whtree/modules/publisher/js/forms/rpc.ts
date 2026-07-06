@@ -39,10 +39,12 @@ function buildTarget(target: string): RPCFormTarget {
 class FormSubmitter {
   private readonly target;
   private readonly cache: UploadCache;
+  private readonly offline: boolean;
 
-  constructor(target: string, cache: UploadCache | null, private readonly offline: boolean) {
+  constructor(target: string, cache: UploadCache | null, offline: boolean) {
     this.target = buildTarget(target);
     this.cache = cache || new WeakMap();
+    this.offline = offline;
   }
 
   private async uploadFile(file: Blob) {
