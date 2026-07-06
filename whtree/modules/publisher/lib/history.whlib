@@ -331,8 +331,7 @@ PUBLIC STATIC OBJECTTYPE WorkflowManager <
     RECORD autosavedocrec := SELECT parent, isfolder FROM system.fs_objects WHERE id = autosavedoc;
 
     UPDATE system.fs_objects
-           SET parent := setparent
-             , modificationdate := now
+           SET modificationdate := now
          WHERE id = autosavedoc;
 
     //Patch the existing autosave entry. The autosave will remain the associated snapshot

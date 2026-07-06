@@ -146,7 +146,7 @@ async function testSiteProfiles() {
     //If we recycle a file the applytester should see throufg hthis
     await whdb.beginWork();
     await testobj.recycle();
-    const tester = await getApplyTesterForObject(await whfs.openFolder(testobj.id, { allowVersion: true }));
+    const tester = await getApplyTesterForObject(await whfs.openFolder(testobj.id, { allowHistoric: true }));
     test.eq(true, tester.isMocked());
 
     test.eq({ nameIsTestpage: true }, await tester.getUserData("webhare_testsuite:nameinfo"));

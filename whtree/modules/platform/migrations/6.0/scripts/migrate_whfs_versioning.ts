@@ -17,8 +17,8 @@ export const whconstant_whfsid_drafts = 15;
 
 runCli({
   async main() {
-    const draftFolder = await openFolder(whconstant_whfsid_drafts, { allowMissing: true, allowVersion: true });
-    const autosaveFolder = await openFolder(whconstant_whfsid_autosaves, { allowMissing: true, allowVersion: true });
+    const draftFolder = await openFolder(whconstant_whfsid_drafts, { allowMissing: true, allowHistoric: true });
+    const autosaveFolder = await openFolder(whconstant_whfsid_autosaves, { allowMissing: true, allowHistoric: true });
     if (!draftFolder && !autosaveFolder)
       return 0; //if those folders are missing we already migrated or this server was new enough to not need it
 
