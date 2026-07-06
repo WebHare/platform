@@ -1,9 +1,9 @@
 /* See servicemanager/main.ts on how to run a separate servicemanager process for faster testing (and as this test creates modules
    I'd also recommend a freshdbconsole or at least an install with a minimal amount of modules) */
 
-import * as test from "@webhare/test";
-import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { openBackendService, backendConfig } from "@webhare/services";
+import * as test from "@webhare/test-backend";
+import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { openBackendService } from "@webhare/services";
 import { type HSVMObject, loadlib } from "@webhare/harescript";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 import { isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
@@ -34,11 +34,6 @@ async function prepTests() {
   const smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
   const state = await smservice.getWebHareState();
   test.eq("Online", state.stage, "By the time tests run, it should be Online");
-
-  if (backendConfig.module.webhare_testsuite_temp) {
-    await deleteTestModule("webhare_testsuite_temp");
-    await smservice.reload(); //TODO shouldn't delete testmodule imply this? (but then we still need to at least wait for the service to go away)
-  }
 }
 
 async function testBasicAPI() {
@@ -47,7 +42,6 @@ async function testBasicAPI() {
   let state = await smservice.getWebHareState();
   test.eq(undefined, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:simpleservice"));
 
-  console.log("installing module");
   await installTestModule("webhare_testsuite_temp", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -123,8 +117,7 @@ service = runBackendService(port, () => new Client);`
   test.assert(instanceid !== (await ondemandThroughHS.info()).instanceid);
 
   //Delete the module again
-  await deleteTestModule("webhare_testsuite_temp");
-  await smservice.reload();
+  await test.deleteTestModule("webhare_testsuite_temp");
 
   state = await smservice.getWebHareState();
   console.log(state);

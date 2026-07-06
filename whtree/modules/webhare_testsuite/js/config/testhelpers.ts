@@ -1,11 +1,20 @@
 import { runJSBasedValidator, type ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
 import { type HSVMObject, loadlib } from "@webhare/harescript";
-import { WebHareBlob, backendConfig } from "@webhare/services";
+import { WebHareBlob, backendConfig, signalOnEvent } from "@webhare/services";
 import { parseModuleDefYMLText, type ModDefYML } from "@webhare/services/src/moduledefparser";
 import { omit } from "@webhare/std";
 import * as test from "@webhare/test";
+import { deleteTestModule, tempModuleNamePrefix } from "@webhare/test-backend";
 
 export async function installTestModule(name: string, files: Record<string, string>) {
+  if (!name.startsWith(tempModuleNamePrefix))
+    throw new Error(`installTestModule: module name must start with '${tempModuleNamePrefix}'`);
+
+  if (backendConfig.module[name])
+    await deleteTestModule(name);
+
+  console.log(`Creating module ${name}`);
+  const installEventSignal = await signalOnEvent(`system:moduleupdate.${name}`);
   const archive = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
   for (const [path, data] of Object.entries(files)) {
     await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
@@ -22,8 +31,11 @@ export async function installTestModule(name: string, files: Record<string, stri
     orgmanifestdata: unknown;
   };
 
+  console.log(`Import module done, now waiting for configuration to appear`);
+
   // Wait for the module to show up in the local configuration
   await test.wait(() => Boolean(backendConfig.module[name]));
+  await test.wait(() => Boolean(installEventSignal.aborted));
 
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
   return res;
@@ -57,12 +69,6 @@ export async function checkModule(name: string): Promise<ValidationMessageWithTy
     , onlypaths
     ]);
 */
-}
-
-
-//TODO does this need to be a testapi? or something for a @webhare/config ?
-export async function deleteTestModule(name: string) {
-  await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule(name);
 }
 
 export async function parseAndValidateModuleDefYMLText(yaml: string, { module = "webhare_testsuite" } = {}): Promise<ModDefYML> {

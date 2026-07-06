@@ -2,11 +2,12 @@ import * as test from "@webhare/test";
 import * as fs from "fs";
 import { applyConfiguration, backendConfig, signalOnEvent } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { checkModule, deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { checkModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { generatePropertyName, generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
+import { deleteTestModule } from "@webhare/test-backend";
 
 
 async function testWebHareConfig() {
@@ -75,11 +76,6 @@ async function testBasics() {
 }
 
 async function testModule() {
-  if (backendConfig.module["webhare_testsuite_generatedfilestest"])
-    await deleteTestModule("webhare_testsuite_generatedfilestest");
-
-  console.log(`create module webhare_testsuite_generatedfilestest`);
-  const installEventSignal = await signalOnEvent("system:moduleupdate.webhare_testsuite_generatedfilestest");
   await installTestModule("webhare_testsuite_generatedfilestest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -223,10 +219,6 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
 }
 `
   });
-
-  // Wait for the module to appear in the configuration
-  await test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
-  await test.wait(() => Boolean(installEventSignal.aborted));
 
   // const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
