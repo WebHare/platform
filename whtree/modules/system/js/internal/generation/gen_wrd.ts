@@ -1,6 +1,6 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { WRDAttributeTypeId, type WRDAttributeType, WRDAttributeTypes } from "@webhare/wrd/src/types";
+import { type WRDAttributeType, type WRDAttributeTypeId, WRDAttributeTypes, getWRDAttributeTypeName } from "@webhare/wrd/src/types";
 import { type GenerateContext, type FileToUpdate, generatorBanner, isNodeApplicableToThisWebHare } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { Document } from "@xmldom/xmldom";
@@ -451,14 +451,14 @@ ${schemaconsts.join("\n")}
 function getEnumName(type: WRDAttributeType, modern: boolean): string {
   if (modern) {
     switch (type) {
-      case "plainDate": return "WRDBaseAttributeTypeId.Modern_Date";
-      case "instant": return "WRDBaseAttributeTypeId.Modern_DateTime";
-      case "plainTime": return "WRDBaseAttributeTypeId.Modern_Time";
+      case "plainDate": return "typeof WRDBaseAttributeTypeId.Modern_Date";
+      case "instant": return "typeof WRDBaseAttributeTypeId.Modern_DateTime";
+      case "plainTime": return "typeof WRDBaseAttributeTypeId.Modern_Time";
     }
   }
 
   const toId = WRDAttributeTypes.indexOf(type);
-  return `WRDAttributeTypeId.${WRDAttributeTypeId[toId + 1]}`;
+  return `typeof WRDAttributeTypeId.${getWRDAttributeTypeName(toId + 1 as WRDAttributeTypeId)}`;
 }
 
 function hasWildcard(val: string) {

@@ -167,7 +167,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       isreadonly: false,
       tag: tagToJS(attr.tag),
       schemaId: schema.id,
-    })).map(attr => ({ ...attr, fullTag: attr.tag }));
+    })).map(attr => ({ ...attr, fullTag: attr.tag, attributetype: attr.attributetype as WRDBaseAttributeTypeId | WRDAttributeTypeId }));
 
   const typeTagMap = new Map(types.map(type => [type.tag, type]));
   const typeIdMap = new Map(types.map(type => [type.id, type]));
@@ -225,7 +225,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       }
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
-      if ([WRDAttributeTypeId.RichTextDocument, WRDAttributeTypeId.Instance, WRDAttributeTypeId.URL].includes(attr.attributetype as number) || attr.checklinks)
+      if (([WRDAttributeTypeId.RichTextDocument, WRDAttributeTypeId.Instance, WRDAttributeTypeId.URL] as number[]).includes(attr.attributetype) || attr.checklinks)
         type.consilioLinkCheckAttrs.add(attr.id);
       if (attr.attributetype === WRDAttributeTypeId.WHFSRef)
         type.whfsLinkAttrs.add(attr.id);
