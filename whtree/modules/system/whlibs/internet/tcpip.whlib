@@ -17,7 +17,7 @@ STATIC OBJECTTYPE SocketException EXTEND Exception
   MACRO NEW(INTEGER code, STRING what) : Exception(what) { this->pvt_errorcode := code; }
 >;
 
-/** These ciphersuite settings are taken from the current internet.nl requirements which in turn is base on appendix B of NCSC-NL's guidelines.
+/** These ciphersuite settings are taken from the current internet.nl requirements which in turn is based on appendix B of NCSC-NL's guidelines.
 
 Good [TLS 1.3]:
 
