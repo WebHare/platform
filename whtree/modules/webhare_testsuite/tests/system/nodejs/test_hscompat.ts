@@ -5,10 +5,10 @@
 */
 import * as test from "@webhare/test";
 import { isBlob, Money, toCamelCase, toSnakeCase } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType, HareScriptType } from "@webhare/hscompat";
 import { lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/src/algorithms";
 import { getRoundedDateTime, localizeDate } from "@webhare/hscompat/src/datetime";
-import { getTypedArray, type IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray, type IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { WebHareBlob } from "@webhare/services";
 
 function testStrings() {
@@ -302,29 +302,29 @@ async function testHSON() {
 
   const emptyArray: unknown[] = [];
   testHSONEnDeCode('hson:va[]', emptyArray as IPCMarshallableData);
-  setHareScriptType(emptyArray, VariableType.RecordArray);
+  setHareScriptType(emptyArray, HareScriptType.RecordArray);
   testHSONEnDeCode('hson:ra[]', emptyArray as IPCMarshallableData);
-  setHareScriptType(emptyArray, VariableType.RecordArray); //setting it twice regressed once with 'Cannot redefine property: Symbol(Marshaller)'
+  setHareScriptType(emptyArray, HareScriptType.RecordArray); //setting it twice regressed once with 'Cannot redefine property: Symbol(Marshaller)'
   testHSONEnDeCode('hson:ra[]', emptyArray as IPCMarshallableData);
 
-  testHSONEnDeCode('hson:ia[]', getTypedArray(VariableType.IntegerArray, []));
+  testHSONEnDeCode('hson:ia[]', getTypedArray(HareScriptType.IntegerArray, []));
 
 
-  testHSONEnDeCode('hson:i64a[]', getTypedArray(VariableType.Integer64Array, []));
+  testHSONEnDeCode('hson:i64a[]', getTypedArray(HareScriptType.Integer64Array, []));
 
-  testHSONEnDeCode('hson:ma[]', getTypedArray(VariableType.MoneyArray, []));
+  testHSONEnDeCode('hson:ma[]', getTypedArray(HareScriptType.MoneyArray, []));
 
-  testHSONEnDeCode('hson:fa[]', getTypedArray(VariableType.FloatArray, []));
+  testHSONEnDeCode('hson:fa[]', getTypedArray(HareScriptType.FloatArray, []));
 
-  testHSONEnDeCode('hson:xa[]', getTypedArray(VariableType.BlobArray, []));
+  testHSONEnDeCode('hson:xa[]', getTypedArray(HareScriptType.BlobArray, []));
 
-  testHSONEnDeCode('hson:ra[]', getTypedArray(VariableType.RecordArray, []));
+  testHSONEnDeCode('hson:ra[]', getTypedArray(HareScriptType.RecordArray, []));
 
-  testHSONEnDeCode('hson:da[]', getTypedArray(VariableType.DateTimeArray, []));
+  testHSONEnDeCode('hson:da[]', getTypedArray(HareScriptType.DateTimeArray, []));
 
-  testHSONEnDeCode('hson:ba[]', getTypedArray(VariableType.BooleanArray, []));
+  testHSONEnDeCode('hson:ba[]', getTypedArray(HareScriptType.BooleanArray, []));
 
-  testHSONEnDeCode('hson:sa[]', getTypedArray(VariableType.StringArray, []));
+  testHSONEnDeCode('hson:sa[]', getTypedArray(HareScriptType.StringArray, []));
 
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
 

@@ -1,9 +1,10 @@
 import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
-import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, WRDTypeBaseSettingsModern } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
+import { HareScriptType } from "@webhare/hscompat/src/hson";
 
 export const testSchemaTag = "wrd:testschema";
 
@@ -47,10 +48,10 @@ export type CustomExtensions = {
     testBoolean: WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
     testEnum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
     testEnumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
-    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
-    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
     testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
-    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
     testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
     testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
@@ -132,10 +133,10 @@ export type CustomExtensionsModern = {
     testBoolean: WRDAttributeTypeId.Boolean;//", { title: "Boolean attribute" });
     testEnum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "enum1" | "enum2" }>;//", { title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
     testEnumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "enumarray1" | "enumarray2" }>;//", { title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
-    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
-    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testEmptyenum: WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
     testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
-    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+    testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
     testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
     testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
@@ -280,10 +281,10 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchemaType, options: { delete
   await persontype.createAttribute("testBoolean", { attributeType: "boolean", title: "Boolean attribute" });
   await persontype.createAttribute("testEnum", { attributeType: "enum", title: "Enum attribute", allowedValues: ["enum1", "enum2"] });
   await persontype.createAttribute("testEnumarray", { attributeType: "enumArray", title: "Enum attribute", allowedValues: ["enumarray1", "enumarray2"] });
-  await persontype.createAttribute("testEmptyenum", { attributeType: "enum", title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
-  await persontype.createAttribute("testEmptyenumarray", { attributeType: "enumArray", title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+  await persontype.createAttribute("testEmptyenum", { attributeType: "enum", title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
+  await persontype.createAttribute("testEmptyenumarray", { attributeType: "enumArray", title: "Enum attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
   await persontype.createAttribute("testInteger64", { attributeType: "integer64", title: "Integer64 attribute" });
-  await persontype.createAttribute("testRecord", { attributeType: "hson", title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
+  await persontype.createAttribute("testRecord", { attributeType: "hson", title: "Record attribute", allowedValues: getTypedArray(HareScriptType.StringArray, []) });
   await persontype.createAttribute("testJson", { attributeType: "json", title: "JSON attribute" });
   await persontype.createAttribute("testUrl", { attributeType: "url" });
   await persontype.createAttribute("testStatusrecord", { attributeType: "deprecatedStatusRecord", title: "Status record", allowedValues: ["warning", "error", "ok"] });

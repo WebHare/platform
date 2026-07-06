@@ -17,13 +17,14 @@ const async_exports = fs.readFileSync(`${__dirname}/wasm-suspending-functions.tx
 const keepalive = `__attribute__((used))`;
 
 let outfile =
-  `import type { VariableType } from "../modules/system/js/internal/whmanager/hsmarshalling";
+  `import type { HareScriptType } from "../jssdk/hscompat";
+
 export type Ptr = number;
 export type StringPtr = Ptr;
 export type StringPtrPtr = Ptr;
 export type HSVM = number & { type: "hsvm" };
 export type HSVM_VariableId = number & { type: "variableid" };
-export type HSVM_VariableType = VariableType & { type: "variabletype" };
+export type HSVM_VariableType = HareScriptType & { type: "variabletype" };
 export type HSVM_ColumnId = number & { type: "columnnameid" };
 export type EmvalHandle = number & { type: "emvalhandle" };
 

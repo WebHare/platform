@@ -3,17 +3,17 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/src/datetime";
 import { Money } from "../../../../../jssdk/std/src/money";
 import { WebHareBlob, type WebHareDiskBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
-import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
+import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type JSTypeForHSType, type IPCMarshallableData, type IPCMarshallableRecord, getHSTypeName } from "@webhare/hscompat/src/hson";
 import { getWHType } from "@webhare/std/src/quacks";
 
-export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
-export type { HSType };
+export { type IPCMarshallableData, type IPCMarshallableRecord };
+export type { JSTypeForHSType };
 export { getDefaultValue }; //edudex compatibility
 
-type ArrayHareScriptType = HareScriptType.VariantArray | HareScriptType.IntegerArray | HareScriptType.MoneyArray | HareScriptType.FloatArray | HareScriptType.BooleanArray | HareScriptType.DateTimeArray | HareScriptType.Integer64Array | HareScriptType.FunctionPtrArray | HareScriptType.RecordArray | HareScriptType.StringArray | HareScriptType.BlobArray | HareScriptType.ObjectArray;
+type ArrayHareScriptType = typeof HareScriptType.VariantArray | typeof HareScriptType.IntegerArray | typeof HareScriptType.MoneyArray | typeof HareScriptType.FloatArray | typeof HareScriptType.BooleanArray | typeof HareScriptType.DateTimeArray | typeof HareScriptType.Integer64Array | typeof HareScriptType.FunctionPtrArray | typeof HareScriptType.RecordArray | typeof HareScriptType.StringArray | typeof HareScriptType.BlobArray | typeof HareScriptType.ObjectArray;
 
 /** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
-export function getTypedArray<V extends ArrayHareScriptType, T extends HSType<V>>(type: V, array: T): T {
+export function getTypedArray<V extends ArrayHareScriptType, T extends JSTypeForHSType<V>>(type: V, array: T): T {
   const copy = [...array];
   setHareScriptType(copy, type);
   return copy as T;
@@ -118,7 +118,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: HareScriptType, colu
       }
     } else {
       for (let i = 0; i < eltcount; ++i) {
-        retval.push(marshalReadInternal(buf, type & ~0x80, columns, blobs));
+        retval.push(marshalReadInternal(buf, (type & ~0x80) as HareScriptType, columns, blobs));
       }
     }
     return retval;
@@ -281,7 +281,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
     writer.writeU8(type);
   } else if (type !== determinedtype) {
     if (unifyEltTypes(type, determinedtype) !== type)
-      throw new Error(`Cannot store an ${HareScriptType[determinedtype] ?? determinedtype} in an array for ${HareScriptType[type] ?? type}`);
+      throw new Error(`Cannot store an ${getHSTypeName(determinedtype) ?? determinedtype} in an array for ${getHSTypeName(type) ?? type}`);
   }
 
   if (type & HareScriptType.Array) {
@@ -291,7 +291,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
 
     const len = (value as unknown[]).length;
     writer.writeU32(len);
-    const subtype = type === HareScriptType.VariantArray ? null : type & ~HareScriptType.Array;
+    const subtype = type === HareScriptType.VariantArray ? null : (type & ~HareScriptType.Array) as HareScriptType;
     for (let i = 0; i < len; ++i) {
       writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path);
     }
@@ -380,7 +380,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       }
     } break;
     default: {
-      throw new Error(`Cannot encode type ${HareScriptType[type] ?? type}`);
+      throw new Error(`Cannot encode type ${getHSTypeName(type)}`);
     }
   }
 }

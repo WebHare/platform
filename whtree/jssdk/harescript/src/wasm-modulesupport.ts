@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
 import { mapHareScriptPath } from "./wasm-support";
@@ -13,6 +13,7 @@ import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
 import { decodeString, isError } from "@webhare/std";
 import { getConnection, type WHDBConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
+import { HareScriptType } from "@webhare/hscompat/src/hson";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
@@ -37,31 +38,31 @@ function translateDirectToModURI(directuri: string) {
   return directuri; //no replacement found
 }
 
-function parseMangledParameters(params: string): VariableType[] {
-  const retval: VariableType[] = [];
+function parseMangledParameters(params: string): HareScriptType[] {
+  const retval: HareScriptType[] = [];
   for (let idx = 0; idx < params.length; ++idx) {
-    let type: VariableType;
+    let type: HareScriptType;
     switch (params[idx]) {
-      case "V": type = VariableType.Variant; break;
-      case "I": type = VariableType.Integer; break;
-      case "6": type = VariableType.Integer64; break;
-      case "M": type = VariableType.HSMoney; break;
-      case "F": type = VariableType.Float; break;
-      case "B": type = VariableType.Boolean; break;
-      case "S": type = VariableType.String; break;
-      case "R": type = VariableType.Record; break;
-      case "D": type = VariableType.DateTime; break;
-      case "T": type = VariableType.Table; break;
-      case "C": type = VariableType.Schema; break;
-      case "P": type = VariableType.FunctionPtr; break;
-      case "O": type = VariableType.Object; break;
-      case "W": type = VariableType.WeakObject; break;
-      case "X": type = VariableType.Blob; break;
+      case "V": type = HareScriptType.Variant; break;
+      case "I": type = HareScriptType.Integer; break;
+      case "6": type = HareScriptType.Integer64; break;
+      case "M": type = HareScriptType.HSMoney; break;
+      case "F": type = HareScriptType.Float; break;
+      case "B": type = HareScriptType.Boolean; break;
+      case "S": type = HareScriptType.String; break;
+      case "R": type = HareScriptType.Record; break;
+      case "D": type = HareScriptType.DateTime; break;
+      case "T": type = HareScriptType.Table; break;
+      case "C": type = HareScriptType.Schema; break;
+      case "P": type = HareScriptType.FunctionPtr; break;
+      case "O": type = HareScriptType.Object; break;
+      case "W": type = HareScriptType.WeakObject; break;
+      case "X": type = HareScriptType.Blob; break;
       default:
         throw new Error(`Illegal character ${JSON.stringify(params[idx])} in mangled function name`);
     }
     if (params[idx + 1] === "A") {
-      type = type | 0x80;
+      type = (type | 0x80) as HareScriptType;
       ++idx;
     }
     retval.push(type);
@@ -73,8 +74,8 @@ function unmangleFunctionName(name: string) {
   const retval = {
     name: "",
     modulename: "",
-    returntype: VariableType.Variant,
-    parameters: new Array<VariableType>
+    returntype: HareScriptType.Variant as HareScriptType,
+    parameters: new Array<HareScriptType>
   };
 
   let start = 0;
@@ -91,7 +92,7 @@ function unmangleFunctionName(name: string) {
   idx = name.indexOf(":", start);
   if (idx === -1)
     throw new Error(`Error in mangled function name ${JSON.stringify(name)}: missing third ':'`);
-  retval.returntype = parseMangledParameters(name.substring(start, idx))[0] ?? VariableType.Uninitialized;
+  retval.returntype = parseMangledParameters(name.substring(start, idx))[0] ?? HareScriptType.Uninitialized;
   retval.parameters = parseMangledParameters(name.substring(idx + 1));
   return retval;
 }
@@ -293,7 +294,7 @@ export class WASMModule extends WASMModuleBase {
       console.error(`No pvt_trace member in thrown exception when trying to throw exception ${JSON.stringify(e instanceof Error ? e.message : e)}`);
       throw new Error(`No pvt_trace member in thrown exception when trying to throw exception ${JSON.stringify(e instanceof Error ? e.message : e)}`);
     }
-    trace.setJSValue(getTypedArray(VariableType.RecordArray, stacktrace.map(elt => ({
+    trace.setJSValue(getTypedArray(HareScriptType.RecordArray, stacktrace.map(elt => ({
       filename: elt.file || "unknown",
       line: elt.lineNumber || 1,
       col: elt.column || 1,

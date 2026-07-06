@@ -1,4 +1,5 @@
-import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptType } from "@webhare/hscompat/src/hson";
 import { emplace } from "@webhare/std";
 import { type FinishHandler, broadcastOnCommit } from "@webhare/whdb";
 import { finishHandlerFactory } from "@webhare/whdb/src/impl";
@@ -28,9 +29,9 @@ class WRDFinishHandler implements FinishHandler {
     for (const typeRec of this.typeChanges.values()) {
       broadcastOnCommit(`wrd:type.${typeRec.type}.change`, {
         allinvalidated: typeRec.allinvalidated || false,
-        created: getTypedArray(VariableType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.created || []].sort()),
-        updated: getTypedArray(VariableType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.updated || []].sort()),
-        deleted: getTypedArray(VariableType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.deleted || []].sort()),
+        created: getTypedArray(HareScriptType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.created || []].sort()),
+        updated: getTypedArray(HareScriptType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.updated || []].sort()),
+        deleted: getTypedArray(HareScriptType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.deleted || []].sort()),
       });
     }
 

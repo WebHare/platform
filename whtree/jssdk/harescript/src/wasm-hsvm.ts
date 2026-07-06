@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, getTypedArray, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, getTypedArray, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { isTruthy } from "@webhare/std";
 
 import createModule from "../../../lib/harescript";
@@ -17,6 +17,7 @@ import { decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/
 import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { HSVMRunContext, HSVMRunPermissionSystem } from "./runcontext";
+import { getHSTypeName, HareScriptType } from "@webhare/hscompat/src/hson";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -465,10 +466,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     return this.objectCache.countObjects();
   }
 
-  checkType(variable: HSVM_VariableId, expectType: VariableType) {
+  checkType(variable: HSVM_VariableId, expectType: HareScriptType) {
     const curType = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
     if (curType !== expectType)
-      throw new Error(`Variable doesn't have expected type ${VariableType[expectType]}, but got ${VariableType[curType]}`);
+      throw new Error(`Variable doesn't have expected type ${getHSTypeName(expectType)}, but got ${getHSTypeName(curType)}`);
 
     return curType;
   }
@@ -491,7 +492,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   setBlobPath(variable: HSVM_VariableId, blobpath: string) {
-    this.checkType(variable, VariableType.Blob);
+    this.checkType(variable, HareScriptType.Blob);
     const as_cstr = this.wasmmodule.stringToNewUTF8(blobpath);
     this.wasmmodule._HSVM_BlobSetPath(this.hsvm, variable, as_cstr);
     this.wasmmodule._free(as_cstr);
@@ -529,19 +530,19 @@ export class HareScriptVM implements HSVM_HSVMSource {
     let value;
     const type = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
     switch (type) {
-      case VariableType.Integer: {
+      case HareScriptType.Integer: {
         value = this.wasmmodule._HSVM_IntegerGet(this.hsvm, variable);
       } break;
-      case VariableType.Boolean: {
+      case HareScriptType.Boolean: {
         value = Boolean(this.wasmmodule._HSVM_BooleanGet(this.hsvm, variable));
       } break;
-      case VariableType.String: {
+      case HareScriptType.String: {
         this.wasmmodule._HSVM_StringGet(this.hsvm, variable, this.stringptrs, this.stringptrs + 4);
         const begin = this.wasmmodule.getValue(this.stringptrs, "*") as number;
         const end = this.wasmmodule.getValue(this.stringptrs + 4, "*") as number;
         value = this.wasmmodule.UTF8ToString(begin, end - begin);
       } break;
-      case VariableType.RecordArray: {
+      case HareScriptType.RecordArray: {
         value = [];
         const eltcount = this.wasmmodule._HSVM_ArrayLength(this.hsvm, variable);
         for (let i = 0; i < eltcount; ++i) {
@@ -549,7 +550,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
           value.push(this.quickParseVariable(elt));
         }
       } break;
-      case VariableType.Record: {
+      case HareScriptType.Record: {
         if (!this.wasmmodule._HSVM_RecordExists(this.hsvm, variable))
           value = null;
         else {
@@ -563,7 +564,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         }
       } break;
       default: {
-        throw new Error(`Parsing variables of type ${VariableType[type]} is not implemented`);
+        throw new Error(`Parsing variables of type ${getHSTypeName(type)} is not implemented`);
       }
     }
     return value;
@@ -572,7 +573,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   async loadScript(lib: string): Promise<void> {
     const lib_str = this.wasmmodule.stringToNewUTF8(lib);
     try {
-      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, HareScriptType.RecordArray as HSVM_VariableType);
       const fptrresult = await this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
       if (fptrresult)
         return; //Success!
@@ -607,7 +608,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const lib_str = this.wasmmodule.stringToNewUTF8(lib);
     const name_str = this.wasmmodule.stringToNewUTF8(name);
     try {
-      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, HareScriptType.RecordArray as HSVM_VariableType);
       const fptrresult = await this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
       switch (fptrresult) {
         case 0:
@@ -666,7 +667,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
         retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, objectid, colid!, options?.skipAccess ? 1 : 0, 1); //allow macro=1
         //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
-        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
+        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== HareScriptType.Uninitialized;
       } else {
         // Call all potentially throwing functions before opening the function call
         const parts = functionref.split("#");
@@ -726,14 +727,14 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   parseMessageList(): MessageList {
-    return getTypedArray(VariableType.RecordArray, this.wasmmodule.Emval.toValue(this.wasmmodule._GetMessageList(this.hsvm, 1)) as MessageList);
+    return getTypedArray(HareScriptType.RecordArray, this.wasmmodule.Emval.toValue(this.wasmmodule._GetMessageList(this.hsvm, 1)) as MessageList);
   }
 
   getLoadedLibrariesInfo(): LoadedLibrariesInfo {
     const res = this.wasmmodule.Emval.toValue(this.wasmmodule._GetLoadedLibrariesInfo(this.hsvm, 1)) as LoadedLibrariesInfo;
     return {
-      errors: getTypedArray(VariableType.RecordArray, res.errors),
-      libraries: getTypedArray(VariableType.RecordArray, res.libraries),
+      errors: getTypedArray(HareScriptType.RecordArray, res.errors),
+      libraries: getTypedArray(HareScriptType.RecordArray, res.libraries),
     };
   }
 

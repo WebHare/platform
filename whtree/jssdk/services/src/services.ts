@@ -33,7 +33,6 @@ export { prepareMail } from "./mail";
 export { applyConfiguration } from "./applyconfig";
 export { fetchResource } from "./fetchresource";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
-export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
 export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 

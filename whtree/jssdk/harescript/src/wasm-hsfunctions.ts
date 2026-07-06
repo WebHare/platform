@@ -1,5 +1,5 @@
 import type { HareScriptVM, LoadedLibrariesInfo, MessageList } from "./wasm-hsvm";
-import { type IPCMarshallableRecord, VariableType, getTypedArray, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableRecord, getTypedArray, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { log, logError } from "@webhare/services/src/logging.ts";
@@ -30,7 +30,7 @@ import * as readline from "node:readline";
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { beginWork, commitWork, rollbackWork, workHasMutex, type FinishHandler } from "@webhare/whdb";
 import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
-import { setHareScriptType } from "@webhare/hscompat/src/hson";
+import { HareScriptType, setHareScriptType } from "@webhare/hscompat/src/hson";
 import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { getCodeContext } from "@webhare/services/src/codecontexts";
 import { lockMutex } from "./syscalls";
@@ -268,9 +268,9 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     const res = await this.jobobj.getLoadedLibrariesInfo();
     if (res && res.errors)
-      res.errors = getTypedArray(VariableType.RecordArray, res.errors);
+      res.errors = getTypedArray(HareScriptType.RecordArray, res.errors);
     if (res && res.libraries)
-      res.libraries = getTypedArray(VariableType.RecordArray, res.libraries);
+      res.libraries = getTypedArray(HareScriptType.RecordArray, res.libraries);
     return res;
   }
   async getExitCode() {
@@ -442,7 +442,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setBoolean(isatty(0) && isatty(1)); //matches blexlib IsConsoleATerminal
   });
   wasmmodule.registerExternalFunction("GETCONSOLEARGUMENTS::SA:", (vm, id_set) => {
-    id_set.setDefault(VariableType.StringArray);
+    id_set.setDefault(HareScriptType.StringArray);
     for (const arg of wasmmodule.itf.consoleArguments)
       id_set.arrayAppend().setString(arg);
   });
@@ -457,7 +457,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     });
   });
   wasmmodule.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {
-    id_set.setJSValue(getTypedArray(VariableType.StringArray, Object.keys(backendConfig.module).sort()));
+    id_set.setJSValue(getTypedArray(HareScriptType.StringArray, Object.keys(backendConfig.module).sort()));
   });
   wasmmodule.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
     id_set.setJSValue(bridge.systemconfig);
@@ -503,13 +503,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const compileresult = await recompileHarescriptLibrary(uri_str, { force: force.getBoolean() });
     id_set.setJSValue({
       result: !compileresult.some(_ => _.iserror),
-      messages: getTypedArray(VariableType.RecordArray, compileresult)
+      messages: getTypedArray(HareScriptType.RecordArray, compileresult)
     });
   });
   wasmmodule.registerAsyncExternalFunction("DOCOMPILE:WH_SELFCOMPILE:RA:S", async (vm, id_set, uri) => {
     const uri_str = uri.getString();
     const compileresult = await recompileHarescriptLibrary(uri_str, { force: true });
-    id_set.setJSValue(getTypedArray(VariableType.RecordArray, compileresult));
+    id_set.setJSValue(getTypedArray(HareScriptType.RecordArray, compileresult));
   });
   wasmmodule.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
     const newvm = await vm.allocateHSVM({
@@ -529,7 +529,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
   wasmmodule.registerAsyncExternalFunction("GETLOCALIPS::SA:", async (vm, id_set) => {
     const ips = [...new Set(Object.values(os.networkInterfaces()).flatMap(iface => iface ? iface.map(addr => addr.address) : []))];
-    id_set.setJSValue(getTypedArray(VariableType.StringArray, ips));
+    id_set.setJSValue(getTypedArray(HareScriptType.StringArray, ips));
   });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
     id_set.setString(generateRandomId("base64url"));
@@ -977,7 +977,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       status: "ok",
       jobid: job.id,
       groupid,
-      errors: getTypedArray(VariableType.RecordArray, [])
+      errors: getTypedArray(HareScriptType.RecordArray, [])
     });
   });
 
@@ -1114,14 +1114,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
-    id_set.setJSValue(getTypedArray(VariableType.RecordArray, await job.jobobj.getErrors()));
+    id_set.setJSValue(getTypedArray(HareScriptType.RecordArray, await job.jobobj.getErrors()));
   });
 
   wasmmodule.registerAsyncExternalFunction("__HS_GETJOBENVIRONMENT::RA:I", async (vm, id_set, var_jobid) => {
     const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
-    id_set.setJSValue(getTypedArray(VariableType.RecordArray, await job.jobobj.getEnvironment()));
+    id_set.setJSValue(getTypedArray(HareScriptType.RecordArray, await job.jobobj.getEnvironment()));
   });
 
   wasmmodule.registerAsyncExternalMacro("__HS_SETJOBENVIRONMENT:::IRA", async (vm, var_jobid, var_newdata) => {
@@ -1241,7 +1241,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("GETCERTIFICATEDATA::R:S", (vm, id_set, var_certdata) => {
     const key = crypto.createPublicKey(var_certdata.getStringAsBuffer()).export({ type: 'pkcs1', format: 'pem' });
-    id_set.setDefault(VariableType.Record);
+    id_set.setDefault(HareScriptType.Record);
     id_set.ensureCell("PUBLICKEY").setString(key);
   });
 
@@ -1469,7 +1469,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__GETGEOIPCITYBYIP:SYSTEM_GEOIP:R:S", async (vm, id_set, var_ip) => {
     const result = await geoip.lookupCityInfo(var_ip.getString());
     if (!result) {
-      id_set.setDefault(VariableType.Record);
+      id_set.setDefault(HareScriptType.Record);
       return;
     }
 
@@ -1568,7 +1568,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerAsyncExternalFunction("__PGSQL_COMMITWORK::RA:I", async (vm, id_set, transaction) => {
-    id_set.setJSValue(setHareScriptType([], VariableType.RecordArray));
+    id_set.setJSValue(setHareScriptType([], HareScriptType.RecordArray));
     try {
       await vm.wasmmodule.runInPgTransactionContext(transaction.getInteger(), async () => {
         // allow callbacks into HS while running commitWork
@@ -1773,18 +1773,18 @@ export class HareScriptJob {
 // when called, already at indented position
 function dumpVar(v: HSVMVar, indent: number): string {
   const type = v.getType();
-  if (type & VariableType.Array) {
+  if (type & HareScriptType.Array) {
     let s = `${VariableType[type]}:`;
     for (let i = 0; i < v.arrayLength(); ++i)
       s += `\n${" ".repeat(indent + 2)}- ${dumpVar(v.arrayGetRef(i)!, indent + 2)}`;
     return s;
   }
   switch (type) {
-    case VariableType.Integer: return `Integer: ${v.getInteger()}`;
-    case VariableType.Float: return `Float: ${v.getFloat()}`;
-    case VariableType.String: return `String: ${v.getString()}`;
-    case VariableType.Boolean: return `Boolean: ${v.getBoolean()}`;
-    case VariableType.Record: {
+    case HareScriptType.Integer: return `Integer: ${v.getInteger()}`;
+    case HareScriptType.Float: return `Float: ${v.getFloat()}`;
+    case HareScriptType.String: return `String: ${v.getString()}`;
+    case HareScriptType.Boolean: return `Boolean: ${v.getBoolean()}`;
+    case HareScriptType.Record: {
       const rec = v.recordContents();
       if (!rec)
         return "Default record";
@@ -1794,7 +1794,7 @@ function dumpVar(v: HSVMVar, indent: number): string {
         s += `\n${" ".repeat(indent + 2)}- ${key}:\n${" ".repeat(indent + 4)}${dumpVar(val, indent + 4)}`;
       return s;
     }
-    case VariableType.Blob: {
+    case HareScriptType.Blob: {
       const blob = v.getBlob();
       if (!blob)
         return "Default blob";
