@@ -18,7 +18,7 @@ import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
 import { escapePGIdentifier } from "@webhare/whdb/src/metadata";
 import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
-import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
+import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/ipc/localservice";
 import type { LocalLockService } from "./wasm-locallockservice";
 import type { AdhocCacheService } from "./wasm-adhoccacheservice";
 import { debugFlags } from "@webhare/env/src/envbackend";

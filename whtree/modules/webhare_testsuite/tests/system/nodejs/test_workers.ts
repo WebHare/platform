@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import { type MessagePort, MessageChannel, isMainThread } from "node:worker_threads";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { triggerGarbageCollection } from "@webhare/test";
-import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { createReturnValueWithTransferList } from "@webhare/services/src/ipc/localservice";
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 
 

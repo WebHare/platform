@@ -7,7 +7,7 @@ import * as https from 'node:https';
 import { type Configuration, type Port, type Host, initialconfig } from "./webconfig";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { BackendServiceConnection, runBackendService } from '@webhare/services';
-import type { WebHareService } from '@webhare/services/src/backendservicerunner';
+import type { WebHareService } from '@webhare/services';
 import { loadlib } from '@webhare/harescript';
 import type { WebServerLogger } from './logger';
 import { stringify } from '@webhare/std';

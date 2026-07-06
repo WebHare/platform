@@ -10,8 +10,9 @@ import type { RichTextDocument, RTDSource } from "./richdocument";
 
 export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath, getResourceEventMasks } from "./resources";
-export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
-export { runBackendService, BackendServiceConnection, type BackendServiceController, type BackendServiceOptions } from "./backendservicerunner";
+export { openBackendService, type GetBackendServiceInterface } from "./ipc/backendservice.ts";
+export { BackendServiceConnection } from "./ipc/ipc-base.ts";
+export { runBackendService, type BackendServiceController, type BackendServiceOptions, type ServiceClientFactoryFunction, type ServiceControllerFactoryFunction, type WebHareService } from "./ipc/backendservicerunner.ts";
 export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, subscribeToEventStream, signalOnEvent } from "./backendevents";

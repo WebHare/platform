@@ -1,5 +1,4 @@
-import type { ServiceClientFactoryFunction } from '@webhare/services/src/backendservicerunner';
-import { BackendServiceConnection, type BackendServiceController, broadcast } from "@webhare/services";
+import { BackendServiceConnection, type BackendServiceController, broadcast, type ServiceClientFactoryFunction } from "@webhare/services";
 import type { SimpleMarshallableRecord } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
 declare module "@webhare/services" {

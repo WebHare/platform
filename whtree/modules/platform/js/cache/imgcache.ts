@@ -3,7 +3,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
-import type { WebHareService } from "@webhare/services/src/backendservicerunner";
+import type { WebHareService } from "@webhare/services";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetadata } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";

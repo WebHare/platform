@@ -1,4 +1,4 @@
-import { BackendServiceConnection, type ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
+import { BackendServiceConnection, type ServiceControllerFactoryFunction } from "@webhare/services";
 import { type ApplyConfigurationOptions, executeApply } from "./applyconfig";
 import { HareScriptLibraryOutOfDateError } from "@webhare/harescript";
 import { releaseCodeContextHSVM } from "@webhare/harescript/src/contextvm";

@@ -1,9 +1,9 @@
 import { type Transferable, workerData } from "node:worker_threads";
 import type { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
-import { describePublicInterface } from "@webhare/services/src/backendservicerunner";
+import { describePublicInterface } from "@webhare/services/src/ipc/ipc-base.ts";
 import { encodeIPCException } from "./whmanager/ipc";
 import { type TypedMessagePort, createTypedMessageChannel, dumpActiveIPCMessagePorts, registerTransferredPort } from "./whmanager/transport";
-import { ReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { ReturnValueWithTransferList } from "@webhare/services/src/ipc/localservice";
 import { importJSFunction } from "@webhare/services";
 import { activateHMR } from "@webhare/services/src/hmr";
 import { debugFlags } from "@webhare/env";
