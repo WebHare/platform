@@ -1,6 +1,6 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType } from "@mod-system/js/internal/whmanager/debug";
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray } from "@webhare/hscompat/src/hson";
 import { sleep } from "@mod-system/js/wh/testframework";
 import { HSVMMarshallableOpaqueObject, type HSVMObject } from "@webhare/harescript/src/wasm-proxies";
 import { defaultDateTime, HareScriptType } from "@webhare/hscompat";

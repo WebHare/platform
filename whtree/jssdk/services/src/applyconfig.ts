@@ -1,5 +1,5 @@
 import { isWorkOpen, onFinishWork, type FinishHandler } from "@webhare/whdb";
-import { openBackendService } from "./backendservice";
+import { openBackendService } from "./ipc/backendservice";
 import type { ApplyConfigurationOptions, ConfigurableSubsystemPart } from "@mod-platform/js/configure/applyconfig";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 

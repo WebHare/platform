@@ -1,5 +1,5 @@
 import { createWebResponse, type WebRequest, type WebResponse } from "@webhare/router";
-import { openBackendService } from "@webhare/services/src/backendservice";
+import { openBackendService } from "@webhare/services";
 
 type ResourceRef = {
   col: number;

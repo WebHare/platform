@@ -3,7 +3,7 @@ import * as services from "@webhare/services";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { runBackendService } from "@webhare/services";
 import { generateRandomId, sleep } from "@webhare/std";
-import type { BackendServiceProtocol } from "@webhare/services/src/backendservice";
+import type { BackendServiceProtocol } from "@webhare/services/src/ipc/backendservice";
 
 let initialPipes = 0, initialPorts = 0;
 

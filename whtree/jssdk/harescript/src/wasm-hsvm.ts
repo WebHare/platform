@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, getTypedArray, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { isTruthy } from "@webhare/std";
 
 import createModule from "../../../lib/harescript";
@@ -17,7 +17,7 @@ import { decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/
 import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { HSVMRunContext, HSVMRunPermissionSystem } from "./runcontext";
-import { getHSTypeName, HareScriptType } from "@webhare/hscompat/src/hson";
+import { getHSTypeName, getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 

@@ -1,12 +1,11 @@
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import * as stacktrace_parser from "stacktrace-parser";
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { type HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, commitWork, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
-import { determineType, HareScriptType } from "@webhare/hscompat/src/hson";
+import { determineType, getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 import { startNestingHandler } from "./testwasmlib";
 
 function testTypeAPIs() {

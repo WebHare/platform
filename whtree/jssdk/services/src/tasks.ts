@@ -1,13 +1,11 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { appendToArray, convertFlexibleInstantToDate, convertWaitPeriodToDate, regExpFromWildcards, sleep, throwError, type FlexibleInstant, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, isWorkOpen, nextVals, onFinishWork, uploadBlob } from "@webhare/whdb";
-import { openBackendService } from "@webhare/services/src/backendservice.ts";
-import { subscribeToEventStream } from "@webhare/services/src/backendevents.ts";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 import { parseModuleQualifiedName } from "./naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { decodeHSON, decodeHSONorJSONRecord, defaultDateTime, encodeHSON } from "@webhare/hscompat";
-import { logDebug, WebHareBlob } from "@webhare/services";
+import { openBackendService, logDebug, WebHareBlob, subscribeToEventStream } from "@webhare/services";
 import type { IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { debugFlags } from "@webhare/env";
 import { prependHSStackTrace, type ExceptionTrace } from "@webhare/harescript/src/wasm-support";

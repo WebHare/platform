@@ -1,10 +1,9 @@
 import { wrd, WRDSchema, type AnySchemaType, type WRDSchemaLike, type WRDSchemaType } from "@webhare/wrd";
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, WRDTypeBaseSettingsModern } from "@webhare/wrd/src/types"; //FIXME shouldn't need an internal API for WRDMetaType
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { HareScriptType } from "@webhare/hscompat/src/hson";
+import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 
 export const testSchemaTag = "wrd:testschema";
 

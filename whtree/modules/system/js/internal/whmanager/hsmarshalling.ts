@@ -3,21 +3,10 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/src/datetime";
 import { Money } from "../../../../../jssdk/std/src/money";
 import { WebHareBlob, type WebHareDiskBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
-import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type JSTypeForHSType, type IPCMarshallableData, type IPCMarshallableRecord, getHSTypeName } from "@webhare/hscompat/src/hson";
+import { determineType, getDefaultValue, HareScriptType, unifyEltTypes, type JSTypeForHSType, type IPCMarshallableData, type IPCMarshallableRecord, getHSTypeName } from "@webhare/hscompat/src/hson";
 import { getWHType } from "@webhare/std/src/quacks";
 
-export { type IPCMarshallableData, type IPCMarshallableRecord };
-export type { JSTypeForHSType };
-export { getDefaultValue }; //edudex compatibility
-
-type ArrayHareScriptType = typeof HareScriptType.VariantArray | typeof HareScriptType.IntegerArray | typeof HareScriptType.MoneyArray | typeof HareScriptType.FloatArray | typeof HareScriptType.BooleanArray | typeof HareScriptType.DateTimeArray | typeof HareScriptType.Integer64Array | typeof HareScriptType.FunctionPtrArray | typeof HareScriptType.RecordArray | typeof HareScriptType.StringArray | typeof HareScriptType.BlobArray | typeof HareScriptType.ObjectArray;
-
-/** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
-export function getTypedArray<V extends ArrayHareScriptType, T extends JSTypeForHSType<V>>(type: V, array: T): T {
-  const copy = [...array];
-  setHareScriptType(copy, type);
-  return copy as T;
-}
+export type { JSTypeForHSType, IPCMarshallableData, IPCMarshallableRecord };
 
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;

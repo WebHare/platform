@@ -50,7 +50,7 @@ export type SharpGifOptions = sharp.GifOptions;
 
 ////////////////////////////// Puppeteer //////////////////////////
 import type * as Puppeteer from "puppeteer";
-import { openBackendService } from "@webhare/services/src/backendservice";
+import { openBackendService } from "@webhare/services/src/ipc/backendservice";
 export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..
 
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;

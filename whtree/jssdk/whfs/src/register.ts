@@ -1,5 +1,6 @@
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { lookupWHFSObject, openFileOrFolder, openFolder } from "./objects";
+import { lookupWHFSObject } from "./database";
+import { openFileOrFolder, openFolder } from "./objects";
 import { whconstant_whfsid_registerslots } from "@mod-system/js/internal/webhareconstants";
 import { broadcastOnCommit, db, runInSeparateWork, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";

@@ -1,5 +1,5 @@
 import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
-import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
+import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/ipc/localservice";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { emplace, SortedMultiSet, regExpFromWildcards, compareProperties } from "@webhare/std";

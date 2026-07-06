@@ -17,7 +17,7 @@ import { invalidateGeneratedFilesCache, reloadBackendConfig } from "../configura
 import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/codecontexts";
 import { isMainThread, type TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
-import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
+import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/ipc/localservice";
 import { getScriptName } from "@webhare/system-tools";
 import type { Socket } from "node:net";
 import { allocateWorkerNr } from "@webhare/services/src/symbols";

@@ -6,7 +6,7 @@ import { debugFlags } from "@webhare/env";
 import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
 import { BackendServiceConnection, importJSFunction } from "@webhare/services";
 import { CodeContext } from "@webhare/services/src/codecontexts";
-import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { createReturnValueWithTransferList } from "@webhare/services/src/ipc/localservice";
 import { omit, pick, toCamelCase, toSnakeCase, typedEntries, typedFromEntries, type ToCamelCase, type TypedEntries, type TypedFromEntries } from "@webhare/std";
 import * as v8 from "node:v8";
 import { decodeFromMessageTransfer, encodeforMessageTransfer } from "./nodeipchelper";

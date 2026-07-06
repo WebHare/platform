@@ -1,7 +1,7 @@
 import { logError } from "@webhare/services/src/logging";
 import { registerAsNonReloadableLibrary } from "../../../../../jssdk/services/src/hmrinternal";
 import type { TypedMessagePort } from "./transport";
-import type { LocalServiceHandlerBase, LocalServiceRequest, LocalServiceResponse } from "@webhare/services/src/localservice";
+import type { LocalServiceHandlerBase, LocalServiceRequest, LocalServiceResponse } from "@webhare/services/src/ipc/localservice";
 import { localServiceHandlerAddPort } from "@webhare/services/src/symbols";
 import { importJSFunction } from "@webhare/services";
 

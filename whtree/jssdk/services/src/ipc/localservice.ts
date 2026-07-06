@@ -1,11 +1,11 @@
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { type TypedMessagePort, getSingleMessage } from "@mod-system/js/internal/whmanager/transport";
-import { describePublicInterface } from "./backendservicerunner";
+import { describePublicInterface } from "./ipc-base";
 import type { WebHareServiceDescription } from "@mod-system/js/internal/types";
 import { type IPCExceptionMessage, encodeIPCException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import type { TransferListItem } from "node:worker_threads";
 import type { ServiceBase } from "./backendservice";
-import { localServiceHandlerAddPort } from "./symbols";
+import { localServiceHandlerAddPort } from "../symbols";
 export type { ServiceBase } from "./backendservice";
 
 /* Code for node in-process services (over workers threads, using normal messageports and transferLists to communicate)

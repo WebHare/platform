@@ -10,7 +10,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { AsyncWorker } from "../worker";
 import { type WebRequestTransferData, createWebRequestFromTransferData } from "@webhare/router/src/request";
 import { type WebResponseForTransfer, createWebResponseFromTransferData } from "@webhare/router/src/response";
-import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/ipc/localservice";
 import { RestAPIWorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
 import type { OpenAPIHandlerInitializationContext, WebHareOpenApiPathItem } from "@webhare/router/src/openapi";

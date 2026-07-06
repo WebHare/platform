@@ -1,5 +1,4 @@
-import { getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HareScriptType } from "@webhare/hscompat/src/hson";
+import { getTypedArray, HareScriptType } from "@webhare/hscompat/src/hson";
 import { emplace } from "@webhare/std";
 import { type FinishHandler, broadcastOnCommit } from "@webhare/whdb";
 import { finishHandlerFactory } from "@webhare/whdb/src/impl";
