@@ -95,8 +95,6 @@ MACRO TestMailDelay()
   TestEq(`Mail From <mailfrom@beta.webhare.net>`, (SELECT AS STRING value FROM result1mail.headers WHERE field="From"));
   TestEq(`<mailfrom@beta.webhare.net>`, result1mail.envelope_sender);
 
-  testfw->FlushTasks(["publisher:mailfeedback"]); //this should make both mails appear in the queue
-
   RECORD ARRAY feedbackmail := testfw->ExtractAllMailFor("testmails@beta.webhare.net", [ timeout := 0, count := 1 ]);
   TestEq(1, Length(feedbackmail));
   //Test if the subject witty fields are filled

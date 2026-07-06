@@ -55,7 +55,6 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   TestEq("testfw+formtest@beta.webhare.net", GetCell(submitted.response, emailfieldname));
 
   // Check if there is (only) a confirmation mail
-  testfw->FlushTasks([ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ], [ acceptcancel := TRUE ]);
   RECORD ARRAY mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   RECORD simpleconfirmmail := SELECT * FROM mails WHERE subject="Confirm your email address";
   OBJECT confirmmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simpleconfirmmail.html));
@@ -77,7 +76,6 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   TestEq(TRUE, testfw->browser->GotoWebPage(confirmlink->GetAttribute("href")));
 
   // Check if the feedback and result mails are sent now
-  testfw->FlushTasks([ "publisher:mailconfirmation", "publisher:mailfeedback", "publisher:mailresults" ], [ acceptcancel := TRUE ]);
   mails := testfw->ExtractAllMailFor("testfw+formtest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   RECORD simplefeedbackmail := SELECT * FROM mails WHERE subject="About Your Submission";
   OBJECT feedbackmaildoc := MakeXMLDocumentFromHTML(StringToBlob(simplefeedbackmail.html));

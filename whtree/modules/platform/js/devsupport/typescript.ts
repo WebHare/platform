@@ -195,18 +195,23 @@ export async function checkUsingTSC(modulename: string, options?: { files: strin
 
   return [
     ...mapDiagnostics(projectRoot, diagnostics),
-    ...circularImports.map(cycle => {
-      // Report only cycles that involve the checked module
-      if (!cycle.cycle.some(c => c.startsWith(projectRoot)))
-        return null;
-      return {
-        type: "hint" as const,
-        resourcename: toResourcePath(cycle.file, { keepUnmatched: true }),
-        line: 0,
-        col: 0,
-        message: `Circular import detected: ${cycle.cycle.map(file => toResourcePath(file, { keepUnmatched: true })).join(" => ")}`,
-        source: "tsc-circular-import"
-      };
-    })
-  ].filter(_ => _ !== null).filter(_ => !_.message.startsWith("No inputs were found"));
+    ...circularImports.
+      //sort by shortest loop, then by name
+      sort((a, b) => (a.cycle.length - b.cycle.length) || a.file.localeCompare(b.file)).
+      map(cycle => {
+        // Report only cycles that involve the checked module
+        if (!cycle.cycle.some(c => c.startsWith(projectRoot)))
+          return null;
+        return {
+          type: "hint" as const,
+          resourcename: toResourcePath(cycle.file, { keepUnmatched: true }),
+          line: 0,
+          col: 0,
+          message: `Circular import detected: ${cycle.cycle.map(file => toResourcePath(file, { keepUnmatched: true })).join(" => ")}`,
+          source: "tsc-circular-import"
+        };
+      })
+  ].filter(_ => _ !== null)
+    .filter(_ => !_.message.startsWith("No inputs were found"));
+
 }

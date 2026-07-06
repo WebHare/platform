@@ -183,8 +183,7 @@ PUBLIC STATIC OBJECTTYPE MailResultsHandler EXTEND MailHandler
 // Editor
 //
 
-STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase
-<
+STATIC OBJECTTYPE MailHandlerEditor EXTEND FormComponentExtensionBase <
   STRING handlertype;
 
   UPDATE PUBLIC MACRO InitExtension(OBJECT extendablelinescontainer)

@@ -7,7 +7,7 @@ runCli({
     console.log(`Listing recursive imports for webhare:\n`);
 
     const issues = await checkUsingTSC("jssdk");
-    logValidationMessagesToConsole(issues);
+    logValidationMessagesToConsole(issues, { sort: false });
     console.log(`Found ${issues.length} cycles`);
     return issues.length > 0 ? 1 : 0;
   }

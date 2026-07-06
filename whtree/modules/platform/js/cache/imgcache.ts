@@ -1,6 +1,6 @@
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions } from "@webhare/deps";
+import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions, type Sharp } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
 import type { WebHareService } from "@webhare/services/src/backendservicerunner";
@@ -122,24 +122,28 @@ async function renderImageForCache(request: HSImgCacheRequest): Promise<Buffer> 
   return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
-export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { ignoreErrors?: boolean }): Promise<ReturnType<typeof createSharpImage> | null> {
+export async function resizeImage(resource: Pick<ResourceMetadata, "width" | "height" | "refPoint" | "mediaType">, sourceimage: string, method: PackableResizeMethod, options?: { ignoreErrors?: boolean }): Promise<Sharp | null> {
   const resizeOptions = getSharpResizeOptions(resource, method);
   if (!resizeOptions)
     return null;
 
-  // Read first two bytes of sourceimage
-  const header = new Uint8Array(2);
-  const fd = await open(sourceimage, 'r');
-  await fd.read(header, 0, 2, 0);
-  await fd.close();
+  let img: Sharp | undefined;
+  if (resource.mediaType === "image/x-bmp") {
+    const header = new Uint8Array(2);
+    const fd = await open(sourceimage, 'r');
+    await fd.read(header, 0, 2, 0);
+    await fd.close();
 
-  let img;
-  if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M' - Bitmap
-    const decodedBMP = decodeBMP(await readFile(sourceimage));
-    img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
-  } else {
-    img = await createSharpImage(sourceimage, { failOn: options?.ignoreErrors ? "none" : "warning" });
+    if (header[0] === 0x42 && header[1] === 0x4D) { //'B' 'M' - Bitmap
+      const decodedBMP = decodeBMP(await readFile(sourceimage));
+      img = await createSharpImage(decodedBMP.data, { raw: { width: decodedBMP.width, height: decodedBMP.height, channels: 4 } });
+    }
+    //else: assume it's not a bitmap, just try normal sharp path (what we did before WH6)
   }
+
+  if (!img)
+    img = await createSharpImage(sourceimage, { failOn: options?.ignoreErrors ? "none" : "warning" });
+
   const { extract, extend, resize, format, formatOptions } = resizeOptions;
 
   img.rotate(); //Fix rotation/mirroring

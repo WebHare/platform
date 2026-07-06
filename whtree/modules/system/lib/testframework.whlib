@@ -361,6 +361,7 @@ RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULT
                               , returnallmail := FALSE
                               , scanaheaduntil := DEFAULT DATETIME
                               ], options);
+
   RETURN DoRetrieveEmails(recipient, options.timeout, options.count, options.peekonly, options.scanaheaduntil, options.returnallmail OR options.count = 0);
 }
 
@@ -1351,6 +1352,9 @@ STATIC OBJECTTYPE TestFramework <
   */
   PUBLIC RECORD ARRAY FUNCTION ExtractAllMailFor(STRING recipient, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    //Ensure well known mailing tasks are flushed to prevent races where we listen too early
+    this->FlushTasks(["publisher:mailresults", "publisher:mailfeedback", "publisher:mailconfirmation"], [ acceptcancel := TRUE ]);
+
     RETURN ExtractAllMailFor(recipient, options);
   }
 
